@@ -1,0 +1,161 @@
+[p1 "playwright - npm" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "playwright - npm"]
+root
+  container
+    container "Site notifications"
+      text "⚠️"
+      alert
+        text "npm tokens that bypass 2FA are being restricted — account changes (Aug 2026) and direct publishing (Jan 2027)."
+        anchor "Learn how to prepare for the npm bypass 2FA token deprecation" [ref=24779, loc=css:a[aria-label="Learn how to prepare for the npm bypass 2FA token deprecation"], url=https://github.blog/changelog/2026-07-08-npm-install-time-security-and-gat-bypass2fa-deprecation/]
+          text "Learn how to prepare →"
+      button "Close notification" [ref=24780, loc=css:button[aria-label="Close notification"]]
+        text "×"
+    container
+      container
+        container
+          button "Light mode — click for dark" [ref=24781, loc=css:button[aria-label="Light mode — click for dark"]]
+            svg_root
+          container "Product Navigation"
+            unordered_list
+              list_item
+                anchor [ref=24782, loc=href:https://www.npmjs.com/products/pro, url=https://www.npmjs.com/products/pro]
+                  text "Pro"
+              list_item
+                anchor [ref=24783, loc=href:https://www.npmjs.com/products/teams, url=https://www.npmjs.com/products/teams]
+                  text "Teams"
+              list_item
+                anchor [ref=24784, loc=href:https://www.npmjs.com/products, url=https://www.npmjs.com/products]
+                  text "Pricing"
+              list_item
+                anchor [ref=24785, url=https://docs.npmjs.com/]
+                  text "Documentation"
+        container
+          anchor "Npm" [ref=24786, loc=css:a[aria-label="Npm"], url=https://www.npmjs.com/]
+            svg_root
+          form
+            container
+              svg_root
+              comboboxgrouping "Search packages" [ref=24787, loc=css:input[name="q"]]
+                text "Search packages"
+            button "Search" [ref=24788, loc=css:button[aria-label="Search"]]
+              text "Search"
+          container
+            anchor [ref=24789, loc=href:https://www.npmjs.com/signup, url=https://www.npmjs.com/signup]
+              text "Sign Up"
+            anchor [ref=24790, loc=href:https://www.npmjs.com/login, url=https://www.npmjs.com/login]
+              text "Sign In"
+      container
+        container
+          heading [ref=24791]
+            text "playwright"
+            image
+          container
+            text "1.65.1"
+            text " • "
+          text "Public"
+          container
+            text " • Published"
+            text "6 days ago"
+        tablist
+          list_item
+            tab [ref=24792, loc=href:https://www.npmjs.com/package/playwright?activeTab=readme, url=https://www.npmjs.com/package/playwright?activeTab=readme]
+              image
+              text "Readme"
+          list_item
+            tab [ref=24793, loc=href:https://www.npmjs.com/package/playwright?activeTab=code, url=https://www.npmjs.com/package/playwright?activeTab=code]
+              image
+              text "Code"
+              text "Beta"
+          list_item
+            tab [ref=24794, loc=href:https://www.npmjs.com/package/playwright?activeTab=dependencies, url=https://www.npmjs.com/package/playwright?activeTab=dependencies]
+              image
+              text "1 Dependency"
+          list_item
+            tab [ref=24795, loc=href:https://www.npmjs.com/package/playwright?activeTab=dependents, url=https://www.npmjs.com/package/playwright?activeTab=dependents]
+              image
+              text "6200 Dependents"
+          list_item
+            tab [ref=24796, loc=href:https://www.npmjs.com/package/playwright?activeTab=versions, url=https://www.npmjs.com/package/playwright?activeTab=versions]
+              image
+              text "5,790 Versions"
+        tabpanel "Readme"
+          container
+            container
+              heading
+                text "🎭 Playwright"
+              anchor "Permalink: 🎭 Playwright" [ref=24797, loc=css:a[aria-label="Permalink: 🎭 Playwright"], url=https://www.npmjs.com/package/playwright#-playwright]
+            paragraph
+              anchor [ref=24798, loc=href:https://www.npmjs.com/package/playwright, url=https://www.npmjs.com/package/playwright]
+                image
+              anchor [ref=24799, loc=href:https://www.chromium.org/Home, url=https://www.chromium.org/Home]
+                image
+              anchor [ref=24800, loc=href:https://www.mozilla.org/en-US/firefox/new/, url=https://www.mozilla.org/en-US/firefox/new/]
+                image
+              anchor [ref=24801, loc=href:https://webkit.org/, url=https://webkit.org/]
+                image
+              anchor [ref=24802, url=https://aka.ms/playwright/discord]
+                image
+            container
+              heading
+                anchor [ref=24803, url=https://playwright.dev/]
+                  text "Documentation"
+                text "|"
+                anchor [ref=24804, url=https://playwright.dev/docs/api/class-playwright]
+                  text "API reference"
+              anchor "Permalink: Documentation | API reference" [ref=24805, loc=css:a[aria-label="Permalink: Documentation | API reference"], url=https://www.npmjs.com/package/playwright#documentation--api-reference]
+            paragraph
+              text "Playwright is a framework for web automation and testing. It drives Chromium, Firefox, and WebKit with a single API — in your tests, in your scripts, and as a tool for AI agents."
+            container
+              heading
+                text "Get Started"
+              anchor "Permalink: Get Started" [ref=24806, loc=css:a[aria-label="Permalink: Get Started"], url=https://www.npmjs.com/package/playwright#get-started]
+            paragraph
+              text "Choose the path that fits your workflow:"
+            table
+              table_row
+                table_cell
+                table_cell
+                  text "Best for"
+                table_cell
+                  text "Install"
+        container "Package sidebar"
+          heading
+            text "Install"
+          container
+            svg_root
+            paragraph
+              container
+                text "npm i"
+                text "playwright"
+              button "Copy install command line" [ref=24807, loc=css:button[aria-label="Copy install command line"]]
+                image
+          container
+            heading
+              text "Repository"
+            paragraph
+              anchor "Repository github.com/microsoft/playwright" [ref=24808, url=https://github.com/microsoft/playwright]
+                svg_root
+                text "github.com/microsoft/playwright"
+          container
+            heading
+              text "Homepage"
+            paragraph
+              anchor "Homepage playwright.dev" [ref=24809, url=https://playwright.dev/]
+                image
+                text "playwright.dev"
+          button "Showing weekly downloads" [ref=24810, loc=role:button[name="Showing weekly downloads"]]
+            heading
+              svg_root
+              text "Weekly Downloads"
+            container
+              svg_root
+              paragraph
+                text "151,383,866"
+          heading
+          heading
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 9129 px; scroll or use snapshot({ scope: "full_page" })]

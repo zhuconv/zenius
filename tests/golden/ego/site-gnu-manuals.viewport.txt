@@ -1,0 +1,112 @@
+[p1 "GNU Manuals Online - GNU Project - Free Software Foundation" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "GNU Manuals Online - GNU Project - Free Software Foundation"]
+root
+  container
+    container
+      paragraph
+        text "We are here to promote your freedom"
+      paragraph
+        anchor [ref=11907, url=https://my.fsf.org/donate?mtm_campaign=fall26&mtm_source=banner]
+          text "Our work begins by asking ourselves, “Is it free?” because our purpose is to respect your individual user needs, autonomy, and right to decide for yourself. We empower people to build a future bui..."
+          text "free software"
+          text "that, above all, puts the user first. By supporting our work, you help support everyone's rights."
+          text "Please help us reach our goal of $400,000 USD!"
+      paragraph
+        anchor [ref=11908, url=https://my.fsf.org/donate?mtm_campaign=fall26&mtm_source=banner]
+          text "Donate"
+        anchor [ref=11909, loc=href:https://www.fsf.org/appeal?mtm_campaign=fall26&mtm_source=banner, url=https://www.fsf.org/appeal?mtm_campaign=fall26&mtm_source=banner]
+          text "Read more"
+    banner
+      table_row
+        table_cell
+          anchor [ref=11910, url=https://www.gnu.org/]
+            image
+            text "GNU"
+            text "Operating System"
+          container
+            text "Supported by the"
+            anchor [ref=11911, loc=href:/manual/manual.html#mission-statement, url=https://www.gnu.org/manual/manual.html#mission-statement]
+              text "Free Software Foundation"
+        table_cell
+          anchor [ref=11912, loc=href:/cgi-bin/estseek.cgi, url=https://www.gnu.org/cgi-bin/estseek.cgi]
+            image
+          anchor [ref=11913, loc=href:/manual/manual.html#language-container, url=https://www.gnu.org/manual/manual.html#language-container]
+            image
+    navigation
+      anchor [ref=11914, loc=href:/manual/manual.html#navigation, url=https://www.gnu.org/manual/manual.html#navigation]
+        text "≫"
+      unordered_list
+        list_item
+          anchor [ref=11915, loc=href:/gnu/gnu.html, url=https://www.gnu.org/gnu/gnu.html]
+            text "ABOUT GNU"
+        list_item
+          anchor [ref=11916, loc=href:/philosophy/philosophy.html, url=https://www.gnu.org/philosophy/philosophy.html]
+            text "PHILOSOPHY"
+        list_item
+          anchor [ref=11917, loc=href:/licenses/licenses.html, url=https://www.gnu.org/licenses/licenses.html]
+            text "LICENSES"
+        list_item
+          anchor [ref=11918, loc=href:/education/education.html, url=https://www.gnu.org/education/education.html]
+            text "EDUCATION"
+        list_item
+          anchor [ref=11919, url=https://www.gnu.org/software/software.html]
+            text "SOFTWARE"
+        list_item
+          anchor [ref=11920, loc=href:/distros/distros.html, url=https://www.gnu.org/distros/distros.html]
+            text "DISTROS"
+        list_item
+          anchor [ref=11921, url=https://www.gnu.org/doc/doc.html]
+            text "DOCS"
+        list_item
+          anchor [ref=11922, loc=href:/proprietary/proprietary.html, url=https://www.gnu.org/proprietary/proprietary.html]
+            text "MALWARE"
+        list_item
+          anchor [ref=11923, loc=href:/help/help.html, url=https://www.gnu.org/help/help.html]
+            text "HELP GNU"
+    main
+      heading
+        text "GNU Manuals Online"
+      paragraph
+        text "This table lists"
+        anchor [ref=11924, url=https://www.gnu.org/software/software.html]
+          text "official GNU packages"
+        text "with links to their primary documentation, where available. When a package has several associated manuals, they are all listed. If a package has no specific manual online, the link just goes to the pa..."
+      paragraph
+        text "Many packages could be listed in any of several categories, but for the table here just one has to be chosen, usually following the"
+        anchor [ref=11925, url=https://directory.fsf.org/]
+          text "Free Software Directory"
+        text "."
+      paragraph
+        text "Bug reports: for any discussion about specific manuals, please contact the package maintainers. For discussion about this page in particular (for example, if you are a GNU maintainer and want to corre..."
+        anchor [ref=11926, url=mailto:webmasters@gnu.org]
+          text "<webmasters@gnu.org>"
+        text "."
+      paragraph
+        anchor [ref=11927, url=https://www.gnu.org/doc/doc.html]
+          text "More GNU Project documentation"
+        text "."
+      container
+        container
+          anchor [ref=11928, loc=href:/manual/manual.html#Archiving, url=https://www.gnu.org/manual/manual.html#Archiving]
+            text "Archiving"
+          anchor [ref=11929, loc=href:/manual/manual.html#Audio, url=https://www.gnu.org/manual/manual.html#Audio]
+            text "Audio"
+          anchor [ref=11930, loc=href:/manual/manual.html#Business, url=https://www.gnu.org/manual/manual.html#Business]
+            text "Business and productivity"
+          anchor [ref=11931, loc=href:/manual/manual.html#Database, url=https://www.gnu.org/manual/manual.html#Database]
+            text "Database"
+        container
+          heading
+            text "Archiving"
+            anchor [ref=11932, url=https://www.gnu.org/manual/manual.html#categories]
+              text "⮝"
+          unordered_list
+            list_item
+              anchor [ref=11933, loc=href:/software/cpio/manual/, url=https://www.gnu.org/software/cpio/manual/]
+                text "Cpio"
+            list_item
+              text "Manage cpio and tar file archives. ["
+              anchor [ref=11934, loc=href:/software/cpio/, url=https://www.gnu.org/software/cpio/]
+                text "cpio home"
+              text "]"
+            list_item
+[more content below the viewport: scrollY=0, viewport 829 / page 34869 px; scroll or use snapshot({ scope: "full_page" })]

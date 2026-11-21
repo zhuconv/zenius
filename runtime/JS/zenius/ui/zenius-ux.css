@@ -1,0 +1,1377 @@
+/* zenius UX: agent cursor overlay, notice pills (takeover, handoff), Space
+ * badges and the tasks strip and panel.
+ * Loaded into each browser window as an author sheet by ui/styles.sys.mjs. */
+
+:root {
+  --zenius-agent-color: #7c4dff;
+  /* Small text on its 16 % tint: 5.1:1 (AA). */
+  --zenius-agent-color-strong: #5a2ed6;
+  --zenius-agent-ink: #ffffff;
+  --zenius-user-color: #e8710a;
+}
+
+/* ---- Notices -------------------------------------------------------------
+ * One layer per tab beside the cursor layer, in the same grid cell of the
+ * tab's .browserStack: a floating pill at the bottom center of the content
+ * area. Chrome DOM, like the cursor: pages and content screenshots never
+ * see it. */
+
+.zenius-card-layer {
+  grid-area: 1 / 1;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px;
+  overflow: clip;
+  pointer-events: none;
+  /* As wide as the page: on a narrow one, a card stacks its buttons. */
+  container-type: inline-size;
+}
+
+.zenius-card {
+  --zenius-card-bg: light-dark(rgba(255, 255, 255, 0.82), rgba(40, 40, 44, 0.86));
+  --zenius-card-border: light-dark(rgba(0, 0, 0, 0.09), rgba(255, 255, 255, 0.12));
+  --zenius-card-ink: light-dark(#1d1d1f, #f5f5f7);
+  /* At 70 % the muted text is AA (at least 4.5:1) on the translucent card
+     over a white or a black page, in both themes. */
+  --zenius-card-muted: light-dark(rgba(29, 29, 31, 0.7), rgba(245, 245, 247, 0.7));
+  --zenius-card-hover: light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.1));
+  --zenius-card-primary-bg: light-dark(#1d1d1f, #f5f5f7);
+  --zenius-card-primary-ink: light-dark(#ffffff, #1d1d1f);
+  /* The '?' circle's fill, and its mark. */
+  --zenius-card-more-bg: var(--zenius-card-muted);
+  --zenius-card-more-ink: light-dark(#ffffff, #28282c);
+
+  pointer-events: auto;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  max-width: min(560px, 100%);
+  padding-inline: 14px 6px;
+  border: 1px solid var(--zenius-card-border);
+  border-radius: 14px;
+  background: var(--zenius-card-bg);
+  backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14), 0 1px 3px rgba(0, 0, 0, 0.08);
+  color: var(--zenius-card-ink);
+  font: 13px/18px system-ui;
+  white-space: nowrap;
+  user-select: none;
+  animation: zenius-card-in 150ms ease-out;
+
+  &:not(:has(> .zenius-card-buttons)) {
+    padding-inline-end: 16px;
+  }
+}
+
+.zenius-card-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--zenius-agent-color);
+
+  .zenius-card:is([tone="user"], [tone="attention"]) > & {
+    background: var(--zenius-user-color);
+  }
+}
+
+.zenius-card-title {
+  flex: none;
+  font-weight: 500;
+}
+
+.zenius-card-detail {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--zenius-card-muted);
+  /* The countdown's digits keep their width. */
+  font-variant-numeric: tabular-nums;
+
+  &:empty {
+    display: none;
+  }
+}
+
+.zenius-card-buttons {
+  flex: none;
+  display: flex;
+  gap: 4px;
+  margin-inline-start: 6px;
+}
+
+/* The site the user is on, in the hold cards (the manager, 2026-11-20):
+   after the task, never cut; the task's name gives way first. */
+.zenius-card-site {
+  flex: none;
+  color: var(--zenius-card-muted);
+
+  &::before {
+    content: "· ";
+  }
+}
+
+/* A pill with a line: one row of small text under the title row and its
+   buttons, 7 px below it, under all but the dot (the user's layout,
+   2026-11-20). */
+.zenius-card[has-note] {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "dot title detail buttons"
+    ".   note  note   note";
+  row-gap: 7px;
+  height: auto;
+  min-height: 44px;
+  padding-block: 7px 8px;
+
+  & > .zenius-card-dot {
+    grid-area: dot;
+  }
+
+  & > .zenius-card-title {
+    grid-area: title;
+  }
+
+  & > .zenius-card-detail {
+    grid-area: detail;
+  }
+
+  & > .zenius-card-buttons {
+    grid-area: buttons;
+  }
+}
+
+/* A card whose buttons don't fit beside its title (three of them, or a long
+   note): they go under the note, at its end, in the order they're read, and
+   wrap if even that row is too narrow. */
+.zenius-card[has-note]:is([stacked], [site-stacked]) {
+  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-areas:
+    "dot title   detail"
+    ".   note    note"
+    ".   buttons buttons";
+  padding-block: 10px 6px;
+
+  & > .zenius-card-buttons {
+    justify-self: end;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-block-start: 6px;
+    margin-inline-start: 0;
+  }
+}
+
+/* With the site: it takes a column after the detail, which shrinks to make
+   room; the site's column keeps its whole text and holds the free space,
+   so the site sits right after the detail. Its minimum is the site's own
+   (auto), never the note's: the note spans it, and a max-content minimum
+   would grow with a long note and push the buttons out. */
+.zenius-card[has-note][has-site]:not([site-alone]) {
+  grid-template-columns: auto auto minmax(0, max-content) minmax(auto, 1fr) auto;
+  grid-template-areas:
+    "dot title detail site buttons"
+    ".   note  note   note note";
+
+  & > .zenius-card-site {
+    grid-area: site;
+    justify-self: start;
+  }
+}
+
+/* When the title row can't hold the site whole beside the buttons
+   (notices.sys.mjs watchSite), they go under the note. */
+.zenius-card[has-note][has-site]:is([stacked], [site-stacked]):not([site-alone]) {
+  grid-template-columns: auto auto minmax(0, max-content) minmax(auto, 1fr);
+  grid-template-areas:
+    "dot title   detail  site"
+    ".   note    note    note"
+    ".   buttons buttons buttons";
+}
+
+/* Without a note, they take a row of their own under the title row, which
+   keeps the noted card's columns: the task's name still gives way first. */
+.zenius-card[has-site][site-stacked]:not([has-note], [site-alone]) {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, max-content) minmax(auto, 1fr);
+  grid-template-areas:
+    "dot title   detail  site"
+    ".   buttons buttons buttons";
+  row-gap: 7px;
+  height: auto;
+  min-height: 44px;
+  padding-block: 10px 6px;
+
+  & > .zenius-card-dot {
+    grid-area: dot;
+  }
+
+  & > .zenius-card-title {
+    grid-area: title;
+  }
+
+  & > .zenius-card-detail {
+    grid-area: detail;
+  }
+
+  & > .zenius-card-site {
+    grid-area: site;
+    justify-self: start;
+  }
+
+  & > .zenius-card-buttons {
+    grid-area: buttons;
+    justify-self: end;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-inline-start: 0;
+  }
+}
+
+/* The page-code ask (ui/pagecode.sys.mjs): its title is a whole question
+   with the site in it, in zen-observe's words. It wraps rather than cut the
+   site or push the buttons out of the pill, and the buttons go under it,
+   at its end, when they don't fit beside it. */
+.zenius-card[data-value^="zenius-pagecode:"] {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 44px;
+  padding-block: 6px;
+  row-gap: 6px;
+
+  & > .zenius-card-title {
+    flex: 1 1 12em;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  & > .zenius-card-buttons {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-inline-start: auto;
+  }
+}
+
+
+/* On a narrow page (a split view's half, a small window), every card with a
+   note and buttons stacks, so no button runs out of the pill. */
+@container (max-width: 480px) {
+  .zenius-card[has-note]:has(> .zenius-card-buttons) {
+    grid-template-columns: auto auto minmax(0, 1fr);
+    grid-template-areas:
+      "dot title   detail"
+      ".   note    note"
+      ".   buttons buttons";
+    padding-block: 10px 6px;
+
+    & > .zenius-card-buttons {
+      justify-self: end;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      margin-block-start: 6px;
+      margin-inline-start: 0;
+    }
+  }
+}
+
+@container (max-width: 480px) {
+  .zenius-card[has-note][has-site]:has(> .zenius-card-buttons):not([site-alone]) {
+    grid-template-columns: auto auto minmax(0, max-content) minmax(auto, 1fr);
+    grid-template-areas:
+      "dot title   detail  site"
+      ".   note    note    note"
+      ".   buttons buttons buttons";
+  }
+}
+
+/* When even the title and the site can't share a row (a long site on a very
+   narrow page), the site takes a row of its own under the title row, and
+   wraps there: whole, never cut. The line and the buttons follow it (the
+   buttons are under the line by then: site-stacked). After the narrow
+   page's rules, which it overrides. */
+.zenius-card[has-site][site-alone] {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-areas: none;
+  row-gap: 7px;
+  height: auto;
+  min-height: 44px;
+  padding-block: 10px 6px;
+
+  &:not(:has(> .zenius-card-buttons)) {
+    padding-block: 10px;
+  }
+
+  & > .zenius-card-dot {
+    grid-area: auto / 1;
+  }
+
+  & > .zenius-card-title {
+    grid-area: auto / 2;
+  }
+
+  & > .zenius-card-detail {
+    grid-area: auto / 3;
+  }
+
+  & > :is(.zenius-card-site, .zenius-card-noterow, .zenius-card-buttons) {
+    grid-area: auto / 2 / auto / -1;
+  }
+
+  & > .zenius-card-site {
+    justify-self: start;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+
+    &::before {
+      content: none;
+    }
+  }
+
+  & > .zenius-card-buttons {
+    justify-self: end;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-block-start: 6px;
+    margin-inline-start: 0;
+  }
+}
+
+.zenius-card-noterow {
+  grid-area: note;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding-inline-end: 8px;
+}
+
+/* What waits behind the '?' at any width: shown once the note opens. */
+.zenius-card-note-more {
+  display: none;
+
+  .zenius-card:is([note-open], :has(:focus-visible)) & {
+    display: inline;
+  }
+}
+
+/* One line, cut off with an ellipsis and the '?'. Open (the '?', or the
+   keyboard's focus in the pill: :focus-visible, so a mouse press on a
+   button, which focuses it, doesn't reflow the pill between its down and
+   its up and lose the click), it wraps: the note can name a site, and a
+   domain's label can be 63 letters with nowhere to break, so it wraps
+   inside the card rather than out of it. */
+.zenius-card-note {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--zenius-card-muted);
+  font-size: 12px;
+  line-height: 16px;
+
+  .zenius-card:is([note-open], :has(:focus-visible)) & {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+.zenius-card-more {
+  flex: none;
+  display: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--zenius-card-more-bg);
+  color: var(--zenius-card-more-ink);
+
+  .zenius-card:is([note-cut], [has-more]) & {
+    display: block;
+  }
+
+  /* Open, it ends the note's last line. */
+  .zenius-card:is([note-open], :has(:focus-visible)) & {
+    align-self: flex-end;
+    margin-block-end: 1px;
+  }
+
+  &:hover {
+    --zenius-card-more-bg: var(--zenius-card-ink);
+  }
+
+  & > svg {
+    display: block;
+  }
+}
+
+.zenius-card-more-hook {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.zenius-card-more-dot {
+  fill: currentColor;
+}
+
+.zenius-card-button {
+  appearance: none;
+  height: 32px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 500;
+
+  &:hover {
+    background: var(--zenius-card-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--zenius-agent-color);
+    outline-offset: 1px;
+  }
+
+  &[primary] {
+    background: var(--zenius-card-primary-bg);
+    color: var(--zenius-card-primary-ink);
+
+    &:hover {
+      opacity: 0.88;
+    }
+  }
+}
+
+/* A ✕: a square button, its label out of sight but its name. */
+.zenius-card-button[icon] {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  padding: 0;
+
+  & > svg {
+    display: block;
+  }
+}
+
+.zenius-card-close-mark {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.zenius-card-button-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@keyframes zenius-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes zenius-card-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---- Agent cursor ------------------------------------------------------
+ * One layer per tab, a child of the tab's .browserStack. The stack is a CSS
+ * grid, so the layer sits in the same cell as the <browser> and covers
+ * exactly the content area. It is chrome DOM: pages can't see it and
+ * content screenshots (drawSnapshot of the content window) don't include it. */
+
+.zenius-cursor-layer {
+  grid-area: 1 / 1;
+  position: relative;
+  z-index: 1;
+  overflow: clip;
+  pointer-events: none;
+  user-select: none;
+  -moz-user-focus: ignore;
+}
+
+/* A black arrow with a thin white edge in a soft glow, after Codex's cursor
+ * (the user's choice over the purple arrow, 2026-11-21): the glow makes it
+ * clear on a dark page and stays faint on a light one. */
+.zenius-cursor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* JS writes transform: translate(x, y); the arrow tip is at (0, 0). */
+  will-change: transform;
+  pointer-events: none;
+  /* The pref zenius.ux.cursor.glowColor, which cursor.sys.mjs validates
+   * and sets on the layer; blue without one. */
+  --zenius-cursor-glow: var(--zenius-cursor-glow-pref, #3d8bff);
+}
+
+/* Centered on the arrow's body, about (6, 9) px from its tip; a falloff
+ * like a blur of about 25 px. */
+.zenius-cursor-glow {
+  position: absolute;
+  left: -26px;
+  top: -23px;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--zenius-cursor-glow) 30%, transparent),
+    color-mix(in srgb, var(--zenius-cursor-glow) 17%, transparent) 35%,
+    color-mix(in srgb, var(--zenius-cursor-glow) 6%, transparent) 68%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+.zenius-cursor-arrow {
+  display: block;
+  /* Above the glow, which is positioned too. */
+  position: relative;
+  width: 22px;
+  height: 22px;
+  /* The path's tip is at (3, 2) in a 24-unit box drawn at 22 px. */
+  margin: -1.83px 0 0 -2.75px;
+  overflow: visible;
+}
+
+.zenius-cursor-arrow > path {
+  fill: #000;
+  stroke: #fff;
+  /* Painted under the fill, so about 1.2 px of white shows outside it. */
+  stroke-width: 2.4px;
+  paint-order: stroke;
+  stroke-linejoin: round;
+}
+
+.zenius-cursor-label {
+  position: absolute;
+  left: 16px;
+  top: 18px;
+  max-width: 260px;
+  padding: 2px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  background: #111;
+  color: #fff;
+  font: menu;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--zenius-cursor-glow) 26%, transparent),
+    0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.zenius-cursor-label:empty {
+  display: none;
+}
+
+.zenius-cursor[idle] > .zenius-cursor-label {
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+
+.zenius-cursor[idle] > .zenius-cursor-arrow {
+  opacity: 0.7;
+  transition: opacity 400ms ease;
+}
+
+.zenius-cursor[idle] > .zenius-cursor-glow {
+  opacity: 0.5;
+  transition: opacity 400ms ease;
+}
+
+.zenius-cursor-ripple {
+  position: absolute;
+  left: -14px;
+  top: -14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--zenius-cursor-glow);
+  background: color-mix(in srgb, var(--zenius-cursor-glow) 18%, transparent);
+  pointer-events: none;
+}
+
+/* ---- Agent Space badges ------------------------------------------------
+ * A dot on the Space's button in Zen's switcher (#zen-workspaces-button),
+ * and a status pill in the Space's header row. ui/badges.sys.mjs adds them
+ * and sets [zenius-agent=<state>]. */
+
+@keyframes zenius-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.65); opacity: 0.55; }
+}
+
+#zen-workspaces-button toolbarbutton[zenius-agent] {
+  /* Zen greys out inactive Space buttons with a filter, which would grey
+   * our badge too. Grey only the icon instead. */
+  filter: none !important;
+  opacity: 1 !important;
+
+  &:not([active="true"], :hover, [dragged="true"]) > .zen-workspace-icon {
+    filter: grayscale(1);
+    opacity: 0.7;
+  }
+}
+
+.zenius-space-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--zenius-agent-color);
+  box-shadow: 0 0 0 1.5px var(--zen-colors-tertiary, light-dark(#f2f0f3, #2b2a33));
+  pointer-events: none;
+}
+
+toolbarbutton[zenius-agent="working"] > .zenius-space-badge {
+  animation: zenius-pulse 1.4s ease-in-out infinite;
+}
+
+toolbarbutton[zenius-agent="idle"] > .zenius-space-badge {
+  background: color-mix(in srgb, var(--zenius-agent-color) 55%, gray);
+}
+
+toolbarbutton:is([zenius-agent="paused"], [zenius-agent="needs-user"]) > .zenius-space-badge {
+  background: var(--zenius-user-color);
+  animation: zenius-pulse 0.9s ease-in-out infinite;
+}
+
+toolbarbutton[zenius-agent="user"] > .zenius-space-badge {
+  background: var(--zenius-user-color);
+}
+
+/* With many Spaces Zen shrinks inactive buttons to a dot drawn with ::after
+ * and hides the icon; keep our badge but make it the dot. */
+#zen-workspaces-button[icons-overflow] toolbarbutton[zenius-agent]:not([active="true"]) > .zenius-space-badge {
+  top: calc(50% - 3.5px);
+  right: calc(50% - 3.5px);
+}
+
+/* The Space's status: a line of its own under its header (zen-workspace is
+   a column), starting where the header's content does. The header's row has
+   a fixed height, and its width went to the Space's name and Zen's actions
+   button: the pill there showed "Agent nee…" (B6). */
+zen-workspace > .zenius-space-status {
+  flex: none;
+  align-self: flex-start;
+  --zenius-status-start: calc(3px + var(--tab-padding-inline) + var(--zen-toolbox-padding));
+  margin: -6px 12px 6px var(--zenius-status-start);
+  max-width: calc(100% - 12px - var(--zenius-status-start));
+}
+
+/* A collapsed sidebar shows the Space's icon alone: the status is its dot. */
+#navigator-toolbox:not([zen-sidebar-expanded="true"]) zen-workspace > .zenius-space-status {
+  align-self: center;
+  margin: -4px 0 4px;
+  padding: 3px;
+
+  & > .zenius-space-status-text {
+    display: none;
+  }
+}
+
+.zenius-space-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  /* At its narrowest the pill is its dot and its state words: its text's
+     min-content is just those words. */
+  min-width: min-content;
+  overflow: hidden;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--zenius-agent-color) 16%, transparent);
+  color: light-dark(var(--zenius-agent-color-strong), #cbb8ff);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 14px;
+  white-space: nowrap;
+  pointer-events: auto;
+
+  &:is([state="paused"], [state="needs-user"], [state="user"]) {
+    background: color-mix(in srgb, var(--zenius-user-color) 18%, transparent);
+    /* 5.0:1 on its tint (AA for 10.5 px). */
+    color: light-dark(#8f4200, #ffb37a);
+  }
+}
+
+.zenius-space-status-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+
+  .zenius-space-status[state="working"] > & {
+    animation: zenius-pulse 1.4s ease-in-out infinite;
+  }
+}
+
+.zenius-space-status-text {
+  /* The words' column is as wide as they are; the rest's has no minimum,
+     so it alone gives way, with an ellipsis. */
+  display: grid;
+  grid-template-columns: auto minmax(0, max-content);
+  overflow: hidden;
+}
+
+.zenius-space-status-more {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* A grid item drops the leading space of " · <names>" otherwise. */
+  white-space: pre;
+}
+
+/* Room for less than five letters of the rest: the words alone, not a stub
+   (badges.sys.mjs's fitStatus). */
+.zenius-space-status[short] .zenius-space-status-more {
+  display: none;
+}
+
+/* ---- Agent status strip and tasks panel (ui/panel.sys.mjs) ------------- */
+
+#zenius-agents-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px var(--zen-toolbox-padding, 6px);
+  padding: 4px 8px;
+  border-radius: var(--border-radius-medium, 6px);
+  font-size: 11px;
+  font-weight: 600;
+  color: light-dark(#4b4453, #d8d2e2);
+  cursor: default;
+  -moz-window-dragging: no-drag;
+
+  &[hidden] {
+    display: none;
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: var(--tab-background-color-hover, color-mix(in srgb, currentColor 10%, transparent));
+  }
+
+  &[state="needs-user"] {
+    color: light-dark(#a34c00, #ffb37a);
+  }
+}
+
+.zenius-strip-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--zenius-agent-color);
+
+  #zenius-agents-strip[state="working"] > & {
+    animation: zenius-pulse 1.4s ease-in-out infinite;
+  }
+
+  #zenius-agents-strip[state="needs-user"] > & {
+    background: var(--zenius-user-color);
+    animation: zenius-pulse 0.9s ease-in-out infinite;
+  }
+
+  #zenius-agents-strip[state="paused"] > & {
+    background: var(--zenius-user-color);
+  }
+
+  #zenius-agents-strip[state="idle"] > & {
+    background: color-mix(in srgb, var(--zenius-agent-color) 55%, gray);
+  }
+}
+
+.zenius-strip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A collapsed sidebar has room for the dot only; the tooltip has the text. */
+:root:not([zen-sidebar-expanded="true"]) #zenius-agents-strip {
+  justify-content: center;
+  padding: 6px 0;
+
+  & > .zenius-strip-text {
+    display: none;
+  }
+}
+
+/* While its window watches a task (ui/watch.sys.mjs): "Watching <task> ·
+ * ⌃Tab", and once the task is done, "Task done · ⌃Tab back to your tabs".
+ * The name, or where ⌃Tab goes, is cut, never the key. A collapsed sidebar
+ * still shows only the dot (above), and the chip says it instead. */
+#zenius-agents-strip[watching] > .zenius-strip-text {
+  display: flex;
+  min-width: 0;
+
+  & > span {
+    flex: none;
+    white-space: pre;
+  }
+
+  & > .zenius-strip-name,
+  & > .zenius-strip-rest {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  & > .zenius-strip-name {
+    white-space: nowrap;
+  }
+}
+
+/* ---- The watch chip (ui/watch.sys.mjs) ---------------------------------
+ * Where the strip can't be read (compact mode, a collapsed sidebar), the
+ * page area's top left corner says what the window shows: "Watching <task>
+ * · ⌃Tab", or "Task done · ⌃Tab back to your tabs" once the task ended
+ * there. The script places it, at most 280 px or 40 % of the page area
+ * wide: never over the page's top middle, where its search and sign-in
+ * fields sit (zen-snapshot's red team). A hint, not a control: every click
+ * goes through it to the page. */
+
+#zenius-watch-pill {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  box-sizing: border-box;
+  max-width: 280px;
+  margin: 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: light-dark(#1d1d1f, #2c2c31);
+  color: #fff;
+  font: 500 12px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  white-space: nowrap;
+  box-shadow:
+    0 4px 14px light-dark(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.45)),
+    0 0 0 1px light-dark(transparent, rgba(255, 255, 255, 0.08));
+  pointer-events: none;
+
+  &[hidden] {
+    display: none;
+  }
+
+  & kbd {
+    padding: 1px 6px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.18);
+    font: 600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+}
+
+.zenius-watch-eye {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #a48bff;
+}
+
+.zenius-watch-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  & b {
+    font-weight: 600;
+  }
+}
+
+.zenius-watch-key {
+  flex: none;
+}
+
+/* Where ⌃Tab goes, once the task is done: cut before anything else. */
+.zenius-watch-rest {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+#zenius-watch-pill[done] > .zenius-watch-name {
+  flex: none;
+}
+
+#zenius-tasks-panel {
+  --panel-padding: 8px;
+}
+
+.zenius-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* A narrow window gets a narrower panel, which still fits in it. */
+  min-width: min(320px, 100vw - 48px);
+  max-width: min(440px, 100vw - 48px);
+  /* A popup can't outgrow the screen, and rows it cut off couldn't be
+     reached at all: past the window's height, the rows scroll instead. */
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 8px 8px;
+  font: menu;
+  font-size: 12px;
+}
+
+/* The title stays while the rows scroll under it. It holds the top padding
+   itself, so no row shows above it. */
+.zenius-tasks-title {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--arrowpanel-background);
+  font-weight: 700;
+  font-size: 12.5px;
+  padding: 8px 4px 4px;
+}
+
+.zenius-tasks-empty {
+  padding: 4px;
+  opacity: 0.7;
+}
+
+.zenius-task {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "dot info" ". actions";
+  column-gap: 8px;
+  row-gap: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 5%, transparent);
+
+  &[state="paused"],
+  &[state="needs-user"],
+  &[state="user"] {
+    background: color-mix(in srgb, var(--zenius-user-color) 10%, transparent);
+  }
+}
+
+.zenius-task-dot {
+  grid-area: dot;
+  align-self: start;
+  margin-top: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--zenius-agent-color);
+
+  .zenius-task:is([state="paused"], [state="needs-user"], [state="user"]) > & {
+    background: var(--zenius-user-color);
+  }
+
+  .zenius-task[state="idle"] > & {
+    background: color-mix(in srgb, var(--zenius-agent-color) 55%, gray);
+  }
+}
+
+.zenius-task-info {
+  grid-area: info;
+  min-width: 0;
+}
+
+.zenius-task-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* dir="auto" runs a right-to-left name from the right, so the ellipsis
+     takes its end and not its start; a short one still starts where the
+     others do. */
+  text-align: match-parent;
+}
+
+.zenius-task-detail {
+  opacity: 0.75;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zenius-task-tabs {
+  display: flex;
+  /* One line, whatever the titles: a loading tab is named by its URL, and a
+     list that wrapped then moved every row below it under the user's
+     pointer. The names shrink to fit instead. */
+  flex-wrap: nowrap;
+  overflow: hidden;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.zenius-task-tab {
+  font: inherit;
+  font-size: 0.92em;
+  flex: 0 1 auto;
+  min-width: 3em;
+  max-width: 14em;
+  padding: 1px 6px;
+  border: none;
+  border-radius: 4px;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:hover {
+    background: color-mix(in srgb, currentColor 14%, transparent);
+  }
+}
+
+.zenius-task-tabs-more {
+  flex: none;
+  font-size: 0.92em;
+  opacity: 0.7;
+  align-self: center;
+}
+
+.zenius-task-idle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 0.92em;
+
+  & > span {
+    opacity: 0.8;
+  }
+}
+
+/* The Resume line, under the row's buttons (an implicit row, so a row
+   without it keeps its height). */
+.zenius-task-clears {
+  grid-column: 2;
+  font-size: 0.92em;
+  opacity: 0.8;
+}
+
+.zenius-task-actions {
+  grid-area: actions;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.zenius-task-button {
+  font: inherit;
+  padding: 2px 10px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  background: transparent;
+  color: inherit;
+
+  &:hover {
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  &.danger {
+    color: light-dark(#b42318, #ff9a8f);
+  }
+}
+
+.zenius-space-status {
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zenius-space-badge,
+  .zenius-space-status-dot,
+  .zenius-strip-dot {
+    animation: none !important;
+  }
+
+  /* Pills fade in without sliding. */
+  .zenius-card {
+    animation-name: zenius-card-fade !important;
+  }
+}
+
+/* ---- Agent tabs kept muted ------------------------------------------------
+ * zen-observe mutes an agent tab the user can't see (observe/audio.sys.mjs).
+ * Once its page has played sound in that time (zenius-muted-sound), a
+ * muted-speaker badge sits on the tab's icon, also with the sidebar
+ * collapsed to icons. It goes when the user looks at the tab, which unmutes
+ * it. Not clickable: a click on the tab's own speaker button would make the
+ * tab the user's. ui/muted.sys.mjs adds a line to the tab's tooltip. */
+
+.tabbrowser-tab[zenius-muted-sound] .tab-icon-stack::after {
+  --zenius-muted-badge-bg: light-dark(#ffffff, #2c2c2e);
+  --zenius-muted-badge-ink: light-dark(#1d1d1f, #f5f5f7);
+  content: "";
+  grid-area: 1 / 1;
+  align-self: end;
+  justify-self: end;
+  width: 11px;
+  height: 11px;
+  margin: 0 -4px -3px 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.16));
+  background: var(--zenius-muted-badge-bg) url("chrome://browser/skin/zen-icons/tab-audio-muted-small.svg") no-repeat center / 8px;
+  -moz-context-properties: fill;
+  fill: var(--zenius-muted-badge-ink);
+  pointer-events: none;
+}
+
+/* ---- Task tags -------------------------------------------------------------
+ * Each task page carries its task (zen-core's zenius-task) and that task's
+ * state (ui/tasktags.sys.mjs: zenius-task-state on the tab, the task's name
+ * on .tab-content). In the expanded sidebar the tag is a chip at the row's
+ * end: the state's dot and the task's name. The tab's close button, which
+ * Zen keeps laid out but hidden until hover, gives the chip its place and
+ * takes it back on hover. With the sidebar collapsed to icons, the tag is a
+ * dot on the tab's icon. Colours and pulses follow the Space badge. */
+
+.tabbrowser-tab[zenius-task-state] {
+  --zenius-tag-dot: var(--zenius-agent-color);
+
+  &[zenius-task-state="idle"] {
+    --zenius-tag-dot: color-mix(in srgb, var(--zenius-agent-color) 55%, gray);
+  }
+
+  &:is([zenius-task-state="paused"], [zenius-task-state="needs-user"], [zenius-task-state="user"]) {
+    --zenius-tag-dot: var(--zenius-user-color);
+  }
+}
+
+:root[zen-sidebar-expanded="true"] .tabbrowser-tab[zenius-task-state] .tab-content[zenius-task-name]::after {
+  content: attr(zenius-task-name);
+  flex: 0 1 auto;
+  min-width: 18px;
+  /* The page's title matters more than the task's name: the chip stays
+     within a third of the row and ellipsizes. */
+  max-width: 35%;
+  margin-inline-start: 6px;
+  padding-block: 1px;
+  padding-inline: 14px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  /* A right-to-left name reads in its own direction, and ellipsizes at
+     whichever side it overflows. */
+  unicode-bidi: plaintext;
+  text-overflow: ellipsis ellipsis;
+  color: color-mix(in srgb, currentColor 78%, transparent);
+  background:
+    radial-gradient(circle at 8px 50%, var(--zenius-tag-dot) 0 3.5px, transparent 4px),
+    color-mix(in srgb, var(--zenius-tag-dot) 14%, transparent);
+  pointer-events: none;
+}
+
+/* The close button gives the chip its place until the row is hovered. Both
+ * ids outrank Zen's rule, which shows it with display: block. */
+:root[zen-sidebar-expanded="true"] #navigator-toolbox #tabbrowser-tabs .tabbrowser-tab[zenius-task-state]:not(:hover, [multiselected][selected]) .tab-close-button {
+  display: none;
+}
+
+:root[zen-sidebar-expanded="true"] .tabbrowser-tab[zenius-task-state]:is(:hover, [multiselected][selected]) .tab-content::after {
+  display: none;
+}
+
+:root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab[zenius-task-state] .tab-icon-stack::before {
+  content: "";
+  grid-area: 1 / 1;
+  align-self: start;
+  justify-self: end;
+  width: 7px;
+  height: 7px;
+  margin: -2px -3px 0 0;
+  border-radius: 50%;
+  background: var(--zenius-tag-dot);
+  box-shadow: 0 0 0 1.5px var(--zen-colors-tertiary, light-dark(#f2f0f3, #2b2a33));
+  pointer-events: none;
+}
+
+/* Only what waits for the user pulses: a strip of working tasks stays calm.
+ * The chip fades rather than shrinks, which would jiggle its text. */
+@keyframes zenius-tag-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[zen-sidebar-expanded="true"] .tabbrowser-tab:is([zenius-task-state="paused"], [zenius-task-state="needs-user"]) .tab-content[zenius-task-name]::after {
+    animation: zenius-tag-pulse 1.2s ease-in-out infinite;
+  }
+
+  .tabbrowser-tab:is([zenius-task-state="paused"], [zenius-task-state="needs-user"]) .tab-icon-stack::before {
+    animation: zenius-pulse 0.9s ease-in-out infinite;
+  }
+}
+
+/* ---- Increased contrast ------------------------------------------------
+ * macOS's "Increase contrast" and Windows' contrast themes: solid surfaces,
+ * full-ink text and visible edges. */
+
+@media (prefers-contrast: more) {
+  .zenius-card {
+    --zenius-card-bg: light-dark(#ffffff, #1c1c1e);
+    --zenius-card-border: light-dark(#1d1d1f, #f5f5f7);
+    --zenius-card-muted: var(--zenius-card-ink);
+    --zenius-card-more-ink: light-dark(#ffffff, #1c1c1e);
+    backdrop-filter: none;
+  }
+
+  .zenius-card-button:not([primary]) {
+    box-shadow: inset 0 0 0 1px currentColor;
+  }
+
+  .zenius-space-status {
+    color: light-dark(#3f1fa0, #e4d9ff);
+    box-shadow: inset 0 0 0 1px currentColor;
+
+    &:is([state="paused"], [state="needs-user"], [state="user"]) {
+      color: light-dark(#6b3100, #ffd2ad);
+    }
+  }
+
+  #zenius-agents-strip[state="needs-user"] {
+    color: light-dark(#6b3100, #ffd2ad);
+  }
+
+  :root[zen-sidebar-expanded="true"] .tabbrowser-tab[zenius-task-state] .tab-content[zenius-task-name]::after {
+    color: currentColor;
+    box-shadow: inset 0 0 0 1px currentColor;
+  }
+
+  .zenius-task-detail,
+  .zenius-tasks-empty,
+  .zenius-task-tabs-more,
+  .zenius-task-idle > span {
+    opacity: 1;
+  }
+
+  .zenius-task-button {
+    border-color: currentColor;
+  }
+
+  .zenius-task-tab {
+    box-shadow: inset 0 0 0 1px currentColor;
+  }
+}
+
+/* ---- Forced colors -----------------------------------------------------
+ * Windows High Contrast: the browser's chrome takes the system colors (no
+ * pref gives this on Linux or macOS, so it is untested). Edges and text
+ * follow them; the state dots keep their colors, since a dot is drawn by its
+ * background, which forced colors would blank. The state is in words too. */
+
+@media (forced-colors: active) {
+  .zenius-card {
+    --zenius-card-muted: CanvasText;
+    border-color: CanvasText;
+    backdrop-filter: none;
+  }
+
+  .zenius-card-more {
+    forced-color-adjust: none;
+    --zenius-card-more-bg: CanvasText;
+    --zenius-card-more-ink: Canvas;
+
+    &:hover {
+      --zenius-card-more-bg: Highlight;
+      --zenius-card-more-ink: HighlightText;
+    }
+  }
+
+  .zenius-card-button {
+    border: 1px solid ButtonText;
+
+    &[primary] {
+      border-width: 2px;
+    }
+  }
+
+  .zenius-card-dot,
+  .zenius-strip-dot,
+  .zenius-task-dot,
+  .zenius-space-status-dot,
+  .zenius-space-badge {
+    forced-color-adjust: none;
+  }
+
+  .zenius-space-status,
+  .zenius-task-tab {
+    border: 1px solid CanvasText;
+  }
+
+  #zenius-watch-pill {
+    border: 1px solid CanvasText;
+  }
+
+  .zenius-watch-eye {
+    forced-color-adjust: none;
+  }
+
+  :root[zen-sidebar-expanded="true"] .tabbrowser-tab[zenius-task-state] .tab-content[zenius-task-name]::after {
+    forced-color-adjust: none;
+    border: 1px solid CanvasText;
+  }
+
+  /* The agent's cursor keeps its glow, in a system color, not the pref's. */
+  .zenius-cursor {
+    --zenius-cursor-glow: Highlight;
+  }
+
+  .zenius-cursor-glow,
+  .zenius-cursor-ripple,
+  .zenius-cursor-arrow {
+    forced-color-adjust: none;
+  }
+
+  .zenius-cursor-arrow > path {
+    fill: CanvasText;
+    stroke: Canvas;
+  }
+
+  .zenius-cursor-label {
+    border-color: CanvasText;
+  }
+}

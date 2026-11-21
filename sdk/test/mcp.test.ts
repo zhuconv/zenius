@@ -1,0 +1,86 @@
+// zenius mcp's steps (zen-core's src/mcp.ts), as a call's arguments give
+// them: the lines the user reads in the sidebar, and what a failure shows.
+// They must never show a typed secret, a URL's token, or text that reads as
+// something else (zen-ux's review). test/integration/mcp.it.ts drives the
+// server against a dev Zen.
+
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
+import { stepFor } from "../src/mcp.ts";
+
+describe("zenius mcp steps", () => {
+  it("name the kind of a secret field and never show what was typed into it", () => {
+    const typed = (element: string, target = "#field", text = "hunter2") => stepFor("fill", { element, target, text });
+    assert.equal(typed("Password"), 'Type a password into "Password"');
+    assert.equal(typed("Login", "#login_pw"), 'Type a password into "Login"');
+    assert.equal(typed("Field", 'input[name="newPassword"]'), 'Type a password into "Field"');
+    assert.equal(typed("Card number"), 'Type a card number into "Card number"');
+    assert.equal(typed("Number", 'input[name="cc_number"]'), 'Type a card number into "Number"');
+    assert.equal(typed("CVC"), 'Type a security code into "CVC"');
+    assert.equal(typed("Expiry (MM/YY)"), "Type a card's expiry date into \"Expiry (MM/YY)\"");
+    assert.equal(typed("One-time code"), 'Type a code into "One-time code"');
+    assert.equal(typed("Code", "[autocomplete=one-time-code]"), 'Type a code into "Code"');
+    assert.equal(typed("PIN"), 'Type a PIN into "PIN"');
+    for (const element of ["Name", "Passport number", "Promo code", "Zip code", "Spinach"]) {
+      assert.equal(typed(element, "#field", "Ada"), `Type "Ada" into "${element}"`);
+    }
+    // A ref's field is checked after the fill: when a fill fails, nothing checked it.
+    assert.equal(typed("Name", "ref=7", "Ada"), 'Type into "Name"');
+    assert.equal(typed("Name", "#name", ""), 'Clear "Name"');
+  });
+
+  it("drop the characters that change how a line reads without showing", () => {
+    // An RLO reverses what follows it; zero-width and bidi marks hide in copied text.
+    assert.equal(stepFor("click", { element: "Pay\u202E\u2066 now\u2069\u200B\u200F\uFEFF", target: "#pay" }), 'Click "Pay now"');
+    assert.equal(stepFor("click", { element: "Sign\n\tin", target: "#a" }), 'Click "Sign in"');
+    assert.equal(stepFor("wait", { text: "Order\u061C placed\u00AD" }), 'Wait for "Order placed"');
+  });
+
+  it("show a URL's host, in punycode, and its path, without the query or fragment", () => {
+    assert.equal(stepFor("open", { url: "https://user:pw@shop.example.com/checkout?token=abc#frag" }), "Open shop.example.com/checkout");
+    // A Cyrillic а: the step can't pass it off as apple.com.
+    assert.equal(stepFor("open", { url: "https://аpple.com/" }), "Open xn--pple-43d.com");
+    assert.equal(stepFor("goto", { url: "example.com/a%20b/%E2%80%AE" }), "Go to example.com/a b/");
+    assert.equal(stepFor("goto", { url: "http://127.0.0.1:8080/" }), "Go to 127.0.0.1:8080");
+    assert.equal(stepFor("open", { url: "file:///etc/passwd" }), "Open file:///etc/passwd");
+    const long = stepFor("open", { url: `https://example.com/${"a".repeat(200)}` });
+    assert.equal(Array.from(long.slice("Open ".length)).length, 80);
+    assert.ok(long.endsWith("…"));
+    assert.equal(stepFor("wait", { url: "https://login.example.com/done?code=secret" }), "Wait for the tab to reach login.example.com/done");
+  });
+
+  it("read as the user would say them", () => {
+    assert.equal(stepFor("wait", { seconds: 1 }), "Wait 1 second");
+    assert.equal(stepFor("wait", { seconds: 2 }), "Wait 2 seconds");
+    // Codex gives a call 60 s unless told more: no wait goes past 50 s unless asked.
+    assert.equal(stepFor("wait", { seconds: 500 }), "Wait 50 seconds");
+    assert.equal(stepFor("wait", {}), "Wait 10 seconds");
+    assert.equal(stepFor("wait", { user: true }), "Wait for the user to resume the agent");
+    assert.equal(stepFor("read_page", { root: "ref=12" }), "Read part of the page");
+    assert.equal(stepFor("read_page", {}), "Read the page");
+    assert.equal(stepFor("read_page", { full: true }), "Read the whole page");
+    const message = `Log in, then press Resume agent\u202E. ${"x".repeat(100)}`;
+    const asked = stepFor("hand_off", { message });
+    assert.match(asked, /^Ask the user: "Log in, then press Resume agent\. x+…"$/);
+    assert.equal(Array.from(asked.slice('Ask the user: "'.length, -1)).length, 80);
+    assert.equal(stepFor("finish", { keep: ["p1"] }), "Finish, keeping 1 tab");
+    assert.equal(stepFor("finish", { keep: ["p1", "p2"] }), "Finish, keeping 2 tabs");
+    assert.equal(stepFor("finish", { keep: "all" }), "Finish, keeping every tab");
+    assert.equal(stepFor("finish", { keep: "none" }), "Finish, closing the task's tabs");
+  });
+
+  it("name keys as the user's keyboard does: Cmd and Option on a Mac", () => {
+    const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
+    try {
+      Object.defineProperty(process, "platform", { ...platform, value: "darwin" });
+      assert.equal(stepFor("press", { key: "Meta+A" }), "Press Cmd+A");
+      assert.equal(stepFor("press", { key: "Alt+ArrowLeft", element: "Search", target: "#q" }), 'Press Option+ArrowLeft on "Search"');
+      Object.defineProperty(process, "platform", { ...platform, value: "linux" });
+      assert.equal(stepFor("press", { key: "Meta+A" }), "Press Meta+A");
+      assert.equal(stepFor("press", { key: "ControlOrMeta+A" }), "Press Control+A");
+    } finally {
+      Object.defineProperty(process, "platform", platform);
+    }
+  });
+});

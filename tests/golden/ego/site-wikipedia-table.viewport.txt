@@ -1,0 +1,262 @@
+[p1 "按人口数量排序的国家及属地列表 - 维基百科 --- List of countries and dependencies by population -..." | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "按人口数量排序的国家及属地列表 - 维基百科 --- List of countries and dependencies by population -..."]
+root
+  container
+    container
+      container
+        container "Site"
+          button "Main menu" [ref=3342, loc=css:input[aria-label="Main menu"]]
+        anchor [ref=3343, url=https://en.wikipedia.org/wiki/Main_Page]
+          image
+          image
+      container
+        search
+          form
+            searchbox "Search Wikipedia" [ref=3344]
+              text "Search Wikipedia"
+            button [ref=3345]
+              text "Search"
+        container "Personal tools"
+          unordered_list
+            list_item
+              anchor [ref=3346, url=https://donate.wikimedia.org/?wmf_source=donate&wmf_medium=sidebar&wmf_campaign=en.wikipedia.org&uselang=en]
+                text "Donate"
+            list_item
+              anchor [ref=3347, url=https://en.wikipedia.org/w/index.php?title=Special:CreateAccount&returnto=List+of+countries+and+dependencies+by+population]
+                text "Create account"
+            list_item
+              anchor [ref=3348, url=https://en.wikipedia.org/w/index.php?title=Special:UserLogin&returnto=List+of+countries+and+dependencies+by+population]
+                text "Log in"
+    container
+      container "Contents"
+        container
+          heading
+            text "Contents"
+          button "Hide Contents" [ref=3349, loc=css:button[aria-label="Hide Contents"]]
+            text "hide"
+        unordered_list
+          list_item
+            anchor [ref=3350, url=https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population#]
+              text "(Top)"
+          list_item
+            anchor [ref=3351, url=https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population#Method]
+              text "Method"
+          list_item
+            anchor [ref=3352, loc=href:/wiki/List_of_countries_and_dependencies_by_population#List, url=https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population#List]
+              text "List"
+          list_item
+            anchor [ref=3353, loc=href:/wiki/List_of_countries_and_dependencies_by_population#See_also, url=https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population#See_also]
+              text "See also"
+          list_item
+            anchor [ref=3354, loc=href:/wiki/List_of_countries_and_dependencies_by_population#Explanatory_notes, url=https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population#Explanatory_notes]
+              text "Explanatory notes"
+          list_item
+            anchor [ref=3355, loc=href:/wiki/List_of_countries_and_dependencies_by_population#References, url=https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population#References]
+              text "References"
+      container
+        container
+          heading
+            text "List of countries and dependencies by population"
+            text "按人口数量排序的国家和属地列表"
+          container
+            button "125 languages" [ref=3356, loc=css:input[aria-label="125 languages"]]
+            text "125 languages"
+        container
+          container "Namespaces"
+            unordered_list
+              list_item
+                anchor [ref=3357, url=https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population]
+                  text "Article"
+              list_item
+                anchor [ref=3358, loc=href:/wiki/Talk:List_of_countries_and_dependencies_by_population, url=https://en.wikipedia.org/wiki/Talk:List_of_countries_and_dependencies_by_population]
+                  text "Talk"
+          container
+            container "Views"
+              unordered_list
+                list_item
+                  anchor [ref=3359, url=https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population]
+                    text "Read"
+                list_item
+                  anchor [ref=3360, url=https://en.wikipedia.org/w/index.php?title=List_of_countries_and_dependencies_by_population&action=edit]
+                    text "View source"
+                list_item
+                  anchor [ref=3361, url=https://en.wikipedia.org/w/index.php?title=List_of_countries_and_dependencies_by_population&action=history]
+                    text "View history"
+                list_item
+                  anchor [ref=3362, url=https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population#]
+            container "Page tools"
+              button "Tools" [ref=3363, loc=css:input[aria-label="Tools"]]
+        container "Appearance"
+          container
+            container
+              text "Appearance"
+              text "外观"
+            button "Hide Appearance" [ref=3364, loc=css:button[aria-label="Hide Appearance"]]
+              text "hide"
+              text "隐藏"
+          container
+            container
+              text "Text"
+              text "文本"
+            unordered_list
+              list_item
+                form
+                  container
+                    radio [ref=3365]
+                    container
+                      text "Small"
+                      text "小的"
+                  container
+                    radio [ref=3366]
+                    container
+                      text "Standard"
+                      text "标准"
+                  container
+                    radio [ref=3367]
+                    container
+                      text "Large"
+                      text "大"
+          container
+            container
+              text "Width"
+              text "宽度"
+            unordered_list
+              list_item
+                form
+                  container
+                    radio [ref=3368]
+                    container
+                      text "Standard"
+                      text "标准"
+                  container
+                    radio [ref=3369]
+                    container
+                      text "Wide"
+                      text "宽的"
+          container
+            container
+              text "Color"
+              text "颜色"
+            unordered_list
+              list_item
+                form
+                  container
+                    radio [ref=3370]
+                    container
+                      text "Automatic"
+                      text "自动化的"
+                  container
+                    radio [ref=3371]
+                    container
+                      text "Light"
+                      text "光明"
+                  container
+                    radio [ref=3372]
+                    container
+                      text "Dark"
+                      text "黑暗"
+        container "List of countries and dependencies by population 按人口数量排序的国家和属地列表"
+          container
+            anchor [ref=3373, loc=href:/wiki/Wikipedia:Protection_policy#semi, url=https://en.wikipedia.org/wiki/Wikipedia:Protection_policy#semi]
+              image
+            container
+              text "From Wikipedia, the free encyclopedia"
+              text "来自维基百科，自由的百科全书"
+          container
+            container
+              note
+                text "This article is about a list of countries and dependencies by population based on figures from official sources or, if not available, estimates and projections from the United Nations. For a list base..."
+                anchor [ref=3374, loc=href:/wiki/List_of_countries_and_dependencies_by_population_(United_Nations), url=https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population_(United_Nations)]
+                  text "List of countries and dependencies by population (United Nations)"
+                text "."
+              note
+                text "This article reflects continually changing information from hundreds of sources. You can help by updating items to more recent figures from"
+                anchor [ref=3375, url=https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population#Method]
+                  text "official sources"
+                text "."
+              container
+                text "Population distribution by country in June–July 2025:"
+                ordered_list
+                  list_item
+                    container
+                      anchor [ref=3376, url=https://en.wikipedia.org/wiki/Demographics_of_India]
+                        text "India"
+                      text "(17.3%)"
+                      text "印度（17.3%）"
+                  list_item
+                    container
+                      anchor [ref=3377, url=https://en.wikipedia.org/wiki/Demographics_of_China]
+                        text "China"
+                      text "(17.0%)"
+                      text "中国（17.0%）"
+                  list_item
+                    anchor [ref=3378, url=https://en.wikipedia.org/wiki/Demographics_of_the_United_States]
+                      text "United States"
+                    text "(4.10%)"
+                    text "美国（4.10%）"
+              paragraph
+                text "As of 2026"
+                text ", the most populous country in the world is"
+                anchor [ref=3379, url=https://en.wikipedia.org/wiki/India]
+                  text "India"
+                text ", followed closely by"
+                anchor [ref=3380, url=https://en.wikipedia.org/wiki/China]
+                  text "China"
+                text ", with both exceeding 1.4 billion."
+            container "Method  方法"
+              heading
+                text "Method"
+                text "方法"
+              note
+                text "See also:"
+                anchor [ref=3381, url=https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population_density]
+                  text "List of countries and dependencies by population density"
+                text "and"
+                anchor [ref=3382, loc=href:/wiki/List_of_regional_organizations_by_population, url=https://en.wikipedia.org/wiki/List_of_regional_organizations_by_population]
+                  text "List of regional organizations by population"
+              paragraph
+                text "This list includes"
+                anchor [ref=3383, url=https://en.wikipedia.org/wiki/Sovereign_state]
+                  text "sovereign states"
+                text ", inhabited"
+                anchor [ref=3384, loc=href:/wiki/Dependent_territory, url=https://en.wikipedia.org/wiki/Dependent_territory]
+                  text "dependent territories"
+                text "and, in some cases, constituent countries of sovereign states, with inclusion within the list being primarily based on the"
+                anchor [ref=3385, loc=href:/wiki/International_Organization_for_Standardization, url=https://en.wikipedia.org/wiki/International_Organization_for_Standardization]
+                  text "ISO"
+                text "standard"
+                anchor [ref=3386, loc=href:/wiki/ISO_3166-1, url=https://en.wikipedia.org/wiki/ISO_3166-1]
+                  text "ISO 3166-1"
+                text ". For instance, the"
+                anchor [ref=3387, loc=href:/wiki/United_Kingdom, url=https://en.wikipedia.org/wiki/United_Kingdom]
+                  text "United Kingdom"
+                text "is considered a single entity, while the constituent countries of the"
+                anchor [ref=3388, url=https://en.wikipedia.org/wiki/Kingdom_of_the_Netherlands]
+                  text "Kingdom of the Netherlands"
+                text "are considered separately. In addition, this list includes certain"
+                anchor [ref=3389, url=https://en.wikipedia.org/wiki/List_of_states_with_limited_recognition]
+                  text "states with limited recognition"
+                text "not found in ISO 3166-1. Also given in a percentage is each country's population compared with the"
+                anchor [ref=3390, url=https://en.wikipedia.org/wiki/World_population]
+                  text "world population"
+                text ", which the"
+                anchor [ref=3391, url=https://en.wikipedia.org/wiki/United_Nations]
+                  text "United Nations"
+                text "estimated at 8.232 billion as of 2025."
+                anchor [ref=3392, url=https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population#cite_note-UNFPA-1]
+                  text "["
+                  text "1"
+                  text "]"
+              paragraph
+                text "Figures used in this chart are based on the most up-to-date estimates or"
+                anchor [ref=3393, loc=href:/wiki/Population_projection, url=https://en.wikipedia.org/wiki/Population_projection]
+                  text "projections"
+                text "by the national"
+  svg_root
+  svg_root
+  container
+    svg_root
+    svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 20408 px; scroll or use snapshot({ scope: "full_page" })]

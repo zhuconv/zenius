@@ -1,0 +1,181 @@
+[p1 "requests · PyPI" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "requests · PyPI"]
+root
+  container
+    container
+      container
+        anchor [ref=10103, url=https://pypi.org/]
+          image
+        search
+          textbox [ref=10104]
+            text "Type '/' to search projects"
+          button [ref=10105]
+            text ""
+      container
+        container "Main navigation"
+          unordered_list
+            list_item
+              anchor [ref=10106, url=https://blog.pypi.org/]
+                text "Blog"
+            list_item
+              anchor [ref=10107, url=https://docs.pypi.org/]
+                text "Docs"
+            list_item
+              anchor [ref=10108, url=https://pypi.org/account/login/?next=https%3A%2F%2Fpypi.org%2Fproject%2Frequests%2F]
+                text "Log in"
+            list_item
+              anchor [ref=10109, url=https://pypi.org/account/register/]
+                text "Register"
+        container "Localization"
+          button "Change language" [ref=10110, loc=css:button[aria-label="Change language"]]
+            text ""
+    container
+      container
+        heading
+          text "requests 2.34.2"
+        paragraph
+          text "Python HTTP for Humans."
+        paragraph
+          text "pip install requests"
+          button [ref=10111]
+            text ""
+      container
+        container "Navigation for requests"
+          tablist
+            list_item
+              tab "Project description. Focus will be moved to the description." [ref=10112, loc=css:a[aria-label="Project description. Focus will be moved to the description."], url=https://pypi.org/project/requests/#description]
+                text ""
+                text "Description"
+            list_item
+              tab "Release files. Focus will be moved to the release files panel." [ref=10113, loc=css:a[aria-label="Release files. Focus will be moved to the release files panel."], url=https://pypi.org/project/requests/#files]
+                text ""
+                text "Release files"
+            list_item
+              tab "Release security. Focus will be moved to the security panel." [ref=10114, loc=css:a[aria-label="Release security. Focus will be moved to the security panel."], url=https://pypi.org/project/requests/#security]
+                text ""
+                text "Security"
+            list_item
+              tab "Release history. Focus will be moved to the release history panel." [ref=10115, loc=css:a[aria-label="Release history. Focus will be moved to the release history panel."], url=https://pypi.org/project/requests/#history]
+                text ""
+                text "Release history"
+        tabpanel "Description" [ref=10116]
+          container
+            heading
+              text "Requests"
+            paragraph
+              anchor [ref=10117, loc=href:/project/requests/, url=https://pypi.org/project/requests/]
+                image
+              anchor [ref=10118, url=https://pypi.org/project/requests]
+                image
+              anchor [ref=10119, loc=href:https://pepy.tech/project/requests, url=https://pepy.tech/project/requests]
+                image
+              anchor [ref=10120, loc=href:https://github.com/psf/requests/graphs/contributors, url=https://github.com/psf/requests/graphs/contributors]
+                image
+              anchor [ref=10121, url=https://requests.readthedocs.io/]
+                image
+            paragraph
+              text "Requests"
+              text "is a simple, yet elegant, HTTP library."
+            container
+              text ">>>"
+              text "import"
+              text "requests"
+              text ">>>"
+              text "r"
+              text "="
+              text "requests"
+              text "."
+              text "get"
+              text "("
+              text "'https://httpbin.org/basic-auth/user/pass'"
+              text ","
+              text "auth"
+              text "="
+              text "("
+              text "'user'"
+              text ","
+              text "'pass'"
+              text "))"
+              text ">>>"
+              text "r"
+              text "."
+              text "status_code"
+              text "200"
+              text ">>>"
+              text "r"
+              text "."
+              text "headers"
+              text "["
+              text "'content-type'"
+              text "]"
+              text "'application/json; charset=utf8'"
+              text ">>>"
+              text "r"
+              text "."
+              text "encoding"
+              text "'utf-8'"
+              text ">>>"
+              text "r"
+              text "."
+              text "text"
+              text "'{"authenticated": true, ...'"
+              text ">>>"
+              text "r"
+              text "."
+              text "json"
+              text "()"
+              text "{"
+              text "'authenticated'"
+              text ":"
+              text "True"
+              text ","
+              text "..."
+              text "}"
+          container
+            container
+              heading
+                text "Project links"
+              container
+                container [ref=10122]
+                  text "Data verified by PyPI on May 14, 2026"
+                  text "›"
+                unordered_list
+                  list_item
+                    anchor [ref=10123, url=https://github.com/psf/requests]
+                      text ""
+                      text "Source"
+              unordered_list
+                list_item
+                  anchor [ref=10124, url=https://requests.readthedocs.io/]
+                    text ""
+                    text "Documentation"
+            container
+              heading
+                text "Key dates"
+              container
+                container [ref=10125]
+                  text "PyPI data"
+                  text "›"
+                container
+                  unordered_list
+                    list_item
+                      text "Released:"
+                      container "2026-05-14 14:25:26 (-05:00)"
+                        text "May 14, 2026"
+                  text "LATEST RELEASE"
+            container
+              heading
+                text "3 maintainers"
+              container
+                container [ref=10126]
+                  text "PyPI data"
+                  text "›"
+                anchor "graffatcolmingov" [ref=10127, url=https://pypi.org/user/graffatcolmingov/]
+                  image
+                  text "graffatcolmingov"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 3178 px; scroll or use snapshot({ scope: "full_page" })]

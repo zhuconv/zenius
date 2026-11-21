@@ -1,0 +1,9 @@
+[p1 "ego-lite pointer workbench" | space "zen-eval golden 1795148479936"(5): 1 managed, 0 untracked — p1* "ego-lite pointer workbench"]
+root
+  container
+    heading
+      text "Pointer workbench"
+    container
+      text "A"
+      text "B"
+    canvas

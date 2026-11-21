@@ -1,0 +1,359 @@
+[p1 "Firefox - 维基百科 --- Firefox - Wikipedia" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "Firefox - 维基百科 --- Firefox - Wikipedia"]
+root
+  container
+    container
+      container
+        container "Site"
+          button "Main menu" [ref=13162, loc=css:input[aria-label="Main menu"]]
+        anchor [ref=13163, url=https://en.wikipedia.org/wiki/Main_Page]
+          image
+          image
+      container
+        search
+          form
+            searchbox "Search Wikipedia" [ref=13164]
+              text "Search Wikipedia"
+            button [ref=13165]
+              text "Search"
+        container "Personal tools"
+          unordered_list
+            list_item
+              anchor [ref=13166, url=https://donate.wikimedia.org/?wmf_source=donate&wmf_medium=sidebar&wmf_campaign=en.wikipedia.org&uselang=en]
+                text "Donate"
+            list_item
+              anchor [ref=13167, url=https://en.wikipedia.org/w/index.php?title=Special:CreateAccount&returnto=Firefox]
+                text "Create account"
+            list_item
+              anchor [ref=13168, url=https://en.wikipedia.org/w/index.php?title=Special:UserLogin&returnto=Firefox]
+                text "Log in"
+    container
+      container "Contents"
+        container
+          heading
+            text "Contents"
+            text "目录"
+          button "Hide Contents" [ref=13169, loc=css:button[aria-label="Hide Contents"]]
+            text "hide"
+            text "隐藏"
+        unordered_list
+          list_item
+            anchor [ref=13170, url=https://en.wikipedia.org/wiki/Firefox#]
+              text "(Top)"
+              text "（顶部）"
+          list_item
+            anchor [ref=13171, loc=href:https://en.wikipedia.org/wiki/Firefox#Features, url=https://en.wikipedia.org/wiki/Firefox#Features]
+              text "Features"
+              text "特点"
+            button [ref=13172]
+          list_item
+            anchor [ref=13173, loc=href:https://en.wikipedia.org/wiki/Firefox#History, url=https://en.wikipedia.org/wiki/Firefox#History]
+              text "History"
+              text "历史"
+            button [ref=13174]
+          list_item
+            anchor [ref=13175, loc=href:https://en.wikipedia.org/wiki/Firefox#Security, url=https://en.wikipedia.org/wiki/Firefox#Security]
+              text "Security"
+              text "安全性"
+          list_item
+            anchor [ref=13176, loc=href:https://en.wikipedia.org/wiki/Firefox#Privacy, url=https://en.wikipedia.org/wiki/Firefox#Privacy]
+              text "Privacy"
+          list_item
+            anchor [ref=13177, loc=href:https://en.wikipedia.org/wiki/Firefox#Localizations, url=https://en.wikipedia.org/wiki/Firefox#Localizations]
+              text "Localizations"
+          list_item
+            anchor [ref=13178, loc=href:https://en.wikipedia.org/wiki/Firefox#Platform_availability, url=https://en.wikipedia.org/wiki/Firefox#Platform_availability]
+              text "Platform availability"
+            button [ref=13179]
+          list_item
+            anchor [ref=13180, loc=href:https://en.wikipedia.org/wiki/Firefox#Channels_and_release_schedule, url=https://en.wikipedia.org/wiki/Firefox#Channels_and_release_schedule]
+              text "Channels and release schedule"
+              text "频道安排与发布时间表"
+          list_item
+            anchor [ref=13181, loc=href:https://en.wikipedia.org/wiki/Firefox#Licensing, url=https://en.wikipedia.org/wiki/Firefox#Licensing]
+              text "Licensing"
+          list_item
+            anchor [ref=13182, loc=href:https://en.wikipedia.org/wiki/Firefox#Logo_and_visual_identity, url=https://en.wikipedia.org/wiki/Firefox#Logo_and_visual_identity]
+              text "Logo and visual identity"
+          list_item
+            anchor [ref=13183, loc=href:https://en.wikipedia.org/wiki/Firefox#Trademark, url=https://en.wikipedia.org/wiki/Firefox#Trademark]
+              text "Trademark"
+          list_item
+            anchor [ref=13184, loc=href:https://en.wikipedia.org/wiki/Firefox#Promotion, url=https://en.wikipedia.org/wiki/Firefox#Promotion]
+              text "Promotion"
+              text "晋升"
+          list_item
+            anchor [ref=13185, loc=href:https://en.wikipedia.org/wiki/Firefox#Performance, url=https://en.wikipedia.org/wiki/Firefox#Performance]
+              text "Performance"
+            button [ref=13186]
+          list_item
+            anchor [ref=13187, loc=href:https://en.wikipedia.org/wiki/Firefox#Usage_share, url=https://en.wikipedia.org/wiki/Firefox#Usage_share]
+              text "Usage share"
+          list_item
+            anchor [ref=13188, loc=href:https://en.wikipedia.org/wiki/Firefox#Reception, url=https://en.wikipedia.org/wiki/Firefox#Reception]
+              text "Reception"
+          list_item
+            anchor [ref=13189, loc=href:https://en.wikipedia.org/wiki/Firefox#See_also, url=https://en.wikipedia.org/wiki/Firefox#See_also]
+              text "See also"
+              text "另请参见"
+          list_item
+            anchor [ref=13190, loc=href:https://en.wikipedia.org/wiki/Firefox#References, url=https://en.wikipedia.org/wiki/Firefox#References]
+              text "References"
+              text "参考文献"
+          list_item
+            anchor [ref=13191, loc=href:https://en.wikipedia.org/wiki/Firefox#Further_reading, url=https://en.wikipedia.org/wiki/Firefox#Further_reading]
+              text "Further reading"
+              text "推荐阅读资料"
+          list_item
+            anchor [ref=13192, loc=href:https://en.wikipedia.org/wiki/Firefox#External_links, url=https://en.wikipedia.org/wiki/Firefox#External_links]
+              text "External links"
+              text "外部链接"
+      container
+        container
+          heading
+            text "Firefox"
+            text "火狐浏览器"
+          container
+            button "135 languages" [ref=13193, loc=css:input[aria-label="135 languages"]]
+            text "135 languages"
+        container
+          container "Namespaces"
+            unordered_list
+              list_item
+                anchor [ref=13194, url=https://en.wikipedia.org/wiki/Firefox]
+                  text "Article"
+              list_item
+                anchor [ref=13195, loc=href:https://en.wikipedia.org/wiki/Talk:Firefox, url=https://en.wikipedia.org/wiki/Talk:Firefox]
+                  text "Talk"
+          container
+            container "Views"
+              unordered_list
+                list_item
+                  anchor [ref=13196, url=https://en.wikipedia.org/wiki/Firefox]
+                    text "Read"
+                list_item
+                  anchor [ref=13197, url=https://en.wikipedia.org/w/index.php?title=Firefox&action=edit]
+                    text "Edit"
+                list_item
+                  anchor [ref=13198, url=https://en.wikipedia.org/w/index.php?title=Firefox&action=history]
+                    text "View history"
+                list_item
+                  anchor [ref=13199, url=https://en.wikipedia.org/wiki/Firefox#]
+            container "Page tools"
+              button "Tools" [ref=13200, loc=css:input[aria-label="Tools"]]
+        container "Appearance"
+          container
+            container
+              text "Appearance"
+              text "外观"
+            button "Hide Appearance" [ref=13201, loc=css:button[aria-label="Hide Appearance"]]
+              text "hide"
+              text "隐藏"
+          container
+            container
+              text "Text"
+              text "文本"
+            unordered_list
+              list_item
+                form
+                  container
+                    radio [ref=13202]
+                    container
+                      text "Small"
+                      text "小的"
+                  container
+                    radio [ref=13203]
+                    container
+                      text "Standard"
+                      text "标准"
+                  container
+                    radio [ref=13204]
+                    container
+                      text "Large"
+                      text "大"
+          container
+            container
+              text "Width"
+              text "宽度"
+            unordered_list
+              list_item
+                form
+                  container
+                    radio [ref=13205]
+                    container
+                      text "Standard"
+                      text "标准"
+                  container
+                    radio [ref=13206]
+                    container
+                      text "Wide"
+                      text "宽的"
+          container
+            container
+              text "Color"
+              text "颜色"
+            unordered_list
+              list_item
+                form
+                  container
+                    radio [ref=13207]
+                    container
+                      text "Automatic"
+                      text "自动化的"
+                  container
+                    radio [ref=13208]
+                    container
+                      text "Light"
+                      text "光明"
+                  container
+                    radio [ref=13209]
+                    container
+                      text "Dark"
+                      text "黑暗"
+        container "Firefox  火狐浏览器"
+          container
+            text "From Wikipedia, the free encyclopedia"
+            text "来自维基百科，自由的百科全书"
+          container
+            note
+              container
+                text "This article is about the web browser. For other uses, see"
+                anchor [ref=13210, loc=href:https://en.wikipedia.org/wiki/Firefox_(disambiguation), url=https://en.wikipedia.org/wiki/Firefox_(disambiguation)]
+                  text "Firefox (disambiguation)"
+                text "."
+              container
+                text ""Phoenix (web browser)" redirects here. For the 1990s web browser developed at the University of Chicago, see"
+                anchor [ref=13211, loc=href:https://en.wikipedia.org/wiki/Phoenix_(tkWWW-based_browser), url=https://en.wikipedia.org/wiki/Phoenix_(tkWWW-based_browser)]
+                  text "Phoenix (tkWWW-based browser)"
+                text "."
+              text "这篇文章是关于网络浏览器的。关于其他含义，请参见“Firefox”（歧义）。“Phoenix（浏览器）”也指此处内容。如果指的是 20 世纪 90 年代由芝加哥大�..."
+            table
+              table_row
+                table_cell
+                  text "Firefox"
+                  text "火狐浏览器"
+              table_row
+                table_cell
+                  anchor [ref=13212, url=https://en.wikipedia.org/wiki/File:Firefox_logo,_2019.svg]
+                    image
+                  container
+                    anchor [ref=13213, url=https://en.wikipedia.org/wiki/Firefox_logo]
+                      text "Logo"
+                    text "used since October 2019"
+                    text "自 2019 年 10 月以来一直使用的标志"
+              table_row
+                table_cell
+                  anchor [ref=13214, url=https://en.wikipedia.org/wiki/File:Firefox_157.0.1_opening_English_Wikipedia_article_on_openSUSE_Linux_screenshot.webp]
+                    image
+                  container
+                    text "Firefox 157.0 running on"
+                    anchor [ref=13215, url=https://en.wikipedia.org/wiki/OpenSUSE]
+                      text "openSUSE"
+              table_row
+                table_cell
+                  anchor [ref=13216, loc=href:https://en.wikipedia.org/wiki/Programmer, url=https://en.wikipedia.org/wiki/Programmer]
+                    text "Developers"
+                    text "开发者们"
+                table_cell
+                  unordered_list
+                    list_item
+                      anchor [ref=13217, url=https://en.wikipedia.org/wiki/Mozilla_Foundation]
+                        text "Mozilla Foundation"
+                      text "and its contributors"
+            paragraph
+              text "Mozilla Firefox"
+              text ", or simply"
+              text "Firefox"
+              text ", is a"
+              anchor [ref=13218, url=https://en.wikipedia.org/wiki/Free_and_open-source_software]
+                text "free and open-source"
+              anchor [ref=13219, url=https://en.wikipedia.org/wiki/Firefox#cite_note-LWNtrademark-12]
+                text "["
+                text "12"
+                text "]"
+              anchor [ref=13220, url=https://en.wikipedia.org/wiki/Web_browser]
+                text "web browser"
+              text "developed by the"
+              anchor [ref=13221, url=https://en.wikipedia.org/wiki/Mozilla_Foundation]
+                text "Mozilla Foundation"
+              text "and its subsidiary, the"
+              anchor [ref=13222, url=https://en.wikipedia.org/wiki/Mozilla_Corporation]
+                text "Mozilla Corporation"
+              text ". It uses the"
+              anchor [ref=13223, url=https://en.wikipedia.org/wiki/Gecko_(software)]
+                text "Gecko"
+              anchor [ref=13224, url=https://en.wikipedia.org/wiki/Browser_engine]
+                text "rendering engine"
+              text "to display web pages, which implements current and anticipated web standards."
+              anchor [ref=13225, loc=href:https://en.wikipedia.org/wiki/Firefox#cite_note-13, url=https://en.wikipedia.org/wiki/Firefox#cite_note-13]
+                text "["
+                text "13"
+                text "]"
+              text "The software is available for"
+              anchor [ref=13226, url=https://en.wikipedia.org/wiki/Microsoft_Windows]
+                text "Windows"
+              text ","
+              anchor [ref=13227, url=https://en.wikipedia.org/wiki/MacOS]
+                text "macOS"
+              text ", and"
+              anchor [ref=13228, url=https://en.wikipedia.org/wiki/Linux]
+                text "Linux"
+              text "systems, as well as a"
+              anchor [ref=13229, loc=href:https://en.wikipedia.org/wiki/Mobile_web, url=https://en.wikipedia.org/wiki/Mobile_web]
+                text "mobile"
+              text "version for"
+              anchor [ref=13230, url=https://en.wikipedia.org/wiki/Android_(operating_system)]
+                text "Android"
+              text "(see"
+              anchor [ref=13231, url=https://en.wikipedia.org/wiki/Firefox_for_Android]
+                text "Firefox for Android"
+              text ") and"
+              anchor [ref=13232, url=https://en.wikipedia.org/wiki/IOS]
+                text "iOS"
+              text ", with unofficial ports for other platforms such as"
+              anchor [ref=13233, url=https://en.wikipedia.org/wiki/Oracle_Solaris]
+                text "Oracle Solaris"
+              text "and"
+              anchor [ref=13234, url=https://en.wikipedia.org/wiki/OpenIndiana]
+                text "OpenIndiana"
+              text "."
+              text "Mozilla Firefox，简称 Firefox，是一款由 Mozilla 基金会及其子公司 Mozilla 公司开发的免费开源浏览器。该浏览器使用 Gecko 渲染引擎来显示网页，能够支持当�..."
+            paragraph
+              text "Firefox is the"
+              anchor [ref=13235, loc=href:https://en.wikipedia.org/wiki/Spiritual_successor, url=https://en.wikipedia.org/wiki/Spiritual_successor]
+                text "spiritual successor"
+              text "of"
+              anchor [ref=13236, url=https://en.wikipedia.org/wiki/Netscape_Navigator]
+                text "Netscape Navigator"
+              text ", as the"
+              anchor [ref=13237, url=https://en.wikipedia.org/wiki/Mozilla]
+                text "Mozilla"
+              text "community was created by"
+              anchor [ref=13238, url=https://en.wikipedia.org/wiki/Netscape]
+                text "Netscape"
+              text "in 1998, before Netscape's acquisition by"
+              anchor [ref=13239, loc=href:https://en.wikipedia.org/wiki/AOL, url=https://en.wikipedia.org/wiki/AOL]
+                text "AOL"
+              text "."
+              anchor [ref=13240, loc=href:https://en.wikipedia.org/wiki/Firefox#cite_note-14, url=https://en.wikipedia.org/wiki/Firefox#cite_note-14]
+                text "["
+                text "14"
+                text "]"
+              text "Firefox was created in 2002 under the codename "Phoenix" by members of the Mozilla community who desired a standalone browser rather than the"
+              anchor [ref=13241, url=https://en.wikipedia.org/wiki/Mozilla_Application_Suite]
+                text "Mozilla Application Suite"
+              text "bundle. During its"
+              anchor [ref=13242, url=https://en.wikipedia.org/wiki/Software_release_life_cycle#Beta]
+                text "beta"
+              text "phase, it proved to be popular with its testers and was praised for its speed, security, and add-ons compared to"
+              anchor [ref=13243, loc=href:https://en.wikipedia.org/wiki/Microsoft, url=https://en.wikipedia.org/wiki/Microsoft]
+                text "Microsoft"
+              text "'s then-dominant"
+              anchor [ref=13244, url=https://en.wikipedia.org/wiki/Internet_Explorer_6]
+                text "Internet Explorer 6"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 40527 px; scroll or use snapshot({ scope: "full_page" })]

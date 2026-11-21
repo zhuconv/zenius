@@ -1,0 +1,4 @@
+interface:
+  display_name: "zenius"
+  short_description: "Automate tasks in the user's Zen browser"
+  default_prompt: "Use $zenius to complete a browser automation task."

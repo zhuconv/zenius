@@ -1,0 +1,1153 @@
+[p1 "playwright - npm" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "playwright - npm"]
+root
+  container
+    button [ref=24811]
+      text "copy"
+    button [ref=24812]
+      text "copy"
+    button [ref=24813]
+      text "copy"
+    button [ref=24814]
+      text "copy"
+    button [ref=24815]
+      text "copy"
+    button [ref=24816]
+      text "copy"
+    button [ref=24817]
+      text "copy"
+    button [ref=24818]
+      text "copy"
+    button [ref=24819]
+      text "copy"
+    button [ref=24820]
+      text "copy"
+    button [ref=24821]
+      text "copy"
+    button [ref=24822]
+      text "copy"
+    button [ref=24823]
+      text "copy"
+    button [ref=24824]
+      text "copy"
+    button [ref=24825]
+      text "copy"
+    button [ref=24826]
+      text "copy"
+    button [ref=24827]
+      text "copy"
+    button [ref=24828]
+      text "copy"
+    button [ref=24829]
+      text "copy"
+    button [ref=24830]
+      text "copy"
+    button [ref=24831]
+      text "copy"
+    button [ref=24832]
+      text "copy"
+    container
+      container "Site notifications"
+        text "⚠️"
+        alert
+          text "npm tokens that bypass 2FA are being restricted — account changes (Aug 2026) and direct publishing (Jan 2027)."
+          anchor "Learn how to prepare for the npm bypass 2FA token deprecation" [ref=24779, loc=css:a[aria-label="Learn how to prepare for the npm bypass 2FA token deprecation"], url=https://github.blog/changelog/2026-07-08-npm-install-time-security-and-gat-bypass2fa-deprecation/]
+            text "Learn how to prepare →"
+        button "Close notification" [ref=24780, loc=css:button[aria-label="Close notification"]]
+          text "×"
+      container
+        container
+          container
+            text "skip to:"
+            anchor "skip to content" [ref=24833, loc=css:a[aria-label="skip to content"], url=https://www.npmjs.com/package/playwright#main]
+              text "content"
+            anchor "skip to package search" [ref=24834, loc=css:a[aria-label="skip to package search"], url=https://www.npmjs.com/package/playwright#search]
+              text "package search"
+            anchor "skip to sign in" [ref=24835, loc=css:a[aria-label="skip to sign in"], url=https://www.npmjs.com/package/playwright#signin]
+              text "sign in"
+            container
+              button "Light mode — click for dark" [ref=24781, loc=css:button[aria-label="Light mode — click for dark"]]
+                svg_root
+              container "Product Navigation"
+                unordered_list
+                  list_item
+                    anchor [ref=24782, loc=href:https://www.npmjs.com/products/pro, url=https://www.npmjs.com/products/pro]
+                      text "Pro"
+                  list_item
+                    anchor [ref=24783, loc=href:https://www.npmjs.com/products/teams, url=https://www.npmjs.com/products/teams]
+                      text "Teams"
+                  list_item
+                    anchor [ref=24784, loc=href:https://www.npmjs.com/products, url=https://www.npmjs.com/products]
+                      text "Pricing"
+                  list_item
+                    anchor [ref=24785, url=https://docs.npmjs.com/]
+                      text "Documentation"
+          container
+            text "npm"
+            anchor "Npm" [ref=24786, loc=css:a[aria-label="Npm"], url=https://www.npmjs.com/]
+              svg_root
+            form
+              container
+                svg_root
+                comboboxgrouping "Search packages" [ref=24787, loc=css:input[name="q"]]
+                  text "Search packages"
+              button "Search" [ref=24788, loc=css:button[aria-label="Search"]]
+                text "Search"
+            container
+              anchor [ref=24789, loc=href:https://www.npmjs.com/signup, url=https://www.npmjs.com/signup]
+                text "Sign Up"
+              anchor [ref=24790, loc=href:https://www.npmjs.com/login, url=https://www.npmjs.com/login]
+                text "Sign In"
+        container
+          container
+            heading [ref=24791]
+              text "playwright"
+              image
+            container
+              text "1.65.1"
+              text " • "
+            text "Public"
+            container
+              text " • Published"
+              text "6 days ago"
+          tablist
+            list_item
+              tab [ref=24792, loc=href:https://www.npmjs.com/package/playwright?activeTab=readme, url=https://www.npmjs.com/package/playwright?activeTab=readme]
+                image
+                text "Readme"
+            list_item
+              tab [ref=24793, loc=href:https://www.npmjs.com/package/playwright?activeTab=code, url=https://www.npmjs.com/package/playwright?activeTab=code]
+                image
+                text "Code"
+                text "Beta"
+            list_item
+              tab [ref=24794, loc=href:https://www.npmjs.com/package/playwright?activeTab=dependencies, url=https://www.npmjs.com/package/playwright?activeTab=dependencies]
+                image
+                text "1 Dependency"
+            list_item
+              tab [ref=24795, loc=href:https://www.npmjs.com/package/playwright?activeTab=dependents, url=https://www.npmjs.com/package/playwright?activeTab=dependents]
+                image
+                text "6200 Dependents"
+            list_item
+              tab [ref=24796, loc=href:https://www.npmjs.com/package/playwright?activeTab=versions, url=https://www.npmjs.com/package/playwright?activeTab=versions]
+                image
+                text "5,790 Versions"
+          container
+            tabpanel "Readme"
+              container
+                container
+                  heading
+                    text "🎭 Playwright"
+                  anchor "Permalink: 🎭 Playwright" [ref=24797, loc=css:a[aria-label="Permalink: 🎭 Playwright"], url=https://www.npmjs.com/package/playwright#-playwright]
+                paragraph
+                  anchor [ref=24798, loc=href:https://www.npmjs.com/package/playwright, url=https://www.npmjs.com/package/playwright]
+                    image
+                  anchor [ref=24799, loc=href:https://www.chromium.org/Home, url=https://www.chromium.org/Home]
+                    image
+                  anchor [ref=24800, loc=href:https://www.mozilla.org/en-US/firefox/new/, url=https://www.mozilla.org/en-US/firefox/new/]
+                    image
+                  anchor [ref=24801, loc=href:https://webkit.org/, url=https://webkit.org/]
+                    image
+                  anchor [ref=24802, url=https://aka.ms/playwright/discord]
+                    image
+                container
+                  heading
+                    anchor [ref=24803, url=https://playwright.dev/]
+                      text "Documentation"
+                    text "|"
+                    anchor [ref=24804, url=https://playwright.dev/docs/api/class-playwright]
+                      text "API reference"
+                  anchor "Permalink: Documentation | API reference" [ref=24805, loc=css:a[aria-label="Permalink: Documentation | API reference"], url=https://www.npmjs.com/package/playwright#documentation--api-reference]
+                paragraph
+                  text "Playwright is a framework for web automation and testing. It drives Chromium, Firefox, and WebKit with a single API — in your tests, in your scripts, and as a tool for AI agents."
+                container
+                  heading
+                    text "Get Started"
+                  anchor "Permalink: Get Started" [ref=24806, loc=css:a[aria-label="Permalink: Get Started"], url=https://www.npmjs.com/package/playwright#get-started]
+                paragraph
+                  text "Choose the path that fits your workflow:"
+                table
+                  table_row
+                    table_cell
+                    table_cell
+                      text "Best for"
+                    table_cell
+                      text "Install"
+                  table_row
+                    table_cell
+                      anchor [ref=24836, url=https://www.npmjs.com/package/playwright#playwright-test]
+                        text "Playwright Test"
+                    table_cell
+                      text "End-to-end testing"
+                    table_cell
+                      text "npm init playwright@latest"
+                  table_row
+                    table_cell
+                      anchor [ref=24837, url=https://www.npmjs.com/package/playwright#playwright-cli]
+                        text "Playwright CLI"
+                    table_cell
+                      text "Coding agents (Claude Code, Copilot)"
+                    table_cell
+                      text "npm i -g @playwright/cli@latest"
+                  table_row
+                    table_cell
+                      anchor [ref=24838, url=https://www.npmjs.com/package/playwright#playwright-mcp]
+                        text "Playwright MCP"
+                    table_cell
+                      text "AI agents and LLM-driven automation"
+                    table_cell
+                      text "npx @playwright/mcp@latest"
+                  table_row
+                    table_cell
+                      anchor [ref=24839, url=https://www.npmjs.com/package/playwright#playwright-library]
+                        text "Playwright Library"
+                    table_cell
+                      text "Browser automation scripts"
+                    table_cell
+                      text "npm i playwright"
+                  table_row
+                    table_cell
+                      anchor [ref=24840, url=https://www.npmjs.com/package/playwright#vs-code-extension]
+                        text "VS Code Extension"
+                    table_cell
+                      text "Test authoring and debugging in VS Code"
+                    table_cell
+                      anchor [ref=24841, url=https://marketplace.visualstudio.com/items?itemName=ms-playwright.playwright]
+                        text "Install from Marketplace"
+                heading
+                  text "Playwright Test"
+                anchor "Permalink: Playwright Test" [ref=24842, loc=css:a[aria-label="Permalink: Playwright Test"], url=https://www.npmjs.com/package/playwright#playwright-test]
+                paragraph
+                  text "Playwright Test is a full-featured test runner built for end-to-end testing. It runs tests across Chromium, Firefox, and WebKit with full browser isolation, auto-waiting, and web-first assertions."
+                heading
+                  text "Install"
+                anchor "Permalink: Install" [ref=24843, loc=href:https://www.npmjs.com/package/playwright#install, url=https://www.npmjs.com/package/playwright#install]
+                container [ref=24844]
+                  text "npm init playwright@latest"
+                paragraph
+                  text "Or add manually:"
+                container [ref=24845]
+                  text "npm i -D @playwright/test npx playwright install"
+                heading
+                  text "Write a test"
+                anchor "Permalink: Write a test" [ref=24846, loc=css:a[aria-label="Permalink: Write a test"], url=https://www.npmjs.com/package/playwright#write-a-test]
+                container [ref=24847]
+                  text "import"
+                  text "{"
+                  text "test"
+                  text ","
+                  text "expect"
+                  text "}"
+                  text "from"
+                  text "'@playwright/test'"
+                  text ";"
+                  text "test"
+                  text "("
+                  text "'has title'"
+                  text ","
+                  text "async"
+                  text "("
+                  text "{"
+                  text "page"
+                  text "}"
+                  text ")"
+                  text "=>"
+                  text "{"
+                  text "await"
+                  text "page"
+                  text "."
+                  text "goto"
+                  text "("
+                  text "'https://playwright.dev/'"
+                  text ")"
+                  text ";"
+                  text "await"
+                  text "expect"
+                  text "("
+                  text "page"
+                  text ")"
+                  text "."
+                  text "toHaveTitle"
+                  text "("
+                  text "/"
+                  text "P"
+                  text "l"
+                  text "a"
+                  text "y"
+                  text "w"
+                  text "r"
+                  text "i"
+                  text "g"
+                  text "h"
+                  text "t"
+                  text "/"
+                  text ")"
+                  text ";"
+                  text "}"
+                  text ")"
+                  text ";"
+                  text "test"
+                  text "("
+                  text "'get started link'"
+                  text ","
+                  text "async"
+                  text "("
+                  text "{"
+                  text "page"
+                  text "}"
+                  text ")"
+                  text "=>"
+                  text "{"
+                  text "await"
+                  text "page"
+                  text "."
+                  text "goto"
+                  text "("
+                  text "'https://playwright.dev/'"
+                  text ")"
+                  text ";"
+                  text "await"
+                  text "page"
+                  text "."
+                  text "getByRole"
+                  text "("
+                  text "'link'"
+                  text ","
+                  text "{"
+                  text "name"
+                  text ":"
+                  text "'Get started'"
+                  text "}"
+                  text ")"
+                  text "."
+                  text "click"
+                  text "("
+                  text ")"
+                  text ";"
+                  text "await"
+                  text "expect"
+                  text "("
+                  text "page"
+                  text "."
+                  text "getByRole"
+                  text "("
+                  text "'heading'"
+                  text ","
+                  text "{"
+                  text "name"
+                  text ":"
+                  text "'Installation'"
+                  text "}"
+                  text ")"
+                  text ")"
+                  text "."
+                  text "toBeVisible"
+                  text "("
+                  text ")"
+                  text ";"
+                  text "}"
+                  text ")"
+                  text ";"
+                heading
+                  text "Run tests"
+                anchor "Permalink: Run tests" [ref=24848, loc=css:a[aria-label="Permalink: Run tests"], url=https://www.npmjs.com/package/playwright#run-tests]
+                container [ref=24849]
+                  text "npx playwright"
+                  text "test"
+                paragraph
+                  text "Tests run in parallel across all configured browsers, in headless mode by default. Each test gets a fresh browser context — full isolation with near-zero overhead."
+                heading
+                  text "Key capabilities"
+                anchor "Permalink: Key capabilities" [ref=24850, loc=css:a[aria-label="Permalink: Key capabilities"], url=https://www.npmjs.com/package/playwright#key-capabilities]
+                paragraph
+                  text "Auto-wait and web-first assertions."
+                  text "No artificial timeouts. Playwright waits for elements to be actionable, and assertions automatically retry until conditions are met."
+                paragraph
+                  text "Locators."
+                  text "Find elements with resilient locators that mirror how users see the page:"
+                container [ref=24851]
+                  text "page"
+                  text "."
+                  text "getByRole"
+                  text "("
+                  text "'button'"
+                  text ","
+                  text "{"
+                  text "name"
+                  text ":"
+                  text "'Submit'"
+                  text "}"
+                  text ")"
+                  text "page"
+                  text "."
+                  text "getByLabel"
+                  text "("
+                  text "'Email'"
+                  text ")"
+                  text "page"
+                  text "."
+                  text "getByPlaceholder"
+                  text "("
+                  text "'Search...'"
+                  text ")"
+                  text "page"
+                  text "."
+                  text "getByTestId"
+                  text "("
+                  text "'login-form'"
+                  text ")"
+                paragraph
+                  text "Test isolation."
+                  text "Each test runs in its own browser context — equivalent to a fresh browser profile. Save authentication state once and reuse it across tests:"
+                container [ref=24852]
+                  text "// Save state after login"
+                  text "await"
+                  text "page"
+                  text "."
+                  text "context"
+                  text "("
+                  text ")"
+                  text "."
+                  text "storageState"
+                  text "("
+                  text "{"
+                  text "path"
+                  text ":"
+                  text "'auth.json'"
+                  text "}"
+                  text ")"
+                  text ";"
+                  text "// Reuse in other tests"
+                  text "test"
+                  text "."
+                  text "use"
+                  text "("
+                  text "{"
+                  text "storageState"
+                  text ":"
+                  text "'auth.json'"
+                  text "}"
+                  text ")"
+                  text ";"
+                paragraph
+                  text "Tracing."
+                  text "Capture execution traces, screenshots, and videos on failure. Inspect every action, DOM snapshot, network request, and console message in the"
+                  anchor [ref=24853, loc=href:https://playwright.dev/docs/trace-viewer, url=https://playwright.dev/docs/trace-viewer]
+                    text "Trace Viewer"
+                  text ":"
+                container [ref=24854]
+                  text "// playwright.config.ts"
+                  text "export"
+                  text "default"
+                  text "defineConfig"
+                  text "("
+                  text "{"
+                  text "use"
+                  text ":"
+                  text "{"
+                  text "trace"
+                  text ":"
+                  text "'on-first-retry'"
+                  text ","
+                  text "}"
+                  text ","
+                  text "}"
+                  text ")"
+                  text ";"
+                container [ref=24855]
+                  text "npx playwright show-trace trace.zip"
+                paragraph
+                  text "Parallelism."
+                  text "Tests run in parallel by default across all configured browsers."
+                paragraph
+                  anchor [ref=24856, loc=href:https://playwright.dev/docs/intro, url=https://playwright.dev/docs/intro]
+                    text "Full testing documentation"
+                heading
+                  text "Playwright CLI"
+                anchor "Permalink: Playwright CLI" [ref=24857, loc=css:a[aria-label="Permalink: Playwright CLI"], url=https://www.npmjs.com/package/playwright#playwright-cli]
+                paragraph
+                  anchor [ref=24858, url=https://github.com/microsoft/playwright-cli]
+                    text "Playwright CLI"
+                  text "is a command-line interface for browser automation designed for coding agents. It's more token-efficient than MCP — commands avoid loading large tool schemas and accessibility trees into the model c..."
+                heading
+                  text "Install"
+                anchor "Permalink: Install" [ref=24859, loc=href:https://www.npmjs.com/package/playwright#install-1, url=https://www.npmjs.com/package/playwright#install-1]
+                container [ref=24860]
+                  text "npm install -g @playwright/cli@latest"
+                paragraph
+                  text "Optionally install skills for richer agent integration:"
+                container [ref=24861]
+                  text "playwright-cli install --skills"
+                heading
+                  text "Usage"
+                anchor "Permalink: Usage" [ref=24862, loc=css:a[aria-label="Permalink: Usage"], url=https://www.npmjs.com/package/playwright#usage]
+                paragraph
+                  text "Point your coding agent at a task:"
+                container [ref=24863]
+                  text "Test the "add todo" flow on https://demo.playwright.dev/todomvc using playwright-cli. Take screenshots for all successful and failing scenarios."
+                paragraph
+                  text "Or run commands directly:"
+                container [ref=24864]
+                  text "playwright-cli open https://demo.playwright.dev/todomvc/ --headed playwright-cli"
+                  text "type"
+                  text """
+                  text "Buy groceries"
+                  text """
+                  text "playwright-cli press Enter playwright-cli screenshot"
+                heading
+                  text "Session monitoring"
+                anchor "Permalink: Session monitoring" [ref=24865, loc=css:a[aria-label="Permalink: Session monitoring"], url=https://www.npmjs.com/package/playwright#session-monitoring]
+                paragraph
+                  text "Use"
+                  text "playwright-cli show"
+                  text "to open a visual dashboard with live screencast previews of all running browser sessions. Click any session to zoom in and take remote control."
+                container [ref=24866]
+                  text "playwright-cli show"
+                paragraph
+                  anchor [ref=24867, loc=href:https://playwright.dev/agent-cli/introduction, url=https://playwright.dev/agent-cli/introduction]
+                    text "Full CLI documentation"
+                  text "|"
+                  anchor [ref=24868, url=https://github.com/microsoft/playwright-cli]
+                    text "GitHub"
+                heading
+                  text "Playwright MCP"
+                anchor "Permalink: Playwright MCP" [ref=24869, loc=css:a[aria-label="Permalink: Playwright MCP"], url=https://www.npmjs.com/package/playwright#playwright-mcp]
+                paragraph
+                  text "The"
+                  anchor [ref=24870, url=https://github.com/microsoft/playwright-mcp]
+                    text "Playwright MCP server"
+                  text "gives AI agents full browser control through the"
+                  anchor [ref=24871, loc=href:https://modelcontextprotocol.io/, url=https://modelcontextprotocol.io/]
+                    text "Model Context Protocol"
+                  text ". Agents interact with pages using structured accessibility snapshots — no vision models or screenshots required."
+                heading
+                  text "Setup"
+                anchor "Permalink: Setup" [ref=24872, loc=css:a[aria-label="Permalink: Setup"], url=https://www.npmjs.com/package/playwright#setup]
+                paragraph
+                  text "Add to your MCP client (VS Code, Cursor, Claude Desktop, Windsurf, etc.):"
+                container [ref=24873]
+                  text "{"
+                  text ""mcpServers""
+                  text ": {"
+                  text ""playwright""
+                  text ": {"
+                  text ""command""
+                  text ":"
+                  text """
+                  text "npx"
+                  text """
+                  text ","
+                  text ""args""
+                  text ": ["
+                  text """
+                  text "@playwright/mcp@latest"
+                  text """
+                  text "] } } }"
+                paragraph
+                  text "One-click install for VS Code:"
+                paragraph
+                  anchor [ref=24874, url=https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522playwright%2522%252C%2522command%2522%253A%2522npx%2522%252C%2522args%2522%253A%255B%2522%2540playwright%252Fmcp%2540latest%2522%255D%257D]
+                    image
+                paragraph
+                  text "For Claude Code:"
+                container [ref=24875]
+                  text "claude mcp add playwright npx @playwright/mcp@latest"
+                heading
+                  text "How it works"
+                anchor "Permalink: How it works" [ref=24876, loc=css:a[aria-label="Permalink: How it works"], url=https://www.npmjs.com/package/playwright#how-it-works]
+                paragraph
+                  text "Ask your AI assistant to interact with any web page:"
+                container [ref=24877]
+                  text "Navigate to https://demo.playwright.dev/todomvc and add a few todo items."
+                paragraph
+                  text "The agent sees the page as a structured accessibility tree:"
+                container [ref=24878]
+                  text "- heading "todos" [level=1] - textbox "What needs to be done?" [ref=e5] - listitem: - checkbox "Toggle Todo" [ref=e10] - text: "Buy groceries""
+                paragraph
+                  text "It uses element refs like"
+                  text "e5"
+                  text "and"
+                  text "e10"
+                  text "to click, type, and interact — deterministically and without visual ambiguity. Tools cover navigation, form filling, screenshots, network mocking, storage management, and more."
+                paragraph
+                  anchor [ref=24879, loc=href:https://playwright.dev/mcp/introduction, url=https://playwright.dev/mcp/introduction]
+                    text "Full MCP documentation"
+                  text "|"
+                  anchor [ref=24880, url=https://github.com/microsoft/playwright-mcp]
+                    text "GitHub"
+                heading
+                  text "Playwright Library"
+                anchor "Permalink: Playwright Library" [ref=24881, loc=css:a[aria-label="Permalink: Playwright Library"], url=https://www.npmjs.com/package/playwright#playwright-library]
+                paragraph
+                  text "Use"
+                  text "playwright"
+                  text "as a library for browser automation scripts — web scraping, PDF generation, screenshot capture, and any workflow that needs programmatic browser control without a test runner."
+                heading
+                  text "Install"
+                anchor "Permalink: Install" [ref=24882, loc=href:https://www.npmjs.com/package/playwright#install-2, url=https://www.npmjs.com/package/playwright#install-2]
+                container [ref=24883]
+                  text "npm i playwright"
+                heading
+                  text "Examples"
+                anchor "Permalink: Examples" [ref=24884, loc=css:a[aria-label="Permalink: Examples"], url=https://www.npmjs.com/package/playwright#examples]
+                paragraph
+                  text "Take a screenshot:"
+                container [ref=24885]
+                  text "import"
+                  text "{"
+                  text "chromium"
+                  text "}"
+                  text "from"
+                  text "'playwright'"
+                  text ";"
+                  text "const"
+                  text "browser"
+                  text "="
+                  text "await"
+                  text "chromium"
+                  text "."
+                  text "launch"
+                  text "("
+                  text ")"
+                  text ";"
+                  text "const"
+                  text "page"
+                  text "="
+                  text "await"
+                  text "browser"
+                  text "."
+                  text "newPage"
+                  text "("
+                  text ")"
+                  text ";"
+                  text "await"
+                  text "page"
+                  text "."
+                  text "goto"
+                  text "("
+                  text "'https://playwright.dev/'"
+                  text ")"
+                  text ";"
+                  text "await"
+                  text "page"
+                  text "."
+                  text "screenshot"
+                  text "("
+                  text "{"
+                  text "path"
+                  text ":"
+                  text "'screenshot.png'"
+                  text "}"
+                  text ")"
+                  text ";"
+                  text "await"
+                  text "browser"
+                  text "."
+                  text "close"
+                  text "("
+                  text ")"
+                  text ";"
+                paragraph
+                  text "Generate a PDF:"
+                container [ref=24886]
+                  text "import"
+                  text "{"
+                  text "chromium"
+                  text "}"
+                  text "from"
+                  text "'playwright'"
+                  text ";"
+                  text "const"
+                  text "browser"
+                  text "="
+                  text "await"
+                  text "chromium"
+                  text "."
+                  text "launch"
+                  text "("
+                  text ")"
+                  text ";"
+                  text "const"
+                  text "page"
+                  text "="
+                  text "await"
+                  text "browser"
+                  text "."
+                  text "newPage"
+                  text "("
+                  text ")"
+                  text ";"
+                  text "await"
+                  text "page"
+                  text "."
+                  text "goto"
+                  text "("
+                  text "'https://playwright.dev/'"
+                  text ")"
+                  text ";"
+                  text "await"
+                  text "page"
+                  text "."
+                  text "pdf"
+                  text "("
+                  text "{"
+                  text "path"
+                  text ":"
+                  text "'page.pdf'"
+                  text ","
+                  text "format"
+                  text ":"
+                  text "'A4'"
+                  text "}"
+                  text ")"
+                  text ";"
+                  text "await"
+                  text "browser"
+                  text "."
+                  text "close"
+                  text "("
+                  text ")"
+                  text ";"
+                paragraph
+                  text "Emulate a mobile device:"
+                container [ref=24887]
+                  text "import"
+                  text "{"
+                  text "chromium"
+                  text ","
+                  text "devices"
+                  text "}"
+                  text "from"
+                  text "'playwright'"
+                  text ";"
+                  text "const"
+                  text "browser"
+                  text "="
+                  text "await"
+                  text "chromium"
+                  text "."
+                  text "launch"
+                  text "("
+                  text ")"
+                  text ";"
+                  text "const"
+                  text "context"
+                  text "="
+                  text "await"
+                  text "browser"
+                  text "."
+                  text "newContext"
+                  text "("
+                  text "devices"
+                  text "["
+                  text "'iPhone 15'"
+                  text "]"
+                  text ")"
+                  text ";"
+                  text "const"
+                  text "page"
+                  text "="
+                  text "await"
+                  text "context"
+                  text "."
+                  text "newPage"
+                  text "("
+                  text ")"
+                  text ";"
+                  text "await"
+                  text "page"
+                  text "."
+                  text "goto"
+                  text "("
+                  text "'https://playwright.dev/'"
+                  text ")"
+                  text ";"
+                  text "await"
+                  text "page"
+                  text "."
+                  text "screenshot"
+                  text "("
+                  text "{"
+                  text "path"
+                  text ":"
+                  text "'mobile.png'"
+                  text "}"
+                  text ")"
+                  text ";"
+                  text "await"
+                  text "browser"
+                  text "."
+                  text "close"
+                  text "("
+                  text ")"
+                  text ";"
+                paragraph
+                  text "Intercept network requests:"
+                container [ref=24888]
+                  text "import"
+                  text "{"
+                  text "chromium"
+                  text "}"
+                  text "from"
+                  text "'playwright'"
+                  text ";"
+                  text "const"
+                  text "browser"
+                  text "="
+                  text "await"
+                  text "chromium"
+                  text "."
+                  text "launch"
+                  text "("
+                  text ")"
+                  text ";"
+                  text "const"
+                  text "page"
+                  text "="
+                  text "await"
+                  text "browser"
+                  text "."
+                  text "newPage"
+                  text "("
+                  text ")"
+                  text ";"
+                  text "await"
+                  text "page"
+                  text "."
+                  text "route"
+                  text "("
+                  text "'**/*.{png,jpg,jpeg}'"
+                  text ","
+                  text "route"
+                  text "=>"
+                  text "route"
+                  text "."
+                  text "abort"
+                  text "("
+                  text ")"
+                  text ")"
+                  text ";"
+                  text "await"
+                  text "page"
+                  text "."
+                  text "goto"
+                  text "("
+                  text "'https://playwright.dev/'"
+                  text ")"
+                  text ";"
+                  text "await"
+                  text "browser"
+                  text "."
+                  text "close"
+                  text "("
+                  text ")"
+                  text ";"
+                paragraph
+                  anchor [ref=24889, loc=href:https://playwright.dev/docs/library, url=https://playwright.dev/docs/library]
+                    text "Library documentation"
+                  text "|"
+                  anchor [ref=24890, url=https://playwright.dev/docs/api/class-playwright]
+                    text "API reference"
+                heading
+                  text "VS Code Extension"
+                anchor "Permalink: VS Code Extension" [ref=24891, loc=css:a[aria-label="Permalink: VS Code Extension"], url=https://www.npmjs.com/package/playwright#vs-code-extension]
+                paragraph
+                  text "The"
+                  anchor [ref=24892, url=https://marketplace.visualstudio.com/items?itemName=ms-playwright.playwright]
+                    text "Playwright VS Code extension"
+                  text "brings test running, debugging, and code generation directly into your editor."
+                paragraph
+                  text "Run and debug tests"
+                  text "from the editor with a single click. Set breakpoints, inspect variables, and step through test execution with a live browser view."
+                paragraph
+                  text "Generate tests with CodeGen."
+                  text "Click "Record new" to open a browser — navigate and interact with your app while Playwright writes the test code for you."
+                paragraph
+                  text "Pick locators."
+                  text "Hover over any element in the browser to see the best available locator, then click to copy it to your clipboard."
+                paragraph
+                  text "Trace Viewer integration."
+                  text "Enable "Show Trace Viewer" in the sidebar to get a full execution trace after each test run — DOM snapshots, network requests, console logs, and screenshots at every step."
+                paragraph
+                  anchor [ref=24893, url=https://marketplace.visualstudio.com/items?itemName=ms-playwright.playwright]
+                    text "Install the extension"
+                  text "|"
+                  anchor [ref=24894, loc=href:https://playwright.dev/docs/getting-started-vscode, url=https://playwright.dev/docs/getting-started-vscode]
+                    text "VS Code guide"
+                heading
+                  text "Cross-Browser Support"
+                anchor "Permalink: Cross-Browser Support" [ref=24895, loc=css:a[aria-label="Permalink: Cross-Browser Support"], url=https://www.npmjs.com/package/playwright#cross-browser-support]
+                table
+                  table_row
+                    table_cell
+                    table_cell
+                      text "Linux"
+                    table_cell
+                      text "macOS"
+                    table_cell
+                      text "Windows"
+                  table_row
+                    table_cell
+                      text "Chromium"
+                      text "1"
+                      text "159.0.8154.6"
+                    table_cell
+                      text "✅"
+                    table_cell
+                      text "✅"
+                    table_cell
+                      text "✅"
+                  table_row
+                    table_cell
+                      text "WebKit 27.2"
+                    table_cell
+                      text "✅"
+                    table_cell
+                      text "✅"
+                    table_cell
+                      text "✅"
+                  table_row
+                    table_cell
+                      text "Firefox 159.0"
+                    table_cell
+                      text "✅"
+                    table_cell
+                      text "✅"
+                    table_cell
+                      text "✅"
+                paragraph
+                  text "Headless and headed execution on all platforms."
+                  text "1"
+                  text "Uses"
+                  anchor [ref=24896, loc=href:https://developer.chrome.com/blog/chrome-for-testing, url=https://developer.chrome.com/blog/chrome-for-testing]
+                    text "Chrome for Testing"
+                  text "by default."
+                heading
+                  text "Other Languages"
+                anchor "Permalink: Other Languages" [ref=24897, loc=css:a[aria-label="Permalink: Other Languages"], url=https://www.npmjs.com/package/playwright#other-languages]
+                paragraph
+                  text "Playwright is also available for"
+                  anchor [ref=24898, loc=href:https://playwright.dev/python/docs/intro, url=https://playwright.dev/python/docs/intro]
+                    text "Python"
+                  text ","
+                  anchor [ref=24899, loc=href:https://playwright.dev/dotnet/docs/intro, url=https://playwright.dev/dotnet/docs/intro]
+                    text ".NET"
+                  text ", and"
+                  anchor [ref=24900, loc=href:https://playwright.dev/java/docs/intro, url=https://playwright.dev/java/docs/intro]
+                    text "Java"
+                  text "."
+                heading
+                  text "Resources"
+                anchor "Permalink: Resources" [ref=24901, loc=css:a[aria-label="Permalink: Resources"], url=https://www.npmjs.com/package/playwright#resources]
+                unordered_list
+                  list_item
+                    anchor [ref=24902, url=https://playwright.dev/]
+                      text "Documentation"
+                  list_item
+                    anchor [ref=24903, url=https://playwright.dev/docs/api/class-playwright]
+                      text "API reference"
+                  list_item
+                    anchor [ref=24904, url=https://github.com/microsoft/playwright-mcp]
+                      text "MCP server"
+                  list_item
+                    anchor [ref=24905, url=https://github.com/microsoft/playwright-cli]
+                      text "CLI for coding agents"
+                  list_item
+                    anchor [ref=24906, loc=href:https://github.com/microsoft/playwright-vscode, url=https://github.com/microsoft/playwright-vscode]
+                      text "VS Code extension"
+                  list_item
+                    anchor [ref=24907, loc=href:https://github.com/microsoft/playwright/blob/HEAD/CONTRIBUTING.md, url=https://github.com/microsoft/playwright/blob/HEAD/CONTRIBUTING.md]
+                      text "Contribution guide"
+                  list_item
+                    anchor [ref=24908, loc=href:https://github.com/microsoft/playwright/releases, url=https://github.com/microsoft/playwright/releases]
+                      text "Changelog"
+                  list_item
+                    anchor [ref=24909, url=https://aka.ms/playwright/discord]
+                      text "Discord"
+              heading
+                text "Readme"
+              heading
+                text "Keywords"
+              text "none"
+              container
+                heading
+                  text "Provenance"
+                svg_root
+                text "Built and signed on"
+                heading
+                  text "GitHub Actions"
+                anchor [ref=24910, loc=href:https://github.com/microsoft/playwright/actions/runs/43507728069/attempts/1, url=https://github.com/microsoft/playwright/actions/runs/43507728069/attempts/1]
+                  text "View build summary"
+                paragraph
+                  text "Source Commit"
+                anchor "Source Commit" [ref=24911, url=https://github.com/microsoft/playwright/tree/cb1c1d0e6bcd407d0c8b189ad828f560cb485476]
+                  text "github.com/microsoft/playwright@cb1c1d0"
+                paragraph
+                  text "Build File"
+                anchor "Build File" [ref=24912, url=https://github.com/microsoft/playwright/actions/runs/43507728069/workflow]
+                  text ".github/workflows/publish_manual.yml"
+                paragraph
+                  text "Public Ledger"
+                anchor [ref=24913, loc=href:https://search.sigstore.dev/?logIndex=3862554522, url=https://search.sigstore.dev/?logIndex=3862554522]
+                  text "Transparency log entry"
+                anchor [ref=24914, loc=href:https://github.com/npm/feedback, url=https://github.com/npm/feedback]
+                  text "Share feedback"
+            tabpanel
+            tabpanel
+            tabpanel "1 Dependency"
+            tabpanel "6200 Dependents"
+          container "Package sidebar"
+            heading
+              text "Package Sidebar"
+            heading
+              text "Install"
+            container
+              svg_root
+              paragraph
+                container
+                  text "npm i"
+                  text "playwright"
+                button "Copy install command line" [ref=24807, loc=css:button[aria-label="Copy install command line"]]
+                  image
+            container
+              heading
+                text "Repository"
+              paragraph
+                anchor "Repository github.com/microsoft/playwright" [ref=24808, url=https://github.com/microsoft/playwright]
+                  svg_root
+                  text "github.com/microsoft/playwright"
+            container
+              heading
+                text "Homepage"
+              paragraph
+                anchor "Homepage playwright.dev" [ref=24809, url=https://playwright.dev/]
+                  image
+                  text "playwright.dev"
+            button "Showing weekly downloads" [ref=24810, loc=role:button[name="Showing weekly downloads"]]
+              heading
+                svg_root
+                text "Weekly Downloads"
+              container
+                svg_root
+                paragraph
+                  text "151,383,866"
+            container
+              heading
+                text "Version"
+              paragraph
+                text "1.65.1"
+              button "View more provenance details" [ref=24915, loc=css:button[aria-label="View more provenance details"]]
+                svg_root
+            container
+              heading
+                text "License"
+              paragraph
+                text "Apache-2.0"
+            heading
+              text "Last publish"
+            paragraph
+              text "a day ago"
+            heading
+              text "Collaborators"
+            unordered_list "Collaborators"
+              table
+                table_row
+                  table_cell
+              list_item
+                anchor [ref=24916, loc=href:https://www.npmjs.com/~pavelfeldman, url=https://www.npmjs.com/~pavelfeldman]
+                  image
+                  text "pavelfeldman"
+              list_item
+                anchor [ref=24917, loc=href:https://www.npmjs.com/~yurys, url=https://www.npmjs.com/~yurys]
+                  image
+              list_item
+                anchor [ref=24918, loc=href:https://www.npmjs.com/~microsoft1es, url=https://www.npmjs.com/~microsoft1es]
+                  image
+              list_item
+                anchor [ref=24919, loc=href:https://www.npmjs.com/~dgozman-ms, url=https://www.npmjs.com/~dgozman-ms]
+                  image
+              list_item
+                anchor [ref=24920, loc=href:https://www.npmjs.com/~microsoft-oss-releases, url=https://www.npmjs.com/~microsoft-oss-releases]
+                  image
+              table
+                table_row
+                  table_cell
+            container
+              anchor [ref=24921, loc=href:https://socket.dev/npm/package/playwright, url=https://socket.dev/npm/package/playwright]
+                image
+                text "Analyze security"
+                text "with Socket"
+              anchor [ref=24922, loc=href:https://bundlephobia.com/package/playwright, url=https://bundlephobia.com/package/playwright]
+                image
+                text "Check bundle size"
+              anchor [ref=24923, loc=href:https://snyk.io/advisor/npm-package/playwright, url=https://snyk.io/advisor/npm-package/playwright]
+                image
+                text "View package health"
+              anchor [ref=24924, loc=href:https://npmgraph.js.org/?q=playwright, url=https://npmgraph.js.org/?q=playwright]
+                image
+                text "Explore dependencies"
+            anchor [ref=24925, url=https://www.npmjs.com/support?inquire=security&security-inquire=malware&package=playwright&version=1.65.1]
+              image
+              text "Report"
+              text "malware"
+        container
+          heading
+            text "Footer"
+          anchor "Visit npm GitHub page" [ref=24926, loc=css:a[aria-label="Visit npm GitHub page"], url=https://github.com/npm]
+            svg_root
+          anchor "GitHub" [ref=24927, loc=css:a[aria-label="GitHub"], url=https://github.com/]
+            svg_root
+          heading
+            text "Support"
+          unordered_list "Support"
+            list_item
+              anchor [ref=24928, url=https://docs.npmjs.com/]
+                text "Help"
+            list_item
+              anchor [ref=24929, loc=href:https://github.com/advisories, url=https://github.com/advisories]
+                text "Advisories"
+            list_item
+              anchor [ref=24930, loc=href:http://status.npmjs.org/, url=http://status.npmjs.org/]
+                text "Status"
+            list_item
+              anchor [ref=24931, loc=href:https://www.npmjs.com/support, url=https://www.npmjs.com/support]
+                text "Contact npm"
+          heading
+            text "Company"
+          unordered_list "Company"
+            list_item
+              anchor [ref=24932, loc=href:https://www.npmjs.com/about, url=https://www.npmjs.com/about]
+                text "About"
+            list_item
+              anchor [ref=24933, loc=href:https://github.blog/tag/npm/, url=https://github.blog/tag/npm/]
+                text "Blog"
+            list_item
+              anchor [ref=24934, loc=href:https://www.npmjs.com/press, url=https://www.npmjs.com/press]
+                text "Press"
+          heading
+            text "Terms & Policies"
+          unordered_list "Terms & Policies"
+            list_item
+              anchor [ref=24935, loc=href:https://www.npmjs.com/policies/, url=https://www.npmjs.com/policies/]
+                text "Policies"
+            list_item
+              anchor [ref=24936, loc=href:https://www.npmjs.com/policies/terms, url=https://www.npmjs.com/policies/terms]
+                text "Terms of Use"
+            list_item
+              anchor [ref=24937, loc=href:https://www.npmjs.com/policies/conduct, url=https://www.npmjs.com/policies/conduct]
+                text "Code of Conduct"
+            list_item
+              anchor [ref=24938, loc=href:https://www.npmjs.com/policies/privacy, url=https://www.npmjs.com/policies/privacy]
+                text "Privacy"
+    text "Viewing playwright version 1.65.1"
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root

@@ -1,0 +1,31 @@
+[p1 "ego-lite media workbench" | space "zen-eval golden 1795148479936"(5): 1 managed, 0 untracked — p1* "ego-lite media workbench"]
+root
+  container
+    heading
+      text "Media workbench"
+    container
+      container
+        heading
+          text "Generated video"
+        video
+        button [ref=166]
+          text "Play video"
+        button [ref=167]
+          text "Pause video"
+        button [ref=168]
+          text "Set video to 1.5×"
+        button [ref=169]
+          text "Toggle video mute"
+      container
+        heading
+          text "Generated audio"
+        button [ref=170]
+          text "Play audio"
+        button [ref=171]
+          text "Pause audio"
+        button [ref=172]
+          text "Seek audio"
+        button [ref=173]
+          text "Set audio volume"
+        output [ref=174]
+          text "Preparing media…"

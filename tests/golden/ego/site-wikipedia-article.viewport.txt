@@ -1,0 +1,436 @@
+[p1 "Firefox - 维基百科 --- Firefox - Wikipedia" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "Firefox - 维基百科 --- Firefox - Wikipedia"]
+root
+  container
+    container
+      container
+        container "Site"
+          button "Main menu" [ref=2, loc=css:input[aria-label="Main menu"]]
+        anchor [ref=3, url=https://en.wikipedia.org/wiki/Main_Page]
+          image
+          image
+      container
+        search
+          form
+            searchbox "Search Wikipedia" [ref=4]
+              text "Search Wikipedia"
+            button [ref=5]
+              text "Search"
+        container "Personal tools"
+          unordered_list
+            list_item
+              anchor [ref=6, url=https://donate.wikimedia.org/?wmf_source=donate&wmf_medium=sidebar&wmf_campaign=en.wikipedia.org&uselang=en]
+                text "Donate"
+            list_item
+              anchor [ref=7, url=https://en.wikipedia.org/w/index.php?title=Special:CreateAccount&returnto=Firefox]
+                text "Create account"
+            list_item
+              anchor [ref=8, url=https://en.wikipedia.org/w/index.php?title=Special:UserLogin&returnto=Firefox]
+                text "Log in"
+    container
+      container "Contents"
+        container
+          heading
+            text "Contents"
+          button "Hide Contents" [ref=9, loc=css:button[aria-label="Hide Contents"]]
+            text "hide"
+        unordered_list
+          list_item
+            anchor [ref=10, url=https://en.wikipedia.org/wiki/Firefox#]
+              text "(Top)"
+          list_item
+            anchor [ref=11, loc=href:/wiki/Firefox#Features, url=https://en.wikipedia.org/wiki/Firefox#Features]
+              text "Features"
+            button [ref=12]
+          list_item
+            anchor [ref=13, loc=href:/wiki/Firefox#History, url=https://en.wikipedia.org/wiki/Firefox#History]
+              text "History"
+            button [ref=14]
+          list_item
+            anchor [ref=15, loc=href:/wiki/Firefox#Security, url=https://en.wikipedia.org/wiki/Firefox#Security]
+              text "Security"
+          list_item
+            anchor [ref=16, loc=href:/wiki/Firefox#Privacy, url=https://en.wikipedia.org/wiki/Firefox#Privacy]
+              text "Privacy"
+          list_item
+            anchor [ref=17, loc=href:/wiki/Firefox#Localizations, url=https://en.wikipedia.org/wiki/Firefox#Localizations]
+              text "Localizations"
+          list_item
+            anchor [ref=18, loc=href:/wiki/Firefox#Platform_availability, url=https://en.wikipedia.org/wiki/Firefox#Platform_availability]
+              text "Platform availability"
+            button [ref=19]
+          list_item
+            anchor [ref=20, loc=href:/wiki/Firefox#Channels_and_release_schedule, url=https://en.wikipedia.org/wiki/Firefox#Channels_and_release_schedule]
+              text "Channels and release schedule"
+          list_item
+            anchor [ref=21, loc=href:/wiki/Firefox#Licensing, url=https://en.wikipedia.org/wiki/Firefox#Licensing]
+              text "Licensing"
+          list_item
+            anchor [ref=22, loc=href:/wiki/Firefox#Logo_and_visual_identity, url=https://en.wikipedia.org/wiki/Firefox#Logo_and_visual_identity]
+              text "Logo and visual identity"
+          list_item
+            anchor [ref=23, loc=href:/wiki/Firefox#Trademark, url=https://en.wikipedia.org/wiki/Firefox#Trademark]
+              text "Trademark"
+          list_item
+            anchor [ref=24, loc=href:/wiki/Firefox#Promotion, url=https://en.wikipedia.org/wiki/Firefox#Promotion]
+              text "Promotion"
+          list_item
+            anchor [ref=25, loc=href:/wiki/Firefox#Performance, url=https://en.wikipedia.org/wiki/Firefox#Performance]
+              text "Performance"
+            button [ref=26]
+          list_item
+            anchor [ref=27, loc=href:/wiki/Firefox#Usage_share, url=https://en.wikipedia.org/wiki/Firefox#Usage_share]
+              text "Usage share"
+          list_item
+            anchor [ref=28, loc=href:/wiki/Firefox#Reception, url=https://en.wikipedia.org/wiki/Firefox#Reception]
+              text "Reception"
+          list_item
+            anchor [ref=29, loc=href:/wiki/Firefox#See_also, url=https://en.wikipedia.org/wiki/Firefox#See_also]
+              text "See also"
+          list_item
+            anchor [ref=30, loc=href:/wiki/Firefox#References, url=https://en.wikipedia.org/wiki/Firefox#References]
+              text "References"
+          list_item
+            anchor [ref=31, loc=href:/wiki/Firefox#Further_reading, url=https://en.wikipedia.org/wiki/Firefox#Further_reading]
+              text "Further reading"
+          list_item
+            anchor [ref=32, loc=href:/wiki/Firefox#External_links, url=https://en.wikipedia.org/wiki/Firefox#External_links]
+              text "External links"
+      container
+        container
+          heading
+            text "Firefox"
+            text "火狐浏览器"
+          container
+            button "135 languages" [ref=33, loc=css:input[aria-label="135 languages"]]
+            text "135 languages"
+        container
+          container "Namespaces"
+            unordered_list
+              list_item
+                anchor [ref=34, url=https://en.wikipedia.org/wiki/Firefox]
+                  text "Article"
+              list_item
+                anchor [ref=35, loc=href:/wiki/Talk:Firefox, url=https://en.wikipedia.org/wiki/Talk:Firefox]
+                  text "Talk"
+          container
+            container "Views"
+              unordered_list
+                list_item
+                  anchor [ref=36, url=https://en.wikipedia.org/wiki/Firefox]
+                    text "Read"
+                list_item
+                  anchor [ref=37, url=https://en.wikipedia.org/w/index.php?title=Firefox&action=edit]
+                    text "Edit"
+                list_item
+                  anchor [ref=38, url=https://en.wikipedia.org/w/index.php?title=Firefox&action=history]
+                    text "View history"
+                list_item
+                  anchor [ref=39, url=https://en.wikipedia.org/wiki/Firefox#]
+            container "Page tools"
+              button "Tools" [ref=40, loc=css:input[aria-label="Tools"]]
+        container "Appearance"
+          container
+            text "Appearance"
+            button "Hide Appearance" [ref=41, loc=css:button[aria-label="Hide Appearance"]]
+              text "hide"
+          container
+            text "Text"
+            unordered_list
+              list_item
+                form
+                  container
+                    radio [ref=42]
+                    text "Small"
+                  container
+                    radio [ref=43]
+                    text "Standard"
+                  container
+                    radio [ref=44]
+                    text "Large"
+          container
+            text "Width"
+            unordered_list
+              list_item
+                form
+                  container
+                    radio [ref=45]
+                    text "Standard"
+                  container
+                    radio [ref=46]
+                    text "Wide"
+          container
+            text "Color"
+            unordered_list
+              list_item
+                form
+                  container
+                    radio [ref=47]
+                    text "Automatic"
+                  container
+                    radio [ref=48]
+                    text "Light"
+                  container
+                    radio [ref=49]
+                    text "Dark"
+        container "Firefox  火狐浏览器"
+          text "From Wikipedia, the free encyclopedia"
+          container
+            note
+              container
+                text "This article is about the web browser. For other uses, see"
+                anchor [ref=50, loc=href:/wiki/Firefox_(disambiguation), url=https://en.wikipedia.org/wiki/Firefox_(disambiguation)]
+                  text "Firefox (disambiguation)"
+                text "."
+              container
+                text ""Phoenix (web browser)" redirects here. For the 1990s web browser developed at the University of Chicago, see"
+                anchor [ref=51, loc=href:/wiki/Phoenix_(tkWWW-based_browser), url=https://en.wikipedia.org/wiki/Phoenix_(tkWWW-based_browser)]
+                  text "Phoenix (tkWWW-based browser)"
+                text "."
+            table
+              table_row
+                table_cell
+                  text "Firefox"
+              table_row
+                table_cell
+                  anchor [ref=52, url=https://en.wikipedia.org/wiki/File:Firefox_logo,_2019.svg]
+                    image
+                  container
+                    anchor [ref=53, url=https://en.wikipedia.org/wiki/Firefox_logo]
+                      text "Logo"
+                    text "used since October 2019"
+              table_row
+                table_cell
+                  anchor [ref=54, url=https://en.wikipedia.org/wiki/File:Firefox_157.0.1_opening_English_Wikipedia_article_on_openSUSE_Linux_screenshot.webp]
+                    image
+                  container
+                    text "Firefox 157.0 running on"
+                    anchor [ref=55, url=https://en.wikipedia.org/wiki/OpenSUSE]
+                      text "openSUSE"
+              table_row
+                table_cell
+                  anchor [ref=56, loc=href:/wiki/Programmer, url=https://en.wikipedia.org/wiki/Programmer]
+                    text "Developers"
+                table_cell
+                  unordered_list
+                    list_item
+                      anchor [ref=57, url=https://en.wikipedia.org/wiki/Mozilla_Foundation]
+                        text "Mozilla Foundation"
+                      text "and its contributors"
+                    list_item
+                      anchor [ref=58, url=https://en.wikipedia.org/wiki/Mozilla_Corporation]
+                        text "Mozilla Corporation"
+              table_row
+                table_cell
+                  text "Release"
+                table_cell
+                  text "November"
+                  text "9, 2004"
+                  container
+                    text ";"
+                    text "22 years ago"
+              table_row
+                table_cell
+                  anchor [ref=59, loc=href:/wiki/Software_release_life_cycle, url=https://en.wikipedia.org/wiki/Software_release_life_cycle]
+                    text "Stable release(s)"
+                  anchor [ref=60, loc=href:/wiki/Template:Latest_stable_software_release/Firefox?action=edit, url=https://en.wikipedia.org/wiki/Template:Latest_stable_software_release/Firefox?action=edit]
+                    text "["
+                    text "±"
+                    text "]"
+              table_row
+                table_cell
+                  table
+                    table_row
+                      table_cell
+                        text "Standard"
+                      table_cell
+                        text "160.0.1"
+                        anchor [ref=61, url=https://en.wikipedia.org/wiki/Firefox#cite_note-wikidata-02e67f72f031b750c5f16143410fc51f8df3c0e7-v22-1]
+                          text "["
+                          text "1"
+                          text "]"
+                        anchor [ref=62, url=https://www.wikidata.org/wiki/Q698?uselang=en#P348]
+                          image
+                        text "/ November 17, 2026"
+                        container
+                          text ";"
+                          text "3 days ago"
+            paragraph
+              text "Mozilla Firefox"
+              text ", or simply"
+              text "Firefox"
+              text ", is a"
+              anchor [ref=63, url=https://en.wikipedia.org/wiki/Free_and_open-source_software]
+                text "free and open-source"
+              anchor [ref=64, url=https://en.wikipedia.org/wiki/Firefox#cite_note-LWNtrademark-12]
+                text "["
+                text "12"
+                text "]"
+              anchor [ref=65, url=https://en.wikipedia.org/wiki/Web_browser]
+                text "web browser"
+              text "developed by the"
+              anchor [ref=66, url=https://en.wikipedia.org/wiki/Mozilla_Foundation]
+                text "Mozilla Foundation"
+              text "and its subsidiary, the"
+              anchor [ref=67, url=https://en.wikipedia.org/wiki/Mozilla_Corporation]
+                text "Mozilla Corporation"
+              text ". It uses the"
+              anchor [ref=68, url=https://en.wikipedia.org/wiki/Gecko_(software)]
+                text "Gecko"
+              anchor [ref=69, url=https://en.wikipedia.org/wiki/Browser_engine]
+                text "rendering engine"
+              text "to display web pages, which implements current and anticipated web standards."
+              anchor [ref=70, loc=href:/wiki/Firefox#cite_note-13, url=https://en.wikipedia.org/wiki/Firefox#cite_note-13]
+                text "["
+                text "13"
+                text "]"
+              text "The software is available for"
+              anchor [ref=71, url=https://en.wikipedia.org/wiki/Microsoft_Windows]
+                text "Windows"
+              text ","
+              anchor [ref=72, url=https://en.wikipedia.org/wiki/MacOS]
+                text "macOS"
+              text ", and"
+              anchor [ref=73, url=https://en.wikipedia.org/wiki/Linux]
+                text "Linux"
+              text "systems, as well as a"
+              anchor [ref=74, loc=href:/wiki/Mobile_web, url=https://en.wikipedia.org/wiki/Mobile_web]
+                text "mobile"
+              text "version for"
+              anchor [ref=75, url=https://en.wikipedia.org/wiki/Android_(operating_system)]
+                text "Android"
+              text "(see"
+              anchor [ref=76, url=https://en.wikipedia.org/wiki/Firefox_for_Android]
+                text "Firefox for Android"
+              text ") and"
+              anchor [ref=77, url=https://en.wikipedia.org/wiki/IOS]
+                text "iOS"
+              text ", with unofficial ports for other platforms such as"
+              anchor [ref=78, url=https://en.wikipedia.org/wiki/Oracle_Solaris]
+                text "Oracle Solaris"
+              text "and"
+              anchor [ref=79, url=https://en.wikipedia.org/wiki/OpenIndiana]
+                text "OpenIndiana"
+              text "."
+            paragraph
+              text "Firefox is the"
+              anchor [ref=80, loc=href:/wiki/Spiritual_successor, url=https://en.wikipedia.org/wiki/Spiritual_successor]
+                text "spiritual successor"
+              text "of"
+              anchor [ref=81, url=https://en.wikipedia.org/wiki/Netscape_Navigator]
+                text "Netscape Navigator"
+              text ", as the"
+              anchor [ref=82, url=https://en.wikipedia.org/wiki/Mozilla]
+                text "Mozilla"
+              text "community was created by"
+              anchor [ref=83, url=https://en.wikipedia.org/wiki/Netscape]
+                text "Netscape"
+              text "in 1998, before Netscape's acquisition by"
+              anchor [ref=84, loc=href:/wiki/AOL, url=https://en.wikipedia.org/wiki/AOL]
+                text "AOL"
+              text "."
+              anchor [ref=85, loc=href:/wiki/Firefox#cite_note-14, url=https://en.wikipedia.org/wiki/Firefox#cite_note-14]
+                text "["
+                text "14"
+                text "]"
+              text "Firefox was created in 2002 under the codename "Phoenix" by members of the Mozilla community who desired a standalone browser rather than the"
+              anchor [ref=86, url=https://en.wikipedia.org/wiki/Mozilla_Application_Suite]
+                text "Mozilla Application Suite"
+              text "bundle. During its"
+              anchor [ref=87, url=https://en.wikipedia.org/wiki/Software_release_life_cycle#Beta]
+                text "beta"
+              text "phase, it proved to be popular with its testers and was praised for its speed, security, and add-ons compared to"
+              anchor [ref=88, loc=href:/wiki/Microsoft, url=https://en.wikipedia.org/wiki/Microsoft]
+                text "Microsoft"
+              text "'s then-dominant"
+              anchor [ref=89, url=https://en.wikipedia.org/wiki/Internet_Explorer_6]
+                text "Internet Explorer 6"
+              text ". It was released on November 9, 2004,"
+              anchor [ref=90, loc=href:/wiki/Firefox#cite_note-15, url=https://en.wikipedia.org/wiki/Firefox#cite_note-15]
+                text "["
+                text "15"
+                text "]"
+              text "and challenged"
+              anchor [ref=91, url=https://en.wikipedia.org/wiki/Internet_Explorer]
+                text "Internet Explorer"
+              text "'s dominance with 60 million downloads within nine months."
+              anchor [ref=92, loc=href:/wiki/Firefox#cite_note-16, url=https://en.wikipedia.org/wiki/Firefox#cite_note-16]
+                text "["
+                text "16"
+                text "]"
+              text "In November 2017, Firefox began incorporating new technology under the codename ""
+              anchor [ref=93, url=https://en.wikipedia.org/wiki/Quantum_(Mozilla)]
+                text "Quantum"
+              text "" to promote"
+              anchor [ref=94, loc=href:/wiki/Parallel_computing, url=https://en.wikipedia.org/wiki/Parallel_computing]
+                text "parallelism"
+              text "and a more intuitive"
+              anchor [ref=95, loc=href:/wiki/User_interface, url=https://en.wikipedia.org/wiki/User_interface]
+                text "user interface"
+              text "."
+              anchor [ref=96, loc=href:/wiki/Firefox#cite_note-17, url=https://en.wikipedia.org/wiki/Firefox#cite_note-17]
+                text "["
+                text "17"
+                text "]"
+            paragraph
+              text "The current version of Firefox is available for"
+              anchor [ref=97, url=https://en.wikipedia.org/wiki/Windows_10]
+                text "Windows 10"
+              text "or later versions of Windows, as well as macOS and Linux. Its unofficial ports are available for various"
+              anchor [ref=98, loc=href:/wiki/Unix, url=https://en.wikipedia.org/wiki/Unix]
+                text "Unix"
+              text "systems such as"
+              anchor [ref=99, url=https://en.wikipedia.org/wiki/Oracle_Solaris]
+                text "Oracle Solaris"
+              text "and"
+              anchor [ref=100, url=https://en.wikipedia.org/wiki/OpenIndiana]
+                text "OpenIndiana"
+              text ", as well as for"
+              anchor [ref=101, url=https://en.wikipedia.org/wiki/Unix-like]
+                text "Unix-like"
+              text "operating systems, including"
+              anchor [ref=102, url=https://en.wikipedia.org/wiki/FreeBSD]
+                text "FreeBSD"
+              text ","
+              anchor [ref=103, loc=href:/wiki/Firefox#cite_note-FreeBSD_ports2-18, url=https://en.wikipedia.org/wiki/Firefox#cite_note-FreeBSD_ports2-18]
+                text "["
+                text "18"
+                text "]"
+              anchor [ref=104, url=https://en.wikipedia.org/wiki/OpenBSD]
+                text "OpenBSD"
+              text ","
+              anchor [ref=105, loc=href:/wiki/Firefox#cite_note-OpenBSD_ports2-19, url=https://en.wikipedia.org/wiki/Firefox#cite_note-OpenBSD_ports2-19]
+                text "["
+                text "19"
+                text "]"
+              anchor [ref=106, url=https://en.wikipedia.org/wiki/NetBSD]
+                text "NetBSD"
+              text ","
+              anchor [ref=107, loc=href:/wiki/Firefox#cite_note-NetBSD_pkgsrc2-20, url=https://en.wikipedia.org/wiki/Firefox#cite_note-NetBSD_pkgsrc2-20]
+                text "["
+                text "20"
+                text "]"
+              text "and other operating systems, such as"
+              anchor [ref=108, loc=href:/wiki/ReactOS, url=https://en.wikipedia.org/wiki/ReactOS]
+                text "ReactOS"
+              text ". It is the default, pre-installed browser on"
+              anchor [ref=109, url=https://en.wikipedia.org/wiki/Debian]
+                text "Debian"
+              text ","
+              anchor [ref=110, loc=href:/wiki/Ubuntu, url=https://en.wikipedia.org/wiki/Ubuntu]
+                text "Ubuntu"
+              text ", and some other Linux distributions. Firefox is also available for"
+              anchor [ref=111, url=https://en.wikipedia.org/wiki/Android_(operating_system)]
+                text "Android"
+              text "and"
+              anchor [ref=112, url=https://en.wikipedia.org/wiki/IOS]
+                text "iOS"
+              text ". However, as with all other iOS web browsers, the iOS version uses the"
+  svg_root
+  svg_root
+  container
+    svg_root
+    svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 40453 px; scroll or use snapshot({ scope: "full_page" })]

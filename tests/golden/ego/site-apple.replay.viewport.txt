@@ -1,0 +1,125 @@
+[p1 "Apple" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "Apple"]
+root
+  container
+    container "Global"
+      unordered_list
+        list_item
+          anchor "Apple" [ref=28144, loc=css:a[aria-label="Apple"], url=https://www.apple.com/]
+            svg_root
+        unordered_list
+          list_item
+            anchor "Store" [ref=28145, loc=css:a[aria-label="Store"], url=https://www.apple.com/us/shop/goto/store]
+              svg_root
+          list_item
+            button "Store menu" [ref=28146, loc=css:button[aria-label="Store menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "Mac" [ref=28147, loc=css:a[aria-label="Mac"], url=https://www.apple.com/mac/]
+              svg_root
+          list_item
+            button "Mac menu" [ref=28148, loc=css:button[aria-label="Mac menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "iPad" [ref=28149, loc=css:a[aria-label="iPad"], url=https://www.apple.com/ipad/]
+              svg_root
+          list_item
+            button "iPad menu" [ref=28150, loc=css:button[aria-label="iPad menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "iPhone" [ref=28151, loc=css:a[aria-label="iPhone"], url=https://www.apple.com/iphone/]
+              svg_root
+          list_item
+            button "iPhone menu" [ref=28152, loc=css:button[aria-label="iPhone menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "Watch" [ref=28153, loc=css:a[aria-label="Watch"], url=https://www.apple.com/watch/]
+              svg_root
+          list_item
+            button "Watch menu" [ref=28154, loc=css:button[aria-label="Watch menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "Vision" [ref=28155, loc=css:a[aria-label="Vision"], url=https://www.apple.com/apple-vision-pro/]
+              svg_root
+          list_item
+            button "Vision menu" [ref=28156, loc=css:button[aria-label="Vision menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "AirPods" [ref=28157, loc=css:a[aria-label="AirPods"], url=https://www.apple.com/airpods/]
+              svg_root
+          list_item
+            button "AirPods menu" [ref=28158, loc=css:button[aria-label="AirPods menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "Home" [ref=28159, loc=css:a[aria-label="Home"], url=https://www.apple.com/home/]
+              svg_root
+          list_item
+            button "Home menu" [ref=28160, loc=css:button[aria-label="Home menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "Entertainment" [ref=28161, loc=css:a[aria-label="Entertainment"], url=https://www.apple.com/entertainment/]
+              svg_root
+          list_item
+            button "Entertainment menu" [ref=28162, loc=css:button[aria-label="Entertainment menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "Accessories" [ref=28163, loc=css:a[aria-label="Accessories"], url=https://www.apple.com/us/shop/goto/buy_accessories]
+              svg_root
+          list_item
+            button "Accessories menu" [ref=28164, loc=css:button[aria-label="Accessories menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "Support" [ref=28165, loc=css:a[aria-label="Support"], url=https://support.apple.com/?cid=gn-ols-home-hp-tab]
+              svg_root
+          list_item
+            button "Support menu" [ref=28166, loc=css:button[aria-label="Support menu"]]
+              svg_root
+        list_item
+          button "Search apple.com" [ref=28167, loc=css:a[aria-label="Search apple.com"], url=https://www.apple.com/us/search]
+            svg_root
+        list_item
+          button "Shopping Bag" [ref=28168, loc=css:a[aria-label="Shopping Bag"], url=https://www.apple.com/us/shop/goto/bag]
+            svg_root
+    main
+      container
+        container
+          text "Starting Black Friday, get an Apple Gift Card up to $300"
+          anchor "Footnote * symbol" [ref=28169, loc=css:a[aria-label="Footnote * symbol"], url=https://www.apple.com/#footnote-asterisk-1]
+            text "*"
+          text "when you buy an eligible product."
+        anchor "Learn more, Apple Store Black Friday Event" [ref=28170, loc=css:a[aria-label="Learn more, Apple Store Black Friday Event"], url=https://www.apple.com/us/shop/goto/gifts/black_friday_event]
+          text "Learn more"
+          text ""
+      container
+        container
+          anchor [ref=28171, url=https://www.apple.com/iphone/]
+          container
+            heading
+              text "iPhone"
+            paragraph
+              text "Meet the most powerful iPhone lineup ever."
+            container
+              anchor "Learn more, iPhone" [ref=28172, loc=css:a[aria-label="Learn more, iPhone"], url=https://www.apple.com/iphone/]
+                text "Learn more"
+              anchor "Shop iPhone" [ref=28173, loc=css:a[aria-label="Shop iPhone"], url=https://www.apple.com/us/shop/goto/buy_iphone]
+                text "Shop iPhone"
+          image
+        container
+          anchor [ref=28174, url=https://www.apple.com/macbook-neo/]
+          image
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 6236 px; scroll or use snapshot({ scope: "full_page" })]

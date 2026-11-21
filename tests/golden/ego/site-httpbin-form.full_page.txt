@@ -1,0 +1,57 @@
+[p1 "httpbin.org/forms/post" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "httpbin.org/forms/post"]
+root
+  form
+    paragraph
+      text "Customer name:"
+      textbox [ref=10632, loc=css:input[name="custname"]]
+    paragraph
+      text "Telephone:"
+      textbox [ref=10633, loc=css:input[name="custtel"]]
+    paragraph
+      text "E-mail address:"
+      textbox [ref=10634, loc=css:input[name="custemail"]]
+    group [ref=10635]
+      text "Pizza Size"
+      paragraph
+        radio [ref=10636]
+        text "Small"
+      paragraph
+        radio [ref=10637]
+        text "Medium"
+      paragraph
+        radio [ref=10638]
+        text "Large"
+    group [ref=10639]
+      text "Pizza Toppings"
+      paragraph
+        checkbox [ref=10640]
+        text "Bacon"
+      paragraph
+        checkbox [ref=10641]
+        text "Extra Cheese"
+      paragraph
+        checkbox [ref=10642]
+        text "Onion"
+      paragraph
+        checkbox [ref=10643]
+        text "Mushroom"
+    paragraph
+      text "Preferred delivery time:"
+      textbox [ref=10644, loc=css:input[name="delivery"]]
+        spinbutton "Hours" [ref=10645]
+          text "--"
+        text ":"
+        spinbutton "Minutes" [ref=10646]
+          text "--"
+    paragraph
+      text "Delivery instructions:"
+      textbox [ref=10647, loc=css:textarea[name="comments"]]
+    paragraph
+      button [ref=10648]
+        text "Submit order"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root

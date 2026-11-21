@@ -1,0 +1,82 @@
+[p1 "Welcome to GOV.UK" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "Welcome to GOV.UK"]
+root
+  container
+    container "Navigation menu"
+      anchor "Go to the GOV.UK homepage" [ref=26826, loc=css:a[aria-label="Go to the GOV.UK homepage"], url=https://www.gov.uk/]
+        image "GOV.UK"
+      button "Show navigation menu" [ref=26827, loc=css:button[aria-label="Show navigation menu"]]
+        text "Menu"
+      button "Show search menu" [ref=26828, loc=css:button[aria-label="Show search menu"]]
+        svg_root
+    container
+      container
+        heading
+          text "The best place to find government services and information"
+        search
+          text "Search"
+          table
+            table_row
+              table_cell
+                comboboxgrouping [ref=26829]
+              table_cell
+                button [ref=26830]
+                  svg_root
+      container
+        heading
+          text "Popular on GOV.UK"
+        unordered_list
+          list_item
+            table
+              table_row
+                table_cell
+                  svg_root
+                table_cell
+                  anchor [ref=26831, url=https://www.gov.uk/log-in-register-hmrc-online-services]
+                    text "HMRC account: sign in or set up"
+          list_item
+            table
+              table_row
+                table_cell
+                  svg_root
+                table_cell
+                  anchor [ref=26832, loc=href:https://www.gov.uk/evisa, url=https://www.gov.uk/evisa]
+                    text "eVisas: access and use your online immigration status"
+          list_item
+            table
+              table_row
+                table_cell
+                  svg_root
+                table_cell
+                  anchor [ref=26833, loc=href:https://www.gov.uk/sign-in-universal-credit, url=https://www.gov.uk/sign-in-universal-credit]
+                    text "Universal Credit account: sign in"
+          list_item
+            table
+              table_row
+                table_cell
+                  svg_root
+                table_cell
+                  anchor [ref=26834, loc=href:https://www.gov.uk/personal-tax-account, url=https://www.gov.uk/personal-tax-account]
+                    text "Personal tax account: sign in or set up"
+          list_item
+            table
+              table_row
+                table_cell
+                  svg_root
+                table_cell
+                  anchor [ref=26835, url=https://www.gov.uk/sign-in-childcare-account]
+                    text "Childcare account: sign in"
+          list_item
+            table
+              table_row
+                table_cell
+                  svg_root
+                table_cell
+                  anchor [ref=26836, loc=href:https://www.gov.uk/check-state-pension, url=https://www.gov.uk/check-state-pension]
+                    text "Check your State Pension forecast"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 4648 px; scroll or use snapshot({ scope: "full_page" })]

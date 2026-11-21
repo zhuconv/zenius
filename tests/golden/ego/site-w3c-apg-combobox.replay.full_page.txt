@@ -1,0 +1,1602 @@
+[p1 "Editable Combobox With List Autocomplete Example | APG | WAI | W3C" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "Editable Combobox With List Autocomplete Example | APG | WAI | W3C"]
+root
+  container
+    button "Skip To Content, shortcut Option + 0" [ref=27037, loc=css:button[aria-label="Skip To Content, shortcut Option + 0"]]
+      text "Skip To Content (Option+0)"
+    container
+      container
+        anchor [ref=27038, url=https://www.w3.org/WAI/ARIA/apg/]
+          text "ARIA Authoring Practices Guide (APG)"
+        paragraph
+          text "How to build accessibility semantics into web patterns and widgets"
+      container
+        anchor [ref=27039, url=https://www.w3.org/]
+          image "W3C homepage"
+        anchor [ref=27040, url=https://www.w3.org/WAI/]
+          image "Web Accessibility Initiative (WAI) homepage"
+    container "APG"
+      unordered_list
+        list_item
+          anchor [ref=27041, url=https://www.w3.org/WAI/ARIA/apg/]
+            text "APG Home"
+        list_item
+          anchor [ref=27042, loc=href:https://www.w3.org/WAI/ARIA/apg/patterns/, url=https://www.w3.org/WAI/ARIA/apg/patterns/]
+            text "Patterns"
+        list_item
+          anchor [ref=27043, loc=href:https://www.w3.org/WAI/ARIA/apg/practices/, url=https://www.w3.org/WAI/ARIA/apg/practices/]
+            text "Practices"
+        list_item
+          anchor [ref=27044, loc=href:https://www.w3.org/WAI/ARIA/apg/example-index/, url=https://www.w3.org/WAI/ARIA/apg/example-index/]
+            text "Index"
+        list_item
+          anchor [ref=27045, loc=href:https://www.w3.org/WAI/ARIA/apg/about/, url=https://www.w3.org/WAI/ARIA/apg/about/]
+            text "About"
+    container
+      container "Page Contents"
+        heading
+          text "Page Contents"
+        container
+          table
+            table_row
+              table_cell
+          unordered_list
+            list_item
+              anchor [ref=27046, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/#support-notice-header]
+                text "Read This First"
+            list_item
+              anchor [ref=27047, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/#aboutthisexample]
+                text "About This Example"
+            list_item
+              anchor [ref=27048, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/#ex_label]
+                text "Example"
+            list_item
+              anchor [ref=27049, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/#accessibilityfeatures]
+                text "Accessibility Features"
+            list_item
+              anchor [ref=27050, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/#kbd_label]
+                text "Keyboard Support"
+            list_item
+              anchor [ref=27051, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/#rps_label]
+                text "Role, Property, State, and Tabindex Attributes"
+            list_item
+              anchor [ref=27052, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/#javascriptandcsssourcecode]
+                text "JavaScript and CSS Source Code"
+            list_item
+              anchor [ref=27053, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/#sc1_label]
+                text "HTML Source Code"
+          table
+            table_row
+              table_cell
+      container
+        heading
+          text "Editable Combobox With List Autocomplete Example"
+        container
+          heading
+            text "Read This First"
+          container
+            container [ref=27054]
+              text "The code in this example is not intended for production environments. Before using it for any purpose, read this to understand why."
+            container
+              paragraph
+                text "This is an illustrative example of one way of using ARIA that conforms with the ARIA specification."
+              unordered_list
+                list_item
+                  text "There may be support gaps in some"
+                  anchor [ref=27060, loc=href:https://www.w3.org/WAI/ARIA/apg/practices/read-me-first/#browser_and_AT_support, url=https://www.w3.org/WAI/ARIA/apg/practices/read-me-first/#browser_and_AT_support]
+                    text "browser and assistive technology combinations"
+                  text ", especially for"
+                  anchor [ref=27061, url=https://www.w3.org/WAI/ARIA/apg/practices/read-me-first/#mobile_and_touch_support]
+                    text "mobile/touch devices"
+                  text ". Testing code based on this example with assistive technologies is essential before considering use in production systems."
+                list_item
+                  text "The"
+                  anchor [ref=27062, loc=href:https://aria-at.w3.org/, url=https://aria-at.w3.org/]
+                    text "ARIA and Assistive Technologies Project"
+                  text "is developing measurements of assistive technology support for APG examples."
+                list_item
+                  text "Robust accessibility can be further optimized by choosing implementation patterns that"
+                  anchor [ref=27063, loc=href:https://www.w3.org/TR/using-aria/#rule1, url=https://www.w3.org/TR/using-aria/#rule1]
+                    text "maximize use of semantic HTML"
+                  text "and heeding the warning that"
+                  anchor [ref=27064, loc=href:https://www.w3.org/WAI/ARIA/apg/practices/read-me-first/#no_aria_better_bad_aria, url=https://www.w3.org/WAI/ARIA/apg/practices/read-me-first/#no_aria_better_bad_aria]
+                    text "No ARIA is better than Bad ARIA"
+                  text "."
+          container
+            container
+              heading
+                text "About This Example"
+              image
+              paragraph
+                text "The below combobox for choosing the name of a US state or territory demonstrates the"
+                anchor [ref=27055, loc=href:https://www.w3.org/WAI/ARIA/apg/patterns/combobox/, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/]
+                  text "Combobox Pattern"
+                text ". The design pattern describes four types of autocomplete behavior. This example illustrates the autocomplete behavior known as list autocomplete with manual selection. If the user types one or more c..."
+              paragraph
+                text "Similar examples include:"
+              unordered_list
+                list_item
+                  anchor [ref=27056, loc=href:https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-select-only/, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-select-only/]
+                    text "Select-Only Combobox"
+                  text ": A single-select combobox with no text input that is functionally similar to an HTML"
+                  text "select"
+                  text "element."
+                list_item
+                  anchor [ref=27057, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-both/]
+                    text "Editable Combobox with Both List and Inline Autocomplete"
+                  text ": An editable combobox that demonstrates the autocomplete behavior known as"
+                  container
+                    text "“"
+                    text "list with inline autocomplete"
+                    text "”"
+                  text "."
+                list_item
+                  anchor [ref=27058, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-none/]
+                    text "Editable Combobox Without Autocomplete"
+                  text ": An editable combobox that demonstrates the behavior associated with"
+                  text "aria-autocomplete=none"
+                  text "."
+                list_item
+                  anchor [ref=27065, loc=href:https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/grid-combo/, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/grid-combo/]
+                    text "Editable Combobox with Grid Popup"
+                  text ": An editable combobox that presents suggestions in a grid, enabling users to navigate descriptive information about each suggestion."
+                list_item
+                  anchor [ref=27066, loc=href:https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-datepicker/, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-datepicker/]
+                    text "Date Picker Combobox"
+                  text ": An editable date input combobox that opens a dialog containing a calendar grid and buttons for navigating by month and year."
+            container
+              heading
+                text "Example"
+              form
+                button [ref=27067]
+                  text "Open In CodePen"
+              text "State"
+              container
+                comboboxgrouping [ref=27068]
+                button "States" [ref=27069, loc=css:button[aria-label="States"]]
+                  svg_root
+            container
+              heading
+                text "Accessibility Features"
+              unordered_list
+                list_item
+                  text "Browsers do not manage visibility of elements referenced by aria-activedescendant like they do for elements with focus. When a keyboard event changes the active option in the listbox, the JavaScript s..."
+                list_item
+                  text "To enhance perceivability when operating the combobox, visual keyboard focus and hover are styled using the CSS"
+                  text ":hover"
+                  text "pseudo-class, and"
+                  text "focus"
+                  text "and"
+                  text "blur"
+                  text "event handlers:"
+                  unordered_list
+                    list_item
+                      text "To make it easier to perceive when the combobox receives focus, focus creates a 2 pixel focus ring around both the"
+                      text "input"
+                      text "and"
+                      text "button"
+                      text "elements with 2 pixels of space between the focus ring and the combobox."
+                    list_item
+                      text "To make it easier to perceive that either the input or button can be clicked to open the listbox, hover causes the same styling as focus."
+                    list_item
+                      text "To help people with visual impairments identify the combobox as an interactive element, the cursor is changed to a pointer when hovering over the combobox or list."
+                    list_item
+                      text "To make it easier to distinguish the selected listbox option from other options, selection creates a 2 pixel border above and below the option."
+                    list_item
+                      text "Note: Because transparent borders are visible on some systems with operating system high contrast settings enabled, transparency cannot be used to create a visual difference between the element that i..."
+                list_item
+                  text "To ensure the inline SVG graphic used for the arrow in the open button has sufficient contrast with the background when high contrast settings change the color of text content, CSS"
+                  text "forced-color-adjust"
+                  text "is set to"
+                  text "auto"
+                  text "on the"
+                  text "svg"
+                  text "element and and the"
+                  text "fill"
+                  text "attribute of the"
+                  text "polygon"
+                  text "element is set to"
+                  text "currentcolor"
+                  text ". This causes the colors of the"
+                  text "fill"
+                  text "of the polygon elements to be overridden by the high contrast color setting. If"
+                  text "forced-color-adjust"
+                  text "were not used to override the colors specified for the"
+                  text "fill"
+                  text "property, the color would remain the same in high contrast mode, which could lead to insufficient contrast between the arrow and the background or even make it invisible if the color matched the high ..."
+                  text "Note: The explicit setting of"
+                  text "forced-color-adjust"
+                  text "is necessary because some browsers do not use"
+                  text "auto"
+                  text "as the default value for SVG graphics."
+            container
+              heading
+                text "Keyboard Support"
+              paragraph
+                text "The example combobox on this page implements the following keyboard interface. Other variations and options for the keyboard interface are described in the"
+                anchor [ref=27070, loc=href:https://www.w3.org/WAI/ARIA/apg/patterns/combobox/#keyboard_interaction, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/#keyboard_interaction]
+                  text "Keyboard Interaction section of the Combobox Pattern"
+                text "."
+              heading
+                text "Textbox"
+              table "Textbox Keyboard Support"
+                table_row
+                  table_cell
+                    text "Key"
+                  table_cell
+                    text "Function"
+                table_row
+                  table_cell
+                    text "Down Arrow"
+                  table_cell
+                    unordered_list
+                      list_item
+                        text "If the textbox is not empty and the listbox is displayed, moves visual focus to the first suggested value."
+                      list_item
+                        text "If the textbox is empty and the listbox is not displayed, opens the listbox and moves visual focus to the first option."
+                      list_item
+                        text "In both cases DOM focus remains on the textbox."
+                table_row
+                  table_cell
+                    text "Alt"
+                    text "+"
+                    text "Down Arrow"
+                  table_cell
+                    text "Opens the listbox without moving focus or changing selection."
+                table_row
+                  table_cell
+                    text "Up Arrow"
+                  table_cell
+                    unordered_list
+                      list_item
+                        text "If the textbox is not empty and the listbox is displayed, moves visual focus to the last suggested value."
+                      list_item
+                        text "If the textbox is empty, first opens the listbox if it is not already displayed and then moves visual focus to the last option."
+                      list_item
+                        text "In both cases DOM focus remains on the textbox."
+                table_row
+                  table_cell
+                    text "Enter"
+                  table_cell
+                    text "Closes the listbox if it is displayed."
+                table_row
+                  table_cell
+                    text "Escape"
+                  table_cell
+                    unordered_list
+                      list_item
+                        text "If the listbox is displayed, closes it."
+                      list_item
+                        text "If the listbox is not displayed, clears the textbox."
+                table_row
+                  table_cell
+                    text "Standard single line text editing keys"
+                  table_cell
+                    unordered_list
+                      list_item
+                        text "Keys used for cursor movement and text manipulation, such as"
+                        text "Delete"
+                        text "and"
+                        text "Shift"
+                        text "+"
+                        text "Right Arrow"
+                        text "."
+                      list_item
+                        text "An HTML"
+                        text "input"
+                        text "with"
+                        text "type="text""
+                        text "is used for the textbox so the browser will provide platform-specific editing keys."
+              heading
+                text "Listbox Popup"
+              paragraph
+                text "NOTE:"
+                text "When visual focus is in the listbox, DOM focus remains on the textbox and the value of"
+                text "aria-activedescendant"
+                text "on the textbox is set to a value that refers to the listbox option that is visually indicated as focused. Where the following descriptions of keyboard commands mention focus, they are referring to the..."
+                anchor [ref=27071, url=https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/#kbd_focus_activedescendant]
+                  text "Managing Focus in Composites Using aria-activedescendant"
+                text "."
+              table "Listbox Popup Keyboard Support"
+                table_row
+                  table_cell
+                    text "Key"
+                  table_cell
+                    text "Function"
+                table_row
+                  table_cell
+                    text "Enter"
+                  table_cell
+                    unordered_list
+                      list_item
+                        text "Sets the textbox value to the content of the focused option in the listbox."
+                      list_item
+                        text "Closes the listbox."
+                      list_item
+                        text "Sets visual focus on the textbox."
+                table_row
+                  table_cell
+                    text "Escape"
+                  table_cell
+                    unordered_list
+                      list_item
+                        text "Closes the listbox."
+                      list_item
+                        text "Sets visual focus on the textbox."
+                table_row
+                  table_cell
+                    text "Down Arrow"
+                  table_cell
+                    unordered_list
+                      list_item
+                        text "Moves visual focus to the next option."
+                      list_item
+                        text "If visual focus is on the last option, moves visual focus to the first option."
+                      list_item
+                        text "Note: This wrapping behavior is useful when"
+                        text "Home"
+                        text "and"
+                        text "End"
+                        text "move the editing cursor as described below."
+                table_row
+                  table_cell
+                    text "Up Arrow"
+                  table_cell
+                    unordered_list
+                      list_item
+                        text "Moves visual focus to the previous option."
+                      list_item
+                        text "If visual focus is on the first option, moves visual focus to the last option."
+                      list_item
+                        text "Note: This wrapping behavior is useful when"
+                        text "Home"
+                        text "and"
+                        text "End"
+                        text "move the editing cursor as described below."
+                table_row
+                  table_cell
+                    text "Right Arrow"
+                  table_cell
+                    text "Moves visual focus to the textbox and moves the editing cursor one character to the right."
+                table_row
+                  table_cell
+                    text "Left Arrow"
+                  table_cell
+                    text "Moves visual focus to the textbox and moves the editing cursor one character to the left."
+                table_row
+                  table_cell
+                    text "Home"
+                  table_cell
+                    text "Moves visual focus to the textbox and places the editing cursor at the beginning of the field."
+                table_row
+                  table_cell
+                    text "End"
+                  table_cell
+                    text "Moves visual focus to the textbox and places the editing cursor at the end of the field."
+                table_row
+                  table_cell
+                    text "Printable Characters"
+                  table_cell
+                    unordered_list
+                      list_item
+                        text "Moves visual focus to the textbox."
+                      list_item
+                        text "Types the character in the textbox."
+                      list_item
+                        text "Options in the listbox are filtered based on characters in the textbox."
+              heading
+                text "Button"
+              paragraph
+                text "The button has been removed from the tab sequence of the page, but is still important to assistive technologies for mobile devices that use touch events to open the list of options."
+            container
+              heading
+                text "Role, Property, State, and Tabindex Attributes"
+              paragraph
+                text "The example combobox on this page implements the following ARIA roles, states, and properties. Information about other ways of applying ARIA roles, states, and properties is available in the"
+                anchor [ref=27072, loc=href:https://www.w3.org/WAI/ARIA/apg/patterns/combobox/#roles_states_properties, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/#roles_states_properties]
+                  text "Roles, States, and Properties section of the Combobox Pattern"
+                text "."
+              heading
+                text "Textbox"
+              table "Textbox Role, Property, State, and Tabindex Attributes"
+                table_row
+                  table_cell
+                    text "Role"
+                  table_cell
+                    text "Attribute"
+                  table_cell
+                    text "Element"
+                  table_cell
+                    text "Usage"
+                table_row
+                  table_cell
+                    text "combobox"
+                  table_cell
+                  table_cell
+                    text "input[type="text"]"
+                  table_cell
+                    text "Identifies the input as a combobox."
+                table_row
+                  table_cell
+                  table_cell
+                    text "aria-autocomplete="list""
+                  table_cell
+                    text "input[type="text"]"
+                  table_cell
+                    text "Indicates that the autocomplete behavior of the text input is to suggest a list of possible values in a popup and that the suggestions are related to the string that is present in the textbox."
+                table_row
+                  table_cell
+                  table_cell
+                    text "aria-controls="ID_REF""
+                  table_cell
+                    text "input[type="text"]"
+                  table_cell
+                    text "Identifies the element that serves as the popup."
+                table_row
+                  table_cell
+                  table_cell
+                    text "aria-expanded="false""
+                  table_cell
+                    text "input[type="text"]"
+                  table_cell
+                    text "Indicates that the popup element"
+                    text "is not"
+                    text "displayed."
+                table_row
+                  table_cell
+                  table_cell
+                    text "aria-expanded="true""
+                  table_cell
+                    text "input[type="text"]"
+                  table_cell
+                    text "Indicates that the popup element"
+                    text "is"
+                    text "displayed."
+                table_row
+                  table_cell
+                  table_cell
+                    text "id="string""
+                  table_cell
+                    text "input[type="text"]"
+                  table_cell
+                    unordered_list
+                      list_item
+                        text "Referenced by"
+                        text "for"
+                        text "attribute of"
+                        text "label"
+                        text "element to provide an accessible name."
+                      list_item
+                        text "Recommended naming method for HTML input elements because clicking label focuses input."
+                table_row
+                  table_cell
+                  table_cell
+                    text "aria-activedescendant="ID_REF""
+                  table_cell
+                    text "input[type="text"]"
+                  table_cell
+                    unordered_list
+                      list_item
+                        text "When an option in the listbox is visually indicated as having keyboard focus, refers to that option."
+                      list_item
+                        text "When navigation keys, such as"
+                        text "Down Arrow"
+                        text ", are pressed, the JavaScript changes the value."
+                      list_item
+                        text "Enables assistive technologies to know which element the application regards as focused while DOM focus remains on the"
+                        text "input"
+                        text "element."
+                      list_item
+                        text "For more information about this focus management technique, see"
+                        anchor [ref=27073, url=https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/#kbd_focus_activedescendant]
+                          text "Managing Focus in Composites Using aria-activedescendant"
+                        text "."
+              heading
+                text "Listbox Popup"
+              table "Listbox Popup Role, Property, State, and Tabindex Attributes"
+                table_row
+                  table_cell
+                    text "Role"
+                  table_cell
+                    text "Attribute"
+                  table_cell
+                    text "Element"
+                  table_cell
+                    text "Usage"
+                table_row
+                  table_cell
+                    text "listbox"
+                  table_cell
+                  table_cell
+                    text "ul"
+                  table_cell
+                    text "Identifies the"
+                    text "ul"
+                    text "element as a"
+                    text "listbox"
+                    text "."
+                table_row
+                  table_cell
+                  table_cell
+                    text "aria-label="States""
+                  table_cell
+                    text "ul"
+                  table_cell
+                    text "Provides a label for the"
+                    text "listbox"
+                    text "."
+                table_row
+                  table_cell
+                    text "option"
+                  table_cell
+                  table_cell
+                    text "li"
+                  table_cell
+                    unordered_list
+                      list_item
+                        text "Identifies the element as a"
+                        text "listbox"
+                        text "option"
+                        text "."
+                      list_item
+                        text "The text content of the element provides the accessible name of the"
+                        text "option"
+                        text "."
+                table_row
+                  table_cell
+                  table_cell
+                    text "aria-selected="true""
+                  table_cell
+                    text "li"
+                  table_cell
+                    unordered_list
+                      list_item
+                        text "Specified on an option in the listbox when it is visually highlighted as selected."
+                      list_item
+                        text "Occurs only when an option in the list is referenced by"
+                        text "aria-activedescendant"
+                        text "."
+              heading
+                text "Button"
+              table "Button Role, Property, State, and Tabindex Attributes"
+                table_row
+                  table_cell
+                    text "Role"
+                  table_cell
+                    text "Attribute"
+                  table_cell
+                    text "Element"
+                  table_cell
+                    text "Usage"
+                table_row
+                  table_cell
+                  table_cell
+                    text "tabindex="-1""
+                  table_cell
+                    text "button"
+                  table_cell
+                    text "Removes the button from the tab sequence of the page because its function is redundant with the keyboard operation of the combobox."
+                table_row
+                  table_cell
+                  table_cell
+                    text "aria-label="States""
+                  table_cell
+                    text "button"
+                  table_cell
+                    text "Provides a label for the"
+                    text "button"
+                    text "."
+                table_row
+                  table_cell
+                  table_cell
+                    text "aria-controls="ID_REF""
+                  table_cell
+                    text "button"
+                  table_cell
+                    text "Identifies the element that serves as the popup."
+                table_row
+                  table_cell
+                  table_cell
+                    text "aria-expanded="false""
+                  table_cell
+                    text "button"
+                  table_cell
+                    text "Indicates that the popup element"
+                    text "is not"
+                    text "displayed."
+                table_row
+                  table_cell
+                  table_cell
+                    text "aria-expanded="true""
+                  table_cell
+                    text "button"
+                  table_cell
+                    text "Indicates that the popup element"
+                    text "is"
+                    text "displayed."
+            container
+              heading
+                text "JavaScript and CSS Source Code"
+              unordered_list
+                list_item
+                  text "CSS:"
+                  anchor [ref=27074, url=https://www.w3.org/WAI/content-assets/wai-aria-practices/patterns/combobox/examples/css/combobox-autocomplete.css]
+                    text "combobox-autocomplete.css"
+                list_item
+                  text "JavaScript:"
+                  anchor [ref=27075, url=https://www.w3.org/WAI/content-assets/wai-aria-practices/patterns/combobox/examples/js/combobox-autocomplete.js]
+                    text "combobox-autocomplete.js"
+            container
+              heading
+                text "HTML Source Code"
+              paragraph
+                text "To copy the following HTML code, please open it in CodePen."
+              form
+                button [ref=27076]
+                  text "Open In CodePen"
+              container
+                text "<"
+                text "label"
+                text "for"
+                text "="
+                text ""cb1-input""
+                text ">"
+                text "  State"
+                text "</"
+                text "label"
+                text ">"
+                text "<"
+                text "div"
+                text "class"
+                text "="
+                text ""combobox combobox-list""
+                text ">"
+                text "<"
+                text "div"
+                text "class"
+                text "="
+                text ""group""
+                text ">"
+                text "<"
+                text "input"
+                text "id"
+                text "="
+                text ""cb1-input""
+                text "class"
+                text "="
+                text ""cb_edit""
+                text "type"
+                text "="
+                text ""text""
+                text "role"
+                text "="
+                text ""combobox""
+                text "aria-autocomplete"
+                text "="
+                text ""list""
+                text "aria-expanded"
+                text "="
+                text ""false""
+                text "aria-controls"
+                text "="
+                text ""cb1-listbox""
+                text ">"
+                text "<"
+                text "button"
+                text "id"
+                text "="
+                text ""cb1-button""
+                text "tabindex"
+                text "="
+                text ""-1""
+                text "aria-label"
+                text "="
+                text ""States""
+                text "aria-expanded"
+                text "="
+                text ""false""
+                text "aria-controls"
+                text "="
+                text ""cb1-listbox""
+                text ">"
+                text "<"
+                text "svg"
+                text "width"
+                text "="
+                text ""18""
+                text "height"
+                text "="
+                text ""16""
+                text "aria-hidden"
+                text "="
+                text ""true""
+                text "focusable"
+                text "="
+                text ""false""
+                text "style"
+                text "="
+                text ""forced-color-adjust: auto""
+                text ">"
+                text "<"
+                text "polygon"
+                text "class"
+                text "="
+                text ""arrow""
+                text "stroke-width"
+                text "="
+                text ""0""
+                text "fill-opacity"
+                text "="
+                text ""0.75""
+                text "fill"
+                text "="
+                text ""currentcolor""
+                text "points"
+                text "="
+                text ""3,6 15,6 9,14""
+                text ">"
+                text "</"
+                text "polygon"
+                text ">"
+                text "</"
+                text "svg"
+                text ">"
+                text "</"
+                text "button"
+                text ">"
+                text "</"
+                text "div"
+                text ">"
+                text "<"
+                text "ul"
+                text "id"
+                text "="
+                text ""cb1-listbox""
+                text "role"
+                text "="
+                text ""listbox""
+                text "aria-label"
+                text "="
+                text ""States""
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-al""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Alabama     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-ak""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Alaska     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-as""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      American Samoa     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-az""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Arizona     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-ar""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Arkansas     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-ca""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      California     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-co""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Colorado     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-ct""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Connecticut     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-de""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Delaware     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-dc""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      District of Columbia     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-fl""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Florida     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-ga""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Georgia     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-gm""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Guam     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-hi""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Hawaii     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-id""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Idaho     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-il""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Illinois     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-in""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Indiana     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-ia""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Iowa     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-ks""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Kansas     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-ky""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Kentucky     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-la""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Louisiana     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-me""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Maine     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-md""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Maryland     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-ma""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Massachusetts     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-mi""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Michigan     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-mn""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Minnesota     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-ms""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Mississippi     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-mo""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Missouri     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-mt""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Montana     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-ne""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Nebraska     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-nv""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Nevada     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-nh""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      New Hampshire     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-nj""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      New Jersey     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-nm""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      New Mexico     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-ny""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      New York     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-nc""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      North Carolina     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-nd""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      North Dakota     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-mp""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Northern Marianas Islands     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-oh""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Ohio     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-ok""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Oklahoma     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-or""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Oregon     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-pa""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Pennsylvania     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-pr""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Puerto Rico     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-ri""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Rhode Island     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-sc""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      South Carolina     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-sd""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      South Dakota     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-tn""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Tennessee     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-tx""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Texas     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-ut""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Utah     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-ve""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Vermont     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-va""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Virginia     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-vi""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Virgin Islands     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-wa""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Washington     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-wv""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      West Virginia     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-wi""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Wisconsin     "
+                text "</"
+                text "li"
+                text ">"
+                text "<"
+                text "li"
+                text "id"
+                text "="
+                text ""lb1-wy""
+                text "role"
+                text "="
+                text ""option""
+                text ">"
+                text "      Wyoming     "
+                text "</"
+                text "li"
+                text ">"
+                text "</"
+                text "ul"
+                text ">"
+                text "</"
+                text "div"
+                text ">"
+    container "feedback"
+      container
+        svg_root
+        heading
+          text "Help improve this page"
+      table
+        table_row
+          table_cell
+      paragraph
+        text "Please share your ideas, suggestions, or comments via e-mail to the publicly-archived list"
+        anchor [ref=27077, url=mailto:public-aria-practices@w3.org?body=%5Binclude%20a%20relevant%20email%20Subject%5D%0A%0A%5Bput%20comment%20here...%5D%0A%0A]
+          text "public-aria-practices@w3.org"
+        text "or via GitHub."
+      anchor [ref=27078, url=mailto:public-aria-practices@w3.org?body=%5Binclude%20a%20relevant%20email%20Subject%5D%0A%0A%5Bput%20comment%20here...%5D%0A%0A]
+        text "E-mail"
+      anchor [ref=27079, url=https://github.com/w3c/aria-practices/edit/main/content/patterns/combobox/examples/combobox-autocomplete-list.html]
+        text "Fork & Edit on GitHub"
+      anchor [ref=27080, url=https://github.com/w3c/aria-practices/issues/new?template=content-issue.yml&wai-url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/]
+        text "New GitHub Issue"
+      table
+        table_row
+          table_cell
+    anchor [ref=27059, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/#top]
+      svg_root
+      text "Back to Top"
+    container "Page"
+      paragraph
+        anchor [ref=27081, loc=href:https://github.com/orgs/w3c/projects/118, url=https://github.com/orgs/w3c/projects/118]
+          text "View issues related to this example"
+      paragraph
+        text "Page last updated: 12 August 2025"
+    container "Site"
+      anchor [ref=27082, url=https://www.w3.org/WAI/]
+        text "W3C Web Accessibility Initiative (WAI)"
+      text "Strategies, standards, resources to make the Web accessible to people with disabilities"
+      list
+        list_item
+          image
+          anchor [ref=27083, loc=href:https://www.w3.org/WAI/news/subscribe/, url=https://www.w3.org/WAI/news/subscribe/]
+            text "Get News in Email"
+        list_item
+          image
+          anchor [ref=27084, loc=href:https://www.linkedin.com/company/w3c-wai/, url=https://www.linkedin.com/company/w3c-wai/]
+            text "LinkedIn"
+        list_item
+          image
+          anchor [ref=27085, loc=href:https://w3c.social/@wai, url=https://w3c.social/@wai]
+            text "Mastodon"
+        list_item
+          image
+          anchor [ref=27086, loc=href:https://www.youtube.com/channel/UCU6ljj3m1fglIPjSjs2DpRA/playlists/, url=https://www.youtube.com/channel/UCU6ljj3m1fglIPjSjs2DpRA/playlists/]
+            text "YouTube"
+      list
+        list_item
+          anchor [ref=27087, url=https://www.w3.org/WAI/]
+            text "Home"
+        list_item
+          anchor [ref=27088, loc=href:https://www.w3.org/WAI/about/contacting/, url=https://www.w3.org/WAI/about/contacting/]
+            text "Contact"
+        list_item
+          anchor [ref=27089, loc=href:https://www.w3.org/WAI/sitemap/, url=https://www.w3.org/WAI/sitemap/]
+            text "Site map"
+        list_item
+          anchor [ref=27090, loc=href:https://www.w3.org/WAI/about/support/, url=https://www.w3.org/WAI/about/support/]
+            text "Support WAI"
+        list_item
+          anchor [ref=27091, loc=href:https://www.w3.org/WAI/news/, url=https://www.w3.org/WAI/news/]
+            text "News"
+        list_item
+          anchor [ref=27092, loc=href:https://www.w3.org/WAI/about/accessibility-statement/, url=https://www.w3.org/WAI/about/accessibility-statement/]
+            text "Accessibility statement"
+        list_item
+          anchor [ref=27093, loc=href:https://www.w3.org/WAI/translations/, url=https://www.w3.org/WAI/translations/]
+            text "All Translations"
+        list_item
+          anchor [ref=27094, loc=href:https://www.w3.org/WAI/roles/, url=https://www.w3.org/WAI/roles/]
+            text "Resources for roles"
+      paragraph
+        text "Copyright © 2026"
+        anchor [ref=27095, url=https://www.w3.org/]
+          text "World Wide Web Consortium"
+        text "."
+        text "W3C"
+        text "®"
+        anchor [ref=27096, loc=href:https://www.w3.org/policies/#disclaimers, url=https://www.w3.org/policies/#disclaimers]
+          text "liability"
+        text ","
+        anchor [ref=27097, loc=href:https://www.w3.org/policies/#trademarks, url=https://www.w3.org/policies/#trademarks]
+          text "trademark"
+        text "and"
+        anchor [ref=27098, loc=href:https://www.w3.org/copyright/software-license/, url=https://www.w3.org/copyright/software-license/]
+          text "permissive license"
+        text "rules apply unless otherwise noted. See"
+        anchor [ref=27099, loc=href:https://www.w3.org/WAI/about/using-wai-material/, url=https://www.w3.org/WAI/about/using-wai-material/]
+          text "Permission to Use WAI Material"
+        text "."
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root

@@ -1,0 +1,203 @@
+[p1 "<input> HTML input element - HTML | MDN" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "<input> HTML input element - HTML | MDN"]
+root
+  container
+    paragraph
+      text "Learn web dev and AI with MDN's course partner —"
+      anchor [ref=18752, loc=href:https://scrimba.com/?coupon=SCR-BLACK-FRI-2026&via=mdn, url=https://scrimba.com/?coupon=SCR-BLACK-FRI-2026&via=mdn]
+        text "50% off Black Friday"
+    container
+      container
+        anchor [ref=18753, loc=href:https://developer.mozilla.org/en-US/, url=https://developer.mozilla.org/en-US/]
+          image
+        container
+          button [ref=18754]
+            text "HTML"
+          button [ref=18755]
+            text "CSS"
+          button [ref=18756]
+            text "JavaScript"
+          button [ref=18757]
+            text "Web APIs"
+          button [ref=18758]
+            text "All"
+          button [ref=18759]
+            text "Learn"
+          button [ref=18760]
+            text "Tools"
+          button [ref=18761]
+            text "About"
+          anchor [ref=18762, url=https://developer.mozilla.org/en-US/blog/]
+            text "Blog"
+        button [ref=18763]
+          svg_root
+        anchor [ref=18764, url=https://developer.mozilla.org/users/fxa/login/authenticate/?next=%2Fen-US%2Fdocs%2FWeb%2FHTML%2FReference%2FElements%2Finput]
+          svg_root
+          text "Log in"
+      container
+        ordered_list
+          list_item
+            anchor [ref=18765, url=https://developer.mozilla.org/en-US/docs/Web]
+              text "Web"
+          list_item
+            anchor [ref=18766, url=https://developer.mozilla.org/en-US/docs/Web/HTML]
+              text "HTML"
+          list_item
+            anchor [ref=18767, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference]
+              text "Reference"
+          list_item
+            anchor [ref=18768, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements]
+              text "Elements"
+          list_item
+            anchor [ref=18769, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input]
+              text "<input>"
+        button "Switch color theme" [ref=18770, loc=css:button[aria-label="Switch color theme"]]
+          text "Theme"
+        button "English (US)" [ref=18771]
+          text "English (US)"
+    container
+      container
+        heading
+          text "<input>"
+          text "HTML input element"
+        container [ref=18772]
+          image "Baseline Check"
+          text "Baseline"
+          text "WIDELY AVAILABLE"
+          text "*"
+          container
+            container
+              image "Chrome check"
+              image "Edge check"
+            image "Firefox check"
+            image "Safari check"
+        paragraph
+          text "The"
+          text "<input>"
+          anchor [ref=18773, url=https://developer.mozilla.org/en-US/docs/Web/HTML]
+            text "HTML"
+          text "element is used to create interactive controls for web-based forms in order to accept data from the user; a wide variety of types of input data and control widgets are available, depending on the devi..."
+          anchor [ref=18774, url=https://developer.mozilla.org/en-US/docs/Glossary/User_agent]
+            text "user agent"
+          text ". The"
+          text "<input>"
+          text "element is one of the most powerful and complex in all of HTML due to the sheer number of combinations of input types and attributes."
+      container
+        heading
+          text "In this article"
+        unordered_list
+          list_item
+            anchor [ref=18775, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input#try_it]
+              text "Try it"
+          list_item
+            anchor [ref=18776, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input#input_types]
+              text "<input> types"
+          list_item
+            anchor [ref=18777, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input#attributes]
+              text "Attributes"
+          list_item
+            anchor [ref=18778, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input#methods]
+              text "Methods"
+          list_item
+            anchor [ref=18779, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input#css]
+              text "CSS"
+          list_item
+            anchor [ref=18780, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input#additional_features]
+              text "Additional features"
+          list_item
+            anchor [ref=18781, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input#accessibility]
+              text "Accessibility"
+          list_item
+            anchor [ref=18782, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input#technical_summary]
+              text "Technical summary"
+          list_item
+            anchor [ref=18783, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input#specifications]
+              text "Specifications"
+          list_item
+            anchor [ref=18784, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input#browser_compatibility]
+              text "Browser compatibility"
+          list_item
+            anchor [ref=18785, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input#see_also]
+              text "See also"
+      container "Try it"
+        heading
+          anchor [ref=18786, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input#try_it]
+            text "Try it"
+        container "HTML Demo: <input type="text">"
+          container
+            heading
+              text "HTML Demo: <input type="text">"
+            button [ref=18787]
+              text "Reset"
+          container
+            tablist
+              tab [ref=18788]
+                text "HTML"
+              tab [ref=18789]
+                text "CSS"
+            tabpanel "HTML" [ref=18790, loc=role:tabpanel[name="HTML"]]
+              container [ref=18791]
+                container
+                  text "1"
+                  text "2"
+                  text "3"
+                  text "4"
+                  text "5"
+                  text "6"
+      container [ref=18792]
+        container
+          textbox [ref=18793, loc=css:input[placeholder="Filter"]]
+            text "Filter"
+          ordered_list
+            list_item
+              anchor [ref=18794, url=https://developer.mozilla.org/en-US/docs/Web/HTML]
+                text "HTML"
+            list_item
+              container [ref=18795]
+                anchor [ref=18796, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Guides]
+                  text "Guides"
+            list_item
+              anchor [ref=18797, loc=href:https://developer.mozilla.org/en-US/docs/Web/HTML/How_to, url=https://developer.mozilla.org/en-US/docs/Web/HTML/How_to]
+                text "How to"
+            list_item
+              anchor [ref=18798, loc=href:https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/Define_terms_with_HTML, url=https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/Define_terms_with_HTML]
+                text "Define terms with HTML"
+            list_item
+              anchor [ref=18799, loc=href:https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/Use_data_attributes, url=https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/Use_data_attributes]
+                text "Use data attributes"
+            list_item
+              anchor [ref=18800, loc=href:https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/CORS_enabled_image, url=https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/CORS_enabled_image]
+                text "Use cross-origin images"
+            list_item
+              anchor [ref=18801, url=https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/Add_a_hit_map_on_top_of_an_image]
+                text "Add a hitmap on top of an image"
+            list_item
+              anchor [ref=18802, url=https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/Author_fast-loading_HTML_pages]
+                text "Author fast-loading HTML pages"
+            list_item
+              anchor [ref=18803, url=https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/Add_JavaScript_to_your_web_page]
+                text "Add JavaScript"
+            list_item
+              anchor [ref=18804, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference]
+                text "Reference"
+            list_item
+              container [ref=18805]
+                anchor [ref=18806, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements]
+                  text "Elements"
+              ordered_list
+                list_item
+                  anchor [ref=18807, loc=href:https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/a, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/a]
+                    text "<a>"
+                list_item
+                  anchor [ref=18808, loc=href:https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/abbr, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/abbr]
+                    text "<abbr>"
+                list_item
+                  anchor [ref=18809, loc=href:https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/acronym, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/acronym]
+                    text "<acronym>"
+                    image "Deprecated"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 51412 px; scroll or use snapshot({ scope: "full_page" })]

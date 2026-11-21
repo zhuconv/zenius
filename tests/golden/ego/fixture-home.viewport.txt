@@ -1,0 +1,67 @@
+[p1 "ego-lite helper e2e" | space "zen-eval golden 1795148479936"(5): 1 managed, 0 untracked — p1* "ego-lite helper e2e"]
+root
+  container
+    heading
+      text "Helper e2e fixture"
+    paragraph
+      text "ready"
+    button "Increment counter" [ref=1]
+      text "Click counter"
+    button [ref=2]
+      text "Duplicate action"
+    button [ref=3]
+      text "Duplicate action"
+    anchor [ref=4, url={{BASE}}/nav-target]
+      text "Go to nav target"
+    text "0"
+    text "Hover zone"
+    text "Drag source"
+    text "Drag target"
+    container
+      text "Text input"
+      textbox [ref=5]
+        text "initial"
+    container
+      text "Append input"
+      textbox [ref=6]
+        text "base"
+    container
+      text "Text area"
+      textbox [ref=7]
+        text "seed"
+    text "File input"
+    button [ref=8]
+      text "Choose files dynamically"
+    container
+      text "Dropdown"
+      combobox [ref=9]
+        text "Alpha"
+    container
+      checkbox [ref=10]
+      text "Toggle checkbox"
+    container [ref=11]
+      text "edit me"
+    text "Right-click here"
+    button [ref=12]
+      text "Add element"
+    button [ref=13]
+      text "Remove element"
+    container
+      container [ref=14]
+        text "First"
+      container [ref=15]
+        text "Second"
+      container [ref=16]
+        text "Third"
+    text "Delayed element"
+    iframe [ref=17]
+      root
+        container
+          heading
+            text "Iframe fixture"
+          paragraph
+            text "ready"
+          button "Increment counter" [ref=18]
+            text "Click counter"
+    container [ref=19]
+[more content below the viewport: scrollY=0, viewport 829 / page 2649 px; scroll or use snapshot({ scope: "full_page" })]

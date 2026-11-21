@@ -1,0 +1,1065 @@
+// scripts/install.sh: copies, records, backups, uninstall, the running-Zen
+// guard, the profile choice; then end to end in a dev Zen started the way the
+// daily Zen starts (zen-dev.sh with ZENIUS_INSTALLED=1: the installed runtime,
+// no cache purge).
+//
+// Every run gets a fake HOME and ZENIUS_HOME, so no test can reach the user's
+// real profiles.ini or ~/.zenius.
+import assert from "node:assert/strict";
+import { spawn, spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { after, before, test } from "node:test";
+import { fileURLToPath } from "node:url";
+import { connect } from "../../scripts/lib/rpc.mjs";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const RUNTIME = path.join(ROOT, "runtime/JS");
+const USER_SCRIPT = "// the user's own script\n";
+const util = fs.readFileSync(path.join(RUNTIME, "zenius/modules/util.sys.mjs"), "utf8");
+const RUNTIME_VERSION = util.match(/^export const RUNTIME_VERSION = "(.*)";$/m)[1];
+const PROTOCOL_VERSION = Number(util.match(/^export const PROTOCOL_VERSION = (\d+);$/m)[1]);
+// The agent's scripts this checkout has beside the runtime (install.sh's
+// COMPONENTS), which every install writes too: the top-level names in
+// runtime/JS, and every file, each <name>.uc.js before its folder's.
+const AGENT_SCRIPTS = ["agent-sidebar", "agent-urlbar"].filter(c => fs.existsSync(path.join(RUNTIME, `${c}.uc.js`)));
+const AGENT_TOP = AGENT_SCRIPTS.flatMap(c => (fs.existsSync(path.join(RUNTIME, c)) ? [`${c}.uc.js`, c] : [`${c}.uc.js`]));
+const AGENT_FILES = AGENT_SCRIPTS.flatMap(c => [
+  `${c}.uc.js`,
+  ...(fs.existsSync(path.join(RUNTIME, c))
+    ? tree(path.join(RUNTIME, c))
+        .filter(f => !f.endsWith("/"))
+        .map(f => `${c}/${f}`)
+    : []),
+]);
+
+let tmp;
+before(() => {
+  tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "zenius-install-")));
+});
+after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
+/** A fake HOME, ZENIUS_HOME and profile root for one test. */
+function sandbox(name) {
+  const dir = path.join(tmp, name);
+  const s = { dir, home: path.join(dir, "home"), zhome: path.join(dir, "zenius") };
+  fs.mkdirSync(s.home, { recursive: true });
+  s.record = path.join(s.zhome, "install.json");
+  s.profile = (pname = "profile") => {
+    const p = path.join(dir, pname);
+    fs.mkdirSync(path.join(p, "chrome/utils"), { recursive: true });
+    fs.mkdirSync(path.join(p, "chrome/JS"), { recursive: true });
+    fs.writeFileSync(path.join(p, "chrome/utils/boot.sys.mjs"), "");
+    fs.writeFileSync(path.join(p, "chrome/JS/user.uc.js"), USER_SCRIPT);
+    return p;
+  };
+  s.run = (args, { script = path.join(ROOT, "scripts/install.sh"), env = {} } = {}) => {
+    const fullEnv = { ...process.env, HOME: s.home, ZENIUS_HOME: s.zhome, ...env };
+    delete fullEnv.ZEN_BIN;
+    const r = spawnSync("bash", [script, ...args], { env: fullEnv, encoding: "utf8" });
+    return { status: r.status, out: r.stdout, err: r.stderr };
+  };
+  s.install = (p, ...more) => {
+    const r = s.run(["--profile", p, ...more]);
+    assert.equal(r.status, 0, r.err);
+    return r;
+  };
+  return s;
+}
+
+/** Relative paths of every entry under dir, sorted; links are kept as links. */
+function tree(dir, prefix = "") {
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const rel = prefix + entry.name;
+    out.push(entry.isDirectory() ? rel + "/" : rel);
+    if (entry.isDirectory()) {
+      out.push(...tree(path.join(dir, entry.name), rel + "/"));
+    }
+  }
+  return out.sort();
+}
+
+const readJSON = file => JSON.parse(fs.readFileSync(file, "utf8"));
+const mode = file => fs.statSync(file).mode & 0o777;
+const backupFrom = out => out.match(/backed up .* to (\S+)$/m)?.[1];
+
+/** Write a tree under dir: a string is a file's text, an object a folder. */
+function writeTree(dir, spec) {
+  fs.mkdirSync(dir, { recursive: true });
+  for (const [name, value] of Object.entries(spec)) {
+    if (typeof value === "string") {
+      fs.writeFileSync(path.join(dir, name), value);
+    } else {
+      writeTree(path.join(dir, name), value);
+    }
+  }
+}
+
+/**
+ * What's at `at`, recursively: each file's text, and with `times` its mtime
+ * in whole seconds; each link's target; null when nothing is there.
+ */
+function snap(at, times = true) {
+  const st = fs.lstatSync(at, { throwIfNoEntry: false });
+  if (!st) {
+    return null;
+  }
+  if (st.isSymbolicLink()) {
+    return { link: fs.readlinkSync(at) };
+  }
+  if (st.isFile()) {
+    const text = fs.readFileSync(at, "utf8");
+    return times ? { text, mtime: Math.floor(st.mtimeMs / 1000) } : { text };
+  }
+  return Object.fromEntries(
+    fs
+      .readdirSync(at)
+      .sort()
+      .map(name => [name, snap(path.join(at, name), times)])
+  );
+}
+
+test("install copies the runtime, never links, and records it twice", () => {
+  const s = sandbox("copies");
+  const p = s.profile();
+  const r = s.install(p);
+  assert.match(r.out, new RegExp(`Installing zenius ${RUNTIME_VERSION} \\(protocol ${PROTOCOL_VERSION}`));
+  assert.match(r.out, /The next time Zen starts, it will load zenius/);
+
+  const js = path.join(p, "chrome/JS");
+  const installed = tree(path.join(js, "zenius"));
+  assert.deepEqual(
+    installed.filter(f => f !== "install.json"),
+    tree(path.join(RUNTIME, "zenius"))
+  );
+  for (const f of installed.filter(f => !f.endsWith("/") && f !== "install.json")) {
+    const at = path.join(js, "zenius", f);
+    assert.ok(!fs.lstatSync(at).isSymbolicLink(), `${f} is a link`);
+    assert.ok(fs.readFileSync(at).equals(fs.readFileSync(path.join(RUNTIME, "zenius", f))), `${f} differs`);
+  }
+  assert.ok(!fs.lstatSync(path.join(js, "zenius.uc.js")).isSymbolicLink());
+  assert.ok(fs.readFileSync(path.join(js, "zenius.uc.js")).equals(fs.readFileSync(path.join(RUNTIME, "zenius.uc.js"))));
+  assert.equal(fs.readFileSync(path.join(js, "user.uc.js"), "utf8"), USER_SCRIPT);
+  assert.deepEqual(fs.readdirSync(js).sort(), ["user.uc.js", "zenius", "zenius.uc.js", ...AGENT_TOP].sort());
+
+  const local = readJSON(path.join(js, "zenius/install.json"));
+  assert.deepEqual(Object.keys(local).sort(), ["commit", "installedAt", "profile", "protocol", "runtimeVersion"]);
+  assert.equal(local.runtimeVersion, RUNTIME_VERSION);
+  assert.equal(local.protocol, PROTOCOL_VERSION);
+  assert.equal(local.profile, p);
+  assert.match(local.commit, /^[0-9a-f]{7,}(-dirty)?$/);
+  assert.match(local.installedAt, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
+
+  const record = readJSON(s.record);
+  assert.deepEqual(Object.keys(record).sort(), [
+    "backup",
+    "commit",
+    "files",
+    "installedAt",
+    "profile",
+    "protocol",
+    "runtimeVersion",
+  ]);
+  assert.equal(record.profile, p);
+  assert.equal(record.backup, null);
+  assert.deepEqual(
+    { runtimeVersion: record.runtimeVersion, protocol: record.protocol, commit: record.commit, installedAt: record.installedAt },
+    { runtimeVersion: local.runtimeVersion, protocol: local.protocol, commit: local.commit, installedAt: local.installedAt }
+  );
+  assert.deepEqual(record.files, [
+    path.join(js, "zenius.uc.js"),
+    ...installed.filter(f => !f.endsWith("/")).map(f => path.join(js, "zenius", f)),
+    ...AGENT_FILES.map(f => path.join(js, f)),
+  ]);
+  assert.equal(mode(s.record), 0o600);
+  assert.equal(mode(s.zhome), 0o700);
+});
+
+test("a reinstall backs up the previous files and replaces the tree whole", () => {
+  const s = sandbox("reinstall");
+  const p = s.profile();
+  s.install(p);
+  const zenius = path.join(p, "chrome/JS/zenius");
+  fs.appendFileSync(path.join(zenius, "modules/util.sys.mjs"), "// older\n");
+  fs.writeFileSync(path.join(zenius, "stray.txt"), "left by an older version\n");
+  const r = s.install(p);
+  const record = readJSON(s.record);
+  assert.equal(backupFrom(r.out), record.backup);
+  const saved = path.join(record.backup, "chrome/JS");
+  assert.match(fs.readFileSync(path.join(saved, "zenius/modules/util.sys.mjs"), "utf8"), /\/\/ older\n$/);
+  assert.ok(fs.existsSync(path.join(saved, "zenius/stray.txt")));
+  assert.ok(fs.existsSync(path.join(saved, "zenius.uc.js")));
+  assert.ok(!fs.existsSync(path.join(zenius, "stray.txt")));
+  assert.ok(
+    fs.readFileSync(path.join(zenius, "modules/util.sys.mjs")).equals(fs.readFileSync(path.join(RUNTIME, "zenius/modules/util.sys.mjs")))
+  );
+  // Nothing of the swap is left behind.
+  assert.deepEqual(fs.readdirSync(path.join(p, "chrome/JS")).sort(), ["user.uc.js", "zenius", "zenius.uc.js", ...AGENT_TOP].sort());
+});
+
+test("uninstall removes zenius and its record, and backs up what it removed", () => {
+  const s = sandbox("uninstall");
+  const p = s.profile();
+  s.install(p);
+  const r = s.run(["--uninstall", "--profile", p]);
+  assert.equal(r.status, 0, r.err);
+  assert.match(r.out, /it will run without zenius/);
+  assert.deepEqual(fs.readdirSync(path.join(p, "chrome/JS")), ["user.uc.js"]);
+  assert.equal(fs.readFileSync(path.join(p, "chrome/JS/user.uc.js"), "utf8"), USER_SCRIPT);
+  assert.ok(fs.existsSync(path.join(p, "chrome/utils/boot.sys.mjs")));
+  assert.ok(!fs.existsSync(s.record));
+  const saved = path.join(backupFrom(r.out), "chrome/JS");
+  assert.equal(readJSON(path.join(saved, "zenius/install.json")).profile, p);
+  assert.ok(fs.existsSync(path.join(saved, "zenius.uc.js")));
+
+  const again = s.run(["--uninstall", "--profile", p]);
+  assert.equal(again.status, 1);
+  assert.match(again.err, /zenius isn't installed in/);
+});
+
+test("uninstall leaves zenius files that install.sh didn't put there", () => {
+  const s = sandbox("foreign");
+  const p = s.profile();
+  fs.writeFileSync(path.join(p, "chrome/JS/zenius.uc.js"), "// copied by hand\n");
+  const r = s.run(["--uninstall", "--profile", p]);
+  assert.equal(r.status, 1);
+  assert.match(r.err, /weren't put there by install\.sh/);
+  assert.ok(fs.existsSync(path.join(p, "chrome/JS/zenius.uc.js")));
+});
+
+// The one pref zenius sets, only with --disable-ipv6 (the user's choice for
+// their own install, 2026-11-20; opt-in since 2026-11-21): no IPv6 lookups.
+const DNS_LINE = 'user_pref("network.dns.disableIPv6", true);';
+const dnsLines = file =>
+  fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n").filter(line => line.includes('"network.dns.disableIPv6"')) : [];
+/** What Zen does at its next start and quit: user.js's value lands in prefs.js too. */
+function zenKeeps(p) {
+  const prefs = path.join(p, "prefs.js");
+  const kept = (fs.existsSync(prefs) ? fs.readFileSync(prefs, "utf8") : "")
+    .split("\n")
+    .filter(line => line && !line.includes('"network.dns.disableIPv6"'));
+  fs.writeFileSync(prefs, [...kept, DNS_LINE, ""].join("\n"));
+}
+
+test("install --disable-ipv6 sets network.dns.disableIPv6 in user.js once; uninstall removes it and restores prefs.js", () => {
+  const s = sandbox("dns");
+  const p = s.profile();
+  const PREFS = '// Mozilla User Preferences\nuser_pref("browser.startup.page", 3);\n';
+  fs.writeFileSync(path.join(p, "prefs.js"), PREFS);
+  const dry = s.install(p, "--dry-run", "--disable-ipv6");
+  assert.match(dry.out, /would set network\.dns\.disableIPv6 to true in user\.js/);
+  assert.ok(!fs.existsSync(path.join(p, "user.js")));
+
+  const first = s.install(p, "--disable-ipv6").out;
+  assert.match(first, /set network\.dns\.disableIPv6 to true in user\.js/);
+  assert.doesNotMatch(first, /backed up user\.js/, "there was no user.js to back up");
+  assert.equal(readJSON(s.record).backup, null);
+  assert.deepEqual(dnsLines(path.join(p, "user.js")), [DNS_LINE]);
+  assert.match(s.install(p, "--disable-ipv6").out, /network\.dns\.disableIPv6 is already true in user\.js/);
+  assert.deepEqual(dnsLines(path.join(p, "user.js")), [DNS_LINE]);
+
+  zenKeeps(p);
+  const un = s.run(["--uninstall", "--profile", p]);
+  assert.equal(un.status, 0, un.err);
+  assert.ok(!fs.existsSync(path.join(p, "user.js")), "the user.js install.sh made is gone");
+  assert.equal(fs.readFileSync(path.join(p, "prefs.js"), "utf8"), PREFS);
+  assert.match(un.out, /restored network\.dns\.disableIPv6 in prefs\.js to no value of its own/);
+  assert.ok(!fs.existsSync(path.join(s.zhome, "dns-pref.prior")));
+});
+
+test("install without --disable-ipv6 leaves user.js as it is, zenius's earlier line included, which uninstall still takes out", () => {
+  // No user.js: none is made, and nothing is recorded for uninstall.
+  const fresh = sandbox("dns-optin-fresh");
+  const f = fresh.profile();
+  // The dry run promises no pref (zen-sdk's rehearsal of the runbook).
+  const dry = fresh.install(f, "--dry-run").out;
+  assert.match(dry, /change nothing else there:$/m);
+  assert.doesNotMatch(dry, /one pref|disableIPv6|user\.js/);
+  assert.doesNotMatch(fresh.install(f).out, /disableIPv6|user\.js/);
+  assert.ok(!fs.existsSync(path.join(f, "user.js")));
+  assert.ok(!fs.existsSync(path.join(fresh.zhome, "dns-pref.prior")));
+  // The user's own value stays, byte for byte, and isn't backed up.
+  const own = sandbox("dns-optin-own");
+  const o = own.profile();
+  const USER = 'user_pref("network.dns.disableIPv6", false);';
+  fs.writeFileSync(path.join(o, "user.js"), USER);
+  assert.doesNotMatch(own.install(o).out, /user\.js/);
+  assert.equal(fs.readFileSync(path.join(o, "user.js"), "utf8"), USER);
+  // An earlier install's line stays too, and uninstall still restores the pref.
+  const earlier = sandbox("dns-optin-earlier");
+  const p = earlier.profile();
+  earlier.install(p, "--disable-ipv6");
+  zenKeeps(p);
+  const before = fs.readFileSync(path.join(p, "user.js"), "utf8");
+  assert.match(earlier.install(p).out, /network\.dns\.disableIPv6 stays true in user\.js, from an earlier install/);
+  assert.equal(fs.readFileSync(path.join(p, "user.js"), "utf8"), before);
+  const un = earlier.run(["--uninstall", "--profile", p]);
+  assert.equal(un.status, 0, un.err);
+  assert.ok(!fs.existsSync(path.join(p, "user.js")));
+  assert.deepEqual(dnsLines(path.join(p, "prefs.js")), []);
+});
+
+test("uninstall takes zenius's own preferences out of prefs.js and user.js, and keeps them in the backup", () => {
+  const s = sandbox("zenius-prefs");
+  const p = s.profile();
+  const OTHER = 'user_pref("browser.startup.page", 3);';
+  // The allow list the runtime writes, and a test's leftover.
+  const ALLOW = 'user_pref("zenius.agentTabs.allowPrivateNetworks", "printer.local");';
+  const LEFT = 'user_pref("zenius.handoff.quietReload", false);';
+  s.install(p, "--disable-ipv6");
+  zenKeeps(p);
+  fs.appendFileSync(path.join(p, "prefs.js"), [OTHER, ALLOW, ""].join("\n"));
+  fs.appendFileSync(path.join(p, "user.js"), LEFT + "\n");
+  const un = s.run(["--uninstall", "--profile", p]);
+  assert.equal(un.status, 0, un.err);
+  const prefs = fs.readFileSync(path.join(p, "prefs.js"), "utf8");
+  assert.ok(prefs.includes(OTHER), prefs);
+  assert.doesNotMatch(prefs, /"zenius\./);
+  assert.ok(!fs.existsSync(path.join(p, "user.js")), "user.js held only zenius's lines, and install.sh made it");
+  const kept = fs.readFileSync(path.join(backupFrom(un.out), "zenius-prefs.js"), "utf8");
+  assert.ok(kept.includes(ALLOW) && kept.includes(LEFT), kept);
+  assert.match(un.out, /removed zenius's 1 preference from prefs\.js/);
+  // The backup's prefs.js is the file as it was, the allow list in it.
+  assert.ok(fs.readFileSync(path.join(backupFrom(un.out), "prefs.js"), "utf8").includes(ALLOW));
+});
+
+test("uninstall removes this profile's upload and download folders, in the profile and in the temp folder, and no other profile's", () => {
+  const s = sandbox("staging");
+  const p = s.profile();
+  const tmpdir = path.join(s.dir, "tmp");
+  fs.mkdirSync(tmpdir);
+  // As input/filechooser.sys.mjs and observe/downloads.sys.mjs name them: FNV-1a over the profile's path.
+  const fnv = str => {
+    let h = 0x811c9dc5;
+    for (const ch of str) {
+      h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0;
+    }
+    return h.toString(16).padStart(8, "0");
+  };
+  const mine = fnv(p);
+  const theirs = fnv(`${p}-other`);
+  const ours = [`zenius-upload-${mine}`, `zenius-upload-${mine}-1`, `zenius-downloads-${mine}`, `zenius-downloads-${mine}-2`];
+  // downloads.sys.mjs's fixed folder drops the hash's leading zeros; with none, it's zenius-downloads-<hash>.
+  const short = parseInt(mine, 16).toString(16);
+  if (short !== mine) ours.push(`zenius-downloads-${short}`);
+  const dirs = [...ours, `zenius-upload-${theirs}`, `notzenius-upload-${mine}`];
+  for (const d of dirs) {
+    fs.mkdirSync(path.join(tmpdir, d), { mode: 0o700 });
+    fs.writeFileSync(path.join(tmpdir, d, "file"), "x");
+  }
+  s.install(p);
+  // Since 2026-11-21 they live in the profile.
+  const inProfile = ["zenius-uploads", "zenius-downloads"];
+  for (const d of inProfile) {
+    fs.mkdirSync(path.join(p, d, "d1"), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(path.join(p, d, "d1", "file"), "x");
+  }
+  // The dry run lists each folder once and removes none.
+  const dry = s.run(["--uninstall", "--dry-run", "--profile", p], { env: { TMPDIR: tmpdir } });
+  assert.equal(dry.status, 0, dry.err);
+  const listed = dry.out.split("\n").filter(line => line.includes("would remove "));
+  for (const d of [...ours, ...inProfile]) {
+    assert.equal(listed.filter(line => line.endsWith(`/${d}`)).length, 1, `${d} in:\n${dry.out}`);
+  }
+  assert.equal(fs.readdirSync(tmpdir).length, dirs.length);
+  assert.ok(inProfile.every(d => fs.existsSync(path.join(p, d))));
+  const un = s.run(["--uninstall", "--profile", p], { env: { TMPDIR: tmpdir } });
+  assert.equal(un.status, 0, un.err);
+  assert.deepEqual(fs.readdirSync(tmpdir).sort(), [`notzenius-upload-${mine}`, `zenius-upload-${theirs}`]);
+  assert.ok(inProfile.every(d => !fs.existsSync(path.join(p, d))));
+  assert.match(un.out, new RegExp(`removed ${ours.length + inProfile.length} zenius upload or download folders`));
+});
+
+test("it warns, without stopping, when another Zen from the same app runs: the reopen would only bring that one forward", async () => {
+  const s = sandbox("other-zens");
+  const p = s.profile();
+  // Stand-ins whose command lines read as the app's: a dev Zen with its own
+  // profile, and a content process, which doesn't count.
+  const bin = path.join(s.dir, "Zen.app/Contents/MacOS/zen");
+  const fakeZen = (...args) =>
+    spawn("bash", ["-c", 'exec -a "$0" "$@"', bin, process.execPath, "-e", "setTimeout(() => {}, 30000)", "--", ...args], { stdio: "ignore" });
+  const dev = fakeZen("-profile", "/x/.zenius-dev/profiles/try", "--headless");
+  const content = fakeZen("-contentproc", "8", "tab");
+  try {
+    for (const end = Date.now() + 5000; ; ) {
+      const ps = spawnSync("ps", ["axo", "pid=,command="], { encoding: "utf8" }).stdout;
+      if (ps.includes(`${bin} -e`) && ps.split(`${bin} -e`).length > 2) break;
+      assert.ok(Date.now() < end, "the stand-ins didn't start");
+      await new Promise(r => setTimeout(r, 50));
+    }
+    const r = s.run(["--profile", p], { env: { ZENIUS_APP_BIN: bin } });
+    assert.equal(r.status, 0, r.err);
+    assert.match(r.out, /^Done\. The next time Zen starts, it will load zenius .*\nWarning: another Zen from the same app is running\. /m);
+    assert.match(r.out, new RegExp(`^  pid ${dev.pid}, profile /x/\\.zenius-dev/profiles/try$`, "m"));
+    assert.doesNotMatch(r.out, new RegExp(`pid ${content.pid}\\b`));
+    // Without the app's binary named, a Linux run looks for nothing. A Mac
+    // run looks at /Applications/Zen.app, where the user's own Zen and dev
+    // Zens may well run (zen-eval's run there), so only Linux can say none.
+    const un = s.run(["--uninstall", "--profile", p]);
+    assert.equal(un.status, 0, un.err);
+    if (process.platform !== "darwin") {
+      assert.doesNotMatch(un.out, /another Zen/);
+    }
+  } finally {
+    dev.kill();
+    content.kill();
+  }
+});
+
+test("uninstall gives back the user's own user.js as it was, and the pref's earlier value in prefs.js", () => {
+  const s = sandbox("dns-own");
+  const p = s.profile();
+  const OWN = 'user_pref("network.dns.disableIPv6", false);';
+  // The user's own user.js, without a last newline.
+  const USER = `// the user's own\n${OWN}\nuser_pref("ui.key.menuAccessKeyFocuses", false);`;
+  fs.writeFileSync(path.join(p, "user.js"), USER);
+  fs.writeFileSync(path.join(p, "prefs.js"), `user_pref("a.b", 1);\n${OWN}\n`);
+  const installed = s.install(p, "--disable-ipv6").out;
+  // zen-sdk's install rehearsal: a first install backs up user.js before
+  // adding its line, and says so, in its output and in install.json.
+  const folder = installed.match(/^  backed up user\.js to (\S+)$/m)?.[1];
+  assert.ok(folder?.startsWith(path.join(s.zhome, "backups")), installed);
+  assert.match(installed, /no zenius files to back up/);
+  assert.equal(readJSON(s.record).backup, folder, "install.json names the folder user.js went to");
+  assert.equal(fs.readFileSync(path.join(folder, "user.js"), "utf8"), USER, "the backup is the user's own user.js");
+  // zenius's line comes last, so it wins over theirs.
+  assert.deepEqual(dnsLines(path.join(p, "user.js")), [OWN, DNS_LINE]);
+  zenKeeps(p);
+  const un = s.run(["--uninstall", "--profile", p]);
+  assert.equal(un.status, 0, un.err);
+  assert.equal(fs.readFileSync(path.join(p, "user.js"), "utf8"), USER);
+  assert.deepEqual(dnsLines(path.join(p, "prefs.js")), [OWN]);
+  assert.match(un.out, /restored network\.dns\.disableIPv6 in prefs\.js to user_pref\("network\.dns\.disableIPv6", false\);/);
+});
+
+test("an uninstall while Zen runs restores prefs.js only at a second uninstall, once Zen has quit", () => {
+  const s = sandbox("dns-running");
+  const p = s.profile();
+  s.install(p, "--disable-ipv6");
+  zenKeeps(p);
+  fs.symlinkSync(`127.0.0.1:+${process.pid}`, path.join(p, "lock"));
+  const un = s.run(["--uninstall", "--profile", p, "--while-running"]);
+  assert.equal(un.status, 0, un.err);
+  assert.match(un.out, /Once it has quit, run install\.sh --uninstall again/);
+  assert.ok(!fs.existsSync(path.join(p, "user.js")));
+  assert.deepEqual(dnsLines(path.join(p, "prefs.js")), [DNS_LINE]);
+  // Until then no other profile gets zenius: the restore would be lost.
+  const other = s.profile("other");
+  const elsewhere = s.run(["--profile", other, "--disable-ipv6"]);
+  assert.equal(elsewhere.status, 1);
+  assert.match(elsewhere.err, /network\.dns\.disableIPv6 still has to be restored in/);
+
+  fs.unlinkSync(path.join(p, "lock"));
+  const again = s.run(["--uninstall", "--profile", p]);
+  assert.equal(again.status, 0, again.err);
+  assert.deepEqual(dnsLines(path.join(p, "prefs.js")), []);
+  assert.ok(!fs.existsSync(path.join(s.zhome, "dns-pref.prior")));
+  assert.equal(s.run(["--uninstall", "--profile", p]).status, 1);
+});
+
+test("while Zen has the profile open, it changes zenius only with --while-running", () => {
+  const s = sandbox("running");
+  const p = s.profile();
+  // Linux Zen's lock link names a live pid: ours.
+  fs.symlinkSync(`127.0.0.1:+${process.pid}`, path.join(p, "lock"));
+  // A first install is fine: nothing of zenius runs yet.
+  assert.match(s.install(p).out, /Zen is running: quit it and reopen it to load zenius/);
+  const { installedAt } = readJSON(s.record);
+
+  for (const args of [["--profile", p], ["--uninstall", "--profile", p]]) {
+    const r = s.run(args);
+    assert.equal(r.status, 1);
+    assert.match(r.err, new RegExp(`Zen \\(pid ${process.pid}\\) has this profile open, and zenius is installed in it`));
+  }
+  assert.equal(readJSON(s.record).installedAt, installedAt);
+  assert.match(s.install(p, "--while-running").out, /Zen is running: quit it and reopen it/);
+
+  // The Mac's Zen leaves no lock link and only holds .parentlock open.
+  fs.unlinkSync(path.join(p, "lock"));
+  if (process.platform === "darwin") {
+    const fd = fs.openSync(path.join(p, ".parentlock"), "w");
+    try {
+      const r = s.run(["--profile", p]);
+      assert.equal(r.status, 1);
+      assert.match(r.err, /has this profile open/);
+    } finally {
+      fs.closeSync(fd);
+    }
+  }
+  assert.equal(s.run(["--uninstall", "--profile", p]).status, 0);
+});
+
+test("without --profile it takes the profile Zen opens, from profiles.ini", () => {
+  const s = sandbox("ini");
+  const zenDir =
+    process.platform === "darwin" ? path.join(s.home, "Library/Application Support/zen") : path.join(s.home, ".zen");
+  fs.mkdirSync(zenDir, { recursive: true });
+  for (const name of ["a", "b", "c"]) {
+    const p = path.join(zenDir, "Profiles", name);
+    fs.mkdirSync(path.join(p, "chrome/utils"), { recursive: true });
+    fs.writeFileSync(path.join(p, "chrome/utils/boot.sys.mjs"), "");
+  }
+  const ini = (text) => fs.writeFileSync(path.join(zenDir, "profiles.ini"), text);
+  const chosen = () => {
+    const r = s.run(["--dry-run"]);
+    assert.equal(r.status, 0, r.err);
+    return [r.out.match(/ into (.*)$/m)[1], r.out.match(/profile chosen by: .*profiles\.ini, (.*)$/m)?.[1]];
+  };
+  const FROM_INSTALL = "the Default= of its [Install…] section (the profile Zen opens)";
+  const FROM_PROFILE = "its [Profile…] section with Default=1";
+  const profiles = "[Profile1]\nName=b\nIsRelative=1\nPath=Profiles/b\nDefault=1\n\n[Profile0]\nName=c\nIsRelative=1\nPath=Profiles/c\n\n";
+  ini(`${profiles}[General]\nStartWithLastProfile=1\nVersion=2\n`);
+  assert.deepEqual(chosen(), [path.join(zenDir, "Profiles/b"), FROM_PROFILE]);
+  // Each installation's [Install…] default wins (CRLF line ends too).
+  ini(`[InstallABCDEF]\r\nDefault=Profiles/a\r\nLocked=1\r\n\r\n${profiles}`);
+  assert.deepEqual(chosen(), [path.join(zenDir, "Profiles/a"), FROM_INSTALL]);
+  ini(`[InstallABCDEF]\nDefault=Profiles/a\n\n[Install123456]\nDefault=Profiles/a\n\n${profiles}`);
+  assert.deepEqual(chosen(), [path.join(zenDir, "Profiles/a"), FROM_INSTALL]);
+  // Installations that disagree: ask.
+  ini(`[InstallABCDEF]\nDefault=Profiles/a\n\n[Install123456]\nDefault=Profiles/c\n\n${profiles}`);
+  const r = s.run(["--dry-run"]);
+  assert.equal(r.status, 1);
+  assert.match(r.err, /names a different default profile for each Zen installation[\s\S]*Profiles\/a[\s\S]*Profiles\/c[\s\S]*Pass --profile/);
+});
+
+test("--dry-run changes nothing", () => {
+  const s = sandbox("dry");
+  const p = s.profile();
+  const snapshot = () => [tree(s.dir), fs.readFileSync(path.join(p, "chrome/JS/user.uc.js"), "utf8")];
+  let before = snapshot();
+  const r = s.run(["--profile", p, "--dry-run"]);
+  assert.equal(r.status, 0, r.err);
+  assert.match(r.out, /would run: cp -R/);
+  assert.match(r.out, /dry run: nothing changed/);
+  assert.deepEqual(snapshot(), before);
+  // It shows everything the install would write, relative to the profile,
+  // so the user can check it before anything changes.
+  assert.match(r.out, /profile chosen by: --profile/);
+  assert.match(r.out, /no running Zen has this profile open/);
+  const listed = [...r.out.matchAll(/^    (chrome\/JS\/\S.*)$/gm)].map(m => m[1]);
+  const runtimeFiles = tree(path.join(ROOT, "runtime/JS/zenius"))
+    .filter(f => !f.endsWith("/"))
+    .map(f => `chrome/JS/zenius/${f}`);
+  assert.deepEqual(
+    listed,
+    ["chrome/JS/zenius.uc.js", "chrome/JS/zenius/install.json", ...runtimeFiles, ...AGENT_FILES.map(f => `chrome/JS/${f}`)].sort()
+  );
+  assert.match(r.out, new RegExp(`would write these ${listed.length} files in the profile`));
+  assert.ok(r.out.includes(`would record the install in ${s.record}`), r.out);
+  assert.match(r.out, /no zenius files to back up: the profile has none yet/);
+
+  s.install(p);
+  before = snapshot();
+  const again = s.run(["--profile", p, "--dry-run"]);
+  assert.equal(again.status, 0);
+  assert.match(again.out, /would back up the zenius files it replaces to /);
+  const un = s.run(["--uninstall", "--profile", p, "--dry-run"]);
+  assert.equal(un.status, 0);
+  assert.match(un.out, /would back up what it removes to /);
+  assert.match(un.out, /left in place: /);
+  assert.deepEqual(snapshot(), before);
+});
+
+test("it refuses a profile without fx-autoconfig, and a second profile", () => {
+  const s = sandbox("refuse");
+  const bare = path.join(s.dir, "bare");
+  fs.mkdirSync(bare);
+  const r = s.run(["--profile", bare]);
+  assert.equal(r.status, 1);
+  assert.match(r.err, /has no fx-autoconfig/);
+
+  // One install at a time: both would serve instance "default".
+  const p1 = s.profile("one");
+  const p2 = s.profile("two");
+  s.install(p1);
+  const second = s.run(["--profile", p2]);
+  assert.equal(second.status, 1);
+  assert.match(second.err, new RegExp(`zenius is installed in another profile, ${p1}`));
+  assert.equal(s.run(["--uninstall", "--profile", p1]).status, 0);
+  s.install(p2);
+  assert.equal(readJSON(s.record).profile, p2);
+});
+
+test("Undo takes out the sidebar's agent workspace after a backup, and install never touches it", () => {
+  const s = sandbox("workspace");
+  const p = s.profile();
+  s.install(p);
+  // What zenius's sidebar writes there: Claude Code's limits, and Codex's folder.
+  const ws = path.join(p, "agent-sidebar-workspace");
+  writeTree(ws, { claude: { ".claude": { "settings.json": "{}\n" } }, codex: { "notes.txt": "left by Codex\n" } });
+  const written = snap(ws);
+  // And the user's chats with it, which stay theirs.
+  const chats = path.join(p, "agent-sidebar-tasks.json");
+  fs.writeFileSync(chats, '{"tasks":[{"title":"a chat"}]}\n');
+  s.install(p);
+  assert.deepEqual(snap(ws), written);
+  const dry = s.run(["--uninstall", "--profile", p, "--dry-run"]);
+  assert.equal(dry.status, 0, dry.err);
+  assert.ok(dry.out.includes(`would remove the sidebar's agent workspace, ${ws}, keeping it in the backup`), dry.out);
+  assert.ok(dry.out.includes(`the sidebar's chats (${chats})`), dry.out);
+  assert.deepEqual(snap(ws), written);
+  const un = s.run(["--uninstall", "--profile", p]);
+  assert.equal(un.status, 0, un.err);
+  assert.ok(!fs.existsSync(ws));
+  const left = un.out.split("\n").find(line => line.includes("left in place: "));
+  assert.ok(left?.includes(`, the sidebar's chats (${chats}), and the Agents Space`), un.out);
+  assert.equal(fs.readFileSync(chats, "utf8"), '{"tasks":[{"title":"a chat"}]}\n');
+  const kept = un.out.match(/removed the sidebar's agent workspace, .* \(kept in (\S+)\)$/m)?.[1];
+  assert.ok(kept, un.out);
+  assert.deepEqual(snap(path.join(kept, "agent-sidebar-workspace")), written);
+  // One that an uninstall which didn't know it left behind goes too.
+  writeTree(ws, { codex: { "notes.txt": "left by Codex\n" } });
+  const again = s.run(["--uninstall", "--profile", p]);
+  assert.equal(again.status, 0, again.err);
+  assert.match(again.out, /zenius isn't in .* any more; removing the sidebar's agent workspace it left/);
+  assert.ok(!fs.existsSync(ws));
+  assert.equal(s.run(["--uninstall", "--profile", p]).status, 1);
+});
+
+// The agent's scripts beside the runtime (install.sh's COMPONENTS), as a
+// checkout ships them, and the user's own sidebar as their profile holds it
+// before zenius, with a link that must come back as a link.
+const ZENIUS_AGENT = {
+  "agent-sidebar.uc.js": "// zenius's agent sidebar\n",
+  "agent-sidebar": { "panel.mjs": "// zenius's panel\n", "style.css": "/* zenius's */\n" },
+  "agent-urlbar.uc.js": "// zenius's agent urlbar\n",
+  "agent-urlbar": { "dispatch.mjs": "// zenius's dispatch\n" },
+};
+const USERS_SIDEBAR = {
+  "agent-sidebar.uc.js": "// the user's own agent sidebar\n",
+  "agent-sidebar": {
+    "panel.mjs": "// the user's panel\n",
+    "old.css": "/* the user's */\n",
+    lib: { "util.mjs": "// the user's util\n" },
+  },
+};
+const OWN_SIDEBAR = /backed up the profile's own agent-sidebar to (.+); zenius's takes its place, and uninstall puts it back$/m;
+/**
+ * install.sh's notes (components.prior) as [profile, name, backup folder],
+ * after checking each line's fingerprint of zenius's copy: "<crc>-<size>".
+ */
+function notes(prior) {
+  return fs
+    .readFileSync(prior, "utf8")
+    .split("\n")
+    .filter(Boolean)
+    .map(line => {
+      const fields = line.split("\t");
+      assert.equal(fields.length, 4, line);
+      assert.match(fields[3], /^\d+-\d+$/, line);
+      return fields.slice(0, 3);
+    });
+}
+
+/** A checkout with this one's runtime and install.sh, and `agent` as its agent's scripts. */
+function checkoutWith(name, agent) {
+  const dir = path.join(tmp, `checkout-${name}`);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(path.join(dir, "scripts"), { recursive: true });
+    fs.copyFileSync(path.join(ROOT, "scripts/install.sh"), path.join(dir, "scripts/install.sh"));
+    fs.mkdirSync(path.join(dir, "runtime/JS"), { recursive: true });
+    fs.copyFileSync(path.join(RUNTIME, "zenius.uc.js"), path.join(dir, "runtime/JS/zenius.uc.js"));
+    fs.cpSync(path.join(RUNTIME, "zenius"), path.join(dir, "runtime/JS/zenius"), { recursive: true });
+    writeTree(path.join(dir, "runtime/JS"), agent);
+  }
+  return path.join(dir, "scripts/install.sh");
+}
+
+/**
+ * The version the daily Zen runs (cbac1ef), the last from before the agent's
+ * scripts: its install.sh, with this checkout's runtime. Null in a clone
+ * without that commit.
+ */
+function installedVersion() {
+  const dir = path.join(tmp, "checkout-cbac1ef");
+  if (!fs.existsSync(dir)) {
+    const r = spawnSync("git", ["-C", ROOT, "show", "cbac1ef:scripts/install.sh"], { encoding: "utf8" });
+    if (r.status !== 0) {
+      return null;
+    }
+    fs.mkdirSync(path.join(dir, "scripts"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "scripts/install.sh"), r.stdout);
+    fs.mkdirSync(path.join(dir, "runtime/JS"), { recursive: true });
+    fs.copyFileSync(path.join(RUNTIME, "zenius.uc.js"), path.join(dir, "runtime/JS/zenius.uc.js"));
+    fs.cpSync(path.join(RUNTIME, "zenius"), path.join(dir, "runtime/JS/zenius"), { recursive: true });
+  }
+  return path.join(dir, "scripts/install.sh");
+}
+
+/**
+ * A profile with the user's own sidebar and another script of theirs, and
+ * the sidebar's own data under the fake HOME. `others()` is what no run may
+ * change; `users()` the user's sidebar as it is now.
+ */
+function usersProfile(s) {
+  const p = s.profile();
+  const js = path.join(p, "chrome/JS");
+  writeTree(js, USERS_SIDEBAR);
+  fs.symlinkSync("panel.mjs", path.join(js, "agent-sidebar/alias.mjs"));
+  fs.writeFileSync(path.join(js, "my-script.uc.js"), "// the user's own script\n");
+  const data = path.join(s.home, "Library/Application Support/zenius-agent-sidebar");
+  writeTree(data, { "config.json": "{}\n", adapters: { "claude.json": "{}\n" } });
+  const others = () => ({
+    autofill: snap(path.join(js, "my-script.uc.js")),
+    user: snap(path.join(js, "user.uc.js")),
+    data: snap(data),
+  });
+  const users = () => ({ script: snap(path.join(js, "agent-sidebar.uc.js")), folder: snap(path.join(js, "agent-sidebar")) });
+  return { p, js, others, users, prior: path.join(s.zhome, "components.prior") };
+}
+
+test("install puts zenius's agent scripts in place of the user's own sidebar and keeps theirs; Undo gives it back as it was", () => {
+  const s = sandbox("agent");
+  const { p, js, others, users, prior } = usersProfile(s);
+  const script = checkoutWith("agent", ZENIUS_AGENT);
+  const shipped = path.join(path.dirname(script), "../runtime/JS");
+  const theirs = users();
+  const before = others();
+
+  const r = s.run(["--profile", p], { script });
+  assert.equal(r.status, 0, r.err);
+  const kept = r.out.match(OWN_SIDEBAR)?.[1];
+  assert.ok(kept, r.out);
+  // zenius's copies, whole: nothing of the user's lingers in the folder.
+  for (const name of ["agent-sidebar.uc.js", "agent-sidebar", "agent-urlbar.uc.js", "agent-urlbar"]) {
+    assert.deepEqual(snap(path.join(js, name), false), snap(path.join(shipped, name), false), name);
+  }
+  assert.deepEqual(
+    { script: snap(path.join(kept, "chrome/JS/agent-sidebar.uc.js")), folder: snap(path.join(kept, "chrome/JS/agent-sidebar")) },
+    theirs
+  );
+  assert.deepEqual(notes(prior), [
+    [p, "agent-sidebar", kept],
+    [p, "agent-urlbar", ""],
+  ]);
+  assert.equal(mode(prior), 0o600);
+  assert.deepEqual(others(), before);
+  const record = readJSON(s.record);
+  assert.equal(record.backup, kept);
+  assert.deepEqual(
+    record.files.filter(f => !f.startsWith(path.join(js, "zenius"))),
+    ["agent-sidebar.uc.js", "agent-sidebar/panel.mjs", "agent-sidebar/style.css", "agent-urlbar.uc.js", "agent-urlbar/dispatch.mjs"].map(f =>
+      path.join(js, f)
+    )
+  );
+  assert.deepEqual(Object.keys(readJSON(path.join(js, "zenius/install.json"))).sort(), [
+    "commit",
+    "installedAt",
+    "profile",
+    "protocol",
+    "runtimeVersion",
+  ]);
+
+  // A reinstall replaces zenius's copy, and the note still names the user's.
+  const again = s.run(["--profile", p], { script });
+  assert.equal(again.status, 0, again.err);
+  assert.doesNotMatch(again.out, /the profile's own/);
+  const replaced = backupFrom(again.out);
+  assert.notEqual(replaced, kept);
+  assert.equal(fs.readFileSync(path.join(replaced, "chrome/JS/agent-sidebar.uc.js"), "utf8"), ZENIUS_AGENT["agent-sidebar.uc.js"]);
+  assert.deepEqual(notes(prior), [
+    [p, "agent-sidebar", kept],
+    [p, "agent-urlbar", ""],
+  ]);
+
+  const un = s.run(["--uninstall", "--profile", p], { script });
+  assert.equal(un.status, 0, un.err);
+  assert.ok(un.out.includes(`put back the profile's own agent-sidebar from ${kept}`), un.out);
+  assert.match(un.out, /removed agent-urlbar \(the profile had none before zenius\)/);
+  assert.deepEqual(users(), theirs);
+  assert.deepEqual(fs.readdirSync(js).sort(), ["agent-sidebar", "agent-sidebar.uc.js", "my-script.uc.js", "user.uc.js"]);
+  assert.deepEqual(others(), before);
+  assert.ok(!fs.existsSync(prior));
+  const removed = backupFrom(un.out);
+  assert.equal(fs.readFileSync(path.join(removed, "chrome/JS/agent-sidebar.uc.js"), "utf8"), ZENIUS_AGENT["agent-sidebar.uc.js"]);
+  assert.ok(fs.existsSync(path.join(removed, "chrome/JS/agent-urlbar/dispatch.mjs")));
+});
+
+test("a dry run with the agent's scripts changes nothing, and says it would replace the user's sidebar", () => {
+  const s = sandbox("agent-dry");
+  const { p } = usersProfile(s);
+  const script = checkoutWith("agent", ZENIUS_AGENT);
+  let before = snap(s.dir);
+  const r = s.run(["--profile", p, "--dry-run"], { script });
+  assert.equal(r.status, 0, r.err);
+  assert.match(r.out, /would back up the profile's own agent-sidebar to \S+ and put zenius's in its place; uninstall puts it back/);
+  const listed = [...r.out.matchAll(/^    (chrome\/JS\/\S.*)$/gm)].map(m => m[1]);
+  for (const f of ["agent-sidebar.uc.js", "agent-sidebar/panel.mjs", "agent-sidebar/style.css", "agent-urlbar.uc.js", "agent-urlbar/dispatch.mjs"]) {
+    assert.ok(listed.includes(`chrome/JS/${f}`), f);
+  }
+  assert.deepEqual(snap(s.dir), before);
+
+  assert.equal(s.run(["--profile", p], { script }).status, 0);
+  before = snap(s.dir);
+  const un = s.run(["--uninstall", "--profile", p, "--dry-run"], { script });
+  assert.equal(un.status, 0, un.err);
+  assert.match(un.out, /would put back the profile's own agent-sidebar from /);
+  assert.match(un.out, /would remove agent-urlbar \(the profile had none before zenius\)/);
+  assert.deepEqual(snap(s.dir), before);
+});
+
+test("if the backup of the user's own sidebar is gone, Undo leaves zenius's in place", () => {
+  const s = sandbox("agent-lost");
+  const { p, js, prior } = usersProfile(s);
+  const script = checkoutWith("agent", ZENIUS_AGENT);
+  const kept = s.run(["--profile", p], { script }).out.match(OWN_SIDEBAR)?.[1];
+  assert.ok(kept);
+  fs.rmSync(kept, { recursive: true });
+  const un = s.run(["--uninstall", "--profile", p], { script });
+  assert.equal(un.status, 0, un.err);
+  assert.ok(un.out.includes(`left zenius's agent-sidebar in place: the profile's own copy was kept in ${kept}, which is gone`), un.out);
+  assert.equal(fs.readFileSync(path.join(js, "agent-sidebar.uc.js"), "utf8"), ZENIUS_AGENT["agent-sidebar.uc.js"]);
+  assert.ok(!fs.existsSync(path.join(js, "agent-urlbar.uc.js")));
+  assert.ok(!fs.existsSync(prior));
+});
+
+test("an install from a checkout without one of the agent's scripts gives back the user's copy of it", () => {
+  const s = sandbox("agent-gone");
+  const { p, js, users, prior } = usersProfile(s);
+  const theirs = users();
+  const kept = s.run(["--profile", p], { script: checkoutWith("agent", ZENIUS_AGENT) }).out.match(OWN_SIDEBAR)?.[1];
+  assert.ok(kept);
+  const { "agent-urlbar.uc.js": urlbar, "agent-urlbar": folder } = ZENIUS_AGENT;
+  const script = checkoutWith("urlbar-only", { "agent-urlbar.uc.js": urlbar, "agent-urlbar": folder });
+  const r = s.run(["--profile", p], { script });
+  assert.equal(r.status, 0, r.err);
+  assert.ok(r.out.includes(`put back the profile's own agent-sidebar from ${kept}`), r.out);
+  assert.deepEqual(users(), theirs);
+  assert.equal(fs.readFileSync(path.join(js, "agent-urlbar.uc.js"), "utf8"), urlbar);
+  assert.deepEqual(notes(prior), [[p, "agent-urlbar", ""]]);
+  assert.ok(!readJSON(s.record).files.some(f => f.includes("agent-sidebar")));
+
+  assert.equal(s.run(["--uninstall", "--profile", p], { script }).status, 0);
+  assert.deepEqual(users(), theirs);
+  assert.ok(!fs.existsSync(path.join(js, "agent-urlbar.uc.js")));
+  assert.ok(!fs.existsSync(prior));
+});
+
+test("while Zen runs the user's own sidebar, a first install replaces it only with --while-running", () => {
+  const s = sandbox("agent-running");
+  const { p, js, users, prior } = usersProfile(s);
+  const script = checkoutWith("agent", ZENIUS_AGENT);
+  const theirs = users();
+  fs.symlinkSync(`127.0.0.1:+${process.pid}`, path.join(p, "lock"));
+  const r = s.run(["--profile", p], { script });
+  assert.equal(r.status, 1);
+  assert.match(r.err, new RegExp(`Zen \\(pid ${process.pid}\\) has this profile open, and runs its agent-sidebar, which this would change`));
+  assert.deepEqual(users(), theirs);
+  assert.ok(!fs.existsSync(path.join(js, "zenius.uc.js")));
+  assert.ok(!fs.existsSync(prior));
+  assert.equal(s.run(["--profile", p, "--while-running"], { script }).status, 0);
+  fs.unlinkSync(path.join(p, "lock"));
+  assert.equal(s.run(["--uninstall", "--profile", p], { script }).status, 0);
+  assert.deepEqual(users(), theirs);
+});
+
+test("a reinstall after the user's own installer put their sidebar back keeps that copy for Undo, as the user's", () => {
+  const s = sandbox("agent-put-back");
+  const { p, js, prior } = usersProfile(s);
+  const script = checkoutWith("agent", ZENIUS_AGENT);
+  const first = s.run(["--profile", p], { script }).out.match(OWN_SIDEBAR)?.[1];
+  assert.ok(first);
+  // The user's installer links their working copy back in, over zenius's.
+  const dev = path.join(s.dir, "dev");
+  writeTree(dev, { "agent-sidebar.uc.js": "// the user's newer sidebar\n", "agent-sidebar": { "panel.mjs": "// newer\n" } });
+  const devBefore = snap(dev);
+  fs.rmSync(path.join(js, "agent-sidebar.uc.js"));
+  fs.rmSync(path.join(js, "agent-sidebar"), { recursive: true });
+  fs.symlinkSync(path.join(dev, "agent-sidebar.uc.js"), path.join(js, "agent-sidebar.uc.js"));
+  fs.symlinkSync(path.join(dev, "agent-sidebar"), path.join(js, "agent-sidebar"));
+  const theirs = { script: snap(path.join(js, "agent-sidebar.uc.js")), folder: snap(path.join(js, "agent-sidebar")) };
+
+  const r = s.run(["--profile", p], { script });
+  assert.equal(r.status, 0, r.err);
+  const kept = r.out.match(
+    /backed up the profile's own agent-sidebar \(changed since zenius installed it\) to (.+); zenius's takes its place, and uninstall puts it back$/m
+  )?.[1];
+  assert.ok(kept, r.out);
+  // The backup holds the user's links as links, not what they lead to.
+  assert.deepEqual(
+    { script: snap(path.join(kept, "chrome/JS/agent-sidebar.uc.js")), folder: snap(path.join(kept, "chrome/JS/agent-sidebar")) },
+    { script: { link: path.join(dev, "agent-sidebar.uc.js") }, folder: { link: path.join(dev, "agent-sidebar") } }
+  );
+  assert.deepEqual(notes(prior), [
+    [p, "agent-sidebar", kept],
+    [p, "agent-urlbar", ""],
+  ]);
+  assert.equal(fs.readFileSync(path.join(js, "agent-sidebar.uc.js"), "utf8"), ZENIUS_AGENT["agent-sidebar.uc.js"]);
+  assert.ok(!fs.lstatSync(path.join(js, "agent-sidebar")).isSymbolicLink());
+  // zenius never wrote through the user's links.
+  assert.deepEqual(snap(dev), devBefore);
+
+  const un = s.run(["--uninstall", "--profile", p], { script });
+  assert.equal(un.status, 0, un.err);
+  assert.ok(un.out.includes(`put back the profile's own agent-sidebar from ${kept}`), un.out);
+  assert.deepEqual({ script: snap(path.join(js, "agent-sidebar.uc.js")), folder: snap(path.join(js, "agent-sidebar")) }, theirs);
+  assert.deepEqual(snap(dev), devBefore);
+  assert.ok(!fs.existsSync(prior));
+});
+
+test("Undo leaves a sidebar the user put there after zenius's", () => {
+  const s = sandbox("agent-changed");
+  const { p, js, prior } = usersProfile(s);
+  const script = checkoutWith("agent", ZENIUS_AGENT);
+  assert.equal(s.run(["--profile", p], { script }).status, 0);
+  fs.writeFileSync(path.join(js, "agent-sidebar.uc.js"), "// the user's newer sidebar\n");
+  const theirs = { script: snap(path.join(js, "agent-sidebar.uc.js")), folder: snap(path.join(js, "agent-sidebar")) };
+  const dry = s.run(["--uninstall", "--profile", p, "--dry-run"], { script });
+  assert.equal(dry.status, 0, dry.err);
+  assert.match(dry.out, /would leave agent-sidebar in place: it changed since zenius installed it, so it's the user's own/);
+  const un = s.run(["--uninstall", "--profile", p], { script });
+  assert.equal(un.status, 0, un.err);
+  assert.match(un.out, /left agent-sidebar in place: it changed since zenius installed it, so it's the user's own/);
+  assert.deepEqual({ script: snap(path.join(js, "agent-sidebar.uc.js")), folder: snap(path.join(js, "agent-sidebar")) }, theirs);
+  assert.ok(!fs.existsSync(path.join(js, "agent-urlbar.uc.js")));
+  assert.ok(!fs.existsSync(prior));
+});
+
+test("going back to the installed version (cbac1ef): Undo with this checkout, then that version's install, leaves the user's sidebar as before the update", t => {
+  const older = installedVersion();
+  if (!older) {
+    t.skip("this clone hasn't cbac1ef");
+    return;
+  }
+  const s = sandbox("agent-back");
+  const { p, js, others, users, prior } = usersProfile(s);
+  const theirs = users();
+  const before = others();
+  const script = checkoutWith("agent", ZENIUS_AGENT);
+  for (const [args, by] of [
+    [["--profile", p], older], // what the daily Zen has
+    [["--profile", p], script], // the update
+    [["--uninstall", "--profile", p], script], // Undo, by the updated checkout
+    [["--profile", p], older], // the older commit again
+  ]) {
+    const r = s.run(args, { script: by });
+    assert.equal(r.status, 0, r.err);
+  }
+  assert.deepEqual(users(), theirs);
+  assert.ok(!fs.existsSync(path.join(js, "agent-urlbar.uc.js")));
+  assert.ok(!fs.existsSync(path.join(js, "agent-urlbar")));
+  assert.deepEqual(others(), before);
+  assert.ok(!fs.existsSync(prior));
+});
+
+test("going back with cbac1ef's install.sh alone keeps zenius's agent scripts and their note, so this checkout's update and Undo still know the user's sidebar", t => {
+  const older = installedVersion();
+  if (!older) {
+    t.skip("this clone hasn't cbac1ef");
+    return;
+  }
+  const s = sandbox("agent-older");
+  const { p, js, others, users, prior } = usersProfile(s);
+  const theirs = users();
+  const before = others();
+  const script = checkoutWith("agent", ZENIUS_AGENT);
+  const run = (args, by) => {
+    const r = s.run(args, { script: by });
+    assert.equal(r.status, 0, r.err);
+    return r;
+  };
+  run(["--profile", p], older);
+  const kept = run(["--profile", p], script).out.match(OWN_SIDEBAR)?.[1];
+  assert.ok(kept);
+  const note = fs.readFileSync(prior, "utf8");
+  // The older install.sh doesn't know the agent's scripts: they stay zenius's.
+  run(["--profile", p], older);
+  assert.equal(fs.readFileSync(path.join(js, "agent-sidebar.uc.js"), "utf8"), ZENIUS_AGENT["agent-sidebar.uc.js"]);
+  assert.equal(fs.readFileSync(prior, "utf8"), note);
+  // Updating again keeps the note on the user's copy.
+  assert.doesNotMatch(run(["--profile", p], script).out, /the profile's own/);
+  assert.equal(fs.readFileSync(prior, "utf8"), note);
+  // The older Undo leaves the scripts and the sidebar's workspace; this
+  // checkout's Undo then puts the user's sidebar back and takes the rest out.
+  const ws = path.join(p, "agent-sidebar-workspace");
+  writeTree(ws, { claude: { ".claude": { "settings.json": "{}\n" } } });
+  run(["--uninstall", "--profile", p], older);
+  assert.ok(!fs.existsSync(path.join(js, "zenius.uc.js")));
+  assert.equal(fs.readFileSync(prior, "utf8"), note);
+  assert.ok(fs.existsSync(ws));
+  const un = run(["--uninstall", "--profile", p], script);
+  assert.match(un.out, /zenius isn't in .* any more, but the agent's scripts it put there are/);
+  assert.ok(un.out.includes(`put back the profile's own agent-sidebar from ${kept}`), un.out);
+  assert.deepEqual(users(), theirs);
+  assert.ok(!fs.existsSync(path.join(js, "agent-urlbar.uc.js")));
+  assert.ok(!fs.existsSync(ws));
+  assert.deepEqual(others(), before);
+  assert.ok(!fs.existsSync(prior));
+});
+
+test("in Zen: the installed runtime runs, and a reinstall loads at the next start without a cache purge", async t => {
+  const dev = process.env.ZENIUS_DEV ?? path.join(ROOT, "scripts/zen-dev.sh");
+  const name = `${process.env.ZENIUS_INSTANCE ?? "coretest"}-inst`;
+  const zen = (...args) => {
+    const r = spawnSync(dev, [name, ...args], {
+      encoding: "utf8",
+      env: { ...process.env, ZENIUS_INSTALLED: "1" },
+    });
+    assert.equal(r.status, 0, `zen-dev.sh ${args.join(" ")}: ${r.stderr}`);
+    return r.stdout.trim();
+  };
+  const s = sandbox("e2e");
+  // A tagged copy of this checkout's runtime, with install.sh beside it.
+  const release = tag => {
+    const dir = path.join(s.dir, tag);
+    fs.mkdirSync(path.join(dir, "scripts"), { recursive: true });
+    fs.copyFileSync(path.join(ROOT, "scripts/install.sh"), path.join(dir, "scripts/install.sh"));
+    fs.cpSync(RUNTIME, path.join(dir, "runtime/JS"), { recursive: true });
+    const file = path.join(dir, "runtime/JS/zenius/modules/util.sys.mjs");
+    fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace(/^(export const RUNTIME_VERSION = ").*(";)$/m, `$1${tag}$2`));
+    return path.join(dir, "scripts/install.sh");
+  };
+  const version = async () => {
+    const client = await connect(name);
+    try {
+      return await client.call("browser.version");
+    } finally {
+      client.close();
+    }
+  };
+
+  zen("fresh");
+  const profile = zen("path");
+  t.after(() => {
+    spawnSync(dev, [name, "stop"], { stdio: "ignore" });
+    if (process.platform !== "darwin") {
+      spawnSync(dev, [name, "reset"], { stdio: "ignore" });
+    }
+  });
+  fs.mkdirSync(path.join(profile, "chrome"), { recursive: true });
+  fs.cpSync(path.join(ROOT, "runtime/vendor/fx-autoconfig/profile/chrome/utils"), path.join(profile, "chrome/utils"), {
+    recursive: true,
+  });
+
+  for (const tag of [`${RUNTIME_VERSION}-e2e1`, `${RUNTIME_VERSION}-e2e2`]) {
+    const r = s.run(["--profile", profile], { script: release(tag) });
+    assert.equal(r.status, 0, r.err);
+    const { installedAt } = readJSON(path.join(profile, "chrome/JS/zenius/install.json"));
+    zen("start");
+    const v = await version();
+    assert.equal(v.runtimeVersion, tag);
+    assert.deepEqual(v.install, { commit: "unknown", installedAt });
+    zen("quit");
+    // installedAt counts seconds; keep the two installs apart.
+    await new Promise(resolve => setTimeout(resolve, 1100));
+  }
+  assert.equal(s.run(["--uninstall", "--profile", profile]).status, 0);
+  assert.ok(!fs.existsSync(path.join(profile, "chrome/JS/zenius.uc.js")));
+});
+
+test("on a dev profile, browser.version has no install", async () => {
+  const instance = process.env.ZENIUS_INSTANCE;
+  if (!instance) {
+    return;
+  }
+  const client = await connect(instance);
+  try {
+    const v = await client.call("browser.version");
+    assert.equal(v.install, null);
+    assert.equal(v.runtimeVersion, RUNTIME_VERSION);
+  } finally {
+    client.close();
+  }
+});

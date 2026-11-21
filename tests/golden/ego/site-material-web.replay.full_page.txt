@@ -1,0 +1,1607 @@
+[p1 "Material Web - Buttons" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "Material Web - Buttons"]
+root
+  container
+    container
+      container
+        anchor [ref=26075, url=https://material-web.dev/]
+          text "Material Web"
+        anchor [ref=26076, loc=href:https://material-web.dev/components/button/#main-content, url=https://material-web.dev/components/button/#main-content]
+          text "Skip to main content"
+      container
+        container [ref=26077]
+          menubar "List of pages and components"
+            text "About"
+            listitem [ref=26078, loc=href:https://material-web.dev/about/intro/, url=https://material-web.dev/about/intro/]
+              text "Introduction"
+            listitem [ref=26079, loc=href:https://material-web.dev/about/quick-start/, url=https://material-web.dev/about/quick-start/]
+              text "Quick Start"
+            listitem [ref=26080, loc=href:https://material-web.dev/about/roadmap/, url=https://material-web.dev/about/roadmap/]
+              text "Roadmap"
+            listitem [ref=26081, loc=href:https://material-web.dev/about/support/, url=https://material-web.dev/about/support/]
+              text "Support"
+            listitem [ref=26082, loc=href:https://material-web.dev/about/size/, url=https://material-web.dev/about/size/]
+              text "Bundle Sizes"
+            splitter
+            text "Theming"
+            listitem [ref=26083, url=https://material-web.dev/theming/material-theming/]
+              text "Material Theming"
+            listitem [ref=26084, loc=href:https://material-web.dev/theming/color/, url=https://material-web.dev/theming/color/]
+              text "Color"
+            listitem [ref=26085, loc=href:https://material-web.dev/theming/typography/, url=https://material-web.dev/theming/typography/]
+              text "Typography"
+            listitem [ref=26086, loc=href:https://material-web.dev/theming/shape/, url=https://material-web.dev/theming/shape/]
+              text "Shape"
+            splitter
+            text "Components"
+            listitem [ref=26115, loc=href:https://material-web.dev/components/button/, url=https://material-web.dev/components/button/]
+              text "Buttons"
+            listitem [ref=26116, loc=href:https://material-web.dev/components/checkbox/, url=https://material-web.dev/components/checkbox/]
+              text "Checkbox"
+            listitem [ref=26117, loc=href:https://material-web.dev/components/chip/, url=https://material-web.dev/components/chip/]
+              text "Chips"
+            listitem [ref=26118, loc=href:https://material-web.dev/components/dialog/, url=https://material-web.dev/components/dialog/]
+              text "Dialogs"
+            listitem [ref=26119, loc=href:https://material-web.dev/components/fab/, url=https://material-web.dev/components/fab/]
+              text "Floating action button (FAB)"
+            listitem [ref=26120, loc=href:https://material-web.dev/components/icon-button/, url=https://material-web.dev/components/icon-button/]
+              text "Icon Buttons"
+            listitem [ref=26121, loc=href:https://material-web.dev/components/list/, url=https://material-web.dev/components/list/]
+              text "Lists"
+            listitem [ref=26122, loc=href:https://material-web.dev/components/menu/, url=https://material-web.dev/components/menu/]
+              text "Menus"
+            listitem [ref=26123, loc=href:https://material-web.dev/components/progress/, url=https://material-web.dev/components/progress/]
+              text "Progress indicators"
+            listitem [ref=26124, loc=href:https://material-web.dev/components/radio/, url=https://material-web.dev/components/radio/]
+              text "Radio"
+            listitem [ref=26125, loc=href:https://material-web.dev/components/ripple/, url=https://material-web.dev/components/ripple/]
+              text "Ripple"
+            listitem [ref=26126, loc=href:https://material-web.dev/components/select/, url=https://material-web.dev/components/select/]
+              text "Select"
+            listitem [ref=26127, loc=href:https://material-web.dev/components/slider/, url=https://material-web.dev/components/slider/]
+              text "Sliders"
+            listitem [ref=26128, loc=href:https://material-web.dev/components/switch/, url=https://material-web.dev/components/switch/]
+              text "Switch"
+            listitem [ref=26129, loc=href:https://material-web.dev/components/tabs/, url=https://material-web.dev/components/tabs/]
+              text "Tabs"
+            listitem [ref=26130, loc=href:https://material-web.dev/components/text-field/, url=https://material-web.dev/components/text-field/]
+              text "Text field"
+        container
+          container [ref=26087]
+            paragraph
+              text "On this page:"
+            heading
+              text "Buttons"
+            ordered_list
+              list_item
+                anchor [ref=26088, url=https://material-web.dev/components/button/#interactive-demo]
+                  text "Interactive Demo"
+              list_item
+                anchor [ref=26089, url=https://material-web.dev/components/button/#types]
+                  text "Types"
+              list_item
+                anchor [ref=26090, url=https://material-web.dev/components/button/#usage]
+                  text "Usage"
+                ordered_list
+                  list_item
+                    anchor [ref=26091, url=https://material-web.dev/components/button/#icon]
+                      text "Icon"
+              list_item
+                anchor [ref=26092, url=https://material-web.dev/components/button/#accessibility]
+                  text "Accessibility"
+                ordered_list
+                  list_item
+                    anchor [ref=26093, url=https://material-web.dev/components/button/#focusable-and-disabled]
+                      text "Focusable and disabled"
+              list_item
+                anchor [ref=26094, url=https://material-web.dev/components/button/#elevated-button]
+                  text "Elevated button"
+              list_item
+                anchor [ref=26095, url=https://material-web.dev/components/button/#filled-button]
+                  text "Filled button"
+              list_item
+                anchor [ref=26096, url=https://material-web.dev/components/button/#filled-tonal-button]
+                  text "Filled tonal button"
+              list_item
+                anchor [ref=26097, url=https://material-web.dev/components/button/#outlined-button]
+                  text "Outlined button"
+              list_item
+                anchor [ref=26098, url=https://material-web.dev/components/button/#text-button]
+                  text "Text button"
+              list_item
+                anchor [ref=26099, url=https://material-web.dev/components/button/#theming]
+                  text "Theming"
+                ordered_list
+                  list_item
+                    anchor [ref=26100, url=https://material-web.dev/components/button/#elevated-button-tokens]
+                      text "Elevated button tokens"
+                  list_item
+                    anchor [ref=26101, url=https://material-web.dev/components/button/#elevated-button-example]
+                      text "Elevated button example"
+                  list_item
+                    anchor [ref=26102, url=https://material-web.dev/components/button/#filled-button-tokens]
+                      text "Filled button tokens"
+                  list_item
+                    anchor [ref=26103, url=https://material-web.dev/components/button/#filled-button-example]
+                      text "Filled button example"
+                  list_item
+                    anchor [ref=26104, url=https://material-web.dev/components/button/#filled-tonal-button-tokens]
+                      text "Filled tonal button tokens"
+                  list_item
+                    anchor [ref=26105, url=https://material-web.dev/components/button/#filled-tonal-button-example]
+                      text "Filled tonal button example"
+                  list_item
+                    anchor [ref=26106, url=https://material-web.dev/components/button/#outlined-button-tokens]
+                      text "Outlined button tokens"
+                  list_item
+                    anchor [ref=26131, url=https://material-web.dev/components/button/#outlined-button-example]
+                      text "Outlined button example"
+                  list_item
+                    anchor [ref=26132, url=https://material-web.dev/components/button/#text-button-tokens]
+                      text "Text button tokens"
+                  list_item
+                    anchor [ref=26133, url=https://material-web.dev/components/button/#text-button-example]
+                      text "Text button example"
+              list_item
+                anchor [ref=26134, url=https://material-web.dev/components/button/#api]
+                  text "API"
+                ordered_list
+                  list_item
+                    anchor [ref=26135, url=https://material-web.dev/components/button/#mdelevatedbutton-lessmd-elevated-buttongreater]
+                      text "MdElevatedButton <md-elevated-button>"
+                    ordered_list
+                      list_item
+                        anchor [ref=26136, url=https://material-web.dev/components/button/#properties]
+                          text "Properties"
+                  list_item
+                    anchor [ref=26137, url=https://material-web.dev/components/button/#mdfilledbutton-lessmd-filled-buttongreater]
+                      text "MdFilledButton <md-filled-button>"
+                    ordered_list
+                      list_item
+                        anchor [ref=26138, url=https://material-web.dev/components/button/#properties-1]
+                          text "Properties"
+                  list_item
+                    anchor [ref=26139, url=https://material-web.dev/components/button/#mdfilledtonalbutton-lessmd-filled-tonal-buttongreater]
+                      text "MdFilledTonalButton <md-filled-tonal-button>"
+                    ordered_list
+                      list_item
+                        anchor [ref=26140, url=https://material-web.dev/components/button/#properties-2]
+                          text "Properties"
+                  list_item
+                    anchor [ref=26141, url=https://material-web.dev/components/button/#mdoutlinedbutton-lessmd-outlined-buttongreater]
+                      text "MdOutlinedButton <md-outlined-button>"
+                    ordered_list
+                      list_item
+                        anchor [ref=26142, url=https://material-web.dev/components/button/#properties-3]
+                          text "Properties"
+                  list_item
+                    anchor [ref=26143, url=https://material-web.dev/components/button/#mdtextbutton-lessmd-text-buttongreater]
+                      text "MdTextButton <md-text-button>"
+                    ordered_list
+                      list_item
+                        anchor [ref=26144, url=https://material-web.dev/components/button/#properties-4]
+                          text "Properties"
+          container [ref=26107]
+            container [ref=26108]
+              container
+                container
+                  heading
+                    text "Buttons"
+                  paragraph
+                    anchor [ref=26109, url=https://m3.material.io/components/buttons]
+                      text "Buttons"
+                    text "help people initiate actions, from sending an email, to sharing a document, to liking a post."
+                  paragraph
+                    text "There are five types of common buttons: elevated, filled, filled tonal, outlined, and text."
+                paragraph
+                  image
+              unordered_list
+                list_item
+                  anchor [ref=26110, url=https://m3.material.io/components/buttons]
+                    text "Design article"
+                list_item
+                  anchor [ref=26111, url=https://material-web.dev/components/button/#api]
+                    text "API Documentation"
+                list_item
+                  anchor [ref=26112, loc=href:https://github.com/material-components/material-web/tree/main/button, url=https://github.com/material-components/material-web/tree/main/button]
+                    text "Source code"
+              container
+                heading [ref=26113]
+                  text "Interactive Demo"
+                anchor [ref=26114, url=https://material-web.dev/components/button/#interactive-demo]
+                  text "Link to “Interactive Demo”"
+                  text "#"
+              paragraph
+              container
+                container [ref=26145]
+                  button [ref=26146]
+                    text "expand_more"
+                  text "View interactive demo inline."
+                container
+                  progressindicator
+                  progressindicator
+              paragraph
+                anchor [ref=26147, loc=href:https://material-web.dev/components/button/stories/, url=https://material-web.dev/components/button/stories/]
+                  text "Open interactive demo in new tab."
+              paragraph
+              heading [ref=26148]
+                text "Types"
+              anchor [ref=26149, url=https://material-web.dev/components/button/#types]
+                text "Link to “Types”"
+                text "#"
+              container "The 5 types of common buttons"
+                button [ref=26150]
+                  text "add"
+                  text "Elevated"
+                text "1"
+                button [ref=26151]
+                  text "Filled"
+                text "2"
+                button [ref=26152]
+                  text "Tonal"
+                text "3"
+                button [ref=26153]
+                  text "Outlined"
+                text "4"
+                button [ref=26154]
+                  text "Text"
+                text "5"
+              ordered_list
+                list_item
+                  anchor [ref=26155, url=https://material-web.dev/components/button/#elevated-button]
+                    text "Elevated button"
+                list_item
+                  anchor [ref=26156, url=https://material-web.dev/components/button/#filled-button]
+                    text "Filled button"
+                list_item
+                  anchor [ref=26157, url=https://material-web.dev/components/button/#filled-tonal-button]
+                    text "Filled tonal button"
+                list_item
+                  anchor [ref=26158, url=https://material-web.dev/components/button/#outlined-button]
+                    text "Outlined button"
+                list_item
+                  anchor [ref=26159, url=https://material-web.dev/components/button/#text-button]
+                    text "Text button"
+              heading [ref=26160]
+                text "Usage"
+              anchor [ref=26161, url=https://material-web.dev/components/button/#usage]
+                text "Link to “Usage”"
+                text "#"
+              paragraph
+                text "Buttons have label text that describes the action that will occur if a user taps a button."
+              container "An outlined button with the text 'Back' next to a filled button with the text 'Complete'"
+                button [ref=26162]
+                  text "Back"
+                button [ref=26163]
+                  text "Complete"
+              container
+                container
+                  text "<"
+                  text "md-outlined-button"
+                  text ">"
+                  text "Back"
+                  text "</"
+                  text "md-outlined-button"
+                  text ">"
+                  text "<"
+                  text "md-filled-button"
+                  text ">"
+                  text "Complete"
+                  text "</"
+                  text "md-filled-button"
+                  text ">"
+                button [ref=26164]
+                  text "content_copy"
+              heading [ref=26165]
+                text "Icon"
+              anchor [ref=26166, url=https://material-web.dev/components/button/#icon]
+                text "Link to “Icon”"
+                text "#"
+              paragraph
+                text "An icon may optionally be added to a button to help communicate the button's action and help draw attention."
+              container "An outlined button with the text 'Back' next to a filled button with the text 'Complete'"
+                button [ref=26167]
+                  svg_root
+                  text "Send"
+                paragraph
+                  button [ref=26168]
+                    text "Open"
+                    svg_root
+              container
+                container [ref=26169]
+                  text "<"
+                  text "md-filled-tonal-button"
+                  text ">"
+                  text "Send"
+                  text "<"
+                  text "svg"
+                  text "slot"
+                  text "="
+                  text """
+                  text "icon"
+                  text """
+                  text "viewBox"
+                  text "="
+                  text """
+                  text "0 0 48 48"
+                  text """
+                  text ">"
+                  text "<"
+                  text "path"
+                  text "d"
+                  text "="
+                  text """
+                  text "M6 40V8l38 16Zm3-4.65L36.2 24 9 12.5v8.4L21.1 24 9 27Zm0 0V12.5 27Z"
+                  text """
+                  text "/>"
+                  text "</"
+                  text "svg"
+                  text ">"
+                  text "</"
+                  text "md-filled-tonal-button"
+                  text ">"
+                  text "<"
+                  text "md-text-button"
+                  text "trailing-icon"
+                  text ">"
+                  text "Open"
+                  text "<"
+                  text "svg"
+                  text "slot"
+                  text "="
+                  text """
+                  text "icon"
+                  text """
+                  text "viewBox"
+                  text "="
+                  text """
+                  text "0 0 48 48"
+                  text """
+                  text ">"
+                  text "<"
+                  text "path"
+                  text "d"
+                  text "="
+                  text """
+                  text "M9 42q-1.2 0-2.1-.9Q6 40.2 6 39V9q0-1.2.9-2.1Q7.8 6 9 6h13.95v3H9v30h30V25.05h3V39q0 1.2-.9 2.1-.9.9-2.1.9Zm10.1-10.95L17 28.9 36.9 9H25.95V6H42v16.05h-3v-10.9Z"
+                  text """
+                  text "/>"
+                  text "</"
+                  text "svg"
+                  text ">"
+                  text "</"
+                  text "md-text-button"
+                  text ">"
+                button [ref=26170]
+                  text "content_copy"
+              heading [ref=26171]
+                text "Accessibility"
+              anchor [ref=26172, url=https://material-web.dev/components/button/#accessibility]
+                text "Link to “Accessibility”"
+                text "#"
+              paragraph
+                text "Add an"
+                anchor [ref=26173, url=https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Attributes/aria-label]
+                  text "aria-label"
+                text "attribute to buttons whose labels need a more descriptive label."
+              container
+                container
+                  text "<"
+                  text "md-elevated-button"
+                  text "aria-label"
+                  text "="
+                  text """
+                  text "Add a new contact"
+                  text """
+                  text ">"
+                  text "Add"
+                  text "</"
+                  text "md-elevated-button"
+                  text ">"
+                button [ref=26174]
+                  text "content_copy"
+              heading [ref=26175]
+                text "Focusable and disabled"
+              anchor [ref=26176, url=https://material-web.dev/components/button/#focusable-and-disabled]
+                text "Link to “Focusable and disabled”"
+                text "#"
+              paragraph
+                text "By default, disabled buttons are not focusable with the keyboard, while "soft-disabled" buttons are. Some use cases encourage focusability of disabled toolbar items to increase their discoverability."
+              paragraph
+                text "See the"
+                anchor [ref=26177, url=https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/#kbd_disabled_controls]
+                  text "ARIA guidelines on focusability of disabled controls"
+                text "for guidance on when this is recommended."
+              container
+                container
+                  text "<"
+                  text "div"
+                  text "role"
+                  text "="
+                  text """
+                  text "toolbar"
+                  text """
+                  text ">"
+                  text "<"
+                  text "md-text-button"
+                  text ">"
+                  text "Copy"
+                  text "</"
+                  text "md-text-button"
+                  text ">"
+                  text "<"
+                  text "md-text-button"
+                  text ">"
+                  text "Cut"
+                  text "</"
+                  text "md-text-button"
+                  text ">"
+                  text "<!-- This button is disabled but kept focusable to improve its discoverability in the toolbar. -->"
+                  text "<"
+                  text "md-text-button"
+                  text "soft-disabled"
+                  text ">"
+                  text "Paste"
+                  text "</"
+                  text "md-text-button"
+                  text ">"
+                  text "</"
+                  text "div"
+                  text ">"
+                button [ref=26178]
+                  text "content_copy"
+              heading [ref=26179]
+                text "Elevated button"
+              anchor [ref=26180, url=https://material-web.dev/components/button/#elevated-button]
+                text "Link to “Elevated button”"
+                text "#"
+              paragraph
+                anchor [ref=26181, url=https://m3.material.io/components/buttons/guidelines#4e89da4d-a8fa-4e20-bb8d-b8a93eff3e3e]
+                  text "Elevated buttons"
+                text "are essentially filled tonal buttons with a shadow. To prevent shadow creep, only use them when absolutely necessary, such as when the button requires visual separation from a patterned background."
+              container "An elevated button."
+                button [ref=26182]
+                  text "Elevated"
+              container
+                container
+                  text "<"
+                  text "md-elevated-button"
+                  text ">"
+                  text "Elevated"
+                  text "</"
+                  text "md-elevated-button"
+                  text ">"
+                button [ref=26183]
+                  text "content_copy"
+              heading [ref=26184]
+                text "Filled button"
+              anchor [ref=26185, url=https://material-web.dev/components/button/#filled-button]
+                text "Link to “Filled button”"
+                text "#"
+              paragraph
+                anchor [ref=26186, url=https://m3.material.io/components/buttons/guidelines#9ecffdb3-ef29-47e7-8d5d-f78b404fcafe]
+                  text "Filled buttons"
+                text "have the most visual impact after the FAB, and should be used for important, final actions that complete a flow, like Save, Join now, or Confirm."
+              container "A filled button."
+                button [ref=26187]
+                  text "Filled"
+              container
+                container
+                  text "<"
+                  text "md-filled-button"
+                  text ">"
+                  text "Filled"
+                  text "</"
+                  text "md-filled-button"
+                  text ">"
+                button [ref=26188]
+                  text "content_copy"
+              heading [ref=26189]
+                text "Filled tonal button"
+              anchor [ref=26190, url=https://material-web.dev/components/button/#filled-tonal-button]
+                text "Link to “Filled tonal button”"
+                text "#"
+              paragraph
+                text "A"
+                anchor [ref=26191, url=https://m3.material.io/components/buttons/guidelines#07a1577b-aaf5-4824-a698-03526421058b]
+                  text "filled tonal button"
+                text "is an alternative middle ground between filled and outlined buttons. They're useful in contexts where a lower-priority button requires slightly more emphasis than an outline would give, such as "Next"..."
+              container "A tonal button."
+                button [ref=26192]
+                  text "Tonal"
+              container
+                container
+                  text "<"
+                  text "md-filled-tonal-button"
+                  text ">"
+                  text "Tonal"
+                  text "</"
+                  text "md-filled-tonal-button"
+                  text ">"
+                button [ref=26193]
+                  text "content_copy"
+              heading [ref=26194]
+                text "Outlined button"
+              anchor [ref=26195, url=https://material-web.dev/components/button/#outlined-button]
+                text "Link to “Outlined button”"
+                text "#"
+              paragraph
+                anchor [ref=26196, url=https://m3.material.io/components/buttons/guidelines#3742b09f-c224-43e0-a83e-541bd29d0f05]
+                  text "Outlined buttons"
+                text "are medium-emphasis buttons. They contain actions that are important, but aren’t the primary action in an app."
+              container "An outlined button."
+                button [ref=26197]
+                  text "Outlined"
+              container
+                container
+                  text "<"
+                  text "md-outlined-button"
+                  text ">"
+                  text "Outlined"
+                  text "</"
+                  text "md-outlined-button"
+                  text ">"
+                button [ref=26198]
+                  text "content_copy"
+              heading [ref=26199]
+                text "Text button"
+              anchor [ref=26200, url=https://material-web.dev/components/button/#text-button]
+                text "Link to “Text button”"
+                text "#"
+              paragraph
+                anchor [ref=26201, url=https://m3.material.io/components/buttons/guidelines#c9bcbc0b-ee05-45ad-8e80-e814ae919fbb]
+                  text "Text buttons"
+                text "are used for the lowest priority actions, especially when presenting multiple options."
+              container "A text button."
+                button [ref=26202]
+                  text "Text"
+              container
+                container
+                  text "<"
+                  text "md-text-button"
+                  text ">"
+                  text "Text"
+                  text "</"
+                  text "md-text-button"
+                  text ">"
+                button [ref=26203]
+                  text "content_copy"
+              heading [ref=26204]
+                text "Theming"
+              anchor [ref=26205, url=https://material-web.dev/components/button/#theming]
+                text "Link to “Theming”"
+                text "#"
+              paragraph
+                text "Button supports"
+                anchor [ref=26206, url=https://material-web.dev/theming/material-theming/]
+                  text "Material theming"
+                text "and can be customized in terms of color, typography, and shape."
+              heading [ref=26207]
+                text "Elevated button tokens"
+              anchor [ref=26208, url=https://material-web.dev/components/button/#elevated-button-tokens]
+                text "Link to “Elevated button tokens”"
+                text "#"
+              table
+                table_row
+                  table_cell
+                    text "Token"
+                  table_cell
+                    text "Default value"
+                table_row
+                  table_cell
+                    text "--md-elevated-button-container-color"
+                  table_cell
+                    text "--md-sys-color-surface"
+                table_row
+                  table_cell
+                    text "--md-elevated-button-container-shape"
+                  table_cell
+                    text "--md-sys-shape-corner-full"
+                table_row
+                  table_cell
+                    text "--md-elevated-button-label-text-color"
+                  table_cell
+                    text "--md-sys-color-on-surface"
+                table_row
+                  table_cell
+                    text "--md-elevated-button-label-text-font"
+                  table_cell
+                    text "--md-sys-typescale-label-large-font"
+              unordered_list
+                list_item
+                  anchor [ref=26209, url=https://github.com/material-components/material-web/blob/main/tokens/_md-comp-elevated-button.scss]
+                    text "All tokens"
+              heading [ref=26210]
+                text "Elevated button example"
+              anchor [ref=26211, url=https://material-web.dev/components/button/#elevated-button-example]
+                text "Link to “Elevated button example”"
+                text "#"
+              container "Image of an elevated button with a different theme applied"
+                paragraph
+                  button [ref=26212]
+                    text "Elevated"
+              container
+                container
+                  text "<"
+                  text "style"
+                  text ">"
+                  text ":root"
+                  text "{"
+                  text "--md-elevated-button-container-shape"
+                  text ":"
+                  text "0px"
+                  text ";"
+                  text "--md-elevated-button-label-text-font"
+                  text ":"
+                  text "system-ui"
+                  text ";"
+                  text "--md-sys-color-surface-container-low"
+                  text ":"
+                  text "#FAFDFC"
+                  text ";"
+                  text "--md-sys-color-primary"
+                  text ":"
+                  text "#191C1C"
+                  text ";"
+                  text "}"
+                  text "</"
+                  text "style"
+                  text ">"
+                  text "<"
+                  text "md-elevated-button"
+                  text ">"
+                  text "Elevated"
+                  text "</"
+                  text "md-elevated-button"
+                  text ">"
+                button [ref=26213]
+                  text "content_copy"
+              heading [ref=26214]
+                text "Filled button tokens"
+              anchor [ref=26215, url=https://material-web.dev/components/button/#filled-button-tokens]
+                text "Link to “Filled button tokens”"
+                text "#"
+              table
+                table_row
+                  table_cell
+                    text "Token"
+                  table_cell
+                    text "Default value"
+                table_row
+                  table_cell
+                    text "--md-filled-button-container-color"
+                  table_cell
+                    text "--md-sys-color-primary"
+                table_row
+                  table_cell
+                    text "--md-filled-button-container-shape"
+                  table_cell
+                    text "--md-sys-shape-corner-full"
+                table_row
+                  table_cell
+                    text "--md-filled-button-label-text-color"
+                  table_cell
+                    text "--md-sys-color-on-primary"
+                table_row
+                  table_cell
+                    text "--md-filled-button-label-text-font"
+                  table_cell
+                    text "--md-sys-typescale-label-large-font"
+              unordered_list
+                list_item
+                  anchor [ref=26216, url=https://github.com/material-components/material-web/blob/main/tokens/_md-comp-filled-button.scss]
+                    text "All tokens"
+              heading [ref=26217]
+                text "Filled button example"
+              anchor [ref=26218, url=https://material-web.dev/components/button/#filled-button-example]
+                text "Link to “Filled button example”"
+                text "#"
+              container "Image of a filled button with a different theme applied"
+                paragraph
+                  button [ref=26219]
+                    text "Filled"
+              container
+                container
+                  text "<"
+                  text "style"
+                  text ">"
+                  text ":root"
+                  text "{"
+                  text "--md-filled-button-container-shape"
+                  text ":"
+                  text "0px"
+                  text ";"
+                  text "--md-filled-button-label-text-font"
+                  text ":"
+                  text "system-ui"
+                  text ";"
+                  text "--md-sys-color-primary"
+                  text ":"
+                  text "#006A6A"
+                  text ";"
+                  text "--md-sys-color-on-primary"
+                  text ":"
+                  text "#FFFFFF"
+                  text ";"
+                  text "}"
+                  text "</"
+                  text "style"
+                  text ">"
+                  text "<"
+                  text "md-filled-button"
+                  text ">"
+                  text "Filled"
+                  text "</"
+                  text "md-filled-button"
+                  text ">"
+                button [ref=26220]
+                  text "content_copy"
+              heading [ref=26221]
+                text "Filled tonal button tokens"
+              anchor [ref=26222, url=https://material-web.dev/components/button/#filled-tonal-button-tokens]
+                text "Link to “Filled tonal button tokens”"
+                text "#"
+              table
+                table_row
+                  table_cell
+                    text "Token"
+                  table_cell
+                    text "Default value"
+                table_row
+                  table_cell
+                    text "--md-filled-tonal-button-container-color"
+                  table_cell
+                    text "--md-sys-color-secondary-container"
+                table_row
+                  table_cell
+                    text "--md-filled-tonal-button-container-shape"
+                  table_cell
+                    text "--md-sys-shape-corner-full"
+                table_row
+                  table_cell
+                    text "--md-filled-tonal-button-label-text-color"
+                  table_cell
+                    text "--md-sys-color-on-secondary-container"
+                table_row
+                  table_cell
+                    text "--md-filled-tonal-button-label-text-font"
+                  table_cell
+                    text "--md-sys-typescale-label-large-font"
+              unordered_list
+                list_item
+                  anchor [ref=26223, url=https://github.com/material-components/material-web/blob/main/tokens/_md-comp-filled-tonal-button.scss]
+                    text "All tokens"
+              heading [ref=26224]
+                text "Filled tonal button example"
+              anchor [ref=26225, url=https://material-web.dev/components/button/#filled-tonal-button-example]
+                text "Link to “Filled tonal button example”"
+                text "#"
+              container "Image of a tonal button with a different theme applied"
+                paragraph
+                  button [ref=26226]
+                    text "Tonal"
+              container
+                container
+                  text "<"
+                  text "style"
+                  text ">"
+                  text ":root"
+                  text "{"
+                  text "--md-filled-tonal-button-container-shape"
+                  text ":"
+                  text "0px"
+                  text ";"
+                  text "--md-filled-tonal-button-label-text-font"
+                  text ":"
+                  text "system-ui"
+                  text ";"
+                  text "--md-sys-color-secondary-container"
+                  text ":"
+                  text "#CCE8E7"
+                  text ";"
+                  text "--md-sys-color-on-secondary-container"
+                  text ":"
+                  text "#051F1F"
+                  text ";"
+                  text "}"
+                  text "</"
+                  text "style"
+                  text ">"
+                  text "<"
+                  text "md-filled-tonal-button"
+                  text ">"
+                  text "Tonal"
+                  text "</"
+                  text "md-filled-tonal-button"
+                  text ">"
+                button [ref=26227]
+                  text "content_copy"
+              heading [ref=26228]
+                text "Outlined button tokens"
+              anchor [ref=26229, url=https://material-web.dev/components/button/#outlined-button-tokens]
+                text "Link to “Outlined button tokens”"
+                text "#"
+              table
+                table_row
+                  table_cell
+                    text "Token"
+                  table_cell
+                    text "Default value"
+                table_row
+                  table_cell
+                    text "--md-outlined-button-outline-color"
+                  table_cell
+                    text "--md-sys-color-outline"
+                table_row
+                  table_cell
+                    text "--md-outlined-button-container-shape"
+                  table_cell
+                    text "--md-sys-shape-corner-full"
+                table_row
+                  table_cell
+                    text "--md-outlined-button-label-text-color"
+                  table_cell
+                    text "--md-sys-color-primary"
+                table_row
+                  table_cell
+                    text "--md-outlined-button-label-text-font"
+                  table_cell
+                    text "--md-sys-typescale-label-large-font"
+              unordered_list
+                list_item
+                  anchor [ref=26230, url=https://github.com/material-components/material-web/blob/main/tokens/_md-comp-outlined-button.scss]
+                    text "All tokens"
+              heading [ref=26231]
+                text "Outlined button example"
+              anchor [ref=26232, url=https://material-web.dev/components/button/#outlined-button-example]
+                text "Link to “Outlined button example”"
+                text "#"
+              container "Image of a outlined button with a different theme applied"
+                paragraph
+                  button [ref=26233]
+                    text "Outlined"
+              container
+                container
+                  text "<"
+                  text "style"
+                  text ">"
+                  text ":root"
+                  text "{"
+                  text "--md-outlined-button-container-shape"
+                  text ":"
+                  text "0px"
+                  text ";"
+                  text "--md-outlined-button-label-text-font"
+                  text ":"
+                  text "system-ui"
+                  text ";"
+                  text "--md-sys-color-primary"
+                  text ":"
+                  text "#006A6A"
+                  text ";"
+                  text "--md-sys-color-outline"
+                  text ":"
+                  text "#6F7979"
+                  text ";"
+                  text "}"
+                  text "</"
+                  text "style"
+                  text ">"
+                  text "<"
+                  text "md-outlined-button"
+                  text ">"
+                  text "Outlined"
+                  text "</"
+                  text "md-outlined-button"
+                  text ">"
+                button [ref=26234]
+                  text "content_copy"
+              heading [ref=26235]
+                text "Text button tokens"
+              anchor [ref=26236, url=https://material-web.dev/components/button/#text-button-tokens]
+                text "Link to “Text button tokens”"
+                text "#"
+              table
+                table_row
+                  table_cell
+                    text "Token"
+                  table_cell
+                    text "Default value"
+                table_row
+                  table_cell
+                    text "--md-text-button-label-text-color"
+                  table_cell
+                    text "--md-sys-color-primary"
+                table_row
+                  table_cell
+                    text "--md-text-button-label-text-font"
+                  table_cell
+                    text "--md-sys-typescale-label-large-font"
+              unordered_list
+                list_item
+                  anchor [ref=26237, url=https://github.com/material-components/material-web/blob/main/tokens/_md-comp-text-button.scss]
+                    text "All tokens"
+              heading [ref=26238]
+                text "Text button example"
+              anchor [ref=26239, url=https://material-web.dev/components/button/#text-button-example]
+                text "Link to “Text button example”"
+                text "#"
+              container "Image of a text button with a different theme applied"
+                paragraph
+                  button [ref=26240]
+                    text "Text"
+              container
+                container
+                  text "<"
+                  text "style"
+                  text ">"
+                  text ":root"
+                  text "{"
+                  text "--md-text-button-label-text-font"
+                  text ":"
+                  text "system-ui"
+                  text ";"
+                  text "--md-sys-color-primary"
+                  text ":"
+                  text "#006A6A"
+                  text ";"
+                  text "}"
+                  text "</"
+                  text "style"
+                  text ">"
+                  text "<"
+                  text "md-text-button"
+                  text ">"
+                  text "Text"
+                  text "</"
+                  text "md-text-button"
+                  text ">"
+                button [ref=26241]
+                  text "content_copy"
+              heading [ref=26242]
+                text "API"
+              anchor [ref=26243, url=https://material-web.dev/components/button/#api]
+                text "Link to “API”"
+                text "#"
+              heading [ref=26244]
+                text "MdElevatedButton"
+                text "<md-elevated-button>"
+              anchor [ref=26245, url=https://material-web.dev/components/button/#mdelevatedbutton-lessmd-elevated-buttongreater]
+                text "Link to “MdElevatedButton <md-elevated-button>”"
+                text "#"
+              heading [ref=26246]
+                text "Properties"
+              anchor [ref=26247, url=https://material-web.dev/components/button/#properties]
+                text "Link to “Properties”"
+                text "#"
+              table
+                table_row
+                  table_cell
+                    text "Property"
+                  table_cell
+                    text "Attribute"
+                  table_cell
+                    text "Type"
+                  table_cell
+                    text "Default"
+                  table_cell
+                    text "Description"
+                table_row
+                  table_cell
+                    text "disabled"
+                  table_cell
+                    text "disabled"
+                  table_cell
+                    text "boolean"
+                  table_cell
+                    text "false"
+                  table_cell
+                    text "Whether or not the button is disabled."
+                table_row
+                  table_cell
+                    text "softDisabled"
+                  table_cell
+                    text "soft-disabled"
+                  table_cell
+                    text "boolean"
+                  table_cell
+                    text "false"
+                  table_cell
+                    text "Whether the button is "soft-disabled" (disabled but still focusable)."
+                table_row
+                  table_cell
+                    text "href"
+                  table_cell
+                    text "href"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "''"
+                  table_cell
+                    text "The URL that the link button points to."
+                table_row
+                  table_cell
+                    text "target"
+                  table_cell
+                    text "target"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "''"
+                  table_cell
+                    text "Where to display the linked"
+                    text "href"
+                    text "URL for a link button. Common options include"
+                    text "_blank"
+                    text "to open in a new tab."
+                table_row
+                  table_cell
+                    text "trailingIcon"
+                  table_cell
+                    text "trailing-icon"
+                  table_cell
+                    text "boolean"
+                  table_cell
+                    text "false"
+                  table_cell
+                    text "Whether to render the icon at the inline end of the label rather than the inline start."
+                    text "Note:"
+                    text "Link buttons cannot have trailing icons."
+                table_row
+                  table_cell
+                    text "hasIcon"
+                  table_cell
+                    text "has-icon"
+                  table_cell
+                    text "boolean"
+                  table_cell
+                    text "false"
+                  table_cell
+                    text "Whether to display the icon or not."
+                table_row
+                  table_cell
+                    text "type"
+                  table_cell
+                    text "type"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "'submit'"
+                  table_cell
+                    text "The default behavior of the button. May be "button", "reset", or "submit" (default)."
+                table_row
+                  table_cell
+                    text "value"
+                  table_cell
+                    text "value"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "''"
+                  table_cell
+                    text "The value added to a form with the button's name when the button submits a form."
+                table_row
+                  table_cell
+                    text "name"
+                  table_cell
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "undefined"
+                  table_cell
+                table_row
+                  table_cell
+                    text "form"
+                  table_cell
+                  table_cell
+                    text "HTMLFormElement"
+                  table_cell
+                    text "undefined"
+                  table_cell
+              heading [ref=26248]
+                text "MdFilledButton"
+                text "<md-filled-button>"
+              anchor [ref=26249, url=https://material-web.dev/components/button/#mdfilledbutton-lessmd-filled-buttongreater]
+                text "Link to “MdFilledButton <md-filled-button>”"
+                text "#"
+              heading [ref=26250]
+                text "Properties"
+              anchor [ref=26251, url=https://material-web.dev/components/button/#properties-1]
+                text "Link to “Properties”"
+                text "#"
+              table
+                table_row
+                  table_cell
+                    text "Property"
+                  table_cell
+                    text "Attribute"
+                  table_cell
+                    text "Type"
+                  table_cell
+                    text "Default"
+                  table_cell
+                    text "Description"
+                table_row
+                  table_cell
+                    text "disabled"
+                  table_cell
+                    text "disabled"
+                  table_cell
+                    text "boolean"
+                  table_cell
+                    text "false"
+                  table_cell
+                    text "Whether or not the button is disabled."
+                table_row
+                  table_cell
+                    text "href"
+                  table_cell
+                    text "href"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "''"
+                  table_cell
+                    text "The URL that the link button points to."
+                table_row
+                  table_cell
+                    text "target"
+                  table_cell
+                    text "target"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "''"
+                  table_cell
+                    text "Where to display the linked"
+                    text "href"
+                    text "URL for a link button. Common options include"
+                    text "_blank"
+                    text "to open in a new tab."
+                table_row
+                  table_cell
+                    text "trailingIcon"
+                  table_cell
+                    text "trailing-icon"
+                  table_cell
+                    text "boolean"
+                  table_cell
+                    text "false"
+                  table_cell
+                    text "Whether to render the icon at the inline end of the label rather than the inline start."
+                    text "Note:"
+                    text "Link buttons cannot have trailing icons."
+                table_row
+                  table_cell
+                    text "hasIcon"
+                  table_cell
+                    text "has-icon"
+                  table_cell
+                    text "boolean"
+                  table_cell
+                    text "false"
+                  table_cell
+                    text "Whether to display the icon or not."
+                table_row
+                  table_cell
+                    text "type"
+                  table_cell
+                    text "type"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "'submit'"
+                  table_cell
+                    text "The default behavior of the button. May be "button", "reset", or "submit" (default)."
+                table_row
+                  table_cell
+                    text "value"
+                  table_cell
+                    text "value"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "''"
+                  table_cell
+                    text "The value added to a form with the button's name when the button submits a form."
+                table_row
+                  table_cell
+                    text "name"
+                  table_cell
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "undefined"
+                  table_cell
+                table_row
+                  table_cell
+                    text "form"
+                  table_cell
+                  table_cell
+                    text "HTMLFormElement"
+                  table_cell
+                    text "undefined"
+                  table_cell
+              heading [ref=26252]
+                text "MdFilledTonalButton"
+                text "<md-filled-tonal-button>"
+              anchor [ref=26253, url=https://material-web.dev/components/button/#mdfilledtonalbutton-lessmd-filled-tonal-buttongreater]
+                text "Link to “MdFilledTonalButton <md-filled-tonal-button>”"
+                text "#"
+              heading [ref=26254]
+                text "Properties"
+              anchor [ref=26255, url=https://material-web.dev/components/button/#properties-2]
+                text "Link to “Properties”"
+                text "#"
+              table
+                table_row
+                  table_cell
+                    text "Property"
+                  table_cell
+                    text "Attribute"
+                  table_cell
+                    text "Type"
+                  table_cell
+                    text "Default"
+                  table_cell
+                    text "Description"
+                table_row
+                  table_cell
+                    text "disabled"
+                  table_cell
+                    text "disabled"
+                  table_cell
+                    text "boolean"
+                  table_cell
+                    text "false"
+                  table_cell
+                    text "Whether or not the button is disabled."
+                table_row
+                  table_cell
+                    text "href"
+                  table_cell
+                    text "href"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "''"
+                  table_cell
+                    text "The URL that the link button points to."
+                table_row
+                  table_cell
+                    text "target"
+                  table_cell
+                    text "target"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "''"
+                  table_cell
+                    text "Where to display the linked"
+                    text "href"
+                    text "URL for a link button. Common options include"
+                    text "_blank"
+                    text "to open in a new tab."
+                table_row
+                  table_cell
+                    text "trailingIcon"
+                  table_cell
+                    text "trailing-icon"
+                  table_cell
+                    text "boolean"
+                  table_cell
+                    text "false"
+                  table_cell
+                    text "Whether to render the icon at the inline end of the label rather than the inline start."
+                    text "Note:"
+                    text "Link buttons cannot have trailing icons."
+                table_row
+                  table_cell
+                    text "hasIcon"
+                  table_cell
+                    text "has-icon"
+                  table_cell
+                    text "boolean"
+                  table_cell
+                    text "false"
+                  table_cell
+                    text "Whether to display the icon or not."
+                table_row
+                  table_cell
+                    text "type"
+                  table_cell
+                    text "type"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "'submit'"
+                  table_cell
+                    text "The default behavior of the button. May be "button", "reset", or "submit" (default)."
+                table_row
+                  table_cell
+                    text "value"
+                  table_cell
+                    text "value"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "''"
+                  table_cell
+                    text "The value added to a form with the button's name when the button submits a form."
+                table_row
+                  table_cell
+                    text "name"
+                  table_cell
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "undefined"
+                  table_cell
+                table_row
+                  table_cell
+                    text "form"
+                  table_cell
+                  table_cell
+                    text "HTMLFormElement"
+                  table_cell
+                    text "undefined"
+                  table_cell
+              heading [ref=26256]
+                text "MdOutlinedButton"
+                text "<md-outlined-button>"
+              anchor [ref=26257, url=https://material-web.dev/components/button/#mdoutlinedbutton-lessmd-outlined-buttongreater]
+                text "Link to “MdOutlinedButton <md-outlined-button>”"
+                text "#"
+              heading [ref=26258]
+                text "Properties"
+              anchor [ref=26259, url=https://material-web.dev/components/button/#properties-3]
+                text "Link to “Properties”"
+                text "#"
+              table
+                table_row
+                  table_cell
+                    text "Property"
+                  table_cell
+                    text "Attribute"
+                  table_cell
+                    text "Type"
+                  table_cell
+                    text "Default"
+                  table_cell
+                    text "Description"
+                table_row
+                  table_cell
+                    text "disabled"
+                  table_cell
+                    text "disabled"
+                  table_cell
+                    text "boolean"
+                  table_cell
+                    text "false"
+                  table_cell
+                    text "Whether or not the button is disabled."
+                table_row
+                  table_cell
+                    text "href"
+                  table_cell
+                    text "href"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "''"
+                  table_cell
+                    text "The URL that the link button points to."
+                table_row
+                  table_cell
+                    text "target"
+                  table_cell
+                    text "target"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "''"
+                  table_cell
+                    text "Where to display the linked"
+                    text "href"
+                    text "URL for a link button. Common options include"
+                    text "_blank"
+                    text "to open in a new tab."
+                table_row
+                  table_cell
+                    text "trailingIcon"
+                  table_cell
+                    text "trailing-icon"
+                  table_cell
+                    text "boolean"
+                  table_cell
+                    text "false"
+                  table_cell
+                    text "Whether to render the icon at the inline end of the label rather than the inline start."
+                    text "Note:"
+                    text "Link buttons cannot have trailing icons."
+                table_row
+                  table_cell
+                    text "hasIcon"
+                  table_cell
+                    text "has-icon"
+                  table_cell
+                    text "boolean"
+                  table_cell
+                    text "false"
+                  table_cell
+                    text "Whether to display the icon or not."
+                table_row
+                  table_cell
+                    text "type"
+                  table_cell
+                    text "type"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "'submit'"
+                  table_cell
+                    text "The default behavior of the button. May be "button", "reset", or "submit" (default)."
+                table_row
+                  table_cell
+                    text "value"
+                  table_cell
+                    text "value"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "''"
+                  table_cell
+                    text "The value added to a form with the button's name when the button submits a form."
+                table_row
+                  table_cell
+                    text "name"
+                  table_cell
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "undefined"
+                  table_cell
+                table_row
+                  table_cell
+                    text "form"
+                  table_cell
+                  table_cell
+                    text "HTMLFormElement"
+                  table_cell
+                    text "undefined"
+                  table_cell
+              heading [ref=26260]
+                text "MdTextButton"
+                text "<md-text-button>"
+              anchor [ref=26261, url=https://material-web.dev/components/button/#mdtextbutton-lessmd-text-buttongreater]
+                text "Link to “MdTextButton <md-text-button>”"
+                text "#"
+              heading [ref=26262]
+                text "Properties"
+              anchor [ref=26263, url=https://material-web.dev/components/button/#properties-4]
+                text "Link to “Properties”"
+                text "#"
+              table
+                table_row
+                  table_cell
+                    text "Property"
+                  table_cell
+                    text "Attribute"
+                  table_cell
+                    text "Type"
+                  table_cell
+                    text "Default"
+                  table_cell
+                    text "Description"
+                table_row
+                  table_cell
+                    text "disabled"
+                  table_cell
+                    text "disabled"
+                  table_cell
+                    text "boolean"
+                  table_cell
+                    text "false"
+                  table_cell
+                    text "Whether or not the button is disabled."
+                table_row
+                  table_cell
+                    text "href"
+                  table_cell
+                    text "href"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "''"
+                  table_cell
+                    text "The URL that the link button points to."
+                table_row
+                  table_cell
+                    text "target"
+                  table_cell
+                    text "target"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "''"
+                  table_cell
+                    text "Where to display the linked"
+                    text "href"
+                    text "URL for a link button. Common options include"
+                    text "_blank"
+                    text "to open in a new tab."
+                table_row
+                  table_cell
+                    text "trailingIcon"
+                  table_cell
+                    text "trailing-icon"
+                  table_cell
+                    text "boolean"
+                  table_cell
+                    text "false"
+                  table_cell
+                    text "Whether to render the icon at the inline end of the label rather than the inline start."
+                    text "Note:"
+                    text "Link buttons cannot have trailing icons."
+                table_row
+                  table_cell
+                    text "hasIcon"
+                  table_cell
+                    text "has-icon"
+                  table_cell
+                    text "boolean"
+                  table_cell
+                    text "false"
+                  table_cell
+                    text "Whether to display the icon or not."
+                table_row
+                  table_cell
+                    text "type"
+                  table_cell
+                    text "type"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "'submit'"
+                  table_cell
+                    text "The default behavior of the button. May be "button", "reset", or "submit" (default)."
+                table_row
+                  table_cell
+                    text "value"
+                  table_cell
+                    text "value"
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "''"
+                  table_cell
+                    text "The value added to a form with the button's name when the button submits a form."
+                table_row
+                  table_cell
+                    text "name"
+                  table_cell
+                  table_cell
+                    text "string"
+                  table_cell
+                    text "undefined"
+                  table_cell
+                table_row
+                  table_cell
+                    text "form"
+                  table_cell
+                  table_cell
+                    text "HTMLFormElement"
+                  table_cell
+                    text "undefined"
+                  table_cell
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root

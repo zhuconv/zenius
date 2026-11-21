@@ -1,0 +1,1455 @@
+[p1 "Button" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "Button"]
+root
+  container
+    anchor [ref=25843, loc=href:https://shoelace.style/components/button#main-content, url=https://shoelace.style/components/button#main-content]
+      text "Skip to main content"
+    container
+      anchor [ref=25790, url=https://github.com/shoelace-style/shoelace]
+        svg_root
+      anchor [ref=25791, url=https://twitter.com/shoelace_style]
+        svg_root
+    container
+      container [ref=25844]
+      dialog "Shoelace is now Web Awesome!" [ref=25792]
+        container [ref=25793]
+          container
+            svg_root
+            heading
+              text "Shoelace is now"
+              anchor [ref=25794, url=https://webawesome.com/?utm_source=shoelace-docs&utm_medium=web&utm_campaign=wa-dialog]
+                text "Web Awesome"
+              text "!"
+          container
+            paragraph
+              text "Web Awesome has an even bigger library of free"
+              anchor [ref=25795, url=https://webawesome.com/docs/components/?utm_source=shoelace-docs&utm_medium=web&utm_campaign=wa-dialog]
+                text "components"
+              text ". Plus"
+              anchor [ref=25796, url=https://webawesome.com/docs/themes/?utm_source=shoelace-docs&utm_medium=web&utm_campaign=wa-dialog]
+                text "themes"
+              text ","
+              anchor [ref=25797, url=https://webawesome.com/docs/utilities/?utm_source=shoelace-docs&utm_medium=web&utm_campaign=wa-dialog]
+                text "utilities"
+              text ","
+              anchor [ref=25798, url=https://webawesome.com/docs/patterns/?utm_source=shoelace-docs&utm_medium=web&utm_campaign=wa-dialog]
+                text "patterns"
+              text ", and more!"
+            paragraph
+              text "Still open source. Still free. With more Awesome."
+            container
+              anchor [ref=25799, url=https://webawesome.com/docs/resources/migrating-from-shoelace?utm_source=shoelace-docs&utm_medium=web&utm_campaign=wa-dialog]
+                text "Migrate to Web Awesome!"
+                svg_root
+              button [ref=25800]
+                text "No, thanks"
+        container
+          text "Shoelace Is Sunset with no active development"
+          paragraph
+            text "Use Web Awesome for ongoing work, issues, and features."
+    container [ref=25801]
+      container
+        anchor [ref=25802, url=https://shoelace.style/]
+          image
+        text "2.20.1"
+      container
+        anchor [ref=25803, url=https://github.com/shoelace-style/shoelace]
+          svg_root
+          text "Code"
+        anchor [ref=25804, loc=href:https://github.com/shoelace-style/shoelace/stargazers, url=https://github.com/shoelace-style/shoelace/stargazers]
+          svg_root
+          text "Star"
+        anchor [ref=25805, url=https://twitter.com/shoelace_style]
+          svg_root
+          text "Follow"
+      button "Search" [ref=25806, loc=css:button[aria-label="Search"]]
+        svg_root
+        text "Search"
+      unordered_list
+        list_item
+          heading
+            text "Getting Started"
+          unordered_list
+            list_item
+              anchor [ref=25807, url=https://shoelace.style/]
+                text "Home"
+            list_item
+              anchor [ref=25808, loc=href:https://shoelace.style/getting-started/installation, url=https://shoelace.style/getting-started/installation]
+                text "Installation"
+            list_item
+              anchor [ref=25809, loc=href:https://shoelace.style/getting-started/usage, url=https://shoelace.style/getting-started/usage]
+                text "Usage"
+            list_item
+              anchor [ref=25810, loc=href:https://shoelace.style/getting-started/themes, url=https://shoelace.style/getting-started/themes]
+                text "Themes"
+            list_item
+              anchor [ref=25811, loc=href:https://shoelace.style/getting-started/customizing, url=https://shoelace.style/getting-started/customizing]
+                text "Customizing"
+            list_item
+              anchor [ref=25812, loc=href:https://shoelace.style/getting-started/form-controls, url=https://shoelace.style/getting-started/form-controls]
+                text "Form Controls"
+            list_item
+              anchor [ref=25813, loc=href:https://shoelace.style/getting-started/localization, url=https://shoelace.style/getting-started/localization]
+                text "Localization"
+        list_item
+          heading
+            text "Frameworks"
+          unordered_list
+            list_item
+              anchor [ref=25814, url=https://shoelace.style/frameworks/react]
+                text "React"
+            list_item
+              anchor [ref=25815, loc=href:https://shoelace.style/frameworks/vue, url=https://shoelace.style/frameworks/vue]
+                text "Vue"
+            list_item
+              anchor [ref=25816, loc=href:https://shoelace.style/frameworks/angular, url=https://shoelace.style/frameworks/angular]
+                text "Angular"
+            list_item
+              anchor [ref=25817, loc=href:https://shoelace.style/frameworks/svelte, url=https://shoelace.style/frameworks/svelte]
+                text "Svelte"
+        list_item
+          heading
+            text "Resources"
+          unordered_list
+            list_item
+              anchor [ref=25818, loc=href:https://shoelace.style/resources/community, url=https://shoelace.style/resources/community]
+                text "Community"
+            list_item
+              anchor [ref=25819, loc=href:https://github.com/shoelace-style/shoelace/discussions, url=https://github.com/shoelace-style/shoelace/discussions]
+                text "Help & Support"
+            list_item
+              anchor [ref=25820, loc=href:https://shoelace.style/resources/accessibility, url=https://shoelace.style/resources/accessibility]
+                text "Accessibility"
+            list_item
+              anchor [ref=25845, loc=href:https://shoelace.style/resources/contributing, url=https://shoelace.style/resources/contributing]
+                text "Contributing"
+            list_item
+              anchor [ref=25846, loc=href:https://shoelace.style/resources/changelog, url=https://shoelace.style/resources/changelog]
+                text "Changelog"
+        list_item
+          heading
+            text "Components"
+          unordered_list
+            list_item
+              anchor [ref=25847, loc=href:https://shoelace.style/components/alert, url=https://shoelace.style/components/alert]
+                text "Alert"
+            list_item
+              anchor [ref=25848, loc=href:https://shoelace.style/components/animated-image, url=https://shoelace.style/components/animated-image]
+                text "Animated Image"
+            list_item
+              anchor [ref=25849, loc=href:https://shoelace.style/components/animation, url=https://shoelace.style/components/animation]
+                text "Animation"
+            list_item
+              anchor [ref=25850, loc=href:https://shoelace.style/components/avatar, url=https://shoelace.style/components/avatar]
+                text "Avatar"
+            list_item
+              anchor [ref=25851, loc=href:https://shoelace.style/components/badge, url=https://shoelace.style/components/badge]
+                text "Badge"
+            list_item
+              anchor [ref=25852, loc=href:https://shoelace.style/components/breadcrumb, url=https://shoelace.style/components/breadcrumb]
+                text "Breadcrumb"
+            list_item
+              anchor [ref=25853, loc=href:https://shoelace.style/components/breadcrumb-item, url=https://shoelace.style/components/breadcrumb-item]
+                text "Breadcrumb Item"
+            list_item
+              anchor [ref=25854, loc=href:https://shoelace.style/components/button, url=https://shoelace.style/components/button]
+                text "Button"
+            list_item
+              anchor [ref=25855, loc=href:https://shoelace.style/components/button-group, url=https://shoelace.style/components/button-group]
+                text "Button Group"
+            list_item
+              anchor [ref=25856, loc=href:https://shoelace.style/components/card, url=https://shoelace.style/components/card]
+                text "Card"
+            list_item
+              anchor [ref=25857, loc=href:https://shoelace.style/components/carousel, url=https://shoelace.style/components/carousel]
+                text "Carousel"
+            list_item
+              anchor [ref=25858, loc=href:https://shoelace.style/components/carousel-item, url=https://shoelace.style/components/carousel-item]
+                text "Carousel Item"
+            list_item
+              anchor [ref=25859, loc=href:https://shoelace.style/components/checkbox, url=https://shoelace.style/components/checkbox]
+                text "Checkbox"
+            list_item
+              anchor [ref=25860, loc=href:https://shoelace.style/components/color-picker, url=https://shoelace.style/components/color-picker]
+                text "Color Picker"
+            list_item
+              anchor [ref=25861, loc=href:https://shoelace.style/components/copy-button, url=https://shoelace.style/components/copy-button]
+                text "Copy Button"
+            list_item
+              anchor [ref=25862, loc=href:https://shoelace.style/components/details, url=https://shoelace.style/components/details]
+                text "Details"
+            list_item
+              anchor [ref=25863, loc=href:https://shoelace.style/components/dialog, url=https://shoelace.style/components/dialog]
+                text "Dialog"
+            list_item
+              anchor [ref=25864, loc=href:https://shoelace.style/components/divider, url=https://shoelace.style/components/divider]
+                text "Divider"
+            list_item
+              anchor [ref=25865, loc=href:https://shoelace.style/components/drawer, url=https://shoelace.style/components/drawer]
+                text "Drawer"
+            list_item
+              anchor [ref=25866, loc=href:https://shoelace.style/components/dropdown, url=https://shoelace.style/components/dropdown]
+                text "Dropdown"
+            list_item
+              anchor [ref=25867, loc=href:https://shoelace.style/components/format-bytes, url=https://shoelace.style/components/format-bytes]
+                text "Format Bytes"
+            list_item
+              anchor [ref=25868, loc=href:https://shoelace.style/components/format-date, url=https://shoelace.style/components/format-date]
+                text "Format Date"
+            list_item
+              anchor [ref=25869, loc=href:https://shoelace.style/components/format-number, url=https://shoelace.style/components/format-number]
+                text "Format Number"
+            list_item
+              anchor [ref=25870, loc=href:https://shoelace.style/components/icon, url=https://shoelace.style/components/icon]
+                text "Icon"
+            list_item
+              anchor [ref=25871, loc=href:https://shoelace.style/components/icon-button, url=https://shoelace.style/components/icon-button]
+                text "Icon Button"
+            list_item
+              anchor [ref=25872, loc=href:https://shoelace.style/components/image-comparer, url=https://shoelace.style/components/image-comparer]
+                text "Image Comparer"
+            list_item
+              anchor [ref=25873, loc=href:https://shoelace.style/components/include, url=https://shoelace.style/components/include]
+                text "Include"
+            list_item
+              anchor [ref=25874, loc=href:https://shoelace.style/components/input, url=https://shoelace.style/components/input]
+                text "Input"
+            list_item
+              anchor [ref=25875, loc=href:https://shoelace.style/components/menu, url=https://shoelace.style/components/menu]
+                text "Menu"
+            list_item
+              anchor [ref=25876, loc=href:https://shoelace.style/components/menu-item, url=https://shoelace.style/components/menu-item]
+                text "Menu Item"
+            list_item
+              anchor [ref=25877, loc=href:https://shoelace.style/components/menu-label, url=https://shoelace.style/components/menu-label]
+                text "Menu Label"
+            list_item
+              anchor [ref=25878, loc=href:https://shoelace.style/components/mutation-observer, url=https://shoelace.style/components/mutation-observer]
+                text "Mutation Observer"
+            list_item
+              anchor [ref=25879, loc=href:https://shoelace.style/components/option, url=https://shoelace.style/components/option]
+                text "Option"
+            list_item
+              anchor [ref=25880, loc=href:https://shoelace.style/components/popup, url=https://shoelace.style/components/popup]
+                text "Popup"
+            list_item
+              anchor [ref=25881, loc=href:https://shoelace.style/components/progress-bar, url=https://shoelace.style/components/progress-bar]
+                text "Progress Bar"
+            list_item
+              anchor [ref=25882, loc=href:https://shoelace.style/components/progress-ring, url=https://shoelace.style/components/progress-ring]
+                text "Progress Ring"
+            list_item
+              anchor [ref=25883, loc=href:https://shoelace.style/components/qr-code, url=https://shoelace.style/components/qr-code]
+                text "QR Code"
+            list_item
+              anchor [ref=25884, loc=href:https://shoelace.style/components/radio, url=https://shoelace.style/components/radio]
+                text "Radio"
+            list_item
+              anchor [ref=25885, loc=href:https://shoelace.style/components/radio-button, url=https://shoelace.style/components/radio-button]
+                text "Radio Button"
+            list_item
+              anchor [ref=25886, loc=href:https://shoelace.style/components/radio-group, url=https://shoelace.style/components/radio-group]
+                text "Radio Group"
+            list_item
+              anchor [ref=25887, loc=href:https://shoelace.style/components/range, url=https://shoelace.style/components/range]
+                text "Range"
+            list_item
+              anchor [ref=25888, loc=href:https://shoelace.style/components/rating, url=https://shoelace.style/components/rating]
+                text "Rating"
+            list_item
+              anchor [ref=25889, loc=href:https://shoelace.style/components/relative-time, url=https://shoelace.style/components/relative-time]
+                text "Relative Time"
+            list_item
+              anchor [ref=25890, loc=href:https://shoelace.style/components/resize-observer, url=https://shoelace.style/components/resize-observer]
+                text "Resize Observer"
+            list_item
+              anchor [ref=25891, loc=href:https://shoelace.style/components/select, url=https://shoelace.style/components/select]
+                text "Select"
+            list_item
+              anchor [ref=25892, loc=href:https://shoelace.style/components/skeleton, url=https://shoelace.style/components/skeleton]
+                text "Skeleton"
+            list_item
+              anchor [ref=25893, loc=href:https://shoelace.style/components/spinner, url=https://shoelace.style/components/spinner]
+                text "Spinner"
+            list_item
+              anchor [ref=25894, loc=href:https://shoelace.style/components/split-panel, url=https://shoelace.style/components/split-panel]
+                text "Split Panel"
+            list_item
+              anchor [ref=25895, loc=href:https://shoelace.style/components/switch, url=https://shoelace.style/components/switch]
+                text "Switch"
+            list_item
+              anchor [ref=25896, loc=href:https://shoelace.style/components/tab, url=https://shoelace.style/components/tab]
+                text "Tab"
+            list_item
+              anchor [ref=25897, loc=href:https://shoelace.style/components/tab-group, url=https://shoelace.style/components/tab-group]
+                text "Tab Group"
+            list_item
+              anchor [ref=25898, loc=href:https://shoelace.style/components/tab-panel, url=https://shoelace.style/components/tab-panel]
+                text "Tab Panel"
+            list_item
+              anchor [ref=25899, loc=href:https://shoelace.style/components/tag, url=https://shoelace.style/components/tag]
+                text "Tag"
+            list_item
+              anchor [ref=25900, loc=href:https://shoelace.style/components/textarea, url=https://shoelace.style/components/textarea]
+                text "Textarea"
+            list_item
+              anchor [ref=25901, loc=href:https://shoelace.style/components/tooltip, url=https://shoelace.style/components/tooltip]
+                text "Tooltip"
+            list_item
+              anchor [ref=25902, loc=href:https://shoelace.style/components/tree, url=https://shoelace.style/components/tree]
+                text "Tree"
+            list_item
+              anchor [ref=25903, loc=href:https://shoelace.style/components/tree-item, url=https://shoelace.style/components/tree-item]
+                text "Tree Item"
+            list_item
+              anchor [ref=25904, loc=href:https://shoelace.style/components/visually-hidden, url=https://shoelace.style/components/visually-hidden]
+                text "Visually Hidden"
+        list_item
+          heading
+            text "Design Tokens"
+          unordered_list
+            list_item
+              anchor [ref=25905, loc=href:https://shoelace.style/tokens/typography, url=https://shoelace.style/tokens/typography]
+                text "Typography"
+            list_item
+              anchor [ref=25906, loc=href:https://shoelace.style/tokens/color, url=https://shoelace.style/tokens/color]
+                text "Color"
+            list_item
+              anchor [ref=25907, loc=href:https://shoelace.style/tokens/spacing, url=https://shoelace.style/tokens/spacing]
+                text "Spacing"
+            list_item
+              anchor [ref=25908, loc=href:https://shoelace.style/tokens/elevation, url=https://shoelace.style/tokens/elevation]
+                text "Elevation"
+            list_item
+              anchor [ref=25909, loc=href:https://shoelace.style/tokens/border-radius, url=https://shoelace.style/tokens/border-radius]
+                text "Border Radius"
+            list_item
+              anchor [ref=25910, loc=href:https://shoelace.style/tokens/transition, url=https://shoelace.style/tokens/transition]
+                text "Transition"
+            list_item
+              anchor [ref=25911, loc=href:https://shoelace.style/tokens/z-index, url=https://shoelace.style/tokens/z-index]
+                text "Z-index"
+            list_item
+              anchor [ref=25912, loc=href:https://shoelace.style/tokens/more, url=https://shoelace.style/tokens/more]
+                text "More Tokens"
+        list_item
+          heading
+            text "Tutorials"
+          unordered_list
+            list_item
+              anchor [ref=25913, loc=href:https://shoelace.style/tutorials/integrating-with-astro, url=https://shoelace.style/tutorials/integrating-with-astro]
+                text "Integrating with Astro"
+            list_item
+              anchor [ref=25914, loc=href:https://shoelace.style/tutorials/integrating-with-laravel, url=https://shoelace.style/tutorials/integrating-with-laravel]
+                text "Integrating with Laravel"
+            list_item
+              anchor [ref=25915, loc=href:https://shoelace.style/tutorials/integrating-with-nextjs, url=https://shoelace.style/tutorials/integrating-with-nextjs]
+                text "Integrating with NextJS"
+            list_item
+              anchor [ref=25916, loc=href:https://shoelace.style/tutorials/integrating-with-rails, url=https://shoelace.style/tutorials/integrating-with-rails]
+                text "Integrating with Rails"
+    container
+      anchor [ref=25917]
+      container
+        unordered_list
+          list_item
+            anchor [ref=25821, loc=href:https://shoelace.style/components/button#, url=https://shoelace.style/components/button#]
+              text "Button"
+          list_item
+            anchor [ref=25822, url=https://shoelace.style/components/button#examples]
+              text "Examples"
+          list_item
+            anchor [ref=25823, url=https://shoelace.style/components/button#variants]
+              text "Variants"
+          list_item
+            anchor [ref=25824, url=https://shoelace.style/components/button#sizes]
+              text "Sizes"
+          list_item
+            anchor [ref=25825, url=https://shoelace.style/components/button#outline-buttons]
+              text "Outline Buttons"
+          list_item
+            anchor [ref=25826, url=https://shoelace.style/components/button#pill-buttons]
+              text "Pill Buttons"
+          list_item
+            anchor [ref=25827, url=https://shoelace.style/components/button#circle-buttons]
+              text "Circle Buttons"
+          list_item
+            anchor [ref=25828, url=https://shoelace.style/components/button#text-buttons]
+              text "Text Buttons"
+          list_item
+            anchor [ref=25829, url=https://shoelace.style/components/button#link-buttons]
+              text "Link Buttons"
+          list_item
+            anchor [ref=25830, url=https://shoelace.style/components/button#setting-a-custom-width]
+              text "Setting a Custom Width"
+          list_item
+            anchor [ref=25831, url=https://shoelace.style/components/button#prefix-and-suffix-icons]
+              text "Prefix and Suffix Icons"
+          list_item
+            anchor [ref=25832, url=https://shoelace.style/components/button#caret]
+              text "Caret"
+          list_item
+            anchor [ref=25833, url=https://shoelace.style/components/button#loading]
+              text "Loading"
+          list_item
+            anchor [ref=25834, url=https://shoelace.style/components/button#disabled]
+              text "Disabled"
+          list_item
+            anchor [ref=25835, url=https://shoelace.style/components/button#styling-buttons]
+              text "Styling Buttons"
+          list_item
+            anchor [ref=25836, url=https://shoelace.style/components/button#importing]
+              text "Importing"
+          list_item
+            anchor [ref=25918, url=https://shoelace.style/components/button#slots]
+              text "Slots"
+          list_item
+            anchor [ref=25919, url=https://shoelace.style/components/button#properties]
+              text "Properties"
+          list_item
+            anchor [ref=25920, url=https://shoelace.style/components/button#events]
+              text "Events"
+          list_item
+            anchor [ref=25921, url=https://shoelace.style/components/button#methods]
+              text "Methods"
+          list_item
+            anchor [ref=25922, url=https://shoelace.style/components/button#parts]
+              text "Parts"
+          list_item
+            anchor [ref=25923, url=https://shoelace.style/components/button#dependencies]
+              text "Dependencies"
+        container
+          container
+            heading
+              text "Button"
+            text "<sl-button> | SlButton"
+            container
+              status
+                text "Since 2.0"
+              status
+                text "Stable"
+          paragraph
+            text "Buttons represent actions that are available to the user."
+          container
+            container
+              button [ref=25837]
+                text "Button"
+              svg_root
+            container
+              button [ref=25838]
+                text "SOURCE"
+                svg_root
+              button [ref=25839]
+                text "HTML"
+              button [ref=25840]
+                text "REACT"
+              button [ref=25841]
+                svg_root
+          heading
+            text "Examples"
+            anchor "Direct link to "Examples"" [ref=25842, loc=css:a[aria-label="Direct link to \"Examples\""], url=https://shoelace.style/components/button#examples]
+              text "#"
+          heading
+            text "Variants"
+            anchor "Direct link to "Variants"" [ref=25924, loc=css:a[aria-label="Direct link to \"Variants\""], url=https://shoelace.style/components/button#variants]
+              text "#"
+          paragraph
+            text "Use the"
+            text "variant"
+            text "attribute to set the button’s variant."
+          button [ref=25925]
+            text "Default"
+          button [ref=25926]
+            text "Primary"
+          button [ref=25927]
+            text "Success"
+          button [ref=25928]
+            text "Neutral"
+          button [ref=25929]
+            text "Warning"
+          button [ref=25930]
+            text "Danger"
+          svg_root
+          button [ref=25931]
+            text "SOURCE"
+            svg_root
+          button [ref=25932]
+            text "HTML"
+          button [ref=25933]
+            text "REACT"
+          button [ref=25934]
+            svg_root
+          heading
+            text "Sizes"
+            anchor "Direct link to "Sizes"" [ref=25935, loc=css:a[aria-label="Direct link to \"Sizes\""], url=https://shoelace.style/components/button#sizes]
+              text "#"
+          paragraph
+            text "Use the"
+            text "size"
+            text "attribute to change a button’s size."
+          button [ref=25936]
+            text "Small"
+          button [ref=25937]
+            text "Medium"
+          button [ref=25938]
+            text "Large"
+          svg_root
+          button [ref=25939]
+            text "SOURCE"
+            svg_root
+          button [ref=25940]
+            text "HTML"
+          button [ref=25941]
+            text "REACT"
+          button [ref=25942]
+            svg_root
+          heading
+            text "Outline Buttons"
+            anchor "Direct link to "Outline Buttons"" [ref=25943, loc=css:a[aria-label="Direct link to \"Outline Buttons\""], url=https://shoelace.style/components/button#outline-buttons]
+              text "#"
+          paragraph
+            text "Use the"
+            text "outline"
+            text "attribute to draw outlined buttons with transparent backgrounds."
+          button [ref=25944]
+            text "Default"
+          button [ref=25945]
+            text "Primary"
+          button [ref=25946]
+            text "Success"
+          button [ref=25947]
+            text "Neutral"
+          button [ref=25948]
+            text "Warning"
+          button [ref=25949]
+            text "Danger"
+          svg_root
+          button [ref=25950]
+            text "SOURCE"
+            svg_root
+          button [ref=25951]
+            text "HTML"
+          button [ref=25952]
+            text "REACT"
+          button [ref=25953]
+            svg_root
+          heading
+            text "Pill Buttons"
+            anchor "Direct link to "Pill Buttons"" [ref=25954, loc=css:a[aria-label="Direct link to \"Pill Buttons\""], url=https://shoelace.style/components/button#pill-buttons]
+              text "#"
+          paragraph
+            text "Use the"
+            text "pill"
+            text "attribute to give buttons rounded edges."
+          button [ref=25955]
+            text "Small"
+          button [ref=25956]
+            text "Medium"
+          button [ref=25957]
+            text "Large"
+          svg_root
+          button [ref=25958]
+            text "SOURCE"
+            svg_root
+          button [ref=25959]
+            text "HTML"
+          button [ref=25960]
+            text "REACT"
+          button [ref=25961]
+            svg_root
+          heading
+            text "Circle Buttons"
+            anchor "Direct link to "Circle Buttons"" [ref=25962, loc=css:a[aria-label="Direct link to \"Circle Buttons\""], url=https://shoelace.style/components/button#circle-buttons]
+              text "#"
+          paragraph
+            text "Use the"
+            text "circle"
+            text "attribute to create circular icon buttons. When this attribute is set, the button expects a single"
+            text "<sl-icon>"
+            text "in the default slot."
+          button [ref=25963]
+            svg_root
+          button [ref=25964]
+            svg_root
+          button [ref=25965]
+            svg_root
+          svg_root
+          button [ref=25966]
+            text "SOURCE"
+            svg_root
+          button [ref=25967]
+            text "HTML"
+          button [ref=25968]
+            text "REACT"
+          button [ref=25969]
+            svg_root
+          heading
+            text "Text Buttons"
+            anchor "Direct link to "Text Buttons"" [ref=25970, loc=css:a[aria-label="Direct link to \"Text Buttons\""], url=https://shoelace.style/components/button#text-buttons]
+              text "#"
+          paragraph
+            text "Use the"
+            text "text"
+            text "variant to create text buttons that share the same size as regular buttons but don’t have backgrounds or borders."
+          button [ref=25971]
+            text "Text"
+          button [ref=25972]
+            text "Text"
+          button [ref=25973]
+            text "Text"
+          svg_root
+          button [ref=25974]
+            text "SOURCE"
+            svg_root
+          button [ref=25975]
+            text "HTML"
+          button [ref=25976]
+            text "REACT"
+          button [ref=25977]
+            svg_root
+          heading
+            text "Link Buttons"
+            anchor "Direct link to "Link Buttons"" [ref=25978, loc=css:a[aria-label="Direct link to \"Link Buttons\""], url=https://shoelace.style/components/button#link-buttons]
+              text "#"
+          paragraph
+            text "It’s often helpful to have a button that works like a link. This is possible by setting the"
+            text "href"
+            text "attribute, which will make the component render an"
+            text "<a>"
+            text "under the hood. This gives you all the default link behavior the browser provides (e.g."
+            text "CMD/CTRL/SHIFT"
+            text "+"
+            text "CLICK"
+            text ") and exposes the"
+            text "target"
+            text "and"
+            text "download"
+            text "attributes."
+          anchor [ref=25979, url=https://example.com/]
+            text "Link"
+          anchor [ref=25980, url=https://example.com/]
+            text "New Window"
+          anchor [ref=25981, loc=href:https://shoelace.style/assets/images/wordmark.svg, url=https://shoelace.style/assets/images/wordmark.svg]
+            text "Download"
+          anchor [ref=25982]
+            text "Disabled"
+          svg_root
+          button [ref=25983]
+            text "SOURCE"
+            svg_root
+          button [ref=25984]
+            text "HTML"
+          button [ref=25985]
+            text "REACT"
+          button [ref=25986]
+            svg_root
+          text "i"
+          paragraph
+            text "When a"
+            text "target"
+            text "is set, the link will receive"
+            text "rel="noreferrer noopener""
+            text "for"
+            anchor [ref=25987, loc=href:https://mathiasbynens.github.io/rel-noopener/, url=https://mathiasbynens.github.io/rel-noopener/]
+              text "security reasons"
+            text "."
+          heading
+            text "Setting a Custom Width"
+            anchor "Direct link to "Setting a Custom Width"" [ref=25988, loc=css:a[aria-label="Direct link to \"Setting a Custom Width\""], url=https://shoelace.style/components/button#setting-a-custom-width]
+              text "#"
+          paragraph
+            text "As expected, buttons can be given a custom width by passing inline styles to the component (or using a class). This is useful for making buttons span the full width of their container on smaller scree..."
+          button [ref=25989]
+            text "Small"
+          button [ref=25990]
+            text "Medium"
+          button [ref=25991]
+            text "Large"
+          svg_root
+          button [ref=25992]
+            text "SOURCE"
+            svg_root
+          button [ref=25993]
+            text "HTML"
+          button [ref=25994]
+            text "REACT"
+          button [ref=25995]
+            svg_root
+          heading
+            text "Prefix and Suffix Icons"
+            anchor "Direct link to "Prefix and Suffix Icons"" [ref=25996, loc=css:a[aria-label="Direct link to \"Prefix and Suffix Icons\""], url=https://shoelace.style/components/button#prefix-and-suffix-icons]
+              text "#"
+          paragraph
+            text "Use the"
+            text "prefix"
+            text "and"
+            text "suffix"
+            text "slots to add icons."
+          button [ref=25997]
+            svg_root
+            text "Settings"
+          button [ref=25998]
+            text "Refresh"
+            svg_root
+          button [ref=25999]
+            svg_root
+            text "Open"
+            svg_root
+          button [ref=26000]
+            svg_root
+            text "Settings"
+          button [ref=26001]
+            text "Refresh"
+            svg_root
+          button [ref=26002]
+            svg_root
+            text "Open"
+            svg_root
+          button [ref=26003]
+            svg_root
+            text "Settings"
+          button [ref=26004]
+            text "Refresh"
+            svg_root
+          button [ref=26005]
+            svg_root
+            text "Open"
+            svg_root
+          svg_root
+          button [ref=26006]
+            text "SOURCE"
+            svg_root
+          button [ref=26007]
+            text "HTML"
+          button [ref=26008]
+            text "REACT"
+          button [ref=26009]
+            svg_root
+          heading
+            text "Caret"
+            anchor "Direct link to "Caret"" [ref=26010, loc=css:a[aria-label="Direct link to \"Caret\""], url=https://shoelace.style/components/button#caret]
+              text "#"
+          paragraph
+            text "Use the"
+            text "caret"
+            text "attribute to add a dropdown indicator when a button will trigger a dropdown, menu, or popover."
+          button [ref=26011]
+            text "Small"
+            svg_root
+          button [ref=26012]
+            text "Medium"
+            svg_root
+          button [ref=26013]
+            text "Large"
+            svg_root
+          svg_root
+          button [ref=26014]
+            text "SOURCE"
+            svg_root
+          button [ref=26015]
+            text "HTML"
+          button [ref=26016]
+            text "REACT"
+          button [ref=26017]
+            svg_root
+          heading
+            text "Loading"
+            anchor "Direct link to "Loading"" [ref=26018, loc=css:a[aria-label="Direct link to \"Loading\""], url=https://shoelace.style/components/button#loading]
+              text "#"
+          paragraph
+            text "Use the"
+            text "loading"
+            text "attribute to make a button busy. The width will remain the same as before, preventing adjacent elements from moving around."
+          button [ref=26019]
+            text "Default"
+            progressindicator "Loading"
+          button [ref=26020]
+            text "Primary"
+            progressindicator "Loading"
+          button [ref=26021]
+            text "Success"
+            progressindicator "Loading"
+          button [ref=26022]
+            text "Neutral"
+            progressindicator "Loading"
+          button [ref=26023]
+            text "Warning"
+            progressindicator "Loading"
+          button [ref=26024]
+            text "Danger"
+            progressindicator "Loading"
+          svg_root
+          button [ref=26025]
+            text "SOURCE"
+            svg_root
+          button [ref=26026]
+            text "HTML"
+          button [ref=26027]
+            text "REACT"
+          button [ref=26028]
+            svg_root
+          heading
+            text "Disabled"
+            anchor "Direct link to "Disabled"" [ref=26029, loc=css:a[aria-label="Direct link to \"Disabled\""], url=https://shoelace.style/components/button#disabled]
+              text "#"
+          paragraph
+            text "Use the"
+            text "disabled"
+            text "attribute to disable a button."
+          button [ref=26030]
+            text "Default"
+          button [ref=26031]
+            text "Primary"
+          button [ref=26032]
+            text "Success"
+          button [ref=26033]
+            text "Neutral"
+          button [ref=26034]
+            text "Warning"
+          button [ref=26035]
+            text "Danger"
+          svg_root
+          button [ref=26036]
+            text "SOURCE"
+            svg_root
+          button [ref=26037]
+            text "HTML"
+          button [ref=26038]
+            text "REACT"
+          button [ref=26039]
+            svg_root
+          heading
+            text "Styling Buttons"
+            anchor "Direct link to "Styling Buttons"" [ref=26040, loc=css:a[aria-label="Direct link to \"Styling Buttons\""], url=https://shoelace.style/components/button#styling-buttons]
+              text "#"
+          paragraph
+            text "This example demonstrates how to style buttons using a custom class. This is the recommended approach if you need to add additional variations. To customize an existing variation, modify the selector ..."
+            text "variant"
+            text "attribute instead of a class (e.g."
+            text "sl-button[variant="primary"]"
+            text ")."
+          button [ref=26041]
+            text "Pink Button"
+          svg_root
+          button [ref=26042]
+            text "SOURCE"
+            svg_root
+          button [ref=26043]
+            svg_root
+          heading
+            text "Importing"
+            anchor "Direct link to "Importing"" [ref=26044, loc=css:a[aria-label="Direct link to \"Importing\""], url=https://shoelace.style/components/button#importing]
+              text "#"
+          paragraph
+            text "If you’re using the autoloader or the traditional loader, you can ignore this section. Otherwise, feel free to use any of the following snippets to"
+            anchor [ref=26045, loc=href:https://shoelace.style/getting-started/installation#cherry-picking, url=https://shoelace.style/getting-started/installation#cherry-picking]
+              text "cherry pick"
+            text "this component."
+          tab [ref=26046]
+            text "Script"
+          tab [ref=26047]
+            text "Import"
+          tab [ref=26048]
+            text "Bundler"
+          tab [ref=26049]
+            text "React"
+          tabpanel "Script"
+            paragraph
+              text "To import this component from"
+              anchor [ref=26050, url=https://www.jsdelivr.com/package/npm/@shoelace-style/shoelace]
+                text "the CDN"
+              text "using a script tag:"
+            container
+              container [ref=26051]
+                container
+                  container
+                    text "<"
+                    text "script"
+                  text "type"
+                  container
+                    text "="
+                    text """
+                    text "module"
+                    text """
+                  text "src"
+                  container
+                    text "="
+                    text """
+                    text "https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/components/button/button.js"
+                    text """
+                  text ">"
+                container
+                  container
+                    text "</"
+                    text "script"
+                  text ">"
+              button [ref=26052]
+                svg_root
+          tabpanel "Import"
+            paragraph
+              text "To import this component from"
+              anchor [ref=26053, url=https://www.jsdelivr.com/package/npm/@shoelace-style/shoelace]
+                text "the CDN"
+              text "using a JavaScript import:"
+            container
+              container [ref=26054]
+                text "import"
+                text "'https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/components/button/button.js'"
+                text ";"
+              button [ref=26055]
+                svg_root
+          tabpanel "Bundler"
+            paragraph
+              text "To import this component using"
+              anchor [ref=26056, loc=href:https://shoelace.style/getting-started/installation#bundling, url=https://shoelace.style/getting-started/installation#bundling]
+                text "a bundler"
+              text ":"
+            container
+              container
+                text "import"
+                text "'@shoelace-style/shoelace/dist/components/button/button.js'"
+                text ";"
+              button [ref=26057]
+                svg_root
+          tabpanel "React"
+            paragraph
+              text "To import this component as a"
+              anchor [ref=26058, url=https://shoelace.style/frameworks/react]
+                text "React component"
+              text ":"
+            container
+              container
+                text "import"
+                text "SlButton"
+                text "from"
+                text "'@shoelace-style/shoelace/dist/react/button'"
+                text ";"
+              button [ref=26059]
+                svg_root
+          heading
+            text "Slots"
+            anchor "Direct link to "Slots"" [ref=26060, loc=css:a[aria-label="Direct link to \"Slots\""], url=https://shoelace.style/components/button#slots]
+              text "#"
+          table
+            table_row
+              table_cell
+                text "Name"
+              table_cell
+                text "Description"
+            table_row
+              table_cell
+                text "(default)"
+              table_cell
+                text "The button’s label."
+            table_row
+              table_cell
+                text "prefix"
+              table_cell
+                text "A presentational prefix icon or similar element."
+            table_row
+              table_cell
+                text "suffix"
+              table_cell
+                text "A presentational suffix icon or similar element."
+          paragraph
+            text "Learn more about"
+            anchor [ref=26061, loc=href:https://shoelace.style/getting-started/usage#slots, url=https://shoelace.style/getting-started/usage#slots]
+              text "using slots"
+            text "."
+          heading
+            text "Properties"
+            anchor "Direct link to "Properties"" [ref=26062, loc=css:a[aria-label="Direct link to \"Properties\""], url=https://shoelace.style/components/button#properties]
+              text "#"
+          container [ref=26063]
+            table
+              table_row
+                table_cell
+                  text "Name"
+                table_cell
+                  text "Description"
+                table_cell
+                  text "Reflects"
+                table_cell
+                  text "Type"
+                table_cell
+                  text "Default"
+              table_row
+                table_cell
+                  text "variant"
+                table_cell
+                  text "The button’s theme variant."
+                table_cell
+                  svg_root
+                table_cell
+                  text "'default' | 'primary' | 'success' | 'neutral' | 'warning' | 'danger' | 'text'"
+                table_cell
+                  text "'default'"
+              table_row
+                table_cell
+                  text "size"
+                table_cell
+                  text "The button’s size."
+                table_cell
+                  svg_root
+                table_cell
+                  text "'small' | 'medium' | 'large'"
+                table_cell
+                  text "'medium'"
+              table_row
+                table_cell
+                  text "caret"
+                table_cell
+                  text "Draws the button with a caret. Used to indicate that the button triggers a dropdown menu or similar behavior."
+                table_cell
+                  svg_root
+                table_cell
+                  text "boolean"
+                table_cell
+                  text "false"
+              table_row
+                table_cell
+                  text "disabled"
+                table_cell
+                  text "Disables the button."
+                table_cell
+                  svg_root
+                table_cell
+                  text "boolean"
+                table_cell
+                  text "false"
+              table_row
+                table_cell
+                  text "loading"
+                table_cell
+                  text "Draws the button in a loading state."
+                table_cell
+                  svg_root
+                table_cell
+                  text "boolean"
+                table_cell
+                  text "false"
+              table_row
+                table_cell
+                  text "outline"
+                table_cell
+                  text "Draws an outlined button."
+                table_cell
+                  svg_root
+                table_cell
+                  text "boolean"
+                table_cell
+                  text "false"
+              table_row
+                table_cell
+                  text "pill"
+                table_cell
+                  text "Draws a pill-style button with rounded edges."
+                table_cell
+                  svg_root
+                table_cell
+                  text "boolean"
+                table_cell
+                  text "false"
+              table_row
+                table_cell
+                  text "circle"
+                table_cell
+                  text "Draws a circular icon button. When this attribute is present, the button expects a single"
+                  text "<sl-icon>"
+                  text "in the default slot."
+                table_cell
+                  svg_root
+                table_cell
+                  text "boolean"
+                table_cell
+                  text "false"
+              table_row
+                table_cell
+                  text "type"
+                table_cell
+                  text "The type of button. Note that the default value is"
+                  text "button"
+                  text "instead of"
+                  text "submit"
+                  text ", which is opposite of how native"
+                  text "<button>"
+                  text "elements behave. When the type is"
+                  text "submit"
+                  text ", the button will submit the surrounding form."
+                table_cell
+                table_cell
+                  text "'button' | 'submit' | 'reset'"
+                table_cell
+                  text "'button'"
+              table_row
+                table_cell
+                  text "name"
+                table_cell
+                  text "The name of the button, submitted as a name/value pair with form data, but only when this button is the submitter. This attribute is ignored when"
+                  text "href"
+                  text "is present."
+                table_cell
+                table_cell
+                  text "string"
+                table_cell
+                  text "''"
+              table_row
+                table_cell
+                  text "value"
+                table_cell
+                  text "The value of the button, submitted as a pair with the button’s name as part of the form data, but only when this button is the submitter. This attribute is ignored when"
+                  text "href"
+                  text "is present."
+                table_cell
+                table_cell
+                  text "string"
+                table_cell
+                  text "''"
+              table_row
+                table_cell
+                  text "href"
+                table_cell
+                  text "When set, the underlying button will be rendered as an"
+                  text "<a>"
+                  text "with this"
+                  text "href"
+                  text "instead of a"
+                  text "<button>"
+                  text "."
+                table_cell
+                table_cell
+                  text "string"
+                table_cell
+                  text "''"
+              table_row
+                table_cell
+                  text "target"
+                table_cell
+                  text "Tells the browser where to open the link. Only used when"
+                  text "href"
+                  text "is present."
+                table_cell
+                table_cell
+                  text "'_blank' | '_parent' | '_self' | '_top'"
+                table_cell
+                  text "-"
+              table_row
+                table_cell
+                  text "rel"
+                table_cell
+                  text "When using"
+                  text "href"
+                  text ", this attribute will map to the underlying link’s"
+                  text "rel"
+                  text "attribute. Unlike regular links, the default is"
+                  text "noreferrer noopener"
+                  text "to prevent security exploits. However, if you’re using"
+                  text "target"
+                  text "to point to a specific tab/window, this will prevent that from working correctly. You can remove or change the default value by setting the attribute to an empty string or a value of your choice, resp..."
+                table_cell
+                table_cell
+                  text "string"
+                table_cell
+                  text "'noreferrer noopener'"
+              table_row
+                table_cell
+                  text "download"
+                table_cell
+                  text "Tells the browser to download the linked file as this filename. Only used when"
+                  text "href"
+                  text "is present."
+                table_cell
+                table_cell
+                  text "string | undefined"
+                table_cell
+                  text "-"
+              table_row
+                table_cell
+                  text "form"
+                table_cell
+                  text "The “form owner” to associate the button with. If omitted, the closest containing form will be used instead. The value of this attribute must be an id of a form in the same document or shadow root..."
+                table_cell
+                table_cell
+                  text "string"
+                table_cell
+                  text "-"
+              table_row
+                table_cell
+                  text "formAction"
+                  text "formaction"
+                table_cell
+                  text "Used to override the form owner’s"
+                  text "action"
+                  text "attribute."
+                table_cell
+                table_cell
+                  text "string"
+                table_cell
+                  text "-"
+              table_row
+                table_cell
+                  text "formEnctype"
+                  text "formenctype"
+                table_cell
+                  text "Used to override the form owner’s"
+                  text "enctype"
+                  text "attribute."
+                table_cell
+                table_cell
+                  text "'application/x-www-form-urlencoded' | 'multipart/form-data' | 'text/plain'"
+                table_cell
+                  text "-"
+              table_row
+                table_cell
+                  text "formMethod"
+                  text "formmethod"
+                table_cell
+                  text "Used to override the form owner’s"
+                  text "method"
+                  text "attribute."
+                table_cell
+                table_cell
+                  text "'post' | 'get'"
+                table_cell
+                  text "-"
+              table_row
+                table_cell
+                  text "formNoValidate"
+                  text "formnovalidate"
+                table_cell
+                  text "Used to override the form owner’s"
+                  text "novalidate"
+                  text "attribute."
+                table_cell
+                table_cell
+                  text "boolean"
+                table_cell
+                  text "-"
+              table_row
+                table_cell
+                  text "formTarget"
+                  text "formtarget"
+                table_cell
+                  text "Used to override the form owner’s"
+                  text "target"
+                  text "attribute."
+                table_cell
+                table_cell
+                  text "'_self' | '_blank' | '_parent' | '_top' | string"
+                table_cell
+                  text "-"
+              table_row
+                table_cell
+                  text "validity"
+                table_cell
+                  text "Gets the validity state object"
+                table_cell
+                table_cell
+                  text "-"
+                table_cell
+                  text "-"
+              table_row
+                table_cell
+                  text "validationMessage"
+                table_cell
+                  text "Gets the validation message"
+                table_cell
+                table_cell
+                  text "-"
+                table_cell
+                  text "-"
+              table_row
+                table_cell
+                  text "updateComplete"
+                table_cell
+                  text "A read-only promise that resolves when the component has"
+                  anchor [ref=26064, loc=href:https://shoelace.style/getting-started/usage?#component-rendering-and-updating, url=https://shoelace.style/getting-started/usage?#component-rendering-and-updating]
+                    text "finished updating"
+                  text "."
+                table_cell
+                table_cell
+                table_cell
+          paragraph
+            text "Learn more about"
+            anchor [ref=26065, loc=href:https://shoelace.style/getting-started/usage#attributes-and-properties, url=https://shoelace.style/getting-started/usage#attributes-and-properties]
+              text "attributes and properties"
+            text "."
+          heading
+            text "Events"
+            anchor "Direct link to "Events"" [ref=26066, loc=css:a[aria-label="Direct link to \"Events\""], url=https://shoelace.style/components/button#events]
+              text "#"
+          container [ref=26067]
+            table
+              table_row
+                table_cell
+                  text "Name"
+                table_cell
+                  text "Description"
+                table_cell
+                  text "Event Detail"
+              table_row
+                table_cell
+                  text "sl-blur"
+                table_cell
+                  text "Emitted when the button loses focus."
+                table_cell
+                  text "-"
+              table_row
+                table_cell
+                  text "sl-focus"
+                table_cell
+                  text "Emitted when the button gains focus."
+                table_cell
+                  text "-"
+              table_row
+                table_cell
+                  text "sl-invalid"
+                table_cell
+                  text "Emitted when the form control has been checked for validity and its constraints aren’t satisfied."
+                table_cell
+                  text "-"
+          paragraph
+            text "Learn more about"
+            anchor [ref=26068, loc=href:https://shoelace.style/getting-started/usage#events, url=https://shoelace.style/getting-started/usage#events]
+              text "events"
+            text "."
+          heading
+            text "Methods"
+            anchor "Direct link to "Methods"" [ref=26069, loc=css:a[aria-label="Direct link to \"Methods\""], url=https://shoelace.style/components/button#methods]
+              text "#"
+          container [ref=26070]
+            table
+              table_row
+                table_cell
+                  text "Name"
+                table_cell
+                  text "Description"
+                table_cell
+                  text "Arguments"
+              table_row
+                table_cell
+                  text "click()"
+                table_cell
+                  text "Simulates a click on the button."
+                table_cell
+                  text "-"
+              table_row
+                table_cell
+                  text "focus()"
+                table_cell
+                  text "Sets focus on the button."
+                table_cell
+                  text "options: FocusOptions"
+              table_row
+                table_cell
+                  text "blur()"
+                table_cell
+                  text "Removes focus from the button."
+                table_cell
+                  text "-"
+              table_row
+                table_cell
+                  text "checkValidity()"
+                table_cell
+                  text "Checks for validity but does not show a validation message. Returns"
+                  text "true"
+                  text "when valid and"
+                  text "false"
+                  text "when invalid."
+                table_cell
+                  text "-"
+              table_row
+                table_cell
+                  text "getForm()"
+                table_cell
+                  text "Gets the associated form, if one exists."
+                table_cell
+                  text "-"
+              table_row
+                table_cell
+                  text "reportValidity()"
+                table_cell
+                  text "Checks for validity and shows the browser’s validation message if the control is invalid."
+                table_cell
+                  text "-"
+              table_row
+                table_cell
+                  text "setCustomValidity()"
+                table_cell
+                  text "Sets a custom validation message. Pass an empty string to restore validity."
+                table_cell
+                  text "message: string"
+          paragraph
+            text "Learn more about"
+            anchor [ref=26071, loc=href:https://shoelace.style/getting-started/usage#methods, url=https://shoelace.style/getting-started/usage#methods]
+              text "methods"
+            text "."
+          heading
+            text "Parts"
+            anchor "Direct link to "Parts"" [ref=26072, loc=css:a[aria-label="Direct link to \"Parts\""], url=https://shoelace.style/components/button#parts]
+              text "#"
+          table
+            table_row
+              table_cell
+                text "Name"
+              table_cell
+                text "Description"
+            table_row
+              table_cell
+                text "base"
+              table_cell
+                text "The component’s base wrapper."
+            table_row
+              table_cell
+                text "prefix"
+              table_cell
+                text "The container that wraps the prefix."
+            table_row
+              table_cell
+                text "label"
+              table_cell
+                text "The button’s label."
+            table_row
+              table_cell
+                text "suffix"
+              table_cell
+                text "The container that wraps the suffix."
+            table_row
+              table_cell
+                text "caret"
+              table_cell
+                text "The button’s caret icon, an"
+                text "<sl-icon>"
+                text "element."
+            table_row
+              table_cell
+                text "spinner"
+              table_cell
+                text "The spinner that shows when the button is in the loading state."
+          paragraph
+            text "Learn more about"
+            anchor [ref=26073, loc=href:https://shoelace.style/getting-started/customizing/#css-parts, url=https://shoelace.style/getting-started/customizing/#css-parts]
+              text "customizing CSS parts"
+            text "."
+          heading
+            text "Dependencies"
+            anchor "Direct link to "Dependencies"" [ref=26074, loc=css:a[aria-label="Direct link to \"Dependencies\""], url=https://shoelace.style/components/button#dependencies]
+              text "#"
+          paragraph
+            text "This component automatically imports the following dependencies."
+          unordered_list
+            list_item
+              text "<sl-icon>"
+            list_item
+              text "<sl-spinner>"
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root

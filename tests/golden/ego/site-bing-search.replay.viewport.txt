@@ -1,0 +1,136 @@
+[p1 "zen browser - Search" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "zen browser - Search"]
+root
+  container
+    banner
+      form
+        anchor [ref=28299, loc=href:https://www.bing.com/?FORM=Z9FD1, url=https://www.bing.com/?FORM=Z9FD1]
+          heading
+            image
+        search
+          container [ref=28300]
+            svg_root
+          searchbox "Enter your search here - Search suggestions will show as you type" [ref=28301, loc=css:input[name="q"]]
+            text "zen browser"
+          button "Search using voice" [ref=28302, loc=role:button[name="Search using voice"]]
+          button "Search using an image" [ref=28303, loc=role:button[name="Search using an image"]]
+          button "Search" [ref=28304, loc=css:button[aria-label="Search"]]
+      complementary "Account Rewards and Preferences"
+        button "Microsoft Rewards" [ref=28305, loc=css:a[aria-label="Microsoft Rewards"], url=javascript:void(0)]
+          text "5"
+          svg_root
+        anchor [ref=28306, url=javascript:void(0)]
+          container "Sign in"
+      navigation "Search Filter"
+        unordered_list
+          list_item
+            anchor [ref=28307, loc=href:https://www.bing.com/?scope=web&FORM=HDRSC1, url=https://www.bing.com/?scope=web&FORM=HDRSC1]
+              text "ALL"
+          list_item
+            anchor [ref=28308, loc=href:https://www.bing.com/copilotsearch?q=zen+browser&FORM=CSSCOP, url=https://www.bing.com/copilotsearch?q=zen+browser&FORM=CSSCOP]
+              svg_root
+              text "AI MODE"
+          list_item
+            anchor [ref=28309, url=https://www.bing.com/ck/a?!&&p=596868b78541387b176e95720770d38af29cec2a2e5c02deefd7e00ea928ac88JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L2ltYWdlcy9zZWFyY2g_cT16ZW4rYnJvd3NlciZGT1JNPUhEUlNDMw&ntb=1]
+              text "IMAGES"
+          list_item
+            anchor [ref=28310, url=https://www.bing.com/ck/a?!&&p=c11af1508f5adce0c67d0267d2b9918ea1ceb09538463b605006fec7efa7a875JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3ZpZGVvcy9zZWFyY2g_cT16ZW4rYnJvd3NlciZGT1JNPUhEUlNDNA&ntb=1]
+              text "VIDEOS"
+          list_item
+            anchor [ref=28311, url=https://www.bing.com/ck/a?!&&p=bf72b7d45a0586501eec95245fb6ff312581d0fee484626cb631c518d5df6baaJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L21hcHM_cT16ZW4rYnJvd3NlciZGT1JNPUhEUlNDNg&ntb=1]
+              text "MAPS"
+          list_item
+            anchor [ref=28312, url=https://www.bing.com/ck/a?!&&p=56e6b225f5022de5f64e47a565a2ba3eb94dbd9abfd570988b4bc39e91a05227JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L25ld3Mvc2VhcmNoP3E9emVuK2Jyb3dzZXImRk9STT1IRFJTQzc&ntb=1]
+              text "NEWS"
+          list_item
+            anchor [ref=28313, url=https://www.bing.com/ck/a?!&&p=7d346588ef3470df5d6e24f32f33ae73c129a02a49b7151c223f41924c3810ebJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3Nob3AvdG9waWNzP3E9emVuK2Jyb3dzZXImRk9STT1TSE9QVEI&ntb=1]
+              text "SHOPPING"
+          list_item
+            button [ref=28314, loc=href:javascript:void(0);, url=javascript:void(0);]
+              svg_root
+              text "MORE"
+    container "Search Results"
+      container
+        container
+          image
+          image
+          image
+        text "About 192,000 results"
+      ordered_list
+        list_item
+        list_item
+          unordered_list
+            list_item
+              anchor "jfjdfurugym" [ref=28315, loc=css:a[aria-label="jfjdfurugym"], url=https://www.bing.com/ck/a?!&&p=d711c4dc51e2bc3ca2732ab524435372ebf5d0292c34604d85705aee69a557b3JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly93d3cuYXBwbGUuY29tL3NhZmFyaS9zd2l0Y2g_Y2lkPXd3YS11cy1rd2JpLXNhZmFyaS1Ob25Db3JlLWNhdGVnb3J5X2dlbmVyYWwtc2FmYXJpX2hlcm9fMDUyOTI2LVNhZmFyaV9DYXRlZ29yeS1DYXRlZ29yeS0mYW9zaWQ9cDI0MCZrZW5fcGlkPWJpfmNtcC02OTgyMjc1ODV-YWRnLTEyNTM0NDQ1OTcyNjI4NTh-YWQtNzgzNDA0MjU2NzU4MzBfa3dkLTc4MzQwNjk0MzU2NzI2OmxvYy0xOTB-ZGV2LWN-ZXh0LX5wcmQtfm50LXNlYXJjaH5jcmlkLSZ0b2tlbj1mOGVkMzE4OC0xMGUwLTRkZTEtOTUyNy03YzFkYjNjODFkNTM&ntb=1]
+                image
+                container
+                  text "Аpрle"
+                  container [ref=28316]
+                    text "https://www.apple.com"
+              heading
+                anchor [ref=28317, url=https://www.bing.com/ck/a?!&&p=d711c4dc51e2bc3ca2732ab524435372ebf5d0292c34604d85705aee69a557b3JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly93d3cuYXBwbGUuY29tL3NhZmFyaS9zd2l0Y2g_Y2lkPXd3YS11cy1rd2JpLXNhZmFyaS1Ob25Db3JlLWNhdGVnb3J5X2dlbmVyYWwtc2FmYXJpX2hlcm9fMDUyOTI2LVNhZmFyaV9DYXRlZ29yeS1DYXRlZ29yeS0mYW9zaWQ9cDI0MCZrZW5fcGlkPWJpfmNtcC02OTgyMjc1ODV-YWRnLTEyNTM0NDQ1OTcyNjI4NTh-YWQtNzgzNDA0MjU2NzU4MzBfa3dkLTc4MzQwNjk0MzU2NzI2OmxvYy0xOTB-ZGV2LWN-ZXh0LX5wcmQtfm50LXNlYXJjaH5jcmlkLSZ0b2tlbj1mOGVkMzE4OC0xMGUwLTRkZTEtOTUyNy03YzFkYjNjODFkNTM&ntb=1]
+                  text "Safari | Private Browsing | Privacy is built in"
+              paragraph
+                image
+                text "Switch to a browser that protects your privacy. Make Safari your default browser. Defends you against cross-site tracking, hides your IP address from known trackers & more."
+              container
+                unordered_list
+                  list_item
+                    anchor [ref=28318, url=https://www.bing.com/ck/a?!&&p=9810fd093d4eff34602d97ffe5bb9370748cb69239b8199f53b41a5d053b69b2JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9zdXBwb3J0LmFwcGxlLmNvbS9ndWlkZS9zYWZhcmkvbWFrZS1zYWZhcmkteW91ci1kZWZhdWx0LXdlYi1icm93c2VyLWlicndhMDA4L21hYy8_Y2lkPXd3YS11cy1rd2JpLXNhZmFyaS1Ob25Db3JlLWNhdGVnb3J5X2dlbmVyYWwtc2FmYXJpX2hlcm9fMDUyOTI2LVNhZmFyaV9DYXRlZ29yeS1DYXRlZ29yeS0mYW9zaWQ9cDI0MCZrZW5fcGlkPWJpfmNtcC02OTgyMjc1ODV-YWRnLTEyNTM0NDQ1OTcyNjI4NTh-YWQtNzgzNDA0MjU2NzU4MzBfa3dkLTc4MzQwNjk0MzU2NzI2OmxvYy0xOTB-ZGV2LWN-ZXh0LTgzMTUxOTUyMzc1Mzl-cHJkLX5udC1zZWFyY2h-Y3JpZC0mdG9rZW49ZjhlZDMxODgtMTBlMC00ZGUxLTk1MjctN2MxZGIzYzgxZDUz&ntb=1]
+                      text "Make Safari your default"
+                    svg_root
+                  list_item
+                    anchor [ref=28319, url=https://www.bing.com/ck/a?!&&p=25a0a078997d4d2bc7baeabc4142b37118fb9e30155b00f03db7a58b906984f7JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly93d3cuYXBwbGUuY29tL3VzL3Nob3AvZ28vbWFjLz9jaWQ9d3dhLXVzLWt3Ymktc2FmYXJpLU5vbkNvcmUtY2F0ZWdvcnlfZ2VuZXJhbC1zYWZhcmlfaGVyb18wNTI5MjYtU2FmYXJpX0NhdGVnb3J5LUNhdGVnb3J5LSZhb3NpZD1wMjQwJmtlbl9waWQ9Yml-Y21wLTY5ODIyNzU4NX5hZGctMTI1MzQ0NDU5NzI2Mjg1OH5hZC03ODM0MDQyNTY3NTgzMF9rd2QtNzgzNDA2OTQzNTY3MjY6bG9jLTE5MH5kZXYtY35leHQtODMxNTE5NTMwMTI3NH5wcmQtfm50LXNlYXJjaH5jcmlkLSZ0b2tlbj1mOGVkMzE4OC0xMGUwLTRkZTEtOTUyNy03YzFkYjNjODFkNTM&ntb=1]
+                      text "Mac"
+                    svg_root
+                unordered_list
+                  list_item
+                    anchor [ref=28320, url=https://www.bing.com/ck/a?!&&p=7181fb1b174007e00c6913a89d03fdf4f3914f580805e0734790fda1a29c00aeJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly93d3cuYXBwbGUuY29tL3VzL3Nob3AvZ28vcHJpdmFjeS9mZWF0dXJlcy8_Y2lkPXd3YS11cy1rd2JpLXNhZmFyaS1Ob25Db3JlLWNhdGVnb3J5X2dlbmVyYWwtc2FmYXJpX2hlcm9fMDUyOTI2LVNhZmFyaV9DYXRlZ29yeS1DYXRlZ29yeS0mYW9zaWQ9cDI0MCZrZW5fcGlkPWJpfmNtcC02OTgyMjc1ODV-YWRnLTEyNTM0NDQ1OTcyNjI4NTh-YWQtNzgzNDA0MjU2NzU4MzBfa3dkLTc4MzQwNjk0MzU2NzI2OmxvYy0xOTB-ZGV2LWN-ZXh0LTgzMTUxOTUxMzM3NjZ-cHJkLX5udC1zZWFyY2h-Y3JpZC0mdG9rZW49ZjhlZDMxODgtMTBlMC00ZGUxLTk1MjctN2MxZGIzYzgxZDUz&ntb=1]
+                      text "Privacy"
+                    svg_root
+                  list_item
+                    anchor [ref=28321, url=https://www.bing.com/ck/a?!&&p=67ba42b81e05d48842ce8f1845f014736297fe52d06e29ab282e9f7c0bf6c8f4JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly93d3cuYXBwbGUuY29tL3VzL3Nob3AvZ28vbWFjb3MvY29udGludWl0eS8_Y2lkPXd3YS11cy1rd2JpLXNhZmFyaS1Ob25Db3JlLWNhdGVnb3J5X2dlbmVyYWwtc2FmYXJpX2hlcm9fMDUyOTI2LVNhZmFyaV9DYXRlZ29yeS1DYXRlZ29yeS0mYW9zaWQ9cDI0MCZrZW5fcGlkPWJpfmNtcC02OTgyMjc1ODV-YWRnLTEyNTM0NDQ1OTcyNjI4NTh-YWQtNzgzNDA0MjU2NzU4MzBfa3dkLTc4MzQwNjk0MzU2NzI2OmxvYy0xOTB-ZGV2LWN-ZXh0LTgzMTUxOTUxMzM3Njd-cHJkLX5udC1zZWFyY2h-Y3JpZC0mdG9rZW49ZjhlZDMxODgtMTBlMC00ZGUxLTk1MjctN2MxZGIzYzgxZDUz&ntb=1]
+                      text "Continuity"
+                    svg_root
+            list_item
+              anchor "xqxwm" [ref=28322, loc=css:a[aria-label="xqxwm"], url=https://www.bing.com/ck/a?!&&p=bdc7e159da92542c4f42842363bd3e52118cdec6a095a617cab79a0cde0bacbeJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9kdWNrZHVja2dvLmNvbS9hcHA_b3JpZ2luPWZ1bm5lbF9hcHBfcGFpZHNlYXJjaG1pY3Jvc29mdF9rZXl3b3Jkc19icm93c2VybG93dm9sdW1l&ntb=1]
+                image
+                container
+                  text "Ꭰυckduckɡο"
+                  container [ref=28323]
+                    text "https://duckduckgo.com"
+              heading
+                anchor [ref=28324, url=https://www.bing.com/ck/a?!&&p=bdc7e159da92542c4f42842363bd3e52118cdec6a095a617cab79a0cde0bacbeJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9kdWNrZHVja2dvLmNvbS9hcHA_b3JpZ2luPWZ1bm5lbF9hcHBfcGFpZHNlYXJjaG1pY3Jvc29mdF9rZXl3b3Jkc19icm93c2VybG93dm9sdW1l&ntb=1]
+                  text "DuckDuckGo Browser & AI | DuckDuckGo Tracker Protection"
+              paragraph
+                image
+                text "Get DuckDuckGo, the browser that blocks most cookies and creepy ads. Get the browser that blocks most cookies and creepy ads."
+            list_item
+              anchor "jbica" [ref=28325, loc=css:a[aria-label="jbica"], url=https://www.bing.com/ck/a?!&&p=73a465833202f1869e3885ac3430c767225f013f8ea930862694ec5e55b36907JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9teXNvZnR3YXJlZ3VpZGUuY29tL3NzYS93ZWItYnJvd3NlcnM&ntb=1]
+                image
+                container
+                  text "mуѕοftwагeguiԁe.сοm"
+                  container [ref=28326]
+                    text "https://mysoftwareguide.com"
+              heading
+                anchor [ref=28327, url=https://www.bing.com/ck/a?!&&p=73a465833202f1869e3885ac3430c767225f013f8ea930862694ec5e55b36907JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9teXNvZnR3YXJlZ3VpZGUuY29tL3NzYS93ZWItYnJvd3NlcnM&ntb=1]
+                  text "Zen Browser Now | Zen Browser | Your Perfect Browser Here!"
+              paragraph
+                image
+                text "Find your ideal browser among the most popular options available today! Explore innovative features that enhance your browsing experience today!"
+            list_item
+              anchor "bhiovouwop" [ref=28328, loc=css:a[aria-label="bhiovouwop"], url=https://www.bing.com/ck/a?!&&p=9416bf25f3af7fa40d965d1813f8e2a28c2307892f08ea1e7dfc62d8a7c5fd86JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9hbTUuY29tL2YvYmluZy9lbi9hcGsvRmlyZWZveC1GYXN0LVByaXZhdGUtQnJvd3Nlci9vcmcubW96aWxsYS5maXJlZm94LzY1NzgwP2dsPVVTJmNjaWQ9ODU1NTQ1NTg2NyZhPTE4ODI1OTkyOA&ntb=1]
+                image
+                container
+                  text "АM5-Dοԝnⅼoаԁ AРΚ/АPΚS"
+                  container [ref=28329]
+                    text "https://am5.com › Firefox"
+              heading
+                anchor [ref=28330, url=https://www.bing.com/ck/a?!&&p=9416bf25f3af7fa40d965d1813f8e2a28c2307892f08ea1e7dfc62d8a7c5fd86JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9hbTUuY29tL2YvYmluZy9lbi9hcGsvRmlyZWZveC1GYXN0LVByaXZhdGUtQnJvd3Nlci9vcmcubW96aWxsYS5maXJlZm94LzY1NzgwP2dsPVVTJmNjaWQ9ODU1NTQ1NTg2NyZhPTE4ODI1OTkyOA&ntb=1]
+                  text "Firefox Fast & Private Browser | Download Firefox Browser"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 2605 px; scroll or use snapshot({ scope: "full_page" })]

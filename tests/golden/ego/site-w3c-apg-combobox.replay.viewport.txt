@@ -1,0 +1,112 @@
+[p1 "Editable Combobox With List Autocomplete Example | APG | WAI | W3C" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "Editable Combobox With List Autocomplete Example | APG | WAI | W3C"]
+root
+  container
+    button "Skip To Content, shortcut Option + 0" [ref=27037, loc=css:button[aria-label="Skip To Content, shortcut Option + 0"]]
+    container
+      container
+        anchor [ref=27038, url=https://www.w3.org/WAI/ARIA/apg/]
+          text "ARIA Authoring Practices Guide (APG)"
+        paragraph
+          text "How to build accessibility semantics into web patterns and widgets"
+      container
+        anchor [ref=27039, url=https://www.w3.org/]
+          image "W3C homepage"
+        anchor [ref=27040, url=https://www.w3.org/WAI/]
+          image "Web Accessibility Initiative (WAI) homepage"
+    container "APG"
+      unordered_list
+        list_item
+          anchor [ref=27041, url=https://www.w3.org/WAI/ARIA/apg/]
+            text "APG Home"
+        list_item
+          anchor [ref=27042, loc=href:https://www.w3.org/WAI/ARIA/apg/patterns/, url=https://www.w3.org/WAI/ARIA/apg/patterns/]
+            text "Patterns"
+        list_item
+          anchor [ref=27043, loc=href:https://www.w3.org/WAI/ARIA/apg/practices/, url=https://www.w3.org/WAI/ARIA/apg/practices/]
+            text "Practices"
+        list_item
+          anchor [ref=27044, loc=href:https://www.w3.org/WAI/ARIA/apg/example-index/, url=https://www.w3.org/WAI/ARIA/apg/example-index/]
+            text "Index"
+        list_item
+          anchor [ref=27045, loc=href:https://www.w3.org/WAI/ARIA/apg/about/, url=https://www.w3.org/WAI/ARIA/apg/about/]
+            text "About"
+    container
+      container "Page Contents"
+        heading
+          text "Page Contents"
+        unordered_list
+          list_item
+            anchor [ref=27046, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/#support-notice-header]
+              text "Read This First"
+          list_item
+            anchor [ref=27047, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/#aboutthisexample]
+              text "About This Example"
+          list_item
+            anchor [ref=27048, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/#ex_label]
+              text "Example"
+          list_item
+            anchor [ref=27049, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/#accessibilityfeatures]
+              text "Accessibility Features"
+          list_item
+            anchor [ref=27050, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/#kbd_label]
+              text "Keyboard Support"
+          list_item
+            anchor [ref=27051, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/#rps_label]
+              text "Role, Property, State, and Tabindex Attributes"
+          list_item
+            anchor [ref=27052, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/#javascriptandcsssourcecode]
+              text "JavaScript and CSS Source Code"
+          list_item
+            anchor [ref=27053, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/#sc1_label]
+              text "HTML Source Code"
+      container
+        heading
+          text "Editable Combobox With List Autocomplete Example"
+        container
+          heading
+            text "Read This First"
+          container [ref=27054]
+            text "The code in this example is not intended for production environments. Before using it for any purpose, read this to understand why."
+          container
+            heading
+              text "About This Example"
+            image
+            paragraph
+              text "The below combobox for choosing the name of a US state or territory demonstrates the"
+              anchor [ref=27055, loc=href:https://www.w3.org/WAI/ARIA/apg/patterns/combobox/, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/]
+                text "Combobox Pattern"
+              text ". The design pattern describes four types of autocomplete behavior. This example illustrates the autocomplete behavior known as list autocomplete with manual selection. If the user types one or more c..."
+            paragraph
+              text "Similar examples include:"
+            unordered_list
+              list_item
+                anchor [ref=27056, loc=href:https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-select-only/, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-select-only/]
+                  text "Select-Only Combobox"
+                text ": A single-select combobox with no text input that is functionally similar to an HTML"
+                text "select"
+                text "element."
+              list_item
+                anchor [ref=27057, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-both/]
+                  text "Editable Combobox with Both List and Inline Autocomplete"
+                text ": An editable combobox that demonstrates the autocomplete behavior known as"
+                container
+                  text "“"
+                  text "list with inline autocomplete"
+                  text "”"
+                text "."
+              list_item
+                anchor [ref=27058, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-none/]
+                  text "Editable Combobox Without Autocomplete"
+                text ": An editable combobox that demonstrates the behavior associated with"
+                text "aria-autocomplete=none"
+                text "."
+    anchor [ref=27059, url=https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/#top]
+      svg_root
+      text "Back to Top"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 12555 px; scroll or use snapshot({ scope: "full_page" })]

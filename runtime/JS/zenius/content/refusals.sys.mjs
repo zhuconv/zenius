@@ -1,0 +1,1410 @@
+// Content side of the refusals (zen-observe): page APIs whose effect would
+// reach past an agent tab fail with the denial a page already handles, and
+// the parent is told (a Zenius.refused event). zen-core's page guards
+// install them in every new document of a tab the agent drives, before the
+// page's scripts. Each call checks again, so a tab handed to the user
+// behaves normally. docs/research/observe.md §10.
+//
+// - fullscreen: fullscreenerror, and a TypeError for the promise (Gecko's
+//   own denial); the window never goes fullscreen.
+// - pointer lock: pointerlockerror, and a NotAllowedError; the user's cursor
+//   is never captured.
+// - screen wake lock: NotAllowedError; the user's display may sleep.
+// - speech synthesis: an error event on the utterance; nothing is spoken.
+// - navigator.share: AbortError, as when the user cancels; no share sheet.
+// - the site's storage that outlives the task: serviceWorker.register() and
+//   Cache's put, add and addAll reject with SecurityError, as when the user's
+//   settings block site data. A service worker or a cached script would stay
+//   in the user's profile and run in their own tabs on the site
+//   (docs/research/own-tab.md, item 3). These hold for the task's whole life,
+//   the user's hold included, and in the workers the task's pages start
+//   (workerguard.js).
+// - the user's devices and location, for the task's whole life too: the
+//   camera, microphone and screen (getUserMedia, mozGetUserMedia,
+//   getDisplayMedia, selectAudioOutput), location, MIDI and speech
+//   recognition get the denial a page gets when the user says no, and
+//   enumerateDevices() lists none. No request leaves the page: none reaches
+//   MediaManager or the geolocation provider. The system's consent for
+//   these (macOS's TCC) covers the whole browser, the user's own Zen
+//   included, and Gecko asks it before its own prompt once a site has a
+//   grant (WebRTCParent's checkOSPermission). Workers have none of these
+//   APIs.
+// - notifications, for the task's whole life, even where the site has the
+//   user's grant: new Notification() gives one that only errs, and
+//   showNotification() rejects, as where notifications are blocked; in the
+//   task's workers too.
+// - WebRTC: new RTCPeerConnection() throws NotAllowedError. ICE gathering
+//   can raise macOS's Local Network prompt; the parent refuses the pages'
+//   requests to the local network (observe/localnet.sys.mjs).
+
+// The checks a user's document needs (needsRefusals and the rest) are in the
+// leaf content/taskset.sys.mjs, zen-core's, which this module re-exports: a
+// user's document never loads this one (I4).
+import {
+  HELD_PAGES_KEY,
+  isAgentCodeDocument,
+  isAgentDriven,
+  isAgentTaskPage,
+  isTaskPopup,
+} from "chrome://userscripts/content/zenius/content/taskset.sys.mjs";
+export {
+  AGENT_CODE_DOCS_KEY,
+  HELD_PAGES_KEY,
+  isAgentCodeDocument,
+  isTaskPopup,
+  needsRefusals,
+} from "chrome://userscripts/content/zenius/content/taskset.sys.mjs";
+
+// Only a task's pages (and pages that keep the agent's code) use these.
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  cut: "chrome://userscripts/content/zenius/observe/textcap.sys.mjs",
+  STRING_TEXT: "chrome://userscripts/content/zenius/observe/textcap.sys.mjs",
+  installMediaGuard: "chrome://userscripts/content/zenius/content/media.sys.mjs",
+  mirrorMethod: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
+  mirrorGetter: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
+  mirrorConstructor: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
+  adoptIntoWorlds: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
+  worldSandboxOf: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
+});
+
+/** The geolocation refusal's error, made in the agent's world (guardDevices). */
+const WORLD_GEOLOCATION_DENIED = `Object.create(
+  typeof GeolocationPositionError === "function" ? GeolocationPositionError.prototype : Object.prototype,
+  { code: { value: 1 }, message: { value: "User denied geolocation prompt" } }
+)`;
+
+/** Documents (WindowGlobalChild) that have the guards. */
+const guarded = new WeakSet();
+
+/**
+ * Install the guards in the actor's document, once. zen-core's page guards
+ * call it for each new document of an agent tab, and for the documents a
+ * tab already has when it becomes the agent's (ZeniusService.installGuards).
+ *
+ * @param {JSWindowActorChild} actor  the Zenius actor of the document
+ */
+export function installRefusalGuards(actor) {
+  const win = actor.contentWindow;
+  const doc = actor.manager;
+  if (!win || !doc || guarded.has(doc)) {
+    return;
+  }
+  guarded.add(doc);
+  const page = Cu.waiveXrays(win);
+  const bc = actor.browsingContext;
+  const agent = () => isAgentDriven(bc);
+  /** Kinds, or kind:key pairs, this document reports only once (`once`). */
+  const reportedOnce = new Set();
+  /** `once`: true for once per kind, or a key for once per kind and key. */
+  // `what`, for the devices and notifications: the API (the once-key) and
+  // what it asked for in a few words, so zen-ux's card for a page kept with
+  // the agent's code needn't read the agent's message.
+  const report = (kind, message, once = false, what = null) => {
+    if (once) {
+      const key = once === true ? kind : `${kind}:${once}`;
+      if (reportedOnce.has(key)) {
+        return;
+      }
+      reportedOnce.add(key);
+    }
+    try {
+      actor.emit("observe.refused", { kind, message, url: lazy.cut(String(win.location.href), lazy.STRING_TEXT), ...what });
+    } catch {}
+  };
+  const later = fn =>
+    win.setTimeout(() => {
+      try {
+        fn();
+      } catch {}
+    }, 0);
+  /**
+   * Replace `<iface>.prototype[name]` with a function of the same name that
+   * runs `refuse` while `applies()`. The agent's worlds that reach this
+   * document get the same function (content/agentworld.sys.mjs): their
+   * Xrays see only the native.
+   */
+  const guard = (iface, name, refuse, applies = agent) => {
+    const proto = page[iface]?.prototype;
+    const native = proto?.[name];
+    if (typeof native !== "function") {
+      return;
+    }
+    // A named function, so the page sees "function requestFullscreen() { [native code] }".
+    const fn = {
+      [name]() {
+        if (!applies()) {
+          return Reflect.apply(native, this, arguments);
+        }
+        return refuse(this, arguments);
+      },
+    }[name];
+    Cu.exportFunction(fn, proto, { defineAs: name });
+    lazy.mirrorMethod(win, `${iface}.prototype`, name, fn);
+  };
+  /**
+   * `<iface>.prototype[name]` for the agent's worlds alone: the page keeps
+   * what it has (another guard's, or the native).
+   */
+  const worldGuard = (iface, name, refuse) => {
+    if (typeof win[iface]?.prototype?.[name] !== "function") {
+      return;
+    }
+    const fn = {
+      [name]() {
+        return refuse(this, arguments);
+      },
+    }[name];
+    lazy.mirrorMethod(win, `${iface}.prototype`, name, fn);
+  };
+  /**
+   * The same for the getter `<iface>.prototype[name]`: the page sees
+   * "function get <name>() { [native code] }", and the agent's worlds get
+   * the same getter, as they do a guard's method.
+   */
+  const guardGetter = (iface, name, refuse, applies = agent) => {
+    const proto = page[iface]?.prototype;
+    let desc = null;
+    try {
+      desc = proto ? Object.getOwnPropertyDescriptor(proto, name) : null;
+    } catch {}
+    const native = desc?.get;
+    if (typeof native !== "function") {
+      return;
+    }
+    const getter = {
+      [`get ${name}`]() {
+        if (!applies()) {
+          return Reflect.apply(native, this, arguments);
+        }
+        return refuse(this);
+      },
+    }[`get ${name}`];
+    Object.defineProperty(proto, name, {
+      get: Cu.exportFunction(getter, proto),
+      set: desc.set,
+      enumerable: desc.enumerable,
+      configurable: true,
+    });
+    lazy.mirrorGetter(win, `${iface}.prototype`, name, getter);
+  };
+
+  const fullscreen = el => {
+    report(
+      "fullscreen",
+      "The page asked for fullscreen. Agent pages never go fullscreen, which would take over the user's screen, so the request was denied (fullscreenerror, and a TypeError for its promise)."
+    );
+    later(() => el.dispatchEvent(new win.Event("fullscreenerror", { bubbles: true, composed: true })));
+    return page.Promise.reject(new page.TypeError("Fullscreen request denied."));
+  };
+  guard("Element", "requestFullscreen", fullscreen);
+  guard("Element", "mozRequestFullScreen", fullscreen);
+
+  guard("Element", "requestPointerLock", el => {
+    report(
+      "pointerLock",
+      "The page asked to lock the pointer. Agent pages never capture the user's cursor, so the request was denied (pointerlockerror, and a NotAllowedError for its promise)."
+    );
+    const doc = el.ownerDocument;
+    later(() => doc.dispatchEvent(new win.Event("pointerlockerror", { bubbles: true })));
+    return page.Promise.reject(new page.DOMException("Pointer lock is not allowed in this page.", "NotAllowedError"));
+  });
+
+  guard("WakeLock", "request", () => {
+    report(
+      "wakeLock",
+      "The page asked to keep the screen awake. Agent pages may not keep the user's display from sleeping, so the request was denied (NotAllowedError)."
+    );
+    return page.Promise.reject(new page.DOMException("A screen wake lock is not allowed in this page.", "NotAllowedError"));
+  });
+
+  guard("SpeechSynthesis", "speak", (_synth, args) => {
+    const utterance = args[0];
+    let isUtterance = false;
+    try {
+      isUtterance = win.SpeechSynthesisUtterance.isInstance(utterance);
+    } catch {}
+    if (!isUtterance) {
+      throw new page.TypeError("SpeechSynthesis.speak: Argument 1 does not implement interface SpeechSynthesisUtterance.");
+    }
+    report(
+      "speech",
+      "The page asked to speak aloud (speech synthesis). Agent pages never speak, so the utterance ended with an error event (synthesis-unavailable) and nothing was said."
+    );
+    // Gecko's SpeechSynthesisErrorCode has no "not-allowed".
+    later(() => utterance.dispatchEvent(new win.SpeechSynthesisErrorEvent("error", { utterance, error: "synthesis-unavailable" })));
+    return undefined;
+  });
+
+  // Starts of playback, for observe/audio.sys.mjs: a muted agent tab tells
+  // the agent its sound is off. Gecko calls a muted tab silent, so the
+  // parent can't tell by itself. At most one message every two seconds.
+  let lastSound = -Infinity;
+  // Never throws: it runs inside the page's own calls.
+  const sound = () => {
+    try {
+      const now = ChromeUtils.now();
+      if (now - lastSound < 2000 || !agent()) {
+        return;
+      }
+      lastSound = now;
+      actor.emit("observe.sound", { url: lazy.cut(String(win.location.href), lazy.STRING_TEXT) });
+    } catch {}
+  };
+  // Media's starts come from the media guard below, which hears them in the
+  // document, in shadow trees, and on elements never put in the document
+  // (new Audio()). Web Audio has no event to listen to: note the start of every source
+  // node (oscillators, buffers) and call through unchanged.
+  const nativeStart = page.AudioScheduledSourceNode?.prototype.start;
+  if (typeof nativeStart === "function") {
+    const start = function start() {
+      sound();
+      return Reflect.apply(nativeStart, this, arguments);
+    };
+    Cu.exportFunction(start, page.AudioScheduledSourceNode.prototype, { defineAs: "start" });
+    lazy.mirrorMethod(win, "AudioScheduledSourceNode.prototype", "start", start);
+  }
+
+  // Audible media pauses while the user can't see the tab (wake locks).
+  try {
+    lazy.installMediaGuard(actor, {
+      agent,
+      onPlaying: el => {
+        if (!el.muted && el.volume > 0) {
+          sound();
+        }
+      },
+      emit: (action, count) => {
+        try {
+          actor.emit("observe.media", { action, count, url: lazy.cut(String(win.location.href), lazy.STRING_TEXT) });
+        } catch {}
+      },
+    });
+  } catch (e) {
+    console.error("[zenius] media guard failed", e);
+  }
+
+  guard("Navigator", "share", (_nav, args) => {
+    let url = "";
+    try {
+      url = typeof args[0]?.url === "string" ? args[0].url : "";
+    } catch {}
+    report(
+      "share",
+      `The page asked to share${url ? ` ${url}` : ""}. Agent pages never open the system share sheet, so the share was cancelled (AbortError).`
+    );
+    return page.Promise.reject(new page.DOMException("Share canceled.", "AbortError"));
+  });
+
+  // The site's storage that outlives the task, for its whole life: the user's
+  // hold too, when code the agent left in the page still runs. Once per
+  // document and kind: a precache writes dozens of entries.
+  const taskPage = () => isTaskDocument(bc);
+  const insecure = () => page.Promise.reject(new page.DOMException("The operation is insecure.", "SecurityError"));
+  guard(
+    "ServiceWorkerContainer",
+    "register",
+    (_container, args) => {
+      let script = "";
+      try {
+        script = lazy.cut(String(args[0]), lazy.STRING_TEXT);
+      } catch {}
+      report(
+        "serviceWorker",
+        `The page tried to register a service worker${script ? ` (${script})` : ""}. It would stay in the user's profile after the task and run in their own tabs on this site, so zenius refused it, and refuses the page's later tries (SecurityError, as when the user's settings block site data).`,
+        true
+      );
+      return insecure();
+    },
+    taskPage
+  );
+  for (const name of ["put", "add", "addAll"]) {
+    guard(
+      "Cache",
+      name,
+      () => {
+        report(
+          "cacheStorage",
+          `The page tried to write to the site's Cache Storage (Cache.${name}). What it stores there stays after the task and can reach the user's own tabs on this site, so zenius refused the write, and refuses the page's later ones (SecurityError, as when the user's settings block site data).`,
+          true
+        );
+        return insecure();
+      },
+      taskPage
+    );
+  }
+  guardServiceWorkerAccess(win, page, { report, guard, guardGetter, applies: taskPage });
+  guardDevices(page, win, { report, later, guard, worldGuard, applies: taskPage });
+  guardNotifications(win, page, { report, guard, applies: taskPage });
+  guardPeerConnections(win, page, { report, applies: taskPage });
+  watchWorkers();
+  guardSharedWorkers(
+    win,
+    () => (taskPage() ? { actor, url: () => String(win.location.href), scope: () => channelScope(bc) } : null),
+    worker => noteChannel(doc, "worker", worker),
+    () =>
+      report(
+        "localNetwork",
+        "The page tried to start a shared worker from a data: URL. Its requests would name neither a page nor a site, so zenius couldn't keep them from the local network: a task's pages start shared workers from the site's scripts or from blob: URLs. zenius refused it (SecurityError).",
+        "dataSharedWorker"
+      )
+  );
+  guardBroadcastChannels(
+    win,
+    () => channelScope(bc),
+    channel => noteChannel(doc, "channel", channel)
+  );
+  // The agent's worlds already in this document's group see it through
+  // Xrays, past every guard above: they get the same ones now, before any of
+  // their code can reach the new document.
+  lazy.adoptIntoWorlds(win);
+}
+
+/**
+ * The page's own BroadcastChannels and shared workers, per document (its
+ * WindowGlobalChild), held weakly: muteChannels closes them as the user is
+ * about to hold the page. Glue by zen-core (the manager's channel mute,
+ * 2026-11-20).
+ *
+ * @type {WeakMap<object, Array<{kind: "channel"|"worker", ref: WeakRef<object>}>>}
+ */
+const pageChannels = new WeakMap();
+
+function noteChannel(owner, kind, obj) {
+  let list = pageChannels.get(owner);
+  if (!list) {
+    pageChannels.set(owner, (list = []));
+  }
+  // A page may make a channel per message and drop it: forget the ones
+  // already collected, so the list stays short.
+  if (list.length >= 64) {
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (!list[i].ref.deref()) {
+        list.splice(i, 1);
+      }
+    }
+  }
+  list.push({ kind, ref: new WeakRef(obj) });
+}
+
+/**
+ * Close the BroadcastChannels and shared-worker ports this document opened
+ * (the manager's channel mute, 2026-11-20). The parent calls it in each
+ * document of the page the user is about to hold: opened before the hold,
+ * they're in the task's scope (channelScope), so the held page would hear
+ * the task's pages, and they it, both ways. What the page opens from then
+ * on gets the held scope, and the channels the agent's world opened go
+ * with its discard. The site's code keeps working: postMessage on a closed
+ * channel would throw (the spec's InvalidStateError), so each closed
+ * channel gets an own postMessage that does nothing, and a closed port
+ * drops its messages as it is. Glue by zen-core.
+ *
+ * @returns {{channels: number, workers: number}}
+ */
+export function muteChannels(actor) {
+  const owner = actor.manager;
+  const list = pageChannels.get(owner) ?? [];
+  pageChannels.delete(owner);
+  const win = actor.contentWindow;
+  const muted = { channels: 0, workers: 0 };
+  for (const { kind, ref } of list) {
+    const obj = ref.deref();
+    if (!obj) {
+      continue;
+    }
+    try {
+      if (kind === "worker") {
+        obj.port.close();
+        muted.workers++;
+        continue;
+      }
+      obj.close();
+      if (win) {
+        Object.defineProperty(Cu.waiveXrays(obj), "postMessage", {
+          value: Cu.exportFunction(function postMessage() {}, win),
+          writable: true,
+          enumerable: false,
+          configurable: true,
+        });
+      }
+      muted.channels++;
+    } catch (e) {
+      console.error("[zenius] muting a held page's channel failed", e);
+    }
+  }
+  return muted;
+}
+
+/**
+ * The site's service worker, registered from the user's own tabs, runs for
+ * them, outside the task. A task's pages don't use it: the parent keeps
+ * their requests from it (observe/swbypass.sys.mjs), and here the page
+ * can't reach it either, since a worker can fetch what the page's own
+ * requests can't (it has no tab, so the local-network refusal can't place
+ * its requests). zenius answers as if the site had none: no registration,
+ * a `ready` that never settles, no controller, and a dropped postMessage.
+ * Once per document. The workers the page starts get the same answers
+ * (workerguard.js).
+ *
+ * Nor can the site's worker reach the page first. Its
+ * `clients.matchAll({ includeUncontrolled: true })` lists a task's documents
+ * and workers, and a message it posts them can carry a MessagePort that
+ * works both ways (zen-snapshot, research/agent-sidebar-redteam.md). Its
+ * messages never arrive: zenius's listener, added before the page's code
+ * runs and capturing, so it runs before the page's listeners, `onmessage`
+ * and the agent's worlds' (capturing listeners run first at the target),
+ * stops each one and closes the ports it carries. Once per document too.
+ */
+function guardServiceWorkerAccess(win, page, { report, guard, guardGetter, applies }) {
+  const said = api =>
+    report(
+      "serviceWorker",
+      `The page tried to reach the site's service worker (${api}). It runs for the user's own tabs on this site, outside the task, so a task's pages don't use it: zenius answered as if the site had none.`,
+      "access"
+    );
+  guard(
+    "ServiceWorkerContainer",
+    "getRegistration",
+    () => {
+      said("getRegistration");
+      return page.Promise.resolve(undefined);
+    },
+    applies
+  );
+  guard(
+    "ServiceWorkerContainer",
+    "getRegistrations",
+    () => {
+      said("getRegistrations");
+      return page.Promise.resolve(new page.Array());
+    },
+    applies
+  );
+  // With no registration, ready never settles.
+  guardGetter(
+    "ServiceWorkerContainer",
+    "ready",
+    () => {
+      said("ready");
+      return page.Promise.race(new page.Array());
+    },
+    applies
+  );
+  guardGetter(
+    "ServiceWorkerContainer",
+    "controller",
+    () => {
+      said("controller");
+      return null;
+    },
+    applies
+  );
+  guard(
+    "ServiceWorker",
+    "postMessage",
+    () => {
+      said("postMessage");
+      return undefined;
+    },
+    applies
+  );
+  let container = null;
+  try {
+    // Through Xrays: the native container, whatever the page does to navigator later.
+    container = win.navigator.serviceWorker;
+  } catch {}
+  if (!container) {
+    // Not a secure context: the page has no service workers to hear from.
+    return;
+  }
+  const drop = event => {
+    // The page's own dispatched events aren't the site's worker's.
+    if (!event.isTrusted || !applies()) {
+      return;
+    }
+    event.stopImmediatePropagation();
+    try {
+      for (const port of event.ports) {
+        port.close();
+      }
+    } catch {}
+    report(
+      "serviceWorker",
+      "The site's service worker sent the page a message. It runs for the user's own tabs on this site, outside the task, so a task's pages don't use it: zenius dropped the message and closed the ports it carried, as if the site had none.",
+      "message"
+    );
+  };
+  try {
+    container.addEventListener("message", drop, true);
+    container.addEventListener("messageerror", drop, true);
+  } catch (e) {
+    console.error("[zenius] dropping the site's service worker's messages failed", e);
+  }
+}
+
+/** What a getUserMedia() call asks for, read through Xrays, so no page getter runs. */
+/** What a getUserMedia() call asks for: words for zen-ux ("camera microphone", "screen") and text for the agent. */
+function askedOf(constraints) {
+  let video = false;
+  let audio = false;
+  let screen = false;
+  try {
+    video = !!constraints?.video;
+    audio = !!constraints?.audio;
+    screen = ["screen", "window", "browser"].includes(constraints?.video?.mediaSource);
+  } catch {}
+  if (screen) {
+    return { words: "screen", text: "the screen" };
+  }
+  if (video && audio) {
+    return { words: "camera microphone", text: "the camera and microphone" };
+  }
+  if (video || audio) {
+    return { words: video ? "camera" : "microphone", text: video ? "the camera" : "the microphone" };
+  }
+  return { words: "camera microphone", text: "the camera or microphone" };
+}
+
+/**
+ * The user's devices and location, refused while `applies()`: for a task's
+ * pages, the task's whole life. Each refusal is reported once per document
+ * and API, since pages retry.
+ */
+function guardDevices(page, win, { report, later, guard, worldGuard, applies }) {
+  // Gecko's own words for a denied request.
+  const notAllowed = () =>
+    new page.DOMException("The request is not allowed by the user agent or the platform in the current context.", "NotAllowedError");
+  const refused = (api, asked, outcome, words) =>
+    report(
+      "deviceAccess",
+      `The page asked for ${asked} (${api}). A task's pages never use the user's devices or location: the system's consent prompt for them would apply to the user's whole browser, so zenius refused it before any prompt (${outcome}). If the task needs it, tell the user: it works in their own tab.`,
+      api,
+      { api, asked: words }
+    );
+  guard(
+    "MediaDevices",
+    "getUserMedia",
+    (_devices, args) => {
+      const asked = askedOf(args[0]);
+      refused("getUserMedia", asked.text, "NotAllowedError", asked.words);
+      return page.Promise.reject(notAllowed());
+    },
+    applies
+  );
+  guard(
+    "MediaDevices",
+    "getDisplayMedia",
+    () => {
+      refused("getDisplayMedia", "the screen, to record or share it", "NotAllowedError", "screen");
+      return page.Promise.reject(notAllowed());
+    },
+    applies
+  );
+  guard(
+    "MediaDevices",
+    "selectAudioOutput",
+    () => {
+      refused("selectAudioOutput", "a choice of speakers", "NotAllowedError", "speakers");
+      return page.Promise.reject(notAllowed());
+    },
+    applies
+  );
+  // Answered here, as on a machine without devices: the browser's list
+  // would name the user's devices where the site has a grant.
+  guard(
+    "MediaDevices",
+    "enumerateDevices",
+    () => {
+      report(
+        "deviceAccess",
+        "The page asked which cameras, microphones and speakers there are (enumerateDevices). A task's pages never use the user's devices, so zenius answered with an empty list without asking the browser. If the task needs a device, tell the user: it works in their own tab.",
+        "enumerateDevices",
+        { api: "enumerateDevices", asked: "device list" }
+      );
+      return page.Promise.resolve(new page.Array());
+    },
+    applies
+  );
+  // The legacy callback form.
+  guard(
+    "Navigator",
+    "mozGetUserMedia",
+    (_nav, args) => {
+      const asked = askedOf(args[0]);
+      refused("mozGetUserMedia", asked.text, "its error callback got NotAllowedError", asked.words);
+      const onError = args[2];
+      if (typeof onError === "function") {
+        later(() => onError(notAllowed()));
+      }
+      return undefined;
+    },
+    applies
+  );
+
+  // A PERMISSION_DENIED error, as when the user blocks location: own,
+  // non-enumerable code and message over the interface's prototype, which
+  // has no constructor. For the agent's world, made in the world: a page
+  // object reaches it through an Xray, which hides that prototype's
+  // constants, and a waived prototype would let the page's getters run on
+  // the world's reads.
+  const denied = onError => {
+    const sandbox = lazy.worldSandboxOf(onError);
+    if (sandbox) {
+      return Cu.evalInSandbox(WORLD_GEOLOCATION_DENIED, sandbox);
+    }
+    return page.Object.create(
+      page.GeolocationPositionError?.prototype ?? page.Object.prototype,
+      Cu.cloneInto({ code: { value: 1 }, message: { value: "User denied geolocation prompt" } }, win)
+    );
+  };
+  let watches = 0;
+  for (const name of ["getCurrentPosition", "watchPosition"]) {
+    guard(
+      "Geolocation",
+      name,
+      (_geolocation, args) => {
+        refused(`geolocation.${name}`, "the user's location", "PERMISSION_DENIED", "location");
+        const onError = args[1];
+        if (typeof onError === "function") {
+          later(() => onError(denied(onError)));
+        }
+        return name === "watchPosition" ? ++watches : undefined;
+      },
+      applies
+    );
+  }
+
+  guard(
+    "Navigator",
+    "requestMIDIAccess",
+    () => {
+      refused("requestMIDIAccess", "MIDI devices", "NotAllowedError", "midi");
+      return page.Promise.reject(notAllowed());
+    },
+    applies
+  );
+
+  // A page's own passkey request waits for the user (zen-ux,
+  // ui/systemui/ZeniusSystemUiChild.sys.mjs), whose prototype the world's
+  // Xrays don't see. The agent's own code gets a no: a passkey is the
+  // user's, and the hand-off that wait starts would end the very world that
+  // asked.
+  for (const name of ["create", "get"]) {
+    worldGuard("CredentialsContainer", name, () => {
+      report(
+        "deviceAccess",
+        `The agent's code asked for a passkey (credentials.${name}). A passkey is the user's, so zenius refused it before any prompt (NotAllowedError). If the site's sign-in needs one, click its own button: the page's request then waits for the user.`,
+        `credentials.${name}`,
+        { api: `credentials.${name}`, asked: "passkey" }
+      );
+      return page.Promise.reject(notAllowed());
+    });
+  }
+
+  // Zen turns speech recognition on; it listens through the microphone.
+  guard(
+    "SpeechRecognition",
+    "start",
+    recognition => {
+      refused("SpeechRecognition.start", "speech recognition, which listens through the microphone", "an error event, not-allowed, then end", "microphone");
+      later(() => {
+        recognition.dispatchEvent(new win.SpeechRecognitionErrorEvent("error", { error: "not-allowed", message: "" }));
+        recognition.dispatchEvent(new win.Event("end"));
+      });
+      return undefined;
+    },
+    applies
+  );
+}
+
+/**
+ * A Notification that only errs, as where the user blocks notifications: an
+ * EventTarget over Notification.prototype, with the options as own
+ * properties, its own on* handlers and a no-op close(). It runs in the
+ * page's realm (a sandbox with the page's principal). workerguard.js has the
+ * same text for workers (a test compares them).
+ */
+const FAKE_NOTIFICATION = `function fakeNotification(Native, title, options, newTarget) {
+  const n = new EventTarget();
+  Object.setPrototypeOf(n, (newTarget && newTarget.prototype) || Native.prototype);
+  const o = options !== null && typeof options === "object" ? options : {};
+  const fields = {
+    title: String(title), dir: o.dir ?? "auto", lang: String(o.lang ?? ""), body: String(o.body ?? ""),
+    tag: String(o.tag ?? ""), icon: String(o.icon ?? ""), image: String(o.image ?? ""), badge: String(o.badge ?? ""),
+    data: o.data ?? null, silent: o.silent ?? null, requireInteraction: !!o.requireInteraction, renotify: !!o.renotify,
+    timestamp: Date.now(), vibrate: [], actions: [],
+  };
+  for (const key of Object.keys(fields)) {
+    Object.defineProperty(n, key, { value: fields[key], configurable: true });
+  }
+  Object.defineProperty(n, "close", { value: function close() {}, writable: true, configurable: true });
+  for (const type of ["click", "show", "error", "close"]) {
+    let handler = null;
+    n.addEventListener(type, e => { if (typeof handler === "function") handler.call(n, e); });
+    Object.defineProperty(n, "on" + type, { get: () => handler, set: v => { handler = typeof v === "function" ? v : null; }, configurable: true });
+  }
+  setTimeout(() => n.dispatchEvent(new Event("error")), 0);
+  return n;
+}`;
+
+/** Documents → their sandbox (one per document, for every guard that needs one). */
+const sandboxes = new WeakMap();
+
+/**
+ * A sandbox with the document's principal, for constructors the page sees
+ * as its own. Each guard hands it a function under a name of its own and
+ * deletes that name at once.
+ */
+function pageSandbox(win) {
+  const doc = win.document;
+  let sandbox = sandboxes.get(doc);
+  if (!sandbox) {
+    sandbox = Cu.Sandbox(doc.nodePrincipal, { sandboxPrototype: win, wantXrays: false, sandboxName: "zenius page guards" });
+    sandboxes.set(doc, sandbox);
+  }
+  return sandbox;
+}
+
+/** Hand each of `helpers` to `sandbox` under its name, for a guard's source to take and delete. */
+function exportHelpers(sandbox, helpers) {
+  for (const [name, fn] of Object.entries(helpers)) {
+    Cu.exportFunction(fn, sandbox, { defineAs: name });
+  }
+}
+
+/**
+ * Notifications, refused while `applies()` (for a task's pages, the task's
+ * whole life), even where the site has the user's grant: one would show on
+ * the user's desktop.
+ */
+function guardNotifications(win, page, { report, guard, applies }) {
+  const refused = api =>
+    `The page tried to show a notification (${api}). A task's pages never show notifications on the user's desktop, even where the site may, so zenius refused it (${api === "showNotification" ? "a TypeError" : "an error event"}, as where notifications are blocked).`;
+  guard(
+    "ServiceWorkerRegistration",
+    "showNotification",
+    () => {
+      report("notification", refused("showNotification"), "showNotification", { api: "showNotification", asked: "notifications" });
+      return page.Promise.reject(new page.TypeError("Permission to show Notification denied."));
+    },
+    applies
+  );
+  if (typeof page.Notification !== "function") {
+    return;
+  }
+  try {
+    const sandbox = pageSandbox(win);
+    const helper = () => {
+        if (!applies()) {
+          return false;
+        }
+        report("notification", refused("new Notification"), "Notification", { api: "Notification", asked: "notifications" });
+        return true;
+      };
+    Cu.exportFunction(helper, sandbox, { defineAs: "zeniusNotificationRefused" });
+    const source = `(() => {
+        const refused = zeniusNotificationRefused;
+        delete globalThis.zeniusNotificationRefused;
+        const Native = globalThis.__zeniusNative ?? Notification;
+        const construct = Reflect.construct;
+        ${FAKE_NOTIFICATION}
+        const wrapped = new Proxy(Native, {
+          construct(target, args, newTarget) {
+            const nt = newTarget === wrapped ? target : newTarget;
+            // Without a title the native throws its TypeError, as it should.
+            if (args.length < 1) {
+              return construct(target, args, nt);
+            }
+            const title = String(args[0]);
+            if (!refused()) {
+              return construct(target, args, nt);
+            }
+            return fakeNotification(Native, title, args[1], nt);
+          },
+        });
+        Object.defineProperty(Native.prototype, "constructor", { value: wrapped, writable: true, enumerable: false, configurable: true });
+        return wrapped;
+      })()`;
+    const wrapped = Cu.evalInSandbox(source, sandbox);
+    Object.defineProperty(page, "Notification", { value: wrapped, writable: true, enumerable: false, configurable: true });
+    lazy.mirrorConstructor(win, "Notification", source, { zeniusNotificationRefused: helper });
+  } catch (e) {
+    console.error("[zenius] the notification guard failed", e);
+  }
+}
+
+/**
+ * WebRTC, refused while `applies()`: ICE gathering reads the machine's local
+ * network addresses and can raise macOS's Local Network prompt, whose answer
+ * covers the user's whole browser. Fingerprinting scripts make one on many
+ * sites; the camera and microphone are refused already.
+ */
+function guardPeerConnections(win, page, { report, applies }) {
+  if (typeof page.RTCPeerConnection !== "function") {
+    return;
+  }
+  try {
+    const sandbox = pageSandbox(win);
+    const helper = () => {
+        if (!applies()) {
+          return false;
+        }
+        report(
+          "localNetwork",
+          "The page tried to open a WebRTC connection (new RTCPeerConnection). WebRTC gathers the machine's local network addresses, which can make macOS ask the user about the local network for their whole browser, so a task's pages can't use it (NotAllowedError). If the task needs a call, tell the user: it works in their own tab.",
+          "RTCPeerConnection"
+        );
+        return true;
+      };
+    Cu.exportFunction(helper, sandbox, { defineAs: "zeniusPeerConnectionRefused" });
+    const source = `(() => {
+        const refused = zeniusPeerConnectionRefused;
+        delete globalThis.zeniusPeerConnectionRefused;
+        const Native = globalThis.__zeniusNative ?? RTCPeerConnection;
+        const construct = Reflect.construct;
+        const wrapped = new Proxy(Native, {
+          construct(target, args, newTarget) {
+            if (refused()) {
+              throw new DOMException("The request is not allowed by the user agent or the platform in the current context.", "NotAllowedError");
+            }
+            return construct(target, args, newTarget === wrapped ? target : newTarget);
+          },
+        });
+        Object.defineProperty(Native.prototype, "constructor", { value: wrapped, writable: true, enumerable: false, configurable: true });
+        return wrapped;
+      })()`;
+    const wrapped = Cu.evalInSandbox(source, sandbox);
+    Object.defineProperty(page, "RTCPeerConnection", { value: wrapped, writable: true, enumerable: false, configurable: true });
+    lazy.mirrorConstructor(win, "RTCPeerConnection", source, { zeniusPeerConnectionRefused: helper });
+  } catch (e) {
+    console.error("[zenius] the WebRTC guard failed", e);
+  }
+}
+
+/**
+ * A document of an agent task's page, whoever holds it, of a popup one
+ * opened, or of a tab whose top document ran the agent's code, until that
+ * document is replaced.
+ */
+function isTaskDocument(bc) {
+  return isAgentTaskPage(bc) || isTaskPopup(bc) || isAgentCodeDocument(bc);
+}
+
+/** The fragment that gives a task's page a shared worker of its own. */
+const SHARED_MARK = "zenius-agent";
+/**
+ * The marks of the shared workers a task's documents start: "zenius-" and
+ * the document's channel scope (channelScope), so each task, each hold, and
+ * the pages kept with the agent's code after their tasks have workers of
+ * their own (zen-snapshot's twoTasks probe, 2026-11-20).
+ */
+const SCOPED_MARKS = ["zenius-task-", "zenius-held-"];
+
+/**
+ * A shared worker is shared with every tab of the site, the user's too. A
+ * page of an agent task that connects to one the user's tab started could
+ * ask it to write for it (own-tab.md, second round: userShared). So in such
+ * a page, `new SharedWorker()` gets a worker of the task's own: zenius adds
+ * a fragment to the script URL, so Gecko starts a separate worker, and the
+ * worker watcher puts the refusals in it. The page's code works as before;
+ * only the sharing with the user's tabs is gone, and the worker sees the
+ * fragment in `self.location`.
+ *
+ * The wrapper is a Proxy made in a sandbox with the page's principal, so the
+ * page constructs through it as usual, and SharedWorker.prototype.constructor
+ * is the wrapper too. It converts the URL to a string once.
+ *
+ * A data: shared worker is refused (SecurityError, `refusedData`): it has an
+ * opaque origin, so its requests name neither a tab, a mark nor a site, and
+ * the local-network refusal couldn't place them. A blob: one's name its
+ * site (observe/localnet.sys.mjs, blobWorkerSite).
+ */
+function guardSharedWorkers(win, ownerNow, noted, refusedData) {
+  const page = Cu.waiveXrays(win);
+  if (typeof page.SharedWorker !== "function") {
+    return;
+  }
+  try {
+    const sandbox = pageSandbox(win);
+    const helpers = {
+      // The script URL to start the worker with: the task's own, null for
+      // the page's own as given (not a task's page now, or not a URL), or
+      // false for a refused one (data:).
+      zeniusSharedWorkerURL: scriptURL => {
+        const owner = ownerNow();
+        if (!owner) {
+          return null;
+        }
+        try {
+          const uri = Services.io.newURI(scriptURL, null, win.document.baseURIObject);
+          if (uri.schemeIs("data")) {
+            try {
+              refusedData?.();
+            } catch {}
+            return false;
+          }
+          // The task's own worker, or the hold's, as its channels are.
+          const scope = owner.scope?.() || "agent";
+          const mark = `zenius-${scope}`;
+          const marked = uri
+            .mutate()
+            .setRef(uri.hasRef ? `${uri.ref}&${mark}` : mark)
+            .finalize().spec;
+          noteSharedWorker(marked, owner);
+          return marked;
+        } catch {
+          return null;
+        }
+      },
+      // The worker, for the channel mute (noteChannel).
+      zeniusNoteWorker: worker => noted?.(worker),
+      // The page's own SecurityError, for a refused worker.
+      zeniusInsecure: () => new page.DOMException("The operation is insecure.", "SecurityError"),
+    };
+    exportHelpers(sandbox, helpers);
+    const source = `(() => {
+        const ownURL = zeniusSharedWorkerURL;
+        const noted = zeniusNoteWorker;
+        const insecure = zeniusInsecure;
+        delete globalThis.zeniusSharedWorkerURL;
+        delete globalThis.zeniusNoteWorker;
+        delete globalThis.zeniusInsecure;
+        const Native = globalThis.__zeniusNative ?? SharedWorker;
+        const construct = Reflect.construct;
+        const slice = Array.prototype.slice;
+        const wrapped = new Proxy(Native, {
+          construct(target, args, newTarget) {
+            const url = String(args[0]);
+            const own = ownURL(url);
+            if (own === false) {
+              throw insecure();
+            }
+            const worker = construct(target, [own === null ? url : own, ...slice.call(args, 1)], newTarget === wrapped ? target : newTarget);
+            try {
+              noted(worker);
+            } catch {}
+            return worker;
+          },
+        });
+        Object.defineProperty(Native.prototype, "constructor", { value: wrapped, writable: true, enumerable: false, configurable: true });
+        return wrapped;
+      })()`;
+    const wrapped = Cu.evalInSandbox(source, sandbox);
+    Object.defineProperty(page, "SharedWorker", { value: wrapped, writable: true, enumerable: false, configurable: true });
+    lazy.mirrorConstructor(win, "SharedWorker", source, helpers);
+  } catch (e) {
+    console.error("[zenius] the shared worker guard failed", e);
+  }
+}
+
+/**
+ * Which task each task tab is a page of (browserId → space id), published
+ * by observe/setup.sys.mjs as tabs join and leave tasks.
+ */
+export const TASK_SPACES_KEY = "zenius:taskSpaces";
+
+/**
+ * The scope a document's BroadcastChannel names get, or null for the page's
+ * own names. A task's page, or a popup on its way to be one: its task's. A
+ * document that keeps the agent's code after its task: the agents' own, which
+ * no tab of the user's joins either.
+ */
+function channelScope(bc) {
+  if (!isTaskDocument(bc)) {
+    return null;
+  }
+  let top = null;
+  try {
+    top = bc.top;
+  } catch {}
+  // A page the user holds talks only to itself: the site's own cross-tab
+  // sync would carry what the user types to the task's other pages.
+  const hold = Services.cpmm.sharedData.get(HELD_PAGES_KEY)?.get?.(top?.browserId);
+  if (hold !== undefined) {
+    return `held-${hold}`;
+  }
+  const spaces = Services.cpmm.sharedData.get(TASK_SPACES_KEY);
+  for (let depth = 0; top && depth < 8; depth++) {
+    const space = spaces?.get?.(top.browserId);
+    if (space !== undefined) {
+      return `task-${space}`;
+    }
+    let opener = null;
+    try {
+      opener = top.opener;
+    } catch {}
+    top = opener?.top ?? null;
+  }
+  return "agent";
+}
+
+/**
+ * The BroadcastChannel wrapper, for pages (guardBroadcastChannels) and the
+ * workers they start (workerguard.js gets it with the scope): given the
+ * native constructor and a function that answers the scope, it returns the
+ * constructor the realm gets. A channel's name carries the scope after a NUL
+ * and "zenius-"; the name getter gives the page back its own name.
+ * `noted`, in pages only, gets each channel for the channel mute.
+ */
+const CHANNEL_GUARD = `function zeniusChannelGuard(Native, scopeOf, noted) {
+  if (typeof Native !== "function") {
+    return null;
+  }
+  const construct = Reflect.construct;
+  const apply = Reflect.apply;
+  const slice = Array.prototype.slice;
+  const lastIndexOf = String.prototype.lastIndexOf;
+  const cut = String.prototype.slice;
+  const MARK = "\\u0000zenius-";
+  const wrapped = new Proxy(Native, {
+    construct(target, args, newTarget) {
+      const as = newTarget === wrapped ? target : newTarget;
+      if (args.length === 0) {
+        return construct(target, args, as);
+      }
+      const name = \`\${args[0]}\`;
+      const scope = scopeOf();
+      const channel = construct(target, [scope ? name + MARK + scope : name, ...apply(slice, args, [1])], as);
+      if (noted) {
+        try {
+          noted(channel);
+        } catch {}
+      }
+      return channel;
+    },
+  });
+  const desc = Object.getOwnPropertyDescriptor(Native.prototype, "name");
+  if (desc && typeof desc.get === "function") {
+    const getter = new Proxy(desc.get, {
+      apply(target, self, args) {
+        const name = apply(target, self, args);
+        const at = apply(lastIndexOf, name, [MARK]);
+        return at < 0 ? name : apply(cut, name, [0, at]);
+      },
+    });
+    Object.defineProperty(Native.prototype, "name", { get: getter, set: undefined, enumerable: desc.enumerable, configurable: true });
+  }
+  Object.defineProperty(Native.prototype, "constructor", { value: wrapped, writable: true, enumerable: false, configurable: true });
+  return wrapped;
+}`;
+
+/**
+ * A task shares the user's container (SPEC §3.4), so a BroadcastChannel
+ * joins every same-site document of the profile, the user's open tabs too,
+ * both ways: data, but data the site's code in the user's tab acts on, with
+ * that tab's grants (zen-snapshot's channels probe; the manager's decision,
+ * 2026-11-20). In a task's documents a channel's name gets the task's scope
+ * (channelScope), so task pages hear only each other. As for the shared
+ * worker, the wrapper is a Proxy made in a sandbox with the page's principal,
+ * and the page reads its own names back.
+ */
+function guardBroadcastChannels(win, scopeNow, noted) {
+  const page = Cu.waiveXrays(win);
+  if (typeof page.BroadcastChannel !== "function") {
+    return;
+  }
+  try {
+    const sandbox = pageSandbox(win);
+    const helpers = {
+      zeniusChannelScope: () => scopeNow(),
+      zeniusNoteChannel: channel => noted?.(channel),
+    };
+    exportHelpers(sandbox, helpers);
+    const source = `(() => {
+        const scopeOf = zeniusChannelScope;
+        const noted = zeniusNoteChannel;
+        delete globalThis.zeniusChannelScope;
+        delete globalThis.zeniusNoteChannel;
+        return (${CHANNEL_GUARD})(globalThis.__zeniusNative ?? BroadcastChannel, scopeOf, noted);
+      })()`;
+    const wrapped = Cu.evalInSandbox(source, sandbox);
+    if (wrapped) {
+      Object.defineProperty(page, "BroadcastChannel", { value: wrapped, writable: true, enumerable: false, configurable: true });
+      lazy.mirrorConstructor(win, "BroadcastChannel", source, helpers);
+    }
+  } catch (e) {
+    console.error("[zenius] the broadcast channel guard failed", e);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Workers: Cache Storage is exposed in them, and Gecko lets a dedicated worker
+// register a service worker too. A worker a page of an agent task starts gets
+// the same refusals in its own realm, through Gecko's worker debugger API:
+// the worker is held at its start, workerguard.js puts the refusals in, and
+// then it runs. Dedicated workers (nested ones too) and shared workers count;
+// the site's own service workers don't, since the page can't register one.
+// A worker keeps its refusals for its whole life, even past the task.
+
+const WORKER_GUARD_URL = "chrome://userscripts/content/zenius/content/workerguard.js";
+
+/** What a worker tried, by the kind workerguard.js reports. */
+const WORKER_REFUSALS = {
+  serviceWorker:
+    "register a service worker. It would stay in the user's profile after the task and run in their own tabs on this site, so zenius refused it, and refuses the worker's later tries (SecurityError, as when the user's settings block site data).",
+  cacheStorage:
+    "write to the site's Cache Storage. What it stores there stays after the task and can reach the user's own tabs on this site, so zenius refused it, and refuses the worker's later tries (SecurityError, as when the user's settings block site data).",
+  notification:
+    "show a notification. A task's pages and their workers never show notifications on the user's desktop, even where the site may, so zenius refused it (an error event, or a TypeError from showNotification, as where notifications are blocked).",
+};
+
+/** The notification APIs a worker's refusal may name (workerguard.js). */
+const WORKER_NOTIFICATION_APIS = new Set(["Notification", "showNotification"]);
+
+/**
+ * The calls a worker's reach for the site's own service worker may name
+ * (workerguard.js, "serviceWorkerAccess"). It's reported as serviceWorker,
+ * apart from a refused registration, as in the page.
+ */
+const WORKER_SERVICE_WORKER_APIS = new Set(["getRegistration", "getRegistrations", "ready", "controller", "postMessage"]);
+/** The site's service worker's message that a worker's guard dropped (workerguard.js), reported once per worker as serviceWorker. */
+const workerServiceWorkerMessage = workerURL =>
+  `The site's service worker sent a worker the page started (${workerURL}) a message. It runs for the user's own tabs on this site, outside the task, so a task's pages and their workers don't use it: zenius dropped the message and closed the ports it carried, as if the site had none.`;
+const workerServiceWorkerAccess = api =>
+  `reach the site's service worker (${api}). It runs for the user's own tabs on this site, outside the task, so a task's pages and their workers don't use it: zenius answered as if the site had none.`;
+
+/** Guarded workers (nsIWorkerDebugger.id) → where their refusals are reported, their URL, and the mark of one with no tab (workerMark). */
+const guardedWorkers = new Map();
+let watchingWorkers = false;
+
+/** Shared worker scripts that pages of agent tasks just started → where to report, until when. */
+const pendingShared = new Map();
+const PENDING_SHARED_MS = 10000;
+
+/** The marks in a shared worker's script URL's fragment. */
+function sharedMarks(url) {
+  const hash = url.indexOf("#");
+  return hash < 0 ? [] : url.slice(hash + 1).split("&").filter(part => part === SHARED_MARK || SCOPED_MARKS.some(m => part.startsWith(m)));
+}
+
+function isMarkedShared(url) {
+  return sharedMarks(url).length > 0;
+}
+
+/** The channel scope of a marked shared worker, from its mark: a task's, a hold's, or the agents'. */
+function sharedScope(url) {
+  const mark = sharedMarks(url).find(part => part !== SHARED_MARK);
+  return mark ? mark.slice("zenius-".length) : "agent";
+}
+
+function noteSharedWorker(url, owner) {
+  const now = Date.now();
+  for (const [key, entry] of pendingShared) {
+    if (entry.until < now) {
+      pendingShared.delete(key);
+    }
+  }
+  pendingShared.set(url, { owner, until: now + PENDING_SHARED_MS });
+}
+
+/** The Zenius actor of a page of an agent task (or of its popup), by its window global, or null. */
+function taskActorOf(windowGlobal) {
+  try {
+    return windowGlobal && isTaskDocument(windowGlobal.browsingContext) ? windowGlobal.getActor("Zenius") : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Where a new worker's refusals go: null if no page of an agent task started it. */
+function workerOwner(dbg) {
+  const { TYPE_DEDICATED, TYPE_SHARED } = Ci.nsIWorkerDebugger;
+  if (dbg.type === TYPE_DEDICATED) {
+    let parent = null;
+    try {
+      parent = dbg.parent;
+    } catch {}
+    if (parent) {
+      // A nested worker: guarded if the worker that started it is.
+      return guardedWorkers.get(parent.id)?.owner ?? null;
+    }
+    let windowGlobal = null;
+    try {
+      windowGlobal = dbg.window?.windowGlobalChild ?? null;
+    } catch {}
+    const actor = taskActorOf(windowGlobal);
+    // The page that started it (a WindowGlobalChild has no documentURI).
+    const url = () => {
+      try {
+        return String(dbg.window?.document?.documentURI ?? "");
+      } catch {
+        return "";
+      }
+    };
+    return actor ? { actor, url, scope: () => channelScope(windowGlobal.browsingContext) } : null;
+  }
+  if (dbg.type === TYPE_SHARED) {
+    // A shared worker is the agent's when a task's page started it: its
+    // script URL carries the task's mark (guardSharedWorkers), so the user's
+    // tabs never share it. The debugger's url is the string the page's
+    // constructor passed.
+    const url = String(dbg.url ?? "");
+    const pending = pendingShared.get(url);
+    if (pending && pending.until >= Date.now()) {
+      pendingShared.delete(url);
+      return pending.owner;
+    }
+    if (isMarkedShared(url)) {
+      // Started for a page of another process, or noted too long ago:
+      // refused all the same, with no page to tell.
+      return { actor: null, url: () => "", scope: () => sharedScope(url) };
+    }
+  }
+  return null;
+}
+
+/**
+ * The mark of a worker with no tab: a task's shared worker's, from its
+ * script URL (guardSharedWorkers), or for a worker one started, the mark of
+ * the worker that started it. Its requests name no tab; the mark in their
+ * loading principal is what shows whose they are (observe/swbypass.sys.mjs),
+ * so workerguard.js puts it in the URL of each worker this one starts. Null
+ * for a page's own workers, whose requests name the page's tab.
+ */
+function workerMark(dbg) {
+  if (dbg.type === Ci.nsIWorkerDebugger.TYPE_SHARED) {
+    return sharedMarks(String(dbg.url ?? ""))[0] ?? null;
+  }
+  let parent = null;
+  try {
+    parent = dbg.parent;
+  } catch {}
+  return parent ? (guardedWorkers.get(parent.id)?.mark ?? null) : null;
+}
+
+/**
+ * A worker's URL, whole: the debugger's url is the string the page or the
+ * worker passed to the constructor, so a relative one is resolved against
+ * the URL of the worker that started it, or the page's (zen-snapshot's
+ * note: reports named some workers relative).
+ */
+function absoluteWorkerURL(dbg, owner) {
+  const url = String(dbg.url ?? "");
+  let base = null;
+  try {
+    base = dbg.parent ? (guardedWorkers.get(dbg.parent.id)?.url ?? null) : null;
+  } catch {}
+  try {
+    base ??= owner.url?.() || null;
+  } catch {}
+  try {
+    return base ? new URL(url, base).href : url;
+  } catch {
+    return url;
+  }
+}
+
+function guardWorker(dbg, owner) {
+  if (dbg.isInitialized) {
+    // Devtools got there first (the user is debugging it): theirs, unguarded.
+    return;
+  }
+  const id = dbg.id;
+  const reportedKinds = new Set();
+  const mark = workerMark(dbg);
+  const url = absoluteWorkerURL(dbg, owner);
+  guardedWorkers.set(id, { owner, mark, url });
+  const workerURL = lazy.cut(url, lazy.STRING_TEXT);
+  dbg.setDebuggerReady(false);
+  dbg.addListener({
+    onMessage(text) {
+      let message = null;
+      try {
+        message = JSON.parse(text);
+      } catch {}
+      if (message?.ready === true) {
+        dbg.setDebuggerReady(true);
+      } else if (message && "ready" in message) {
+        // Never run a worker the refusals aren't in: it stays held.
+        console.error(`[zenius] a worker of an agent task stays held, its storage guard failed: ${message.error}`);
+      } else if (message?.refused === "serviceWorkerAccess" && !reportedKinds.has(message.refused)) {
+        reportedKinds.add(message.refused);
+        const api = WORKER_SERVICE_WORKER_APIS.has(message.api) ? message.api : "navigator.serviceWorker";
+        try {
+          owner.actor?.emit("observe.refused", {
+            kind: "serviceWorker",
+            message: `A worker the page started (${workerURL}) tried to ${workerServiceWorkerAccess(api)}`,
+            url: lazy.cut(owner.url(), lazy.STRING_TEXT),
+          });
+        } catch {}
+      } else if (message?.refused === "serviceWorkerMessage" && !reportedKinds.has(message.refused)) {
+        reportedKinds.add(message.refused);
+        try {
+          owner.actor?.emit("observe.refused", {
+            kind: "serviceWorker",
+            message: workerServiceWorkerMessage(workerURL),
+            url: lazy.cut(owner.url(), lazy.STRING_TEXT),
+          });
+        } catch {}
+      } else if (typeof message?.refused === "string" && Object.hasOwn(WORKER_REFUSALS, message.refused) && !reportedKinds.has(message.refused)) {
+        reportedKinds.add(message.refused);
+        try {
+          owner.actor?.emit("observe.refused", {
+            kind: message.refused,
+            message: `A worker the page started (${workerURL}) tried to ${WORKER_REFUSALS[message.refused]}`,
+            url: lazy.cut(owner.url(), lazy.STRING_TEXT),
+            // As the page's own notification refusals carry them.
+            ...(message.refused === "notification" && WORKER_NOTIFICATION_APIS.has(message.api) ? { api: message.api, asked: "notifications" } : null),
+          });
+        } catch {}
+      }
+    },
+    onClose() {
+      guardedWorkers.delete(id);
+    },
+    onError(filename, lineno, message) {
+      console.error(`[zenius] the storage guard of a worker of an agent task: ${message} (${filename}:${lineno})`);
+    },
+  });
+  dbg.initialize(WORKER_GUARD_URL);
+  // workerguard.js reports ready only once it has these: the worker stays
+  // held until its channels are scoped, and a worker with no tab marks the
+  // workers it starts, too.
+  let scope = "agent";
+  try {
+    scope = owner.scope?.() ?? scope;
+  } catch {}
+  dbg.postMessage(JSON.stringify({ channelScope: scope, channelGuard: CHANNEL_GUARD, workerMark: mark }));
+}
+
+/** Once per content process: guard the workers that pages of agent tasks start. */
+function watchWorkers() {
+  if (watchingWorkers) {
+    return;
+  }
+  watchingWorkers = true;
+  try {
+    const manager = Cc["@mozilla.org/dom/workers/workerdebuggermanager;1"].getService(Ci.nsIWorkerDebuggerManager);
+    manager.addListener({
+      onRegister(dbg) {
+        try {
+          const owner = workerOwner(dbg);
+          if (owner) {
+            guardWorker(dbg, owner);
+          }
+        } catch (e) {
+          console.error("[zenius] guarding a worker failed", e);
+        }
+      },
+      onUnregister(dbg) {
+        try {
+          guardedWorkers.delete(dbg.id);
+        } catch {}
+      },
+    });
+  } catch (e) {
+    console.error("[zenius] the worker storage guard failed to start", e);
+  }
+}
+
+/** Leave fullscreen and pointer lock (the parent's backstop, when a page got past the guards). */
+export function exitFullscreenAndPointerLock(actor) {
+  const doc = actor.document;
+  try {
+    actor.contentWindow?.windowUtils?.exitFullscreen();
+  } catch {}
+  try {
+    doc?.exitPointerLock();
+  } catch {}
+  return true;
+}

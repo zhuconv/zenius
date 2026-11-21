@@ -1,0 +1,159 @@
+[p1 "zen browser - Search" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "zen browser - Search"]
+root
+  container
+    banner
+      form
+        anchor [ref=13106, loc=href:/?FORM=Z9FD1, url=https://www.bing.com/?FORM=Z9FD1]
+          heading
+            image
+        search
+          container [ref=13107]
+            svg_root
+          searchbox "Enter your search here - Search suggestions will show as you type" [ref=13108, loc=css:input[name="q"]]
+            text "zen browser"
+          button "Search using voice" [ref=13109, loc=role:button[name="Search using voice"]]
+          button "Search using an image" [ref=13110, loc=role:button[name="Search using an image"]]
+          button "Search" [ref=13111, loc=css:button[aria-label="Search"]]
+      complementary "Account Rewards and Preferences"
+        button "Microsoft Rewards" [ref=13112, loc=css:a[aria-label="Microsoft Rewards"], url=javascript:void(0)]
+          text "Rewards"
+          svg_root
+        anchor [ref=13113, url=javascript:void(0)]
+          container "Sign in"
+      navigation "Search Filter"
+        unordered_list
+          list_item
+            anchor [ref=13114, loc=href:/?scope=web&FORM=HDRSC1, url=https://www.bing.com/?scope=web&FORM=HDRSC1]
+              text "ALL"
+          list_item
+            anchor [ref=13115, loc=href:/copilotsearch?q=zen+browser&FORM=CSSCOP, url=https://www.bing.com/copilotsearch?q=zen+browser&FORM=CSSCOP]
+              svg_root
+              text "AI MODE"
+          list_item
+            anchor [ref=13116, url=https://www.bing.com/ck/a?!&&p=596868b78541387b176e95720770d38af29cec2a2e5c02deefd7e00ea928ac88JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L2ltYWdlcy9zZWFyY2g_cT16ZW4rYnJvd3NlciZGT1JNPUhEUlNDMw&ntb=1]
+              text "IMAGES"
+          list_item
+            anchor [ref=13117, url=https://www.bing.com/ck/a?!&&p=c11af1508f5adce0c67d0267d2b9918ea1ceb09538463b605006fec7efa7a875JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3ZpZGVvcy9zZWFyY2g_cT16ZW4rYnJvd3NlciZGT1JNPUhEUlNDNA&ntb=1]
+              text "VIDEOS"
+          list_item
+            anchor [ref=13118, url=https://www.bing.com/ck/a?!&&p=bf72b7d45a0586501eec95245fb6ff312581d0fee484626cb631c518d5df6baaJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L21hcHM_cT16ZW4rYnJvd3NlciZGT1JNPUhEUlNDNg&ntb=1]
+              text "MAPS"
+          list_item
+            anchor [ref=13119, url=https://www.bing.com/ck/a?!&&p=56e6b225f5022de5f64e47a565a2ba3eb94dbd9abfd570988b4bc39e91a05227JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L25ld3Mvc2VhcmNoP3E9emVuK2Jyb3dzZXImRk9STT1IRFJTQzc&ntb=1]
+              text "NEWS"
+          list_item
+            anchor [ref=13120, url=https://www.bing.com/ck/a?!&&p=7d346588ef3470df5d6e24f32f33ae73c129a02a49b7151c223f41924c3810ebJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3Nob3AvdG9waWNzP3E9emVuK2Jyb3dzZXImRk9STT1TSE9QVEI&ntb=1]
+              text "SHOPPING"
+          list_item
+            button [ref=13121, loc=href:javascript:void(0);, url=javascript:void(0);]
+              svg_root
+              text "MORE"
+    container "Search Results"
+      container
+        container
+          image
+          image
+          image
+        text "About 192,000 results"
+      container
+        ordered_list
+        ordered_list
+          list_item
+            anchor "zen-browser.app" [ref=13122, url=https://www.bing.com/ck/a?!&&p=b2d6ad1e8fc1679b220bcb2af569120b646e2050c206df0bad7394c309538a7bJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly96ZW4tYnJvd3Nlci5hcHAv&ntb=1]
+              image
+              container
+                text "zеn-bгowsеr.aрp"
+                container [ref=13123]
+                  text "https://zen-browser.app"
+            heading
+              anchor [ref=13124, url=https://www.bing.com/ck/a?!&&p=b2d6ad1e8fc1679b220bcb2af569120b646e2050c206df0bad7394c309538a7bJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly96ZW4tYnJvd3Nlci5hcHAv&ntb=1]
+                text "Zen Browser"
+            paragraph
+              image
+              text "Zen is packed with features that help you stay productive and focused. Browsers should be tools that help you get things done, not …"
+              anchor [ref=13125, url=https://www.bing.com/ck/a?!&&p=b2d6ad1e8fc1679b220bcb2af569120b646e2050c206df0bad7394c309538a7bJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly96ZW4tYnJvd3Nlci5hcHAv&ntb=1]
+                text "Read more"
+            unordered_list
+              list_item
+                anchor [ref=13126, url=https://www.bing.com/ck/a?!&&p=7ff0bcff3009325df17dc213eae7fadf06413d347e73d0d17ef5a858c62f47feJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9kb2NzLnplbi1icm93c2VyLmFwcC8&ntb=1]
+                  heading
+                    text "Documentation"
+                  svg_root
+              list_item
+                anchor [ref=13127, url=https://www.bing.com/ck/a?!&&p=c6e1e0d155333be66e2fc27db0be9d45cb1e58db4d6cf2272d7d8d0114f029e8JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly96ZW4tYnJvd3Nlci5hcHAvZG93bmxvYWQ&ntb=1]
+                  heading
+                    text "Download"
+                  svg_root
+            anchor [ref=13128, url=https://www.bing.com/ck/a?!&&p=cc26751175465542f330603e83b799fc572b2629de3e15c01c27dce21a9ce0e7JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXNpdGU6emVuLWJyb3dzZXIuYXBwK3plbiticm93c2VyJmZvcm09RExJTktS&ntb=1]
+              text "See results only from zen-browser.app"
+          list_item
+            anchor "zen-browser.app" [ref=13129, url=https://www.bing.com/ck/a?!&&p=cfd15cec52360f78fe8a73a117ab508e99b50c7fca36d97a001a8d0eb8b3df49JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly96ZW4tYnJvd3Nlci5hcHAvZG93bmxvYWQv&ntb=1]
+              image
+              container
+                text "zen-broԝsеr.app"
+                container [ref=13130]
+                  text "https://zen-browser.app"
+                  text "› download"
+            heading
+              anchor [ref=13131, url=https://www.bing.com/ck/a?!&&p=cfd15cec52360f78fe8a73a117ab508e99b50c7fca36d97a001a8d0eb8b3df49JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly96ZW4tYnJvd3Nlci5hcHAvZG93bmxvYWQv&ntb=1]
+                text "Download - Zen - zen-browser.app"
+            paragraph
+              image
+              text "Download Zen for your platform and experience a more mindful internet browsing experience."
+          list_item
+            heading
+              text "Related searches for"
+              text "zen browser"
+            unordered_list
+              list_item
+                anchor [ref=13132, url=https://www.bing.com/ck/a?!&&p=6aafd7d9f666a1e981945045a00c6d1f81e0d204a89aceecd0edd3f95f3d20d9JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK2Rvd25sb2FkJkZPUk09UVNSRTE&ntb=1]
+              list_item
+                anchor [ref=13133, url=https://www.bing.com/ck/a?!&&p=9555dcb58c4fad41e3683d2a5e98007a49a4140277c3627cabc7c32c0eae7769JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK2ZvcitXaW5kb3dzKzEwJkZPUk09UVNSRTI&ntb=1]
+        ordered_list
+          list_item
+            container "Related searches"
+              heading
+                text "Related searches"
+              container
+                anchor [ref=13134, url=https://www.bing.com/ck/a?!&&p=2e0ff1c42914a92a40b3120f3453fe6ae8161b4b55f14ce954f1c584efffcb39JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK2Rvd25sb2FkJkZPUk09UjVGRA&ntb=1]
+                  image
+                  container
+                    text "zen browser"
+                    text "download"
+                anchor [ref=13135, url=https://www.bing.com/ck/a?!&&p=efbb60a5696f2c8ad3dc6c7ecd3f143297c4638dba1482f18e25434ba4ee000fJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK2ZvcitXaW5kb3dzKzEwJkZPUk09UjVGRDE&ntb=1]
+                  image
+                  container
+                    text "zen browser"
+                    text "for Windows 10"
+                anchor [ref=13136, url=https://www.bing.com/ck/a?!&&p=82edebc4c1977b8a45657c992b45a85e33addcd5a473d7c94b8996ac2453b521JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK2V4dGVuc2lvbiZGT1JNPVI1RkQy&ntb=1]
+                  image
+                  container
+                    text "zen browser"
+                    text "extension"
+                anchor [ref=13137, url=https://www.bing.com/ck/a?!&&p=e84e959a18a4fa0a3eafb73251144cacaa1db7d0e6e094fefbb3d2a2c93ae31dJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK1BERitzdXBwb3J0JkZPUk09UjVGRDM&ntb=1]
+                  image
+                  container
+                    text "zen browser"
+                    text "pdf support"
+                anchor [ref=13138, url=https://www.bing.com/ck/a?!&&p=b7a96c8d662d1c80ada104ba8e77d820bde73429e42955eb2601779a2c7f9ea9JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK3JldmlldyZGT1JNPVI1RkQ0&ntb=1]
+                  image
+                  container
+                    text "zen browser"
+                    text "review"
+                anchor [ref=13139, url=https://www.bing.com/ck/a?!&&p=0a1925fd2db76334a2dfbe935850af05d69a7b71f244addf5f8bb0f5b42d07b1JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPWlzK3plbiticm93c2VyK3NhZmUmRk9STT1SNUZENQ&ntb=1]
+                  image
+                  container
+                    text "is"
+                    text "zen browser"
+                    text "safe"
+                anchor [ref=13140, url=https://www.bing.com/ck/a?!&&p=a5da146968caa743cebb8aebc338ca3e9201349695c4306b4229bf6e00713ae9JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK3BvcnRhYmxlJkZPUk09UjVGRDY&ntb=1]
+                  image
+                  container
+                    text "zen browser"
+                    text "portable"
+                anchor [ref=13141, url=https://www.bing.com/ck/a?!&&p=0193fd43ebd25e977574ea8a14c86a1477a4bda4c9dc977d1be9424b0af8a5bfJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK2ZyZWUrZG93bmxvYWQmRk9STT1SNUZENw&ntb=1]
+                  image
+                  container
+                    text "zen browser"
+                    text "free download"
+[more content below the viewport: scrollY=0, viewport 829 / page 1279 px; scroll or use snapshot({ scope: "full_page" })]

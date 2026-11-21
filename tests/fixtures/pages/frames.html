@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>zoo: frames</title>
+<style>
+  body { font: 15px system-ui, sans-serif; margin: 16px; }
+  iframe { display: block; width: 520px; height: 160px; margin: 8px 0; border: 1px solid #888; }
+</style>
+</head>
+<body>
+<h1>Frames</h1>
+<iframe title="Same-origin frame" src="/zoo/frame-child.html"></iframe>
+<iframe title="Cross-origin frame" src="{{CROSS}}/zoo/frame-child.html"></iframe>
+<iframe title="Srcdoc frame" srcdoc="<p>Srcdoc paragraph</p><button>Srcdoc button</button>"></iframe>
+<iframe title="Nested frames" src="/zoo/frame-nested.html" style="height:260px"></iframe>
+<iframe title="Hidden frame" src="/zoo/frame-child.html" style="display:none"></iframe>
+<div style="height:1400px">Spacer before lazy frame</div>
+<iframe title="Lazy frame" loading="lazy" src="/zoo/frame-child.html?lazy=1"></iframe>
+</body>
+</html>

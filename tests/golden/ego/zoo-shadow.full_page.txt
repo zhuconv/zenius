@@ -1,0 +1,40 @@
+[p1 "zoo: shadow DOM" | space "zen-eval golden 1795148479936"(5): 1 managed, 0 untracked — p1* "zoo: shadow DOM"]
+root
+  container
+    heading
+      text "Shadow DOM"
+    container
+      heading
+        text "Slotted title"
+      paragraph
+        text "Slotted body paragraph."
+      button [ref=285]
+        text "Open card action"
+      anchor [ref=286, loc=href:/nav-target, url={{BASE}}/nav-target]
+        text "Open card link"
+    container
+      paragraph
+        text "Closed shadow text"
+      button [ref=287]
+        text "Closed shadow button"
+      textbox "Closed shadow input" [ref=288]
+    container "Outer shadow section"
+      paragraph
+        text "Outer shadow text"
+      container
+        button [ref=289]
+          text "Deep nested button"
+        textbox [ref=290, loc=css:input[placeholder="Deep nested input"]]
+          text "Deep nested input"
+    container
+      container
+        text "Shadow email"
+        textbox [ref=291, loc=css:input[name="shadow-email"]]
+      combobox "Shadow select" [ref=292, loc=css:select[aria-label="Shadow select"]]
+        text "Two"
+    unordered_list
+      list_item
+        text "Shadow list one"
+      list_item
+        anchor [ref=293, loc=href:/secondary, url={{BASE}}/secondary]
+          text "Shadow list link"

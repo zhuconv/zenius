@@ -1,0 +1,195 @@
+[p1 "<iframe> HTML inline frame element - HTML | MDN" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "<iframe> HTML inline frame element - HTML | MDN"]
+root
+  container
+    paragraph
+      text "Learn web dev and AI with MDN's course partner —"
+      anchor [ref=21484, loc=href:https://scrimba.com/?coupon=SCR-BLACK-FRI-2026&via=mdn, url=https://scrimba.com/?coupon=SCR-BLACK-FRI-2026&via=mdn]
+        text "50% off Black Friday"
+    container
+      container
+        anchor [ref=21485, loc=href:https://developer.mozilla.org/en-US/, url=https://developer.mozilla.org/en-US/]
+          image
+        container
+          button [ref=21486]
+            text "HTML"
+          button [ref=21487]
+            text "CSS"
+          button [ref=21488]
+            text "JavaScript"
+          button [ref=21489]
+            text "Web APIs"
+          button [ref=21490]
+            text "All"
+          button [ref=21491]
+            text "Learn"
+          button [ref=21492]
+            text "Tools"
+          button [ref=21493]
+            text "About"
+          anchor [ref=21494, url=https://developer.mozilla.org/en-US/blog/]
+            text "Blog"
+        button [ref=21495]
+          svg_root
+        anchor [ref=21496, url=https://developer.mozilla.org/users/fxa/login/authenticate/?next=%2Fen-US%2Fdocs%2FWeb%2FHTML%2FReference%2FElements%2Fiframe]
+          svg_root
+          text "Log in"
+      container
+        ordered_list
+          list_item
+            anchor [ref=21497, url=https://developer.mozilla.org/en-US/docs/Web]
+              text "Web"
+          list_item
+            anchor [ref=21498, url=https://developer.mozilla.org/en-US/docs/Web/HTML]
+              text "HTML"
+          list_item
+            anchor [ref=21499, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference]
+              text "Reference"
+          list_item
+            anchor [ref=21500, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements]
+              text "Elements"
+          list_item
+            anchor [ref=21501, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe]
+              text "<iframe>"
+        button "Switch color theme" [ref=21502, loc=css:button[aria-label="Switch color theme"]]
+          text "Theme"
+        button "English (US)" [ref=21503]
+          text "English (US)"
+    container
+      container
+        heading
+          text "<iframe>"
+          text "HTML inline frame element"
+        container [ref=21504]
+          image "Baseline Check"
+          text "Baseline"
+          text "WIDELY AVAILABLE"
+          text "*"
+          container
+            container
+              image "Chrome check"
+              image "Edge check"
+            image "Firefox check"
+            image "Safari check"
+        paragraph
+          text "The"
+          text "<iframe>"
+          anchor [ref=21505, url=https://developer.mozilla.org/en-US/docs/Web/HTML]
+            text "HTML"
+          text "element represents a nested"
+          anchor [ref=21506, loc=href:https://developer.mozilla.org/en-US/docs/Glossary/Browsing_context, url=https://developer.mozilla.org/en-US/docs/Glossary/Browsing_context]
+            text "browsing context"
+          text ", embedding another document into the current one."
+      container
+        heading
+          text "In this article"
+        unordered_list
+          list_item
+            anchor [ref=21507, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe#try_it]
+              text "Try it"
+          list_item
+            anchor [ref=21508, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe#attributes]
+              text "Attributes"
+          list_item
+            anchor [ref=21509, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe#usage_notes]
+              text "Usage notes"
+          list_item
+            anchor [ref=21510, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe#accessibility]
+              text "Accessibility"
+          list_item
+            anchor [ref=21511, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe#examples]
+              text "Examples"
+          list_item
+            anchor [ref=21512, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe#technical_summary]
+              text "Technical summary"
+          list_item
+            anchor [ref=21513, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe#specifications]
+              text "Specifications"
+          list_item
+            anchor [ref=21514, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe#browser_compatibility]
+              text "Browser compatibility"
+          list_item
+            anchor [ref=21515, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe#see_also]
+              text "See also"
+      container "Try it"
+        heading
+          anchor [ref=21516, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe#try_it]
+            text "Try it"
+        container "HTML Demo: <iframe>"
+          container
+            heading
+              text "HTML Demo: <iframe>"
+            button [ref=21517]
+              text "Reset"
+          container
+            tablist
+              tab [ref=21518]
+                text "HTML"
+              tab [ref=21519]
+                text "CSS"
+            tabpanel "HTML" [ref=21520, loc=role:tabpanel[name="HTML"]]
+              container [ref=21521]
+                container
+                  text "1"
+                  text "2"
+                  text "3"
+                  text "4"
+                  text "5"
+                  text "6"
+      container [ref=21522]
+        container
+          textbox [ref=21523, loc=css:input[placeholder="Filter"]]
+            text "Filter"
+          ordered_list
+            list_item
+              anchor [ref=21524, url=https://developer.mozilla.org/en-US/docs/Web/HTML]
+                text "HTML"
+            list_item
+              container [ref=21525]
+                anchor [ref=21526, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Guides]
+                  text "Guides"
+            list_item
+              anchor [ref=21527, loc=href:https://developer.mozilla.org/en-US/docs/Web/HTML/How_to, url=https://developer.mozilla.org/en-US/docs/Web/HTML/How_to]
+                text "How to"
+            list_item
+              anchor [ref=21528, loc=href:https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/Define_terms_with_HTML, url=https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/Define_terms_with_HTML]
+                text "Define terms with HTML"
+            list_item
+              anchor [ref=21529, loc=href:https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/Use_data_attributes, url=https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/Use_data_attributes]
+                text "Use data attributes"
+            list_item
+              anchor [ref=21530, loc=href:https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/CORS_enabled_image, url=https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/CORS_enabled_image]
+                text "Use cross-origin images"
+            list_item
+              anchor [ref=21531, url=https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/Add_a_hit_map_on_top_of_an_image]
+                text "Add a hitmap on top of an image"
+            list_item
+              anchor [ref=21532, url=https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/Author_fast-loading_HTML_pages]
+                text "Author fast-loading HTML pages"
+            list_item
+              anchor [ref=21533, url=https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/Add_JavaScript_to_your_web_page]
+                text "Add JavaScript"
+            list_item
+              anchor [ref=21534, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference]
+                text "Reference"
+            list_item
+              container [ref=21535]
+                anchor [ref=21536, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements]
+                  text "Elements"
+              ordered_list
+                list_item
+                  anchor [ref=21537, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/a]
+                    text "<a>"
+                list_item
+                  anchor [ref=21538, loc=href:https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/abbr, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/abbr]
+                    text "<abbr>"
+                list_item
+                  anchor [ref=21539, loc=href:https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/acronym, url=https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/acronym]
+                    text "<acronym>"
+                    image "Deprecated"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 26381 px; scroll or use snapshot({ scope: "full_page" })]

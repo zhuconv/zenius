@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>zoo: bench</title>
+<style>
+  body { font: 15px system-ui, sans-serif; margin: 0; }
+  #near { position: fixed; left: 16px; top: 16px; width: 120px; height: 40px; }
+  #far { position: fixed; right: 16px; bottom: 16px; width: 120px; height: 40px; }
+  main { padding: 80px 16px 16px; }
+  #tall { height: 2400px; background: linear-gradient(#fff, #9cf); }
+</style>
+</head>
+<body>
+<button id="near">Near button</button>
+<button id="far">Far button</button>
+<main>
+  <h1>Bench fixture</h1>
+  <p><button id="bench-button">Bench button</button> <span id="clicks">0</span></p>
+  <p><label>Bench input <input id="bench-input"></label></p>
+  <p><label>Bench textarea <textarea id="bench-textarea" rows="2" cols="60"></textarea></label></p>
+  <div id="slot"></div>
+  <div id="tall">Tall section for full-page screenshots</div>
+</main>
+<script type="application/json" id="bench-events"></script>
+<script>
+  // Page-side timeline of input events, read by the cursor-motion bench. The
+  // agent's code can't read page globals under zenius's isolated world, so
+  // a "bench-dump" event writes the timeline into #bench-events for it.
+  // Recording into the DOM as events come would add DOM writes to the timed
+  // clicks themselves.
+  window.__bench = { clicks: 0, events: [] };
+  document.addEventListener("bench-dump", () => {
+    document.getElementById("bench-events").textContent = JSON.stringify(window.__bench.events);
+  });
+  for (const type of ["pointermove", "pointerdown", "pointerup", "click", "keydown", "input", "wheel"]) {
+    addEventListener(type, (e) => {
+      const log = window.__bench.events;
+      if (log.length < 5000) log.push([type, Date.now(), e.isTrusted, e.clientX ?? null, e.clientY ?? null]);
+    }, true);
+  }
+  document.getElementById("bench-button").addEventListener("click", () => {
+    document.getElementById("clicks").textContent = String(++window.__bench.clicks);
+  });
+</script>
+</body>
+</html>

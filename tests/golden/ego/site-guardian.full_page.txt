@@ -1,0 +1,1711 @@
+[p1 "Latest news, sport and opinion from the Guardian" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "Latest news, sport and opinion from the Guardian"]
+root
+  container
+    anchor [ref=10352, loc=href:/international#maincontent, url=https://www.theguardian.com/international#maincontent]
+      text "Skip to main content"
+    anchor [ref=10353, loc=href:/international#navigation, url=https://www.theguardian.com/international#navigation]
+      text "Skip to navigation"
+    container
+      container
+        container
+          container
+            heading
+              text "Support the Guardian"
+            text "Fund independent journalism with $15 per month"
+          anchor [ref=10317, url=https://support.theguardian.com/?REFPVID=mwohcmw6jbfz7d98nc3f&INTCMP=header_support_2026-10-27_USEOY_HEADER__US_CONTROL&acquisitionData=%7B%22source%22%3A%22GUARDIAN_WEB%22%2C%22componentId%22%3A%22header_support_2026-10-27_USEOY_HEADER__US_CONTROL%22%2C%22componentType%22%3A%22ACQUISITIONS_HEADER%22%2C%22campaignCode%22%3A%22header_support_2026-10-27_USEOY_HEADER__US_CONTROL%22%2C%22abTests%22%3A%5B%7B%22name%22%3A%222026-10-27_USEOY_HEADER__US%22%2C%22variant%22%3A%22CONTROL%22%7D%5D%2C%22referrerPageviewId%22%3A%22mwohcmw6jbfz7d98nc3f%22%2C%22referrerUrl%22%3A%22https%3A%2F%2Fwww.theguardian.com%2Finternational%22%2C%22isRemote%22%3Atrue%7D]
+            text "Make a year-end gift"
+            svg_root
+        anchor [ref=10318, url=https://support.theguardian.com/subscribe/weekly?REFPVID=mwohcmw6jbfz7d98nc3f&INTCMP=undefined&acquisitionData=%7B%22source%22%3A%22GUARDIAN_WEB%22%2C%22componentId%22%3A%22PrintSubscriptionsHeaderLink%22%2C%22componentType%22%3A%22ACQUISITIONS_HEADER%22%2C%22referrerPageviewId%22%3A%22mwohcmw6jbfz7d98nc3f%22%2C%22referrerUrl%22%3A%22https%3A%2F%2Fwww.theguardian.com%2Finternational%22%7D]
+          text "Print subscriptions"
+        anchor [ref=10319, url=https://www.theguardian.com/email-newsletters]
+          text "Newsletters"
+        anchor [ref=10320, url=https://profile.theguardian.com/signin?INTCMP=DOTCOM_NEWHEADER_SIGNIN&ABCMP=ab-sign-in&componentEventParams=componentType%3Didentityauthentication%26componentId%3Dguardian_signin_header]
+          svg_root
+          text "Sign in"
+      region "Highlights"
+        unordered_list [ref=10321]
+          group
+            anchor "Grand Theft Auto 6, Robert Pattinson and Nathan Fielder" [ref=10322, loc=css:a[aria-label="Grand Theft Auto 6, Robert Pattinson and Nathan Fielder"], url=https://www.theguardian.com/culture/video/2026/nov/19/grand-theft-auto-6-robert-pattinson-and-nathan-fielder-the-close-up]
+            container
+              heading
+                text "The Close Up"
+                text "Grand Theft Auto 6, Robert Pattinson and Nathan Fielder"
+              container
+                text "Video"
+                container
+                  svg_root
+                  text "38:13"
+            image
+          group
+            container
+              anchor "Xi, Trump and Putin summit was more of a footnote" [ref=10323, loc=css:a[aria-label="Xi, Trump and Putin summit was more of a footnote"], url=https://www.theguardian.com/world/2026/nov/19/new-page-in-history-xi-trump-and-putin-summit-was-more-of-a-footnote]
+              heading
+                text "‘New page in history?’"
+                text "Xi, Trump and Putin summit was more of a footnote"
+              image
+          group
+            container
+              anchor "How to start without missing out on foods you enjoy" [ref=10324, loc=css:a[aria-label="How to start without missing out on foods you enjoy "], url=https://www.theguardian.com/wellness/2026/nov/19/how-to-start-eating-plant-based]
+              heading
+                text "Plant-based eating"
+                text "How to start without missing out on foods you enjoy"
+              image
+          group
+            container
+              anchor "Parents: please don’t buy Grand Theft Auto VI for your child" [ref=10354, url=https://www.theguardian.com/games/2026/nov/19/grand-theft-auto-parents-please-dont-buy-gta-6-vi-for-your-child]
+              heading
+                text "Keza MacDonald"
+                svg_root
+                text "Parents: please don’t buy Grand Theft Auto VI for your child"
+              image
+          group
+            anchor "Tributes paid to the ‘Eritrea 16’ who disappeared 25 years ago" [ref=10355, loc=css:a[aria-label="Tributes paid to the ‘Eritrea 16’ who disappeared 25 years ago"], url=https://www.theguardian.com/global-development/2026/nov/19/eritrea-16-journalists-jailed-press-freedom-award-cpj-censorship-warning]
+            heading
+              text "Mentors, colleagues and friends"
+              text "Tributes paid to the ‘Eritrea 16’ who disappeared 25 years ago"
+            image
+          group
+            anchor "Palestinian artists look back in anger, melancholy and defiance" [ref=10356, loc=css:a[aria-label="Palestinian artists look back in anger, melancholy and defiance "], url=https://www.theguardian.com/artanddesign/2026/nov/19/a-sea-for-borrowed-time-review-palestinian-artists-imma-dublin]
+            heading
+              text "‘In our lands the rain is made of bullets’"
+              text "Palestinian artists look back in anger, melancholy and defiance"
+            svg_root
+            svg_root
+            svg_root
+            svg_root
+            svg_root
+            image
+        button "Move highlight stories forwards" [ref=10325, loc=css:button[aria-label="Move highlight stories forwards"]]
+          svg_root
+      container
+        button [ref=10326]
+          text "Edition"
+        anchor [ref=10327, url=https://www.theguardian.com/]
+          text "The Guardian - Back to home"
+          svg_root
+          text "The Guardian"
+        button [ref=10357, loc=css:input[name="more"]]
+        unordered_list
+          list_item
+            anchor [ref=10328, url=https://www.theguardian.com/]
+              text "News"
+          list_item
+            anchor [ref=10329, url=https://www.theguardian.com/commentisfree]
+              text "Opinion"
+          list_item
+            anchor [ref=10330, url=https://www.theguardian.com/sport]
+              text "Sport"
+          list_item
+            anchor [ref=10331, url=https://www.theguardian.com/culture]
+              text "Culture"
+          list_item
+            anchor [ref=10332, url=https://www.theguardian.com/lifeandstyle]
+              text "Lifestyle"
+        button "Toggle main menu" [ref=10333, loc=role:button[name="Toggle main menu"]]
+          text "Show more"
+          svg_root
+        list
+          list_item
+            anchor [ref=10334, url=https://www.theguardian.com/world]
+              text "World"
+          list_item
+            anchor [ref=10335, url=https://www.theguardian.com/us-news/us-politics]
+              text "US politics"
+          list_item
+            anchor [ref=10336, loc=href:/uk-news, url=https://www.theguardian.com/uk-news]
+              text "UK"
+          list_item
+            anchor [ref=10337, url=https://www.theguardian.com/environment/climate-crisis]
+              text "Climate crisis"
+          list_item
+            anchor [ref=10338, url=https://www.theguardian.com/world/middleeast]
+              text "Middle East"
+          list_item
+            anchor [ref=10339, url=https://www.theguardian.com/world/ukraine]
+              text "Ukraine"
+          list_item
+            anchor [ref=10340, loc=href:/environment, url=https://www.theguardian.com/environment]
+              text "Environment"
+          list_item
+            anchor [ref=10341, url=https://www.theguardian.com/science]
+              text "Science"
+          list_item
+            anchor [ref=10342, loc=href:/global-development, url=https://www.theguardian.com/global-development]
+              text "Global development"
+          list_item
+            anchor [ref=10343, loc=href:/football, url=https://www.theguardian.com/football]
+              text "Football"
+          list_item
+            anchor [ref=10344, loc=href:/technology, url=https://www.theguardian.com/technology]
+              text "Tech"
+          list_item
+            anchor [ref=10345, loc=href:/business, url=https://www.theguardian.com/business]
+              text "Business"
+          list_item
+            anchor [ref=10346, loc=href:/obituaries, url=https://www.theguardian.com/obituaries]
+              text "Obituaries"
+          list_item
+            anchor [ref=10347, url=https://www.theguardian.com/puzzles-and-games]
+              text "Puzzles"
+    container
+      container
+        container
+          svg_root
+          paragraph
+            text "You are viewing the"
+            text "International"
+            text "homepage "
+            anchor [ref=10348, loc=href:/us, url=https://www.theguardian.com/us]
+              text "View the"
+              text "US"
+              text "homepage"
+        button "Close banner" [ref=10349, loc=css:button[aria-label="Close banner"]]
+          svg_root
+      container
+        heading
+          text "News"
+        container
+          unordered_list
+            list_item
+              anchor "US reacts cautiously to Myanmar genocide ruling as EU praises ‘critical’ role of UN’s top court" [ref=10350, url=https://www.theguardian.com/law/2026/nov/20/us-eu-reaction-myanmar-rohingya-genocide-icj-ruling-trump-international-law]
+              container
+                image
+                container
+                  container
+                    heading
+                      text "ICJ judgment"
+                      text "US reacts cautiously to Myanmar genocide ruling as EU praises ‘critical’ role of UN’s top court"
+                    text "Trump’s state department says it is examining international court of justice's judgment while stressing the need to avoid ‘politicisation’ of the body"
+                    text "3h ago"
+                  unordered_list
+                    list_item
+                      anchor [ref=10351, url=https://www.theguardian.com/world/2026/nov/19/genocide-rohingya-international-court-of-justice-ruling-myanmar]
+                        heading
+                          text "International court of justice"
+                          text "Myanmar committed genocide against Rohingya minority, world’s top court rules"
+                    list_item
+                      anchor [ref=10358, url=https://www.theguardian.com/law/2026/nov/19/myanmar-ruling-new-relevance-genocide-convention-messages-israel]
+                        heading
+                          text "Analysis"
+                          text "Myanmar ruling gives new relevance to genocide convention and is ‘full of messages’ for Israel"
+                    list_item
+                      anchor [ref=10359, url=https://www.theguardian.com/global-development/2026/nov/19/everyone-struggled-for-this-justice-tears-in-court-as-rohingya-vindicated-in-myanmar-genocide-ruling]
+                        heading
+                          text "‘Everyone struggled for this justice’"
+                          text "Tears in court as Rohingya vindicated in Myanmar genocide ruling"
+          unordered_list
+            list_item
+              anchor "Anthropic closes first day of public trading at $1.3tn valuation after largest-ever IPO" [ref=10360, loc=href:/technology/2026/nov/19/anthropic-public-trading-ipo, url=https://www.theguardian.com/technology/2026/nov/19/anthropic-public-trading-ipo]
+              image
+              heading
+                text "Technology"
+                text "Anthropic closes first day of public trading at $1.3tn valuation after largest-ever IPO"
+              text "AI startup and Claude chatbot maker became one of the world’s most valuable publicly traded businesses with final share price of $97"
+              text "6h ago"
+              unordered_list
+                list_item
+                  anchor [ref=10361, url=https://www.theguardian.com/technology/2026/nov/20/anthropic-ipo-historic-stock-market-debut-key-takeaways-what-next-for-ai]
+                    heading
+                      text "Explainer"
+                      text "Anthropic’s historic stock market debut: key takeaways, and what comes next for the AI industry"
+                list_item
+                  anchor [ref=10362, loc=href:/technology/2026/nov/19/anthropic-ipo-protests, url=https://www.theguardian.com/technology/2026/nov/19/anthropic-ipo-protests]
+                    heading
+                      text "AI"
+                      text "Protesters rally against Anthropic in New York and San Francisco after $2tn stock market debut"
+                list_item
+                  anchor [ref=10363, loc=href:/technology/2026/nov/19/who-are-anthropic-founders, url=https://www.theguardian.com/technology/2026/nov/19/who-are-anthropic-founders]
+                    heading
+                      text "Anthropic"
+                      text "Who are Anthropic’s seven co-founders, now worth $180bn?"
+          unordered_list
+            list_item
+              anchor "New page in history? Xi, Trump and Putin summit was more of a footnote" [ref=10364, url=https://www.theguardian.com/world/2026/nov/19/new-page-in-history-xi-trump-and-putin-summit-was-more-of-a-footnote]
+              region "Slideshow"
+                unordered_list [ref=10365]
+                  group "Presidents Vladimir Putin, Xi Jinping and Donald Trump in Shenzhen, China"
+                    anchor "New page in history? Xi, Trump and Putin summit was more of a footnote" [ref=10366, url=https://www.theguardian.com/world/2026/nov/19/new-page-in-history-xi-trump-and-putin-summit-was-more-of-a-footnote]
+                      container
+                        image
+                        text "Presidents Vladimir Putin, Xi Jinping and Donald Trump in Shenzhen, China"
+                  group "Trump boards Air Force One at Shenzhen Bao'an international airport"
+                    anchor "New page in history? Xi, Trump and Putin summit was more of a footnote" [ref=10367, url=https://www.theguardian.com/world/2026/nov/19/new-page-in-history-xi-trump-and-putin-summit-was-more-of-a-footnote]
+                      image
+                      text "Trump boards Air Force One at Shenzhen Bao'an international airport"
+                  group "Trump and Xi before a group photo on the Apec sidelines"
+                    anchor "New page in history? Xi, Trump and Putin summit was more of a footnote" [ref=10368, url=https://www.theguardian.com/world/2026/nov/19/new-page-in-history-xi-trump-and-putin-summit-was-more-of-a-footnote]
+                      image
+                      text "Trump and Xi before a group photo on the Apec sidelines"
+                  group "Trump and Putin shake hands as they meet"
+                    anchor "New page in history? Xi, Trump and Putin summit was more of a footnote" [ref=10369, url=https://www.theguardian.com/world/2026/nov/19/new-page-in-history-xi-trump-and-putin-summit-was-more-of-a-footnote]
+                      image
+                      text "Trump and Putin shake hands as they meet"
+                  group "Journalists from Moscow watch a broadcast of the three leaders"
+                    anchor "New page in history? Xi, Trump and Putin summit was more of a footnote" [ref=10370, url=https://www.theguardian.com/world/2026/nov/19/new-page-in-history-xi-trump-and-putin-summit-was-more-of-a-footnote]
+                      image
+                      text "Journalists from Moscow watch a broadcast of the three leaders"
+                  group "Putin, Xi and Trump at Kylin Villa"
+                    anchor "New page in history? Xi, Trump and Putin summit was more of a footnote" [ref=10371, url=https://www.theguardian.com/world/2026/nov/19/new-page-in-history-xi-trump-and-putin-summit-was-more-of-a-footnote]
+                      image
+                      text "Putin, Xi and Trump at Kylin Villa"
+                  group "Trump (C) looks on after a meeting with Putin"
+                    anchor "New page in history? Xi, Trump and Putin summit was more of a footnote" [ref=10372, url=https://www.theguardian.com/world/2026/nov/19/new-page-in-history-xi-trump-and-putin-summit-was-more-of-a-footnote]
+                      image
+                      text "Trump (C) looks on after a meeting with Putin"
+                button "Previous slide" [ref=10373]
+                  svg_root
+                button "Next slide" [ref=10374]
+                  svg_root
+              heading
+                text "Apec analysis"
+                text "New page in history? Xi, Trump and Putin summit was more of a footnote"
+              text "Far from the grand ambitions declared in Yalta in 1945, Shenzhen felt like a meeting in search of an agenda"
+              unordered_list
+                list_item
+                  anchor [ref=10375, url=https://www.theguardian.com/world/2026/nov/19/china-russia-us-agree-peace-statement-no-mention-ukraine-iran-wars]
+                    heading
+                      text "Trilateral talks"
+                      text "China, Russia and US agree to peace declaration with no mention of Ukraine and Iran wars"
+                list_item
+                  anchor [ref=10376, loc=href:/world/2026/nov/19/five-takeaways-from-putin-trump-xi-apec-shenzhen-summit, url=https://www.theguardian.com/world/2026/nov/19/five-takeaways-from-putin-trump-xi-apec-shenzhen-summit]
+                    heading
+                      text "Summit"
+                      text "Global courts under attack and four more takeaways from Trump-Xi-Putin meeting"
+                list_item
+                  anchor [ref=10377, url=https://www.theguardian.com/world/2026/nov/20/xi-jinping-says-a-full-turnaround-has-been-achieved-in-australia-china-relations-praising-anthony-albanese]
+                    heading
+                      text "Diplomacy"
+                      text "Xi Jinping says 'full turnaround’ achieved in Australia-China relations"
+                list_item
+                  anchor [ref=10378, loc=href:/us-news/2026/nov/19/trump-apec-asleep-china, url=https://www.theguardian.com/us-news/2026/nov/19/trump-apec-asleep-china]
+                    heading
+                      text "Donald Trump"
+                      text "President accused of falling asleep during Xi speech"
+          unordered_list
+            list_item
+              anchor "US warned supplying nuclear-powered submarines to Australia would diminish its own fleet for ‘many years’" [ref=10379, url=https://www.theguardian.com/world/2026/nov/20/aukus-defence-us-warned-supplying-nuclear-powered-submarines-to-australia-would-diminish-its-own-fleet-for-many-years]
+              image
+              heading
+                text "Aukus"
+                text "US warned supplying nuclear-powered submarines to Australia would diminish its own fleet for ‘many years’"
+              text "4h ago"
+            list_item
+              anchor "Trump ‘open’ to Kyiv getting Nato-like mutual defence guarantee, says Kushner" [ref=10380, url=https://www.theguardian.com/world/2026/nov/20/ukraine-war-briefing-trump-open-to-kyiv-getting-nato-like-mutual-defence-guarantee-says-kushner]
+              image
+              heading
+                text "Ukraine war briefing"
+                text "Trump ‘open’ to Kyiv getting Nato-like mutual defence guarantee, says Kushner"
+              text "3h ago"
+              unordered_list
+                list_item
+                  anchor [ref=10381, url=https://www.theguardian.com/world/2026/nov/19/putin-vows-painful-response-to-ukraine-bombing-of-kerch-bridge]
+                    heading
+                      text "Russia"
+                      text "Putin vows ‘painful’ response to Ukraine’s bombing of Kerch bridge"
+          unordered_list
+            list_item
+              anchor "‘Perfect weapon’: diabetic woman found guilty of murdering her 94-year-old parents with insulin" [ref=10382, url=https://www.theguardian.com/australia-news/2026/nov/20/diabetic-woman-found-guilty-murdering-94-year-old-parents-with-insulin-ntwnfb]
+              image
+              heading
+                text "Australia"
+                text "‘Perfect weapon’: diabetic woman found guilty of murdering her 94-year-old parents with insulin"
+              text "13m ago"
+            list_item
+              anchor "‘The Pacific is not for sale’: outcry after US holds first deep-sea mining lease sale near American Samoa" [ref=10383, loc=href:/environment/2026/nov/20/us-deep-sea-mining-lease-auction-american-samoa, url=https://www.theguardian.com/environment/2026/nov/20/us-deep-sea-mining-lease-auction-american-samoa]
+              image
+              heading
+                text "Deep-sea mining"
+                text "‘The Pacific is not for sale’: outcry after US holds first deep-sea mining lease sale near American Samoa"
+              text "1h ago"
+          unordered_list
+            list_item
+              anchor "Woman raped by strangers after being drugged by husband calls for consent law changes" [ref=10384, url=https://www.theguardian.com/uk-news/2026/nov/19/men-convicted-sexual-assault-and-rape-woman-at-invitation-of-husband]
+              image
+              heading
+                text "UK"
+                text "Woman raped by strangers after being drugged by husband calls for consent law changes"
+              text "10h ago"
+            list_item
+              anchor "Fiona the hippo dies after ingesting knitted hat at Cincinnati zoo" [ref=10385, loc=css:a[aria-label="Fiona the hippo dies after ingesting knitted hat at Cincinnati zoo"], url=https://www.theguardian.com/world/2026/nov/19/fiona-hippo-cincinnati-zoo-knit-hat]
+              image
+              svg_root
+              text "1:06"
+              heading
+                text "Animals"
+                text "Fiona the hippo dies after ingesting knitted hat at Cincinnati zoo"
+              text "1h ago"
+      container
+        heading
+          text "In focus"
+        unordered_list
+          list_item
+            anchor "Myanmar ruling gives new relevance to genocide convention and is ‘full of messages’ for Israel" [ref=10386, url=https://www.theguardian.com/law/2026/nov/19/myanmar-ruling-new-relevance-genocide-convention-messages-israel]
+            image
+            heading
+              text "Analysis"
+              text "Myanmar ruling gives new relevance to genocide convention and is ‘full of messages’ for Israel"
+            text "Hailed as ‘a rare moment of justice’, judges’ decision sets out a roadmap for assessing the question of intent"
+            text "11h ago"
+        unordered_list
+          list_item
+            anchor "Why the Trump-Xi-Putin meeting is raising alarm bells in the west and beyond" [ref=10387, loc=css:a[aria-label="Why the Trump-Xi-Putin meeting is raising alarm bells in the west and beyond"], url=https://www.theguardian.com/news/video/2026/nov/19/troublesome-trio-trump-xi-and-putin-hold-historic-meeting-the-latest]
+            image
+            heading
+              text "The Latest"
+              text "Why the Trump-Xi-Putin meeting is raising alarm bells in the west and beyond"
+            container
+              text "Video"
+              svg_root
+              text "10:23"
+          list_item
+            anchor "56-44 majority gives Democrats fuel to take on Trump" [ref=10388, loc=css:a[aria-label="56-44 majority gives Democrats fuel to take on Trump"], url=https://www.theguardian.com/us-news/2026/nov/19/democrats-senate-majority-midterms-trump]
+            image
+            heading
+              text "‘A new day in the Senate’"
+              text "56-44 majority gives Democrats fuel to take on Trump"
+      container
+        heading
+          text "Cop31"
+        unordered_list
+          list_item
+            anchor "Cop31 told it risks being ‘ghost’ summit as all mentions of fossil fuels removed from draft text" [ref=10389, url=https://www.theguardian.com/environment/2026/nov/19/cop31-risks-becoming-ghost-summit-after-all-mentions-of-fossil-fuels-removed-from-draft-text]
+            image
+            heading
+              text "Fossil fuels"
+              text "Cop31 told it risks being ‘ghost’ summit as all mentions of fossil fuels removed from draft text"
+            text "10h ago"
+          list_item
+            anchor "Datacentres to create 70% more carbon emissions by 2030, IEA report warns" [ref=10390, loc=css:a[aria-label="Datacentres to create 70% more carbon emissions by 2030, IEA report warns"], url=https://www.theguardian.com/world/2026/nov/19/datacentres-to-create-70-more-carbon-emissions-by-2030-iea-report-warns]
+            image
+            heading
+              text "Fossil fuels"
+              text "Datacentres to create 70% more carbon emissions by 2030, IEA report warns"
+          list_item
+            anchor "IPCC report delay will threaten global effort to tackle climate crisis, says top scientist" [ref=10391, loc=href:/science/2026/nov/19/ipcc-report-delay-climate-crisis-scientist, url=https://www.theguardian.com/science/2026/nov/19/ipcc-report-delay-climate-crisis-scientist]
+            image
+            heading
+              text "Climate science"
+              text "IPCC report delay will threaten global effort to tackle climate crisis, says top scientist"
+          list_item
+            anchor "‘The sea washed away trees, then a whole row of houses. I knew it was time to get out’ – This is climate breakdown" [ref=10392, url=https://www.theguardian.com/environment/ng-interactive/2026/nov/18/el-bosque-mexico-displaced-sea-level-this-is-climate-breakdown]
+            image
+            heading
+              text "This is climate breakdown"
+              text "‘The sea washed away trees, then a whole row of houses. I knew it was time to get out’ – This is climate breakdown"
+      container
+        heading
+          text "Features"
+        unordered_list
+          list_item
+            container
+              video [ref=10393]
+              button [ref=10394]
+                svg_root
+            container
+              anchor "Watch our new culture show on GTA6, Pattinson as Bond and You Can See Everything" [ref=10395, loc=css:a[aria-label="Watch our new culture show on GTA6, Pattinson as Bond and You Can See Everything"], url=https://www.theguardian.com/culture/video/2026/nov/19/grand-theft-auto-6-robert-pattinson-and-nathan-fielder-the-close-up]
+              heading
+                text "The Close Up"
+                text "Watch our new culture show on GTA6, Pattinson as Bond and You Can See Everything"
+              container
+                text "Video"
+                svg_root
+                text "38:13"
+            unordered_list
+              list_item
+                anchor [ref=10396, url=https://www.theguardian.com/games/2026/nov/18/tell-us-are-you-playing-grand-theft-auto-vi]
+                  heading
+                    text "Games"
+                    text "Tell us: are you playing Grand Theft Auto VI?"
+          list_item
+            anchor "How to start eating plant-based, without missing out on nutrients or foods you enjoy" [ref=10397, url=https://www.theguardian.com/wellness/2026/nov/19/how-to-start-eating-plant-based]
+            image
+            heading
+              text "How to start"
+              text "How to start eating plant-based, without missing out on nutrients or foods you enjoy"
+            text "11h ago"
+      container
+        heading
+          text "More features"
+        unordered_list
+          list_item
+            anchor "Terror on Bondi Beach review – these astounding stories recreate every single second of horror" [ref=10398, loc=href:/tv-and-radio/2026/nov/19/terror-on-bondi-beach-review-channel-four, url=https://www.theguardian.com/tv-and-radio/2026/nov/19/terror-on-bondi-beach-review-channel-four]
+            image
+            heading
+              text "Television"
+              text "Terror on Bondi Beach review – these astounding stories recreate every single second of horror"
+            svg_root
+            svg_root
+            svg_root
+            svg_root
+            svg_root
+            text "6h ago"
+          list_item
+            anchor "The Further Mis-Adventures of Cliff Booth review – Tarantino and Fincher join forces for Brad Pitt’s glorious return" [ref=10399, url=https://www.theguardian.com/film/2026/nov/19/the-further-mis-adventures-of-cliff-booth-review-quentin-tarantino-david-fincher-brad-pitt]
+            image
+            heading
+              text "Film"
+              text "The Further Mis-Adventures of Cliff Booth review – Tarantino and Fincher join forces for Brad Pitt’s glorious return"
+            svg_root
+            svg_root
+            svg_root
+            svg_root
+            svg_root
+            text "10h ago"
+        unordered_list
+          list_item
+            anchor "An elevator, a brick wall and a bathroom: scientists use gravity to send ‘practically unblockable’ message" [ref=10400, url=https://www.theguardian.com/science/2026/nov/20/scientists-communicate-using-gravity-elevator-brick-wall-bathroom-experiment]
+            image
+            heading
+              text "Science"
+              text "An elevator, a brick wall and a bathroom: scientists use gravity to send ‘practically unblockable’ message"
+            text "5h ago"
+          list_item
+            anchor "‘In our lands the rain is made of bullets’: Palestinian artists look back in anger, melancholy and defiance" [ref=10401, url=https://www.theguardian.com/artanddesign/2026/nov/19/a-sea-for-borrowed-time-review-palestinian-artists-imma-dublin]
+            image
+            heading
+              text "Art"
+              text "‘In our lands the rain is made of bullets’: Palestinian artists look back in anger, melancholy and defiance"
+            svg_root
+            svg_root
+            svg_root
+            svg_root
+            svg_root
+            text "11h ago"
+        unordered_list
+          list_item
+            anchor "I’m engaged but I can’t stop thinking about an old friend. Should I tell him how I feel?" [ref=10402, url=https://www.theguardian.com/lifeandstyle/2026/nov/20/engaged-but-cant-stop-thinking-about-an-old-friend-advice]
+            image
+            heading
+              text "Leading questions"
+              svg_root
+              text "I’m engaged but I can’t stop thinking about an old friend. Should I tell him how I feel?"
+            anchor [ref=10403, url=https://www.theguardian.com/lifeandstyle/2026/nov/20/engaged-but-cant-stop-thinking-about-an-old-friend-advice#comments]
+              svg_root
+              text "…"
+              text "comments"
+          list_item
+            anchor "Mentors, colleagues and friends: tributes paid to the ‘Eritrea 16’ who disappeared 25 years ago" [ref=10404, url=https://www.theguardian.com/global-development/2026/nov/19/eritrea-16-journalists-jailed-press-freedom-award-cpj-censorship-warning]
+            image
+            heading
+              text "'Black Tuesday'"
+              text "Mentors, colleagues and friends: tributes paid to the ‘Eritrea 16’ who disappeared 25 years ago"
+      container
+        anchor [ref=10405, loc=href:/news/series/the-long-read, url=https://www.theguardian.com/news/series/the-long-read]
+          heading
+            text "The long read"
+        unordered_list
+          list_item
+            anchor "'Free brain damage': a sport for the age of viral clips" [ref=10406, loc=css:a[aria-label="'Free brain damage': a sport for the age of viral clips
+"], url=https://www.theguardian.com/news/2026/nov/19/nothing-but-highlights-is-power-slap-the-sport-we-deserve]
+  image
+  heading
+    text "'Free brain damage': a sport for the age of viral clips"
+  text "Slap fighting is the world’s newest combat sport. Built for short attention spans and super-viral moments, it’s aiming for global dominance. No flinching"
+  container
+    heading
+      text "Opinion"
+    unordered_list
+      list_item
+        anchor "Anthropic keeps the AI party swinging, but the atmosphere is bubbly" [ref=10407, loc=css:a[aria-label="Anthropic keeps the AI party swinging, but the atmosphere is bubbly"], url=https://www.theguardian.com/technology/nils-pratley-on-finance/2026/nov/19/anthropic-keeps-ai-party-swinging-but-atmosphere-bubbly]
+        image
+        heading
+          svg_root
+          text "Anthropic keeps the AI party swinging, but the atmosphere is bubbly"
+        text "Nils Pratley"
+        text "Can the newly listed AI company really be worth $2tn? Anyone who remembers the late 1990s has good reason to ask Business live – latest updates"
+        text "10h ago"
+    unordered_list
+      list_item
+        anchor "Parents: please don’t buy Grand Theft Auto VI for your child" [ref=10408, url=https://www.theguardian.com/games/2026/nov/19/grand-theft-auto-parents-please-dont-buy-gta-6-vi-for-your-child]
+        image
+        heading
+          svg_root
+          text "Parents: please don’t buy Grand Theft Auto VI for your child"
+        text "Keza MacDonald"
+        text "Rockstar Games’ brilliant 18-rated criminal caper is the most explicit game I’ve ever played, stuffed with sex, drugs and violence. It really is not for kids"
+        anchor [ref=10409, url=https://www.theguardian.com/games/2026/nov/19/grand-theft-auto-parents-please-dont-buy-gta-6-vi-for-your-child#comments]
+          svg_root
+          text "…"
+          text "comments"
+  container
+    heading
+      text "More opinion"
+    unordered_list
+      list_item
+        anchor "After a blue wave, Trump will dig in his heels. We must be more vigilant than ever" [ref=10410, loc=href:/commentisfree/2026/nov/19/trump-blue-wave-new-congress, url=https://www.theguardian.com/commentisfree/2026/nov/19/trump-blue-wave-new-congress]
+        image
+        heading
+          svg_root
+          text "After a blue wave, Trump will dig in his heels. We must be more vigilant than ever"
+        text "Steve Cohen and Michael Shank"
+        anchor [ref=10411, loc=href:/commentisfree/2026/nov/19/trump-blue-wave-new-congress#comments, url=https://www.theguardian.com/commentisfree/2026/nov/19/trump-blue-wave-new-congress#comments]
+          svg_root
+          text "…"
+          text "comments"
+      list_item
+        anchor "It’s unfashionable to say it, but class still matters – and young people know that" [ref=10412, url=https://www.theguardian.com/commentisfree/2026/nov/19/class-young-people-nepotism-workplace-social-inequality]
+        image
+        heading
+          svg_root
+          text "It’s unfashionable to say it, but class still matters – and young people know that"
+        text "Polly Toynbee"
+        text "10h ago"
+      list_item
+        anchor "Measles has come raging back in the US. Robert F Kennedy Jr should be impeached" [ref=10413, loc=css:a[aria-label="Measles has come raging back in the US. Robert F Kennedy Jr should be impeached"], url=https://www.theguardian.com/commentisfree/2026/nov/19/measles-robert-f-kennedy-jr-impeach]
+        image
+        heading
+          svg_root
+          text "Measles has come raging back in the US. Robert F Kennedy Jr should be impeached"
+        text "Judith Levine"
+        anchor [ref=10414, loc=href:/commentisfree/2026/nov/19/measles-robert-f-kennedy-jr-impeach#comments, url=https://www.theguardian.com/commentisfree/2026/nov/19/measles-robert-f-kennedy-jr-impeach#comments]
+          svg_root
+          text "…"
+          text "comments"
+      list_item
+        anchor "In an authoritarian economy, Jensen Huang may be too big to fail" [ref=10415, loc=css:a[aria-label="In an authoritarian economy, Jensen Huang may be too big to fail"], url=https://www.theguardian.com/commentisfree/2026/nov/19/jensen-huang-authoritarian-economy]
+        image
+        heading
+          svg_root
+          text "In an authoritarian economy, Jensen Huang may be too big to fail"
+        text "Robert Reich"
+  container
+    heading
+      text "Editorials"
+    unordered_list
+      list_item
+        anchor "The international court of justice: the ruling against Myanmar should be only the start for the Rohingya" [ref=10416, url=https://www.theguardian.com/commentisfree/2026/nov/19/the-guardian-view-on-the-international-court-of-justice-the-ruling-against-myanmar-should-be-only-the-start-for-the-rohingya]
+        heading
+          text "The Guardian view"
+          text "The international court of justice: the ruling against Myanmar should be only the start for the Rohingya"
+        text "10h ago"
+      list_item
+        anchor "Grand Theft Auto VI: a game that makes players think twice" [ref=10417, loc=css:a[aria-label="Grand Theft Auto VI: a game that makes players think twice"], url=https://www.theguardian.com/commentisfree/2026/nov/19/the-guardian-view-on-grand-theft-auto-vi-a-game-that-makes-players-think-twice]
+        heading
+          text "The Guardian view"
+          text "Grand Theft Auto VI: a game that makes players think twice"
+        text "10h ago"
+  container
+    anchor [ref=10418, url=https://www.theguardian.com/sport]
+      heading
+        text "Sport"
+    unordered_list
+      list_item
+        anchor "Sandpapergate has gone from a cricket scandal to a rolling loop of outrage and overreaction" [ref=10419, url=https://www.theguardian.com/sport/2026/nov/20/sandpapergate-australia-cricket-sporting-scandal-rolling-loop-outrage-ntwnfb]
+        image
+        heading
+          svg_root
+          text "Sandpapergate has gone from a cricket scandal to a rolling loop of outrage and overreaction"
+        text "Jonathan Horn"
+        text "Nothing about the responses and reprisals to Australia’s ball tampering have been proportional in a story where the truth probably lies somewhere in the middle"
+        container
+          text "5h ago"
+          anchor [ref=10420, url=https://www.theguardian.com/sport/2026/nov/20/sandpapergate-australia-cricket-sporting-scandal-rolling-loop-outrage-ntwnfb#comments]
+            svg_root
+            text "…"
+            text "comments"
+        unordered_list
+          list_item
+            anchor [ref=10421, url=https://www.theguardian.com/sport/2026/nov/19/outsiders-view-australian-cricket-sandpaper-civil-war-conflicting-truths-pat-cummins-in-a-corner]
+              heading
+                text "Ali Martin"
+                text "Australian cricket’s civil war: conflicting ‘truths’ and Cummins in a corner"
+          list_item
+            anchor [ref=10422, url=https://www.theguardian.com/sport/2026/nov/19/cameron-bancroft-statement-sandpapergate-ball-tampering-australia-cricket-ntwnfb]
+              heading
+                text "Cameron Bancroft"
+                text "For eight years, I shared the burden of this story for the whole team"
+          list_item
+            anchor [ref=10423, url=https://www.theguardian.com/sport/2026/nov/19/brendon-mccullum-backs-england-rookies-australia-t20s-test-stars-depart-cricket]
+              heading
+                text "England"
+                text "'Fresh’ rookies roll on to Australia T20s as Test stars depart early"
+    unordered_list
+      list_item
+        anchor "Premier League: 10 things to look out for this weekend" [ref=10424, loc=css:a[aria-label="Premier League: 10 things to look out for this weekend"], url=https://www.theguardian.com/football/2026/nov/20/premier-league-10-things-to-look-out-for-this-weekend]
+        image
+        heading
+          text "Football"
+          text "Premier League: 10 things to look out for this weekend"
+        text "Bruno Guimarães to feel the heat on Tyneside, Alex Scott’s return further cheers Cherries and Manchester City face favourite whipping boys"
+        text "4h ago"
+        unordered_list
+          list_item
+            anchor [ref=10425, loc=href:/football/2026/nov/19/thomas-frank-crystal-palace-premier-league, url=https://www.theguardian.com/football/2026/nov/19/thomas-frank-crystal-palace-premier-league]
+              heading
+                text "Crystal Palace"
+                text "Frank admits he has a point to prove after taking reins"
+          list_item
+            anchor [ref=10426, loc=href:/football/2026/nov/18/premier-league-teams-full-backs-opta-analyst, url=https://www.theguardian.com/football/2026/nov/18/premier-league-teams-full-backs-opta-analyst]
+              heading
+                text "Opta Analyst"
+                text "Overlap, underlap or sit back? How teams use their full-backs"
+    unordered_list
+      list_item
+        anchor "England get one-match suspended ban on away tickets for anti-pope chants in Spain" [ref=10427, url=https://www.theguardian.com/football/2026/nov/19/england-one-match-suspended-away-tickets-ban-anti-pope-chants-spain-uefa]
+        image
+        heading
+          text "Football"
+          text "England get one-match suspended ban on away tickets for anti-pope chants in Spain"
+        text "6h ago"
+        unordered_list
+          list_item
+            anchor [ref=10428, url=https://www.theguardian.com/football/2026/nov/19/fifa-demand-tax-free-status-in-uk-womens-world-cup-2035-government]
+              heading
+                text "Exclusive"
+                text "Fifa sparks tension with demand for tax-free status in UK for Women’s World Cup"
+          list_item
+            anchor [ref=10429, loc=href:/football/2026/nov/19/football-daily-fifa-presidential-election, url=https://www.theguardian.com/football/2026/nov/19/football-daily-fifa-presidential-election]
+              heading
+                text "Football Daily"
+                text "Political gamers face off at Fifa with the real-life final boss"
+      list_item
+        anchor "F1 to bring in full-time race stewards for 2027 season in bid to end controversy" [ref=10430, loc=href:/sport/2026/nov/19/f1-full-time-race-stewards-2027-season-controversy-fia, url=https://www.theguardian.com/sport/2026/nov/19/f1-full-time-race-stewards-2027-season-controversy-fia]
+        image
+        heading
+          text "Formula One"
+          text "F1 to bring in full-time race stewards for 2027 season in bid to end controversy"
+        text "6h ago"
+        unordered_list
+          list_item
+            anchor [ref=10431, loc=href:/sport/2026/nov/19/lewis-hamilton-denies-distrust-ferrari-las-vegas-f1-gp, url=https://www.theguardian.com/sport/2026/nov/19/lewis-hamilton-denies-distrust-ferrari-las-vegas-f1-gp]
+              heading
+                text "Lewis Hamilton"
+                text "Driver denies lack of trust at ‘super united’ Ferrari before Las Vegas GP"
+    unordered_list
+      list_item
+        anchor "Rugby chiefs put Erasmus on copyright watch over hotel livestream plan" [ref=10432, loc=css:a[aria-label="Rugby chiefs put Erasmus on copyright watch over hotel livestream plan"], url=https://www.theguardian.com/sport/2026/nov/19/rassie-erasmus-ireland-south-africa-watchalong-copyright-rugby-union]
+        image
+        heading
+          text "Rugby union"
+          text "Rugby chiefs put Erasmus on copyright watch over hotel livestream plan"
+        text "Six Nations and Sanzaar executives will consider legal action if the banned coach’s online show includes any TV footage of Ireland v South Africa"
+        unordered_list
+          list_item
+            anchor [ref=10433, url=https://www.theguardian.com/sport/2026/nov/19/steve-borthwick-england-all-blacks-rugby-union-nations-championship]
+              heading
+                text "England"
+                text "Hosts braced for All Black-lash in the ultimate test of their mini-upturn"
+          list_item
+            anchor [ref=10434, url=https://www.theguardian.com/sport/2026/nov/19/england-new-zealand-wholesale-changes-nations-championship-rugby-union]
+              heading
+                text "Steve Borthwick"
+                text "Coach launches passionate defence of referees after ‘match-fixing’ tirade"
+  container
+    heading
+      text "More sport"
+    unordered_list
+      list_item
+        anchor "OL Lyonnes show their class to hit Arsenal’s ambitions for a top-four WCL finish" [ref=10435, loc=href:/football/2026/nov/19/arsenal-ol-lyonnes-womens-champions-league-match-report, url=https://www.theguardian.com/football/2026/nov/19/arsenal-ol-lyonnes-womens-champions-league-match-report]
+        image
+        heading
+          text "Football"
+          text "OL Lyonnes show their class to hit Arsenal’s ambitions for a top-four WCL finish"
+        container
+          text "6h ago"
+          anchor [ref=10436, url=https://www.theguardian.com/football/2026/nov/19/arsenal-ol-lyonnes-womens-champions-league-match-report#comments]
+            svg_root
+            text "…"
+            text "comments"
+      list_item
+        anchor "Trump issues posthumous pardon to MLB ‘superstar and legend’ Rose" [ref=10437, loc=css:a[aria-label="Trump issues posthumous pardon to MLB ‘superstar and legend’ Rose"], url=https://www.theguardian.com/sport/2026/nov/19/donald-trump-issues-posthumous-pardon-to-mlb-superstar-and-legend-pete-rose]
+        image
+        heading
+          text "Baseball"
+          text "Trump issues posthumous pardon to MLB ‘superstar and legend’ Rose"
+        text "6h ago"
+      list_item
+        anchor "Aikman aims jab at TV partner Buck amid rumoured split: ‘Joe always wanted a one-man booth’" [ref=10438, url=https://www.theguardian.com/sport/2026/nov/19/aikman-aims-jab-at-tv-partner-buck-amid-rumored-split-joe-always-wanted-a-one-man-booth]
+        image
+        heading
+          text "US sport media"
+          text "Aikman aims jab at TV partner Buck amid rumoured split: ‘Joe always wanted a one-man booth’"
+        text "26m ago"
+      list_item
+        anchor "Pochettino calls for Manchester United to show no fear against Liverpool" [ref=10439, loc=css:a[aria-label="Pochettino calls for Manchester United to show no fear against Liverpool"], url=https://www.theguardian.com/football/2026/nov/19/manchester-united-mauricio-pochettino-liverpool-anfield-no-fear]
+        image
+        heading
+          text "Football"
+          text "Pochettino calls for Manchester United to show no fear against Liverpool"
+  container
+    heading
+      text "More top stories"
+    unordered_list
+      list_item
+        anchor "Trump DoJ moves to drop legal challenge to Mary Peltola’s Alaska Senate win" [ref=10440, loc=css:a[aria-label="Trump DoJ moves to drop legal challenge to Mary Peltola’s Alaska Senate win"], url=https://www.theguardian.com/us-news/2026/nov/19/trump-mary-peltola-alaska-senate]
+        image
+        heading
+          text "US politics"
+          text "Trump DoJ moves to drop legal challenge to Mary Peltola’s Alaska Senate win"
+        text "President had sought to block results if Democrat won race that featured two candidates named Dan Sullivan"
+        text "2h ago"
+        unordered_list
+          list_item
+            anchor [ref=10441, url=https://www.theguardian.com/us-news/2026/nov/19/trump-lawsuit-new-york-times]
+              heading
+                text "Donald Trump"
+                text "US ⁠judge allows Trump’s $15bn lawsuit against New York Times to proceed"
+          list_item
+            anchor [ref=10442, url=https://www.theguardian.com/us-news/2026/nov/19/white-house-cyber-director-ousted]
+              heading
+                text "US"
+                text "White House cyber director ousted after US hit by wave of tech outages"
+          list_item
+            anchor [ref=10443, url=https://www.theguardian.com/us-news/2026/nov/19/religious-messages-agriculture-secretary-unconstitutional]
+              heading
+                text "US"
+                text "Religious messages US agriculture secretary emailed to staff deemed unconstitutional"
+    unordered_list
+      list_item
+        anchor "UK and EU close to post-Brexit deal as they agree 100,000 youth mobility cap" [ref=10444, loc=css:a[aria-label="UK and EU close to post-Brexit deal as they agree 100,000 youth mobility cap"], url=https://www.theguardian.com/world/2026/nov/19/uk-eu-reset-talks-andy-burnham-food-farming-tuition-fees]
+        image
+        heading
+          text "European Union"
+          text "UK and EU close to post-Brexit deal as they agree 100,000 youth mobility cap"
+        text "8h ago"
+        unordered_list
+          list_item
+            anchor [ref=10445, loc=href:/politics/2026/nov/19/eu-uk-summit-explainer-burnham-brexit-brussels, url=https://www.theguardian.com/politics/2026/nov/19/eu-uk-summit-explainer-burnham-brexit-brussels]
+              heading
+                text "Brexit"
+                text "What is at stake at the EU-UK summit in Brussels?"
+      list_item
+        anchor "Eight injured after driver in Israel repeatedly rams car into Palestinians" [ref=10446, loc=css:a[aria-label="Eight injured after driver in Israel repeatedly rams car into Palestinians"], url=https://www.theguardian.com/world/2026/nov/19/car-rams-into-palestinian-residents-four-times-in-israeli-city-kafr-qasim]
+        image
+        heading
+          text "Israel"
+          text "Eight injured after driver in Israel repeatedly rams car into Palestinians"
+    unordered_list
+      list_item
+        anchor "Thomas Markle, Meghan’s father, is competent to face child sex abuse images case" [ref=10447, loc=href:/us-news/2026/nov/19/thomas-markle-mentally-competent, url=https://www.theguardian.com/us-news/2026/nov/19/thomas-markle-mentally-competent]
+        image
+        heading
+          text "US"
+          text "Thomas Markle, Meghan’s father, is competent to face child sex abuse images case"
+        text "6h ago"
+      list_item
+        anchor "Spacecraft reaches Mercury on second-ever mission to enter its orbit" [ref=10448, loc=css:a[aria-label="Spacecraft reaches Mercury on second-ever mission to enter its orbit"], url=https://www.theguardian.com/science/2026/nov/20/spacecraft-mercury-second-ever-mission-orbit-bepicolombo]
+        image
+        heading
+          text "Space"
+          text "Spacecraft reaches Mercury on second-ever mission to enter its orbit"
+        text "4h ago"
+  container
+    heading
+      text "UK news"
+    unordered_list
+      list_item
+        anchor "Man arrested after ‘horrific’ knife attack on Bradford councillor" [ref=10449, loc=css:a[aria-label="Man arrested after ‘horrific’ knife attack on Bradford councillor "], url=https://www.theguardian.com/uk-news/2026/nov/19/man-arrested-horrific-knife-attack-bradford-councillor-ibrar-ali]
+        heading
+          text "UK"
+          text "Man arrested after ‘horrific’ knife attack on Bradford councillor"
+        text "9h ago"
+      list_item
+        anchor "Will Britain finally apologise for its role in the slave trade – and why is it so important?" [ref=10450, loc=href:/news/2026/nov/19/will-britain-apologise-for-slave-trade-role, url=https://www.theguardian.com/news/2026/nov/19/will-britain-apologise-for-slave-trade-role]
+        heading
+          text "Cotton Capital"
+          text "Will Britain finally apologise for its role in the slave trade – and why is it so important?"
+      list_item
+        anchor "Election date? Brexit reset outcome? Farage’s survival chances? Andrew Sparrow answered readers questions" [ref=10451, url=https://www.theguardian.com/politics/live/2026/nov/19/kemi-badenoch-andy-burnham-uk-politics-latest-news-updates]
+        heading
+          text "Politics live with Andrew Sparrow"
+          text "Election date? Brexit reset outcome? Farage’s survival chances? Andrew Sparrow answered readers questions"
+        container
+          text "10h ago"
+          anchor [ref=10452, url=https://www.theguardian.com/politics/live/2026/nov/19/kemi-badenoch-andy-burnham-uk-politics-latest-news-updates#comments]
+            svg_root
+            text "…"
+            text "comments"
+      list_item
+        anchor "Tories select James Cleverly as candidate for London mayor" [ref=10453, loc=css:a[aria-label="Tories select James Cleverly as candidate for London mayor"], url=https://www.theguardian.com/uk-news/2026/nov/19/tories-select-james-cleverly-candidate-london-mayor]
+        heading
+          text "Politics"
+          text "Tories select James Cleverly as candidate for London mayor"
+  container
+    heading
+      text "World news"
+    unordered_list
+      list_item
+        anchor "Lawyer calls for urgent review of Letby convictions after expert witness revelations" [ref=10454, url=https://www.theguardian.com/uk-news/2026/nov/19/lawyers-urgent-review-lucy-letby-convictions-after-expert-witness-revelations]
+        heading
+          text "UK"
+          text "Lawyer calls for urgent review of Letby convictions after expert witness revelations"
+      list_item
+        anchor "Grand Theft Auto fans skip work and pull all-nighters to play new instalment" [ref=10455, loc=css:a[aria-label="Grand Theft Auto fans skip work and pull all-nighters to play new instalment"], url=https://www.theguardian.com/games/2026/nov/19/grand-theft-auto-six-fans-skip-work-pull-all-nighters]
+        heading
+          text "Grand Theft Auto VI"
+          text "Grand Theft Auto fans skip work and pull all-nighters to play new instalment"
+        text "8h ago"
+      list_item
+        anchor "Prosecutors allege British woman ‘trying to find someone who would kill her’ lured to US and murdered" [ref=10456, url=https://www.theguardian.com/us-news/2026/nov/19/british-woman-florida-murder-case-sonia-exelby]
+        heading
+          text "US"
+          text "Prosecutors allege British woman ‘trying to find someone who would kill her’ lured to US and murdered"
+      list_item
+        anchor "Prison authorities consider whether Russell Brand harassed victims with YouTube message" [ref=10457, url=https://www.theguardian.com/news/2026/nov/19/prison-authorities-consider-russell-brand-youtube-message-rules-victim-distress]
+        heading
+          text "Russell Brand"
+          text "Prison authorities consider whether Russell Brand harassed victims with YouTube message"
+        text "9h ago"
+  anchor [ref=10458, loc=href:https://theguardian.com/tips, url=https://theguardian.com/tips]
+    container
+      text "Tip us off"
+      paragraph
+        text "Share stories with the Guardian securely and confidentially"
+      svg_root
+      svg_root
+  container
+    heading
+      text "Culture"
+    unordered_list
+      list_item
+        anchor "You Can See Everything review – unblinking, unhinged and unmissable" [ref=10459, loc=css:a[aria-label="You Can See Everything review – unblinking, unhinged and unmissable"], url=https://www.theguardian.com/film/2026/nov/19/you-can-see-everything-review-docu-hybrid-masterpiece-nathan-fielder-elizabeth-holmes]
+        image
+        heading
+          text "Film"
+          text "You Can See Everything review – unblinking, unhinged and unmissable"
+        svg_root
+        svg_root
+        svg_root
+        svg_root
+        svg_root
+      list_item
+        anchor "Grand Theft Auto would be a huge TV series – here’s why it will never happen" [ref=10460, loc=css:a[aria-label="Grand Theft Auto would be a huge TV series – here’s why it will never happen"], url=https://www.theguardian.com/tv-and-radio/2026/nov/19/grand-theft-auto-would-be-a-huge-tv-series-heres-why-it-will-never-happen]
+        image
+        heading
+          text "Television"
+          text "Grand Theft Auto would be a huge TV series – here’s why it will never happen"
+        unordered_list
+          list_item
+            anchor [ref=10461, loc=href:/games/2026/nov/19/grand-theft-auto-vi-critics-response-masterpiece, url=https://www.theguardian.com/games/2026/nov/19/grand-theft-auto-vi-critics-response-masterpiece]
+              heading
+                text "‘Most extraordinary virtual world’"
+                text "Critics hail Grand Theft Auto VI as masterpiece"
+  container
+    heading
+      text "What to watch"
+    unordered_list
+      list_item
+        anchor "Jimmy Kimmel on Trump’s meeting with Xi and Putin: ‘I guess Darth Vader couldn’t make it’" [ref=10462, loc=href:/culture/2026/nov/19/jimmy-kimmel-trump-xi-putin-summit-late-night, url=https://www.theguardian.com/culture/2026/nov/19/jimmy-kimmel-trump-xi-putin-summit-late-night]
+        image
+        heading
+          text "Late-night TV roundup"
+          text "Jimmy Kimmel on Trump’s meeting with Xi and Putin: ‘I guess Darth Vader couldn’t make it’"
+      list_item
+        anchor "The Altruists review – two of TV’s best actors light up this chaotic crypto tale" [ref=10463, loc=href:/tv-and-radio/2026/nov/19/the-altruists-review-anthony-boyle-julia-garner, url=https://www.theguardian.com/tv-and-radio/2026/nov/19/the-altruists-review-anthony-boyle-julia-garner]
+        image
+        heading
+          text "Television"
+          text "The Altruists review – two of TV’s best actors light up this chaotic crypto tale"
+        svg_root
+        svg_root
+        svg_root
+        svg_root
+        svg_root
+      list_item
+        anchor "‘I hope paramedics are on standby for the sex scenes!’ The wet and wild TV experience leaving fans dizzy" [ref=10464, url=https://www.theguardian.com/tv-and-radio/2026/nov/18/i-hope-paramedics-are-on-standby-for-the-sex-scenes-the-wet-and-wild-tv-experience-leaving-fans-dizzy-heated-rivalry]
+        image
+        heading
+          text "Heated Rivalry"
+          text "‘I hope paramedics are on standby for the sex scenes!’ The wet and wild TV experience leaving fans dizzy"
+      list_item
+        anchor "Madden review – Nicolas Cage is a cartoonish NFL legend in David O Russell’s stinker" [ref=10465, loc=href:/film/2026/nov/18/madden-review-nicolas-cage, url=https://www.theguardian.com/film/2026/nov/18/madden-review-nicolas-cage]
+        image
+        heading
+          text "Film"
+          text "Madden review – Nicolas Cage is a cartoonish NFL legend in David O Russell’s stinker"
+        svg_root
+        svg_root
+        svg_root
+        svg_root
+        svg_root
+  container
+    heading
+      text "What to listen to"
+    unordered_list
+      list_item
+        anchor "Nothing compares to her: Sinéad O’Connor’s 20 best songs" [ref=10466, loc=css:a[aria-label="Nothing compares to her: Sinéad O’Connor’s 20 best songs"], url=https://www.theguardian.com/culture/2026/nov/19/sinead-oconnors-best-songs-ranked]
+        image
+        heading
+          text "Ranked"
+          text "Nothing compares to her: Sinéad O’Connor’s 20 best songs"
+        anchor [ref=10467, loc=href:/culture/2026/nov/19/sinead-oconnors-best-songs-ranked#comments, url=https://www.theguardian.com/culture/2026/nov/19/sinead-oconnors-best-songs-ranked#comments]
+          svg_root
+          text "…"
+          text "comments"
+      list_item
+        anchor "Abandoning a Cat by Haruki Murakami review – an intimate meditation on family and memory" [ref=10468, url=https://www.theguardian.com/books/2026/nov/19/abandoning-a-cat-by-haruki-murakami-review-an-intimate-meditation-on-family-and-memory]
+        image
+        heading
+          text "Audiobook of the week"
+          text "Abandoning a Cat by Haruki Murakami review – an intimate meditation on family and memory"
+      list_item
+        anchor "Flottiana album review – 10-cd collection celebrates a very, very great Dame" [ref=10469, loc=css:a[aria-label="Flottiana album review – 10-cd collection celebrates a very, very great Dame "], url=https://www.theguardian.com/music/2026/nov/19/flottiana-album-review-dame-felicity-lott]
+        image
+        heading
+          text "Classical music"
+          text "Flottiana album review – 10-cd collection celebrates a very, very great Dame"
+        svg_root
+        svg_root
+        svg_root
+        svg_root
+        svg_root
+        anchor [ref=10470, loc=href:/music/2026/nov/19/flottiana-album-review-dame-felicity-lott#comments, url=https://www.theguardian.com/music/2026/nov/19/flottiana-album-review-dame-felicity-lott#comments]
+          svg_root
+          text "…"
+          text "comments"
+      list_item
+        anchor "Trance, prog synths, guttural screaming: Lorenzo Senni’s All Ages is the year’s wildest electronic album" [ref=10471, loc=href:/music/2026/nov/19/lorenzo-senni-all-ages-review-warp-milan-producer, url=https://www.theguardian.com/music/2026/nov/19/lorenzo-senni-all-ages-review-warp-milan-producer]
+        image
+        heading
+          text "Alexis Petridis's album of the week"
+          text "Trance, prog synths, guttural screaming: Lorenzo Senni’s All Ages is the year’s wildest electronic album"
+        svg_root
+        svg_root
+        svg_root
+        svg_root
+        svg_root
+        anchor [ref=10472, loc=href:/music/2026/nov/19/lorenzo-senni-all-ages-review-warp-milan-producer#comments, url=https://www.theguardian.com/music/2026/nov/19/lorenzo-senni-all-ages-review-warp-milan-producer#comments]
+          svg_root
+          text "…"
+          text "comments"
+  container
+    heading
+      text "What to read"
+    unordered_list
+      list_item
+        anchor "‘Perhaps we are safer not knowing’: a year after his death, Rob Reiner’s JFK assassination book is revealed" [ref=10473, loc=href:/film/2026/nov/19/who-killed-jfk-rob-reiner, url=https://www.theguardian.com/film/2026/nov/19/who-killed-jfk-rob-reiner]
+        image
+        heading
+          text "John F Kennedy"
+          text "‘Perhaps we are safer not knowing’: a year after his death, Rob Reiner’s JFK assassination book is revealed"
+      list_item
+        anchor "Hannah Lillith Assadi wins US National book award for ‘visionary’ novel Paradiso 17" [ref=10474, loc=href:/books/2026/nov/19/hannah-lillith-assadi-paradiso-17-wins-national-book-award, url=https://www.theguardian.com/books/2026/nov/19/hannah-lillith-assadi-paradiso-17-wins-national-book-award]
+        image
+        heading
+          text "US"
+          text "Hannah Lillith Assadi wins US National book award for ‘visionary’ novel Paradiso 17"
+      list_item
+        anchor "The Hill by Harriet Clark review – distinctive debut of growing up with a mother in prison" [ref=10475, url=https://www.theguardian.com/books/2026/nov/19/the-hill-by-harriet-clark-review-distinctive-debut-of-growing-up-with-a-mother-in-prison]
+        image
+        heading
+          text "Book of the day"
+          text "The Hill by Harriet Clark review – distinctive debut of growing up with a mother in prison"
+        anchor [ref=10476, url=https://www.theguardian.com/books/2026/nov/19/the-hill-by-harriet-clark-review-distinctive-debut-of-growing-up-with-a-mother-in-prison#comments]
+          svg_root
+          text "…"
+          text "comments"
+      list_item
+        anchor "The Man Who Broke Reality by Philip Ball review – the inspirational genius of Niels Bohr" [ref=10477, url=https://www.theguardian.com/books/2026/nov/18/the-man-who-broke-reality-by-philip-ball-review-the-inspirational-genius-of-niels-bohr]
+        image
+        heading
+          text "Science"
+          text "The Man Who Broke Reality by Philip Ball review – the inspirational genius of Niels Bohr"
+        anchor [ref=10478, url=https://www.theguardian.com/books/2026/nov/18/the-man-who-broke-reality-by-philip-ball-review-the-inspirational-genius-of-niels-bohr#comments]
+          svg_root
+          text "…"
+          text "comments"
+  container
+    heading
+      text "What to play"
+    unordered_list
+      list_item
+        anchor "Bank your stolen cash, bring a change of clothes, go easy on the bloodshed: 15 tips for playing Grand Theft Auto VI" [ref=10479, loc=href:/games/2026/nov/19/tips-for-playing-grand-theft-auto-vi, url=https://www.theguardian.com/games/2026/nov/19/tips-for-playing-grand-theft-auto-vi]
+        image
+        heading
+          text "Games"
+          text "Bank your stolen cash, bring a change of clothes, go easy on the bloodshed: 15 tips for playing Grand Theft Auto VI"
+      list_item
+        anchor "Grand Theft Auto VI – gaming’s most depraved world is now also its greatest love story" [ref=10480, loc=href:/games/2026/nov/18/grand-theft-auto-vi-gta-6-review-playstation-rockstar, url=https://www.theguardian.com/games/2026/nov/18/grand-theft-auto-vi-gta-6-review-playstation-rockstar]
+        image
+        heading
+          text "Review"
+          text "Grand Theft Auto VI – gaming’s most depraved world is now also its greatest love story"
+        svg_root
+        svg_root
+        svg_root
+        svg_root
+        svg_root
+        anchor [ref=10481, url=https://www.theguardian.com/games/2026/nov/18/grand-theft-auto-vi-gta-6-review-playstation-rockstar#comments]
+          svg_root
+          text "…"
+          text "comments"
+      list_item
+        anchor "Twenty years ago, the Wii and PS3 predicted the future of gaming – did they get it right?" [ref=10482, url=https://www.theguardian.com/games/2026/nov/18/how-nintendo-wii-sony-playstation-3-predicted-future-of-gaming]
+        image
+        heading
+          text "Pushing Buttons"
+          text "Twenty years ago, the Wii and PS3 predicted the future of gaming – did they get it right?"
+        text "Newsletter"
+      list_item
+        anchor "Keepsake County review – eccentric stealing simulator with a social conscience" [ref=10483, loc=css:a[aria-label="Keepsake County review – eccentric stealing simulator with a social conscience"], url=https://www.theguardian.com/games/2026/nov/17/keepsake-county-review-stealing-simulator-forward-instinct]
+        image
+        heading
+          text "Games"
+          text "Keepsake County review – eccentric stealing simulator with a social conscience"
+        svg_root
+        svg_root
+        svg_root
+        svg_root
+        svg_root
+  container
+    heading
+      text "More culture"
+    unordered_list
+      list_item
+        anchor "Jeff Buckley was a 90s indie darling. Now gen Z think he’s the ‘yearner final boss’" [ref=10484, loc=href:/music/2026/nov/19/jeff-buckley-gen-z-nostalgia, url=https://www.theguardian.com/music/2026/nov/19/jeff-buckley-gen-z-nostalgia]
+        image
+        heading
+          text "Music"
+          text "Jeff Buckley was a 90s indie darling. Now gen Z think he’s the ‘yearner final boss’"
+      list_item
+        anchor "Alex Cox: ‘John Lydon said Sid and Nancy was a nightmarish piece of garbage’" [ref=10485, loc=css:a[aria-label="Alex Cox: ‘John Lydon said Sid and Nancy was a nightmarish piece of garbage’"], url=https://www.theguardian.com/film/2026/nov/19/alex-cox-john-lydon-said-sid-and-nancy-was-a-nightmarish-piece-of-garbage]
+        image
+        heading
+          text "Reader interview"
+          text "Alex Cox: ‘John Lydon said Sid and Nancy was a nightmarish piece of garbage’"
+      list_item
+        anchor "The best and worst Bond films: ranked by critics and box office" [ref=10486, loc=css:a[aria-label="The best and worst Bond films: ranked by critics and box office"], url=https://www.theguardian.com/film/ng-interactive/2026/nov/19/bond-films-ranked-by-critics-and-box-office]
+        image
+        heading
+          text "One big chart"
+          text "The best and worst Bond films: ranked by critics and box office"
+        anchor [ref=10487, url=https://www.theguardian.com/film/ng-interactive/2026/nov/19/bond-films-ranked-by-critics-and-box-office#comments]
+          svg_root
+          text "…"
+          text "comments"
+      list_item
+        anchor "‘No publicist or manager in sight’: Madonna in the 80s, unseen and off-duty" [ref=10488, loc=css:a[aria-label="‘No publicist or manager in sight’: Madonna in the 80s, unseen and off-duty"], url=https://www.theguardian.com/artanddesign/gallery/2026/nov/19/madonna-into-the-groove-photo-book-ken-regan]
+        image
+        heading
+          text "In pictures"
+          text "‘No publicist or manager in sight’: Madonna in the 80s, unseen and off-duty"
+        container
+          text "Gallery"
+          svg_root
+          text "10"
+  container
+    heading
+      text "Lifestyle"
+    unordered_list
+      list_item
+        anchor "‘I came close to killing Sally about six times’: how my abusive father was enabled by his fame" [ref=10489, loc=href:/society/2026/nov/19/my-abusive-father-was-enabled-by-his-fame, url=https://www.theguardian.com/society/2026/nov/19/my-abusive-father-was-enabled-by-his-fame]
+        image
+        heading
+          text "Domestic violence"
+          svg_root
+          text "‘I came close to killing Sally about six times’: how my abusive father was enabled by his fame"
+      list_item
+        anchor "Should my friend stop eating smelly meals at work?" [ref=10490, loc=css:a[aria-label="Should my friend stop eating smelly meals at work?"], url=https://www.theguardian.com/lifeandstyle/2026/nov/19/you-be-the-judge-should-my-friend-stop-eating-smelly-meals-at-work]
+        image
+        heading
+          text "You be the judge"
+          svg_root
+          text "Should my friend stop eating smelly meals at work?"
+        anchor [ref=10491, url=https://www.theguardian.com/lifeandstyle/2026/nov/19/you-be-the-judge-should-my-friend-stop-eating-smelly-meals-at-work#comments]
+          svg_root
+          text "…"
+          text "comments"
+  container
+    heading
+      text "Food"
+    unordered_list
+      list_item
+        anchor "The root-to-tip revolution! An A-Z of how to eat plants in full – for extra flavour, fibre and savings" [ref=10492, url=https://www.theguardian.com/lifeandstyle/2026/nov/17/root-to-tip-revolution-a-to-z-eat-plants-full-flavour-fibre-savings]
+        image
+        heading
+          text "Nutrition"
+          text "The root-to-tip revolution! An A-Z of how to eat plants in full – for extra flavour, fibre and savings"
+        anchor [ref=10493, url=https://www.theguardian.com/lifeandstyle/2026/nov/17/root-to-tip-revolution-a-to-z-eat-plants-full-flavour-fibre-savings#comments]
+          svg_root
+          text "…"
+          text "comments"
+      list_item
+        anchor "The Thanksgiving food traditions we could all share" [ref=10494, loc=css:a[aria-label="The Thanksgiving food traditions we could all share"], url=https://www.theguardian.com/food/2026/nov/17/the-case-for-bringing-thanksgiving-to-britain]
+        image
+        heading
+          text "Feast"
+          text "The Thanksgiving food traditions we could all share"
+        text "Newsletter"
+      list_item
+        anchor "Nicola Coughlan on her favourite noodles, getting rejected from drama school and I Am Helen" [ref=10495, url=https://www.theguardian.com/lifeandstyle/video/2026/nov/18/nicola-coughlan-on-her-favourite-noodles-getting-rejected-from-drama-school-and-i-am-helen]
+        image
+        heading
+          text "Comfort Eating with Siobhán McSweeney"
+          text "Nicola Coughlan on her favourite noodles, getting rejected from drama school and I Am Helen"
+        container
+          text "Video"
+          svg_root
+          text "31:20"
+      list_item
+        anchor "Rachel Roddy’s recipe for pasta all’arrabbiata with red onion and plums" [ref=10496, loc=css:a[aria-label="Rachel Roddy’s recipe for pasta all’arrabbiata with red onion and plums"], url=https://www.theguardian.com/food/2026/nov/19/pasta-all-arrabbiata-red-onion-plums-recipe-rachel-roddy]
+        image
+        heading
+          text "A kitchen in Rome"
+          text "Rachel Roddy’s recipe for pasta all’arrabbiata with red onion and plums"
+        anchor [ref=10497, url=https://www.theguardian.com/food/2026/nov/19/pasta-all-arrabbiata-red-onion-plums-recipe-rachel-roddy#comments]
+          svg_root
+          text "…"
+          text "comments"
+  container
+    heading
+      text "Fashion & beauty"
+    unordered_list
+      list_item
+        anchor "Marlon Brando cool to Jensen Huang joke: how the black leather jacket became a meme" [ref=10498, url=https://www.theguardian.com/technology/2026/nov/13/marlon-brando-cool-jensen-huang-joke-black-leather-jacket-nvidia]
+        image
+        heading
+          text "Fashion"
+          text "Marlon Brando cool to Jensen Huang joke: how the black leather jacket became a meme"
+      list_item
+        anchor "‘Pretty weird’: How a viral video shows a striking discrepancy in men and women’s knitwear" [ref=10499, loc=href:/fashion/2026/nov/12/wool-pricing-natural-fibre-menswear-knitwear-women, url=https://www.theguardian.com/fashion/2026/nov/12/wool-pricing-natural-fibre-menswear-knitwear-women]
+        image
+        heading
+          text "Materials"
+          text "‘Pretty weird’: How a viral video shows a striking discrepancy in men and women’s knitwear"
+        text "Newsletter"
+      list_item
+        anchor "What to wear with a leather skirt" [ref=10500, loc=css:a[aria-label="What to wear with a leather skirt"], url=https://www.theguardian.com/fashion/gallery/2026/nov/13/what-to-wear-with-a-leather-skirt]
+        image
+        heading
+          text "Styling"
+          text "What to wear with a leather skirt"
+        container
+          text "Gallery"
+          svg_root
+          text "3"
+      list_item
+        anchor "This season’s big idea? Wear a skirt. It’s that simple" [ref=10501, loc=css:a[aria-label="This season’s big idea? Wear a skirt. It’s that simple"], url=https://www.theguardian.com/fashion/2026/nov/11/jess-cartner-morley-on-fashion-fashions-big-idea-this-season-wear-a-skirt]
+        image
+        heading
+          text "Jess Cartner-Morley on fashion"
+          text "This season’s big idea? Wear a skirt. It’s that simple"
+        anchor [ref=10502, url=https://www.theguardian.com/fashion/2026/nov/11/jess-cartner-morley-on-fashion-fashions-big-idea-this-season-wear-a-skirt#comments]
+          svg_root
+          text "…"
+          text "comments"
+  container
+    heading
+      text "Relationships"
+    unordered_list
+      list_item
+        anchor "‘Opposites don’t attract’: Adam Grant on how to strengthen friendships and make new ones faster" [ref=10503, loc=href:/wellness/2026/nov/18/adam-grant-platonic-bonds-relationships, url=https://www.theguardian.com/wellness/2026/nov/18/adam-grant-platonic-bonds-relationships]
+        image
+        heading
+          text "Deep dive"
+          text "‘Opposites don’t attract’: Adam Grant on how to strengthen friendships and make new ones faster"
+      list_item
+        anchor "The unexpected power of fleeting friendships" [ref=10504, loc=css:a[aria-label="The unexpected power of fleeting friendships"], url=https://www.theguardian.com/lifeandstyle/2026/nov/15/the-unexpected-power-of-fleeting-friendships]
+        image
+        heading
+          text "The big idea"
+          text "The unexpected power of fleeting friendships"
+        anchor [ref=10505, loc=href:/lifeandstyle/2026/nov/15/the-unexpected-power-of-fleeting-friendships#comments, url=https://www.theguardian.com/lifeandstyle/2026/nov/15/the-unexpected-power-of-fleeting-friendships#comments]
+          svg_root
+          text "…"
+          text "comments"
+      list_item
+        anchor "‘You have to cope’: why don’t we hear of the ‘epidemic’ of women’s loneliness?" [ref=10506, loc=href:/society/2026/nov/15/epidemic-of-lonely-women-female-male-loneliness, url=https://www.theguardian.com/society/2026/nov/15/epidemic-of-lonely-women-female-male-loneliness]
+        image
+        heading
+          text "Society"
+          text "‘You have to cope’: why don’t we hear of the ‘epidemic’ of women’s loneliness?"
+        anchor [ref=10507, loc=href:/society/2026/nov/15/epidemic-of-lonely-women-female-male-loneliness#comments, url=https://www.theguardian.com/society/2026/nov/15/epidemic-of-lonely-women-female-male-loneliness#comments]
+          svg_root
+          text "…"
+          text "comments"
+      list_item
+        anchor "Mr Baxter ate our belongings – and broke our hearts" [ref=10508, loc=css:a[aria-label="Mr Baxter ate our belongings – and broke our hearts"], url=https://www.theguardian.com/lifeandstyle/2026/nov/16/the-pet-ill-never-forget-mr-baxter-who-ate-our-belongings-and-broke-our-hearts]
+        image
+        heading
+          text "The pet I'll never forget"
+          svg_root
+          text "Mr Baxter ate our belongings – and broke our hearts"
+  container
+    heading
+      text "Health & fitness"
+    unordered_list
+      list_item
+        anchor "Wife of Trump ally Todd Blanche sold treatments with unproven medical claims" [ref=10509, loc=css:a[aria-label="Wife of Trump ally Todd Blanche sold treatments with unproven medical claims"], url=https://www.theguardian.com/us-news/2026/nov/19/kristine-blanche-health-website]
+        image
+        heading
+          text "Alternative medicine"
+          text "Wife of Trump ally Todd Blanche sold treatments with unproven medical claims"
+      list_item
+        anchor "Bacterial toxin produced by E coli leading suspect in rise in bowel cancer among under-50s" [ref=10510, loc=href:/science/2026/nov/18/bacterial-toxin-e-coli-bowel-cancer-under-50s, url=https://www.theguardian.com/science/2026/nov/18/bacterial-toxin-e-coli-bowel-cancer-under-50s]
+        image
+        heading
+          text "Science"
+          text "Bacterial toxin produced by E coli leading suspect in rise in bowel cancer among under-50s"
+      list_item
+        anchor "Anti-vaccine group once led by RFK Jr says Meta removed posts after Guardian report" [ref=10511, loc=href:/us-news/2026/nov/19/childrens-health-defense-meta-rfk-jr, url=https://www.theguardian.com/us-news/2026/nov/19/childrens-health-defense-meta-rfk-jr]
+        image
+        heading
+          text "Health"
+          text "Anti-vaccine group once led by RFK Jr says Meta removed posts after Guardian report"
+      list_item
+        anchor "Naming your feelings can be harder than you think. This simple tool can help" [ref=10512, loc=css:a[aria-label="Naming your feelings can be harder than you think. This simple tool can help"], url=https://www.theguardian.com/wellness/2026/nov/16/naming-your-feelings-mental-health]
+        image
+        heading
+          text "Well actually"
+          text "Naming your feelings can be harder than you think. This simple tool can help"
+  container
+    heading
+      text "More lifestyle"
+    unordered_list
+      list_item
+        anchor "I jumped from a plane at 12,000ft. In mid-air, a friend’s knee collided into my neck" [ref=10513, url=https://www.theguardian.com/lifeandstyle/2026/nov/18/i-jumped-from-a-plane-at-12000ft-in-mid-air-a-friends-knee-collided-into-my-neck]
+        image
+        heading
+          text "How we survive"
+          svg_root
+          text "I jumped from a plane at 12,000ft. In mid-air, a friend’s knee collided into my neck"
+      list_item
+        anchor "From training clips to thirst traps: why athletes are turning to OnlyFans" [ref=10514, loc=css:a[aria-label="From training clips to thirst traps: why athletes are turning to OnlyFans"], url=https://www.theguardian.com/sport/2026/nov/19/athletes-onlyfans-earnings]
+        image
+        heading
+          text "Sport"
+          text "From training clips to thirst traps: why athletes are turning to OnlyFans"
+      list_item
+        anchor "Flexibility more important to jobseekers than pay, global survey finds" [ref=10515, loc=css:a[aria-label="Flexibility more important to jobseekers than pay, global survey finds"], url=https://www.theguardian.com/money/2026/nov/19/flexibility-more-important-to-jobseekers-than-pay-global-survey-finds]
+        image
+        heading
+          text "Work-life balance"
+          text "Flexibility more important to jobseekers than pay, global survey finds"
+      list_item
+        anchor "Bloomscrolling: the uplifting new way to waste your own time" [ref=10516, loc=css:a[aria-label="Bloomscrolling: the uplifting new way to waste your own time"], url=https://www.theguardian.com/media/2026/nov/18/bloomscrolling-train-algorithm-social-media]
+        image
+        heading
+          text "Pass notes"
+          text "Bloomscrolling: the uplifting new way to waste your own time"
+  container
+    heading
+      text "Documentary"
+    unordered_list
+      list_item
+        anchor "After Eight: the story of Satpal Ram" [ref=10517, loc=css:a[aria-label="After Eight: the story of Satpal Ram "], url=https://www.theguardian.com/society/ng-interactive/2026/nov/17/after-eight-the-story-of-satpal-ram-documentary]
+        container
+          video [ref=10518]
+          button [ref=10519]
+            svg_root
+        heading
+          text "Prisons and probation"
+          text "After Eight: the story of Satpal Ram"
+        text "It is 40 years since a racially charged attack at a curry house led to Satpal Ram’s conviction for murder, but today Britain’s post-pub curry culture still has a dark side"
+  container
+    heading
+      text "You may have missed"
+    unordered_list
+      list_item
+        anchor "Senator-elect Peggy Flanagan on her road to victory in Minnesota: ‘I have been underestimated my entire life’" [ref=10520, loc=href:/us-news/2026/nov/19/peggy-flanagan-minnesota-senator-native-american, url=https://www.theguardian.com/us-news/2026/nov/19/peggy-flanagan-minnesota-senator-native-american]
+        image
+        heading
+          text "US midterm elections"
+          text "Senator-elect Peggy Flanagan on her road to victory in Minnesota: ‘I have been underestimated my entire life’"
+      list_item
+        anchor "Tricks! Traps! Riddles! Jan van Eyck’s portraits look vividly real – but are full of secret messages. What do they mean?" [ref=10521, url=https://www.theguardian.com/artanddesign/2026/nov/19/jan-van-eyck-portraits-national-gallery-frames-inscriptions]
+        image
+        heading
+          text "Art"
+          text "Tricks! Traps! Riddles! Jan van Eyck’s portraits look vividly real – but are full of secret messages. What do they mean?"
+      list_item
+        anchor "Meet Phil, the bar-tailed godwit tracked on a 11,000km round trip to Siberia" [ref=10522, loc=css:a[aria-label="Meet Phil, the bar-tailed godwit tracked on a 11,000km round trip to Siberia"], url=https://www.theguardian.com/environment/2026/nov/19/phil-bar-tailed-godwit-bird-tracked-round-trip-siberia]
+        image
+        heading
+          text "Birds"
+          text "Meet Phil, the bar-tailed godwit tracked on a 11,000km round trip to Siberia"
+  container
+    heading
+      text "Take part"
+    unordered_list
+      list_item
+        anchor "Are you playing Grand Theft Auto VI?" [ref=10523, loc=css:a[aria-label="Are you playing Grand Theft Auto VI?"], url=https://www.theguardian.com/games/2026/nov/18/tell-us-are-you-playing-grand-theft-auto-vi]
+        image
+        heading
+          text "Tell us"
+          text "Are you playing Grand Theft Auto VI?"
+      list_item
+        anchor "Send us your questions for Martin Freeman" [ref=10524, loc=css:a[aria-label="Send us your questions for Martin Freeman"], url=https://www.theguardian.com/culture/2026/nov/17/send-us-your-questions-for-martin-freeman]
+        image
+        heading
+          text "Martin Freeman"
+          text "Send us your questions for Martin Freeman"
+      list_item
+        anchor "Tell us: did you have a momentous life experience during the solar eclipse?" [ref=10525, loc=css:a[aria-label=" Tell us: did you have a momentous life experience during the solar eclipse? "], url=https://www.theguardian.com/science/2026/nov/11/tell-us-did-you-have-a-memorable-experience-during-the-solar-eclipse]
+        image
+        heading
+          text "Solar eclipses"
+          text "Tell us: did you have a momentous life experience during the solar eclipse?"
+      list_item
+        anchor "Tell us: have you been misdiagnosed with a medical condition?" [ref=10526, loc=css:a[aria-label="Tell us: have you been misdiagnosed with a medical condition?"], url=https://www.theguardian.com/society/2026/nov/16/tell-us-have-you-been-misdiagnosed-with-a-medical-condition]
+        image
+        heading
+          text "Health"
+          text "Tell us: have you been misdiagnosed with a medical condition?"
+  container
+    heading
+      text "Newsletters"
+    unordered_list
+      list_item
+        anchor "Sign up for the Politics, really newsletter: a free email from Guardian Australia" [ref=10527, url=https://www.theguardian.com/australia-news/2026/aug/28/politics-really-newsletter-guardian-australia-free-best-daily-auspol-email-subscribe]
+        image
+        heading
+          text "Australia news"
+          text "Sign up for the Politics, really newsletter: a free email from Guardian Australia"
+        text "Newsletter"
+      list_item
+        anchor "Sign up for the First Edition newsletter" [ref=10528, loc=css:a[aria-label="Sign up for the First Edition newsletter"], url=https://www.theguardian.com/global/2022/sep/20/sign-up-for-the-first-edition-newsletter-our-free-news-email]
+        image
+        heading
+          text "News"
+          text "Sign up for the First Edition newsletter"
+        text "Newsletter"
+      list_item
+        anchor "Sign up for the Football Daily newsletter" [ref=10529, loc=css:a[aria-label="Sign up for the Football Daily newsletter"], url=https://www.theguardian.com/info/2022/nov/14/football-daily-email-sign-up]
+        image
+        heading
+          text "Football"
+          text "Sign up for the Football Daily newsletter"
+        text "Newsletter"
+      list_item
+        anchor "Sign up for the Feast newsletter" [ref=10530, loc=css:a[aria-label="Sign up for the Feast newsletter"], url=https://www.theguardian.com/food/2019/jul/09/sign-up-for-the-feast-newsletter-our-free-guardian-food-email]
+        image
+        heading
+          text "Food"
+          text "Sign up for the Feast newsletter"
+        text "Newsletter"
+  container
+    anchor [ref=10531, url=https://www.theguardian.com/inpictures]
+      heading
+        text "In pictures"
+    unordered_list
+      list_item
+        anchor "A cloud ladder and floods in Florida" [ref=10532, url=https://www.theguardian.com/news/gallery/2026/nov/19/floods-in-florida-and-blackouts-in-kyiv-photos-of-the-day-thursday]
+        region "Slideshow"
+          unordered_list [ref=10533]
+            group "Tourists climb the Cloud Ladder in Anqing, China"
+              anchor "A cloud ladder and floods in Florida" [ref=10534, url=https://www.theguardian.com/news/gallery/2026/nov/19/floods-in-florida-and-blackouts-in-kyiv-photos-of-the-day-thursday]
+                container
+                  image
+                  text "Tourists climb the Cloud Ladder in Anqing, China"
+            group "A sunset reflected in flood water in Florida, US"
+              anchor "A cloud ladder and floods in Florida" [ref=10535, url=https://www.theguardian.com/news/gallery/2026/nov/19/floods-in-florida-and-blackouts-in-kyiv-photos-of-the-day-thursday]
+                image
+                text "A sunset reflected in flood water in Florida, US"
+            group "A Rohingya child at a refugee camp in Cox's Bazar, Bangladesh"
+              anchor "A cloud ladder and floods in Florida" [ref=10536, url=https://www.theguardian.com/news/gallery/2026/nov/19/floods-in-florida-and-blackouts-in-kyiv-photos-of-the-day-thursday]
+                image
+                text "A Rohingya child at a refugee camp in Cox's Bazar, Bangladesh"
+            group "A blackout in Kyiv, Ukraine"
+              anchor "A cloud ladder and floods in Florida" [ref=10537, url=https://www.theguardian.com/news/gallery/2026/nov/19/floods-in-florida-and-blackouts-in-kyiv-photos-of-the-day-thursday]
+                image
+                text "A blackout in Kyiv, Ukraine"
+          button "Previous slide" [ref=10538]
+            svg_root
+          button "Next slide" [ref=10539]
+            svg_root
+        heading
+          text "Photos of the day"
+          text "A cloud ladder and floods in Florida"
+        text "The Guardian’s picture editors select photographs from around the world"
+        container
+          text "Gallery"
+          svg_root
+          text "19"
+  container
+    heading
+      text "Most popular"
+    heading
+      text "Most viewed"
+    text "What readers are clicking on"
+    list_item
+      anchor [ref=10540, url=https://www.theguardian.com/world/2026/nov/19/china-russia-us-agree-peace-statement-no-mention-ukraine-iran-wars]
+        svg_root
+        heading
+          text "China, Russia and US agree peace declaration with no mention of Ukraine and Iran wars"
+    list_item
+      anchor [ref=10541, url=https://www.theguardian.com/world/2026/nov/20/aukus-defence-us-warned-supplying-nuclear-powered-submarines-to-australia-would-diminish-its-own-fleet-for-many-years]
+        svg_root
+        heading
+          text "US warned supplying nuclear-powered submarines to Australia would diminish its own fleet for ‘many years’"
+    list_item
+      anchor [ref=10542, loc=href:/world/2026/nov/19/china-gives-japan-pm-frosty-welcome-apec, url=https://www.theguardian.com/world/2026/nov/19/china-gives-japan-pm-frosty-welcome-apec]
+        svg_root
+        heading
+          text "China gives Japan PM frosty welcome at Apec amid fanfare for other leaders"
+    list_item
+      anchor [ref=10543, url=https://www.theguardian.com/world/2026/nov/19/end-your-war-end-it-now-anthony-albanese-tells-vladimir-putin-to-put-a-stop-to-ukraine-war]
+        svg_root
+        heading
+          text "‘End your war, end it now’: Anthony Albanese tells Vladimir Putin to put a stop to Ukraine war"
+    list_item
+      anchor [ref=10544, url=https://www.theguardian.com/world/2026/nov/19/new-page-in-history-xi-trump-and-putin-summit-was-more-of-a-footnote]
+        svg_root
+        heading
+          text "New page in history? Xi, Trump and Putin summit was more of a footnote"
+    list_item
+      anchor [ref=10545, loc=href:/world/live/2026/nov/19/apec-summit-trump-xi-putin-meeting-shenzhen-china, url=https://www.theguardian.com/world/live/2026/nov/19/apec-summit-trump-xi-putin-meeting-shenzhen-china]
+        svg_root
+        heading
+          text "Apec summit: Trump, Xi and Putin make ‘peace declaration’ but talks end without clear breakthrough – as it happened"
+    list_item
+      anchor [ref=10546, url=https://www.theguardian.com/world/2026/nov/19/car-rams-into-palestinian-residents-four-times-in-israeli-city-kafr-qasim]
+        svg_root
+        heading
+          text "Eight injured after driver in Israel repeatedly rams car into Palestinians"
+    list_item
+      anchor [ref=10547, url=https://www.theguardian.com/world/2026/nov/19/ukraine-war-briefing-russia-embassy-netherlands-destinus-missiles-kerch-crimea-bridge-strike]
+        svg_root
+        heading
+          text "Ukraine war briefing: Russia asks if Netherlands has joined conflict after Crimea bridge strike"
+    list_item
+      anchor [ref=10548, url=https://www.theguardian.com/world/2026/nov/19/putin-vows-painful-response-to-ukraine-bombing-of-kerch-bridge]
+        svg_root
+        heading
+          text "Putin vows ‘painful’ response to Ukraine’s bombing of Kerch bridge"
+    list_item
+      anchor [ref=10549, url=https://www.theguardian.com/world/2026/nov/19/uk-eu-reset-talks-andy-burnham-food-farming-tuition-fees]
+        svg_root
+        heading
+          text "UK and EU close to post-Brexit deal as they agree 100,000 youth mobility cap"
+    heading
+      text "Deeply read"
+    text "What readers are spending time with ("
+    anchor [ref=10550, loc=href:/info/2024/feb/28/what-is-the-deeply-read-list, url=https://www.theguardian.com/info/2024/feb/28/what-is-the-deeply-read-list]
+      text "Learn more"
+    text ")"
+    list_item
+      anchor [ref=10551, url=https://www.theguardian.com/uk-news/2026/nov/19/philip-young-sexual-abuse-spiked-nightcaps-strangers-joanne-young]
+        svg_root
+        heading
+          text "Spiked nightcaps and invitations to strangers: how Philip Young sexually abused his wife for 15 years"
+    list_item
+      anchor [ref=10552, loc=href:/politics/2026/nov/19/james-cleverly-london-mayor-john-crace-sketch, url=https://www.theguardian.com/politics/2026/nov/19/james-cleverly-london-mayor-john-crace-sketch]
+        svg_root
+        heading
+          svg_root
+          text "Jimmy Dimly is back and we should treasure him while we can"
+    list_item
+      anchor [ref=10553, url=https://www.theguardian.com/lifeandstyle/2026/nov/19/you-be-the-judge-should-my-friend-stop-eating-smelly-meals-at-work]
+        svg_root
+        heading
+          text "You be the judge: should my friend stop eating smelly meals at work?"
+    list_item
+      anchor [ref=10554, loc=href:/us-news/2026/nov/19/judge-t-elliot-gaiser-nomination-fight, url=https://www.theguardian.com/us-news/2026/nov/19/judge-t-elliot-gaiser-nomination-fight]
+        svg_root
+        heading
+          text "John Cornyn blocks Trump judicial nominee after Senate shouting match with Ted Cruz"
+    list_item
+      anchor [ref=10555, url=https://www.theguardian.com/world/2026/nov/19/putin-vows-painful-response-to-ukraine-bombing-of-kerch-bridge]
+        svg_root
+        heading
+          text "Putin vows ‘painful’ response to Ukraine’s bombing of Kerch bridge"
+    list_item
+      anchor [ref=10556, url=https://www.theguardian.com/film/2026/nov/19/alex-cox-john-lydon-said-sid-and-nancy-was-a-nightmarish-piece-of-garbage]
+        svg_root
+        heading
+          text "Alex Cox: ‘John Lydon said Sid and Nancy was a nightmarish piece of garbage’"
+    list_item
+      anchor [ref=10557, url=https://www.theguardian.com/world/2026/nov/19/new-page-in-history-xi-trump-and-putin-summit-was-more-of-a-footnote]
+        svg_root
+        heading
+          text "New page in history? Xi, Trump and Putin summit was more of a footnote"
+    list_item
+      anchor [ref=10558, url=https://www.theguardian.com/sport/2026/nov/20/sandpapergate-australia-cricket-sporting-scandal-rolling-loop-outrage-ntwnfb]
+        svg_root
+        heading
+          svg_root
+          text "Sandpapergate has gone from a sporting scandal to a rolling loop of outrage and overreaction"
+    list_item
+      anchor [ref=10559, url=https://www.theguardian.com/us-news/2026/nov/19/british-woman-florida-murder-case-sonia-exelby]
+        svg_root
+        heading
+          text "Prosecutors allege British woman ‘trying to find someone who would kill her’ lured to US and murdered"
+    list_item
+      anchor [ref=10560, url=https://www.theguardian.com/technology/nils-pratley-on-finance/2026/nov/19/anthropic-keeps-ai-party-swinging-but-atmosphere-bubbly]
+        svg_root
+        heading
+          svg_root
+          text "Anthropic keeps the AI party swinging, but the atmosphere is bubbly"
+  container
+    svg_root
+    text "Explore more on these topics"
+    unordered_list
+      list_item
+        anchor [ref=10561, loc=href:/world/russia, url=https://www.theguardian.com/world/russia]
+          text "Russia"
+      list_item
+        anchor [ref=10562, loc=href:/us-news/donaldtrump, url=https://www.theguardian.com/us-news/donaldtrump]
+          text "Donald Trump"
+      list_item
+        anchor [ref=10563, loc=href:/games/games, url=https://www.theguardian.com/games/games]
+          text "Games"
+      list_item
+        anchor [ref=10564, url=https://www.theguardian.com/world/ukraine]
+          text "Ukraine"
+      list_item
+        anchor [ref=10565, loc=href:/games/grand-theft-auto-vi, url=https://www.theguardian.com/games/grand-theft-auto-vi]
+          text "Grand Theft Auto VI"
+  list
+    list_item
+      anchor [ref=10566, url=https://www.theguardian.com/us-news]
+        text "US news"
+    list_item
+      anchor [ref=10567, url=https://www.theguardian.com/us-news/us-politics]
+        text "US politics"
+    list_item
+      anchor [ref=10568, url=https://www.theguardian.com/us-news/us-midterm-elections-2026]
+        text "Midterms 2026"
+    list_item
+      anchor [ref=10569, url=https://www.theguardian.com/world]
+        text "World"
+    list_item
+      anchor [ref=10570, url=https://www.theguardian.com/environment/climate-crisis]
+        text "Climate crisis"
+    list_item
+      anchor [ref=10571, url=https://www.theguardian.com/world/middleeast]
+        text "Middle East"
+    list_item
+      anchor [ref=10572, url=https://www.theguardian.com/world/ukraine]
+        text "Ukraine"
+    list_item
+      anchor [ref=10573, url=https://www.theguardian.com/us-news/usimmigration]
+        text "US immigration"
+    list_item
+      anchor [ref=10574, url=https://www.theguardian.com/us/soccer]
+        text "Soccer"
+    list_item
+      anchor [ref=10575, url=https://www.theguardian.com/us/business]
+        text "Business"
+    list_item
+      anchor [ref=10576, url=https://www.theguardian.com/us/environment]
+        text "Environment"
+    list_item
+      anchor [ref=10577, url=https://www.theguardian.com/us/technology]
+        text "Tech"
+    list_item
+      anchor [ref=10578, url=https://www.theguardian.com/science]
+        text "Science"
+    list_item
+      anchor [ref=10579, url=https://www.theguardian.com/email-newsletters]
+        text "Newsletters"
+    list_item
+      anchor [ref=10580, url=https://www.theguardian.com/thefilter-us]
+        text "The Filter"
+    list_item
+      anchor [ref=10581, url=https://www.theguardian.com/us/wellness]
+        text "Wellness"
+  container
+    unordered_list
+      list_item
+        anchor [ref=10582, url=https://www.theguardian.com/]
+          text "News"
+      list_item
+        anchor [ref=10583, url=https://www.theguardian.com/commentisfree]
+          text "Opinion"
+      list_item
+        anchor [ref=10584, url=https://www.theguardian.com/sport]
+          text "Sport"
+      list_item
+        anchor [ref=10585, url=https://www.theguardian.com/culture]
+          text "Culture"
+      list_item
+        anchor [ref=10586, url=https://www.theguardian.com/lifeandstyle]
+          text "Lifestyle"
+    table
+      table_row
+        table_cell
+    text "Original reporting and incisive analysis, direct from the Guardian every morning"
+    anchor [ref=10587, loc=href:/info/2018/sep/17/guardian-us-morning-briefing-sign-up-to-stay-informed, url=https://www.theguardian.com/info/2018/sep/17/guardian-us-morning-briefing-sign-up-to-stay-informed]
+      text "Sign up for our email"
+      svg_root
+    unordered_list
+      list_item
+        anchor [ref=10588, loc=href:/info/about-guardian-us, url=https://www.theguardian.com/info/about-guardian-us]
+          text "About us"
+      list_item
+        anchor [ref=10589, loc=href:https://manage.theguardian.com/help-centre, url=https://manage.theguardian.com/help-centre]
+          text "Help"
+      list_item
+        anchor [ref=10590, loc=href:/info/complaints-and-corrections, url=https://www.theguardian.com/info/complaints-and-corrections]
+          text "Complaints & corrections"
+      list_item
+        anchor [ref=10591, loc=href:/info/about-guardian-us/contact, url=https://www.theguardian.com/info/about-guardian-us/contact]
+          text "Contact us"
+      list_item
+        anchor [ref=10592, url=https://www.theguardian.com/tips]
+          text "Tip us off"
+      list_item
+        anchor [ref=10593, loc=href:/securedrop, url=https://www.theguardian.com/securedrop]
+          text "SecureDrop"
+      list_item
+        anchor [ref=10594, loc=href:/info/privacy, url=https://www.theguardian.com/info/privacy]
+          text "Privacy policy"
+      list_item
+        anchor [ref=10595, loc=href:/info/cookies, url=https://www.theguardian.com/info/cookies]
+          text "Cookie policy"
+      list_item
+        anchor [ref=10596, url=https://uploads.guim.co.uk/2026/07/22/STL_Global_Tax_Strategy_for_the_year_to_31_March_2027.pdf]
+          text "Tax strategy"
+      list_item
+        anchor [ref=10597, loc=href:/help/terms-of-service, url=https://www.theguardian.com/help/terms-of-service]
+          text "Terms & conditions"
+    unordered_list
+      list_item
+        anchor [ref=10598, loc=href:/index/subjects/a, url=https://www.theguardian.com/index/subjects/a]
+          text "All topics"
+      list_item
+        anchor [ref=10599, loc=href:/index/contributors, url=https://www.theguardian.com/index/contributors]
+          text "All writers"
+      list_item
+        anchor [ref=10600, loc=href:/email-newsletters?INTCMP=DOTCOM_FOOTER_NEWSLETTER_US, url=https://www.theguardian.com/email-newsletters?INTCMP=DOTCOM_FOOTER_NEWSLETTER_US]
+          text "Newsletters"
+      list_item
+        anchor [ref=10601, url=https://theguardian.newspapers.com/]
+          text "Digital newspaper archive"
+      list_item
+        anchor [ref=10602, loc=href:https://bsky.app/profile/us.theguardian.com, url=https://bsky.app/profile/us.theguardian.com]
+          text "Bluesky"
+      list_item
+        anchor [ref=10603, loc=href:https://www.facebook.com/theguardian, url=https://www.facebook.com/theguardian]
+          text "Facebook"
+      list_item
+        anchor [ref=10604, loc=href:https://www.instagram.com/guardian, url=https://www.instagram.com/guardian]
+          text "Instagram"
+      list_item
+        anchor [ref=10605, loc=href:https://www.linkedin.com/company/theguardian, url=https://www.linkedin.com/company/theguardian]
+          text "LinkedIn"
+      list_item
+        anchor [ref=10606, loc=href:https://www.threads.com/@guardian_us, url=https://www.threads.com/@guardian_us]
+          text "Threads"
+      list_item
+        anchor [ref=10607, loc=href:https://www.tiktok.com/@guardian, url=https://www.tiktok.com/@guardian]
+          text "TikTok"
+      list_item
+        anchor [ref=10608, loc=href:https://www.youtube.com/user/TheGuardian, url=https://www.youtube.com/user/TheGuardian]
+          text "YouTube"
+    unordered_list
+      list_item
+        anchor [ref=10609, loc=href:https://usadvertising.theguardian.com/, url=https://usadvertising.theguardian.com/]
+          text "Advertise with us"
+      list_item
+        anchor [ref=10610, loc=href:/guardian-labs-us, url=https://www.theguardian.com/guardian-labs-us]
+          text "Guardian Labs"
+      list_item
+        anchor [ref=10611, loc=href:https://workwithus.theguardian.com/, url=https://workwithus.theguardian.com/]
+          text "Work with us"
+      list_item
+        anchor [ref=10612, loc=href:/help/accessibility-help, url=https://www.theguardian.com/help/accessibility-help]
+          text "Accessibility settings"
+      list_item
+    anchor [ref=10613, loc=href:/international#top, url=https://www.theguardian.com/international#top]
+      text "Back to top"
+    text "©"
+    text "2026"
+    text "Guardian News & Media Limited or its affiliated companies. All rights reserved."
+    text "(dcr)"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root

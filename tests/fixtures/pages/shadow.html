@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>zoo: shadow DOM</title>
+<style>body { font: 15px system-ui, sans-serif; margin: 16px; }</style>
+</head>
+<body>
+<h1>Shadow DOM</h1>
+<x-card id="open-card"><span slot="title">Slotted title</span><p>Slotted body paragraph.</p></x-card>
+<x-closed id="closed-card"></x-closed>
+<x-outer id="nested"></x-outer>
+<x-field id="field" label="Shadow email"></x-field>
+<div id="plain-host"></div>
+<script>
+  customElements.define("x-card", class extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: "open" }).innerHTML = `
+        <style>:host { display:block; border:1px solid #888; padding:8px; margin:8px 0; }</style>
+        <h2><slot name="title">Default title</slot></h2>
+        <slot></slot>
+        <button id="card-action">Open card action</button>
+        <a href="/nav-target">Open card link</a>`;
+    }
+  });
+  customElements.define("x-closed", class extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: "closed" }).innerHTML = `
+        <p>Closed shadow text</p>
+        <button>Closed shadow button</button>
+        <input aria-label="Closed shadow input">`;
+    }
+  });
+  customElements.define("x-inner", class extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: "open" }).innerHTML = `
+        <button id="deep">Deep nested button</button>
+        <input id="deep-input" placeholder="Deep nested input">`;
+    }
+  });
+  customElements.define("x-outer", class extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: "open" }).innerHTML = `
+        <section aria-label="Outer shadow section">
+          <p>Outer shadow text</p>
+          <x-inner></x-inner>
+        </section>`;
+    }
+  });
+  customElements.define("x-field", class extends HTMLElement {
+    constructor() {
+      super();
+      const root = this.attachShadow({ mode: "open", delegatesFocus: true });
+      root.innerHTML = `<label>${this.getAttribute("label")} <input type="email" name="shadow-email"></label>
+        <select aria-label="Shadow select"><option>One</option><option selected>Two</option></select>`;
+    }
+  });
+  document.getElementById("plain-host").attachShadow({ mode: "open" }).innerHTML =
+    `<ul><li>Shadow list one</li><li><a href="/secondary">Shadow list link</a></li></ul>`;
+</script>
+</body>
+</html>

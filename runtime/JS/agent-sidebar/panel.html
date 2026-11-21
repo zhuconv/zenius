@@ -1,0 +1,90 @@
+<!doctype html>
+<html data-mode="chat">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src chrome: resource:; img-src chrome: resource: data: blob: cached-favicon: page-icon: moz-remote-image:; script-src chrome: resource:; worker-src resource: blob:; style-src chrome:; object-src 'none'"
+    />
+    <meta name="color-scheme" content="light dark" />
+    <title>Agent</title>
+    <link rel="stylesheet" href="panel.css" />
+    <script type="module" src="panel.js"></script>
+  </head>
+  <body>
+    <!-- The chat's title: the tab's page in Chat, the task in Work (with the
+         button that opens the list of tasks). -->
+    <header id="header">
+      <button id="dir" class="icon" title="All tasks" aria-label="All tasks" aria-expanded="false"></button>
+      <img id="favicon" alt="" />
+      <div id="title"></div>
+      <button id="more" class="icon" title="More" aria-label="More" aria-haspopup="menu" aria-expanded="false"></button>
+      <div id="menu" role="menu" hidden>
+        <button id="new-chat" role="menuitem">New chat for this tab</button>
+        <button id="new-task" role="menuitem">New task</button>
+        <button id="remove-task" role="menuitem">Remove this task from the list</button>
+        <div class="separator"></div>
+        <button id="close" role="menuitem">Close the sidebar<span class="kbd">⌘⇧A</span></button>
+      </div>
+    </header>
+    <main id="messages"></main>
+    <!-- Work: the page the agent is on, live while it works, with Watch and
+         Take over. renderLive keeps it at the end of the thread. -->
+    <div id="live" hidden>
+      <canvas id="live-shot" aria-hidden="true"></canvas>
+      <div id="live-cap">
+        <span id="live-dot"></span>
+        <span id="live-text"></span>
+        <button id="watch" class="ghost dark">Watch</button>
+        <span id="watch-hint" hidden></span>
+        <button id="take-over" class="ghost" title="Take the page over from the agent; it waits until you resume it">Take over</button>
+      </div>
+    </div>
+    <div id="empty">
+      <div class="chat-only">
+        <p>Select text on the page, press <kbd>⌘⇧A</kbd>, and ask.</p>
+        <p>Or just type a question about this page.</p>
+        <p>Drop or paste images, PDFs and text files to attach them.</p>
+      </div>
+      <div class="work-only">
+        <p class="lead">Give the agent a task.</p>
+        <p>It works in its own tabs, in the Agents space, while you keep browsing. This chat stays on the task when you switch tabs.</p>
+        <p>You can also type <kbd>&gt;</kbd> and the task in the address bar.</p>
+      </div>
+    </div>
+    <footer id="composer">
+      <div id="chip" hidden>
+        <div id="chip-text"></div>
+        <button id="chip-remove" class="icon" title="Remove the selection">✕</button>
+      </div>
+      <div id="attachments" hidden></div>
+      <!-- The question box: the text on top; its bottom row holds + and the
+           Chat | Work switch, then the agent and model, the effort, and Send
+           or Stop. -->
+      <div id="box">
+        <textarea id="input" rows="2" placeholder="Ask about this page…"></textarea>
+        <!-- Two groups, so a narrow box wraps the second (the pickers with
+             send or stop) under the first as a whole. -->
+        <div id="bar">
+          <div id="bar-start">
+            <button id="attach" class="round" title="Attach images, PDFs or text files (or drop or paste them)" aria-label="Attach files"></button>
+            <input id="file-input" type="file" multiple hidden />
+            <div id="switch" role="group" aria-label="Chat or Work">
+              <button id="to-chat" title="This tab's chat" aria-pressed="true">Chat</button>
+              <button id="to-work" title="Your tasks, whichever tab you're on" aria-pressed="false">Work<span id="needs" class="count" hidden></span></button>
+            </div>
+          </div>
+          <div id="bar-end">
+            <div id="pickers">
+              <select id="model" title="Agent and model"></select>
+              <span id="pick-dot" aria-hidden="true">·</span>
+              <select id="effort" title="Reasoning effort" hidden></select>
+            </div>
+            <button id="stop" class="round" title="Stop" aria-label="Stop" hidden></button>
+            <button id="send" class="round" title="Send (Enter)" aria-label="Send"></button>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

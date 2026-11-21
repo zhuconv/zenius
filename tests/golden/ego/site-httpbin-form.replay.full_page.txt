@@ -1,0 +1,65 @@
+[p1 "{{BASE_HOST}}/golden-replay/site-httpbin-form.html" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "{{BASE_HOST}}/golden-replay/site-httpbin-form.html"]
+root
+  container
+    form
+      paragraph
+        text "Customer name:"
+        textbox [ref=25743, loc=css:input[name="custname"]]
+      paragraph
+        text "Telephone:"
+        textbox [ref=25744, loc=css:input[name="custtel"]]
+      paragraph
+        text "E-mail address:"
+        textbox [ref=25745, loc=css:input[name="custemail"]]
+      group [ref=25746]
+        text "Pizza Size"
+        paragraph
+          radio [ref=25747]
+          text "Small"
+        paragraph
+          radio [ref=25748]
+          text "Medium"
+        paragraph
+          radio [ref=25749]
+          text "Large"
+      group [ref=25750]
+        text "Pizza Toppings"
+        paragraph
+          checkbox [ref=25751]
+          text "Bacon"
+        paragraph
+          checkbox [ref=25752]
+          text "Extra Cheese"
+        paragraph
+          checkbox [ref=25753]
+          text "Onion"
+        paragraph
+          checkbox [ref=25754]
+          text "Mushroom"
+      paragraph
+        text "Preferred delivery time:"
+        textbox [ref=25755, loc=css:input[name="delivery"]]
+          spinbutton "Hours" [ref=25756]
+            text "--"
+          text ":"
+          spinbutton "Minutes" [ref=25757]
+            text "--"
+      paragraph
+        text "Delivery instructions:"
+        textbox [ref=25758, loc=css:textarea[name="comments"]]
+      paragraph
+        button [ref=25759]
+          text "Submit order"
+    container
+      svg_root
+      svg_root
+      svg_root
+      svg_root
+      svg_root
+      svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root

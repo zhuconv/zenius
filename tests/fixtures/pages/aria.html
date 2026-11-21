@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>zoo: ARIA widgets</title>
+<style>
+  body { font: 15px system-ui, sans-serif; margin: 16px; }
+  [role=tab][aria-selected=true] { font-weight: bold; }
+  .box { border: 1px solid #aaa; padding: 6px; margin: 6px 0; }
+</style>
+</head>
+<body>
+<div role="heading" aria-level="1">ARIA widgets</div>
+
+<div class="box">
+  <div role="tablist" aria-label="Settings sections">
+    <button role="tab" id="tab-general" aria-selected="true" aria-controls="panel-general">General</button>
+    <button role="tab" id="tab-privacy" aria-selected="false" aria-controls="panel-privacy" tabindex="-1">Privacy</button>
+    <button role="tab" id="tab-advanced" aria-selected="false" aria-disabled="true" tabindex="-1">Advanced</button>
+  </div>
+  <div role="tabpanel" id="panel-general" aria-labelledby="tab-general">General settings live here.</div>
+  <div role="tabpanel" id="panel-privacy" aria-labelledby="tab-privacy" hidden>Privacy settings.</div>
+</div>
+
+<div class="box" role="toolbar" aria-label="Formatting">
+  <button aria-pressed="true">Bold</button>
+  <button aria-pressed="false">Italic</button>
+  <span role="separator"></span>
+  <button aria-label="Align left">⟸</button>
+  <div role="switch" aria-checked="true" tabindex="0">Spell check</div>
+</div>
+
+<div class="box">
+  <button aria-haspopup="menu" aria-expanded="true" aria-controls="file-menu">File</button>
+  <ul role="menu" id="file-menu" aria-label="File">
+    <li role="menuitem">New window</li>
+    <li role="menuitemcheckbox" aria-checked="true">Autosave</li>
+    <li role="menuitemradio" aria-checked="false">Compact view</li>
+    <li role="menuitem" aria-disabled="true">Print</li>
+  </ul>
+</div>
+
+<div class="box">
+  <label id="city-label" for="city">City</label>
+  <input id="city" role="combobox" aria-expanded="true" aria-controls="city-list" aria-autocomplete="list" aria-labelledby="city-label" value="Au">
+  <ul role="listbox" id="city-list" aria-label="City suggestions">
+    <li role="option" aria-selected="true">Aurora</li>
+    <li role="option" aria-selected="false">Auckland</li>
+    <li role="option" aria-disabled="true">Augsburg</li>
+  </ul>
+</div>
+
+<div class="box">
+  <ul role="tree" aria-label="Files">
+    <li role="treeitem" aria-expanded="true">src
+      <ul role="group">
+        <li role="treeitem">index.js</li>
+        <li role="treeitem" aria-selected="true">app.js</li>
+      </ul>
+    </li>
+    <li role="treeitem" aria-expanded="false">docs</li>
+  </ul>
+</div>
+
+<div class="box" role="grid" aria-label="Scores">
+  <div role="row"><span role="columnheader">Name</span><span role="columnheader">Score</span></div>
+  <div role="row"><span role="rowheader">Ada</span><span role="gridcell">98</span></div>
+  <div role="row" aria-selected="true"><span role="rowheader">Linus</span><span role="gridcell" tabindex="0">91</span></div>
+</div>
+
+<div class="box">
+  <div role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="25" aria-label="Brightness" tabindex="0"></div>
+  <div role="spinbutton" aria-valuemin="1" aria-valuemax="9" aria-valuenow="3" aria-label="Copies" tabindex="0">3</div>
+  <div role="progressbar" aria-valuenow="40" aria-label="Sync">40%</div>
+  <div role="checkbox" aria-checked="mixed" tabindex="0">Select all</div>
+  <span role="link" tabindex="0" data-href="/nav-target">Span link</span>
+  <div role="button" tabindex="0">Div button</div>
+  <div role="img" aria-label="Five stars">★★★★★</div>
+</div>
+
+<div class="box">
+  <div role="alert">Your session expires in 5 minutes.</div>
+  <div role="status" aria-live="polite">3 results</div>
+  <div role="log">Connected.</div>
+  <div role="note">Notes are informative.</div>
+  <div role="search"><input type="search" aria-label="Search site"></div>
+  <div aria-hidden="true">Hidden from assistive tech</div>
+  <div role="presentation"><span>Presentational wrapper text</span></div>
+  <div role="none"><button>Inside role=none</button></div>
+</div>
+
+<div role="dialog" aria-modal="false" aria-labelledby="dlg-title" class="box">
+  <h2 id="dlg-title">Cookie preferences</h2>
+  <p id="dlg-desc">Choose which cookies to allow.</p>
+  <button>Accept all</button>
+  <button>Reject all</button>
+</div>
+
+<dialog open aria-label="Native dialog">
+  <p>Native open dialog</p>
+  <form method="dialog"><button>Close</button></form>
+</dialog>
+</body>
+</html>

@@ -1,0 +1,1178 @@
+:root {
+  color-scheme: light dark;
+  --bg: light-dark(#fbfbfc, #1f1f23);
+  --fg: light-dark(#1d1d1f, #ececf1);
+  --muted: light-dark(#6b6b76, #9a9aa6);
+  --line: light-dark(#e3e3e8, #34343b);
+  --user-bg: light-dark(#eef1f7, #2a2d36);
+  --quote: light-dark(#5b6fd6, #8ea0ff);
+  --code-bg: light-dark(#f0f0f3, #2b2b31);
+  --danger: light-dark(#c42b1c, #ff8a80);
+  --accent: AccentColor;
+  --accent-fg: AccentColorText;
+  --faint: light-dark(#a1a1a8, #6e6e78);
+  --box-bg: light-dark(#ffffff, #26262b);
+  --seg-bg: light-dark(#f0f0f3, #1f1f23);
+  --seg-on: light-dark(#ffffff, #3a3a42);
+  --seg-line: light-dark(#dcdce2, #4a4a52);
+  /* The tasks that need the user: Work's count, a step waiting for them. */
+  --needs-color: #f07c1b;
+  --purple: light-dark(#7c5cff, #a48bff);
+  --green: light-dark(#28a745, #34c759);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--fg);
+  font: 13px/1.5 -apple-system, system-ui, sans-serif;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 1px solid var(--line);
+  background: transparent;
+  border-radius: 6px;
+  padding: 2px 10px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--code-bg);
+}
+
+button.icon {
+  border: none;
+  padding: 2px 6px;
+  color: var(--muted);
+}
+
+/* --- The header: only the chat's title. In Chat the tab's favicon comes
+ * before it, in Work the button that opens the list of tasks; ⋯ after it. */
+
+#header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 7px 6px 7px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+:root[data-mode="work"] #header {
+  padding-inline-start: 6px;
+}
+
+#favicon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  object-fit: contain;
+  -moz-context-properties: fill;
+  fill: var(--muted);
+}
+
+#title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Plain icons, Zen's own. */
+#dir,
+#more {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  color: var(--muted);
+}
+
+#dir:hover,
+#more:hover,
+#dir.on {
+  color: var(--fg);
+  background: var(--code-bg);
+}
+
+#dir::before,
+#more::before {
+  content: "";
+  display: block;
+  background: center / contain no-repeat;
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+#dir::before {
+  width: 16px;
+  height: 16px;
+  background-image: url("chrome://browser/skin/zen-icons/sidebar.svg");
+}
+
+#more::before {
+  width: 14px;
+  height: 14px;
+  background-image: url("chrome://browser/skin/zen-icons/menu.svg");
+}
+
+#menu {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% - 4px);
+  inset-inline-end: 6px;
+  min-width: 210px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+
+#menu[hidden] {
+  display: none;
+}
+
+#menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 8px;
+  text-align: start;
+}
+
+#menu button:hover,
+#menu button:focus-visible {
+  background: var(--code-bg);
+  outline: none;
+}
+
+#menu .separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--line);
+}
+
+#menu .kbd {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+#messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+#messages > .list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#empty {
+  position: absolute;
+  inset: 40% 16px auto;
+  text-align: center;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+#empty p {
+  margin: 4px 0;
+}
+
+#empty .lead {
+  color: var(--fg);
+  font-size: 13.5px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+:root[data-mode="chat"] #empty .work-only,
+:root[data-mode="work"] #empty .chat-only {
+  display: none;
+}
+
+kbd {
+  font: inherit;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.msg {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.msg.user {
+  align-self: flex-end;
+  max-width: 92%;
+  background: var(--user-bg);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+
+.msg.user .text {
+  white-space: pre-wrap;
+}
+
+.msg.user .src {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+/* Edit: to the left of a question, while the pointer is over it. Not while
+ * the agent answers. */
+.msg.user {
+  position: relative;
+}
+
+.msg.user > .actions {
+  position: absolute;
+  inset-inline-end: 100%;
+  bottom: 0;
+  padding-inline-end: 2px;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.msg.user:hover > .actions,
+.msg.user:focus-within > .actions {
+  opacity: 1;
+}
+
+body.busy .msg.user > .actions {
+  display: none;
+}
+
+.msg.user.editing {
+  align-self: stretch;
+  max-width: 100%;
+}
+
+.editor textarea {
+  display: block;
+  width: 100%;
+  resize: none;
+  font: inherit;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+  max-height: 300px;
+}
+
+.editor textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.editor .buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.editor .send {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: transparent;
+}
+
+.selection {
+  border-inline-start: 3px solid var(--quote);
+  padding-inline-start: 8px;
+  margin-bottom: 4px;
+  color: var(--muted);
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.meta {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.msg.assistant .body > :first-child,
+.msg.assistant .body > .code:first-child > pre {
+  margin-top: 0;
+}
+
+.msg.assistant .body > :last-child,
+.msg.assistant .body > .code:last-child > pre {
+  margin-bottom: 0;
+}
+
+.msg.assistant[data-state="streaming"] > .body::after {
+  content: "▍";
+  color: var(--muted);
+}
+
+.msg.assistant[data-state="stopped"] > .body::after {
+  content: "(stopped)";
+  margin-inline-start: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* Copy and save: under each finished answer, and on each code block. The
+ * buttons are icons and the feedback is drawn by CSS, so neither ends up in
+ * text copied from the panel. Not under the line an agent says before its
+ * steps ("Searching for flights."): only the answer is worth keeping. */
+.msg.assistant:has(+ .steps) > .actions {
+  display: none;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  user-select: none;
+}
+
+.actions button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  color: inherit;
+}
+
+.actions button:hover {
+  color: var(--fg);
+}
+
+.actions button::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  background: center / contain no-repeat;
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+.actions .copy::before {
+  background-image: url("chrome://global/skin/icons/edit-copy.svg");
+}
+
+.actions .save::before {
+  background-image: url("chrome://browser/skin/downloads/downloads.svg");
+}
+
+/* zenius's own pencil (pencil.svg), drawn as outline strokes: a mask in the
+ * text's color, so hover colors it as it does the others. */
+.actions .edit::before {
+  background: currentColor;
+  mask: url("pencil.svg") center / contain no-repeat;
+}
+
+.actions[data-done="copy"] .copy::before,
+.actions[data-done="save"] .save::before {
+  background-image: url("chrome://global/skin/icons/check.svg");
+}
+
+.actions[data-feedback]::after {
+  content: attr(data-feedback);
+  margin-inline: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.actions.failed::after {
+  color: var(--danger);
+}
+
+.msg.assistant > .actions {
+  margin-top: 4px;
+  margin-inline-start: -4px;
+}
+
+.msg.assistant .code {
+  position: relative;
+}
+
+/* On a code block: its top right corner, while the pointer is over it. */
+.code > .actions {
+  position: absolute;
+  top: 4px;
+  inset-inline-end: 4px;
+  max-width: calc(100% - 8px);
+  border-radius: 6px;
+  background: var(--code-bg);
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.code > .actions button:hover {
+  background: var(--line);
+}
+
+.code:hover > .actions,
+.code:focus-within > .actions,
+.code > .actions[data-feedback] {
+  opacity: 1;
+}
+
+.msg.assistant :is(h1, h2, h3, h4) {
+  font-size: 1.05em;
+  margin: 0.8em 0 0.3em;
+}
+
+.msg.assistant :is(p, ul, ol, pre, blockquote, table) {
+  margin: 0.4em 0;
+}
+
+.msg.assistant :is(ul, ol) {
+  padding-inline-start: 1.4em;
+}
+
+.msg.assistant code {
+  font: 12px/1.4 ui-monospace, Menlo, monospace;
+  background: var(--code-bg);
+  border-radius: 4px;
+  padding: 0 3px;
+}
+
+.msg.assistant pre {
+  background: var(--code-bg);
+  border-radius: 6px;
+  padding: 8px;
+  overflow-x: auto;
+}
+
+.msg.assistant pre code {
+  padding: 0;
+  background: none;
+}
+
+.msg.assistant blockquote {
+  border-inline-start: 3px solid var(--line);
+  padding-inline-start: 8px;
+  color: var(--muted);
+}
+
+.msg.assistant table {
+  border-collapse: collapse;
+}
+
+.msg.assistant :is(th, td) {
+  border: 1px solid var(--line);
+  padding: 2px 6px;
+}
+
+.msg.assistant a {
+  color: var(--quote);
+}
+
+/* Where a link in an answer goes (renderMarkdown). */
+.msg.assistant a .host {
+  margin-inline-start: 0.35em;
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.msg.assistant a .host::before {
+  content: "(";
+}
+
+.msg.assistant a .host::after {
+  content: ")";
+}
+
+.msg.note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* --- Steps: the agent's tool calls, each as a line the user can read, in one
+ * box for each run of them. ✓ done, a turning ring while it runs, ✕ failed,
+ * an orange dot while it waits for the user. */
+
+/* Work: the page the agent is on (renderLive), at the end of the thread. */
+#live {
+  margin: 8px 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--box-bg);
+}
+
+#live[hidden] {
+  display: none;
+}
+
+#live-shot {
+  display: block;
+  width: 100%;
+  height: 120px;
+  background: light-dark(#fafafc, #2a2a30);
+}
+
+#live-cap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 6px 10px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+#live-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e5484d;
+}
+
+#live:not([data-live="true"]) #live-dot {
+  display: none;
+}
+
+#live-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#live .ghost {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--box-bg);
+  color: var(--fg);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+#live .ghost.dark {
+  border-color: var(--fg);
+  background: var(--fg);
+  color: var(--bg);
+}
+
+#live .ghost:hover {
+  filter: brightness(0.95);
+}
+
+#live .ghost[hidden] {
+  display: none;
+}
+
+/* While watching, in Watch's place: ⌃Tab is the way back. It gives way
+ * before the host does, keeping its key. */
+#watch-hint {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg);
+}
+
+#watch-hint[hidden] {
+  display: none;
+}
+
+#watch-hint kbd {
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--box-bg);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.steps {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.step .line,
+.step summary {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 2px 0;
+  min-width: 0;
+}
+
+.step summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.step summary::-webkit-details-marker,
+.step summary::marker {
+  display: none;
+  content: "";
+}
+
+.step .label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--fg);
+}
+
+.step[data-status="done"] .label,
+.step[data-status="stopped"] .label {
+  color: color-mix(in srgb, var(--fg) 78%, var(--bg));
+}
+
+.step summary .label::after {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-inline-start: 6px;
+  background: url("chrome://global/skin/icons/arrow-down-12.svg") center / contain no-repeat;
+  -moz-context-properties: fill;
+  fill: var(--faint);
+  vertical-align: 0;
+  transition: transform 0.12s;
+}
+
+.step details[open] > summary .label::after {
+  transform: rotate(180deg);
+}
+
+.step .mark {
+  flex: none;
+  width: 12px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.step[data-status="done"] .mark::before {
+  content: "✓";
+  color: var(--green);
+}
+
+.step[data-status="failed"] .mark::before {
+  content: "✕";
+  color: var(--danger);
+}
+
+.step[data-status="failed"] .label {
+  color: var(--danger);
+}
+
+.step[data-status="stopped"] .mark::before {
+  content: "–";
+  color: var(--faint);
+}
+
+.step[data-status="waiting"] .mark::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--needs-color);
+}
+
+.step[data-status="running"] .mark::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid color-mix(in srgb, var(--purple) 30%, transparent);
+  border-top-color: var(--purple);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step[data-status="running"] .mark::before {
+    animation: none;
+    border-color: var(--purple);
+  }
+}
+
+/* finish's kept tabs, and a failure's reason, under the step. */
+.step .sub {
+  margin-inline-start: 19px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.step pre {
+  margin: 2px 0 6px 19px;
+  padding: 6px 8px;
+  max-height: 220px;
+  overflow: auto;
+  border-radius: 6px;
+  background: var(--code-bg);
+  color: var(--fg);
+  font: 11px/1.4 ui-monospace, Menlo, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.msg.error {
+  color: var(--danger);
+  white-space: pre-wrap;
+}
+
+.msg.permission {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.msg.permission .options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+#composer {
+  padding: 6px 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#chip {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  border-inline-start: 3px solid var(--quote);
+  background: var(--user-bg);
+  border-radius: 6px;
+  padding: 4px 4px 4px 8px;
+}
+
+#chip[hidden] {
+  display: none;
+}
+
+#chip-text {
+  flex: 1;
+  color: var(--muted);
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Attached files: chips in the composer, badges in sent messages. */
+#attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.attachment {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--user-bg);
+  padding: 3px 2px 3px 3px;
+}
+
+.attachment.error {
+  border-color: var(--danger);
+}
+
+.attachment.reading {
+  opacity: 0.7;
+}
+
+:is(.attachment, .file) img {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 5px;
+  flex: none;
+}
+
+:is(.attachment, .file) .icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  flex: none;
+}
+
+.attachment .label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.attachment .name {
+  font-size: 12px;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attachment .info {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.attachment.error .info {
+  color: var(--danger);
+}
+
+.attachment .remove {
+  align-self: flex-start;
+  padding: 0 4px;
+}
+
+.msg.user .files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.msg.user .file {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.msg.user .file .name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.msg.user .file.image img {
+  width: 56px;
+  height: 56px;
+}
+
+body.dragging::after {
+  content: "Drop to attach";
+  position: fixed;
+  inset: 6px;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--quote);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  color: var(--quote);
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* The question box, as in Claude's app: the text on top, two lines high when
+ * empty; under it, inside the box, + and the Chat | Work switch on the left,
+ * the agent and model, the effort, and Send or Stop on the right. */
+#box {
+  container: question-box / inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 8px 6px 6px;
+  background: var(--box-bg);
+}
+
+#box:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+#input {
+  width: 100%;
+  resize: none;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0 6px;
+  /* Two lines (body's line-height 1.5) when empty. */
+  min-height: 3em;
+  max-height: 200px;
+}
+
+#input::placeholder {
+  color: var(--muted);
+}
+
+/* One row when everything fits at its natural width. Otherwise the second
+ * group (the pickers, then send or stop) wraps under the first as a whole,
+ * at the right; it shrinks the pickers (their names end in an ellipsis)
+ * rather than run past the box. Nothing is hidden. */
+#bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-width: 0;
+}
+
+#bar-start,
+#bar-end {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#bar-start {
+  flex: none;
+}
+
+#bar-end {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-inline-start: auto;
+}
+
+
+/* Chat | Work: which chat the panel shows. */
+#switch {
+  flex: none;
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--seg-bg);
+}
+
+#switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 1px 9px;
+  font-size: 12.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+#switch button:hover {
+  background: transparent;
+  color: var(--fg);
+}
+
+#switch button[aria-pressed="true"] {
+  background: var(--seg-on);
+  border-color: var(--seg-line);
+  color: var(--fg);
+}
+
+/* The tasks that need the user, on Work. */
+.count {
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  padding: 0 4px;
+  background: var(--needs-color);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* The agent and model ("Opus 5.5"), then the effort ("Low"), dimmer. */
+#pickers {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+#pickers select {
+  appearance: none;
+  field-sizing: content;
+  min-width: 0;
+  max-width: 150px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--fg);
+  border: none;
+  border-radius: 6px;
+  padding: 3px 5px;
+  background: transparent;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+#pickers #effort {
+  color: var(--muted);
+  max-width: 90px;
+}
+
+#pickers select:hover:not(:disabled) {
+  background: var(--code-bg);
+}
+
+#pickers select:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+#pick-dot {
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.round {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+}
+
+.round::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: center / contain no-repeat;
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+#attach {
+  color: var(--muted);
+}
+
+#attach:hover {
+  color: var(--fg);
+}
+
+#attach::before {
+  background-image: url("chrome://global/skin/icons/plus.svg");
+}
+
+#send {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+#send::before {
+  background-image: url("chrome://global/skin/icons/arrow-up.svg");
+}
+
+#send:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+#stop {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+#stop:hover {
+  background: color-mix(in srgb, var(--fg) 80%, var(--bg));
+}
+
+/* A square, drawn rather than an icon. */
+#stop::before {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+/* Zen's narrowest sidebars: '+' and the switch, with its count, still fit
+ * one row. */
+@container question-box (max-width: 170px) {
+  #bar-start {
+    gap: 4px;
+  }
+
+  #attach {
+    width: 24px;
+    height: 24px;
+  }
+
+  #switch button {
+    gap: 3px;
+    padding: 1px 4px;
+    font-size: 12px;
+  }
+}
+
+[hidden] {
+  display: none !important;
+}

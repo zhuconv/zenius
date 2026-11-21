@@ -1,0 +1,199 @@
+[p1 "Latest news, sport and opinion from the Guardian" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "Latest news, sport and opinion from the Guardian"]
+root
+  container
+    container
+      container
+        anchor [ref=25403, url=https://support.theguardian.com/?REFPVID=mwohcmw6jbfz7d98nc3f&INTCMP=header_support_2026-10-27_USEOY_HEADER__US_CONTROL&acquisitionData=%7B%22source%22%3A%22GUARDIAN_WEB%22%2C%22componentId%22%3A%22header_support_2026-10-27_USEOY_HEADER__US_CONTROL%22%2C%22componentType%22%3A%22ACQUISITIONS_HEADER%22%2C%22campaignCode%22%3A%22header_support_2026-10-27_USEOY_HEADER__US_CONTROL%22%2C%22abTests%22%3A%5B%7B%22name%22%3A%222026-10-27_USEOY_HEADER__US%22%2C%22variant%22%3A%22CONTROL%22%7D%5D%2C%22referrerPageviewId%22%3A%22mwohcmw6jbfz7d98nc3f%22%2C%22referrerUrl%22%3A%22https%3A%2F%2Fwww.theguardian.com%2Finternational%22%2C%22isRemote%22%3Atrue%7D]
+          svg_root
+        anchor [ref=25404, url=https://support.theguardian.com/subscribe/weekly?REFPVID=mwohcmw6jbfz7d98nc3f&INTCMP=undefined&acquisitionData=%7B%22source%22%3A%22GUARDIAN_WEB%22%2C%22componentId%22%3A%22PrintSubscriptionsHeaderLink%22%2C%22componentType%22%3A%22ACQUISITIONS_HEADER%22%2C%22referrerPageviewId%22%3A%22mwohcmw6jbfz7d98nc3f%22%2C%22referrerUrl%22%3A%22https%3A%2F%2Fwww.theguardian.com%2Finternational%22%7D]
+          text "Print subscriptions"
+        anchor [ref=25405, url=https://www.theguardian.com/email-newsletters]
+          text "Newsletters"
+        anchor [ref=25406, url=https://profile.theguardian.com/signin?INTCMP=DOTCOM_NEWHEADER_SIGNIN&ABCMP=ab-sign-in&componentEventParams=componentType%3Didentityauthentication%26componentId%3Dguardian_signin_header]
+          svg_root
+          text "Sign in"
+      region "Highlights"
+        unordered_list [ref=25407]
+          group
+            anchor "Grand Theft Auto 6, Robert Pattinson and Nathan Fielder" [ref=25408, loc=css:a[aria-label="Grand Theft Auto 6, Robert Pattinson and Nathan Fielder"], url=https://www.theguardian.com/culture/video/2026/nov/19/grand-theft-auto-6-robert-pattinson-and-nathan-fielder-the-close-up]
+            container
+              heading
+                text "The Close Up"
+                text "Grand Theft Auto 6, Robert Pattinson and Nathan Fielder"
+              container
+                text "Video"
+                container
+                  svg_root
+                  text "38:13"
+            image
+          group
+            container
+              anchor "Xi, Trump and Putin summit was more of a footnote" [ref=25409, loc=css:a[aria-label="Xi, Trump and Putin summit was more of a footnote"], url=https://www.theguardian.com/world/2026/nov/19/new-page-in-history-xi-trump-and-putin-summit-was-more-of-a-footnote]
+              heading
+                text "‘New page in history?’"
+                text "Xi, Trump and Putin summit was more of a footnote"
+              image
+          group
+            container
+              anchor "How to start without missing out on foods you enjoy" [ref=25410, loc=css:a[aria-label="How to start without missing out on foods you enjoy "], url=https://www.theguardian.com/wellness/2026/nov/19/how-to-start-eating-plant-based]
+              heading
+                text "Plant-based eating"
+                text "How to start without missing out on foods you enjoy"
+              image
+        button "Move highlight stories forwards" [ref=25411, loc=css:button[aria-label="Move highlight stories forwards"]]
+          svg_root
+      container
+        container
+          button [ref=25412]
+            text "Edition"
+          unordered_list
+            list_item
+              anchor [ref=25413, loc=href:https://www.theguardian.com/preference/edition/us, url=https://www.theguardian.com/preference/edition/us]
+                text "US edition"
+            list_item
+              anchor [ref=25414, loc=href:https://www.theguardian.com/preference/edition/uk, url=https://www.theguardian.com/preference/edition/uk]
+                text "UK edition"
+            list_item
+              anchor [ref=25415, loc=href:https://www.theguardian.com/preference/edition/au, url=https://www.theguardian.com/preference/edition/au]
+                text "Australia edition"
+            list_item
+              anchor [ref=25416, loc=href:https://www.theguardian.com/preference/edition/eur, url=https://www.theguardian.com/preference/edition/eur]
+                text "Europe edition"
+            list_item
+              anchor [ref=25417, loc=href:https://www.theguardian.com/preference/edition/int, url=https://www.theguardian.com/preference/edition/int]
+                text "International edition"
+        anchor [ref=25418, url=https://www.theguardian.com/]
+          svg_root
+        unordered_list
+          list_item
+            anchor [ref=25419, url=https://www.theguardian.com/]
+              text "News"
+          list_item
+            anchor [ref=25420, url=https://www.theguardian.com/commentisfree]
+              text "Opinion"
+          list_item
+            anchor [ref=25421, url=https://www.theguardian.com/sport]
+              text "Sport"
+          list_item
+            anchor [ref=25422, url=https://www.theguardian.com/culture]
+              text "Culture"
+          list_item
+            anchor [ref=25423, url=https://www.theguardian.com/lifeandstyle]
+              text "Lifestyle"
+        button "Toggle main menu" [ref=25424, loc=role:button[name="Toggle main menu"]]
+          svg_root
+        list
+          list_item
+            anchor [ref=25425, url=https://www.theguardian.com/world]
+              text "World"
+          list_item
+            anchor [ref=25426, url=https://www.theguardian.com/us-news/us-politics]
+              text "US politics"
+          list_item
+            anchor [ref=25427, loc=href:https://www.theguardian.com/uk-news, url=https://www.theguardian.com/uk-news]
+              text "UK"
+          list_item
+            anchor [ref=25428, url=https://www.theguardian.com/environment/climate-crisis]
+              text "Climate crisis"
+          list_item
+            anchor [ref=25429, url=https://www.theguardian.com/world/middleeast]
+              text "Middle East"
+          list_item
+            anchor [ref=25430, url=https://www.theguardian.com/world/ukraine]
+              text "Ukraine"
+          list_item
+            anchor [ref=25431, loc=href:https://www.theguardian.com/environment, url=https://www.theguardian.com/environment]
+              text "Environment"
+          list_item
+            anchor [ref=25432, url=https://www.theguardian.com/science]
+              text "Science"
+          list_item
+            anchor [ref=25433, loc=href:https://www.theguardian.com/global-development, url=https://www.theguardian.com/global-development]
+              text "Global development"
+          list_item
+            anchor [ref=25434, loc=href:https://www.theguardian.com/football, url=https://www.theguardian.com/football]
+              text "Football"
+          list_item
+            anchor [ref=25435, loc=href:https://www.theguardian.com/technology, url=https://www.theguardian.com/technology]
+              text "Tech"
+          list_item
+            anchor [ref=25436, loc=href:https://www.theguardian.com/business, url=https://www.theguardian.com/business]
+              text "Business"
+          list_item
+            anchor [ref=25437, loc=href:https://www.theguardian.com/obituaries, url=https://www.theguardian.com/obituaries]
+              text "Obituaries"
+          list_item
+            anchor [ref=25438, url=https://www.theguardian.com/puzzles-and-games]
+              text "Puzzles"
+    container
+      container
+        container
+          svg_root
+          paragraph
+            text "You are viewing the International homepage "
+            anchor [ref=25439, loc=href:https://www.theguardian.com/us, url=https://www.theguardian.com/us]
+              text "View the US homepage"
+        button "Close banner" [ref=25440, loc=css:button[aria-label="Close banner"]]
+          svg_root
+      container
+        heading
+          text "News"
+        unordered_list
+          list_item
+            anchor "US reacts cautiously to Myanmar genocide ruling as EU praises ‘critical’ role of UN’s top court" [ref=25441, url=https://www.theguardian.com/law/2026/nov/20/us-eu-reaction-myanmar-rohingya-genocide-icj-ruling-trump-international-law]
+            container
+              image
+              container
+                container
+                  heading
+                    text "ICJ judgment"
+                    text "US reacts cautiously to Myanmar genocide ruling as EU praises ‘critical’ role of UN’s top court"
+                  text "Trump’s state department says it is examining international court of justice's judgment while stressing the need to avoid ‘politicisation’ of the body"
+                  text "3h ago"
+                unordered_list
+                  list_item
+                    anchor [ref=25442, url=https://www.theguardian.com/world/2026/nov/19/genocide-rohingya-international-court-of-justice-ruling-myanmar]
+                      heading
+                        text "International court of justice"
+                        text "Myanmar committed genocide against Rohingya minority, world’s top court rules"
+    container [ref=25443]
+      alert [ref=25444]
+        svg_root
+        container
+          heading
+            text "Now live: Our critical year-end fundraiser"
+          container
+            text "Please contribute if you can"
+            container
+              text "$0"
+              text "of $2,000,000 goal"
+          container
+            paragraph
+              text "The Guardian has something US newsrooms don’t: guaranteed independence. With no billionaire or big corporate owner, our journalists are free to scrutinize the rich and powerful, not take orders from..."
+            paragraph
+              text "Can you spare 37 seconds to support our year-end fundraiser? Even $5 makes a difference, but for the most impact, consider a monthly gift. Thank you for protecting the truly free press."
+        group [ref=25445]
+          container
+            radio [ref=25446]
+            container
+              text "Support once from just $1"
+              text "Support once from just $1"
+          container
+            radio [ref=25447]
+            container
+              container
+                text "Support $15/month"
+                text "Support $15/month"
+              unordered_list
+                list_item
+                  svg_root
+                  text "Far fewer asks for support"
+                list_item
+                  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 18472 px; scroll or use snapshot({ scope: "full_page" })]

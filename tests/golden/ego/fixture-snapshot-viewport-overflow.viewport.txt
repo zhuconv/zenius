@@ -1,0 +1,7 @@
+[p1 "snapshot viewport overflow" | space "zen-eval golden 1795148479936"(5): 1 managed, 0 untracked — p1* "snapshot viewport overflow"]
+root
+  container
+    text "Spacer"
+    button [ref=177]
+      text "Submit"
+[more content below the viewport: scrollY=0, viewport 829 / page 870 px; scroll or use snapshot({ scope: "full_page" })]

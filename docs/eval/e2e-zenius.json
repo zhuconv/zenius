@@ -1,0 +1,1420 @@
+{
+ "target": "zenius",
+ "version": "0.1.0",
+ "versionDetail": "zen 1.24.2b, commit 6c1ed53",
+ "sdk": "zenius",
+ "runs": [
+  {
+   "startedAt": "2026-11-20T14:02:14.340Z",
+   "totalMs": 100014,
+   "summary": {
+    "total": 85,
+    "pass": 70,
+    "fail": 0,
+    "skip": 0,
+    "na": 15,
+    "assertions": 991
+   }
+  }
+ ],
+ "cases": [
+  {
+   "name": "environment initialization",
+   "file": "environment.mjs",
+   "category": "v1",
+   "zenius": "na",
+   "reason": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out; also asserts CDP Runtime.evaluate",
+   "verdict": "na",
+   "assertions": 0,
+   "runs": [
+    {
+     "status": "na",
+     "durationMs": 0,
+     "assertions": 0,
+     "message": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out; also asserts CDP Runtime.evaluate"
+    }
+   ]
+  },
+  {
+   "name": "helper surface",
+   "file": "helper-surface.mjs",
+   "category": "v1",
+   "zenius": "na",
+   "reason": "checks that Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …) are installed; skill guide v2.2.1 leaves them out",
+   "verdict": "na",
+   "assertions": 0,
+   "runs": [
+    {
+     "status": "na",
+     "durationMs": 0,
+     "assertions": 0,
+     "message": "checks that Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …) are installed; skill guide v2.2.1 leaves them out"
+    }
+   ]
+  },
+  {
+   "name": "task spaces and control",
+   "file": "task-space.mjs",
+   "category": "v1",
+   "zenius": "na",
+   "reason": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out; its v2 lifecycle part (handOff, takeover, finish receipts, claim) is covered by \"zen-eval: v2 control lifecycle\"",
+   "verdict": "na",
+   "assertions": 0,
+   "runs": [
+    {
+     "status": "na",
+     "durationMs": 0,
+     "assertions": 0,
+     "message": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out; its v2 lifecycle part (handOff, takeover, finish receipts, claim) is covered by \"zen-eval: v2 control lifecycle\""
+    }
+   ]
+  },
+  {
+   "name": "TaskSpace profile selection",
+   "file": "profile-selection.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 270,
+   "assertions": 19,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 270,
+     "assertions": 19
+    }
+   ]
+  },
+  {
+   "name": "v2 cross-space routing",
+   "file": "task-space.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 339,
+   "assertions": 4,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 339,
+     "assertions": 4
+    }
+   ]
+  },
+  {
+   "name": "navigation helpers",
+   "file": "navigation.mjs",
+   "category": "v1",
+   "zenius": "na",
+   "reason": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out",
+   "verdict": "na",
+   "assertions": 0,
+   "runs": [
+    {
+     "status": "na",
+     "durationMs": 0,
+     "assertions": 0,
+     "message": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out"
+    }
+   ]
+  },
+  {
+   "name": "observation helpers",
+   "file": "observation.mjs",
+   "category": "v1",
+   "zenius": "na",
+   "reason": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out; also uses CDP Network.enable",
+   "verdict": "na",
+   "assertions": 0,
+   "runs": [
+    {
+     "status": "na",
+     "durationMs": 0,
+     "assertions": 0,
+     "message": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out; also uses CDP Network.enable"
+    }
+   ]
+  },
+  {
+   "name": "pointer and scroll helpers",
+   "file": "pointer.mjs",
+   "category": "v1",
+   "zenius": "na",
+   "reason": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out",
+   "verdict": "na",
+   "assertions": 0,
+   "runs": [
+    {
+     "status": "na",
+     "durationMs": 0,
+     "assertions": 0,
+     "message": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out"
+    }
+   ]
+  },
+  {
+   "name": "keyboard and file helpers",
+   "file": "keyboard.mjs",
+   "category": "v1",
+   "zenius": "na",
+   "reason": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out",
+   "verdict": "na",
+   "assertions": 0,
+   "runs": [
+    {
+     "status": "na",
+     "durationMs": 0,
+     "assertions": 0,
+     "message": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out"
+    }
+   ]
+  },
+  {
+   "name": "keyboard regression",
+   "file": "keyboard-regression.mjs",
+   "category": "v1",
+   "zenius": "na",
+   "reason": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out",
+   "verdict": "na",
+   "assertions": 0,
+   "runs": [
+    {
+     "status": "na",
+     "durationMs": 0,
+     "assertions": 0,
+     "message": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out"
+    }
+   ]
+  },
+  {
+   "name": "wait, fetch, cdp, js, help",
+   "file": "runtime.mjs",
+   "category": "v1",
+   "zenius": "na",
+   "reason": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out; also asserts CDP",
+   "verdict": "na",
+   "assertions": 0,
+   "runs": [
+    {
+     "status": "na",
+     "durationMs": 0,
+     "assertions": 0,
+     "message": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out; also asserts CDP"
+    }
+   ]
+  },
+  {
+   "name": "runtime regression",
+   "file": "runtime-regression.mjs",
+   "category": "v1",
+   "zenius": "na",
+   "reason": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out",
+   "verdict": "na",
+   "assertions": 0,
+   "runs": [
+    {
+     "status": "na",
+     "durationMs": 0,
+     "assertions": 0,
+     "message": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out"
+    }
+   ]
+  },
+  {
+   "name": "target-scoped event isolation",
+   "file": "event-isolation.mjs",
+   "category": "v1",
+   "zenius": "na",
+   "reason": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out; also reads CDP Network events",
+   "verdict": "na",
+   "assertions": 0,
+   "runs": [
+    {
+     "status": "na",
+     "durationMs": 0,
+     "assertions": 0,
+     "message": "uses Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out; also reads CDP Network events"
+    }
+   ]
+  },
+  {
+   "name": "page labels: create",
+   "file": "page-labels.mjs",
+   "category": "v2+obs",
+   "zenius": "adapt",
+   "reason": "opens an unknown-origin tab with legacy openOrReuseTab",
+   "verdict": "pass",
+   "medianMs": 561,
+   "assertions": 13,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 561,
+     "assertions": 13
+    }
+   ]
+  },
+  {
+   "name": "page labels: restore and reuse",
+   "file": "page-labels.mjs",
+   "category": "v2+obs",
+   "zenius": "adapt",
+   "reason": "observes tabs with legacy listTabs",
+   "verdict": "pass",
+   "medianMs": 118,
+   "assertions": 14,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 118,
+     "assertions": 14
+    }
+   ]
+  },
+  {
+   "name": "page labels: close and do not reuse",
+   "file": "page-labels.mjs",
+   "category": "v2+obs",
+   "zenius": "adapt",
+   "reason": "closes a tab behind the SDK's back with legacy closeTab",
+   "verdict": "pass",
+   "medianMs": 238,
+   "assertions": 10,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 238,
+     "assertions": 10
+    }
+   ]
+  },
+  {
+   "name": "page labels: persist before hard stop",
+   "file": "page-labels.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 104,
+   "assertions": 1,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 104,
+     "assertions": 1
+    }
+   ]
+  },
+  {
+   "name": "page labels: restore after hard stop",
+   "file": "page-labels.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 75,
+   "assertions": 3,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 75,
+     "assertions": 3
+    }
+   ]
+  },
+  {
+   "name": "page inventory and budget",
+   "file": "page-labels.mjs",
+   "category": "v2+obs",
+   "zenius": "adapt",
+   "reason": "sets EGO_BROWSER_PAGE_BUDGET, which the zenius SDK doesn't read yet; legacy listTabs",
+   "verdict": "pass",
+   "medianMs": 475,
+   "assertions": 9,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 475,
+     "assertions": 9
+    }
+   ]
+  },
+  {
+   "name": "page adoption and release",
+   "file": "page-labels.mjs",
+   "category": "v2+obs",
+   "zenius": "adapt",
+   "reason": "observes tabs with legacy listTabs",
+   "verdict": "pass",
+   "medianMs": 174,
+   "assertions": 19,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 174,
+     "assertions": 19
+    }
+   ]
+  },
+  {
+   "name": "page basic operations",
+   "file": "page-labels.mjs",
+   "category": "v2+cdp",
+   "zenius": "adapt",
+   "reason": "legacy currentTab for Page activation; page.cdp/task.cdp assertions",
+   "verdict": "pass",
+   "medianMs": 573,
+   "assertions": 53,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 573,
+     "assertions": 53
+    }
+   ]
+  },
+  {
+   "name": "page complex evaluate",
+   "file": "page-labels.mjs",
+   "category": "v2+obs",
+   "zenius": "adapt",
+   "reason": "legacy currentTab for Page activation",
+   "verdict": "pass",
+   "medianMs": 301,
+   "assertions": 23,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 301,
+     "assertions": 23
+    }
+   ]
+  },
+  {
+   "name": "page fetch",
+   "file": "page-labels.mjs",
+   "category": "v2+obs",
+   "zenius": "adapt",
+   "reason": "legacy currentTab for Page activation",
+   "verdict": "pass",
+   "medianMs": 315,
+   "assertions": 25,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 315,
+     "assertions": 25
+    }
+   ]
+  },
+  {
+   "name": "page actions and popup adoption",
+   "file": "page-labels.mjs",
+   "category": "v2+ledger",
+   "zenius": "adapt",
+   "reason": "legacy currentTab; reads Ego's ledger file",
+   "verdict": "pass",
+   "medianMs": 1666,
+   "assertions": 57,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 1666,
+     "assertions": 57
+    }
+   ]
+  },
+  {
+   "name": "Page action popup receipts",
+   "file": "page-action-latency.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 497,
+   "assertions": 9,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 497,
+     "assertions": 9
+    }
+   ]
+  },
+  {
+   "name": "Page action idle fail-fast",
+   "file": "page-action-latency.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 4032,
+   "assertions": 14,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 4032,
+     "assertions": 14
+    }
+   ]
+  },
+  {
+   "name": "Page click hit target",
+   "file": "page-click-hit-target.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 2073,
+   "assertions": 17,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 2073,
+     "assertions": 17
+    }
+   ]
+  },
+  {
+   "name": "Page action motion tolerance",
+   "file": "page-action-motion.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 481,
+   "assertions": 6,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 481,
+     "assertions": 6
+    }
+   ]
+  },
+  {
+   "name": "Page drag and canvas drawing",
+   "file": "page-drag-and-draw.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 412,
+   "assertions": 15,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 412,
+     "assertions": 15
+    }
+   ]
+  },
+  {
+   "name": "Page JavaScript dialog handling",
+   "file": "page-dialogs.mjs",
+   "category": "v2+cdp",
+   "zenius": "adapt",
+   "reason": "one row asserts that raw Page.getFrameTree fails fast during a dialog",
+   "verdict": "pass",
+   "medianMs": 504,
+   "assertions": 30,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 504,
+     "assertions": 30
+    }
+   ]
+  },
+  {
+   "name": "Page media playback",
+   "file": "page-media-playback.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 4015,
+   "assertions": 17,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 4015,
+     "assertions": 17
+    }
+   ]
+  },
+  {
+   "name": "Page scrolled screenshot",
+   "file": "page-screenshot.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 246,
+   "assertions": 13,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 246,
+     "assertions": 13
+    }
+   ]
+  },
+  {
+   "name": "Page default screenshot path: first run",
+   "file": "page-default-screenshot-path.mjs",
+   "category": "v2+obs",
+   "zenius": "run",
+   "reason": "sets globalThis.EGO_BROWSER_OUTPUT_DIR, which the zenius SDK reads under that name",
+   "verdict": "pass",
+   "medianMs": 255,
+   "assertions": 9,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 255,
+     "assertions": 9
+    }
+   ]
+  },
+  {
+   "name": "Page default screenshot path: second run",
+   "file": "page-default-screenshot-path.mjs",
+   "category": "v2+obs",
+   "zenius": "run",
+   "reason": "sets globalThis.EGO_BROWSER_OUTPUT_DIR, which the zenius SDK reads under that name",
+   "verdict": "pass",
+   "medianMs": 213,
+   "assertions": 4,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 213,
+     "assertions": 4
+    }
+   ]
+  },
+  {
+   "name": "Page snapshot locator quality",
+   "file": "page-snapshot-locators.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 218,
+   "assertions": 4,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 218,
+     "assertions": 4
+    }
+   ]
+  },
+  {
+   "name": "Page snapshot iframe viewport",
+   "file": "page-snapshot-subtree.mjs",
+   "category": "v2+cdp",
+   "zenius": "adapt",
+   "reason": "asserts the cross-origin frame is an OOPIF through task.cdp Target.getTargets",
+   "verdict": "pass",
+   "medianMs": 437,
+   "assertions": 13,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 437,
+     "assertions": 13
+    }
+   ]
+  },
+  {
+   "name": "Page snapshot subtree",
+   "file": "page-snapshot-subtree.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 575,
+   "assertions": 46,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 575,
+     "assertions": 46
+    }
+   ]
+  },
+  {
+   "name": "Page auto-scroll past a wheel trap",
+   "file": "page-wheel-trap.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 1321,
+   "assertions": 10,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 1321,
+     "assertions": 10
+    }
+   ]
+  },
+  {
+   "name": "Page snapshot viewport overflow hint",
+   "file": "page-snapshot-viewport-overflow.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 496,
+   "assertions": 20,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 496,
+     "assertions": 20
+    }
+   ]
+  },
+  {
+   "name": "Page ref identity across partial snapshots",
+   "file": "page-ref-identity.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 771,
+   "assertions": 14,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 771,
+     "assertions": 14
+    }
+   ]
+  },
+  {
+   "name": "Page refs across rounds: prepare",
+   "file": "page-ref-identity.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 99,
+   "assertions": 5,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 99,
+     "assertions": 5
+    }
+   ]
+  },
+  {
+   "name": "Page refs across rounds: resume",
+   "file": "page-ref-identity.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 4230,
+   "assertions": 12,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 4230,
+     "assertions": 12
+    }
+   ]
+  },
+  {
+   "name": "Page refs in dialog workflows",
+   "file": "page-ref-workflows.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 265,
+   "assertions": 10,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 265,
+     "assertions": 10
+    }
+   ]
+  },
+  {
+   "name": "Page refs after failed actions: prepare",
+   "file": "page-ref-workflows.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 483,
+   "assertions": 8,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 483,
+     "assertions": 8
+    }
+   ]
+  },
+  {
+   "name": "Page refs after failed actions: resume",
+   "file": "page-ref-workflows.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 141,
+   "assertions": 3,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 141,
+     "assertions": 3
+    }
+   ]
+  },
+  {
+   "name": "Page refs after upload: prepare",
+   "file": "page-ref-workflows.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 311,
+   "assertions": 2,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 311,
+     "assertions": 2
+    }
+   ]
+  },
+  {
+   "name": "Page refs after upload: resume",
+   "file": "page-ref-workflows.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 76,
+   "assertions": 3,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 76,
+     "assertions": 3
+    }
+   ]
+  },
+  {
+   "name": "Page snapshot lazy iframe",
+   "file": "page-snapshot-subtree.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 332,
+   "assertions": 14,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 332,
+     "assertions": 14
+    }
+   ]
+  },
+  {
+   "name": "Page snapshot sibling iframes",
+   "file": "page-snapshot-subtree.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 219,
+   "assertions": 14,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 219,
+     "assertions": 14
+    }
+   ]
+  },
+  {
+   "name": "Page snapshot nested iframes",
+   "file": "page-snapshot-subtree.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 220,
+   "assertions": 18,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 220,
+     "assertions": 18
+    }
+   ]
+  },
+  {
+   "name": "Page snapshot replaced iframe",
+   "file": "page-snapshot-subtree.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 375,
+   "assertions": 11,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 375,
+     "assertions": 11
+    }
+   ]
+  },
+  {
+   "name": "Page open Shadow DOM locators",
+   "file": "page-shadow-dom.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 369,
+   "assertions": 4,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 369,
+     "assertions": 4
+    }
+   ]
+  },
+  {
+   "name": "Page text locators",
+   "file": "page-text-locators.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 404,
+   "assertions": 6,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 404,
+     "assertions": 6
+    }
+   ]
+  },
+  {
+   "name": "Page Playwright selector compatibility",
+   "file": "page-selector-compatibility.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 2765,
+   "assertions": 16,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 2765,
+     "assertions": 16
+    }
+   ]
+  },
+  {
+   "name": "Page popup waiter and URL diagnostic",
+   "file": "page-popup-waiter.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 829,
+   "assertions": 11,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 829,
+     "assertions": 11
+    }
+   ]
+  },
+  {
+   "name": "Page download lifecycle",
+   "file": "page-download.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 410,
+   "assertions": 8,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 410,
+     "assertions": 8
+    }
+   ]
+  },
+  {
+   "name": "Concurrent TaskSpace downloads",
+   "file": "page-download.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 729,
+   "assertions": 13,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 729,
+     "assertions": 13
+    }
+   ]
+  },
+  {
+   "name": "Concurrent Page downloads: slow response",
+   "file": "page-download.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 1731,
+   "assertions": 6,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 1731,
+     "assertions": 6
+    }
+   ]
+  },
+  {
+   "name": "Page Chromium PDF viewer download",
+   "file": "page-download.mjs",
+   "category": "chromium",
+   "zenius": "na",
+   "reason": "drives Chromium's PDF viewer (cr-icon-button#save); Zen shows PDFs in pdf.js, covered by \"zen-eval: pdf.js viewer download\"",
+   "verdict": "na",
+   "assertions": 0,
+   "runs": [
+    {
+     "status": "na",
+     "durationMs": 0,
+     "assertions": 0,
+     "message": "drives Chromium's PDF viewer (cr-icon-button#save); Zen shows PDFs in pdf.js, covered by \"zen-eval: pdf.js viewer download\""
+    }
+   ]
+  },
+  {
+   "name": "Page download across rounds: prepare",
+   "file": "page-download.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 327,
+   "assertions": 1,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 327,
+     "assertions": 1
+    }
+   ]
+  },
+  {
+   "name": "Page download across rounds: resume",
+   "file": "page-download.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 99,
+   "assertions": 4,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 99,
+     "assertions": 4
+    }
+   ]
+  },
+  {
+   "name": "Page OOPIF actions",
+   "file": "page-oopif.mjs",
+   "category": "v2+cdp",
+   "zenius": "adapt",
+   "reason": "finds the frame target through task.cdp Target.getTargets",
+   "verdict": "pass",
+   "medianMs": 766,
+   "assertions": 15,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 766,
+     "assertions": 15
+    }
+   ]
+  },
+  {
+   "name": "Page OOPIF restore and close",
+   "file": "page-oopif.mjs",
+   "category": "v2+cdp",
+   "zenius": "adapt",
+   "reason": "finds the frame target through task.cdp Target.getTargets",
+   "verdict": "pass",
+   "medianMs": 70,
+   "assertions": 7,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 70,
+     "assertions": 7
+    }
+   ]
+  },
+  {
+   "name": "Page load states",
+   "file": "page-load-states.mjs",
+   "category": "v2+cdp",
+   "zenius": "adapt",
+   "reason": "reads console events through page.cdp (egoAutomated.disable, Runtime.enable), task.cdp Target.getTargets and Ego's ledger file",
+   "verdict": "pass",
+   "medianMs": 10698,
+   "assertions": 50,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 10698,
+     "assertions": 50
+    }
+   ]
+  },
+  {
+   "name": "Page automation hooks",
+   "file": "page-automation-hooks.mjs",
+   "category": "cdp",
+   "zenius": "na",
+   "reason": "tests Ego's egoAutomated CDP domain",
+   "verdict": "na",
+   "assertions": 0,
+   "runs": [
+    {
+     "status": "na",
+     "durationMs": 0,
+     "assertions": 0,
+     "message": "tests Ego's egoAutomated CDP domain"
+    }
+   ]
+  },
+  {
+   "name": "Page dedicated Worker startup",
+   "file": "page-workers.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 127,
+   "assertions": 1,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 127,
+     "assertions": 1
+    }
+   ]
+  },
+  {
+   "name": "Page AudioWorklet startup",
+   "file": "page-workers.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 183,
+   "assertions": 1,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 183,
+     "assertions": 1
+    }
+   ]
+  },
+  {
+   "name": "Page SharedWorker startup",
+   "file": "page-workers.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 209,
+   "assertions": 1,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 209,
+     "assertions": 1
+    }
+   ]
+  },
+  {
+   "name": "Page Service Worker startup",
+   "file": "page-workers.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 301,
+   "assertions": 1,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 301,
+     "assertions": 1
+    }
+   ]
+  },
+  {
+   "name": "Page API alignment",
+   "file": "page-api-alignment.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 3609,
+   "assertions": 40,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 3609,
+     "assertions": 40
+    }
+   ]
+  },
+  {
+   "name": "Page actionability",
+   "file": "page-actionability.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 2831,
+   "assertions": 46,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 2831,
+     "assertions": 46
+    }
+   ]
+  },
+  {
+   "name": "Page evaluate timeout recovery",
+   "file": "page-evaluate-timeout.mjs",
+   "category": "v2+obs",
+   "zenius": "run",
+   "reason": "sets EGO_BROWSER_RESPONSE_TIMEOUT_MS, which the zenius SDK reads under that name",
+   "verdict": "pass",
+   "medianMs": 13781,
+   "assertions": 24,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 13781,
+     "assertions": 24
+    }
+   ]
+  },
+  {
+   "name": "Page pending navigation: same process",
+   "file": "page-pending-navigation.mjs",
+   "category": "v2+cdp",
+   "zenius": "adapt",
+   "reason": "starts the held navigation with page.cdp Page.navigate; also EGO_BROWSER_RESPONSE_TIMEOUT_MS",
+   "verdict": "pass",
+   "medianMs": 8715,
+   "assertions": 31,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 8715,
+     "assertions": 31
+    }
+   ]
+  },
+  {
+   "name": "Page pending navigation: fresh process",
+   "file": "page-pending-navigation.mjs",
+   "category": "v2+obs",
+   "zenius": "run",
+   "reason": "sets EGO_BROWSER_RESPONSE_TIMEOUT_MS, which the zenius SDK reads under that name",
+   "verdict": "pass",
+   "medianMs": 5121,
+   "assertions": 6,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 5121,
+     "assertions": 6
+    }
+   ]
+  },
+  {
+   "name": "Page pending navigation: evaluate and screenshot",
+   "file": "page-pending-navigation.mjs",
+   "category": "v2+cdp",
+   "zenius": "adapt",
+   "reason": "starts the held navigation with page.cdp Page.navigate",
+   "verdict": "pass",
+   "medianMs": 10237,
+   "assertions": 18,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 10237,
+     "assertions": 18
+    }
+   ]
+  },
+  {
+   "name": "Page delayed popup: schedule",
+   "file": "page-delayed-popup.mjs",
+   "category": "v2+ledger",
+   "zenius": "adapt",
+   "reason": "reads Ego's ledger file to find the late popup",
+   "verdict": "pass",
+   "medianMs": 372,
+   "assertions": 1,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 372,
+     "assertions": 1
+    }
+   ]
+  },
+  {
+   "name": "Page delayed popup: resume",
+   "file": "page-delayed-popup.mjs",
+   "category": "v2+ledger",
+   "zenius": "adapt",
+   "reason": "reads Ego's ledger file",
+   "verdict": "pass",
+   "medianMs": 1099,
+   "assertions": 3,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 1099,
+     "assertions": 3
+    }
+   ]
+  },
+  {
+   "name": "v1 and v2 action parity",
+   "file": "workflow-chains.mjs",
+   "category": "v1",
+   "zenius": "na",
+   "reason": "compares v2 actions with Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out",
+   "verdict": "na",
+   "assertions": 0,
+   "runs": [
+    {
+     "status": "na",
+     "durationMs": 0,
+     "assertions": 0,
+     "message": "compares v2 actions with Ego's legacy v1 helpers (useOrCreateTaskSpace, js, gotoAndWait, …), which skill guide v2.2.1 leaves out"
+    }
+   ]
+  },
+  {
+   "name": "portable keyboard workflow",
+   "file": "workflow-chains.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 181,
+   "assertions": 4,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 181,
+     "assertions": 4
+    }
+   ]
+  },
+  {
+   "name": "Page keyboard interface",
+   "file": "page-keyboard.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 319,
+   "assertions": 38,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 319,
+     "assertions": 38
+    }
+   ]
+  },
+  {
+   "name": "pure CDP workflow",
+   "file": "workflow-chains.mjs",
+   "category": "cdp",
+   "zenius": "na",
+   "reason": "drives a page only through raw CDP (SPEC §2: no CDP emulation)",
+   "verdict": "na",
+   "assertions": 0,
+   "runs": [
+    {
+     "status": "na",
+     "durationMs": 0,
+     "assertions": 0,
+     "message": "drives a page only through raw CDP (SPEC §2: no CDP emulation)"
+    }
+   ]
+  },
+  {
+   "name": "snapshot workflow",
+   "file": "workflow-chains.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 514,
+   "assertions": 7,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 514,
+     "assertions": 7
+    }
+   ]
+  },
+  {
+   "name": "visual workflow",
+   "file": "workflow-chains.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 206,
+   "assertions": 5,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 206,
+     "assertions": 5
+    }
+   ]
+  },
+  {
+   "name": "zen-eval: v2 control lifecycle",
+   "file": "zen-cases/control-lifecycle.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 306,
+   "assertions": 21,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 306,
+     "assertions": 21
+    }
+   ]
+  },
+  {
+   "name": "zen-eval: pdf.js viewer download",
+   "file": "zen-cases/pdfjs-download.mjs",
+   "category": "gecko",
+   "zenius": "run",
+   "reason": "drives Firefox's pdf.js viewer; zenius only, the counterpart of Ego's Page Chromium PDF viewer download",
+   "verdict": "pass",
+   "medianMs": 1094,
+   "assertions": 11,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 1094,
+     "assertions": 11
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,382 @@
+[p1 "zen browser - Search" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "zen browser - Search"]
+root
+  container
+    banner
+      button [ref=28331, url=https://www.bing.com/search?q=zen+browser#]
+        text "Skip to content"
+      button [ref=28332, url=https://www.bing.com/search?q=zen+browser#]
+        text "Accessibility Feedback"
+      form
+        anchor [ref=28299, loc=href:https://www.bing.com/?FORM=Z9FD1, url=https://www.bing.com/?FORM=Z9FD1]
+          heading
+            image
+        search
+          container [ref=28300]
+            svg_root
+          searchbox "Enter your search here - Search suggestions will show as you type" [ref=28301, loc=css:input[name="q"]]
+            text "zen browser"
+          button "Search using voice" [ref=28302, loc=role:button[name="Search using voice"]]
+          button "Search using an image" [ref=28303, loc=role:button[name="Search using an image"]]
+          button "Search" [ref=28304, loc=css:button[aria-label="Search"]]
+      complementary "Account Rewards and Preferences"
+        button "Microsoft Rewards" [ref=28305, loc=css:a[aria-label="Microsoft Rewards"], url=javascript:void(0)]
+          text "5"
+          svg_root
+        anchor [ref=28306, url=javascript:void(0)]
+          container "Sign in"
+        menu [ref=28333]
+      navigation "Search Filter"
+        unordered_list
+          list_item
+            anchor [ref=28307, loc=href:https://www.bing.com/?scope=web&FORM=HDRSC1, url=https://www.bing.com/?scope=web&FORM=HDRSC1]
+              text "ALL"
+          list_item
+            anchor [ref=28308, loc=href:https://www.bing.com/copilotsearch?q=zen+browser&FORM=CSSCOP, url=https://www.bing.com/copilotsearch?q=zen+browser&FORM=CSSCOP]
+              svg_root
+              text "AI MODE"
+          list_item
+            anchor [ref=28309, url=https://www.bing.com/ck/a?!&&p=596868b78541387b176e95720770d38af29cec2a2e5c02deefd7e00ea928ac88JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L2ltYWdlcy9zZWFyY2g_cT16ZW4rYnJvd3NlciZGT1JNPUhEUlNDMw&ntb=1]
+              text "IMAGES"
+          list_item
+            anchor [ref=28310, url=https://www.bing.com/ck/a?!&&p=c11af1508f5adce0c67d0267d2b9918ea1ceb09538463b605006fec7efa7a875JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3ZpZGVvcy9zZWFyY2g_cT16ZW4rYnJvd3NlciZGT1JNPUhEUlNDNA&ntb=1]
+              text "VIDEOS"
+          list_item
+            anchor [ref=28311, url=https://www.bing.com/ck/a?!&&p=bf72b7d45a0586501eec95245fb6ff312581d0fee484626cb631c518d5df6baaJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L21hcHM_cT16ZW4rYnJvd3NlciZGT1JNPUhEUlNDNg&ntb=1]
+              text "MAPS"
+          list_item
+            anchor [ref=28312, url=https://www.bing.com/ck/a?!&&p=56e6b225f5022de5f64e47a565a2ba3eb94dbd9abfd570988b4bc39e91a05227JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L25ld3Mvc2VhcmNoP3E9emVuK2Jyb3dzZXImRk9STT1IRFJTQzc&ntb=1]
+              text "NEWS"
+          list_item
+            anchor [ref=28313, url=https://www.bing.com/ck/a?!&&p=7d346588ef3470df5d6e24f32f33ae73c129a02a49b7151c223f41924c3810ebJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3Nob3AvdG9waWNzP3E9emVuK2Jyb3dzZXImRk9STT1TSE9QVEI&ntb=1]
+              text "SHOPPING"
+          list_item
+            button [ref=28314, loc=href:javascript:void(0);, url=javascript:void(0);]
+              svg_root
+              text "MORE"
+    container "Search Results"
+      container
+        container
+          image
+          image
+          image
+        text "About 192,000 results"
+      container
+        ordered_list
+          list_item
+          list_item
+            unordered_list
+              list_item
+                anchor "jfjdfurugym" [ref=28315, loc=css:a[aria-label="jfjdfurugym"], url=https://www.bing.com/ck/a?!&&p=d711c4dc51e2bc3ca2732ab524435372ebf5d0292c34604d85705aee69a557b3JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly93d3cuYXBwbGUuY29tL3NhZmFyaS9zd2l0Y2g_Y2lkPXd3YS11cy1rd2JpLXNhZmFyaS1Ob25Db3JlLWNhdGVnb3J5X2dlbmVyYWwtc2FmYXJpX2hlcm9fMDUyOTI2LVNhZmFyaV9DYXRlZ29yeS1DYXRlZ29yeS0mYW9zaWQ9cDI0MCZrZW5fcGlkPWJpfmNtcC02OTgyMjc1ODV-YWRnLTEyNTM0NDQ1OTcyNjI4NTh-YWQtNzgzNDA0MjU2NzU4MzBfa3dkLTc4MzQwNjk0MzU2NzI2OmxvYy0xOTB-ZGV2LWN-ZXh0LX5wcmQtfm50LXNlYXJjaH5jcmlkLSZ0b2tlbj1mOGVkMzE4OC0xMGUwLTRkZTEtOTUyNy03YzFkYjNjODFkNTM&ntb=1]
+                  image
+                  container
+                    text "Аpрle"
+                    container [ref=28316]
+                      text "https://www.apple.com"
+                heading
+                  anchor [ref=28317, url=https://www.bing.com/ck/a?!&&p=d711c4dc51e2bc3ca2732ab524435372ebf5d0292c34604d85705aee69a557b3JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly93d3cuYXBwbGUuY29tL3NhZmFyaS9zd2l0Y2g_Y2lkPXd3YS11cy1rd2JpLXNhZmFyaS1Ob25Db3JlLWNhdGVnb3J5X2dlbmVyYWwtc2FmYXJpX2hlcm9fMDUyOTI2LVNhZmFyaV9DYXRlZ29yeS1DYXRlZ29yeS0mYW9zaWQ9cDI0MCZrZW5fcGlkPWJpfmNtcC02OTgyMjc1ODV-YWRnLTEyNTM0NDQ1OTcyNjI4NTh-YWQtNzgzNDA0MjU2NzU4MzBfa3dkLTc4MzQwNjk0MzU2NzI2OmxvYy0xOTB-ZGV2LWN-ZXh0LX5wcmQtfm50LXNlYXJjaH5jcmlkLSZ0b2tlbj1mOGVkMzE4OC0xMGUwLTRkZTEtOTUyNy03YzFkYjNjODFkNTM&ntb=1]
+                    text "Safari | Private Browsing | Privacy is built in"
+                paragraph
+                  image
+                  text "Switch to a browser that protects your privacy. Make Safari your default browser. Defends you against cross-site tracking, hides your IP address from known trackers & more."
+                container
+                  unordered_list
+                    list_item
+                      anchor [ref=28318, url=https://www.bing.com/ck/a?!&&p=9810fd093d4eff34602d97ffe5bb9370748cb69239b8199f53b41a5d053b69b2JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9zdXBwb3J0LmFwcGxlLmNvbS9ndWlkZS9zYWZhcmkvbWFrZS1zYWZhcmkteW91ci1kZWZhdWx0LXdlYi1icm93c2VyLWlicndhMDA4L21hYy8_Y2lkPXd3YS11cy1rd2JpLXNhZmFyaS1Ob25Db3JlLWNhdGVnb3J5X2dlbmVyYWwtc2FmYXJpX2hlcm9fMDUyOTI2LVNhZmFyaV9DYXRlZ29yeS1DYXRlZ29yeS0mYW9zaWQ9cDI0MCZrZW5fcGlkPWJpfmNtcC02OTgyMjc1ODV-YWRnLTEyNTM0NDQ1OTcyNjI4NTh-YWQtNzgzNDA0MjU2NzU4MzBfa3dkLTc4MzQwNjk0MzU2NzI2OmxvYy0xOTB-ZGV2LWN-ZXh0LTgzMTUxOTUyMzc1Mzl-cHJkLX5udC1zZWFyY2h-Y3JpZC0mdG9rZW49ZjhlZDMxODgtMTBlMC00ZGUxLTk1MjctN2MxZGIzYzgxZDUz&ntb=1]
+                        text "Make Safari your default"
+                      svg_root
+                    list_item
+                      anchor [ref=28319, url=https://www.bing.com/ck/a?!&&p=25a0a078997d4d2bc7baeabc4142b37118fb9e30155b00f03db7a58b906984f7JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly93d3cuYXBwbGUuY29tL3VzL3Nob3AvZ28vbWFjLz9jaWQ9d3dhLXVzLWt3Ymktc2FmYXJpLU5vbkNvcmUtY2F0ZWdvcnlfZ2VuZXJhbC1zYWZhcmlfaGVyb18wNTI5MjYtU2FmYXJpX0NhdGVnb3J5LUNhdGVnb3J5LSZhb3NpZD1wMjQwJmtlbl9waWQ9Yml-Y21wLTY5ODIyNzU4NX5hZGctMTI1MzQ0NDU5NzI2Mjg1OH5hZC03ODM0MDQyNTY3NTgzMF9rd2QtNzgzNDA2OTQzNTY3MjY6bG9jLTE5MH5kZXYtY35leHQtODMxNTE5NTMwMTI3NH5wcmQtfm50LXNlYXJjaH5jcmlkLSZ0b2tlbj1mOGVkMzE4OC0xMGUwLTRkZTEtOTUyNy03YzFkYjNjODFkNTM&ntb=1]
+                        text "Mac"
+                      svg_root
+                  unordered_list
+                    list_item
+                      anchor [ref=28320, url=https://www.bing.com/ck/a?!&&p=7181fb1b174007e00c6913a89d03fdf4f3914f580805e0734790fda1a29c00aeJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly93d3cuYXBwbGUuY29tL3VzL3Nob3AvZ28vcHJpdmFjeS9mZWF0dXJlcy8_Y2lkPXd3YS11cy1rd2JpLXNhZmFyaS1Ob25Db3JlLWNhdGVnb3J5X2dlbmVyYWwtc2FmYXJpX2hlcm9fMDUyOTI2LVNhZmFyaV9DYXRlZ29yeS1DYXRlZ29yeS0mYW9zaWQ9cDI0MCZrZW5fcGlkPWJpfmNtcC02OTgyMjc1ODV-YWRnLTEyNTM0NDQ1OTcyNjI4NTh-YWQtNzgzNDA0MjU2NzU4MzBfa3dkLTc4MzQwNjk0MzU2NzI2OmxvYy0xOTB-ZGV2LWN-ZXh0LTgzMTUxOTUxMzM3NjZ-cHJkLX5udC1zZWFyY2h-Y3JpZC0mdG9rZW49ZjhlZDMxODgtMTBlMC00ZGUxLTk1MjctN2MxZGIzYzgxZDUz&ntb=1]
+                        text "Privacy"
+                      svg_root
+                    list_item
+                      anchor [ref=28321, url=https://www.bing.com/ck/a?!&&p=67ba42b81e05d48842ce8f1845f014736297fe52d06e29ab282e9f7c0bf6c8f4JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly93d3cuYXBwbGUuY29tL3VzL3Nob3AvZ28vbWFjb3MvY29udGludWl0eS8_Y2lkPXd3YS11cy1rd2JpLXNhZmFyaS1Ob25Db3JlLWNhdGVnb3J5X2dlbmVyYWwtc2FmYXJpX2hlcm9fMDUyOTI2LVNhZmFyaV9DYXRlZ29yeS1DYXRlZ29yeS0mYW9zaWQ9cDI0MCZrZW5fcGlkPWJpfmNtcC02OTgyMjc1ODV-YWRnLTEyNTM0NDQ1OTcyNjI4NTh-YWQtNzgzNDA0MjU2NzU4MzBfa3dkLTc4MzQwNjk0MzU2NzI2OmxvYy0xOTB-ZGV2LWN-ZXh0LTgzMTUxOTUxMzM3Njd-cHJkLX5udC1zZWFyY2h-Y3JpZC0mdG9rZW49ZjhlZDMxODgtMTBlMC00ZGUxLTk1MjctN2MxZGIzYzgxZDUz&ntb=1]
+                        text "Continuity"
+                      svg_root
+              list_item
+                anchor "xqxwm" [ref=28322, loc=css:a[aria-label="xqxwm"], url=https://www.bing.com/ck/a?!&&p=bdc7e159da92542c4f42842363bd3e52118cdec6a095a617cab79a0cde0bacbeJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9kdWNrZHVja2dvLmNvbS9hcHA_b3JpZ2luPWZ1bm5lbF9hcHBfcGFpZHNlYXJjaG1pY3Jvc29mdF9rZXl3b3Jkc19icm93c2VybG93dm9sdW1l&ntb=1]
+                  image
+                  container
+                    text "Ꭰυckduckɡο"
+                    container [ref=28323]
+                      text "https://duckduckgo.com"
+                heading
+                  anchor [ref=28324, url=https://www.bing.com/ck/a?!&&p=bdc7e159da92542c4f42842363bd3e52118cdec6a095a617cab79a0cde0bacbeJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9kdWNrZHVja2dvLmNvbS9hcHA_b3JpZ2luPWZ1bm5lbF9hcHBfcGFpZHNlYXJjaG1pY3Jvc29mdF9rZXl3b3Jkc19icm93c2VybG93dm9sdW1l&ntb=1]
+                    text "DuckDuckGo Browser & AI | DuckDuckGo Tracker Protection"
+                paragraph
+                  image
+                  text "Get DuckDuckGo, the browser that blocks most cookies and creepy ads. Get the browser that blocks most cookies and creepy ads."
+              list_item
+                anchor "jbica" [ref=28325, loc=css:a[aria-label="jbica"], url=https://www.bing.com/ck/a?!&&p=73a465833202f1869e3885ac3430c767225f013f8ea930862694ec5e55b36907JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9teXNvZnR3YXJlZ3VpZGUuY29tL3NzYS93ZWItYnJvd3NlcnM&ntb=1]
+                  image
+                  container
+                    text "mуѕοftwагeguiԁe.сοm"
+                    container [ref=28326]
+                      text "https://mysoftwareguide.com"
+                heading
+                  anchor [ref=28327, url=https://www.bing.com/ck/a?!&&p=73a465833202f1869e3885ac3430c767225f013f8ea930862694ec5e55b36907JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9teXNvZnR3YXJlZ3VpZGUuY29tL3NzYS93ZWItYnJvd3NlcnM&ntb=1]
+                    text "Zen Browser Now | Zen Browser | Your Perfect Browser Here!"
+                paragraph
+                  image
+                  text "Find your ideal browser among the most popular options available today! Explore innovative features that enhance your browsing experience today!"
+              list_item
+                anchor "bhiovouwop" [ref=28328, loc=css:a[aria-label="bhiovouwop"], url=https://www.bing.com/ck/a?!&&p=9416bf25f3af7fa40d965d1813f8e2a28c2307892f08ea1e7dfc62d8a7c5fd86JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9hbTUuY29tL2YvYmluZy9lbi9hcGsvRmlyZWZveC1GYXN0LVByaXZhdGUtQnJvd3Nlci9vcmcubW96aWxsYS5maXJlZm94LzY1NzgwP2dsPVVTJmNjaWQ9ODU1NTQ1NTg2NyZhPTE4ODI1OTkyOA&ntb=1]
+                  image
+                  container
+                    text "АM5-Dοԝnⅼoаԁ AРΚ/АPΚS"
+                    container [ref=28329]
+                      text "https://am5.com › Firefox"
+                heading
+                  anchor [ref=28330, url=https://www.bing.com/ck/a?!&&p=9416bf25f3af7fa40d965d1813f8e2a28c2307892f08ea1e7dfc62d8a7c5fd86JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9hbTUuY29tL2YvYmluZy9lbi9hcGsvRmlyZWZveC1GYXN0LVByaXZhdGUtQnJvd3Nlci9vcmcubW96aWxsYS5maXJlZm94LzY1NzgwP2dsPVVTJmNjaWQ9ODU1NTQ1NTg2NyZhPTE4ODI1OTkyOA&ntb=1]
+                    text "Firefox Fast & Private Browser | Download Firefox Browser"
+                paragraph
+                  image
+                  text "Download Firefox Browser for Free, Get Latest Version Now. 100% free and with no viruses. Here is the Firefox Browser app everyone is using. You have to get one on your phone."
+        ordered_list
+          list_item
+            anchor "zen-browser.app" [ref=28334, url=https://www.bing.com/ck/a?!&&p=b2d6ad1e8fc1679b220bcb2af569120b646e2050c206df0bad7394c309538a7bJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly96ZW4tYnJvd3Nlci5hcHAv&ntb=1]
+              image
+              text "zеn-bгowsеr.aрp"
+              container [ref=28335]
+                text "https://zen-browser.app"
+            heading
+              anchor [ref=28336, url=https://www.bing.com/ck/a?!&&p=b2d6ad1e8fc1679b220bcb2af569120b646e2050c206df0bad7394c309538a7bJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly96ZW4tYnJvd3Nlci5hcHAv&ntb=1]
+                text "Zen Browser"
+            paragraph
+              image
+              text "Zen is packed with features that help you stay productive and focused. Browsers should be tools that help you get things done, not …"
+              anchor [ref=28337, url=https://www.bing.com/ck/a?!&&p=b2d6ad1e8fc1679b220bcb2af569120b646e2050c206df0bad7394c309538a7bJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly96ZW4tYnJvd3Nlci5hcHAv&ntb=1]
+                text "Read more"
+            unordered_list
+              list_item
+                anchor [ref=28338, url=https://www.bing.com/ck/a?!&&p=7ff0bcff3009325df17dc213eae7fadf06413d347e73d0d17ef5a858c62f47feJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9kb2NzLnplbi1icm93c2VyLmFwcC8&ntb=1]
+                  heading
+                    text "Documentation"
+                  svg_root
+              list_item
+                anchor [ref=28339, url=https://www.bing.com/ck/a?!&&p=c6e1e0d155333be66e2fc27db0be9d45cb1e58db4d6cf2272d7d8d0114f029e8JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly96ZW4tYnJvd3Nlci5hcHAvZG93bmxvYWQ&ntb=1]
+                  heading
+                    text "Download"
+                  svg_root
+            anchor [ref=28340, url=https://www.bing.com/ck/a?!&&p=cc26751175465542f330603e83b799fc572b2629de3e15c01c27dce21a9ce0e7JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXNpdGU6emVuLWJyb3dzZXIuYXBwK3plbiticm93c2VyJmZvcm09RExJTktS&ntb=1]
+              text "See results only from zen-browser.app"
+          list_item
+            anchor "zen-browser.app" [ref=28341, url=https://www.bing.com/ck/a?!&&p=cfd15cec52360f78fe8a73a117ab508e99b50c7fca36d97a001a8d0eb8b3df49JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly96ZW4tYnJvd3Nlci5hcHAvZG93bmxvYWQv&ntb=1]
+              image
+              text "zen-broԝsеr.app"
+              container [ref=28342]
+                text "https://zen-browser.app"
+                text "› download"
+            heading
+              anchor [ref=28343, url=https://www.bing.com/ck/a?!&&p=cfd15cec52360f78fe8a73a117ab508e99b50c7fca36d97a001a8d0eb8b3df49JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly96ZW4tYnJvd3Nlci5hcHAvZG93bmxvYWQv&ntb=1]
+                text "Download - Zen - zen-browser.app"
+            paragraph
+              image
+              text "Download Zen for your platform and experience a more mindful internet browsing experience."
+          list_item
+          list_item
+            anchor "bhkno" [ref=28344, loc=css:a[aria-label="bhkno"], url=https://www.bing.com/ck/a?!&&p=bdc7e159da92542c4f42842363bd3e52118cdec6a095a617cab79a0cde0bacbeJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9kdWNrZHVja2dvLmNvbS9hcHA_b3JpZ2luPWZ1bm5lbF9hcHBfcGFpZHNlYXJjaG1pY3Jvc29mdF9rZXl3b3Jkc19icm93c2VybG93dm9sdW1l&ntb=1]
+              image
+              text "Dυсkԁuсkɡο"
+              container [ref=28345]
+                text "https://duckduckgo.com"
+            heading
+              anchor [ref=28346, url=https://www.bing.com/ck/a?!&&p=bdc7e159da92542c4f42842363bd3e52118cdec6a095a617cab79a0cde0bacbeJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9kdWNrZHVja2dvLmNvbS9hcHA_b3JpZ2luPWZ1bm5lbF9hcHBfcGFpZHNlYXJjaG1pY3Jvc29mdF9rZXl3b3Jkc19icm93c2VybG93dm9sdW1l&ntb=1]
+                text "DuckDuckGo Browser & AI | DuckDuckGo Tracker Protection"
+            paragraph
+              image
+              text "Get DuckDuckGo, the browser that blocks most cookies and creepy ads. Get the browser that blocks most cookies and creepy ads."
+          list_item
+            anchor "jbibvtv" [ref=28347, loc=css:a[aria-label="jbibvtv"], url=https://www.bing.com/ck/a?!&&p=d711c4dc51e2bc3ca2732ab524435372ebf5d0292c34604d85705aee69a557b3JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly93d3cuYXBwbGUuY29tL3NhZmFyaS9zd2l0Y2g_Y2lkPXd3YS11cy1rd2JpLXNhZmFyaS1Ob25Db3JlLWNhdGVnb3J5X2dlbmVyYWwtc2FmYXJpX2hlcm9fMDUyOTI2LVNhZmFyaV9DYXRlZ29yeS1DYXRlZ29yeS0mYW9zaWQ9cDI0MCZrZW5fcGlkPWJpfmNtcC02OTgyMjc1ODV-YWRnLTEyNTM0NDQ1OTcyNjI4NTh-YWQtNzgzNDA0MjU2NzU4MzBfa3dkLTc4MzQwNjk0MzU2NzI2OmxvYy0xOTB-ZGV2LWN-ZXh0LX5wcmQtfm50LXNlYXJjaH5jcmlkLSZ0b2tlbj1mOGVkMzE4OC0xMGUwLTRkZTEtOTUyNy03YzFkYjNjODFkNTM&ntb=1]
+              image
+              text "Аpрⅼе"
+              container [ref=28348]
+                text "https://www.apple.com"
+            heading
+              anchor [ref=28349, url=https://www.bing.com/ck/a?!&&p=d711c4dc51e2bc3ca2732ab524435372ebf5d0292c34604d85705aee69a557b3JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly93d3cuYXBwbGUuY29tL3NhZmFyaS9zd2l0Y2g_Y2lkPXd3YS11cy1rd2JpLXNhZmFyaS1Ob25Db3JlLWNhdGVnb3J5X2dlbmVyYWwtc2FmYXJpX2hlcm9fMDUyOTI2LVNhZmFyaV9DYXRlZ29yeS1DYXRlZ29yeS0mYW9zaWQ9cDI0MCZrZW5fcGlkPWJpfmNtcC02OTgyMjc1ODV-YWRnLTEyNTM0NDQ1OTcyNjI4NTh-YWQtNzgzNDA0MjU2NzU4MzBfa3dkLTc4MzQwNjk0MzU2NzI2OmxvYy0xOTB-ZGV2LWN-ZXh0LX5wcmQtfm50LXNlYXJjaH5jcmlkLSZ0b2tlbj1mOGVkMzE4OC0xMGUwLTRkZTEtOTUyNy03YzFkYjNjODFkNTM&ntb=1]
+                text "Safari | Private Browsing | Privacy is built in"
+            paragraph
+              image
+              text "Switch to a browser that protects your privacy. Make Safari your default browser. Defends you against cross-site tracking, hides your IP address from known trackers & more."
+            unordered_list
+              list_item
+                anchor [ref=28350, url=https://www.bing.com/ck/a?!&&p=9810fd093d4eff34602d97ffe5bb9370748cb69239b8199f53b41a5d053b69b2JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9zdXBwb3J0LmFwcGxlLmNvbS9ndWlkZS9zYWZhcmkvbWFrZS1zYWZhcmkteW91ci1kZWZhdWx0LXdlYi1icm93c2VyLWlicndhMDA4L21hYy8_Y2lkPXd3YS11cy1rd2JpLXNhZmFyaS1Ob25Db3JlLWNhdGVnb3J5X2dlbmVyYWwtc2FmYXJpX2hlcm9fMDUyOTI2LVNhZmFyaV9DYXRlZ29yeS1DYXRlZ29yeS0mYW9zaWQ9cDI0MCZrZW5fcGlkPWJpfmNtcC02OTgyMjc1ODV-YWRnLTEyNTM0NDQ1OTcyNjI4NTh-YWQtNzgzNDA0MjU2NzU4MzBfa3dkLTc4MzQwNjk0MzU2NzI2OmxvYy0xOTB-ZGV2LWN-ZXh0LTgzMTUxOTUyMzc1Mzl-cHJkLX5udC1zZWFyY2h-Y3JpZC0mdG9rZW49ZjhlZDMxODgtMTBlMC00ZGUxLTk1MjctN2MxZGIzYzgxZDUz&ntb=1]
+                  text "Make Safari your default"
+                svg_root
+              list_item
+                anchor [ref=28351, url=https://www.bing.com/ck/a?!&&p=25a0a078997d4d2bc7baeabc4142b37118fb9e30155b00f03db7a58b906984f7JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly93d3cuYXBwbGUuY29tL3VzL3Nob3AvZ28vbWFjLz9jaWQ9d3dhLXVzLWt3Ymktc2FmYXJpLU5vbkNvcmUtY2F0ZWdvcnlfZ2VuZXJhbC1zYWZhcmlfaGVyb18wNTI5MjYtU2FmYXJpX0NhdGVnb3J5LUNhdGVnb3J5LSZhb3NpZD1wMjQwJmtlbl9waWQ9Yml-Y21wLTY5ODIyNzU4NX5hZGctMTI1MzQ0NDU5NzI2Mjg1OH5hZC03ODM0MDQyNTY3NTgzMF9rd2QtNzgzNDA2OTQzNTY3MjY6bG9jLTE5MH5kZXYtY35leHQtODMxNTE5NTMwMTI3NH5wcmQtfm50LXNlYXJjaH5jcmlkLSZ0b2tlbj1mOGVkMzE4OC0xMGUwLTRkZTEtOTUyNy03YzFkYjNjODFkNTM&ntb=1]
+                  text "Mac"
+                svg_root
+            unordered_list
+              list_item
+                anchor [ref=28352, url=https://www.bing.com/ck/a?!&&p=7181fb1b174007e00c6913a89d03fdf4f3914f580805e0734790fda1a29c00aeJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly93d3cuYXBwbGUuY29tL3VzL3Nob3AvZ28vcHJpdmFjeS9mZWF0dXJlcy8_Y2lkPXd3YS11cy1rd2JpLXNhZmFyaS1Ob25Db3JlLWNhdGVnb3J5X2dlbmVyYWwtc2FmYXJpX2hlcm9fMDUyOTI2LVNhZmFyaV9DYXRlZ29yeS1DYXRlZ29yeS0mYW9zaWQ9cDI0MCZrZW5fcGlkPWJpfmNtcC02OTgyMjc1ODV-YWRnLTEyNTM0NDQ1OTcyNjI4NTh-YWQtNzgzNDA0MjU2NzU4MzBfa3dkLTc4MzQwNjk0MzU2NzI2OmxvYy0xOTB-ZGV2LWN-ZXh0LTgzMTUxOTUxMzM3NjZ-cHJkLX5udC1zZWFyY2h-Y3JpZC0mdG9rZW49ZjhlZDMxODgtMTBlMC00ZGUxLTk1MjctN2MxZGIzYzgxZDUz&ntb=1]
+                  text "Privacy"
+                svg_root
+              list_item
+                anchor [ref=28353, url=https://www.bing.com/ck/a?!&&p=67ba42b81e05d48842ce8f1845f014736297fe52d06e29ab282e9f7c0bf6c8f4JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly93d3cuYXBwbGUuY29tL3VzL3Nob3AvZ28vbWFjb3MvY29udGludWl0eS8_Y2lkPXd3YS11cy1rd2JpLXNhZmFyaS1Ob25Db3JlLWNhdGVnb3J5X2dlbmVyYWwtc2FmYXJpX2hlcm9fMDUyOTI2LVNhZmFyaV9DYXRlZ29yeS1DYXRlZ29yeS0mYW9zaWQ9cDI0MCZrZW5fcGlkPWJpfmNtcC02OTgyMjc1ODV-YWRnLTEyNTM0NDQ1OTcyNjI4NTh-YWQtNzgzNDA0MjU2NzU4MzBfa3dkLTc4MzQwNjk0MzU2NzI2OmxvYy0xOTB-ZGV2LWN-ZXh0LTgzMTUxOTUxMzM3Njd-cHJkLX5udC1zZWFyY2h-Y3JpZC0mdG9rZW49ZjhlZDMxODgtMTBlMC00ZGUxLTk1MjctN2MxZGIzYzgxZDUz&ntb=1]
+                  text "Continuity"
+                svg_root
+          list_item
+            anchor "jtamkfa" [ref=28354, loc=css:a[aria-label="jtamkfa"], url=https://www.bing.com/ck/a?!&&p=73a465833202f1869e3885ac3430c767225f013f8ea930862694ec5e55b36907JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9teXNvZnR3YXJlZ3VpZGUuY29tL3NzYS93ZWItYnJvd3NlcnM&ntb=1]
+              image
+              text "mуѕoftwaгеɡuiԁе.cοm"
+              container [ref=28355]
+                text "https://mysoftwareguide.com"
+            heading
+              anchor [ref=28356, url=https://www.bing.com/ck/a?!&&p=73a465833202f1869e3885ac3430c767225f013f8ea930862694ec5e55b36907JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9teXNvZnR3YXJlZ3VpZGUuY29tL3NzYS93ZWItYnJvd3NlcnM&ntb=1]
+                text "Zen Browser Now | Zen Browser | Your Perfect Browser Here!"
+            paragraph
+              image
+              text "Find your ideal browser among the most popular options available today! Explore innovative features that enhance your browsing experience today!"
+            unordered_list
+              list_item
+                anchor [ref=28357, url=https://www.bing.com/ck/a?!&&p=240f2e1973f394f3b08e97656254300db617e221f50d7ab961d3164792ad23f9JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9teXNvZnR3YXJlZ3VpZGUuY29tL3Byb2dyYW0vcm9ibG94&ntb=1]
+                  text "Download ROBLOX For..."
+                svg_root
+              list_item
+                anchor [ref=28358, url=https://www.bing.com/ck/a?!&&p=240f2e1973f394f3b08e97656254300db617e221f50d7ab961d3164792ad23f9JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9teXNvZnR3YXJlZ3VpZGUuY29tL3Byb2dyYW0vcm9ibG94&ntb=1]
+                  text "ROBLOX Free Download"
+                svg_root
+              list_item
+                anchor [ref=28359, url=https://www.bing.com/ck/a?!&&p=d075634e6900f4344ca03e558e59febbdf0466bd1ef689723acac87a97c79e66JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9teXNvZnR3YXJlZ3VpZGUuY29tL3Byb2dyYW0vY2hyb21l&ntb=1]
+                  text "Browse With Chrome"
+                svg_root
+            unordered_list
+              list_item
+                anchor [ref=28360, url=https://www.bing.com/ck/a?!&&p=02a3176ccc5763881b68dddfb1daf9d794b321395712fc05744315a6f15163b7JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9teXNvZnR3YXJlZ3VpZGUuY29tL3NzYS92cG4&ntb=1]
+                  text "Download VPN For Windows"
+                svg_root
+              list_item
+                anchor [ref=28361, url=https://www.bing.com/ck/a?!&&p=5317653dfb59f19b50f918f7f0123c9e3b19eb2a9b085671f9228406f3455f37JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9teXNvZnR3YXJlZ3VpZGUuY29tL3Byb2dyYW0vbWljcm9zb2Z0LXRlYW1z&ntb=1]
+                  text "Download Teams On PC"
+                svg_root
+              list_item
+                anchor [ref=28362, url=https://www.bing.com/ck/a?!&&p=d075634e6900f4344ca03e558e59febbdf0466bd1ef689723acac87a97c79e66JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cHM6Ly9teXNvZnR3YXJlZ3VpZGUuY29tL3Byb2dyYW0vY2hyb21l&ntb=1]
+                  text "Chrome For Windows"
+                svg_root
+          list_item
+            heading
+              text "Related searches for"
+              text "zen browser"
+            unordered_list
+              list_item
+                anchor [ref=28363, url=https://www.bing.com/ck/a?!&&p=6aafd7d9f666a1e981945045a00c6d1f81e0d204a89aceecd0edd3f95f3d20d9JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK2Rvd25sb2FkJkZPUk09UVNSRTE&ntb=1]
+                  text "zen browser"
+                  text "download"
+              list_item
+                anchor [ref=28364, url=https://www.bing.com/ck/a?!&&p=9555dcb58c4fad41e3683d2a5e98007a49a4140277c3627cabc7c32c0eae7769JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK2ZvcitXaW5kb3dzKzEwJkZPUk09UVNSRTI&ntb=1]
+                  text "zen browser"
+                  text "for Windows 10"
+              list_item
+                anchor [ref=28365, url=https://www.bing.com/ck/a?!&&p=f077b6dfc72de2a17742c22740168dda7e40234a6d2c514fdf2505ebb59b9403JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK2V4dGVuc2lvbiZGT1JNPVFTUkUz&ntb=1]
+                  text "zen browser"
+                  text "extension"
+              list_item
+                anchor [ref=28366, url=https://www.bing.com/ck/a?!&&p=9de7c3d7aa6dac899e8b5042dee8fa9207b5d85f9d1878b005ece99eb77ee580JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK1BERitzdXBwb3J0JkZPUk09UVNSRTQ&ntb=1]
+                  text "zen browser"
+                  text "pdf support"
+              list_item
+                anchor [ref=28367, url=https://www.bing.com/ck/a?!&&p=e67c261223149d27c9940f34aff7fc716f854953e6dba7925fdd67b663cd5f9aJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK3JldmlldyZGT1JNPVFTUkU1&ntb=1]
+                  text "zen browser"
+                  text "review"
+              list_item
+                anchor [ref=28368, url=https://www.bing.com/ck/a?!&&p=ffe738dfb6f407bd0bcbff42e343992ccfab3e550d22b5d27cc09c993c00680bJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPWlzK3plbiticm93c2VyK3NhZmUmRk9STT1RU1JFNg&ntb=1]
+                  text "is"
+                  text "zen browser"
+                  text "safe"
+              list_item
+                anchor [ref=28369, url=https://www.bing.com/ck/a?!&&p=a1b686256f6fc0de24245e96bf02851ae87bbc512d33754824c2a788c5a60635JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK3BvcnRhYmxlJkZPUk09UVNSRTc&ntb=1]
+                  text "zen browser"
+                  text "portable"
+              list_item
+                anchor [ref=28370, url=https://www.bing.com/ck/a?!&&p=b93565b66da8685df83e4dc39a5b6aee86c8fd577fdc77ab55035d0ea381d0ebJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK2ZyZWUrZG93bmxvYWQmRk9STT1RU1JFOA&ntb=1]
+                  text "zen browser"
+                  text "free download"
+              list_item
+                anchor [ref=28371, url=https://www.bing.com/ck/a?!&&p=a2f0fe5a2b7d264ff83f9193cd66c89c76949559457b643328ac19d21f56bec0JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK0FuZHJvaWQmRk9STT1RU1JFOQ&ntb=1]
+                  text "zen browser"
+                  text "android"
+              list_item
+                anchor [ref=28372, url=https://www.bing.com/ck/a?!&&p=a659fe066c826aa11c3e4acc22aec259506a1c8b28d72b2a6d6bc58359c9a79dJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPWlzK3plbiticm93c2VyK29wZW4rc291cmNlJkZPUk09UVNSRTEw&ntb=1]
+                  text "is"
+                  text "zen browser"
+                  text "open source"
+          list_item
+            navigation "More results for zen browser"
+              unordered_list
+                list_item
+                  anchor "Page 1" [ref=28373, loc=css:a[aria-label="Page 1"]]
+                    text "1"
+                list_item
+                  anchor "Page 2" [ref=28374, loc=css:a[aria-label="Page 2"], url=https://www.bing.com/search?q=zen+browser&FPIG=12E9AA0932A34106AE7FC4092F315197&first=3&FORM=PERE]
+                    text "2"
+                list_item
+                  anchor "Page 3" [ref=28375, loc=css:a[aria-label="Page 3"], url=https://www.bing.com/search?q=zen+browser&FPIG=12E9AA0932A34106AE7FC4092F315197&first=13&FORM=PERE1]
+                    text "3"
+                list_item
+                  anchor "Next page" [ref=28376, loc=css:a[aria-label="Next page"], url=https://www.bing.com/search?q=zen+browser&FPIG=12E9AA0932A34106AE7FC4092F315197&first=3&FORM=PORE]
+                    image
+        container "Additional Results"
+          ordered_list
+            list_item
+              heading
+                text "Related searches"
+              anchor [ref=28377, url=https://www.bing.com/ck/a?!&&p=2e0ff1c42914a92a40b3120f3453fe6ae8161b4b55f14ce954f1c584efffcb39JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK2Rvd25sb2FkJkZPUk09UjVGRA&ntb=1]
+                image
+                text "zen browser"
+                text "download"
+              anchor [ref=28378, url=https://www.bing.com/ck/a?!&&p=efbb60a5696f2c8ad3dc6c7ecd3f143297c4638dba1482f18e25434ba4ee000fJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK2ZvcitXaW5kb3dzKzEwJkZPUk09UjVGRDE&ntb=1]
+                image
+                text "zen browser"
+                text "for Windows 10"
+              anchor [ref=28379, url=https://www.bing.com/ck/a?!&&p=82edebc4c1977b8a45657c992b45a85e33addcd5a473d7c94b8996ac2453b521JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK2V4dGVuc2lvbiZGT1JNPVI1RkQy&ntb=1]
+                image
+                text "zen browser"
+                text "extension"
+              anchor [ref=28380, url=https://www.bing.com/ck/a?!&&p=e84e959a18a4fa0a3eafb73251144cacaa1db7d0e6e094fefbb3d2a2c93ae31dJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK1BERitzdXBwb3J0JkZPUk09UjVGRDM&ntb=1]
+                image
+                text "zen browser"
+                text "pdf support"
+              anchor [ref=28381, url=https://www.bing.com/ck/a?!&&p=b7a96c8d662d1c80ada104ba8e77d820bde73429e42955eb2601779a2c7f9ea9JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK3JldmlldyZGT1JNPVI1RkQ0&ntb=1]
+                image
+                text "zen browser"
+                text "review"
+              anchor [ref=28382, url=https://www.bing.com/ck/a?!&&p=0a1925fd2db76334a2dfbe935850af05d69a7b71f244addf5f8bb0f5b42d07b1JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPWlzK3plbiticm93c2VyK3NhZmUmRk9STT1SNUZENQ&ntb=1]
+                image
+                text "is"
+                text "zen browser"
+                text "safe"
+              anchor [ref=28383, url=https://www.bing.com/ck/a?!&&p=a5da146968caa743cebb8aebc338ca3e9201349695c4306b4229bf6e00713ae9JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK3BvcnRhYmxlJkZPUk09UjVGRDY&ntb=1]
+                image
+                text "zen browser"
+                text "portable"
+              anchor [ref=28384, url=https://www.bing.com/ck/a?!&&p=0193fd43ebd25e977574ea8a14c86a1477a4bda4c9dc977d1be9424b0af8a5bfJmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK2ZyZWUrZG93bmxvYWQmRk9STT1SNUZENw&ntb=1]
+                image
+                text "zen browser"
+                text "free download"
+              anchor [ref=28385, url=https://www.bing.com/ck/a?!&&p=b8d19b5107535945bbccfa8d2c20ca3aa61d16edde025b35c38552ff00351418JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPXplbiticm93c2VyK0FuZHJvaWQmRk9STT1SNUZEOA&ntb=1]
+                image
+                text "zen browser"
+                text "android"
+              anchor [ref=28386, url=https://www.bing.com/ck/a?!&&p=2e3f9d63e6c2c1bbef58626c663b534e0c284a62844c482e3c1a31f7ff6af332JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1L3NlYXJjaD9xPWlzK3plbiticm93c2VyK29wZW4rc291cmNlJkZPUk09UjVGRDk&ntb=1]
+                image
+                text "is"
+                text "zen browser"
+                text "open source"
+    unordered_list
+      list_item
+        anchor [ref=28387, url=https://www.bing.com/ck/a?!&&p=0cf7c4d8e071024351b4de29592afcfae23f70e7f9c0da897f4788f5cbaee0c2JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cDovL2dvLm1pY3Jvc29mdC5jb20vZndsaW5rLz9MaW5rSWQ9NTIxODM5&ntb=1]
+          text "Privacy"
+      list_item
+        anchor [ref=28388, url=https://www.bing.com/ck/a?!&&p=35e72a98ad25abdbcfacb190565946d070a3c39768a3f3a51a74e9c61a934101JmltdHM9MTc5NTA0NjQwMA&ptn=3&ver=2&hsh=4&fclid=1bf66474-6b1d-682a-00ba-7c7e6a9f693a&u=a1aHR0cDovL2dvLm1pY3Jvc29mdC5jb20vZndsaW5rLz9MaW5rSUQ9MjQ2MzM4&ntb=1]
+          text "Terms"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root

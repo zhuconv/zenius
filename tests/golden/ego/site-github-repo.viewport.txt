@@ -1,0 +1,295 @@
+[p1 "GitHub - citrolabs/ego-lite: The fastest browser for AI agents to run browser..." | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "GitHub - citrolabs/ego-lite: The fastest browser for AI agents to run browser..."]
+root
+  container
+    banner
+      container
+        anchor "Homepage" [ref=5118, loc=css:a[aria-label="Homepage"], url=https://github.com/]
+          svg_root
+        container
+          container "Global"
+            unordered_list
+              list_item
+                button [ref=5119]
+                  text "Products"
+                  svg_root
+              list_item
+                button [ref=5120]
+                  text "Developers"
+                  svg_root
+              list_item
+                button [ref=5121]
+                  text "Businesses"
+                  svg_root
+              list_item
+                button [ref=5122]
+                  text "Resources"
+                  svg_root
+              list_item
+                anchor [ref=5123, loc=href:/pricing, url=https://github.com/pricing]
+                  text "Pricing"
+          container
+            button "Search or jump to, type / to search" [ref=5124, loc=css:button[aria-label="Search or jump to, type / to search"]]
+              text "Search"
+              text "/"
+            anchor [ref=5125, url=https://github.com/login?return_to=https%3A%2F%2Fgithub.com%2Fcitrolabs%2Fego-lite]
+              text "Sign in"
+            anchor [ref=5126, url=https://github.com/signup?ref_cta=Sign+up&ref_loc=header+logged+out&ref_page=%2F%3Cuser-name%3E%2F%3Crepo-name%3E&source=header-repo&source_repo=citrolabs%2Fego-lite]
+    container
+      container "Global navigation menu"
+        container "Breadcrumbs"
+          ordered_list
+            list_item
+              anchor [ref=5127, loc=href:/citrolabs, url=https://github.com/citrolabs]
+                text "citrolabs"
+            list_item
+              anchor [ref=5128, url=https://github.com/citrolabs/ego-lite]
+                text "ego-lite"
+        container "Repository"
+          list
+            list_item
+              anchor [ref=5129, url=https://github.com/citrolabs/ego-lite]
+                svg_root
+                text "Code"
+            list_item
+              anchor [ref=5130, loc=href:/citrolabs/ego-lite/issues, url=https://github.com/citrolabs/ego-lite/issues]
+                svg_root
+                text "Issues"
+                text "246"
+            list_item
+              anchor [ref=5131, loc=href:/citrolabs/ego-lite/pulls, url=https://github.com/citrolabs/ego-lite/pulls]
+                svg_root
+                text "Pull requests"
+                text "55"
+            list_item
+              anchor [ref=5132, url=https://github.com/citrolabs/ego-lite/discussions]
+                svg_root
+                text "Discussions"
+            list_item
+              anchor [ref=5133, loc=href:/citrolabs/ego-lite/actions, url=https://github.com/citrolabs/ego-lite/actions]
+                svg_root
+                text "Actions"
+            list_item
+              anchor [ref=5134, loc=href:/citrolabs/ego-lite/projects, url=https://github.com/citrolabs/ego-lite/projects]
+                svg_root
+                text "Projects"
+            list_item
+              anchor [ref=5135, loc=href:/citrolabs/ego-lite/wiki, url=https://github.com/citrolabs/ego-lite/wiki]
+                svg_root
+                text "Wiki"
+            list_item
+              anchor [ref=5136, loc=href:/citrolabs/ego-lite/security, url=https://github.com/citrolabs/ego-lite/security]
+                svg_root
+                text "Security and quality"
+            list_item
+              anchor [ref=5137, loc=href:/citrolabs/ego-lite/insights, url=https://github.com/citrolabs/ego-lite/insights]
+                svg_root
+                text "Insights"
+      container [ref=5138]
+        container
+          container
+            image
+            anchor [ref=5139, url=https://github.com/citrolabs/ego-lite]
+              text "ego-lite"
+            text "Public"
+          unordered_list
+            list_item
+              anchor "You must be signed in to change notification settings" [ref=5140, loc=css:a[aria-label="You must be signed in to change notification settings"], url=https://github.com/login?return_to=%2Fcitrolabs%2Fego-lite]
+                svg_root
+                text "Notifications"
+            list_item
+              anchor "You must be signed in to fork a repository" [ref=5141, loc=css:a[aria-label="You must be signed in to fork a repository"], url=https://github.com/login?return_to=%2Fcitrolabs%2Fego-lite]
+                svg_root
+                container
+                  text "Fork"
+                  text "1.3k"
+            list_item
+              anchor [ref=5142, url=https://github.com/login?return_to=%2Fcitrolabs%2Fego-lite]
+                svg_root
+                container
+                  text "Star"
+                  text "23.8k"
+        container
+          container
+            container
+              container
+                button "main branch" [ref=5143, loc=css:button[aria-label="main branch"]]
+                  svg_root
+                  text "main"
+                  svg_root
+                container
+                  anchor [ref=5144, url=https://github.com/citrolabs/ego-lite/branches]
+                    svg_root
+                    container
+                      text "88"
+                      text "Branches"
+                  anchor [ref=5145, url=https://github.com/citrolabs/ego-lite/tags]
+                    svg_root
+                    container
+                      text "43"
+                      text "Tags"
+              container
+                container
+                  svg_root
+                  comboboxgrouping "Go to file" [ref=5146, loc=css:input[placeholder="Go to file"]]
+                    text "Go to file"
+                button [ref=5147]
+                  svg_root
+                  text "Code"
+                  svg_root
+            container
+              container
+                container
+                  container
+                    anchor [ref=5148, url=https://github.com/joway]
+                      image "joway"
+                    anchor "commits by joway" [ref=5149, loc=css:a[aria-label="commits by joway"], url=https://github.com/citrolabs/ego-lite/commits?author=joway]
+                      text "joway"
+                  container
+                    container
+                      anchor [ref=5150, url=https://github.com/citrolabs/ego-lite/commit/f499162d1b911ba9b320ed31b741dba7ebc2e4d6]
+                        text "Merge pull request"
+                      anchor [ref=5151, loc=href:/citrolabs/ego-lite/pull/739, url=https://github.com/citrolabs/ego-lite/pull/739]
+                        text "#739"
+                      anchor [ref=5152, url=https://github.com/citrolabs/ego-lite/commit/f499162d1b911ba9b320ed31b741dba7ebc2e4d6]
+                        text "from citrolabs/hotfix/release-v2.2.1-beta.3"
+                    button "Open commit details" [ref=5153]
+                      svg_root
+                    button "success" [ref=5154]
+                      svg_root
+                container
+                  container
+                    anchor "Commit f499162" [ref=5155, loc=css:a[aria-label="Commit f499162"], url=https://github.com/citrolabs/ego-lite/commit/f499162d1b911ba9b320ed31b741dba7ebc2e4d6]
+                      text "f499162"
+                    text " · "
+                    text "4 days ago"
+                  anchor [ref=5156, url=https://github.com/citrolabs/ego-lite/commits/main/]
+                    svg_root
+                    text "651 Commits"
+              table "Folders and files"
+                table_row
+                  table_cell
+                    svg_root
+                    anchor ".agents, (Directory)" [ref=5157, url=https://github.com/citrolabs/ego-lite/tree/main/.agents]
+                      text ".agents"
+                  table_cell
+                    anchor [ref=5158, loc=href:/citrolabs/ego-lite/commit/03d729d4e25eb918f21beba8676869a73e57a2d3, url=https://github.com/citrolabs/ego-lite/commit/03d729d4e25eb918f21beba8676869a73e57a2d3]
+                      text "feat(plugins): package ego-browser for nine agent hosts"
+                  table_cell
+                    text "2 months ago"
+                table_row
+                  table_cell
+                    svg_root
+                    anchor ".claude-plugin, (Directory)" [ref=5159, url=https://github.com/citrolabs/ego-lite/tree/main/.claude-plugin]
+                      text ".claude-plugin"
+                  table_cell
+                    anchor [ref=5160, url=https://github.com/citrolabs/ego-lite/commit/e8c79cf73a470b9e7daa545f0669fc449f09a2df]
+                      text "chore: bump Skill and plugin versions to 2.2.1"
+                  table_cell
+                    text "2 weeks ago"
+                table_row
+                  table_cell
+                    svg_root
+                    anchor ".claude/skills, (Directory)" [ref=5161, url=https://github.com/citrolabs/ego-lite/tree/main/.claude/skills]
+                      text ".claude/"
+                      text "skills"
+                  table_cell
+                    anchor [ref=5162, url=https://github.com/citrolabs/ego-lite/commit/a66885010ea324e33988af8d3653fad5b40b6550]
+                      text "chore: relocate developer-only skill"
+                  table_cell
+                    text "3 months ago"
+                table_row
+                  table_cell
+                    svg_root
+                    anchor ".codex/skills, (Directory)" [ref=5163, url=https://github.com/citrolabs/ego-lite/tree/main/.codex/skills]
+                      text ".codex/"
+                      text "skills"
+                  table_cell
+                    anchor [ref=5164, url=https://github.com/citrolabs/ego-lite/commit/a66885010ea324e33988af8d3653fad5b40b6550]
+                      text "chore: relocate developer-only skill"
+                  table_cell
+                    text "3 months ago"
+                table_row
+                  table_cell
+                    svg_root
+                    anchor ".cursor-plugin, (Directory)" [ref=5165, url=https://github.com/citrolabs/ego-lite/tree/main/.cursor-plugin]
+                      text ".cursor-plugin"
+                  table_cell
+                    anchor [ref=5166, url=https://github.com/citrolabs/ego-lite/commit/c4d7ddf7f72c4505813f0d78ff606d3aa29cae0d]
+                      text "feat(plugins): ship the plugin directory with real Skill files"
+                  table_cell
+                    text "last month"
+                table_row
+                  table_cell
+                    svg_root
+                    anchor ".github, (Directory)" [ref=5167, url=https://github.com/citrolabs/ego-lite/tree/main/.github]
+                      text ".github"
+                  table_cell
+                    anchor [ref=5168, url=https://github.com/citrolabs/ego-lite/commit/2ea9621614145da33a11274b1389e7f78b779674]
+                      text "Merge origin/main into v2.2.1-beta.3 for the main release"
+                  table_cell
+                    text "4 days ago"
+                table_row
+                  table_cell
+                    svg_root
+                    anchor "docs, (Directory)" [ref=5169, url=https://github.com/citrolabs/ego-lite/tree/main/docs]
+                      text "docs"
+                  table_cell
+                    anchor [ref=5170, url=https://github.com/citrolabs/ego-lite/commit/2ea9621614145da33a11274b1389e7f78b779674]
+                      text "Merge origin/main into v2.2.1-beta.3 for the main release"
+                  table_cell
+                    text "4 days ago"
+                table_row
+                  table_cell
+                    svg_root
+                    anchor "package/ego-browser, (Directory)" [ref=5171, url=https://github.com/citrolabs/ego-lite/tree/main/package/ego-browser]
+                      text "package/"
+                      text "ego-browser"
+                  table_cell
+                    anchor [ref=5172, url=https://github.com/citrolabs/ego-lite/commit/fa2de6b3699a43f5722c586b83b2ea8529329404]
+                      text "Merge pull request"
+                    anchor [ref=5173, loc=href:/citrolabs/ego-lite/pull/703, url=https://github.com/citrolabs/ego-lite/pull/703]
+                      text "#703"
+                    anchor [ref=5174, url=https://github.com/citrolabs/ego-lite/commit/fa2de6b3699a43f5722c586b83b2ea8529329404]
+                      text "from citrolabs/zhuoweiwang/citro-5068"
+                  table_cell
+                    text "last week"
+          container
+            heading
+              text "About"
+            paragraph
+              text "The fastest browser for AI agents to run browser automation, built for sharing your logged-in browser state with your AI agents, like Codex or Claude Code, without disturbing you. Zero cost, zero conf..."
+            container
+              svg_root
+              anchor [ref=5175, url=https://lite.ego.app/]
+                text "lite.ego.app"
+            container
+              anchor [ref=5176, url=https://github.com/topics/agent-skills]
+                text "agent-skills"
+              anchor [ref=5177, url=https://github.com/topics/ai-agent]
+                text "ai-agent"
+              anchor [ref=5178, url=https://github.com/topics/automation]
+                text "automation"
+              anchor [ref=5179, url=https://github.com/topics/browser]
+                text "browser"
+              anchor [ref=5180, url=https://github.com/topics/browser-automation]
+                text "browser-automation"
+              anchor [ref=5181, url=https://github.com/topics/claude-code]
+                text "claude-code"
+              anchor [ref=5182, url=https://github.com/topics/codex]
+                text "codex"
+              anchor [ref=5183, url=https://github.com/topics/hermes-agent]
+                text "hermes-agent"
+              anchor [ref=5184, url=https://github.com/topics/skills]
+                text "skills"
+              anchor [ref=5185, url=https://github.com/topics/skills-sh]
+                text "skills-sh"
+            anchor [ref=5186, url=https://github.com/citrolabs/ego-lite#readme-ov-file]
+              svg_root
+              text "Readme"
+            anchor [ref=5187, url=https://github.com/citrolabs/ego-lite#MIT-1-ov-file]
+              svg_root
+              text "MIT license"
+            anchor [ref=5188, url=https://github.com/citrolabs/ego-lite#contributing-ov-file]
+              svg_root
+              text "Contributing"
+[more content below the viewport: scrollY=0, viewport 753 / page 7987 px; scroll or use snapshot({ scope: "full_page" })]

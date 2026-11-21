@@ -1,0 +1,142 @@
+[p1 "Material Web - Buttons" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "Material Web - Buttons"]
+root
+  container
+    container
+      container
+        svg_root
+        anchor [ref=10956, url=https://material-web.dev/]
+      anchor [ref=10957, url=https://material-web.dev/]
+        text "Material Web"
+      anchor [ref=10958, loc=href:/components/button/#main-content, url=https://material-web.dev/components/button/#main-content]
+        text "Skip to main content"
+      container
+        container
+          svg_root
+          anchor [ref=10959, loc=href:https://github.com/material-components/material-web, url=https://github.com/material-components/material-web]
+        button [ref=10960]
+          text "palette"
+    container
+      container [ref=10961]
+        menubar "List of pages and components"
+          text "About"
+          listitem [ref=10962, loc=href:/about/intro/, url=https://material-web.dev/about/intro/]
+            text "Introduction"
+          listitem [ref=10963, loc=href:/about/quick-start/, url=https://material-web.dev/about/quick-start/]
+            text "Quick Start"
+          listitem [ref=10964, loc=href:/about/roadmap/, url=https://material-web.dev/about/roadmap/]
+            text "Roadmap"
+          listitem [ref=10965, loc=href:/about/support/, url=https://material-web.dev/about/support/]
+            text "Support"
+          listitem [ref=10966, loc=href:/about/size/, url=https://material-web.dev/about/size/]
+            text "Bundle Sizes"
+          splitter
+          text "Theming"
+          listitem [ref=10967, url=https://material-web.dev/theming/material-theming/]
+            text "Material Theming"
+          listitem [ref=10968, loc=href:/theming/color/, url=https://material-web.dev/theming/color/]
+            text "Color"
+          listitem [ref=10969, loc=href:/theming/typography/, url=https://material-web.dev/theming/typography/]
+            text "Typography"
+          listitem [ref=10970, loc=href:/theming/shape/, url=https://material-web.dev/theming/shape/]
+            text "Shape"
+          splitter
+          text "Components"
+      container
+        container [ref=10971]
+          paragraph
+            text "On this page:"
+          heading
+            text "Buttons"
+          ordered_list
+            list_item
+              anchor [ref=10972, url=https://material-web.dev/components/button/#interactive-demo]
+                text "Interactive Demo"
+            list_item
+              anchor [ref=10973, url=https://material-web.dev/components/button/#types]
+                text "Types"
+            list_item
+              anchor [ref=10974, url=https://material-web.dev/components/button/#usage]
+                text "Usage"
+              ordered_list
+                list_item
+                  anchor [ref=10975, url=https://material-web.dev/components/button/#icon]
+                    text "Icon"
+            list_item
+              anchor [ref=10976, url=https://material-web.dev/components/button/#accessibility]
+                text "Accessibility"
+              ordered_list
+                list_item
+                  anchor [ref=10977, url=https://material-web.dev/components/button/#focusable-and-disabled]
+                    text "Focusable and disabled"
+            list_item
+              anchor [ref=10978, url=https://material-web.dev/components/button/#elevated-button]
+                text "Elevated button"
+            list_item
+              anchor [ref=10979, url=https://material-web.dev/components/button/#filled-button]
+                text "Filled button"
+            list_item
+              anchor [ref=10980, url=https://material-web.dev/components/button/#filled-tonal-button]
+                text "Filled tonal button"
+            list_item
+              anchor [ref=10981, url=https://material-web.dev/components/button/#outlined-button]
+                text "Outlined button"
+            list_item
+              anchor [ref=10982, url=https://material-web.dev/components/button/#text-button]
+                text "Text button"
+            list_item
+              anchor [ref=10983, url=https://material-web.dev/components/button/#theming]
+                text "Theming"
+              ordered_list
+                list_item
+                  anchor [ref=10984, url=https://material-web.dev/components/button/#elevated-button-tokens]
+                    text "Elevated button tokens"
+                list_item
+                  anchor [ref=10985, url=https://material-web.dev/components/button/#elevated-button-example]
+                    text "Elevated button example"
+                list_item
+                  anchor [ref=10986, url=https://material-web.dev/components/button/#filled-button-tokens]
+                    text "Filled button tokens"
+                list_item
+                  anchor [ref=10987, url=https://material-web.dev/components/button/#filled-button-example]
+                    text "Filled button example"
+                list_item
+                  anchor [ref=10988, url=https://material-web.dev/components/button/#filled-tonal-button-tokens]
+                    text "Filled tonal button tokens"
+                list_item
+                  anchor [ref=10989, url=https://material-web.dev/components/button/#filled-tonal-button-example]
+                    text "Filled tonal button example"
+        container [ref=10990]
+          container [ref=10991]
+            container
+              container
+                heading
+                  text "Buttons"
+                paragraph
+                  anchor [ref=10992, url=https://m3.material.io/components/buttons]
+                    text "Buttons"
+                  text "help people initiate actions, from sending an email, to sharing a document, to liking a post."
+                paragraph
+                  text "There are five types of common buttons: elevated, filled, filled tonal, outlined, and text."
+              paragraph
+                image
+            unordered_list
+              list_item
+                anchor [ref=10993, url=https://m3.material.io/components/buttons]
+                  text "Design article"
+              list_item
+                anchor [ref=10994, url=https://material-web.dev/components/button/#api]
+                  text "API Documentation"
+              list_item
+                anchor [ref=10995, loc=href:https://github.com/material-components/material-web/tree/main/button, url=https://github.com/material-components/material-web/tree/main/button]
+                  text "Source code"
+            container
+              heading [ref=10996]
+                text "Interactive Demo"
+              anchor [ref=10997, url=https://material-web.dev/components/button/#interactive-demo]
+                text "#"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root

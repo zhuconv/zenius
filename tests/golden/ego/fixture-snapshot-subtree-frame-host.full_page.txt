@@ -1,0 +1,16 @@
+[p1 "Snapshot iframe host" | space "zen-eval golden 1795148479936"(5): 1 managed, 0 untracked — p1* "Snapshot iframe host"]
+root
+  container
+    heading
+      text "Snapshot iframe host"
+    paragraph
+      text "Host sibling marker"
+    iframe [ref=175]
+      root
+        container
+          heading
+            text "Same-origin iframe subtree content"
+          button "Run Same-origin iframe subtree action" [ref=176, loc=css:button[aria-label="Run Same-origin iframe subtree action"]]
+            text "Run frame action"
+          paragraph
+            text "Same-origin iframe idle"

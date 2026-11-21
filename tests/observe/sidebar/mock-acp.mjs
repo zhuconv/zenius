@@ -1,0 +1,106 @@
+// A mock ACP agent for tests/observe/sidebarlimits.test.mjs. It records what
+// the sidebar hands an agent's process, one JSON line per event in LOG:
+//   {event: "start", argv, cwd, env}   the process as the sidebar started it
+//   {event: "request", method, params} every request the sidebar sends
+//   {event: "permission", asked, outcome} the answer to a permission request
+// A prompt whose text holds PERMISSION:<tool> asks the sidebar for
+// permission to run <tool> (claude-agent-acp's shape) before it answers.
+//   node mock-acp.mjs LOG
+import { appendFileSync } from "node:fs";
+import { createInterface } from "node:readline";
+
+const LOG = process.argv[2];
+const log = entry => appendFileSync(LOG, JSON.stringify(entry) + "\n");
+const send = message => process.stdout.write(JSON.stringify({ jsonrpc: "2.0", ...message }) + "\n");
+
+log({ event: "start", argv: process.argv.slice(2), cwd: process.cwd(), env: process.env });
+
+let nextSession = 1;
+let nextId = 1000;
+const waiting = new Map();
+
+function answer(id, result) {
+  send({ id, result });
+}
+
+async function ask(sessionId, tool) {
+  const id = nextId++;
+  const outcome = new Promise(resolve => waiting.set(id, resolve));
+  send({
+    id,
+    method: "session/request_permission",
+    params: {
+      sessionId,
+      toolCall: { toolCallId: `t${id}`, title: tool, kind: "execute", rawInput: {}, _meta: { claudeCode: { toolName: tool } } },
+      options: [
+        { optionId: "allow", name: "Allow", kind: "allow_once" },
+        { optionId: "reject", name: "Reject", kind: "reject_once" },
+      ],
+    },
+  });
+  // A sidebar that never answers fails the test instead of hanging it.
+  const result = await Promise.race([outcome, new Promise(resolve => setTimeout(() => resolve(null), 15000))]);
+  log({ event: "permission", asked: tool, outcome: result?.outcome ?? null });
+  return result;
+}
+
+async function prompt(id, params) {
+  const text = (params.prompt ?? []).map(block => block.text ?? "").join(" ");
+  const wanted = /PERMISSION:(\S+)/.exec(text);
+  let reply = "ok";
+  if (wanted) {
+    const result = await ask(params.sessionId, wanted[1]);
+    reply = `permission outcome: ${JSON.stringify(result?.outcome ?? null)}`;
+  }
+  send({
+    method: "session/update",
+    params: { sessionId: params.sessionId, update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: reply } } },
+  });
+  answer(id, { stopReason: "end_turn" });
+}
+
+createInterface({ input: process.stdin }).on("line", line => {
+  let message;
+  try {
+    message = JSON.parse(line);
+  } catch {
+    return;
+  }
+  if (message.method === undefined) {
+    // A response to one of our requests.
+    waiting.get(message.id)?.(message.result);
+    waiting.delete(message.id);
+    return;
+  }
+  log({ event: "request", method: message.method, params: message.params });
+  switch (message.method) {
+    case "initialize":
+      answer(message.id, {
+        protocolVersion: 1,
+        agentCapabilities: { loadSession: true, sessionCapabilities: { resume: {}, fork: {}, close: {} } },
+        agentInfo: { name: "mock-acp", version: "1" },
+      });
+      break;
+    case "session/new":
+    case "session/fork":
+      answer(message.id, { sessionId: `mock-${nextSession++}` });
+      break;
+    case "session/resume":
+    case "session/load":
+      answer(message.id, {});
+      break;
+    case "session/prompt":
+      prompt(message.id, message.params);
+      break;
+    case "session/close":
+    case "session/cancel":
+      if (message.id !== undefined) {
+        answer(message.id, {});
+      }
+      break;
+    default:
+      if (message.id !== undefined) {
+        send({ id: message.id, error: { code: -32601, message: `${message.method} isn't mocked` } });
+      }
+  }
+});

@@ -1,0 +1,17 @@
+// Method modules the service loads, in order. A later module replaces a
+// method an earlier one defined, and the log says so. Missing files are
+// skipped, so every planned module is listed already; add a line only for a
+// new module.
+export const methodModules = [
+  "browser", // zen-core
+  "spaces", // zen-core
+  "pages", // zen-core
+  "events", // zen-core
+  "dev", // zen-core: dev.* (only with pref zenius.dev)
+  "navigation", // zen-observe
+  "observe", // zen-observe
+  "io", // zen-observe
+  "snapshot", // zen-snapshot
+  "actions", // zen-input
+  "ui", // zen-ux
+];

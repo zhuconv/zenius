@@ -1,0 +1,13 @@
+[p1 "click below fold" | space "zen-eval golden 1795148479936"(5): 1 managed, 0 untracked — p1* "click below fold"]
+root
+  container
+    button [ref=178]
+      text "Partial"
+    button [ref=179]
+      text "Far"
+    button [ref=180]
+      text "Unreachable"
+    iframe [ref=181]
+      root
+        button [ref=182]
+          text "Framed"

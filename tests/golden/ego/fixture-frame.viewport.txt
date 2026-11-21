@@ -1,0 +1,58 @@
+[p1 "ego-lite iframe" | space "zen-eval golden 1795148479936"(5): 1 managed, 0 untracked — p1* "ego-lite iframe"]
+root
+  container
+    heading
+      text "Iframe fixture"
+    paragraph
+      text "ready"
+    button "Increment counter" [ref=48, loc=css:button[aria-label="Increment counter"]]
+      text "Click counter"
+    button [ref=49]
+      text "Duplicate action"
+    button [ref=50]
+      text "Duplicate action"
+    anchor [ref=51, loc=href:/nav-target, url={{BASE}}/nav-target]
+      text "Go to nav target"
+    text "0"
+    text "Hover zone"
+    text "Drag source"
+    text "Drag target"
+    container
+      text "Text input"
+      textbox [ref=52]
+        text "initial"
+    container
+      text "Append input"
+      textbox [ref=53]
+        text "base"
+    container
+      text "Text area"
+      textbox [ref=54]
+        text "seed"
+    text "File input"
+    button [ref=55]
+      text "Choose files dynamically"
+    container
+      text "Dropdown"
+      combobox [ref=56]
+        text "Alpha"
+    container
+      checkbox [ref=57]
+      text "Toggle checkbox"
+    container [ref=58]
+      text "edit me"
+    text "Right-click here"
+    button [ref=59]
+      text "Add element"
+    button [ref=60]
+      text "Remove element"
+    container
+      container [ref=61]
+        text "First"
+      container [ref=62]
+        text "Second"
+      container [ref=63]
+        text "Third"
+    text "Delayed element"
+    container [ref=64]
+[more content below the viewport: scrollY=0, viewport 829 / page 2564 px; scroll or use snapshot({ scope: "full_page" })]

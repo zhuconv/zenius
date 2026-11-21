@@ -1,0 +1,696 @@
+[p1 "Apple" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "Apple"]
+root
+  container
+    heading
+      text "Apple"
+    container "Global"
+      unordered_list
+        list_item
+          anchor "Apple" [ref=28144, loc=css:a[aria-label="Apple"], url=https://www.apple.com/]
+            svg_root
+            text "Apple"
+        unordered_list
+          list_item
+            anchor "Store" [ref=28145, loc=css:a[aria-label="Store"], url=https://www.apple.com/us/shop/goto/store]
+              svg_root
+              text "Store"
+          list_item
+            button "Store menu" [ref=28146, loc=css:button[aria-label="Store menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "Mac" [ref=28147, loc=css:a[aria-label="Mac"], url=https://www.apple.com/mac/]
+              svg_root
+              text "Mac"
+          list_item
+            button "Mac menu" [ref=28148, loc=css:button[aria-label="Mac menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "iPad" [ref=28149, loc=css:a[aria-label="iPad"], url=https://www.apple.com/ipad/]
+              svg_root
+              text "iPad"
+          list_item
+            button "iPad menu" [ref=28150, loc=css:button[aria-label="iPad menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "iPhone" [ref=28151, loc=css:a[aria-label="iPhone"], url=https://www.apple.com/iphone/]
+              svg_root
+              text "iPhone"
+          list_item
+            button "iPhone menu" [ref=28152, loc=css:button[aria-label="iPhone menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "Watch" [ref=28153, loc=css:a[aria-label="Watch"], url=https://www.apple.com/watch/]
+              svg_root
+              text "Watch"
+          list_item
+            button "Watch menu" [ref=28154, loc=css:button[aria-label="Watch menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "Vision" [ref=28155, loc=css:a[aria-label="Vision"], url=https://www.apple.com/apple-vision-pro/]
+              svg_root
+              text "Vision"
+          list_item
+            button "Vision menu" [ref=28156, loc=css:button[aria-label="Vision menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "AirPods" [ref=28157, loc=css:a[aria-label="AirPods"], url=https://www.apple.com/airpods/]
+              svg_root
+              text "AirPods"
+          list_item
+            button "AirPods menu" [ref=28158, loc=css:button[aria-label="AirPods menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "Home" [ref=28159, loc=css:a[aria-label="Home"], url=https://www.apple.com/home/]
+              svg_root
+              text "Home"
+          list_item
+            button "Home menu" [ref=28160, loc=css:button[aria-label="Home menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "Entertainment" [ref=28161, loc=css:a[aria-label="Entertainment"], url=https://www.apple.com/entertainment/]
+              svg_root
+              text "Entertainment"
+          list_item
+            button "Entertainment menu" [ref=28162, loc=css:button[aria-label="Entertainment menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "Accessories" [ref=28163, loc=css:a[aria-label="Accessories"], url=https://www.apple.com/us/shop/goto/buy_accessories]
+              svg_root
+              text "Accessories"
+          list_item
+            button "Accessories menu" [ref=28164, loc=css:button[aria-label="Accessories menu"]]
+              svg_root
+        unordered_list
+          list_item
+            anchor "Support" [ref=28165, loc=css:a[aria-label="Support"], url=https://support.apple.com/?cid=gn-ols-home-hp-tab]
+              svg_root
+              text "Support"
+          list_item
+            button "Support menu" [ref=28166, loc=css:button[aria-label="Support menu"]]
+              svg_root
+        list_item
+          button "Search apple.com" [ref=28167, loc=css:a[aria-label="Search apple.com"], url=https://www.apple.com/us/search]
+            svg_root
+        list_item
+          button "Shopping Bag" [ref=28168, loc=css:a[aria-label="Shopping Bag"], url=https://www.apple.com/us/shop/goto/bag]
+            svg_root
+            container
+              text "0"
+              text "+"
+    main
+      container
+        container
+          text "Starting Black Friday, get an Apple Gift Card up to $300"
+          anchor "Footnote * symbol" [ref=28169, loc=css:a[aria-label="Footnote * symbol"], url=https://www.apple.com/#footnote-asterisk-1]
+            text "*"
+          text "when you buy an eligible product."
+        anchor "Learn more, Apple Store Black Friday Event" [ref=28170, loc=css:a[aria-label="Learn more, Apple Store Black Friday Event"], url=https://www.apple.com/us/shop/goto/gifts/black_friday_event]
+          text "Learn more"
+          text ""
+      container
+        container
+          anchor [ref=28171, url=https://www.apple.com/iphone/]
+          container
+            heading
+              text "iPhone"
+            paragraph
+              text "Meet the most powerful iPhone lineup ever."
+            container
+              anchor "Learn more, iPhone" [ref=28172, loc=css:a[aria-label="Learn more, iPhone"], url=https://www.apple.com/iphone/]
+                text "Learn more"
+              anchor "Shop iPhone" [ref=28173, loc=css:a[aria-label="Shop iPhone"], url=https://www.apple.com/us/shop/goto/buy_iphone]
+                text "Shop iPhone"
+          image
+        container
+          anchor [ref=28174, url=https://www.apple.com/macbook-neo/]
+          heading
+            text "MacBook Neo"
+          paragraph
+            text "Amazing Mac. Surprising price."
+          anchor "Learn more, MacBook Neo 13-inch" [ref=28175, loc=css:a[aria-label="Learn more, MacBook Neo 13-inch"], url=https://www.apple.com/macbook-neo/]
+            text "Learn more"
+          anchor "Buy, MacBook Neo 13-inch" [ref=28176, loc=css:a[aria-label="Buy, MacBook Neo 13-inch"], url=https://www.apple.com/us/shop/goto/buy_mac/macbook_neo]
+            text "Buy"
+          image
+        anchor [ref=28177, url=https://www.apple.com/apple-watch-series-12/]
+        heading
+          image
+          text "Apple Watch Series 12"
+        paragraph
+          text "The most accurate heart rate sensing in a wearable."
+          text "1"
+        anchor "Learn more, Apple Watch Series 12" [ref=28178, loc=css:a[aria-label="Learn more, Apple Watch Series 12"], url=https://www.apple.com/apple-watch-series-12/]
+          text "Learn more"
+        anchor "Buy, Apple Watch Series 12" [ref=28179, loc=css:a[aria-label="Buy, Apple Watch Series 12"], url=https://www.apple.com/us/shop/goto/buy_watch/apple_watch_series_12]
+          text "Buy"
+        image
+      container
+        anchor [ref=28180, url=https://www.apple.com/us/shop/goto/store]
+        heading
+          text "Gifts they’ll love."
+        paragraph
+          text "Find their perfect match this holiday."
+        anchor "Shop gifts, Holiday 2026" [ref=28181, loc=css:a[aria-label="Shop gifts, Holiday 2026"], url=https://www.apple.com/us/shop/goto/store]
+          text "Shop gifts"
+        anchor [ref=28182, url=https://www.apple.com/ipad-11/]
+        heading
+          text "iPad"
+        paragraph
+          text "Now with the speed of the A16 chip and double the starting storage."
+        anchor "Learn more, iPad 11" [ref=28183, loc=css:a[aria-label="Learn more, iPad 11"], url=https://www.apple.com/ipad-11/]
+          text "Learn more"
+        anchor "Buy, iPad 11" [ref=28184, loc=css:a[aria-label="Buy, iPad 11"], url=https://www.apple.com/us/shop/goto/buy_ipad/ipad]
+          text "Buy"
+        image
+        anchor [ref=28185, url=https://tv.apple.com/channel/tvs.sbd.241000?itscg=10000&itsct=atv-apl_hp-learn_more-F1LVGP-261119]
+        heading
+          image
+          text "F1® on Apple TV. Official U.S. Broadcaster of Formula 1®"
+        paragraph
+          text "Stream the Formula 1® Las Vegas Grand Prix™ 2026 for free, live November 21."
+        anchor "Learn more, F1 Grand Prix" [ref=28186, loc=css:a[aria-label="Learn more, F1 Grand Prix"], url=https://tv.apple.com/channel/tvs.sbd.241000?itscg=10000&itsct=atv-apl_hp-learn_more-F1LVGP-261119]
+          text "Learn more"
+        paragraph
+          text "The F1 logo and related marks are trademarks of FOL BV."
+        image
+        anchor [ref=28187, url=https://www.apple.com/apple-homeview/]
+        heading
+          image
+          text "Apple HomeView"
+        paragraph
+          text "Designed for life at home."
+        anchor "Learn more, Apple HomeView" [ref=28188, loc=css:a[aria-label="Learn more, Apple HomeView"], url=https://www.apple.com/apple-homeview/]
+          text "Learn more"
+        anchor "Buy, Apple HomeView" [ref=28189, loc=css:a[aria-label="Buy, Apple HomeView"], url=https://www.apple.com/us/shop/goto/buy_home/apple_homeview]
+          text "Buy"
+        image
+        anchor [ref=28190, url=https://www.apple.com/us/shop/goto/apple_upgrade]
+        heading
+          image
+          text "Apple Upgrade"
+        paragraph
+          text "Love it. Lease it. Upgrade it."
+          text "2"
+        anchor "Learn more, Apple Upgrade" [ref=28191, loc=css:a[aria-label="Learn more, Apple Upgrade"], url=https://www.apple.com/us/shop/goto/apple_upgrade]
+          text "Learn more"
+        image
+        video
+        anchor [ref=28192, url=https://www.apple.com/apple-card/]
+        heading
+          image
+          text "Apple Card"
+        paragraph
+          text "Get up to 3% Daily Cash back with every purchase."
+        anchor "Learn more, Apple Card" [ref=28193, loc=css:a[aria-label="Learn more, Apple Card"], url=https://www.apple.com/apple-card/]
+          text "Learn more"
+        anchor "Apply now, Apple Card" [ref=28194, loc=css:a[aria-label="Apply now, Apple Card"], url=https://card.apple.com/apply/application?referrer=cid%3Dapy-200-10000036&start=false]
+          text "Apply now"
+        image
+      container
+        heading
+          text "Endless entertainment."
+        tablist
+          list_item
+            tab [ref=28195, loc=href:https://www.apple.com/#endless-entertainment-gallery-item-1, url=https://www.apple.com/#endless-entertainment-gallery-item-1]
+              text "Item 1"
+          list_item
+            tab [ref=28196, loc=href:https://www.apple.com/#endless-entertainment-gallery-item-2, url=https://www.apple.com/#endless-entertainment-gallery-item-2]
+              text "Item 2"
+          list_item
+            tab [ref=28197, loc=href:https://www.apple.com/#endless-entertainment-gallery-item-3, url=https://www.apple.com/#endless-entertainment-gallery-item-3]
+              text "Item 3"
+          list_item
+            tab [ref=28198, loc=href:https://www.apple.com/#endless-entertainment-gallery-item-4, url=https://www.apple.com/#endless-entertainment-gallery-item-4]
+              text "Item 4"
+          list_item
+            tab [ref=28199, loc=href:https://www.apple.com/#endless-entertainment-gallery-item-5, url=https://www.apple.com/#endless-entertainment-gallery-item-5]
+              text "Item 5"
+          list_item
+            tab [ref=28200, loc=href:https://www.apple.com/#endless-entertainment-gallery-item-6, url=https://www.apple.com/#endless-entertainment-gallery-item-6]
+              text "Item 6"
+          list_item
+            tab [ref=28201, loc=href:https://www.apple.com/#endless-entertainment-gallery-item-7, url=https://www.apple.com/#endless-entertainment-gallery-item-7]
+              text "Item 7"
+          list_item
+            tab [ref=28202, loc=href:https://www.apple.com/#endless-entertainment-gallery-item-8, url=https://www.apple.com/#endless-entertainment-gallery-item-8]
+              text "Item 8"
+          list_item
+            tab [ref=28203, loc=href:https://www.apple.com/#endless-entertainment-gallery-item-9, url=https://www.apple.com/#endless-entertainment-gallery-item-9]
+              text "Item 9"
+        button "Play endless entertainment gallery" [ref=28204, loc=css:button[aria-label="Play endless entertainment gallery"]]
+          svg_root
+        list
+          tabpanel "Item 1"
+            anchor "MLS on Apple TV, MLS - - Watch every club, every match, live—all season long." [ref=28205, loc=css:a[aria-label="MLS on Apple TV, MLS -  - Watch every club, every match, live—all season long."], url=https://tv.apple.com/us/channel/mls/tvs.sbd.7000?itscg=10000&itsct=atv-apl_hp-stream_now--220622]
+              image
+              container
+                text "MLS on Apple TV"
+                paragraph
+                  text "Watch every club, every match, live—all season long."
+          tabpanel "Item 2"
+            anchor "Stream now, Stick - Comedy - Take another swing." [ref=28206, loc=css:a[aria-label="Stream now, Stick - Comedy - Take another swing."], url=https://tv.apple.com/us/show/stick/umc.cmc.52w04zy67tiv11p8xvbc57wmc?l=en-US?itscg=10000&itsct=atv-apl_hp-stream_now--220622]
+              image
+              text "Stream now"
+              paragraph
+                text "Comedy"
+                text "•"
+                text "Take another swing."
+          tabpanel "Item 3"
+            anchor "Stream now, Nocturne - Crime - The only way to save a villain’s missing victim is to get close enough to risk becoming one." [ref=28207, url=https://tv.apple.com/us/show/nocturne/umc.cmc.4cfsq1juke72zutv5xp0pw3rj?l=en-US?itscg=10000&itsct=atv-apl_hp-stream_now--220622]
+              image
+              text "Stream now"
+              paragraph
+                text "Crime"
+                text "•"
+                text "The only way to save a villain’s missing victim is to get close enough to risk becoming one."
+          tabpanel "Item 4"
+            anchor "Stream now, 12 12 12 - Crime - 12 months to plan. 12 hours to execute. 12 days to escape." [ref=28208, url=https://tv.apple.com/us/show/12-12-12/umc.cmc.2xeasogpeiwbaegczytrdg1uh?l=en-US?itscg=10000&itsct=atv-apl_hp-stream_now--220622]
+              image
+              text "Stream now"
+              paragraph
+                text "Crime"
+                text "•"
+                text "12 months to plan. 12 hours to execute. 12 days to escape."
+          tabpanel "Item 5"
+            anchor "Stream now, Being Heumann - Drama - Scrappy and defiant, Judy Heumann turns her outrage into a revolution." [ref=28209, url=https://tv.apple.com/us/movie/being-heumann/umc.cmc.5gf63v7zj97yiozkpj26lpy55?l=en-US?itscg=10000&itsct=atv-apl_hp-stream_now--220622]
+              image
+              text "Stream now"
+              paragraph
+                text "Drama"
+                text "•"
+                text "Scrappy and defiant, Judy Heumann turns her outrage into a revolution."
+          tabpanel "Item 6"
+            anchor "Stream now, Ted Lasso - Comedy - The hit comedy is back and Tedder than ever." [ref=28210, loc=css:a[aria-label="Stream now, Ted Lasso - Comedy - The hit comedy is back and Tedder than ever."], url=https://tv.apple.com/us/show/ted-lasso/umc.cmc.vtoh0mn0xn7t3c643xqonfzy?l=en-US?itscg=10000&itsct=atv-apl_hp-stream_now--220622]
+              image
+              text "Stream now"
+              paragraph
+                text "Comedy"
+                text "•"
+                text "The hit comedy is back and Tedder than ever."
+          tabpanel "Item 7"
+            anchor "Stream now, Slow Horses - Thriller - MI5’s most unruly spies are back and under attack." [ref=28211, url=https://tv.apple.com/us/show/slow-horses/umc.cmc.2szz3fdt71tl1ulnbp8utgq5o?l=en-US?itscg=10000&itsct=atv-apl_hp-stream_now--220622]
+              image
+              text "Stream now"
+              paragraph
+                text "Thriller"
+                text "•"
+                text "MI5’s most unruly spies are back and under attack."
+          tabpanel "Item 8"
+            anchor "Stream now, Silo - Sci-Fi - The truth lies in the past." [ref=28212, loc=css:a[aria-label="Stream now, Silo - Sci-Fi - The truth lies in the past."], url=https://tv.apple.com/us/show/silo/umc.cmc.3yksgc857px0k0rqe5zd4jice?l=en-US?itscg=10000&itsct=atv-apl_hp-stream_now--220622]
+              image
+              text "Stream now"
+              paragraph
+                text "Sci-Fi"
+                text "•"
+                text "The truth lies in the past."
+        list
+          tabpanel "Item 1"
+            anchor "Play now, Hello Kitty Island Adventure" [ref=28213, loc=css:a[aria-label="Play now, Hello Kitty Island Adventure"], url=https://apps.apple.com/us/app/hello-kitty-island-adventure/id1553505132?itscg=10000&itsct=aa-apl_hp-play_now--240326]
+              image
+              container
+                svg_root
+                text "Play now"
+                paragraph
+                  text "Hello Kitty Island Adventure"
+          tabpanel "Item 2"
+            anchor "Listen now, Best Songs of 2026" [ref=28214, loc=css:a[aria-label="Listen now, Best Songs of 2026"], url=https://music.apple.com/us/playlist/best-songs-of-2026/pl.d398088b5b114e038297c05d152ba1e4?itscg=10000&itsct=am-apl_hp-listen_now--240326]
+              container
+                image
+                paragraph
+                  text "Best Songs of 2026"
+              container
+                svg_root
+                text "Listen now"
+          tabpanel "Item 3"
+            anchor "Watch now, 30-Day Core Challenge" [ref=28215, loc=css:a[aria-label="Watch now, 30-Day Core Challenge"], url=https://fitness.apple.com/us/studio-collection/30-day-core-challenge/1596515943?itscg=10000&itsct=afp-apl_hp-watch_now--240326]
+              image
+              svg_root
+              text "Watch now"
+              paragraph
+                text "30-Day Core Challenge"
+          tabpanel "Item 4"
+            anchor "Play now, PowerWash Simulator" [ref=28216, loc=css:a[aria-label="Play now, PowerWash Simulator"], url=https://apps.apple.com/us/app/powerwash-simulator/id6477445344?itscg=10000&itsct=aa-apl_hp-play_now--240326]
+              image
+              svg_root
+              text "Play now"
+              paragraph
+                text "PowerWash Simulator"
+          tabpanel "Item 5"
+            anchor "Listen now, New Music Daily" [ref=28217, loc=css:a[aria-label="Listen now, New Music Daily"], url=https://music.apple.com/us/playlist/new-music-daily/pl.2b0e6e332fdf4b7a91164da3162127b5?itscg=10000&itsct=am-apl_hp-listen_now--240326]
+              image
+              paragraph
+                text "New Music Daily"
+              svg_root
+              text "Listen now"
+          tabpanel "Item 6"
+            anchor "Watch now, Cycling with Kym" [ref=28218, loc=css:a[aria-label="Watch now, Cycling with Kym"], url=https://fitness.apple.com/us/workout/cycling-with-kym/6825113854?itscg=10000&itsct=afp-apl_hp-watch_now--240326]
+              image
+              svg_root
+              text "Watch now"
+              paragraph
+                text "Cycling with Kym"
+          tabpanel "Item 7"
+            anchor "Play now, Madden NFL 27 Arcade Edition" [ref=28219, loc=css:a[aria-label="Play now, Madden NFL 27 Arcade Edition"], url=https://apps.apple.com/us/app/madden-nfl-27-arcade-edition/id6755553408?itscg=10000&itsct=aa-apl_hp-play_now--240326]
+              image
+              svg_root
+              text "Play now"
+              paragraph
+                text "Madden NFL 27 Arcade Edition"
+          tabpanel "Item 8"
+            anchor "Listen now, A-List Pop" [ref=28220, loc=css:a[aria-label="Listen now, A-List Pop"], url=https://music.apple.com/us/playlist/a-list-pop/pl.5ee8333dbe944d9f9151e97d92d1ead9?itscg=10000&itsct=am-apl_hp-listen_now--240326]
+              image
+              paragraph
+                text "A-List Pop"
+              svg_root
+              text "Listen now"
+          tabpanel "Item 9"
+            anchor "Watch now, YOASOBI" [ref=28221, loc=css:a[aria-label="Watch now, YOASOBI"], url=https://fitness.apple.com/us/studio-collection/yoasobi/1860733942?itscg=10000&itsct=afp-apl_hp-watch_now--240326]
+              image
+              container
+                svg_root
+                container
+                  text "Watch now"
+                  paragraph
+                    text "YOASOBI"
+    contentinfo "Apple Footer"
+      heading
+        text "Apple Footer"
+      container "Footnotes"
+        unordered_list
+          list_item
+            text "*"
+            text "Offer valid on qualifying purchases of Eligible Products (excludes carrier-connected purchases and Apple Upgrade purchases) from November 27, 2026, to November 30, 2026, at a Qualifying Location. Gift..."
+            anchor [ref=28222, loc=href:https://www.apple.com/us/shop/goto/gifts/black_friday_event/terms_conditions, url=https://www.apple.com/us/shop/goto/gifts/black_friday_event/terms_conditions]
+              text "here"
+            text "."
+        ordered_list
+          list_item
+            text "Based on data from an Apple-conducted study of heart rate accuracy, during July and August 2026, utilizing commercially available best-selling wearables available as of June 2026. For more information..."
+            anchor [ref=28223, loc=href:https://www.apple.com/HRAccuracy/, url=https://www.apple.com/HRAccuracy/]
+              text "apple.com/HRAccuracy"
+            text "."
+          list_item
+            text "Apple Upgrade is a device leasing program available in the U.S. (excluding U.S. territories). Leases are provided by Klarna: subject to eligibility and credit approval, including final approval at ch..."
+        unordered_list
+          list_item
+            paragraph
+              text "To access and use all Apple Card features and products available only to Apple Card users, you must add Apple Card to Wallet on an iPhone or iPad that supports and has the latest version of iOS or ..."
+            paragraph
+              text "Apple Payments Services LLC, a subsidiary of Apple Inc., is a service provider of Goldman Sachs Bank USA for Apple Card and Savings accounts. Neither Apple Inc. nor Apple Payments Services LL..."
+            paragraph
+              text "All communications from Apple and Goldman Sachs Bank USA about Apple Card (including transactional and marketing communications) and customer service support are available in English. Certain communi..."
+          list_item
+            text "Learn more about how Apple Card applications are evaluated at"
+            anchor [ref=28224, loc=href:https://support.apple.com/kb/HT209218, url=https://support.apple.com/kb/HT209218]
+              text "support.apple.com/kb/HT209218"
+            text "."
+          list_item
+            text "A subscription is required for Apple Arcade, Apple Fitness+, Apple Music, and Apple TV."
+          list_item
+            text "Features are subject to change. Some features, applications, and services may not be available in all regions or all languages."
+      navigation "Apple Directory"
+        heading
+          text "Shop and Learn"
+        list
+          listitem
+            anchor [ref=28225, url=https://www.apple.com/us/shop/goto/store]
+              text "Store"
+          listitem
+            anchor [ref=28226, url=https://www.apple.com/mac/]
+              text "Mac"
+          listitem
+            anchor [ref=28227, url=https://www.apple.com/ipad/]
+              text "iPad"
+          listitem
+            anchor [ref=28228, url=https://www.apple.com/iphone/]
+              text "iPhone"
+          listitem
+            anchor [ref=28229, url=https://www.apple.com/watch/]
+              text "Watch"
+          listitem
+            anchor [ref=28230, url=https://www.apple.com/apple-vision-pro/]
+              text "Vision"
+          listitem
+            anchor [ref=28231, url=https://www.apple.com/airpods/]
+              text "AirPods"
+          listitem
+            anchor [ref=28232, url=https://www.apple.com/home/]
+              text "Home"
+          listitem
+            anchor [ref=28233, loc=href:https://www.apple.com/airtag/, url=https://www.apple.com/airtag/]
+              text "AirTag"
+          listitem
+            anchor [ref=28234, url=https://www.apple.com/us/shop/goto/buy_accessories]
+              text "Accessories"
+          listitem
+            anchor [ref=28235, url=https://www.apple.com/us/shop/goto/giftcards]
+              text "Gift Cards"
+        heading
+          text "Apple Wallet"
+        list
+          listitem
+            anchor [ref=28236, url=https://www.apple.com/wallet/]
+              text "Wallet"
+          listitem
+            anchor [ref=28237, url=https://www.apple.com/apple-card/]
+              text "Apple Card"
+          listitem
+            anchor [ref=28238, loc=href:https://www.apple.com/apple-pay/, url=https://www.apple.com/apple-pay/]
+              text "Apple Pay"
+          listitem
+            anchor [ref=28239, loc=href:https://www.apple.com/apple-cash/, url=https://www.apple.com/apple-cash/]
+              text "Apple Cash"
+        heading
+          text "Account"
+        list
+          listitem
+            anchor [ref=28240, loc=href:https://account.apple.com/, url=https://account.apple.com/]
+              text "Manage Your Apple Account"
+          listitem
+            anchor [ref=28241, loc=href:https://www.apple.com/us/shop/goto/account, url=https://www.apple.com/us/shop/goto/account]
+              text "Apple Store Account"
+          listitem
+            anchor [ref=28242, loc=href:https://www.icloud.com/, url=https://www.icloud.com/]
+              text "iCloud.com"
+        heading
+          text "Entertainment"
+        list
+          listitem
+            anchor [ref=28243, url=https://www.apple.com/apple-one/]
+              text "Apple One"
+          listitem
+            anchor [ref=28244, url=https://www.apple.com/apple-tv/]
+              text "Apple TV"
+          listitem
+            anchor [ref=28245, url=https://www.apple.com/apple-music/]
+              text "Apple Music"
+          listitem
+            anchor [ref=28246, url=https://www.apple.com/apple-arcade/]
+              text "Apple Arcade"
+          listitem
+            anchor [ref=28247, url=https://www.apple.com/apple-fitness-plus/]
+              text "Apple Fitness+"
+          listitem
+            anchor [ref=28248, url=https://www.apple.com/apple-news/]
+              text "Apple News+"
+          listitem
+            anchor [ref=28249, url=https://www.apple.com/apple-podcasts/]
+              text "Apple Podcasts"
+          listitem
+            anchor [ref=28250, url=https://www.apple.com/apple-books/]
+              text "Apple Books"
+          listitem
+            anchor [ref=28251, url=https://www.apple.com/app-store/]
+              text "App Store"
+        heading
+          text "Apple Store"
+        list
+          listitem
+            anchor [ref=28252, url=https://www.apple.com/retail/]
+              text "Find a Store"
+          listitem
+            anchor [ref=28253, url=https://www.apple.com/retail/geniusbar/]
+              text "Genius Bar"
+          listitem
+            anchor [ref=28254, loc=href:https://www.apple.com/today/, url=https://www.apple.com/today/]
+              text "Today at Apple"
+          listitem
+            anchor [ref=28255, loc=href:https://www.apple.com/today/groups/, url=https://www.apple.com/today/groups/]
+              text "Group Reservations"
+          listitem
+            anchor [ref=28256, loc=href:https://www.apple.com/today/camp/, url=https://www.apple.com/today/camp/]
+              text "Apple Camp"
+          listitem
+            anchor [ref=28257, loc=href:https://apps.apple.com/us/app/apple-store/id375380948, url=https://apps.apple.com/us/app/apple-store/id375380948]
+              text "Apple Store App"
+          listitem
+            anchor [ref=28258, url=https://www.apple.com/us/shop/goto/special_deals]
+              text "Certified Refurbished"
+          listitem
+            anchor [ref=28259, url=https://www.apple.com/us/shop/goto/apple_upgrade]
+              text "Apple Upgrade"
+          listitem
+            anchor [ref=28260, url=https://www.apple.com/us/shop/goto/trade_in]
+              text "Apple Trade In"
+          listitem
+            anchor [ref=28261, url=https://www.apple.com/us/shop/goto/payment_plan]
+              text "Financing"
+          listitem
+            anchor [ref=28262, url=https://www.apple.com/us/shop/goto/buy_iphone/carrier_offers]
+              text "Carrier Deals at Apple"
+          listitem
+            anchor [ref=28263, url=https://www.apple.com/us/shop/goto/order/list]
+              text "Order Status"
+          listitem
+            anchor [ref=28264, loc=href:https://www.apple.com/us/shop/goto/help, url=https://www.apple.com/us/shop/goto/help]
+              text "Shopping Help"
+        heading
+          text "For Business"
+        list
+          listitem
+            anchor [ref=28265, url=https://www.apple.com/business/]
+              text "Apple and Business"
+          listitem
+            anchor [ref=28266, url=https://www.apple.com/retail/business/]
+              text "Shop for Business"
+        heading
+          text "For Education"
+        list
+          listitem
+            anchor [ref=28267, url=https://www.apple.com/education/]
+              text "Apple and Education"
+          listitem
+            anchor [ref=28268, loc=href:https://www.apple.com/education/k12/how-to-buy/, url=https://www.apple.com/education/k12/how-to-buy/]
+              text "Shop for K-12"
+          listitem
+            anchor [ref=28269, url=https://www.apple.com/us/shop/goto/educationrouting]
+              text "Shop for College"
+        heading
+          text "For Healthcare"
+        list
+          listitem
+            anchor [ref=28270, loc=href:https://www.apple.com/healthcare/, url=https://www.apple.com/healthcare/]
+              text "Apple and Healthcare"
+        heading
+          text "For Government"
+        list
+          listitem
+            anchor [ref=28271, loc=href:https://www.apple.com/government/, url=https://www.apple.com/government/]
+              text "Apple and Government"
+          listitem
+            anchor [ref=28272, url=https://www.apple.com/us/shop/goto/eppstore/veteransandmilitary]
+              text "Shop for Veterans and Military"
+          listitem
+            anchor [ref=28273, loc=href:https://www.apple.com/us_epp_67909/store, url=https://www.apple.com/us_epp_67909/store]
+              text "Shop for State and Local Employees"
+          listitem
+            anchor [ref=28274, loc=href:https://www.apple.com/us_epp_55499/store, url=https://www.apple.com/us_epp_55499/store]
+              text "Shop for Federal Employees"
+        heading
+          text "Apple Values"
+        list
+          listitem
+            anchor [ref=28275, loc=href:https://www.apple.com/accessibility/, url=https://www.apple.com/accessibility/]
+              text "Accessibility"
+          listitem
+            anchor [ref=28276, loc=href:https://www.apple.com/education-initiative/, url=https://www.apple.com/education-initiative/]
+              text "Education"
+          listitem
+            anchor [ref=28277, loc=href:https://www.apple.com/environment/, url=https://www.apple.com/environment/]
+              text "Environment"
+          listitem
+            anchor [ref=28278, loc=href:https://www.apple.com/diversity/, url=https://www.apple.com/diversity/]
+              text "Inclusion and Diversity"
+          listitem
+            anchor [ref=28279, url=https://www.apple.com/privacy/]
+              text "Privacy"
+          listitem
+            anchor [ref=28280, loc=href:https://www.apple.com/racial-equity-justice-initiative/, url=https://www.apple.com/racial-equity-justice-initiative/]
+              text "Racial Equity and Justice"
+          listitem
+            anchor [ref=28281, loc=href:https://www.apple.com/supply-chain/, url=https://www.apple.com/supply-chain/]
+              text "Supply Chain Innovation"
+        heading
+          text "About Apple"
+        list
+          listitem
+            anchor [ref=28282, loc=href:https://www.apple.com/newsroom/, url=https://www.apple.com/newsroom/]
+              text "Newsroom"
+          listitem
+            anchor [ref=28283, loc=href:https://www.apple.com/leadership/, url=https://www.apple.com/leadership/]
+              text "Apple Leadership"
+          listitem
+            anchor [ref=28284, loc=href:https://www.apple.com/careers/us/, url=https://www.apple.com/careers/us/]
+              text "Career Opportunities"
+          listitem
+            anchor [ref=28285, loc=href:https://investor.apple.com/, url=https://investor.apple.com/]
+              text "Investors"
+          listitem
+            anchor [ref=28286, loc=href:https://www.apple.com/compliance/, url=https://www.apple.com/compliance/]
+              text "Ethics & Compliance"
+          listitem
+            anchor [ref=28287, loc=href:https://www.apple.com/apple-events/, url=https://www.apple.com/apple-events/]
+              text "Events"
+          listitem
+            anchor [ref=28288, loc=href:https://www.apple.com/contact/, url=https://www.apple.com/contact/]
+              text "Contact Apple"
+      container
+        text "More ways to shop:"
+        anchor [ref=28289, url=https://www.apple.com/retail/]
+          text "Find an Apple Store"
+        text "or"
+        anchor [ref=28290, loc=href:https://locate.apple.com/, url=https://locate.apple.com/]
+          text "other retailer"
+        text "near you."
+        text "Or call"
+        anchor [ref=28291, loc=href:tel:1-800-692-7753, url=tel:1-800-692-7753]
+          text "1-800-MY-APPLE"
+        text "(1-800-692-7753)."
+        table
+          table_row
+            table_cell
+        text "Copyright © 2026 Apple Inc. All rights reserved."
+        list
+          listitem
+            anchor [ref=28292, loc=href:https://www.apple.com/legal/privacy/, url=https://www.apple.com/legal/privacy/]
+              text "Privacy Policy"
+          listitem
+            anchor [ref=28293, loc=href:https://www.apple.com/legal/internet-services/terms/site.html, url=https://www.apple.com/legal/internet-services/terms/site.html]
+              text "Terms of Use"
+          listitem
+            anchor [ref=28294, loc=href:https://www.apple.com/us/shop/goto/help/sales_refunds, url=https://www.apple.com/us/shop/goto/help/sales_refunds]
+              text "Sales and Refunds"
+          listitem
+            anchor [ref=28295, loc=href:https://www.apple.com/legal/, url=https://www.apple.com/legal/]
+              text "Legal"
+          listitem
+            anchor [ref=28296, loc=href:https://www.apple.com/sitemap/, url=https://www.apple.com/sitemap/]
+              text "Site Map"
+        table
+          table_row
+            table_cell
+        anchor "United States (English). Choose your country or region" [ref=28297, url=https://www.apple.com/choose-country-region/]
+          text "United States (English)"
+        anchor "Esta página está disponible en Español" [ref=28298, url=https://www.apple.com/us-es/]
+          text "Español"
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root

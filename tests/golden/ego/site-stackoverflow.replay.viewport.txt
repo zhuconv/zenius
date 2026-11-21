@@ -1,0 +1,254 @@
+[p1 "function - How do JavaScript closures work? - Stack Overflow" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "function - How do JavaScript closures work? - Stack Overflow"]
+root
+  container
+    container
+      anchor "Stack Overflow Home" [ref=23856, loc=css:a[aria-label="Stack Overflow Home"], url=https://stackoverflow.com/]
+        svg_root
+      ordered_list
+        list_item
+          anchor [ref=23857, url=https://stackoverflow.co/]
+            text "About"
+        list_item
+          button [ref=23858]
+            text "Products"
+        list_item
+          anchor [ref=23859, url=https://stackoverflow.co/internal/?utm_medium=referral&utm_source=stackoverflow-community&utm_content=top-nav]
+            text "Stack Internal"
+      search
+        comboboxgrouping "Search" [ref=23860, loc=css:input[name="q"]]
+          text "Search…"
+        svg_root
+      container "Topbar"
+        ordered_list
+          list_item
+            anchor "Help Center and other resources" [ref=23861, loc=css:a[aria-label="Help Center and other resources"], url=https://stackoverflow.com/help]
+              svg_root
+          list_item
+            anchor "Site switcher" [ref=23862, loc=css:a[aria-label="Site switcher"], url=https://stackexchange.com/]
+              svg_root
+          list_item
+            anchor [ref=23863, url=https://stackoverflow.com/users/login?ssrc=head&returnurl=https%3a%2f%2fstackoverflow.com%2fquestions%2f111102%2fhow-do-javascript-closures-work]
+              text "Log in"
+          list_item
+            anchor [ref=23864, url=https://stackoverflow.com/users/signup?ssrc=head&returnurl=https%3a%2f%2fstackoverflow.com%2fquestions%2f111102%2fhow-do-javascript-closures-work]
+              text "Sign up"
+    container
+      container [ref=23865]
+        container "Primary"
+          ordered_list
+            list_item
+              ordered_list
+                list_item
+                  anchor [ref=23866, url=https://stackoverflow.com/]
+                    svg_root
+                    text "Home"
+                list_item
+                  anchor [ref=23867, url=https://stackoverflow.com/questions]
+                    svg_root
+                    text "Questions"
+                list_item
+                  anchor [ref=23868, loc=href:https://stackoverflow.com/ai-assist, url=https://stackoverflow.com/ai-assist]
+                    svg_root
+                    text "AI Assist"
+                list_item
+                  anchor [ref=23869, loc=href:https://stackoverflow.com/tags, url=https://stackoverflow.com/tags]
+                    svg_root
+                    text "Tags"
+                list_item
+                list_item
+                  anchor [ref=23870, loc=href:http://agents.stackoverflow.com/, url=http://agents.stackoverflow.com/]
+                    svg_root
+                    text "Stack Overflow for Agents"
+                list_item
+                list_item
+                  anchor [ref=23871, loc=href:https://stackoverflow.com/beta/challenges, url=https://stackoverflow.com/beta/challenges]
+                    svg_root
+                    text "Challenges"
+                list_item
+                  anchor [ref=23872, url=https://chat.stackoverflow.com/?tab=explore]
+                    svg_root
+                    text "Chat"
+                list_item
+                  anchor [ref=23873, url=https://stackoverflow.blog/contributed?utm_medium=referral&utm_source=stackoverflow-community&utm_campaign=so-blog&utm_content=experiment-articles]
+                    svg_root
+                    text "Articles"
+                list_item
+                  anchor [ref=23874, loc=href:https://stackoverflow.com/users, url=https://stackoverflow.com/users]
+                    svg_root
+                    text "Users"
+                list_item
+                list_item
+                  anchor [ref=23875, url=https://stackoverflow.com/jobs/companies?so_medium=stackoverflow&so_source=SiteNav]
+                    svg_root
+                    text "Companies"
+                list_item
+                  anchor [ref=23876, loc=href:https://stackoverflow.com/developer-story, url=https://stackoverflow.com/developer-story]
+                    svg_root
+                    text "Developer Story"
+                list_item
+                  button [ref=23877, loc=href:javascript:void(0), url=javascript:void(0)]
+                    text "COLLECTIVES"
+                    svg_root
+                list_item
+                  paragraph
+                    text "Communities for your favorite technologies."
+                    anchor [ref=23878, loc=href:https://stackoverflow.com/collectives-all, url=https://stackoverflow.com/collectives-all]
+                      text "Explore all Collectives"
+            list_item
+              text "STACK INTERNAL"
+              container
+                image
+                paragraph
+                  text "Turn scattered docs and code into trusted AI context. Explore the new Stack Internal platform."
+      container [ref=23879]
+        container
+          container
+            heading
+              anchor [ref=23880, loc=href:https://stackoverflow.com/questions/111102/how-do-javascript-closures-work, url=https://stackoverflow.com/questions/111102/how-do-javascript-closures-work]
+                text "How do JavaScript closures work?"
+            anchor [ref=23881, url=https://stackoverflow.com/questions/ask]
+              text "Ask Question"
+          container
+            container
+              text "Asked"
+              text "18 years, 2 months ago"
+            container
+              text "Modified"
+              anchor [ref=23882, url=https://stackoverflow.com/questions/111102/how-do-javascript-closures-work?lastactivity]
+                text "3 years, 4 months ago"
+            container
+              text "Viewed"
+              text "1.6m times"
+          main "question and answers"
+            container
+              container
+                button "Up vote" [ref=23883]
+                  svg_root
+                text "7608"
+                button "Down vote" [ref=23884]
+                  svg_root
+                button "Save" [ref=23885]
+                  svg_root
+                anchor "Timeline" [ref=23886, loc=href:https://stackoverflow.com/posts/111102/timeline, url=https://stackoverflow.com/posts/111102/timeline]
+                  svg_root
+              container
+                container
+                  status
+                    svg_root
+                    container
+                      container
+                        text "This question's answers are a"
+                        anchor [ref=23887, loc=href:https://stackoverflow.com/help/privileges/edit-community-wiki, url=https://stackoverflow.com/help/privileges/edit-community-wiki]
+                          text "community effort"
+                      text ". Edit existing answers to improve this post. It is not currently accepting new answers or interactions."
+                  paragraph
+                    text "How would you explain JavaScript closures to someone with a knowledge of the concepts they consist of (for example functions, variables and the like), but does not understand closures themselves?"
+                  paragraph
+                    text "I have seen"
+                    anchor [ref=23888, loc=href:http://en.wikipedia.org/wiki/Scheme_%28programming_language%29, url=http://en.wikipedia.org/wiki/Scheme_%28programming_language%29]
+                      text "the Scheme example"
+                    text "given on Wikipedia, but unfortunately it did not help."
+                unordered_list
+                  list_item
+                    anchor "show questions tagged 'javascript'" [ref=23889, url=https://stackoverflow.com/questions/tagged/javascript]
+                      text "javascript"
+                  list_item
+                    anchor "show questions tagged 'function'" [ref=23890, url=https://stackoverflow.com/questions/tagged/function]
+                      text "function"
+                  list_item
+                    anchor "show questions tagged 'variables'" [ref=23891, url=https://stackoverflow.com/questions/tagged/variables]
+                      text "variables"
+                  list_item
+                    anchor "show questions tagged 'scope'" [ref=23892, url=https://stackoverflow.com/questions/tagged/scope]
+                      text "scope"
+                  list_item
+                    anchor "show questions tagged 'closures'" [ref=23893, url=https://stackoverflow.com/questions/tagged/closures]
+                      text "closures"
+                container
+                  container
+                    anchor [ref=23894, loc=href:https://stackoverflow.com/q/111102, url=https://stackoverflow.com/q/111102]
+                      text "Share"
+                    button [ref=23895]
+                      text "Follow"
+                  anchor [ref=23896, url=https://stackoverflow.com/posts/111102/revisions]
+                    text "edited"
+                    text "Apr 9, 2017 at 13:55"
+                  container
+                    text "community wiki"
+                    container
+                      anchor [ref=23897, url=https://stackoverflow.com/posts/111102/revisions]
+                        text "28 revs, 21 users 17%"
+                      anchor [ref=23898, loc=href:https://stackoverflow.com/users/821057, url=https://stackoverflow.com/users/821057]
+                        text "Zaheer Ahmed"
+              text "Comments disabled on deleted / locked posts / reviews"
+            container
+              container
+                heading
+                  text "85 Answers"
+                container
+                  text "Sorted by:"
+                  combobox [ref=23899]
+                    text "Highest score (default)"
+              container
+                text "1"
+                anchor "Go to page 2" [ref=23900, url=https://stackoverflow.com/questions/111102/how-do-javascript-closures-work?page=2&tab=scoredesc#tab-top]
+                  text "2"
+                anchor "Go to page 3" [ref=23901, url=https://stackoverflow.com/questions/111102/how-do-javascript-closures-work?page=3&tab=scoredesc#tab-top]
+                  text "3"
+                anchor "Go to next page" [ref=23902, url=https://stackoverflow.com/questions/111102/how-do-javascript-closures-work?page=2&tab=scoredesc#tab-top]
+                  text "Next"
+              container
+                button "Up vote" [ref=23903]
+                  svg_root
+                paragraph
+                  text "A closure is a pairing of:"
+          complementary "sidebar"
+            container "Stack Overflow for Agents"
+              heading
+                text "Try Stack Overflow for Agents"
+              text "Verified knowledge for the agentic era"
+              paragraph
+                text "Paste this into your AI coding assistant:"
+              container
+                text "Help me join Stack Overflow for Agents here. Read https://agents.stackoverflow.com/skill.md, then start onboarding."
+                button "Copy onboarding snippet" [ref=23904, loc=css:button[aria-label="Copy onboarding snippet"]]
+                  svg_root
+              paragraph
+                text "Supports Claude Code, Cursor, Codex, Windsurf and more."
+              anchor [ref=23905, loc=href:https://agents.stackoverflow.com/, url=https://agents.stackoverflow.com/]
+                text "Explore Stack Overflow for Agents"
+            unordered_list
+              list_item
+                text "The Overflow Blog"
+              list_item
+                svg_root
+                anchor [ref=23906, url=https://stackoverflow.blog/2026/11/17/coding-tricks-that-built-doom-and-quake/?cb=1]
+                  text "The pioneering coding tricks that built Doom and Quake"
+              list_item
+                text "Featured on Meta"
+              list_item
+                anchor [ref=23907, url=https://meta.stackoverflow.com/questions/440569/youre-doing-it-wrong-a-plea-for-sanity-in-close-voting?cb=1]
+                  text "You're doing it wrong: A plea for sanity in close voting"
+              list_item
+                anchor [ref=23908, url=https://meta.stackoverflow.com/questions/421831/policy-generative-ai-e-g-chatgpt-is-banned?cb=1]
+                  text "Policy: Generative AI (e.g., ChatGPT) is banned"
+            container
+              container
+                text "Community activity"
+                text "Last 1 hr"
+              unordered_list
+                list_item
+                  text "1107 users online"
+                list_item
+                  svg_root
+                  text "2 questions"
+                list_item
+                  svg_root
+                  text "0 answers"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 48277 px; scroll or use snapshot({ scope: "full_page" })]

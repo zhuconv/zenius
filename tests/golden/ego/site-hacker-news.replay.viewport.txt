@@ -1,0 +1,305 @@
+[p1 "黑客新闻 --- Hacker News" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "黑客新闻 --- Hacker News"]
+root
+  table
+    table_row
+      table_cell
+        table
+          table_row
+            table_cell
+              anchor [ref=18522, loc=href:https://news.ycombinator.com/, url=https://news.ycombinator.com/]
+                image
+            table_cell
+              anchor [ref=18523, loc=href:https://news.ycombinator.com/news, url=https://news.ycombinator.com/news]
+                text "Hacker News"
+              anchor [ref=18524, loc=href:https://news.ycombinator.com/newest, url=https://news.ycombinator.com/newest]
+                text "new"
+              text "|"
+              anchor [ref=18525, loc=href:https://news.ycombinator.com/front, url=https://news.ycombinator.com/front]
+                text "past"
+              text "|"
+              anchor [ref=18526, loc=href:https://news.ycombinator.com/newcomments, url=https://news.ycombinator.com/newcomments]
+                text "comments"
+              text "|"
+              anchor [ref=18527, loc=href:https://news.ycombinator.com/ask, url=https://news.ycombinator.com/ask]
+                text "ask"
+              text "|"
+              anchor [ref=18528, loc=href:https://news.ycombinator.com/show, url=https://news.ycombinator.com/show]
+                text "show"
+              text "|"
+              anchor [ref=18529, loc=href:https://news.ycombinator.com/jobs, url=https://news.ycombinator.com/jobs]
+                text "jobs"
+              text "|"
+              anchor [ref=18530, loc=href:https://news.ycombinator.com/submit, url=https://news.ycombinator.com/submit]
+                text "submit"
+            table_cell
+              anchor [ref=18531, loc=href:https://news.ycombinator.com/login?goto=news, url=https://news.ycombinator.com/login?goto=news]
+                text "login"
+    table_row
+    table_row
+      table_cell
+        table
+          table_row
+            table_cell
+              text "1."
+            table_cell
+              anchor [ref=18532, loc=href:https://git-aarvin.github.io/mei/, url=https://git-aarvin.github.io/mei/]
+                text "Gemini 4 Neon is the new #1 on the Models Engineering Index"
+                text "双子座 4 型 Neon 是模型工程指数中的新冠军型号。"
+              container
+                text "("
+                anchor [ref=18533, loc=href:https://news.ycombinator.com/from?site=git-aarvin.github.io, url=https://news.ycombinator.com/from?site=git-aarvin.github.io]
+                  text "git-aarvin.github.io"
+                text ")"
+          table_row
+            table_cell
+            table_cell
+              text "261 points"
+              text "by"
+              anchor [ref=18534, loc=href:https://news.ycombinator.com/user?id=hn-aarvin, url=https://news.ycombinator.com/user?id=hn-aarvin]
+                text "hn-aarvin"
+              anchor [ref=18535, url=https://news.ycombinator.com/item?id=50568130]
+                text "4 hours ago"
+              text "|"
+              anchor [ref=18536, loc=href:https://news.ycombinator.com/hide?id=50568130&goto=news, url=https://news.ycombinator.com/hide?id=50568130&goto=news]
+                text "hide"
+              text "|"
+              anchor [ref=18537, url=https://news.ycombinator.com/item?id=50568130]
+                text "158 comments"
+          table_row
+          table_row
+            table_cell
+              text "2."
+            table_cell
+              anchor [ref=18538, url=https://www.reuters.com/business/finance/anthropics-historic-debut-put-ais-promise-peril-wall-st-test-2026-11-19/]
+                text "Anthropic’s Nasdaq debut"
+                text "Antheropic 在纳斯达克市场的首次亮相"
+              container
+                text "("
+                anchor [ref=18539, loc=href:https://news.ycombinator.com/from?site=reuters.com, url=https://news.ycombinator.com/from?site=reuters.com]
+                  text "reuters.com"
+                text ")"
+          table_row
+            table_cell
+            table_cell
+              text "1001 points"
+              text "by"
+              anchor [ref=18540, loc=href:https://news.ycombinator.com/user?id=wslh, url=https://news.ycombinator.com/user?id=wslh]
+                text "wslh"
+              anchor [ref=18541, url=https://news.ycombinator.com/item?id=50562754]
+                text "11 hours ago"
+              text "|"
+              anchor [ref=18542, loc=href:https://news.ycombinator.com/hide?id=50562754&goto=news, url=https://news.ycombinator.com/hide?id=50562754&goto=news]
+                text "hide"
+              text "|"
+              anchor [ref=18543, url=https://news.ycombinator.com/item?id=50562754]
+                text "1954 comments"
+          table_row
+          table_row
+            table_cell
+              text "3."
+            table_cell
+              anchor [ref=18544, url=https://www.newscientist.com/article/2528235-pancreatic-cancer-halted-by-virus-injection-in-three-patients/]
+                text "Pancreatic cancer halted by virus injection in three patients"
+                text "三名患者通过病毒注射成功阻止了胰腺癌的发展"
+              container
+                text "("
+                anchor [ref=18545, loc=href:https://news.ycombinator.com/from?site=newscientist.com, url=https://news.ycombinator.com/from?site=newscientist.com]
+                  text "newscientist.com"
+                text ")"
+          table_row
+            table_cell
+            table_cell
+              text "670 points"
+              text "by"
+              anchor [ref=18546, url=https://news.ycombinator.com/user?id=cybermango]
+                text "cybermango"
+              anchor [ref=18547, url=https://news.ycombinator.com/item?id=50563066]
+                text "11 hours ago"
+              text "|"
+              anchor [ref=18548, loc=href:https://news.ycombinator.com/hide?id=50563066&goto=news, url=https://news.ycombinator.com/hide?id=50563066&goto=news]
+                text "hide"
+              text "|"
+              anchor [ref=18549, url=https://news.ycombinator.com/item?id=50563066]
+                text "105 comments"
+          table_row
+          table_row
+            table_cell
+              text "4."
+            table_cell
+              anchor [ref=18550, loc=href:https://github.com/openssl/openssl/pull/33652, url=https://github.com/openssl/openssl/pull/33652]
+                text "OpenSSL: Buffer overflow in EVP_EncodeBlock() (CVE-2026-121481, CVSS 9.8)"
+                text "OpenSSL：EVP_EncodeBlock()函数存在缓冲区溢出漏洞（CVE-2026-121481，CVSS 9.8 等级）"
+              container
+                text "("
+                anchor [ref=18551, loc=href:https://news.ycombinator.com/from?site=github.com/openssl, url=https://news.ycombinator.com/from?site=github.com/openssl]
+                  text "github.com/openssl"
+                text ")"
+          table_row
+            table_cell
+            table_cell
+              text "61 points"
+              text "by"
+              anchor [ref=18552, loc=href:https://news.ycombinator.com/user?id=JacobHenner, url=https://news.ycombinator.com/user?id=JacobHenner]
+                text "JacobHenner"
+              anchor [ref=18553, url=https://news.ycombinator.com/item?id=50569226]
+                text "2 hours ago"
+              text "|"
+              anchor [ref=18554, loc=href:https://news.ycombinator.com/hide?id=50569226&goto=news, url=https://news.ycombinator.com/hide?id=50569226&goto=news]
+                text "hide"
+              text "|"
+              anchor [ref=18555, url=https://news.ycombinator.com/item?id=50569226]
+                text "34 comments"
+          table_row
+          table_row
+            table_cell
+              text "5."
+            table_cell
+              anchor [ref=18556, loc=href:https://institute.deepmind.com/essays/what-comes-after-agi/, url=https://institute.deepmind.com/essays/what-comes-after-agi/]
+                text "What Comes After AGI?"
+                text "接下来会是什么？AGI 之后会怎样呢？"
+              container
+                text "("
+                anchor [ref=18557, loc=href:https://news.ycombinator.com/from?site=deepmind.com, url=https://news.ycombinator.com/from?site=deepmind.com]
+                  text "deepmind.com"
+                text ")"
+          table_row
+            table_cell
+            table_cell
+              text "22 points"
+              text "by"
+              anchor [ref=18558, loc=href:https://news.ycombinator.com/user?id=jdkee, url=https://news.ycombinator.com/user?id=jdkee]
+                text "jdkee"
+              anchor [ref=18559, url=https://news.ycombinator.com/item?id=50569519]
+                text "1 hour ago"
+              text "|"
+              anchor [ref=18560, loc=href:https://news.ycombinator.com/hide?id=50569519&goto=news, url=https://news.ycombinator.com/hide?id=50569519&goto=news]
+                text "hide"
+              text "|"
+              anchor [ref=18561, url=https://news.ycombinator.com/item?id=50569519]
+                text "33 comments"
+          table_row
+          table_row
+            table_cell
+              text "6."
+            table_cell
+              anchor [ref=18562, loc=href:https://seremot.com/p/vint-cerf-on-why-tcpip-was-never, url=https://seremot.com/p/vint-cerf-on-why-tcpip-was-never]
+                text "Vint Cerf on why TCP/IP was never patented"
+                text "文特·瑟夫解释为何 TCP/IP 协议从未被申请过专利"
+              container
+                text "("
+                anchor [ref=18563, loc=href:https://news.ycombinator.com/from?site=seremot.com, url=https://news.ycombinator.com/from?site=seremot.com]
+                  text "seremot.com"
+                text ")"
+          table_row
+            table_cell
+            table_cell
+              text "49 points"
+              text "by"
+              anchor [ref=18564, loc=href:https://news.ycombinator.com/user?id=emot, url=https://news.ycombinator.com/user?id=emot]
+                text "emot"
+              anchor [ref=18565, url=https://news.ycombinator.com/item?id=50568861]
+                text "3 hours ago"
+              text "|"
+              anchor [ref=18566, loc=href:https://news.ycombinator.com/hide?id=50568861&goto=news, url=https://news.ycombinator.com/hide?id=50568861&goto=news]
+                text "hide"
+              text "|"
+              anchor [ref=18567, url=https://news.ycombinator.com/item?id=50568861]
+                text "8 comments"
+          table_row
+          table_row
+            table_cell
+              text "7."
+            table_cell
+              anchor [ref=18568, loc=href:https://www.anthropic.com/research/claude-black-hole-physics, url=https://www.anthropic.com/research/claude-black-hole-physics]
+                text "Claude solves two open problems in the physics of black holes"
+                text "克劳德解决了两个关于黑洞物理学的未解问题。"
+              container
+                text "("
+                anchor [ref=18569, loc=href:https://news.ycombinator.com/from?site=anthropic.com, url=https://news.ycombinator.com/from?site=anthropic.com]
+                  text "anthropic.com"
+                text ")"
+          table_row
+            table_cell
+            table_cell
+              text "431 points"
+              text "by"
+              anchor [ref=18570, url=https://news.ycombinator.com/user?id=cybermango]
+                text "cybermango"
+              anchor [ref=18571, url=https://news.ycombinator.com/item?id=50563148]
+                text "10 hours ago"
+              text "|"
+              anchor [ref=18572, loc=href:https://news.ycombinator.com/hide?id=50563148&goto=news, url=https://news.ycombinator.com/hide?id=50563148&goto=news]
+                text "hide"
+              text "|"
+              anchor [ref=18573, url=https://news.ycombinator.com/item?id=50563148]
+                text "195 comments"
+          table_row
+          table_row
+            table_cell
+              text "8."
+            table_cell
+              anchor [ref=18574, url=https://ocw.mit.edu/courses/res-16-002-how-to-cad-almost-anything-january-iap-2024/]
+                text "How to CAD Almost Anything"
+                text "如何几乎任何东西都可以通过计算机辅助设计来完成"
+              container
+                text "("
+                anchor [ref=18575, loc=href:https://news.ycombinator.com/from?site=ocw.mit.edu, url=https://news.ycombinator.com/from?site=ocw.mit.edu]
+                  text "ocw.mit.edu"
+                text ")"
+          table_row
+            table_cell
+            table_cell
+              text "175 points"
+              text "by"
+              anchor [ref=18576, loc=href:https://news.ycombinator.com/user?id=o4c, url=https://news.ycombinator.com/user?id=o4c]
+                text "o4c"
+              anchor [ref=18577, url=https://news.ycombinator.com/item?id=50528119]
+                text "7 hours ago"
+              text "|"
+              anchor [ref=18578, loc=href:https://news.ycombinator.com/hide?id=50528119&goto=news, url=https://news.ycombinator.com/hide?id=50528119&goto=news]
+                text "hide"
+              text "|"
+              anchor [ref=18579, url=https://news.ycombinator.com/item?id=50528119]
+                text "51 comments"
+          table_row
+          table_row
+            table_cell
+              text "9."
+            table_cell
+              anchor [ref=18580, loc=href:https://blog.harrison.page/garage-door-spam/, url=https://blog.harrison.page/garage-door-spam/]
+                text "Garage Door Spam"
+                text "车库门上的垃圾邮件"
+              container
+                text "("
+                anchor [ref=18581, loc=href:https://news.ycombinator.com/from?site=harrison.page, url=https://news.ycombinator.com/from?site=harrison.page]
+                  text "harrison.page"
+                text ")"
+          table_row
+            table_cell
+            table_cell
+              text "790 points"
+              text "by"
+              anchor [ref=18582, loc=href:https://news.ycombinator.com/user?id=harrisonpage, url=https://news.ycombinator.com/user?id=harrisonpage]
+                text "harrisonpage"
+              anchor [ref=18583, url=https://news.ycombinator.com/item?id=50519231]
+                text "18 hours ago"
+              text "|"
+              anchor [ref=18584, loc=href:https://news.ycombinator.com/hide?id=50519231&goto=news, url=https://news.ycombinator.com/hide?id=50519231&goto=news]
+                text "hide"
+              text "|"
+              anchor [ref=18585, url=https://news.ycombinator.com/item?id=50519231]
+                text "333 comments"
+          table_row
+          table_row
+            table_cell
+              text "10."
+            table_cell
+              anchor [ref=18586, loc=href:https://www.snowflake.com/en/blog/engineering/postgres-19-repack-table-bloat/, url=https://www.snowflake.com/en/blog/engineering/postgres-19-repack-table-bloat/]
+                text "Postgres 19 Repack: Faster, Built-In Table Bloat Cleanup"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 2591 px; scroll or use snapshot({ scope: "full_page" })]

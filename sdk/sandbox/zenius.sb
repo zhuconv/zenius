@@ -1,0 +1,66 @@
+(version 1)
+; Seatbelt profile for the sandboxed zenius launcher on macOS, which
+; scripts/install-cli.sh --sandbox writes as ~/.local/bin/zenius. Adapted
+; from zen-eval's tests/live/cli-sandbox.sb, whose rules ran rubric C's live
+; agents. The CLI runs agent-written scripts, and agents read untrusted pages,
+; so this confines that process: it reads only the CLI copy, the instance
+; registry, its own temporary and output folders, the output folders of the
+; working folder's other runs and the working folder; writes only its own
+; temporary and output folders; starts no process; and connects only to the
+; instance's socket.
+;
+; Parameters, all real paths: CLI (the copy), REGISTRY (~/.zenius/instances),
+; SOCK (the instance's socket), BOX (the temporary folder), OUTS (the working
+; folder's runs' output folders), OUT (this run's, inside OUTS), WORK (the
+; working folder, or a path that doesn't exist when it isn't granted), NODE
+; (the node binary, which the launcher resolves at each start) and NODE_HOME
+; (its install). In this language later rules win.
+(allow default)
+
+; No reads under the users' homes, the shared temp folders or other volumes...
+(deny file-read*
+  (subpath "/Users")
+  (subpath "/private/tmp")
+  (subpath "/private/var/folders")
+  (subpath "/Volumes"))
+; ...except what the CLI needs.
+(allow file-read*
+  (subpath (param "CLI"))
+  (subpath (param "REGISTRY"))
+  (subpath (param "BOX"))
+  (subpath (param "OUTS"))
+  (subpath (param "WORK"))
+  (subpath (param "NODE_HOME"))
+  (literal (param "SOCK")))
+; Metadata stays visible: Node resolves module paths through their parents.
+(allow file-read-metadata)
+
+; Writes only in the run's temporary and output folders. Never in the
+; working folder: git, direnv, npm, pytest, make and agents run what a project
+; holds, outside the sandbox, and no list of such files is ever complete.
+(deny file-write*)
+(allow file-write*
+  (subpath (param "BOX"))
+  (subpath (param "OUT"))
+  (literal "/dev/null"))
+
+; No new processes. sandbox-exec's own exec of node is the one exec allowed,
+; and without fork it can't start another.
+(deny process-fork)
+(deny process-exec)
+(allow process-exec (literal (param "NODE")))
+
+; No signals to other processes. "(target others)" alone leaves the process
+; group open (macOS 26, Darwin 25.6): a script could stop or kill the shell or
+; agent that started it. So every target but the process itself is denied.
+(deny signal)
+(allow signal (target self))
+
+; Network: the instance's socket only, so no ssh-agent, Docker, hc or other
+; local service, and no direct network. DNS goes through mDNSResponder, a Mach
+; service, so that is closed too.
+(deny network*)
+(allow network-outbound (remote unix-socket (path-literal (param "SOCK"))))
+(deny mach-lookup
+  (global-name "com.apple.dnssd.service")
+  (global-name "com.apple.mDNSResponder"))

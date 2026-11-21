@@ -1,0 +1,173 @@
+[p1 "Quick Start – React" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "Quick Start – React"]
+root
+  container
+    container
+      container
+        anchor [ref=26912, url=https://react.dev/]
+          svg_root
+        anchor [ref=26913, loc=href:https://react.dev/versions, url=https://react.dev/versions]
+          text "v"
+          text "19.3"
+      button [ref=26914]
+        svg_root
+        text "Search"
+        container
+          text "⌘"
+          text "K"
+      container
+        container
+          anchor [ref=26915, url=https://react.dev/learn]
+            text "Learn"
+          anchor [ref=26916, url=https://react.dev/reference/react]
+            text "Reference"
+          anchor [ref=26917, url=https://react.dev/community]
+            text "Community"
+          anchor [ref=26918, url=https://react.dev/blog]
+            text "Blog"
+        container
+          button "Use Light Mode" [ref=26919, loc=css:button[aria-label="Use Light Mode"]]
+            svg_root
+          anchor "Translations" [ref=26920, loc=css:a[aria-label="Translations"], url=https://react.dev/community/translations]
+            svg_root
+          anchor "Open on GitHub" [ref=26921, loc=css:a[aria-label="Open on GitHub"], url=https://github.com/react/react/releases]
+            svg_root
+    container
+      navigation
+        unordered_list
+          heading
+            text "GET STARTED"
+          list_item
+            anchor [ref=26922, url=https://react.dev/learn]
+              text "Quick Start"
+              svg_root
+            region
+              unordered_list
+                list_item
+                  anchor [ref=26923, url=https://react.dev/learn/tutorial-tic-tac-toe]
+                    text "Tutorial: Tic-Tac-Toe"
+                list_item
+                  anchor [ref=26924, loc=href:https://react.dev/learn/thinking-in-react, url=https://react.dev/learn/thinking-in-react]
+                    text "Thinking in React"
+          list_item
+            anchor [ref=26925, url=https://react.dev/learn/installation]
+              text "Installation"
+              svg_root
+          list_item
+            anchor [ref=26926, loc=href:https://react.dev/learn/setup, url=https://react.dev/learn/setup]
+              text "Setup"
+              svg_root
+          list_item
+            anchor [ref=26927, loc=href:https://react.dev/learn/react-compiler, url=https://react.dev/learn/react-compiler]
+              text "React Compiler"
+              svg_root
+          splitter
+          heading
+            text "LEARN REACT"
+          list_item
+            anchor [ref=26928, url=https://react.dev/learn/describing-the-ui]
+              text "Describing the UI"
+              svg_root
+          list_item
+            anchor [ref=26929, url=https://react.dev/learn/adding-interactivity]
+              text "Adding Interactivity"
+              svg_root
+          list_item
+            anchor [ref=26930, url=https://react.dev/learn/managing-state]
+              text "Managing State"
+              svg_root
+          list_item
+            anchor [ref=26931, url=https://react.dev/learn/escape-hatches]
+              text "Escape Hatches"
+              svg_root
+      container
+        container
+          container
+            container
+              anchor [ref=26932, url=https://react.dev/learn]
+                text "LEARN REACT"
+              svg_root
+            button [ref=26933]
+              svg_root
+              text "Copy page"
+          heading
+            text "Quick Start"
+        container
+          paragraph
+            text "Welcome to the React documentation! This page will give you an introduction to 80% of the React concepts that you will use on a daily basis."
+          container
+            heading
+              text "You will learn"
+            unordered_list
+              list_item
+                text "How to create and nest components"
+              list_item
+                text "How to add markup and styles"
+              list_item
+                text "How to display data"
+              list_item
+                text "How to render conditions and lists"
+              list_item
+                text "How to respond to events and update the screen"
+              list_item
+                text "How to share data between components"
+          heading
+            text "Creating and nesting components"
+          paragraph
+            text "React apps are made out of"
+            text "components"
+            text ". A component is a piece of the UI (user interface) that has its own logic and appearance. A component can be as small as a button, or as large as an entire page."
+          paragraph
+            text "React components are JavaScript functions that return markup:"
+          container
+            text "function"
+            text "MyButton"
+            text "("
+            text ")"
+            text "{"
+      navigation
+        heading
+          text "ON THIS PAGE"
+        unordered_list
+          list_item
+            anchor [ref=26934, loc=href:https://react.dev/learn#, url=https://react.dev/learn#]
+              text "Overview"
+          list_item
+            anchor [ref=26935, url=https://react.dev/learn#components]
+              text "Creating and nesting components"
+          list_item
+            anchor [ref=26936, url=https://react.dev/learn#writing-markup-with-jsx]
+              text "Writing markup with JSX"
+          list_item
+            anchor [ref=26937, url=https://react.dev/learn#adding-styles]
+              text "Adding styles"
+          list_item
+            anchor [ref=26938, url=https://react.dev/learn#displaying-data]
+              text "Displaying data"
+          list_item
+            anchor [ref=26939, url=https://react.dev/learn#conditional-rendering]
+              text "Conditional rendering"
+          list_item
+            anchor [ref=26940, url=https://react.dev/learn#rendering-lists]
+              text "Rendering lists"
+          list_item
+            anchor [ref=26941, url=https://react.dev/learn#responding-to-events]
+              text "Responding to events"
+          list_item
+            anchor [ref=26942, url=https://react.dev/learn#updating-the-screen]
+              text "Updating the screen"
+          list_item
+            anchor [ref=26943, url=https://react.dev/learn#using-hooks]
+              text "Using Hooks"
+          list_item
+            anchor [ref=26944, url=https://react.dev/learn#sharing-data-between-components]
+              text "Sharing data between components"
+          list_item
+            anchor [ref=26945, url=https://react.dev/learn#next-steps]
+              text "Next Steps"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 13787 px; scroll or use snapshot({ scope: "full_page" })]

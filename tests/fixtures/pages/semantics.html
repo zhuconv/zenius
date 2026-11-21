@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>zoo: document semantics</title>
+<style>
+  body { font: 15px system-ui, sans-serif; margin: 0; }
+  header, footer, nav, main, aside { padding: 8px 16px; }
+  .clickable { cursor: pointer; color: #036; }
+  .offscreen { position: absolute; left: -10000px; }
+  .clip { clip: rect(0 0 0 0); clip-path: inset(50%); height: 1px; width: 1px; overflow: hidden; position: absolute; }
+</style>
+</head>
+<body>
+<header>
+  <a href="/" aria-label="Home"><svg width="20" height="20" role="img" aria-label="Logo"><title>Logo</title><circle cx="10" cy="10" r="8"/></svg></a>
+  <nav aria-label="Primary">
+    <ul>
+      <li><a href="/nav-target">Relative link</a></li>
+      <li><a href="https://example.com/absolute?x=1#y">Absolute link</a></li>
+      <li><a href="#section-2">Fragment link</a></li>
+      <li><a href="mailto:test@example.com">Mail link</a></li>
+      <li><a href="javascript:void(0)">Script link</a></li>
+      <li><a>Anchor without href</a></li>
+      <li><a href="/secondary" target="_blank" rel="noopener">New tab link</a></li>
+    </ul>
+  </nav>
+</header>
+<main>
+  <h1>Document semantics</h1>
+  <p>Plain paragraph with <strong>strong</strong>, <em>emphasis</em>, <code>code</code>, <abbr title="HyperText Markup Language">HTML</abbr>, <mark>marked</mark> and <a href="/nav-target">an inline link</a>.</p>
+  <p id="long">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+  <h2 id="section-2">Lists</h2>
+  <ul><li>Unordered one</li><li>Unordered two<ul><li>Nested item</li></ul></li></ul>
+  <ol start="3"><li>Ordered three</li><li>Ordered four</li></ol>
+  <dl><dt>Term</dt><dd>Definition of the term.</dd></dl>
+  <h3>Table</h3>
+  <table>
+    <caption>Quarterly revenue</caption>
+    <thead><tr><th scope="col">Quarter</th><th scope="col">Revenue</th><th scope="col">Action</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Q1</th><td>$10M</td><td><button>Details Q1</button></td></tr>
+      <tr><th scope="row">Q2</th><td>$12M</td><td><a href="/nav-target?q=2">Details Q2</a></td></tr>
+    </tbody>
+    <tfoot><tr><td colspan="3">Totals are unaudited.</td></tr></tfoot>
+  </table>
+  <h4>Media</h4>
+  <figure>
+    <img src="/api/image.png" alt="A one-pixel image" width="40" height="40">
+    <figcaption>Figure caption text</figcaption>
+  </figure>
+  <img src="/api/image.png" alt="" width="10" height="10">
+  <img src="/api/image.png" width="10" height="10">
+  <svg width="40" height="20"><rect width="40" height="20" fill="#c33"/></svg>
+  <h5>Disclosure</h5>
+  <details open><summary>Open details</summary><p>Visible details body.</p></details>
+  <details><summary>Closed details</summary><p>Hidden details body.</p></details>
+  <h6>Quotes and code</h6>
+  <blockquote cite="https://example.com">A quoted passage.</blockquote>
+  <pre><code>const x = 1;
+console.log(x);</code></pre>
+  <hr>
+  <section aria-labelledby="hidden-title">
+    <h2 id="hidden-title">Visibility</h2>
+    <div style="display:none">display none text</div>
+    <div style="visibility:hidden">visibility hidden text</div>
+    <div hidden>hidden attribute text</div>
+    <div aria-hidden="true">aria hidden text</div>
+    <div inert><button>Inert button</button></div>
+    <div style="opacity:0">opacity zero text</div>
+    <div class="offscreen">offscreen text</div>
+    <div class="clip">visually hidden but accessible text</div>
+    <div style="width:0;height:0;overflow:hidden">zero size text</div>
+    <button style="display:none">Hidden button</button>
+  </section>
+  <section>
+    <h2>Interactive without semantics</h2>
+    <div class="clickable" onclick="this.dataset.clicked=1">Div with click handler</div>
+    <span tabindex="0">Focusable span</span>
+    <div style="cursor:pointer">Pointer cursor div</div>
+    <label><input type="checkbox"> Checkbox in label</label>
+    <button><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5"/></svg></button>
+    <button aria-label="Close dialog">×</button>
+    <button title="Settings">⚙</button>
+    <a href="/nav-target"><img src="/api/image.png" alt="Image link" width="16" height="16"></a>
+  </section>
+  <article>
+    <h2>Article heading</h2>
+    <p>Article text <time datetime="2026-11-19">November 19, 2026</time>.</p>
+  </article>
+</main>
+<aside aria-label="Related"><p>Sidebar content.</p></aside>
+<footer><p>&copy; zenius fixtures</p><address>Contact: <a href="mailto:a@b.c">a@b.c</a></address></footer>
+</body>
+</html>

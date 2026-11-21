@@ -1,0 +1,161 @@
+[p1 "BBC News - Breaking news, video and the latest top stories from the U.S. and ..." | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "BBC News - Breaking news, video and the latest top stories from the U.S. and ..."]
+root
+  container
+    container
+      container
+        button "Open menu" [ref=10199, loc=css:button[aria-label="Open menu"]]
+          svg_root
+        anchor [ref=10200, url=https://www.bbc.com/watch-live-news/]
+          container
+            svg_root
+            text "Watch Live"
+      anchor [ref=10201, url=https://www.bbc.com/]
+        image "British Broadcasting Corporation"
+      container
+        button [ref=10202]
+          text "Subscribe"
+        anchor [ref=10203, url=https://session.bbc.com/session?userOrigin=BBCS_BBC&ptrt=https%3A%2F%2Fwww.bbc.com%2Fnews]
+          button "Sign In" [ref=10204, loc=css:button[aria-label="Sign In"]]
+            text "Sign In"
+    container
+      unordered_list
+        list_item
+          anchor [ref=10205, url=https://www.bbc.com/]
+            text "Home"
+        list_item
+          anchor [ref=10206, url=https://www.bbc.com/news]
+            text "News"
+        list_item
+          anchor [ref=10207, url=https://www.bbc.com/sport]
+            text "Sport"
+        list_item
+          anchor [ref=10208, url=https://www.bbc.com/business]
+            text "Business"
+        list_item
+          anchor [ref=10209, url=https://www.bbc.com/technology]
+            text "Technology"
+        list_item
+          anchor [ref=10210, url=https://www.bbc.com/health]
+            text "Health"
+        list_item
+          anchor [ref=10211, url=https://www.bbc.com/culture]
+            text "Culture"
+        list_item
+          anchor [ref=10212, url=https://www.bbc.com/arts]
+            text "Arts"
+        list_item
+          anchor [ref=10213, url=https://www.bbc.com/travel]
+            text "Travel"
+        list_item
+          anchor [ref=10214, url=https://www.bbc.com/future-planet]
+            text "Earth"
+        list_item
+          anchor [ref=10215, url=https://www.bbc.com/audio]
+            text "Audio"
+        list_item
+          anchor [ref=10216, url=https://www.bbc.com/video]
+            text "Video"
+        list_item
+          anchor [ref=10217, url=https://www.bbc.com/live]
+            text "Live"
+        list_item
+          anchor [ref=10218, url=https://www.bbc.com/video/docs]
+            text "Documentaries"
+      unordered_list
+        list_item
+          anchor [ref=10219, loc=href:/news/us-canada, url=https://www.bbc.com/news/us-canada]
+            text "US & Canada"
+        list_item
+          anchor [ref=10220, loc=href:/news/uk, url=https://www.bbc.com/news/uk]
+            text "UK"
+        list_item
+          anchor [ref=10221, loc=href:/news/world/africa, url=https://www.bbc.com/news/world/africa]
+            text "Africa"
+        list_item
+          anchor [ref=10222, loc=href:/news/world/asia, url=https://www.bbc.com/news/world/asia]
+            text "Asia"
+        list_item
+          anchor [ref=10223, loc=href:/news/world/australia, url=https://www.bbc.com/news/world/australia]
+            text "Australia"
+        list_item
+          anchor [ref=10224, loc=href:/news/world/europe, url=https://www.bbc.com/news/world/europe]
+            text "Europe"
+        list_item
+          anchor [ref=10225, loc=href:/news/world/latin_america, url=https://www.bbc.com/news/world/latin_america]
+            text "Latin America"
+        list_item
+          anchor [ref=10226, loc=href:/news/world/middle_east, url=https://www.bbc.com/news/world/middle_east]
+            text "Middle East"
+        list_item
+          anchor [ref=10227, loc=href:/news/in_pictures, url=https://www.bbc.com/news/in_pictures]
+            text "In Pictures"
+        list_item
+          anchor [ref=10228, loc=href:/news/bbcindepth, url=https://www.bbc.com/news/bbcindepth]
+            text "BBC InDepth"
+        list_item
+          anchor [ref=10229, loc=href:/news/bbcverify, url=https://www.bbc.com/news/bbcverify]
+            text "BBC Verify"
+    container
+      heading
+        image "News"
+      container
+        container
+          image
+          anchor [ref=10230, url=https://www.bbc.com/news/articles/c623j4kpg94go]
+            heading
+              text "UK and EU to agree youth mobility scheme, BBC understands"
+            paragraph
+              text "The scheme is expected to be approved at Friday's UK-EU summit, with new deals on food trade and carbon emissions also on the table."
+            container
+              text "2 hrs ago"
+              text "Politics"
+        container
+          anchor [ref=10231, url=https://www.bbc.com/news/articles/c3x29ggenz12o]
+            image
+            container
+              heading
+                text "Anthropic becomes one of world's most valuable public companies in stock market debut"
+              paragraph
+                text "Anthropic is the first purely AI company to be publicly listed, creating a test for the entire industry."
+              container
+                text "5 hrs ago"
+                text "Technology"
+          anchor [ref=10232, url=https://www.bbc.com/news/articles/c9zr5nyv5dj2o]
+            heading
+              text "GTA 6 breaks records as sales top $2.3bn - industry estimate"
+            paragraph
+              text "Rockstar Games ended a 13-year wait with what is expected to be the biggest entertainment launch ever."
+            container
+              text "2 hrs ago"
+              text "Business"
+          anchor [ref=10233, url=https://www.bbc.com/news/videos/c63rgnq05pdwo]
+            container
+              svg_root
+              heading
+                text "Watch: What did Trump, Xi and Putin get out of their historic meeting?"
+        container
+          anchor [ref=10234, url=https://www.bbc.com/news/videos/cwg7l01vg081o]
+            container
+              image
+              svg_root
+            heading
+              text "How did Anthropic's stock market debut unfold?"
+          anchor [ref=10235, loc=href:/news/articles/cx7v2d8q879eo, url=https://www.bbc.com/news/articles/cx7v2d8q879eo]
+            image
+            heading
+              text "'I tell my son it's just fireworks': People inside besieged Yemeni city speak to BBC"
+          anchor [ref=10236, url=https://www.bbc.com/news/articles/ckzd9nln5e6go]
+            image
+            heading
+              text "Europe ready for talks with Russia on ending war in Ukraine, leaders say"
+          anchor [ref=10237, loc=href:/news/articles/c6ly58ndgd0no, url=https://www.bbc.com/news/articles/c6ly58ndgd0no]
+            image
+            heading
+              text "Bowen: Myanmar genocide verdict is historic and could have far-reaching implications"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 4860 px; scroll or use snapshot({ scope: "full_page" })]

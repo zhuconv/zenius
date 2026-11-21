@@ -1,0 +1,3 @@
+[p1 "ego-lite visual fixture" | space "zen-eval golden 1795148479936"(5): 1 managed, 0 untracked — p1* "ego-lite visual fixture"]
+root
+  canvas

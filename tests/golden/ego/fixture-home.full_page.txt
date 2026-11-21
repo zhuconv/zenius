@@ -1,0 +1,152 @@
+[p1 "ego-lite helper e2e" | space "zen-eval golden 1795148479936"(5): 1 managed, 0 untracked — p1* "ego-lite helper e2e"]
+root
+  container
+    heading
+      text "Helper e2e fixture"
+    paragraph
+      text "ready"
+    button "Increment counter" [ref=1]
+      text "Click counter"
+    button [ref=2]
+      text "Duplicate action"
+    button [ref=3]
+      text "Duplicate action"
+    anchor [ref=4, url={{BASE}}/nav-target]
+      text "Go to nav target"
+    text "0"
+    text "Hover zone"
+    text "Drag source"
+    text "Drag target"
+    container
+      text "Text input"
+      textbox [ref=5]
+        text "initial"
+    container
+      text "Append input"
+      textbox [ref=6]
+        text "base"
+    container
+      text "Text area"
+      textbox [ref=7]
+        text "seed"
+    text "File input"
+    button [ref=8]
+      text "Choose files dynamically"
+    container
+      text "Dropdown"
+      combobox [ref=9]
+        text "Alpha"
+    container
+      checkbox [ref=10]
+      text "Toggle checkbox"
+    container [ref=11]
+      text "edit me"
+    text "Right-click here"
+    button [ref=12]
+      text "Add element"
+    button [ref=13]
+      text "Remove element"
+    container
+      container [ref=14]
+        text "First"
+      container [ref=15]
+        text "Second"
+      container [ref=16]
+        text "Third"
+    text "Delayed element"
+    iframe [ref=17]
+      root
+        container
+          heading
+            text "Iframe fixture"
+          paragraph
+            text "ready"
+          button "Increment counter" [ref=18]
+            text "Click counter"
+          button [ref=20]
+            text "Duplicate action"
+          button [ref=21]
+            text "Duplicate action"
+          anchor [ref=22, loc=href:{{CROSS}}/nav-target, url={{CROSS}}/nav-target]
+            text "Go to nav target"
+          text "0"
+          text "Hover zone"
+          text "Drag source"
+          text "Drag target"
+          container
+            text "Text input"
+            textbox [ref=23]
+              text "initial"
+          container
+            text "Append input"
+            textbox [ref=24]
+              text "base"
+          container
+            text "Text area"
+            textbox [ref=25]
+              text "seed"
+          text "File input"
+          button [ref=26]
+            text "Choose files dynamically"
+          container
+            text "Dropdown"
+            combobox [ref=27]
+              text "Alpha"
+          container
+            checkbox [ref=28]
+            text "Toggle checkbox"
+          container [ref=29]
+            text "edit me"
+          text "Right-click here"
+          button [ref=30]
+            text "Add element"
+          button [ref=31]
+            text "Remove element"
+          container [ref=32]
+            text "First"
+          container [ref=33]
+            text "Second"
+          container [ref=34]
+            text "Third"
+          text "Delayed element"
+          container [ref=35]
+            text "Inner scroll marker"
+          text "Bottom marker"
+          container
+            text "Email input"
+            textbox [ref=36]
+              text "old@example.com"
+          container
+            text "Number input"
+            spinbutton [ref=37]
+              text "123"
+          container
+            text "Controlled input"
+            textbox [ref=38]
+          textbox "Shadow field" [ref=39]
+          button [ref=40]
+            text "Shadow action"
+          text "iframe target"
+          button "Run iframe action" [ref=41, loc=css:button[aria-label="Run iframe action"]]
+            text "Run iframe action"
+          container
+            text "Iframe field"
+            textbox "Iframe field" [ref=42, loc=css:input[aria-label="Iframe field"]]
+          text "idle"
+    container [ref=19]
+      text "Inner scroll marker"
+    text "Bottom marker"
+    container
+      text "Email input"
+      textbox [ref=43]
+        text "old@example.com"
+    container
+      text "Number input"
+      spinbutton [ref=44]
+        text "123"
+    container
+      text "Controlled input"
+      textbox [ref=45]
+    textbox "Shadow field" [ref=46]
+    button [ref=47]
+      text "Shadow action"

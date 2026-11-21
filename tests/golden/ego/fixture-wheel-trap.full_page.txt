@@ -1,0 +1,6 @@
+[p1 "wheel trap" | space "zen-eval golden 1795148479936"(5): 1 managed, 0 untracked — p1* "wheel trap"]
+root
+  container
+    text "top"
+    text "wheel trap"
+    textbox [ref=183]

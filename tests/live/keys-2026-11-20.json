@@ -1,0 +1,14 @@
+{
+  "recorded": "2026-11-20 about 08:25 UTC, on the zen-eval dev profile, before the pilot's runs",
+  "T2": {
+    "chrome": "97",
+    "firefox": "104",
+    "safari": "15.4",
+    "source": "MDN's compat data for javascript.builtins.Array.findLast (bcd.developer.mozilla.org, the endpoint the findLast() page loads): version_added chrome 97, firefox 104, safari 15.4"
+  },
+  "T8": {
+    "days": 309,
+    "weekdays": 221,
+    "source": "timeanddate.com durationresult.html for 2026-01-15 to 2026-11-20: 'Result: 309 days', end date not included. workdays.html with its defaults excludes weekends and US federal holidays: 'Result: 207 days', with 44 Saturdays, 44 Sundays and 14 holidays excluded. Weekends alone give 309 - 88 = 221, which a calendar count confirms. The prompt asks for weekends only, so the key is 221; an answer of 207 alone misses it."
+  }
+}

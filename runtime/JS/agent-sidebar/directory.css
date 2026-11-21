@@ -1,0 +1,325 @@
+/* The directory of tasks (directory.sys.mjs): an author sheet on the browser
+ * window, so every rule is scoped to its own asb-dir classes. The colors are
+ * the sidebar panel's (panel.css), so the drawer reads as part of it. */
+
+/* The sidebar draws over the drawer, which seems to come out from under it. */
+#sidebar-box[data-zenius-directory] {
+  z-index: 3;
+}
+
+.asb-dir-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.asb-dir-layer[hidden] {
+  display: none;
+}
+
+.asb-dir-scrim {
+  position: absolute;
+  inset: 0;
+}
+
+.asb-dir {
+  --asb-bg: light-dark(#fbfbfc, #1f1f23);
+  --asb-fg: light-dark(#1d1d1f, #ececf1);
+  --asb-muted: light-dark(#6b6b76, #9a9aa6);
+  --asb-faint: light-dark(#a1a1a8, #6e6e78);
+  --asb-line: light-dark(#e3e3e8, #34343b);
+  --asb-hover: light-dark(#f0f0f3, #2a2a30);
+  --asb-current: light-dark(#f1edff, #2c2840);
+  --asb-needs: light-dark(#fff6ec, #33281e);
+  --asb-needs-color: #f07c1b;
+  --asb-purple: light-dark(#7c5cff, #a48bff);
+  --asb-green: light-dark(#28a745, #34c759);
+
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 24px 10px 10px;
+  background: var(--asb-bg);
+  color: var(--asb-fg);
+  border-radius: 12px 0 0 12px;
+  box-shadow:
+    -10px 0 30px rgba(0, 0, 0, 0.18),
+    0 0 0 1px light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.08));
+  font: 12px/1.45 -apple-system, system-ui, sans-serif;
+  color-scheme: inherit;
+  transform: translateX(28px);
+  opacity: 0;
+  transition:
+    transform 0.16s ease-out,
+    opacity 0.12s ease-out;
+  -moz-window-dragging: no-drag;
+}
+
+.asb-dir[data-side="right"] {
+  padding: 10px 10px 10px 24px;
+  border-radius: 0 12px 12px 0;
+  box-shadow:
+    10px 0 30px rgba(0, 0, 0, 0.18),
+    0 0 0 1px light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.08));
+  transform: translateX(-28px);
+}
+
+.asb-dir.open {
+  transform: none;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .asb-dir {
+    transition: none;
+  }
+}
+
+.asb-dir button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.asb-dir-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px 2px;
+}
+
+.asb-dir-title {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.asb-dir-new {
+  margin-inline-start: auto;
+  border: none;
+  border-radius: 8px;
+  padding: 3px 9px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--asb-fg);
+  color: var(--asb-bg) !important;
+}
+
+.asb-dir-new:hover {
+  background: color-mix(in srgb, var(--asb-fg) 82%, var(--asb-bg));
+}
+
+.asb-dir-new:focus-visible,
+.asb-dir-search:focus-within {
+  outline: 2px solid AccentColor;
+  outline-offset: -1px;
+}
+
+.asb-dir-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--asb-line);
+  border-radius: 9px;
+  padding: 4px 8px;
+  cursor: text;
+}
+
+.asb-dir-glass {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  background: url("chrome://browser/skin/zen-icons/search-glass.svg") center / contain no-repeat;
+  -moz-context-properties: fill;
+  fill: var(--asb-faint);
+}
+
+.asb-dir-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 1px 0;
+  appearance: none;
+}
+
+.asb-dir-search input::placeholder {
+  color: var(--asb-faint);
+}
+
+.asb-dir-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 -4px;
+  padding: 0 4px 4px;
+}
+
+.asb-dir-group {
+  font-size: 11px;
+  color: var(--asb-muted);
+  padding: 8px 4px 2px;
+}
+
+.asb-dir-empty {
+  color: var(--asb-muted);
+  padding: 14px 6px;
+  text-align: center;
+}
+
+.asb-dir-row {
+  border-radius: 9px;
+  padding: 6px 8px 7px;
+  cursor: pointer;
+}
+
+.asb-dir-row:hover,
+.asb-dir-row.active {
+  background: var(--asb-hover);
+}
+
+.asb-dir-row[data-state="needs"] {
+  background: var(--asb-needs);
+}
+
+.asb-dir-row.current {
+  background: var(--asb-current);
+}
+
+.asb-dir-row.active {
+  outline: 1.5px solid color-mix(in srgb, var(--asb-purple) 60%, transparent);
+  outline-offset: -1.5px;
+}
+
+.asb-dir-rt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.asb-dir-rt b {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.asb-dir-age {
+  flex: none;
+  color: var(--asb-faint);
+  font-size: 11px;
+}
+
+.asb-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--asb-faint);
+}
+
+[data-state="needs"] > .asb-dir-rt > .asb-dot {
+  background: var(--asb-needs-color);
+}
+
+[data-state="working"] > .asb-dir-rt > .asb-dot {
+  background: var(--asb-purple);
+}
+
+[data-state="done"] > .asb-dir-rt > .asb-dot {
+  background: var(--asb-green);
+}
+
+.asb-dir-rd {
+  margin: 1px 0 0 15px;
+  color: var(--asb-muted);
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Working: a thin bar that moves, since a task's progress isn't known. */
+.asb-dir-bar {
+  position: relative;
+  height: 3px;
+  margin: 6px 0 0 15px;
+  border-radius: 2px;
+  background: var(--asb-line);
+  overflow: hidden;
+}
+
+.asb-dir-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-radius: 2px;
+  background: var(--asb-purple);
+  animation: asb-dir-slide 1.4s ease-in-out infinite;
+}
+
+@keyframes asb-dir-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .asb-dir-bar::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+}
+
+.asb-dir-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 5px 0 0 15px;
+}
+
+.asb-dir-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--asb-muted);
+  cursor: pointer;
+}
+
+.asb-dir-tab img {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+.asb-dir-tab span {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.asb-dir-tab:hover {
+  color: var(--asb-fg);
+}

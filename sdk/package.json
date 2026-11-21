@@ -1,0 +1,27 @@
+{
+  "name": "zenius",
+  "version": "0.1.0",
+  "description": "Node SDK and CLI for zenius (Agentic Zen): Ego Lite-compatible browser scripting inside Zen Browser.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "bin": {
+    "zenius": "bin/zenius"
+  },
+  "engines": {
+    "node": "^22.18 || >=23.6"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "node build.mjs && node --test --test-reporter=dot \"test/**/*.test.ts\"",
+    "test:integration": "scripts/test-integration.sh",
+    "coverage:protocol": "node scripts/protocol-coverage.ts",
+    "check": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.0"
+  }
+}

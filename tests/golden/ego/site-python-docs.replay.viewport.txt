@@ -1,0 +1,206 @@
+[p1 "asyncio — Asynchronous I/O — Python 3.15.2 documentation" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "asyncio — Asynchronous I/O — Python 3.15.2 documentation"]
+root
+  container
+    navigation "Related"
+      unordered_list
+        list_item
+          anchor [ref=25023, url=https://docs.python.org/3/genindex.html]
+            text "index"
+        list_item
+          anchor [ref=25024, url=https://docs.python.org/3/py-modindex.html]
+            text "modules"
+          text "|"
+        list_item
+          anchor [ref=25025, url=https://docs.python.org/3/library/asyncio-runner.html]
+            text "next"
+          text "|"
+        list_item
+          anchor [ref=25026, url=https://docs.python.org/3/library/ipc.html]
+            text "previous"
+          text "|"
+        list_item
+          image
+        list_item
+          anchor [ref=25027, url=https://www.python.org/]
+            text "Python"
+          text "»"
+        list_item
+          combobox "Language" [ref=25028]
+            text "German | Deutsch"
+          combobox "Python version" [ref=25029]
+            text "dev (3.16)"
+        list_item
+          anchor [ref=25030, url=https://docs.python.org/3/index.html]
+            text "3.15.2 documentation"
+          text "»"
+        list_item
+          anchor [ref=25031, url=https://docs.python.org/3/library/index.html]
+            text "The Python standard library"
+          text "»"
+        list_item
+          anchor [ref=25032, url=https://docs.python.org/3/library/ipc.html]
+            text "Networking and Interprocess Communication"
+          text "»"
+        list_item
+          anchor [ref=25033, url=https://docs.python.org/3/library/asyncio.html]
+            text "asyncio"
+            text "— Asynchronous I/O"
+        list_item
+          search
+            form
+              searchbox "Quick search" [ref=25034]
+                text "Quick search"
+              button [ref=25035]
+                text "Go"
+          text "|"
+        list_item
+          container
+            text "Theme"
+            combobox [ref=25036]
+              text "Auto"
+          text "|"
+    container
+      main
+        container
+          heading
+            text "asyncio"
+            text "— Asynchronous I/O"
+          container
+            paragraph
+              text "Hello World!"
+            container
+              text "import"
+              text "asyncio"
+              text "async"
+              text "def"
+              text "main"
+              text "():"
+              text "print"
+              text "("
+              text "'Hello ...'"
+              text ")"
+              text "await"
+              text "asyncio"
+              text "."
+              text "sleep"
+              text "("
+              text "1"
+              text ")"
+              text "print"
+              text "("
+              text "'... World!'"
+              text ")"
+              text "asyncio"
+              text "."
+              text "run"
+              text "("
+              text "main"
+              text "())"
+          paragraph
+            text "asyncio is a library to write"
+            text "concurrent"
+            text "code using the"
+            text "async/await"
+            text "syntax."
+          paragraph
+            text "asyncio is used as a foundation for multiple Python asynchronous frameworks that provide high-performance network and web-servers, database connection libraries, distributed task queues, etc."
+          paragraph
+            text "asyncio is often a perfect fit for IO-bound and high-level"
+            text "structured"
+            text "network code."
+          container
+            paragraph
+              text "See also"
+              text ":"
+            unordered_list
+              list_item
+                anchor [ref=25037, url=https://docs.python.org/3/howto/a-conceptual-overview-of-asyncio.html#a-conceptual-overview-of-asyncio]
+                  text "A conceptual overview of asyncio"
+              list_item
+                paragraph
+                  text "Explanation of the fundamentals of asyncio."
+          paragraph
+            text "asyncio provides a set of"
+            text "high-level"
+            text "APIs to:"
+          unordered_list
+            list_item
+              paragraph
+                anchor [ref=25038, loc=href:https://docs.python.org/3/library/asyncio-task.html#coroutine, url=https://docs.python.org/3/library/asyncio-task.html#coroutine]
+                  text "run Python coroutines"
+                text "concurrently and have full control over their execution;"
+            list_item
+              paragraph
+                text "perform"
+                anchor [ref=25039, loc=href:https://docs.python.org/3/library/asyncio-stream.html#asyncio-streams, url=https://docs.python.org/3/library/asyncio-stream.html#asyncio-streams]
+                  text "network IO and IPC"
+                text ";"
+            list_item
+              paragraph
+                text "control"
+                anchor [ref=25040, loc=href:https://docs.python.org/3/library/asyncio-subprocess.html#asyncio-subprocess, url=https://docs.python.org/3/library/asyncio-subprocess.html#asyncio-subprocess]
+                  text "subprocesses"
+                text ";"
+            list_item
+              paragraph
+                text "distribute tasks via"
+                anchor [ref=25041, loc=href:https://docs.python.org/3/library/asyncio-queue.html#asyncio-queues, url=https://docs.python.org/3/library/asyncio-queue.html#asyncio-queues]
+                  text "queues"
+                text ";"
+            list_item
+              paragraph
+                anchor [ref=25042, loc=href:https://docs.python.org/3/library/asyncio-sync.html#asyncio-sync, url=https://docs.python.org/3/library/asyncio-sync.html#asyncio-sync]
+                  text "synchronize"
+                text "concurrent code;"
+          paragraph
+            text "For"
+            text "introspection"
+            text ", asyncio provides APIs and tools for:"
+          unordered_list
+            list_item
+              paragraph
+                text "inspecting the"
+                anchor [ref=25043, loc=href:https://docs.python.org/3/library/asyncio-graph.html#asyncio-graph, url=https://docs.python.org/3/library/asyncio-graph.html#asyncio-graph]
+                  text "async call graph"
+                text "of tasks and futures;"
+            list_item
+              paragraph
+                text "inspecting tasks in another running Python process with"
+                anchor [ref=25044, loc=href:https://docs.python.org/3/library/asyncio-tools.html#asyncio-introspection-tools, url=https://docs.python.org/3/library/asyncio-tools.html#asyncio-introspection-tools]
+                  text "command-line tools"
+                text ";"
+      navigation "Main"
+        container
+          container
+            heading
+              text "Previous topic"
+            paragraph
+              anchor [ref=25045, url=https://docs.python.org/3/library/ipc.html]
+                text "Networking and Interprocess Communication"
+          container
+            heading
+              text "Next topic"
+            paragraph
+              anchor [ref=25046, url=https://docs.python.org/3/library/asyncio-runner.html]
+                text "Runners"
+          note "source link"
+            heading
+              text "This page"
+            unordered_list
+              list_item
+                anchor [ref=25047, url=https://docs.python.org/3/bugs.html]
+                  text "Report a bug"
+              list_item
+                anchor [ref=25048, url=https://docs.python.org/3/improve-page.html?pagetitle=asyncio+%E2%80%94+Asynchronous+I%2FO&pageurl=https%3A%2F%2Fdocs.python.org%2F3%2Flibrary%2Fasyncio.html&pagesource=library%2Fasyncio.rst]
+                  text "Improve this page"
+              list_item
+                anchor [ref=25049, url=https://github.com/python/cpython/blob/3.15/Doc/library/asyncio.rst?plain=1]
+                  text "Show source"
+        text "«"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 2724 px; scroll or use snapshot({ scope: "full_page" })]

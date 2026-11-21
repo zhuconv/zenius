@@ -1,0 +1,68 @@
+[p1 "zoo: frames" | space "zen-eval golden 1795148479936"(5): 1 managed, 0 untracked — p1* "zoo: frames"]
+root
+  container
+    heading
+      text "Frames"
+    iframe [ref=294]
+      root
+        heading
+          text "Frame child"
+        paragraph
+          text "Text inside the child frame."
+        container
+          text "Frame input"
+          textbox [ref=295]
+        button [ref=296]
+          text "Frame button"
+        anchor [ref=297, url={{BASE}}/nav-target]
+          text "Frame link"
+    iframe [ref=298]
+      root
+        heading
+          text "Frame child"
+        paragraph
+          text "Text inside the child frame."
+        container
+          text "Frame input"
+          textbox [ref=299]
+        button [ref=300]
+          text "Frame button"
+        anchor [ref=301, loc=href:{{CROSS}}/nav-target, url={{CROSS}}/nav-target]
+          text "Frame link"
+    iframe [ref=302]
+      root
+        paragraph
+          text "Srcdoc paragraph"
+        button [ref=303]
+          text "Srcdoc button"
+    iframe [ref=304]
+      root
+        paragraph
+          text "Outer frame text"
+        iframe [ref=305]
+          root
+            heading
+              text "Frame child"
+            paragraph
+              text "Text inside the child frame."
+            container
+              text "Frame input"
+              textbox [ref=306]
+            button [ref=307]
+              text "Frame button"
+            anchor [ref=308, url={{BASE}}/nav-target]
+              text "Frame link"
+    text "Spacer before lazy frame"
+    iframe [ref=309]
+      root
+        heading
+          text "Frame child"
+        paragraph
+          text "Text inside the child frame."
+        container
+          text "Frame input"
+          textbox [ref=310]
+        button [ref=311]
+          text "Frame button"
+        anchor [ref=312, url={{BASE}}/nav-target]
+          text "Frame link"

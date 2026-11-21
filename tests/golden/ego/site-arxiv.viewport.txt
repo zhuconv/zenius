@@ -1,0 +1,242 @@
+[p1 "[1706.03762] Attention Is All You Need" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "[1706.03762] Attention Is All You Need"]
+root
+  container
+    container
+      anchor "archive home" [ref=9941, loc=css:a[aria-label="archive home"], url=https://arxiv.org/]
+        image
+      container "Main navigation"
+        anchor [ref=9942, loc=href:/search, url=https://arxiv.org/search]
+          svg_root
+          text "Search"
+        anchor [ref=9943, loc=href:/user/create, url=https://arxiv.org/user/create]
+          text "Submit"
+        anchor [ref=9944, loc=href:https://info.arxiv.org/about/donate.html, url=https://info.arxiv.org/about/donate.html]
+          text "Donate"
+        anchor [ref=9945, loc=href:/login, url=https://arxiv.org/login]
+          text "Log in"
+    container
+      container
+        heading
+          text "Computer Science > Computation and Language"
+        container
+          container
+            text "[Submitted on 12 Jun 2017 ("
+            anchor [ref=9946, url=https://arxiv.org/abs/1706.03762v1]
+              text "v1"
+            text "), last revised 2 Aug 2023 (this version, v7)]"
+          heading
+            text "Attention Is All You Need"
+          container
+            anchor [ref=9947, loc=href:/search/cs?searchtype=author&query=Vaswani,+A, url=https://arxiv.org/search/cs?searchtype=author&query=Vaswani,+A]
+              text "Ashish Vaswani"
+            text ","
+            anchor [ref=9948, loc=href:/search/cs?searchtype=author&query=Shazeer,+N, url=https://arxiv.org/search/cs?searchtype=author&query=Shazeer,+N]
+              text "Noam Shazeer"
+            text ","
+            anchor [ref=9949, loc=href:/search/cs?searchtype=author&query=Parmar,+N, url=https://arxiv.org/search/cs?searchtype=author&query=Parmar,+N]
+              text "Niki Parmar"
+            text ","
+            anchor [ref=9950, loc=href:/search/cs?searchtype=author&query=Uszkoreit,+J, url=https://arxiv.org/search/cs?searchtype=author&query=Uszkoreit,+J]
+              text "Jakob Uszkoreit"
+            text ","
+            anchor [ref=9951, loc=href:/search/cs?searchtype=author&query=Jones,+L, url=https://arxiv.org/search/cs?searchtype=author&query=Jones,+L]
+              text "Llion Jones"
+            text ","
+            anchor [ref=9952, loc=href:/search/cs?searchtype=author&query=Gomez,+A+N, url=https://arxiv.org/search/cs?searchtype=author&query=Gomez,+A+N]
+              text "Aidan N. Gomez"
+            text ","
+            anchor [ref=9953, loc=href:/search/cs?searchtype=author&query=Kaiser,+L, url=https://arxiv.org/search/cs?searchtype=author&query=Kaiser,+L]
+              text "Lukasz Kaiser"
+            text ","
+            anchor [ref=9954, loc=href:/search/cs?searchtype=author&query=Polosukhin,+I, url=https://arxiv.org/search/cs?searchtype=author&query=Polosukhin,+I]
+              text "Illia Polosukhin"
+          text "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder-decoder configuration. The best performing models also connect the encoder and d..."
+          table
+            table_row
+              table_cell
+                text "Comments:"
+              table_cell
+                text "15 pages, 5 figures"
+            table_row
+              table_cell
+                text "Subjects:"
+              table_cell
+                text "Computation and Language (cs.CL)"
+                text "; Machine Learning (cs.LG)"
+            table_row
+              table_cell
+                text "Cite as:"
+              table_cell
+                anchor [ref=9955, loc=href:/abs/1706.03762, url=https://arxiv.org/abs/1706.03762]
+                  text "arXiv:1706.03762"
+                text "[cs.CL]"
+            table_row
+              table_cell
+              table_cell
+                text "(or"
+                container
+                  anchor [ref=9956, loc=href:/abs/1706.03762v7, url=https://arxiv.org/abs/1706.03762v7]
+                    text "arXiv:1706.03762v7"
+                  text "[cs.CL]"
+                text "for this version)"
+            table_row
+              table_cell
+              table_cell
+                anchor [ref=9957, loc=href:https://doi.org/10.48550/arXiv.1706.03762, url=https://doi.org/10.48550/arXiv.1706.03762]
+                  text "https://doi.org/10.48550/arXiv.1706.03762"
+                button [ref=9958]
+                  svg_root
+        container
+          heading
+            text "Submission history"
+          text "From: Llion Jones ["
+          anchor [ref=9959, loc=href:/show-email/f53b7360/1706.03762, url=https://arxiv.org/show-email/f53b7360/1706.03762]
+            text "view email"
+          text "]"
+          anchor [ref=9960, url=https://arxiv.org/abs/1706.03762v1]
+            text "[v1]"
+          text "Mon, 12 Jun 2017 17:57:34 UTC (1,102 KB)"
+          anchor [ref=9961, loc=href:/abs/1706.03762v2, url=https://arxiv.org/abs/1706.03762v2]
+            text "[v2]"
+          text "Mon, 19 Jun 2017 16:49:45 UTC (1,125 KB)"
+          anchor [ref=9962, loc=href:/abs/1706.03762v3, url=https://arxiv.org/abs/1706.03762v3]
+            text "[v3]"
+          text "Tue, 20 Jun 2017 05:20:02 UTC (1,125 KB)"
+          anchor [ref=9963, loc=href:/abs/1706.03762v4, url=https://arxiv.org/abs/1706.03762v4]
+            text "[v4]"
+          text "Fri, 30 Jun 2017 17:29:30 UTC (1,124 KB)"
+          anchor [ref=9964, loc=href:/abs/1706.03762v5, url=https://arxiv.org/abs/1706.03762v5]
+            text "[v5]"
+          text "Wed, 6 Dec 2017 03:30:32 UTC (1,124 KB)"
+          anchor [ref=9965, loc=href:/abs/1706.03762v6, url=https://arxiv.org/abs/1706.03762v6]
+            text "[v6]"
+          text "Mon, 24 Jul 2023 00:48:54 UTC (1,124 KB)"
+          text "[v7]"
+          text "Wed, 2 Aug 2023 00:41:18 UTC (1,124 KB)"
+      container
+        container
+          heading
+            text "Access Paper:"
+          unordered_list
+            list_item
+              anchor [ref=9966, url=https://arxiv.org/pdf/1706.03762]
+                text "View PDF"
+            list_item
+              anchor [ref=9967, url=https://arxiv.org/html/1706.03762v7]
+                text "HTML (experimental)"
+            list_item
+              anchor [ref=9968, loc=href:/src/1706.03762, url=https://arxiv.org/src/1706.03762]
+                text "TeX Source"
+            list_item
+              anchor [ref=9969, url=https://www.overleaf.com/docs?snip_uri=https://amitness-open-in-overleaf.hf.space/fetch_tar?arxiv_url=https%3A%2F%2Farxiv.org%2Fabs%2F1706.03762]
+                text "Open in Overleaf"
+            list_item
+              anchor [ref=9970, loc=href:/html/1706.03762?_immersive_translate_auto_translate=1, url=https://arxiv.org/html/1706.03762?_immersive_translate_auto_translate=1]
+                text "双语版本(沉浸式翻译)"
+          anchor [ref=9971, loc=href:http://arxiv.org/licenses/nonexclusive-distrib/1.0/, url=http://arxiv.org/licenses/nonexclusive-distrib/1.0/]
+            text "view license"
+        container
+          heading
+            text "Current browse context:"
+          text "cs.CL"
+          container
+            anchor [ref=9972, loc=href:/prevnext?id=1706.03762&function=prev&context=cs.CL, url=https://arxiv.org/prevnext?id=1706.03762&function=prev&context=cs.CL]
+              text "< prev"
+            text "  |  "
+            anchor [ref=9973, loc=href:/prevnext?id=1706.03762&function=next&context=cs.CL, url=https://arxiv.org/prevnext?id=1706.03762&function=next&context=cs.CL]
+              text "next >"
+          container
+            anchor [ref=9974, loc=href:/list/cs.CL/new, url=https://arxiv.org/list/cs.CL/new]
+              text "new"
+            text "|"
+            anchor [ref=9975, loc=href:/list/cs.CL/recent, url=https://arxiv.org/list/cs.CL/recent]
+              text "recent"
+            text "|"
+            anchor [ref=9976, loc=href:/list/cs.CL/2017-06, url=https://arxiv.org/list/cs.CL/2017-06]
+              text "2017-06"
+          container
+            text "Change to browse by:"
+            container
+              anchor [ref=9977, loc=href:/abs/1706.03762?context=cs, url=https://arxiv.org/abs/1706.03762?context=cs]
+                text "cs"
+              anchor [ref=9978, loc=href:/abs/1706.03762?context=cs.LG, url=https://arxiv.org/abs/1706.03762?context=cs.LG]
+                text "cs.LG"
+        container
+          heading
+            text "References & Citations"
+          unordered_list
+            list_item
+              anchor [ref=9979, loc=href:https://ui.adsabs.harvard.edu/abs/arXiv:1706.03762, url=https://ui.adsabs.harvard.edu/abs/arXiv:1706.03762]
+                text "NASA ADS"
+            list_item
+              anchor [ref=9980, loc=href:https://scholar.google.com/scholar_lookup?arxiv_id=1706.03762, url=https://scholar.google.com/scholar_lookup?arxiv_id=1706.03762]
+                text "Google Scholar"
+            list_item
+              anchor [ref=9981, loc=href:https://api.semanticscholar.org/arXiv:1706.03762, url=https://api.semanticscholar.org/arXiv:1706.03762]
+                text "Semantic Scholar"
+        container
+          heading
+            anchor [ref=9982, loc=href:/tb/1706.03762, url=https://arxiv.org/tb/1706.03762]
+              text "123 blog links"
+          text "("
+          anchor [ref=9983, loc=href:https://info.arxiv.org/help/trackback.html, url=https://info.arxiv.org/help/trackback.html]
+            text "what is this?"
+          text ")"
+        container
+          heading
+            anchor [ref=9984, loc=href:https://dblp.uni-trier.de/, url=https://dblp.uni-trier.de/]
+              text "DBLP"
+            text "- CS Bibliography"
+          container
+            anchor [ref=9985, loc=href:https://dblp.uni-trier.de/db/journals/corr/corr1706.html#VaswaniSPUJGKP17, url=https://dblp.uni-trier.de/db/journals/corr/corr1706.html#VaswaniSPUJGKP17]
+              text "listing"
+            text "|"
+            anchor [ref=9986, loc=href:https://dblp.uni-trier.de/rec/bibtex/journals/corr/VaswaniSPUJGKP17, url=https://dblp.uni-trier.de/rec/bibtex/journals/corr/VaswaniSPUJGKP17]
+              text "bibtex"
+          container
+            anchor [ref=9987, loc=href:https://dblp.uni-trier.de/search/author?author=Ashish%20Vaswani, url=https://dblp.uni-trier.de/search/author?author=Ashish%20Vaswani]
+              text "Ashish Vaswani"
+            anchor [ref=9988, loc=href:https://dblp.uni-trier.de/search/author?author=Noam%20Shazeer, url=https://dblp.uni-trier.de/search/author?author=Noam%20Shazeer]
+              text "Noam Shazeer"
+            anchor [ref=9989, loc=href:https://dblp.uni-trier.de/search/author?author=Niki%20Parmar, url=https://dblp.uni-trier.de/search/author?author=Niki%20Parmar]
+              text "Niki Parmar"
+            anchor [ref=9990, loc=href:https://dblp.uni-trier.de/search/author?author=Jakob%20Uszkoreit, url=https://dblp.uni-trier.de/search/author?author=Jakob%20Uszkoreit]
+              text "Jakob Uszkoreit"
+            anchor [ref=9991, loc=href:https://dblp.uni-trier.de/search/author?author=Llion%20Jones, url=https://dblp.uni-trier.de/search/author?author=Llion%20Jones]
+              text "Llion Jones"
+            text "…"
+        button [ref=9992]
+          text "Export BibTeX Citation"
+        container
+          heading
+            text "Bookmark"
+          anchor [ref=9993, url=http://www.bibsonomy.org/BibtexHandler?requTask=upload&url=https://arxiv.org/abs/1706.03762&description=Attention%20Is%20All%20You%20Need]
+            image
+      tablist "arXivLabs tools"
+        tab
+          text "Bibliographic Tools"
+        tabpanel "Bibliographic Tools"
+          heading
+            text "Bibliographic and Citation Tools"
+          container
+            text "Bibliographic Explorer"
+            container
+              text "("
+              anchor [ref=9994, loc=href:https://info.arxiv.org/labs/showcase.html#arxiv-bibliographic-explorer, url=https://info.arxiv.org/labs/showcase.html#arxiv-bibliographic-explorer]
+                text "What is the Explorer?"
+              text ")"
+        tab
+          text "Code, Data, Media"
+        tab
+          text "Demos"
+        tab
+          text "Related Papers"
+        tab
+          text "About arXivLabs"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 1198 px; scroll or use snapshot({ scope: "full_page" })]

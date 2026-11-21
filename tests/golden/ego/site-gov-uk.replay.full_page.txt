@@ -1,0 +1,422 @@
+[p1 "Welcome to GOV.UK" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "Welcome to GOV.UK"]
+root
+  container
+    anchor [ref=26837, loc=href:https://www.gov.uk/#content, url=https://www.gov.uk/#content]
+      text "Skip to main content"
+    container "Navigation menu"
+      anchor "Go to the GOV.UK homepage" [ref=26826, loc=css:a[aria-label="Go to the GOV.UK homepage"], url=https://www.gov.uk/]
+        image "GOV.UK"
+      heading
+        text "Navigation menu"
+      button "Show navigation menu" [ref=26827, loc=css:button[aria-label="Show navigation menu"]]
+        text "Menu"
+      button "Show search menu" [ref=26828, loc=css:button[aria-label="Show search menu"]]
+        text "Search GOV.UK"
+        svg_root
+    container
+      container
+        heading
+          text "The best place to find government services and information"
+        search
+          text "Search"
+          table
+            table_row
+              table_cell
+                comboboxgrouping [ref=26829]
+              table_cell
+                button [ref=26830]
+                  text "Search GOV.UK"
+                  svg_root
+      container
+        heading
+          text "Popular on GOV.UK"
+        unordered_list
+          list_item
+            table
+              table_row
+                table_cell
+                  svg_root
+                table_cell
+                  anchor [ref=26831, url=https://www.gov.uk/log-in-register-hmrc-online-services]
+                    text "HMRC account: sign in or set up"
+          list_item
+            table
+              table_row
+                table_cell
+                  svg_root
+                table_cell
+                  anchor [ref=26832, loc=href:https://www.gov.uk/evisa, url=https://www.gov.uk/evisa]
+                    text "eVisas: access and use your online immigration status"
+          list_item
+            table
+              table_row
+                table_cell
+                  svg_root
+                table_cell
+                  anchor [ref=26833, loc=href:https://www.gov.uk/sign-in-universal-credit, url=https://www.gov.uk/sign-in-universal-credit]
+                    text "Universal Credit account: sign in"
+          list_item
+            table
+              table_row
+                table_cell
+                  svg_root
+                table_cell
+                  anchor [ref=26834, loc=href:https://www.gov.uk/personal-tax-account, url=https://www.gov.uk/personal-tax-account]
+                    text "Personal tax account: sign in or set up"
+          list_item
+            table
+              table_row
+                table_cell
+                  svg_root
+                table_cell
+                  anchor [ref=26835, url=https://www.gov.uk/sign-in-childcare-account]
+                    text "Childcare account: sign in"
+          list_item
+            table
+              table_row
+                table_cell
+                  svg_root
+                table_cell
+                  anchor [ref=26836, loc=href:https://www.gov.uk/check-state-pension, url=https://www.gov.uk/check-state-pension]
+                    text "Check your State Pension forecast"
+      container
+        container
+          container
+            heading
+              text "Services and information"
+            unordered_list
+              list_item
+                heading
+                  anchor [ref=26838, url=https://www.gov.uk/browse/benefits]
+                    text "Benefits"
+                paragraph
+                  text "Includes eligibility, appeals, tax credits and Universal Credit"
+              list_item
+                heading
+                  anchor [ref=26839, url=https://www.gov.uk/browse/births-deaths-marriages]
+                    text "Births, deaths, marriages and care"
+                paragraph
+                  text "Parenting, civil partnerships, divorce and Lasting Power of Attorney"
+              list_item
+                heading
+                  anchor [ref=26840, url=https://www.gov.uk/browse/business]
+                    text "Business and self-employed"
+                paragraph
+                  text "Tools and guidance for businesses"
+              list_item
+                heading
+                  anchor [ref=26841, url=https://www.gov.uk/browse/childcare-parenting]
+                    text "Childcare and parenting"
+                paragraph
+                  text "Includes giving birth, fostering, adopting, benefits for children, childcare and schools"
+              list_item
+                heading
+                  anchor [ref=26842, url=https://www.gov.uk/browse/citizenship]
+                    text "Citizenship and living in the UK"
+                paragraph
+                  text "Voting, community participation, life in the UK, international projects"
+              list_item
+                heading
+                  anchor [ref=26843, url=https://www.gov.uk/browse/justice]
+                    text "Crime, justice and the law"
+                paragraph
+                  text "Legal processes, courts and the police"
+              list_item
+                heading
+                  anchor [ref=26844, url=https://www.gov.uk/browse/disabilities]
+                    text "Disabled people"
+                paragraph
+                  text "Includes carers, your rights, benefits and the Equality Act"
+              list_item
+                heading
+                  anchor [ref=26845, url=https://www.gov.uk/browse/driving]
+                    text "Driving and transport"
+                paragraph
+                  text "Includes vehicle tax, MOT and driving licences"
+              list_item
+                heading
+                  anchor [ref=26846, url=https://www.gov.uk/browse/education]
+                    text "Education and learning"
+                paragraph
+                  text "Includes student loans, admissions and apprenticeships"
+              list_item
+                heading
+                  anchor [ref=26847, url=https://www.gov.uk/browse/employing-people]
+                    text "Employing people"
+                paragraph
+                  text "Includes pay, contracts, hiring and redundancies"
+              list_item
+                heading
+                  anchor [ref=26848, url=https://www.gov.uk/browse/environment-countryside]
+                    text "Environment and countryside"
+                paragraph
+                  text "Includes flooding, recycling, farming and wildlife"
+              list_item
+                heading
+                  anchor [ref=26849, url=https://www.gov.uk/browse/housing-local-services]
+                    text "Housing and local services"
+                paragraph
+                  text "Owning or renting and council services"
+              list_item
+                heading
+                  anchor [ref=26850, url=https://www.gov.uk/browse/tax]
+                    text "Money and tax"
+                paragraph
+                  text "Includes debt and Self Assessment"
+              list_item
+                heading
+                  anchor [ref=26851, url=https://www.gov.uk/browse/abroad]
+                    text "Passports, travel and living abroad"
+                paragraph
+                  text "Includes renewing passports and travel advice by country"
+              list_item
+                heading
+                  anchor [ref=26852, url=https://www.gov.uk/browse/visas-immigration]
+                    text "Visas and immigration"
+                paragraph
+                  text "Apply to visit, work, study, settle or seek asylum in the UK"
+              list_item
+                heading
+                  anchor [ref=26853, url=https://www.gov.uk/browse/working]
+                    text "Working, jobs and pensions"
+                paragraph
+                  text "Includes holidays, finding a job and redundancy"
+          container
+            heading
+              text "Featured"
+            heading
+              anchor [ref=26854, loc=href:https://www.gov.uk/find-a-job, url=https://www.gov.uk/find-a-job]
+                text "Find a job"
+            text "Search and apply for jobs in England, Scotland and Wales."
+            image
+            heading
+              anchor [ref=26855, loc=href:https://www.gov.uk/check-national-insurance-record, url=https://www.gov.uk/check-national-insurance-record]
+                text "National Insurance"
+            text "Check your record to see if you can add more contributions."
+            image
+            heading
+              anchor [ref=26856, loc=href:https://www.gov.uk/cost-of-living, url=https://www.gov.uk/cost-of-living]
+                text "Cost of living support"
+            text "Find out what support is available to help with the cost of living."
+            image
+            heading
+              anchor [ref=26857, loc=href:https://www.gov.uk/guidance/download-the-govuk-app, url=https://www.gov.uk/guidance/download-the-govuk-app]
+                text "Get the GOV.UK app"
+            text "Your government services and information, on the go."
+            image
+        container
+          heading
+            text "Government activity"
+          paragraph
+            text "Find out what the government is doing"
+          unordered_list
+            list_item
+              heading
+                anchor [ref=26858, url=https://www.gov.uk/government/organisations]
+                  text "Departments"
+              paragraph
+                text "Departments, agencies and public bodies"
+            list_item
+              heading
+                anchor [ref=26859, url=https://www.gov.uk/search/news-and-communications]
+                  text "News"
+              paragraph
+                text "News stories, speeches, letters and notices"
+            list_item
+              heading
+                anchor [ref=26860, url=https://www.gov.uk/search/guidance-and-regulation]
+                  text "Guidance and regulation"
+              paragraph
+                text "Detailed guidance, regulations and rules"
+            list_item
+              heading
+                anchor [ref=26861, url=https://www.gov.uk/search/research-and-statistics]
+                  text "Research and statistics"
+              paragraph
+                text "Reports, analysis and official statistics"
+            list_item
+              heading
+                anchor [ref=26862, url=https://www.gov.uk/search/policy-papers-and-consultations]
+                  text "Policy papers and consultations"
+              paragraph
+                text "Consultations and strategy"
+            list_item
+              heading
+                anchor [ref=26863, url=https://www.gov.uk/search/transparency-and-freedom-of-information-releases]
+                  text "Transparency documents"
+              paragraph
+                text "Data, Freedom of Information releases and corporate reports"
+        container
+          heading
+            text "More on GOV.UK"
+          unordered_list
+            list_item
+              anchor [ref=26864, url=https://www.gov.uk/log-in-register-hmrc-online-services]
+                text "HMRC services: sign in"
+            list_item
+              anchor [ref=26865, loc=href:https://www.gov.uk/check-mot-history, url=https://www.gov.uk/check-mot-history]
+                text "Check MOT history of a vehicle"
+            list_item
+              anchor [ref=26866, loc=href:https://www.gov.uk/vehicle-tax, url=https://www.gov.uk/vehicle-tax]
+                text "Tax your vehicle"
+            list_item
+              anchor [ref=26867, loc=href:https://www.gov.uk/universal-credit, url=https://www.gov.uk/universal-credit]
+                text "Universal Credit"
+            list_item
+              anchor [ref=26868, loc=href:https://www.gov.uk/foreign-travel-advice, url=https://www.gov.uk/foreign-travel-advice]
+                text "Foreign travel advice"
+            list_item
+              anchor [ref=26869, loc=href:https://www.gov.uk/state-pension-age, url=https://www.gov.uk/state-pension-age]
+                text "Check your State Pension age"
+            list_item
+              anchor [ref=26870, url=https://www.gov.uk/sign-in-childcare-account]
+                text "Childcare account: sign in"
+            list_item
+              anchor [ref=26871, loc=href:https://www.gov.uk/student-finance-register-login, url=https://www.gov.uk/student-finance-register-login]
+                text "Student finance: sign in"
+            list_item
+              anchor [ref=26872, loc=href:https://www.gov.uk/self-assessment-tax-returns, url=https://www.gov.uk/self-assessment-tax-returns]
+                text "Self Assessment tax returns"
+            list_item
+              anchor [ref=26873, loc=href:https://www.gov.uk/apply-renew-passport, url=https://www.gov.uk/apply-renew-passport]
+                text "Apply for a passport"
+    container [ref=26874]
+      heading
+        text "Is this page useful?"
+      unordered_list
+        list_item
+          button [ref=26875]
+            text "Yes"
+            text "this page is useful"
+        list_item
+          button [ref=26876]
+            text "No"
+            text "this page is not useful"
+      button [ref=26877]
+        text "Report a problem with this page"
+    container
+      svg_root
+      heading
+        text "Services and information"
+      unordered_list
+        list_item
+          anchor [ref=26878, url=https://www.gov.uk/browse/benefits]
+            text "Benefits"
+        list_item
+          anchor [ref=26879, url=https://www.gov.uk/browse/births-deaths-marriages]
+            text "Births, death, marriages and care"
+        list_item
+          anchor [ref=26880, url=https://www.gov.uk/browse/business]
+            text "Business and self-employed"
+        list_item
+          anchor [ref=26881, url=https://www.gov.uk/browse/childcare-parenting]
+            text "Childcare and parenting"
+        list_item
+          anchor [ref=26882, url=https://www.gov.uk/browse/citizenship]
+            text "Citizenship and living in the UK"
+        list_item
+          anchor [ref=26883, url=https://www.gov.uk/browse/justice]
+            text "Crime, justice and the law"
+        list_item
+          anchor [ref=26884, url=https://www.gov.uk/browse/disabilities]
+            text "Disabled people"
+        list_item
+          anchor [ref=26885, url=https://www.gov.uk/browse/driving]
+            text "Driving and transport"
+        list_item
+          anchor [ref=26886, url=https://www.gov.uk/browse/education]
+            text "Education and learning"
+        list_item
+          anchor [ref=26887, url=https://www.gov.uk/browse/employing-people]
+            text "Employing people"
+        list_item
+          anchor [ref=26888, url=https://www.gov.uk/browse/environment-countryside]
+            text "Environment and countryside"
+        list_item
+          anchor [ref=26889, url=https://www.gov.uk/browse/housing-local-services]
+            text "Housing and local services"
+        list_item
+          anchor [ref=26890, url=https://www.gov.uk/browse/tax]
+            text "Money and tax"
+        list_item
+          anchor [ref=26891, url=https://www.gov.uk/browse/abroad]
+            text "Passports, travel and living abroad"
+        list_item
+          anchor [ref=26892, url=https://www.gov.uk/browse/visas-immigration]
+            text "Visas and immigration"
+        list_item
+          anchor [ref=26893, url=https://www.gov.uk/browse/working]
+            text "Working, jobs and pensions"
+      heading
+        text "Government activity"
+      unordered_list
+        list_item
+          anchor [ref=26894, url=https://www.gov.uk/government/organisations]
+            text "Departments"
+        list_item
+          anchor [ref=26895, url=https://www.gov.uk/search/news-and-communications]
+            text "News"
+        list_item
+          anchor [ref=26896, url=https://www.gov.uk/search/guidance-and-regulation]
+            text "Guidance and regulation"
+        list_item
+          anchor [ref=26897, url=https://www.gov.uk/search/research-and-statistics]
+            text "Research and statistics"
+        list_item
+          anchor [ref=26898, url=https://www.gov.uk/search/policy-papers-and-consultations]
+            text "Policy papers and consultations"
+        list_item
+          anchor [ref=26899, url=https://www.gov.uk/search/transparency-and-freedom-of-information-releases]
+            text "Transparency"
+        list_item
+          anchor [ref=26900, loc=href:https://www.gov.uk/government/how-government-works, url=https://www.gov.uk/government/how-government-works]
+            text "How government works"
+        list_item
+          anchor [ref=26901, loc=href:https://www.gov.uk/government/get-involved, url=https://www.gov.uk/government/get-involved]
+            text "Get involved"
+      heading
+        text "Support links"
+      unordered_list
+        list_item
+          anchor [ref=26902, loc=href:https://www.gov.uk/help, url=https://www.gov.uk/help]
+            text "Help"
+        list_item
+          anchor [ref=26903, loc=href:https://www.gov.uk/help/privacy-notice, url=https://www.gov.uk/help/privacy-notice]
+            text "Privacy"
+        list_item
+          anchor [ref=26904, url=https://www.gov.uk/help/cookies]
+            text "Cookies"
+        list_item
+          anchor [ref=26905, loc=href:https://www.gov.uk/help/accessibility-statement, url=https://www.gov.uk/help/accessibility-statement]
+            text "Accessibility statement"
+        list_item
+          anchor [ref=26906, loc=href:https://www.gov.uk/contact, url=https://www.gov.uk/contact]
+            text "Contact"
+        list_item
+          anchor [ref=26907, loc=href:https://www.gov.uk/help/terms-conditions, url=https://www.gov.uk/help/terms-conditions]
+            text "Terms and conditions"
+        list_item
+          anchor [ref=26908, loc=href:https://www.gov.uk/cymraeg, url=https://www.gov.uk/cymraeg]
+            text "Rhestr o Wasanaethau Cymraeg"
+        list_item
+          anchor [ref=26909, loc=href:https://www.gov.uk/government/organisations/government-digital-service, url=https://www.gov.uk/government/organisations/government-digital-service]
+            text "Government Digital Service"
+      svg_root
+      text "All content is available under the"
+      anchor [ref=26910, loc=href:https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/, url=https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/]
+        text "Open Government Licence v3.0"
+      text ", except where otherwise stated"
+      anchor [ref=26911, url=https://www.nationalarchives.gov.uk/information-management/re-using-public-sector-information/uk-government-licensing-framework/crown-copyright/]
+        text "© Crown copyright"
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root

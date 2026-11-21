@@ -1,0 +1,71 @@
+#!/usr/bin/env node
+// The zenius CLI.
+//
+// An installed copy (scripts/install-cli.sh) has no sources beside it and
+// always runs its bundle, dist/zenius.mjs, so it works on any Node from 22.3.
+// In a checkout it runs the bundle while that is at least as new as the
+// sources, and the TypeScript sources otherwise, so a checkout updated by git
+// never runs an old bundle. Node strips the types from 22.18 and 23.6 on;
+// before that this fails with a message rather than a loader error.
+//
+// Built-ins come from process.getBuiltinModule(), which skips the cost of ESM
+// namespace objects on every start.
+if (typeof process.getBuiltinModule !== "function") {
+  console.error(`zenius needs Node 22.3 or later; this is Node ${process.versions.node}.`);
+  process.exit(1);
+}
+// The sandboxed launcher (install-cli.sh --sandbox) runs a node by a path an
+// upgrade can move, and its sandbox is checked only on the major it names.
+// This runs before any script, so another major never runs one.
+const major = process.env.ZENIUS_NODE_MAJOR;
+if (major && process.versions.node.split(".")[0] !== major) {
+  console.error(
+    `zenius (sandboxed): the sandbox needs Node ${major}, and its node (${process.execPath}) is now Node ${process.versions.node}: ` +
+      "reinstall with scripts/install-cli.sh --sandbox",
+  );
+  process.exit(70);
+}
+// When Node handed over to this file, for `zenius nodejs --timing`.
+const launcherAt = performance.now();
+const { statSync } = process.getBuiltinModule("node:fs");
+process.getBuiltinModule("node:module").enableCompileCache?.();
+
+const bundle = new URL("../dist/zenius.mjs", import.meta.url);
+const { main } = await import(entry().href);
+const code = await main(process.argv.slice(2), { launcherAt, loadedAt: performance.now() });
+// Everything was written synchronously; leftover timers or waiters the script
+// never awaited must not keep the agent's shell waiting.
+process.exit(code);
+
+function entry() {
+  if (!statSync(new URL("../src/", import.meta.url), { throwIfNoEntry: false })) return bundle;
+  if (bundleIsCurrent()) return bundle;
+  if (!process.features.typescript) {
+    const { fileURLToPath } = process.getBuiltinModule("node:url");
+    const sdk = fileURLToPath(new URL("..", import.meta.url));
+    process.stderr.write(
+      `zenius: this checkout's bundle (sdk/dist/zenius.mjs) is missing or older than its sources, ` +
+        `and Node ${process.versions.node} can't run TypeScript sources (Node strips types from 22.18 and 23.6 on).\n` +
+        `Run \`npm run build\` in ${sdk}, or use Node 22.18+ or 23.6+. ` +
+        "scripts/install-cli.sh installs a copy that always runs its bundle.\n",
+    );
+    process.exit(1);
+  }
+  return new URL("../src/cli.ts", import.meta.url);
+}
+
+// git replaces the files it updates, which changes their directory's mtime,
+// so a few stat calls catch a pull or checkout since the last build.
+function bundleIsCurrent() {
+  let built;
+  try {
+    built = statSync(bundle).mtimeMs;
+  } catch {
+    return false;
+  }
+  for (const path of ["../src/", "../src/learning/", "../../skill/guide.md"]) {
+    const changed = statSync(new URL(path, import.meta.url), { throwIfNoEntry: false })?.mtimeMs ?? 0;
+    if (changed > built) return false;
+  }
+  return true;
+}

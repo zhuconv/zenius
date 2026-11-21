@@ -1,0 +1,2052 @@
+{
+  "target": "ego",
+  "version": "0.6.3.17",
+  "versionDetail": "chromium 156.0.8078.96, node v24.22.1",
+  "updatedAt": "2026-11-20T04:33:26.021Z",
+  "placeholders": {
+    "{{BASE}}": "fixture server origin, http://127.0.0.1:<port> (tests/fixtures/server.mjs)",
+    "{{CROSS}}": "the same server as http://localhost:<port>, a different site for OOPIF tests",
+    "{{BASE_HOST}}": "127.0.0.1:<port>, as untitled pages show it in the header line",
+    "{{CROSS_HOST}}": "localhost:<port>"
+  },
+  "pages": [
+    {
+      "slug": "fixture-click-below-fold",
+      "kind": "fixture",
+      "url": "{{BASE}}/click-below-fold",
+      "finalUrl": "{{BASE}}/click-below-fold",
+      "title": "click below fold",
+      "capturedAt": "2026-11-20T04:21:42.212Z",
+      "gotoMs": 253,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 4021
+      },
+      "snapshotMs": {
+        "viewport": 15,
+        "full_page": 6
+      },
+      "bytes": {
+        "viewport": 261,
+        "full_page": 340
+      },
+      "errors": [],
+      "files": {
+        "viewport": "fixture-click-below-fold.viewport.txt",
+        "full_page": "fixture-click-below-fold.full_page.txt"
+      }
+    },
+    {
+      "slug": "fixture-download-entry",
+      "kind": "fixture",
+      "url": "{{BASE}}/download-entry",
+      "finalUrl": "{{BASE}}/download-entry",
+      "title": "Download entry",
+      "capturedAt": "2026-11-20T04:21:43.731Z",
+      "gotoMs": 258,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1740,
+        "ph": 829
+      },
+      "snapshotMs": {
+        "viewport": 15,
+        "full_page": 10
+      },
+      "bytes": {
+        "viewport": 267,
+        "full_page": 267
+      },
+      "errors": [],
+      "files": {
+        "viewport": "fixture-download-entry.viewport.txt",
+        "full_page": "fixture-download-entry.full_page.txt"
+      }
+    },
+    {
+      "slug": "fixture-frame",
+      "kind": "fixture",
+      "url": "{{BASE}}/frame.html",
+      "finalUrl": "{{BASE}}/frame.html",
+      "title": "ego-lite iframe",
+      "capturedAt": "2026-11-20T04:21:35.937Z",
+      "gotoMs": 290,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 2564
+      },
+      "snapshotMs": {
+        "viewport": 17,
+        "full_page": 8
+      },
+      "bytes": {
+        "viewport": 1575,
+        "full_page": 2162
+      },
+      "errors": [],
+      "files": {
+        "viewport": "fixture-frame.viewport.txt",
+        "full_page": "fixture-frame.full_page.txt"
+      }
+    },
+    {
+      "slug": "fixture-home",
+      "kind": "fixture",
+      "url": "{{BASE}}/",
+      "finalUrl": "{{BASE}}/",
+      "title": "ego-lite helper e2e",
+      "capturedAt": "2026-11-20T04:21:20.693Z",
+      "gotoMs": 736,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 2649
+      },
+      "snapshotMs": {
+        "viewport": 12,
+        "full_page": 6
+      },
+      "bytes": {
+        "viewport": 1733,
+        "full_page": 4215
+      },
+      "errors": [],
+      "files": {
+        "viewport": "fixture-home.viewport.txt",
+        "full_page": "fixture-home.full_page.txt"
+      }
+    },
+    {
+      "slug": "fixture-media-workbench",
+      "kind": "fixture",
+      "url": "{{BASE}}/media-workbench",
+      "finalUrl": "{{BASE}}/media-workbench",
+      "title": "ego-lite media workbench",
+      "capturedAt": "2026-11-20T04:21:39.844Z",
+      "gotoMs": 244,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1740,
+        "ph": 829
+      },
+      "snapshotMs": {
+        "viewport": 11,
+        "full_page": 6
+      },
+      "bytes": {
+        "viewport": 853,
+        "full_page": 853
+      },
+      "errors": [],
+      "files": {
+        "viewport": "fixture-media-workbench.viewport.txt",
+        "full_page": "fixture-media-workbench.full_page.txt"
+      }
+    },
+    {
+      "slug": "fixture-nav-target",
+      "kind": "fixture",
+      "url": "{{BASE}}/nav-target",
+      "finalUrl": "{{BASE}}/nav-target",
+      "title": "ego-lite nav target",
+      "capturedAt": "2026-11-20T04:21:36.736Z",
+      "gotoMs": 231,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 2649
+      },
+      "snapshotMs": {
+        "viewport": 10,
+        "full_page": 12
+      },
+      "bytes": {
+        "viewport": 1741,
+        "full_page": 4198
+      },
+      "errors": [],
+      "files": {
+        "viewport": "fixture-nav-target.viewport.txt",
+        "full_page": "fixture-nav-target.full_page.txt"
+      }
+    },
+    {
+      "slug": "fixture-pointer-workbench",
+      "kind": "fixture",
+      "url": "{{BASE}}/pointer-workbench",
+      "finalUrl": "{{BASE}}/pointer-workbench",
+      "title": "ego-lite pointer workbench",
+      "capturedAt": "2026-11-20T04:21:39.118Z",
+      "gotoMs": 230,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1740,
+        "ph": 829
+      },
+      "snapshotMs": {
+        "viewport": 14,
+        "full_page": 12
+      },
+      "bytes": {
+        "viewport": 251,
+        "full_page": 251
+      },
+      "errors": [],
+      "files": {
+        "viewport": "fixture-pointer-workbench.viewport.txt",
+        "full_page": "fixture-pointer-workbench.full_page.txt"
+      }
+    },
+    {
+      "slug": "fixture-same-origin-frame",
+      "kind": "fixture",
+      "url": "{{BASE}}/same-origin-frame",
+      "finalUrl": "{{BASE}}/same-origin-frame",
+      "title": "ego-lite helper e2e",
+      "capturedAt": "2026-11-20T04:21:37.479Z",
+      "gotoMs": 303,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 2649
+      },
+      "snapshotMs": {
+        "viewport": 21,
+        "full_page": 30
+      },
+      "bytes": {
+        "viewport": 1761,
+        "full_page": 4227
+      },
+      "errors": [],
+      "files": {
+        "viewport": "fixture-same-origin-frame.viewport.txt",
+        "full_page": "fixture-same-origin-frame.full_page.txt"
+      }
+    },
+    {
+      "slug": "fixture-snapshot-subtree-frame-host",
+      "kind": "fixture",
+      "url": "{{BASE}}/snapshot-subtree-frame-host",
+      "finalUrl": "{{BASE}}/snapshot-subtree-frame-host",
+      "title": "Snapshot iframe host",
+      "capturedAt": "2026-11-20T04:21:40.603Z",
+      "gotoMs": 256,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1740,
+        "ph": 829
+      },
+      "snapshotMs": {
+        "viewport": 15,
+        "full_page": 7
+      },
+      "bytes": {
+        "viewport": 590,
+        "full_page": 590
+      },
+      "errors": [],
+      "files": {
+        "viewport": "fixture-snapshot-subtree-frame-host.viewport.txt",
+        "full_page": "fixture-snapshot-subtree-frame-host.full_page.txt"
+      }
+    },
+    {
+      "slug": "fixture-snapshot-viewport-overflow",
+      "kind": "fixture",
+      "url": "{{BASE}}/snapshot-viewport-overflow",
+      "finalUrl": "{{BASE}}/snapshot-viewport-overflow",
+      "title": "snapshot viewport overflow",
+      "capturedAt": "2026-11-20T04:21:41.481Z",
+      "gotoMs": 228,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 870
+      },
+      "snapshotMs": {
+        "viewport": 14,
+        "full_page": 5
+      },
+      "bytes": {
+        "viewport": 332,
+        "full_page": 212
+      },
+      "errors": [],
+      "files": {
+        "viewport": "fixture-snapshot-viewport-overflow.viewport.txt",
+        "full_page": "fixture-snapshot-viewport-overflow.full_page.txt"
+      }
+    },
+    {
+      "slug": "fixture-visual",
+      "kind": "fixture",
+      "url": "{{BASE}}/visual",
+      "finalUrl": "{{BASE}}/visual",
+      "title": "ego-lite visual fixture",
+      "capturedAt": "2026-11-20T04:21:38.377Z",
+      "gotoMs": 236,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1740,
+        "ph": 829
+      },
+      "snapshotMs": {
+        "viewport": 12,
+        "full_page": 7
+      },
+      "bytes": {
+        "viewport": 144,
+        "full_page": 144
+      },
+      "errors": [],
+      "files": {
+        "viewport": "fixture-visual.viewport.txt",
+        "full_page": "fixture-visual.full_page.txt"
+      }
+    },
+    {
+      "slug": "fixture-wheel-trap",
+      "kind": "fixture",
+      "url": "{{BASE}}/wheel-trap",
+      "finalUrl": "{{BASE}}/wheel-trap",
+      "title": "wheel trap",
+      "capturedAt": "2026-11-20T04:21:43.001Z",
+      "gotoMs": 241,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 2121
+      },
+      "snapshotMs": {
+        "viewport": 10,
+        "full_page": 6
+      },
+      "bytes": {
+        "viewport": 279,
+        "full_page": 180
+      },
+      "errors": [],
+      "files": {
+        "viewport": "fixture-wheel-trap.viewport.txt",
+        "full_page": "fixture-wheel-trap.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-apple",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-apple.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-apple.html",
+      "title": "Apple",
+      "why": "marketing page, heavy media",
+      "capturedAt": "2026-11-20T04:33:18.506Z",
+      "gotoMs": 1691,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 6236
+      },
+      "snapshotMs": {
+        "viewport": 214,
+        "full_page": 327
+      },
+      "bytes": {
+        "viewport": 5534,
+        "full_page": 35331
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-apple.replay.viewport.txt",
+        "full_page": "site-apple.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-apple",
+      "kind": "site",
+      "url": "https://www.apple.com/",
+      "finalUrl": "https://www.apple.com/",
+      "title": "Apple",
+      "why": "marketing page, heavy media",
+      "capturedAt": "2026-11-20T04:30:50.634Z",
+      "gotoMs": 3866,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 6185
+      },
+      "snapshotMs": {
+        "viewport": 234,
+        "full_page": 299
+      },
+      "bytes": {
+        "viewport": 5534,
+        "full_page": 34392
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-apple.viewport.txt",
+        "full_page": "site-apple.full_page.txt"
+      },
+      "dom": "dom/site-apple.html.gz"
+    },
+    {
+      "slug": "site-arxiv",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-arxiv.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-arxiv.html",
+      "title": "[1706.03762] Attention Is All You Need",
+      "why": "academic abstract page",
+      "capturedAt": "2026-11-20T04:32:24.091Z",
+      "gotoMs": 715,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 1248
+      },
+      "snapshotMs": {
+        "viewport": 331,
+        "full_page": 228
+      },
+      "bytes": {
+        "viewport": 13014,
+        "full_page": 17868
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-arxiv.replay.viewport.txt",
+        "full_page": "site-arxiv.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-arxiv",
+      "kind": "site",
+      "url": "https://arxiv.org/abs/1706.03762",
+      "finalUrl": "https://arxiv.org/abs/1706.03762",
+      "title": "[1706.03762] Attention Is All You Need",
+      "why": "academic abstract page",
+      "capturedAt": "2026-11-20T04:29:16.087Z",
+      "gotoMs": 1120,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 1198
+      },
+      "snapshotMs": {
+        "viewport": 351,
+        "full_page": 225
+      },
+      "bytes": {
+        "viewport": 12467,
+        "full_page": 16535
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-arxiv.viewport.txt",
+        "full_page": "site-arxiv.full_page.txt"
+      },
+      "dom": "dom/site-arxiv.html.gz"
+    },
+    {
+      "slug": "site-bbc-news",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-bbc-news.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-bbc-news.html",
+      "title": "BBC News - Breaking news, video and the latest top stories from the U.S. and around the world",
+      "why": "news front page, cookie banner",
+      "capturedAt": "2026-11-20T04:32:34.197Z",
+      "gotoMs": 844,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 13106
+      },
+      "snapshotMs": {
+        "viewport": 173,
+        "full_page": 232
+      },
+      "bytes": {
+        "viewport": 2118,
+        "full_page": 38716
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-bbc-news.replay.viewport.txt",
+        "full_page": "site-bbc-news.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-bbc-news",
+      "kind": "site",
+      "url": "https://www.bbc.com/news",
+      "finalUrl": "https://www.bbc.com/news",
+      "title": "BBC News - Breaking news, video and the latest top stories from the U.S. and around the world",
+      "why": "news front page, cookie banner",
+      "capturedAt": "2026-11-20T04:29:29.707Z",
+      "gotoMs": 2451,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 4860
+      },
+      "snapshotMs": {
+        "viewport": 270,
+        "full_page": 247
+      },
+      "bytes": {
+        "viewport": 6956,
+        "full_page": 29174
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-bbc-news.viewport.txt",
+        "full_page": "site-bbc-news.full_page.txt"
+      },
+      "dom": "dom/site-bbc-news.html.gz"
+    },
+    {
+      "slug": "site-bing-search",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-bing-search.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-bing-search.html",
+      "title": "zen browser - Search",
+      "why": "search results",
+      "capturedAt": "2026-11-20T04:33:22.648Z",
+      "gotoMs": 862,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 2605
+      },
+      "snapshotMs": {
+        "viewport": 197,
+        "full_page": 173
+      },
+      "bytes": {
+        "viewport": 12343,
+        "full_page": 35419
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-bing-search.replay.viewport.txt",
+        "full_page": "site-bing-search.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-bing-search",
+      "kind": "site",
+      "url": "https://www.bing.com/search?q=zen+browser",
+      "finalUrl": "https://www.bing.com/search?q=zen+browser",
+      "title": "zen browser - Search",
+      "why": "search results",
+      "capturedAt": "2026-11-20T04:30:58.081Z",
+      "gotoMs": 1541,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 1279
+      },
+      "snapshotMs": {
+        "viewport": 383,
+        "full_page": 1228
+      },
+      "bytes": {
+        "viewport": 11341,
+        "full_page": 17366
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-bing-search.viewport.txt",
+        "full_page": "site-bing-search.full_page.txt"
+      },
+      "dom": "dom/site-bing-search.html.gz"
+    },
+    {
+      "slug": "site-example",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-example.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-example.html",
+      "title": "Example Domain",
+      "why": "trivial baseline",
+      "capturedAt": "2026-11-20T04:31:05.151Z",
+      "gotoMs": 734,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 852
+      },
+      "snapshotMs": {
+        "viewport": 460,
+        "full_page": 394
+      },
+      "bytes": {
+        "viewport": 1448,
+        "full_page": 1394
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-example.replay.viewport.txt",
+        "full_page": "site-example.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-example",
+      "kind": "site",
+      "url": "https://example.com/",
+      "finalUrl": "https://example.com/",
+      "title": "Example Domain",
+      "why": "trivial baseline",
+      "capturedAt": "2026-11-20T04:27:50.376Z",
+      "gotoMs": 474,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1740,
+        "ph": 829
+      },
+      "snapshotMs": {
+        "viewport": 23,
+        "full_page": 5
+      },
+      "bytes": {
+        "viewport": 1286,
+        "full_page": 1286
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-example.viewport.txt",
+        "full_page": "site-example.full_page.txt"
+      },
+      "dom": "dom/site-example.html.gz"
+    },
+    {
+      "slug": "site-github-repo",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-github-repo.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-github-repo.html",
+      "title": "GitHub - citrolabs/ego-lite: The fastest browser for AI agents to run browser automation, built for sharing your logged-in browser state with your AI agents, like Codex or Claude Code, without disturbing you. Zero cost, zero config. \u00b7 GitHub",
+      "why": "GitHub repository page, React app",
+      "capturedAt": "2026-11-20T04:31:49.427Z",
+      "gotoMs": 1233,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 8693
+      },
+      "snapshotMs": {
+        "viewport": 467,
+        "full_page": 479
+      },
+      "bytes": {
+        "viewport": 16515,
+        "full_page": 62410
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-github-repo.replay.viewport.txt",
+        "full_page": "site-github-repo.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-github-repo",
+      "kind": "site",
+      "url": "https://github.com/citrolabs/ego-lite",
+      "finalUrl": "https://github.com/citrolabs/ego-lite",
+      "title": "GitHub - citrolabs/ego-lite: The fastest browser for AI agents to run browser automation, built for sharing your logged-in browser state with your AI agents, like Codex or Claude Code, without disturbing you. Zero cost, zero config. \u00b7 GitHub",
+      "why": "GitHub repository page, React app",
+      "capturedAt": "2026-11-20T04:28:37.898Z",
+      "gotoMs": 2307,
+      "viewport": {
+        "w": 1582,
+        "h": 753,
+        "pw": 1568,
+        "ph": 7987
+      },
+      "snapshotMs": {
+        "viewport": 145,
+        "full_page": 208
+      },
+      "bytes": {
+        "viewport": 14852,
+        "full_page": 57959
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-github-repo.viewport.txt",
+        "full_page": "site-github-repo.full_page.txt"
+      },
+      "dom": "dom/site-github-repo.html.gz"
+    },
+    {
+      "slug": "site-gnu-manuals",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-gnu-manuals.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-gnu-manuals.html",
+      "title": "GNU Manuals Online - GNU Project - Free Software Foundation",
+      "why": "huge plain link list (craigslist/about/sites asks for geolocation, which hands the space to the user)",
+      "capturedAt": "2026-11-20T04:33:12.042Z",
+      "gotoMs": 885,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 34919
+      },
+      "snapshotMs": {
+        "viewport": 261,
+        "full_page": 3451
+      },
+      "bytes": {
+        "viewport": 6401,
+        "full_page": 215197
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-gnu-manuals.replay.viewport.txt",
+        "full_page": "site-gnu-manuals.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-gnu-manuals",
+      "kind": "site",
+      "url": "https://www.gnu.org/manual/manual.html",
+      "finalUrl": "https://www.gnu.org/manual/manual.html",
+      "title": "GNU Manuals Online - GNU Project - Free Software Foundation",
+      "why": "huge plain link list (craigslist/about/sites asks for geolocation, which hands the space to the user)",
+      "capturedAt": "2026-11-20T04:30:42.056Z",
+      "gotoMs": 1234,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 34869
+      },
+      "snapshotMs": {
+        "viewport": 427,
+        "full_page": 3758
+      },
+      "bytes": {
+        "viewport": 5981,
+        "full_page": 196828
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-gnu-manuals.viewport.txt",
+        "full_page": "site-gnu-manuals.full_page.txt"
+      },
+      "dom": "dom/site-gnu-manuals.html.gz"
+    },
+    {
+      "slug": "site-gov-uk",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-gov-uk.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-gov-uk.html",
+      "title": "Welcome to GOV.UK",
+      "why": "accessible semantic markup",
+      "capturedAt": "2026-11-20T04:33:02.768Z",
+      "gotoMs": 845,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 4648
+      },
+      "snapshotMs": {
+        "viewport": 184,
+        "full_page": 179
+      },
+      "bytes": {
+        "viewport": 3109,
+        "full_page": 18981
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-gov-uk.replay.viewport.txt",
+        "full_page": "site-gov-uk.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-gov-uk",
+      "kind": "site",
+      "url": "https://www.gov.uk/",
+      "finalUrl": "https://www.gov.uk/",
+      "title": "Welcome to GOV.UK",
+      "why": "accessible semantic markup",
+      "capturedAt": "2026-11-20T04:30:21.629Z",
+      "gotoMs": 791,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 4598
+      },
+      "snapshotMs": {
+        "viewport": 1051,
+        "full_page": 1792
+      },
+      "bytes": {
+        "viewport": 3037,
+        "full_page": 18435
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-gov-uk.viewport.txt",
+        "full_page": "site-gov-uk.full_page.txt"
+      },
+      "dom": "dom/site-gov-uk.html.gz"
+    },
+    {
+      "slug": "site-guardian",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-guardian.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-guardian.html",
+      "title": "Latest news, sport and opinion from the Guardian",
+      "why": "news front page, dense cards",
+      "capturedAt": "2026-11-20T04:32:37.317Z",
+      "gotoMs": 817,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 18472
+      },
+      "snapshotMs": {
+        "viewport": 299,
+        "full_page": 417
+      },
+      "bytes": {
+        "viewport": 10862,
+        "full_page": 106765
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-guardian.replay.viewport.txt",
+        "full_page": "site-guardian.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-guardian",
+      "kind": "site",
+      "url": "https://www.theguardian.com/international",
+      "finalUrl": "https://www.theguardian.com/international",
+      "title": "Latest news, sport and opinion from the Guardian",
+      "why": "news front page, dense cards",
+      "capturedAt": "2026-11-20T04:29:35.663Z",
+      "gotoMs": 2508,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 18422
+      },
+      "snapshotMs": {
+        "viewport": 338,
+        "full_page": 471
+      },
+      "bytes": {
+        "viewport": 8473,
+        "full_page": 102369
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-guardian.viewport.txt",
+        "full_page": "site-guardian.full_page.txt"
+      },
+      "dom": "dom/site-guardian.html.gz"
+    },
+    {
+      "slug": "site-hacker-news",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-hacker-news.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-hacker-news.html",
+      "title": "\u9ed1\u5ba2\u65b0\u95fb --- Hacker News",
+      "why": "table layout, dense links",
+      "capturedAt": "2026-11-20T04:31:53.821Z",
+      "gotoMs": 1061,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 2591
+      },
+      "snapshotMs": {
+        "viewport": 289,
+        "full_page": 426
+      },
+      "bytes": {
+        "viewport": 15080,
+        "full_page": 53590
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-hacker-news.replay.viewport.txt",
+        "full_page": "site-hacker-news.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-hacker-news",
+      "kind": "site",
+      "url": "https://news.ycombinator.com/",
+      "finalUrl": "https://news.ycombinator.com/",
+      "title": "\u9ed1\u5ba2\u65b0\u95fb --- Hacker News",
+      "why": "table layout, dense links",
+      "capturedAt": "2026-11-20T04:28:43.372Z",
+      "gotoMs": 1072,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 1874
+      },
+      "snapshotMs": {
+        "viewport": 177,
+        "full_page": 238
+      },
+      "bytes": {
+        "viewport": 22975,
+        "full_page": 47525
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-hacker-news.viewport.txt",
+        "full_page": "site-hacker-news.full_page.txt"
+      },
+      "dom": "dom/site-hacker-news.html.gz"
+    },
+    {
+      "slug": "site-httpbin-form",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-httpbin-form.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-httpbin-form.html",
+      "title": "",
+      "why": "classic server form",
+      "capturedAt": "2026-11-20T04:32:43.688Z",
+      "gotoMs": 320,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1740,
+        "ph": 829
+      },
+      "snapshotMs": {
+        "viewport": 180,
+        "full_page": 154
+      },
+      "bytes": {
+        "viewport": 1762,
+        "full_page": 1762
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-httpbin-form.replay.viewport.txt",
+        "full_page": "site-httpbin-form.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-httpbin-form",
+      "kind": "site",
+      "url": "https://httpbin.org/forms/post",
+      "finalUrl": "https://httpbin.org/forms/post",
+      "title": "",
+      "why": "classic server form",
+      "capturedAt": "2026-11-20T04:29:47.181Z",
+      "gotoMs": 3550,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1740,
+        "ph": 829
+      },
+      "snapshotMs": {
+        "viewport": 281,
+        "full_page": 286
+      },
+      "bytes": {
+        "viewport": 1488,
+        "full_page": 1488
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-httpbin-form.viewport.txt",
+        "full_page": "site-httpbin-form.full_page.txt"
+      },
+      "dom": "dom/site-httpbin-form.html.gz"
+    },
+    {
+      "slug": "site-material-web",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-material-web.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-material-web.html",
+      "title": "Material Web - Buttons",
+      "why": "Lit shadow-DOM components",
+      "capturedAt": "2026-11-20T04:32:55.257Z",
+      "gotoMs": 631,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 879
+      },
+      "snapshotMs": {
+        "viewport": 205,
+        "full_page": 210
+      },
+      "bytes": {
+        "viewport": 7024,
+        "full_page": 66419
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-material-web.replay.viewport.txt",
+        "full_page": "site-material-web.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-material-web",
+      "kind": "site",
+      "url": "https://material-web.dev/components/button/",
+      "finalUrl": "https://material-web.dev/components/button/",
+      "title": "Material Web - Buttons",
+      "why": "Lit shadow-DOM components",
+      "capturedAt": "2026-11-20T04:30:08.854Z",
+      "gotoMs": 864,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1740,
+        "ph": 829
+      },
+      "snapshotMs": {
+        "viewport": 187,
+        "full_page": 197
+      },
+      "bytes": {
+        "viewport": 6847,
+        "full_page": 62865
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-material-web.viewport.txt",
+        "full_page": "site-material-web.full_page.txt"
+      },
+      "dom": "dom/site-material-web.html.gz"
+    },
+    {
+      "slug": "site-mdn-iframe",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-mdn-iframe.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-mdn-iframe.html",
+      "title": "<iframe> HTML inline frame element - HTML | MDN",
+      "why": "docs page with embedded live-example iframes",
+      "capturedAt": "2026-11-20T04:32:07.971Z",
+      "gotoMs": 2971,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 26381
+      },
+      "snapshotMs": {
+        "viewport": 806,
+        "full_page": 1872
+      },
+      "bytes": {
+        "viewport": 9231,
+        "full_page": 371852
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-mdn-iframe.replay.viewport.txt",
+        "full_page": "site-mdn-iframe.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-mdn-iframe",
+      "kind": "site",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe",
+      "finalUrl": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe",
+      "title": "<iframe> HTML inline frame element - HTML | MDN",
+      "why": "docs page with embedded live-example iframes",
+      "capturedAt": "2026-11-20T04:28:56.743Z",
+      "gotoMs": 2206,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 20236
+      },
+      "snapshotMs": {
+        "viewport": 489,
+        "full_page": 2153
+      },
+      "bytes": {
+        "viewport": 12101,
+        "full_page": 216216
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-mdn-iframe.viewport.txt",
+        "full_page": "site-mdn-iframe.full_page.txt"
+      },
+      "dom": "dom/site-mdn-iframe.html.gz"
+    },
+    {
+      "slug": "site-mdn-input",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-mdn-input.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-mdn-input.html",
+      "title": "<input> HTML input element - HTML | MDN",
+      "why": "docs with sidebars and an interactive example iframe",
+      "capturedAt": "2026-11-20T04:31:57.645Z",
+      "gotoMs": 3667,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 51412
+      },
+      "snapshotMs": {
+        "viewport": 1090,
+        "full_page": 3396
+      },
+      "bytes": {
+        "viewport": 9866,
+        "full_page": 506994
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-mdn-input.replay.viewport.txt",
+        "full_page": "site-mdn-input.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-mdn-input",
+      "kind": "site",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input",
+      "finalUrl": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input",
+      "title": "<input> HTML input element - HTML | MDN",
+      "why": "docs with sidebars and an interactive example iframe",
+      "capturedAt": "2026-11-20T04:28:47.661Z",
+      "gotoMs": 1259,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 44655
+      },
+      "snapshotMs": {
+        "viewport": 1068,
+        "full_page": 3262
+      },
+      "bytes": {
+        "viewport": 11631,
+        "full_page": 357602
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-mdn-input.viewport.txt",
+        "full_page": "site-mdn-input.full_page.txt"
+      },
+      "dom": "dom/site-mdn-input.html.gz"
+    },
+    {
+      "slug": "site-npm",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-npm.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-npm.html",
+      "title": "playwright - npm",
+      "why": "package page, tabs, README",
+      "capturedAt": "2026-11-20T04:32:20.212Z",
+      "gotoMs": 1489,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 9129
+      },
+      "snapshotMs": {
+        "viewport": 245,
+        "full_page": 255
+      },
+      "bytes": {
+        "viewport": 7503,
+        "full_page": 50021
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-npm.replay.viewport.txt",
+        "full_page": "site-npm.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-npm",
+      "kind": "site",
+      "url": "https://www.npmjs.com/package/playwright",
+      "finalUrl": "https://www.npmjs.com/package/playwright",
+      "title": "playwright - npm",
+      "why": "package page, tabs, README",
+      "capturedAt": "2026-11-20T04:29:11.669Z",
+      "gotoMs": 962,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 8939
+      },
+      "snapshotMs": {
+        "viewport": 237,
+        "full_page": 330
+      },
+      "bytes": {
+        "viewport": 7552,
+        "full_page": 49181
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-npm.viewport.txt",
+        "full_page": "site-npm.full_page.txt"
+      },
+      "dom": "dom/site-npm.html.gz"
+    },
+    {
+      "slug": "site-pypi",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-pypi.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-pypi.html",
+      "title": "requests \u00b7 PyPI",
+      "why": "package page",
+      "capturedAt": "2026-11-20T04:32:30.372Z",
+      "gotoMs": 1072,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 3432
+      },
+      "snapshotMs": {
+        "viewport": 250,
+        "full_page": 450
+      },
+      "bytes": {
+        "viewport": 6800,
+        "full_page": 29161
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-pypi.replay.viewport.txt",
+        "full_page": "site-pypi.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-pypi",
+      "kind": "site",
+      "url": "https://pypi.org/project/requests/",
+      "finalUrl": "https://pypi.org/project/requests/",
+      "title": "requests \u00b7 PyPI",
+      "why": "package page",
+      "capturedAt": "2026-11-20T04:29:25.044Z",
+      "gotoMs": 1085,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 3178
+      },
+      "snapshotMs": {
+        "viewport": 294,
+        "full_page": 342
+      },
+      "bytes": {
+        "viewport": 6740,
+        "full_page": 26941
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-pypi.viewport.txt",
+        "full_page": "site-pypi.full_page.txt"
+      },
+      "dom": "dom/site-pypi.html.gz"
+    },
+    {
+      "slug": "site-python-docs",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-python-docs.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-python-docs.html",
+      "title": "asyncio \u2014 Asynchronous I/O \u2014 Python 3.15.2 documentation",
+      "why": "Sphinx docs",
+      "capturedAt": "2026-11-20T04:32:27.224Z",
+      "gotoMs": 891,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 2724
+      },
+      "snapshotMs": {
+        "viewport": 176,
+        "full_page": 162
+      },
+      "bytes": {
+        "viewport": 8275,
+        "full_page": 21213
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-python-docs.replay.viewport.txt",
+        "full_page": "site-python-docs.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-python-docs",
+      "kind": "site",
+      "url": "https://docs.python.org/3/library/asyncio.html",
+      "finalUrl": "https://docs.python.org/3/library/asyncio.html",
+      "title": "asyncio \u2014 Asynchronous I/O \u2014 Python 3.15.2 documentation",
+      "why": "Sphinx docs",
+      "capturedAt": "2026-11-20T04:29:20.720Z",
+      "gotoMs": 813,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 2674
+      },
+      "snapshotMs": {
+        "viewport": 219,
+        "full_page": 239
+      },
+      "bytes": {
+        "viewport": 8191,
+        "full_page": 20374
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-python-docs.viewport.txt",
+        "full_page": "site-python-docs.full_page.txt"
+      },
+      "dom": "dom/site-python-docs.html.gz"
+    },
+    {
+      "slug": "site-react-dev",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-react-dev.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-react-dev.html",
+      "title": "Quick Start \u2013 React",
+      "why": "SPA docs",
+      "capturedAt": "2026-11-20T04:33:05.809Z",
+      "gotoMs": 1140,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 13787
+      },
+      "snapshotMs": {
+        "viewport": 216,
+        "full_page": 184
+      },
+      "bytes": {
+        "viewport": 6852,
+        "full_page": 64998
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-react-dev.replay.viewport.txt",
+        "full_page": "site-react-dev.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-react-dev",
+      "kind": "site",
+      "url": "https://react.dev/learn",
+      "finalUrl": "https://react.dev/learn",
+      "title": "Quick Start \u2013 React",
+      "why": "SPA docs",
+      "capturedAt": "2026-11-20T04:30:30.890Z",
+      "gotoMs": 2473,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 13787
+      },
+      "snapshotMs": {
+        "viewport": 720,
+        "full_page": 247
+      },
+      "bytes": {
+        "viewport": 6683,
+        "full_page": 64770
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-react-dev.viewport.txt",
+        "full_page": "site-react-dev.full_page.txt"
+      },
+      "dom": "dom/site-react-dev.html.gz"
+    },
+    {
+      "slug": "site-selenium-web-form",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-selenium-web-form.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-selenium-web-form.html",
+      "title": "Web form",
+      "why": "form-heavy: every input type",
+      "capturedAt": "2026-11-20T04:32:40.729Z",
+      "gotoMs": 755,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1740,
+        "ph": 829
+      },
+      "snapshotMs": {
+        "viewport": 165,
+        "full_page": 175
+      },
+      "bytes": {
+        "viewport": 2572,
+        "full_page": 2572
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-selenium-web-form.replay.viewport.txt",
+        "full_page": "site-selenium-web-form.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-selenium-web-form",
+      "kind": "site",
+      "url": "https://www.selenium.dev/selenium/web/web-form.html",
+      "finalUrl": "https://www.selenium.dev/selenium/web/web-form.html",
+      "title": "Web form",
+      "why": "form-heavy: every input type",
+      "capturedAt": "2026-11-20T04:29:42.044Z",
+      "gotoMs": 918,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1740,
+        "ph": 829
+      },
+      "snapshotMs": {
+        "viewport": 231,
+        "full_page": 227
+      },
+      "bytes": {
+        "viewport": 2304,
+        "full_page": 2304
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-selenium-web-form.viewport.txt",
+        "full_page": "site-selenium-web-form.full_page.txt"
+      },
+      "dom": "dom/site-selenium-web-form.html.gz"
+    },
+    {
+      "slug": "site-shoelace",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-shoelace.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-shoelace.html",
+      "title": "Button",
+      "why": "shadow-DOM web components",
+      "capturedAt": "2026-11-20T04:32:51.837Z",
+      "gotoMs": 784,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 12225
+      },
+      "snapshotMs": {
+        "viewport": 293,
+        "full_page": 481
+      },
+      "bytes": {
+        "viewport": 9077,
+        "full_page": 60898
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-shoelace.replay.viewport.txt",
+        "full_page": "site-shoelace.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-shoelace",
+      "kind": "site",
+      "url": "https://shoelace.style/components/button",
+      "finalUrl": "https://shoelace.style/components/button",
+      "title": "Button",
+      "why": "shadow-DOM web components",
+      "capturedAt": "2026-11-20T04:30:04.010Z",
+      "gotoMs": 1239,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 10589
+      },
+      "snapshotMs": {
+        "viewport": 265,
+        "full_page": 418
+      },
+      "bytes": {
+        "viewport": 10846,
+        "full_page": 56021
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-shoelace.viewport.txt",
+        "full_page": "site-shoelace.full_page.txt"
+      },
+      "dom": "dom/site-shoelace.html.gz"
+    },
+    {
+      "slug": "site-stackoverflow",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-stackoverflow.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-stackoverflow.html",
+      "title": "function - How do JavaScript closures work? - Stack Overflow",
+      "why": "Q&A with votes, comments, code",
+      "capturedAt": "2026-11-20T04:32:15.595Z",
+      "gotoMs": 1518,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 48277
+      },
+      "snapshotMs": {
+        "viewport": 284,
+        "full_page": 886
+      },
+      "bytes": {
+        "viewport": 13032,
+        "full_page": 261328
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-stackoverflow.replay.viewport.txt",
+        "full_page": "site-stackoverflow.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-stackoverflow",
+      "kind": "site",
+      "url": "https://stackoverflow.com/questions/111102/how-do-javascript-closures-work",
+      "finalUrl": "https://stackoverflow.com/questions/111102/how-do-javascript-closures-work",
+      "title": "function - How do JavaScript closures work? - Stack Overflow",
+      "why": "Q&A with votes, comments, code",
+      "capturedAt": "2026-11-20T04:29:04.499Z",
+      "gotoMs": 2992,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 48226
+      },
+      "snapshotMs": {
+        "viewport": 298,
+        "full_page": 1011
+      },
+      "bytes": {
+        "viewport": 12785,
+        "full_page": 261610
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-stackoverflow.viewport.txt",
+        "full_page": "site-stackoverflow.full_page.txt"
+      },
+      "dom": "dom/site-stackoverflow.html.gz"
+    },
+    {
+      "slug": "site-the-internet-iframe",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-the-internet-iframe.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-the-internet-iframe.html",
+      "title": "The Internet",
+      "why": "rich-text editor inside an iframe",
+      "capturedAt": "2026-11-20T04:32:46.133Z",
+      "gotoMs": 980,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1740,
+        "ph": 829
+      },
+      "snapshotMs": {
+        "viewport": 194,
+        "full_page": 167
+      },
+      "bytes": {
+        "viewport": 3346,
+        "full_page": 4025
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-the-internet-iframe.replay.viewport.txt",
+        "full_page": "site-the-internet-iframe.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-the-internet-iframe",
+      "kind": "site",
+      "url": "https://the-internet.herokuapp.com/iframe",
+      "finalUrl": "https://the-internet.herokuapp.com/iframe",
+      "title": "The Internet",
+      "why": "rich-text editor inside an iframe",
+      "capturedAt": "2026-11-20T04:29:54.511Z",
+      "gotoMs": 1251,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1740,
+        "ph": 829
+      },
+      "snapshotMs": {
+        "viewport": 369,
+        "full_page": 470
+      },
+      "bytes": {
+        "viewport": 3325,
+        "full_page": 3978
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-the-internet-iframe.viewport.txt",
+        "full_page": "site-the-internet-iframe.full_page.txt"
+      },
+      "dom": "dom/site-the-internet-iframe.html.gz"
+    },
+    {
+      "slug": "site-the-internet-nested-frames",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-the-internet-nested-frames.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-the-internet-nested-frames.html",
+      "title": "",
+      "why": "frameset with nested frames",
+      "capturedAt": "2026-11-20T04:32:49.367Z",
+      "gotoMs": 328,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1740,
+        "ph": 829
+      },
+      "snapshotMs": {
+        "viewport": 147,
+        "full_page": 134
+      },
+      "bytes": {
+        "viewport": 221,
+        "full_page": 221
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-the-internet-nested-frames.replay.viewport.txt",
+        "full_page": "site-the-internet-nested-frames.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-the-internet-nested-frames",
+      "kind": "site",
+      "url": "https://the-internet.herokuapp.com/nested_frames",
+      "finalUrl": "https://the-internet.herokuapp.com/nested_frames",
+      "title": "",
+      "why": "frameset with nested frames",
+      "capturedAt": "2026-11-20T04:29:59.577Z",
+      "gotoMs": 867,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1740,
+        "ph": 829
+      },
+      "snapshotMs": {
+        "viewport": 208,
+        "full_page": 349
+      },
+      "bytes": {
+        "viewport": 169,
+        "full_page": 169
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-the-internet-nested-frames.viewport.txt",
+        "full_page": "site-the-internet-nested-frames.full_page.txt"
+      },
+      "dom": "dom/site-the-internet-nested-frames.html.gz"
+    },
+    {
+      "slug": "site-w3c-apg-combobox",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-w3c-apg-combobox.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-w3c-apg-combobox.html",
+      "title": "Editable Combobox With List Autocomplete Example | APG | WAI | W3C",
+      "why": "ARIA pattern example",
+      "capturedAt": "2026-11-20T04:33:09.221Z",
+      "gotoMs": 614,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 12555
+      },
+      "snapshotMs": {
+        "viewport": 169,
+        "full_page": 167
+      },
+      "bytes": {
+        "viewport": 6174,
+        "full_page": 61013
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-w3c-apg-combobox.replay.viewport.txt",
+        "full_page": "site-w3c-apg-combobox.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-w3c-apg-combobox",
+      "kind": "site",
+      "url": "https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/",
+      "finalUrl": "https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/",
+      "title": "Editable Combobox With List Autocomplete Example | APG | WAI | W3C",
+      "why": "ARIA pattern example",
+      "capturedAt": "2026-11-20T04:30:37.642Z",
+      "gotoMs": 778,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 12504
+      },
+      "snapshotMs": {
+        "viewport": 413,
+        "full_page": 182
+      },
+      "bytes": {
+        "viewport": 6662,
+        "full_page": 61155
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-w3c-apg-combobox.viewport.txt",
+        "full_page": "site-w3c-apg-combobox.full_page.txt"
+      },
+      "dom": "dom/site-w3c-apg-combobox.html.gz"
+    },
+    {
+      "slug": "site-wikipedia-article",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-wikipedia-article.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-wikipedia-article.html",
+      "title": "Firefox - \u7ef4\u57fa\u767e\u79d1 --- Firefox - Wikipedia",
+      "why": "long article, infobox, references",
+      "capturedAt": "2026-11-20T04:31:08.915Z",
+      "gotoMs": 1714,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 40527
+      },
+      "snapshotMs": {
+        "viewport": 1025,
+        "full_page": 20255
+      },
+      "bytes": {
+        "viewport": 17094,
+        "full_page": 895890
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-wikipedia-article.replay.viewport.txt",
+        "full_page": "site-wikipedia-article.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-wikipedia-article",
+      "kind": "site",
+      "url": "https://en.wikipedia.org/wiki/Firefox",
+      "finalUrl": "https://en.wikipedia.org/wiki/Firefox",
+      "title": "Firefox - \u7ef4\u57fa\u767e\u79d1 --- Firefox - Wikipedia",
+      "why": "long article, infobox, references",
+      "capturedAt": "2026-11-20T04:27:53.637Z",
+      "gotoMs": 3176,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 39646
+      },
+      "snapshotMs": {
+        "viewport": 1037,
+        "full_page": 15699
+      },
+      "bytes": {
+        "viewport": 20990,
+        "full_page": 891518
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-wikipedia-article.viewport.txt",
+        "full_page": "site-wikipedia-article.full_page.txt"
+      },
+      "dom": "dom/site-wikipedia-article.html.gz"
+    },
+    {
+      "slug": "site-wikipedia-table",
+      "kind": "replay",
+      "url": "{{BASE}}/golden-replay/site-wikipedia-table.html",
+      "finalUrl": "{{BASE}}/golden-replay/site-wikipedia-table.html",
+      "title": "\u6309\u4eba\u53e3\u6570\u91cf\u6392\u5e8f\u7684\u56fd\u5bb6\u53ca\u5c5e\u5730\u5217\u8868 - \u7ef4\u57fa\u767e\u79d1 --- List of countries and dependencies by population - Wikipedia",
+      "why": "large sortable tables (large snapshot)",
+      "capturedAt": "2026-11-20T04:31:33.979Z",
+      "gotoMs": 1123,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 20963
+      },
+      "snapshotMs": {
+        "viewport": 360,
+        "full_page": 11834
+      },
+      "bytes": {
+        "viewport": 10432,
+        "full_page": 591875
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-wikipedia-table.replay.viewport.txt",
+        "full_page": "site-wikipedia-table.replay.full_page.txt"
+      }
+    },
+    {
+      "slug": "site-wikipedia-table",
+      "kind": "site",
+      "url": "https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population",
+      "finalUrl": "https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population",
+      "title": "\u6309\u4eba\u53e3\u6570\u91cf\u6392\u5e8f\u7684\u56fd\u5bb6\u53ca\u5c5e\u5730\u5217\u8868 - \u7ef4\u57fa\u767e\u79d1 --- List of countries and dependencies by population - Wikipedia",
+      "why": "large sortable tables (large snapshot)",
+      "capturedAt": "2026-11-20T04:28:16.626Z",
+      "gotoMs": 1054,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 20408
+      },
+      "snapshotMs": {
+        "viewport": 370,
+        "full_page": 16803
+      },
+      "bytes": {
+        "viewport": 13001,
+        "full_page": 619054
+      },
+      "errors": [],
+      "files": {
+        "viewport": "site-wikipedia-table.viewport.txt",
+        "full_page": "site-wikipedia-table.full_page.txt"
+      },
+      "dom": "dom/site-wikipedia-table.html.gz"
+    },
+    {
+      "slug": "zoo-aria",
+      "kind": "fixture",
+      "url": "{{BASE}}/zoo/aria.html",
+      "finalUrl": "{{BASE}}/zoo/aria.html",
+      "title": "zoo: ARIA widgets",
+      "capturedAt": "2026-11-20T04:21:45.410Z",
+      "gotoMs": 278,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 1152
+      },
+      "snapshotMs": {
+        "viewport": 19,
+        "full_page": 15
+      },
+      "bytes": {
+        "viewport": 2488,
+        "full_page": 2970
+      },
+      "errors": [],
+      "files": {
+        "viewport": "zoo-aria.viewport.txt",
+        "full_page": "zoo-aria.full_page.txt"
+      }
+    },
+    {
+      "slug": "zoo-forms",
+      "kind": "fixture",
+      "url": "{{BASE}}/zoo/forms.html",
+      "finalUrl": "{{BASE}}/zoo/forms.html",
+      "title": "zoo: forms",
+      "capturedAt": "2026-11-20T04:21:44.523Z",
+      "gotoMs": 254,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 1121
+      },
+      "snapshotMs": {
+        "viewport": 29,
+        "full_page": 20
+      },
+      "bytes": {
+        "viewport": 4303,
+        "full_page": 5198
+      },
+      "errors": [],
+      "files": {
+        "viewport": "zoo-forms.viewport.txt",
+        "full_page": "zoo-forms.full_page.txt"
+      }
+    },
+    {
+      "slug": "zoo-frames",
+      "kind": "fixture",
+      "url": "{{BASE}}/zoo/frames.html",
+      "finalUrl": "{{BASE}}/zoo/frames.html",
+      "title": "zoo: frames",
+      "capturedAt": "2026-11-20T04:21:48.049Z",
+      "gotoMs": 527,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 2441
+      },
+      "snapshotMs": {
+        "viewport": 31,
+        "full_page": 22
+      },
+      "bytes": {
+        "viewport": 1685,
+        "full_page": 1963
+      },
+      "errors": [],
+      "files": {
+        "viewport": "zoo-frames.viewport.txt",
+        "full_page": "zoo-frames.full_page.txt"
+      }
+    },
+    {
+      "slug": "zoo-long",
+      "kind": "fixture",
+      "url": "{{BASE}}/zoo/long.html",
+      "finalUrl": "{{BASE}}/zoo/long.html",
+      "title": "zoo: long page",
+      "capturedAt": "2026-11-20T04:21:49.168Z",
+      "gotoMs": 234,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 3104
+      },
+      "snapshotMs": {
+        "viewport": 28,
+        "full_page": 15
+      },
+      "bytes": {
+        "viewport": 2596,
+        "full_page": 9284
+      },
+      "errors": [],
+      "files": {
+        "viewport": "zoo-long.viewport.txt",
+        "full_page": "zoo-long.full_page.txt"
+      }
+    },
+    {
+      "slug": "zoo-semantics",
+      "kind": "fixture",
+      "url": "{{BASE}}/zoo/semantics.html",
+      "finalUrl": "{{BASE}}/zoo/semantics.html",
+      "title": "zoo: document semantics",
+      "capturedAt": "2026-11-20T04:21:46.196Z",
+      "gotoMs": 365,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1725,
+        "ph": 1703
+      },
+      "snapshotMs": {
+        "viewport": 34,
+        "full_page": 28
+      },
+      "bytes": {
+        "viewport": 3364,
+        "full_page": 4984
+      },
+      "errors": [],
+      "files": {
+        "viewport": "zoo-semantics.viewport.txt",
+        "full_page": "zoo-semantics.full_page.txt"
+      }
+    },
+    {
+      "slug": "zoo-shadow",
+      "kind": "fixture",
+      "url": "{{BASE}}/zoo/shadow.html",
+      "finalUrl": "{{BASE}}/zoo/shadow.html",
+      "title": "zoo: shadow DOM",
+      "capturedAt": "2026-11-20T04:21:47.294Z",
+      "gotoMs": 261,
+      "viewport": {
+        "w": 1740,
+        "h": 829,
+        "pw": 1740,
+        "ph": 829
+      },
+      "snapshotMs": {
+        "viewport": 15,
+        "full_page": 9
+      },
+      "bytes": {
+        "viewport": 1313,
+        "full_page": 1313
+      },
+      "errors": [],
+      "files": {
+        "viewport": "zoo-shadow.viewport.txt",
+        "full_page": "zoo-shadow.full_page.txt"
+      }
+    }
+  ]
+}

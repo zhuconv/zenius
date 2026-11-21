@@ -1,0 +1,86 @@
+[p1 "The Internet" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "The Internet"]
+root
+  container
+    anchor "The Internet: home" [ref=25760, loc=css:a[aria-label="The Internet: home"], url=https://the-internet.herokuapp.com/]
+      text "The Internet"
+      text "powered by Sauce Labs"
+    region "Messages"
+    main
+      heading
+        text "An iFrame containing the TinyMCE WYSIWYG Editor"
+      application
+        container
+          menubar
+            menuitem [ref=25761]
+              text "File"
+            menuitem [ref=25762]
+              text "Edit"
+            menuitem [ref=25763]
+              text "View"
+            menuitem [ref=25764]
+              text "Insert"
+            menuitem [ref=25765]
+              text "Format"
+          group
+            group
+              toolbar [ref=25766]
+                button "Undo" [ref=25767, loc=css:button[aria-label="Undo"]]
+                  svg_root
+                button "Redo" [ref=25768, loc=css:button[aria-label="Redo"]]
+                  svg_root
+              toolbar [ref=25769]
+                button "Format Paragraph" [ref=25770, loc=css:button[aria-label="Format Paragraph"]]
+                  text "Paragraph"
+                  svg_root
+              toolbar [ref=25771]
+                button "Bold" [ref=25772, loc=css:button[aria-label="Bold"]]
+                  svg_root
+                button "Italic" [ref=25773, loc=css:button[aria-label="Italic"]]
+                  svg_root
+              toolbar [ref=25774]
+                button "Align left" [ref=25775, loc=css:button[aria-label="Align left"]]
+                  svg_root
+                button "Align center" [ref=25776, loc=css:button[aria-label="Align center"]]
+                  svg_root
+                button "Align right" [ref=25777, loc=css:button[aria-label="Align right"]]
+                  svg_root
+                button "Justify" [ref=25778, loc=css:button[aria-label="Justify"]]
+                  svg_root
+              toolbar [ref=25779]
+                button "Decrease indent" [ref=25780, loc=css:button[aria-label="Decrease indent"]]
+                  svg_root
+                button "Increase indent" [ref=25781, loc=css:button[aria-label="Increase indent"]]
+                  svg_root
+        iframe [ref=25782]
+          root
+            container "Rich Text Area. Press ALT-0 for help."
+        container
+          container
+            navigation
+              button [ref=25783]
+                text "P"
+            anchor "Powered by Tiny" [ref=25784, loc=css:a[aria-label="Powered by Tiny"], url=https://www.tiny.cloud/powered-by-tiny?utm_campaign=poweredby&utm_source=tiny&utm_medium=referral&utm_content=v6]
+              svg_root
+          container "Press the Up and Down arrow keys to resize the editor." [ref=25785]
+            svg_root
+    contentinfo
+      container
+        text "Powered by"
+        anchor [ref=25786, loc=href:https://elementalselenium.com/, url=https://elementalselenium.com/]
+          text "Elemental Selenium"
+        text "and"
+        anchor [ref=25787, loc=href:https://saucelabs.com/, url=https://saucelabs.com/]
+          text "Sauce Labs"
+    container
+      svg_root
+      svg_root
+      svg_root
+      svg_root
+      svg_root
+      svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root

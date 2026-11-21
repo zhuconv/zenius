@@ -1,0 +1,158 @@
+[p1 "Latest news, sport and opinion from the Guardian" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "Latest news, sport and opinion from the Guardian"]
+root
+  container
+    container
+      container
+        container
+          container
+            heading
+              text "Support the Guardian"
+            text "Fund independent journalism with $15 per month"
+          anchor [ref=10317, url=https://support.theguardian.com/?REFPVID=mwohcmw6jbfz7d98nc3f&INTCMP=header_support_2026-10-27_USEOY_HEADER__US_CONTROL&acquisitionData=%7B%22source%22%3A%22GUARDIAN_WEB%22%2C%22componentId%22%3A%22header_support_2026-10-27_USEOY_HEADER__US_CONTROL%22%2C%22componentType%22%3A%22ACQUISITIONS_HEADER%22%2C%22campaignCode%22%3A%22header_support_2026-10-27_USEOY_HEADER__US_CONTROL%22%2C%22abTests%22%3A%5B%7B%22name%22%3A%222026-10-27_USEOY_HEADER__US%22%2C%22variant%22%3A%22CONTROL%22%7D%5D%2C%22referrerPageviewId%22%3A%22mwohcmw6jbfz7d98nc3f%22%2C%22referrerUrl%22%3A%22https%3A%2F%2Fwww.theguardian.com%2Finternational%22%2C%22isRemote%22%3Atrue%7D]
+            text "Make a year-end gift"
+            svg_root
+        anchor [ref=10318, url=https://support.theguardian.com/subscribe/weekly?REFPVID=mwohcmw6jbfz7d98nc3f&INTCMP=undefined&acquisitionData=%7B%22source%22%3A%22GUARDIAN_WEB%22%2C%22componentId%22%3A%22PrintSubscriptionsHeaderLink%22%2C%22componentType%22%3A%22ACQUISITIONS_HEADER%22%2C%22referrerPageviewId%22%3A%22mwohcmw6jbfz7d98nc3f%22%2C%22referrerUrl%22%3A%22https%3A%2F%2Fwww.theguardian.com%2Finternational%22%7D]
+          text "Print subscriptions"
+        anchor [ref=10319, url=https://www.theguardian.com/email-newsletters]
+          text "Newsletters"
+        anchor [ref=10320, url=https://profile.theguardian.com/signin?INTCMP=DOTCOM_NEWHEADER_SIGNIN&ABCMP=ab-sign-in&componentEventParams=componentType%3Didentityauthentication%26componentId%3Dguardian_signin_header]
+          svg_root
+          text "Sign in"
+      region "Highlights"
+        unordered_list [ref=10321]
+          group
+            anchor "Grand Theft Auto 6, Robert Pattinson and Nathan Fielder" [ref=10322, loc=css:a[aria-label="Grand Theft Auto 6, Robert Pattinson and Nathan Fielder"], url=https://www.theguardian.com/culture/video/2026/nov/19/grand-theft-auto-6-robert-pattinson-and-nathan-fielder-the-close-up]
+            container
+              heading
+                text "The Close Up"
+                text "Grand Theft Auto 6, Robert Pattinson and Nathan Fielder"
+              container
+                text "Video"
+                container
+                  svg_root
+                  text "38:13"
+            image
+          group
+            container
+              anchor "Xi, Trump and Putin summit was more of a footnote" [ref=10323, loc=css:a[aria-label="Xi, Trump and Putin summit was more of a footnote"], url=https://www.theguardian.com/world/2026/nov/19/new-page-in-history-xi-trump-and-putin-summit-was-more-of-a-footnote]
+              heading
+                text "‘New page in history?’"
+                text "Xi, Trump and Putin summit was more of a footnote"
+              image
+          group
+            container
+              anchor "How to start without missing out on foods you enjoy" [ref=10324, loc=css:a[aria-label="How to start without missing out on foods you enjoy "], url=https://www.theguardian.com/wellness/2026/nov/19/how-to-start-eating-plant-based]
+              heading
+                text "Plant-based eating"
+                text "How to start without missing out on foods you enjoy"
+              image
+        button "Move highlight stories forwards" [ref=10325, loc=css:button[aria-label="Move highlight stories forwards"]]
+          svg_root
+      container
+        button [ref=10326]
+          text "Edition"
+        anchor [ref=10327, url=https://www.theguardian.com/]
+          svg_root
+        unordered_list
+          list_item
+            anchor [ref=10328, url=https://www.theguardian.com/]
+              text "News"
+          list_item
+            anchor [ref=10329, url=https://www.theguardian.com/commentisfree]
+              text "Opinion"
+          list_item
+            anchor [ref=10330, url=https://www.theguardian.com/sport]
+              text "Sport"
+          list_item
+            anchor [ref=10331, url=https://www.theguardian.com/culture]
+              text "Culture"
+          list_item
+            anchor [ref=10332, url=https://www.theguardian.com/lifeandstyle]
+              text "Lifestyle"
+        button "Toggle main menu" [ref=10333, loc=role:button[name="Toggle main menu"]]
+          svg_root
+        list
+          list_item
+            anchor [ref=10334, url=https://www.theguardian.com/world]
+              text "World"
+          list_item
+            anchor [ref=10335, url=https://www.theguardian.com/us-news/us-politics]
+              text "US politics"
+          list_item
+            anchor [ref=10336, loc=href:/uk-news, url=https://www.theguardian.com/uk-news]
+              text "UK"
+          list_item
+            anchor [ref=10337, url=https://www.theguardian.com/environment/climate-crisis]
+              text "Climate crisis"
+          list_item
+            anchor [ref=10338, url=https://www.theguardian.com/world/middleeast]
+              text "Middle East"
+          list_item
+            anchor [ref=10339, url=https://www.theguardian.com/world/ukraine]
+              text "Ukraine"
+          list_item
+            anchor [ref=10340, loc=href:/environment, url=https://www.theguardian.com/environment]
+              text "Environment"
+          list_item
+            anchor [ref=10341, url=https://www.theguardian.com/science]
+              text "Science"
+          list_item
+            anchor [ref=10342, loc=href:/global-development, url=https://www.theguardian.com/global-development]
+              text "Global development"
+          list_item
+            anchor [ref=10343, loc=href:/football, url=https://www.theguardian.com/football]
+              text "Football"
+          list_item
+            anchor [ref=10344, loc=href:/technology, url=https://www.theguardian.com/technology]
+              text "Tech"
+          list_item
+            anchor [ref=10345, loc=href:/business, url=https://www.theguardian.com/business]
+              text "Business"
+          list_item
+            anchor [ref=10346, loc=href:/obituaries, url=https://www.theguardian.com/obituaries]
+              text "Obituaries"
+          list_item
+            anchor [ref=10347, url=https://www.theguardian.com/puzzles-and-games]
+              text "Puzzles"
+    container
+      container
+        container
+          svg_root
+          paragraph
+            text "You are viewing the"
+            text "International"
+            text "homepage "
+            anchor [ref=10348, loc=href:/us, url=https://www.theguardian.com/us]
+              text "View the"
+              text "US"
+              text "homepage"
+        button "Close banner" [ref=10349, loc=css:button[aria-label="Close banner"]]
+          svg_root
+      container
+        heading
+          text "News"
+        unordered_list
+          list_item
+            anchor "US reacts cautiously to Myanmar genocide ruling as EU praises ‘critical’ role of UN’s top court" [ref=10350, url=https://www.theguardian.com/law/2026/nov/20/us-eu-reaction-myanmar-rohingya-genocide-icj-ruling-trump-international-law]
+            container
+              image
+              container
+                container
+                  heading
+                    text "ICJ judgment"
+                    text "US reacts cautiously to Myanmar genocide ruling as EU praises ‘critical’ role of UN’s top court"
+                  text "Trump’s state department says it is examining international court of justice's judgment while stressing the need to avoid ‘politicisation’ of the body"
+                  text "3h ago"
+                unordered_list
+                  list_item
+                    anchor [ref=10351, url=https://www.theguardian.com/world/2026/nov/19/genocide-rohingya-international-court-of-justice-ruling-myanmar]
+                      heading
+                        text "International court of justice"
+                        text "Myanmar committed genocide against Rohingya minority, world’s top court rules"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 18422 px; scroll or use snapshot({ scope: "full_page" })]

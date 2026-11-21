@@ -1,0 +1,589 @@
+[p1 "BBC News - Breaking news, video and the latest top stories from the U.S. and ..." | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "BBC News - Breaking news, video and the latest top stories from the U.S. and ..."]
+root
+  container
+    container
+      link "Skip to content" [ref=10238, loc=css:a[aria-label="Skip to content"], url=https://www.bbc.com/news#bbc-main]
+        text "Skip to content"
+      container
+        container
+          button "Open menu" [ref=10199, loc=css:button[aria-label="Open menu"]]
+            svg_root
+          anchor [ref=10200, url=https://www.bbc.com/watch-live-news/]
+            container
+              svg_root
+              text "Watch Live"
+        anchor [ref=10201, url=https://www.bbc.com/]
+          image "British Broadcasting Corporation"
+        container
+          button [ref=10202]
+            text "Subscribe"
+          anchor [ref=10203, url=https://session.bbc.com/session?userOrigin=BBCS_BBC&ptrt=https%3A%2F%2Fwww.bbc.com%2Fnews]
+            button "Sign In" [ref=10204, loc=css:button[aria-label="Sign In"]]
+              text "Sign In"
+      container
+        unordered_list
+          list_item
+            anchor [ref=10205, url=https://www.bbc.com/]
+              text "Home"
+          list_item
+            anchor [ref=10206, url=https://www.bbc.com/news]
+              text "News"
+          list_item
+            anchor [ref=10207, url=https://www.bbc.com/sport]
+              text "Sport"
+          list_item
+            anchor [ref=10208, url=https://www.bbc.com/business]
+              text "Business"
+          list_item
+            anchor [ref=10209, url=https://www.bbc.com/technology]
+              text "Technology"
+          list_item
+            anchor [ref=10210, url=https://www.bbc.com/health]
+              text "Health"
+          list_item
+            anchor [ref=10211, url=https://www.bbc.com/culture]
+              text "Culture"
+          list_item
+            anchor [ref=10212, url=https://www.bbc.com/arts]
+              text "Arts"
+          list_item
+            anchor [ref=10213, url=https://www.bbc.com/travel]
+              text "Travel"
+          list_item
+            anchor [ref=10214, url=https://www.bbc.com/future-planet]
+              text "Earth"
+          list_item
+            anchor [ref=10215, url=https://www.bbc.com/audio]
+              text "Audio"
+          list_item
+            anchor [ref=10216, url=https://www.bbc.com/video]
+              text "Video"
+          list_item
+            anchor [ref=10217, url=https://www.bbc.com/live]
+              text "Live"
+          list_item
+            anchor [ref=10218, url=https://www.bbc.com/video/docs]
+              text "Documentaries"
+        unordered_list
+          list_item
+            anchor [ref=10219, loc=href:/news/us-canada, url=https://www.bbc.com/news/us-canada]
+              text "US & Canada"
+          list_item
+            anchor [ref=10220, loc=href:/news/uk, url=https://www.bbc.com/news/uk]
+              text "UK"
+          list_item
+            anchor [ref=10221, loc=href:/news/world/africa, url=https://www.bbc.com/news/world/africa]
+              text "Africa"
+          list_item
+            anchor [ref=10222, loc=href:/news/world/asia, url=https://www.bbc.com/news/world/asia]
+              text "Asia"
+          list_item
+            anchor [ref=10223, loc=href:/news/world/australia, url=https://www.bbc.com/news/world/australia]
+              text "Australia"
+          list_item
+            anchor [ref=10224, loc=href:/news/world/europe, url=https://www.bbc.com/news/world/europe]
+              text "Europe"
+          list_item
+            anchor [ref=10225, loc=href:/news/world/latin_america, url=https://www.bbc.com/news/world/latin_america]
+              text "Latin America"
+          list_item
+            anchor [ref=10226, loc=href:/news/world/middle_east, url=https://www.bbc.com/news/world/middle_east]
+              text "Middle East"
+          list_item
+            anchor [ref=10227, loc=href:/news/in_pictures, url=https://www.bbc.com/news/in_pictures]
+              text "In Pictures"
+          list_item
+            anchor [ref=10228, loc=href:/news/bbcindepth, url=https://www.bbc.com/news/bbcindepth]
+              text "BBC InDepth"
+          list_item
+            anchor [ref=10229, loc=href:/news/bbcverify, url=https://www.bbc.com/news/bbcverify]
+              text "BBC Verify"
+      container
+        heading
+          image "News"
+        container
+          container
+            image
+            anchor [ref=10230, url=https://www.bbc.com/news/articles/c623j4kpg94go]
+              heading
+                text "UK and EU to agree youth mobility scheme, BBC understands"
+              paragraph
+                text "The scheme is expected to be approved at Friday's UK-EU summit, with new deals on food trade and carbon emissions also on the table."
+              container
+                text "2 hrs ago"
+                text "Politics"
+          container
+            anchor [ref=10231, url=https://www.bbc.com/news/articles/c3x29ggenz12o]
+              image
+              container
+                heading
+                  text "Anthropic becomes one of world's most valuable public companies in stock market debut"
+                paragraph
+                  text "Anthropic is the first purely AI company to be publicly listed, creating a test for the entire industry."
+                container
+                  text "5 hrs ago"
+                  text "Technology"
+            anchor [ref=10232, url=https://www.bbc.com/news/articles/c9zr5nyv5dj2o]
+              heading
+                text "GTA 6 breaks records as sales top $2.3bn - industry estimate"
+              paragraph
+                text "Rockstar Games ended a 13-year wait with what is expected to be the biggest entertainment launch ever."
+              container
+                text "2 hrs ago"
+                text "Business"
+            anchor [ref=10233, url=https://www.bbc.com/news/videos/c63rgnq05pdwo]
+              container
+                svg_root
+                heading
+                  text "Watch: What did Trump, Xi and Putin get out of their historic meeting?"
+              paragraph
+                text "Trump, Putin and Xi have issued a "joint declaration of peace" after historical trilateral talks, but what did they get out of meeting?"
+              text "11 hrs ago"
+              text "World"
+          container
+            anchor [ref=10234, url=https://www.bbc.com/news/videos/cwg7l01vg081o]
+              container
+                image
+                svg_root
+              container
+                heading
+                  text "How did Anthropic's stock market debut unfold?"
+                paragraph
+                  text "The BBC's Samira Hussain breaks down the AI company's first day as a publicly traded company, as shares closed up 17%."
+                text "5 hrs ago"
+                text "US & Canada"
+            anchor [ref=10235, loc=href:/news/articles/cx7v2d8q879eo, url=https://www.bbc.com/news/articles/cx7v2d8q879eo]
+              image
+              container
+                heading
+                  text "'I tell my son it's just fireworks': People inside besieged Yemeni city speak to BBC"
+                paragraph
+                  text "Orla Guerin speaks to seven people trapped in Taiz by the Houthis who reveal what life is like under siege."
+                text "4 hrs ago"
+                text "Middle East"
+            anchor [ref=10236, url=https://www.bbc.com/news/articles/ckzd9nln5e6go]
+              image
+              container
+                heading
+                  text "Europe ready for talks with Russia on ending war in Ukraine, leaders say"
+                paragraph
+                  text "European allies of Ukraine say they have a "united" negotiating position at a summit in Berlin."
+                text "4 hrs ago"
+                text "Europe"
+            anchor [ref=10237, loc=href:/news/articles/c6ly58ndgd0no, url=https://www.bbc.com/news/articles/c6ly58ndgd0no]
+              image
+              container
+                heading
+                  text "Bowen: Myanmar genocide verdict is historic and could have far-reaching implications"
+                paragraph
+                  text "Lawyers will study the way in which The Gambia proved the crucial point that Myanmar intended to commit genocide, writes the BBC's international editor."
+                text "8 hrs ago"
+                text "Asia"
+        container
+          anchor [ref=10239, url=https://www.bbc.com/news/videos/cq39gvj9y7xpo]
+            svg_root
+            heading
+              text "From premature baby to social media star - Famed hippo Fiona dies"
+          anchor [ref=10240, url=https://www.bbc.com/news/articles/cmlye2334wlyo]
+            heading
+              text "US army warns detonation of unstable explosives will create toxic plume"
+          anchor [ref=10241, url=https://www.bbc.com/news/articles/cqrmgjnzz9l0o]
+            heading
+              text "Massive hope for pancreatic cancer pill after trial saw tumours vanish"
+          anchor [ref=10242, loc=href:/news/articles/crq5n5pe935no, url=https://www.bbc.com/news/articles/crq5n5pe935no]
+            heading
+              text "Woman drugged and advertised for sex by husband in England speaks out as abusers found guilty"
+          anchor [ref=10243, loc=href:/news/articles/crgj35ldz2zxo, url=https://www.bbc.com/news/articles/crgj35ldz2zxo]
+            heading
+              text "Judge finds Thomas Markle mentally fit to stand trial on child abuse charges"
+        heading
+          text "MORE TO EXPLORE"
+        container
+          container
+            image
+            anchor [ref=10244, url=https://www.bbc.com/news/articles/cwn70vrjlg8ro]
+              heading
+                text "Anthony Zurcher: Trilateral summit high on spectacle, short on substance"
+              paragraph
+                text "The visuals of the historic trilateral meeting may be the only lasting impression left by the summit."
+              text "11 hrs ago"
+              text "World"
+          anchor [ref=10245, loc=href:/news/articles/cmx278n2genyo, url=https://www.bbc.com/news/articles/cmx278n2genyo]
+            image
+            heading
+              text "Airbnb's divisive new house rules come into force"
+            paragraph
+              text "New rules on what Airbnb hosts can reasonably ask guests to do could mean fewer chores but higher costs for customers."
+            text "4 hrs ago"
+            text "Business"
+          anchor [ref=10246, url=https://www.bbc.com/news/articles/cmx2q223z1jlo]
+            heading
+              text "Why Canada is embracing AI data centres while the US pushes back"
+            paragraph
+              text "Shark Tank's Kevin O'Leary is among the big investors looking to Canada as a data centre development destination, while his US project faces local opposition."
+            text "4 hrs ago"
+            text "US & Canada"
+          anchor [ref=10247, url=https://www.bbc.com/news/articles/cw1m4ym7ez2eo]
+            heading
+              text "Cumin-laced fizzy sodas are giving cola giants a tough fight in India"
+            paragraph
+              text "Cumin-laced sodas are capturing a bigger market share in India as demand for homegrown flavours goes up."
+            text "5 hrs ago"
+            text "India"
+          anchor [ref=10248, url=https://www.bbc.com/news/videos/cm4gn9xyp282o]
+            image
+            svg_root
+            heading
+              text "Did two Dan Sullivans running in Alaska's election confuse voters?"
+            paragraph
+              text "Democratic candidate Mary Peltola has won the US Senate race in Alaska which has drawn scrutiny after two Dan Sullivans entered the contest - but did that confuse voters?"
+            text "9 hrs ago"
+            text "BBC Verify"
+          anchor [ref=10249, loc=href:/news/articles/c8752w5vz2zqo, url=https://www.bbc.com/news/articles/c8752w5vz2zqo]
+            image
+            heading
+              text "New Hunger Games cast say joining the franchise is 'nerve-racking'"
+            paragraph
+              text "The prequel, which is set 24 years before the original The Hunger Games film, is released today."
+            text "3 hrs ago"
+            text "Culture"
+          anchor [ref=10250, loc=href:/news/articles/cmvg2edq12nno, url=https://www.bbc.com/news/articles/cmvg2edq12nno]
+            image
+            heading
+              text "Weekly quiz: Which star played cricket with Catherine in India?"
+            paragraph
+              text "How much attention did you pay to what happened in the world over the past seven days?"
+            text "10 hrs ago"
+            text "World"
+        container
+          heading
+            text "MOST WATCHED"
+          ordered_list
+            list_item
+              anchor [ref=10251, url=https://www.bbc.com/news/videos/cq39gvj9y7xpo]
+                text "1"
+                container
+                  svg_root
+                  heading
+                    text "From premature baby to social media star - Famed hippo Fiona dies"
+            list_item
+              anchor [ref=10252, url=https://www.bbc.com/news/videos/cwg7l01vg081o]
+                text "2"
+                container
+                  svg_root
+                  heading
+                    text "How did Anthropic's stock market debut unfold?"
+            list_item
+              anchor [ref=10253, url=https://www.bbc.com/news/videos/c63rgnq05pdwo]
+                text "3"
+                container
+                  svg_root
+                  heading
+                    text "BBC correspondents discuss what Trump, Xi and Putin got out of historic talks"
+            list_item
+              anchor [ref=10254, loc=href:/news/world-us-canada-46786860, url=https://www.bbc.com/news/world-us-canada-46786860]
+                text "4"
+                container
+                  svg_root
+                  heading
+                    text "How Vancouver is saving addicts' lives"
+            list_item
+              anchor [ref=10255, url=https://www.bbc.com/news/videos/cm4gn9xyp282o]
+                text "5"
+                container
+                  svg_root
+                  heading
+                    text "Did two Dan Sullivans running in Alaska's election confuse voters?"
+        heading
+          text "ALSO IN NEWS"
+        container
+          container
+            image "image unavailable"
+            image
+            svg_root
+            anchor [ref=10256, url=https://www.bbc.com/news/videos/c60qj10j0ld5o]
+              heading
+                text "Rohingya genocide: What was said in court and what happens now?"
+              paragraph
+                text "The verdict marks the first time a state has ever been found to have committed genocide by an international court."
+              text "11 hrs ago"
+              text "Asia"
+          anchor [ref=10257, loc=href:/news/articles/cqn70vxp5p4no, url=https://www.bbc.com/news/articles/cqn70vxp5p4no]
+            image "image unavailable"
+            image
+            heading
+              text "California targets Nvidia in China AI chip probe"
+            paragraph
+              text "The probe by California, where the AI chipmaker has its global headquarters, follows former CEO Jensen Huang's departure."
+            text "5 hrs ago"
+            text "World"
+          anchor [ref=10258, loc=href:/news/articles/cmpdwev0jgp6o, url=https://www.bbc.com/news/articles/cmpdwev0jgp6o]
+            image "image unavailable"
+            image
+            heading
+              text "Next round of BBC cuts will be more noticeable to audiences, report warns"
+            paragraph
+              text "The BBC has already cut jobs, programmes and services but has further to go to reach its £500m target."
+            text "4 hrs ago"
+            text "Culture"
+          anchor [ref=10259, url=https://www.bbc.com/news/articles/cx1l0pm7l9jmo]
+            image "image unavailable"
+            image
+            heading
+              text "Trump posthumously pardons US baseball legend Pete Rose"
+            paragraph
+              text "Rose, who died in 2024, was given a lifetime ban from the sport for betting on games but was reinstated last year."
+            text "5 hrs ago"
+            text "US & Canada"
+          anchor [ref=10260, loc=href:/news/articles/cvkg58d7z10ro, url=https://www.bbc.com/news/articles/cvkg58d7z10ro]
+            heading
+              text "Indonesian daycare principal jailed for five years over child abuse case"
+            paragraph
+              text "Toddlers were found with their hands and feet tied with rags when police raided the centre in April."
+            text "3 hrs ago"
+            text "Asia"
+          anchor [ref=10261, url=https://www.bbc.com/news/articles/cj04wzzy9yqro]
+            heading
+              text "William and Catherine's India tour was 'particularly special', aide says"
+            paragraph
+              text "Prince William's most senior advisor described the royal couple as "very much a team"."
+            text "6 hrs ago"
+            text "UK"
+        container
+          heading
+            text "MOST READ"
+          ordered_list
+            list_item
+              anchor [ref=10262, url=https://www.bbc.com/news/articles/c9zr5nyv5dj2o]
+                text "1"
+                heading
+                  text "GTA 6 breaks records as sales top $2.3bn - industry estimate"
+            list_item
+              anchor [ref=10263, url=https://www.bbc.com/news/articles/cmx2q223z1jlo]
+                text "2"
+                heading
+                  text "Why Canada is embracing AI data centres while the US pushes back"
+            list_item
+              anchor [ref=10264, url=https://www.bbc.com/news/articles/ckzd9nln5e6go]
+                text "3"
+                heading
+                  text "Europe ready for talks with Russia on ending war in Ukraine, leaders say"
+            list_item
+              anchor [ref=10265, url=https://www.bbc.com/news/articles/c3x29ggenz12o]
+                text "4"
+                heading
+                  text "Anthropic becomes one of world's most valuable public companies in stock market debut"
+            list_item
+              anchor [ref=10266, loc=href:/news/articles/c623j4ln97x7o, url=https://www.bbc.com/news/articles/c623j4ln97x7o]
+                text "5"
+                heading
+                  text "Trump, Putin and Xi release 'peace declaration' after historic meeting"
+            list_item
+              anchor [ref=10267, url=https://www.bbc.com/news/articles/cmlye2334wlyo]
+                text "6"
+                heading
+                  text "US army warns detonation of unstable explosives will create toxic plume"
+            list_item
+              anchor [ref=10268, url=https://www.bbc.com/news/articles/cqrmgjnzz9l0o]
+                text "7"
+                heading
+                  text "Massive hope for pancreatic cancer pill after trial saw tumours vanish"
+            list_item
+              anchor [ref=10269, url=https://www.bbc.com/news/articles/cx1l0pm7l9jmo]
+                text "8"
+                heading
+                  text "Trump posthumously pardons US baseball legend Pete Rose"
+            list_item
+              anchor [ref=10270, url=https://www.bbc.com/news/articles/cw1m4ym7ez2eo]
+                text "9"
+                heading
+                  text "Cumin-laced fizzy sodas are giving cola giants a tough fight in India"
+            list_item
+              anchor [ref=10271, url=https://www.bbc.com/news/articles/cj04wzzy9yqro]
+                text "10"
+                heading
+                  text "William and Catherine's India tour was 'particularly special', aide says"
+        heading
+          text "SPORT"
+        container
+          container
+            image "image unavailable"
+            image
+            anchor [ref=10272, url=https://www.bbc.com/sport/formula1/live/c5yjvmd1m9et]
+              svg_root
+              text "LIVE"
+              heading
+                text "Las Vegas Grand Prix second practice after rain ruins first session"
+              paragraph
+                text "Follow live text updates of Las Vegas Grand Prix second practice."
+          anchor [ref=10273, loc=href:/sport/football/articles/cxlylzyg38l8o, url=https://www.bbc.com/sport/football/articles/cxlylzyg38l8o]
+            image "image unavailable"
+            image
+            heading
+              text "Culture, defence, Fernandes - Pochettino's priorities at Man Utd"
+            paragraph
+              text "Culture, defence and Bruno Fernandes - the key issues facing Mauricio Pochettino as he takes over as Manchester United boss."
+            text "13 hrs ago"
+            text "Man Utd"
+          anchor [ref=10274, loc=href:/sport/football/articles/cm4gnxz8dvx1o, url=https://www.bbc.com/sport/football/articles/cm4gnxz8dvx1o]
+            heading
+              text "Arsenal 'have ingredients' but Europe's elite on another level"
+            paragraph
+              text "In a difficult defeat by French giants Lyon, Arsenal were shown the gap they need to bridge to challenge for the Champions League."
+            text "5 hrs ago"
+            text "Women's Football"
+          anchor [ref=10275, loc=href:/sport/darts/articles/ckzd9n5996zno, url=https://www.bbc.com/sport/darts/articles/ckzd9n5996zno]
+            heading
+              text "Unseeded Sykes stuns Humphries in Grand Slam thriller"
+            paragraph
+              text "Luke Humphries follows Luke Littler in exiting the Grand Slam of Darts after losing 10-9 to unseeded Tom Sykes in a second-round thriller."
+            text "6 hrs ago"
+            text "Darts"
+          anchor [ref=10276, loc=href:/sport/cricket/articles/c94gnev3kj4vo, url=https://www.bbc.com/sport/cricket/articles/c94gnev3kj4vo]
+            image "image unavailable"
+            image
+            heading
+              text "Cummins' Australia captaincy at a crossroads - Agnew"
+            paragraph
+              text "Jonathan Agnew says he struggles to see how Pat Cummins can lead Australia into next summer's Ashes series in England following latest developments in the sandpapergate scandal."
+            text "14 hrs ago"
+            text "Australia"
+          anchor [ref=10277, loc=href:/sport/football/articles/c6wy9d7wqy7wo, url=https://www.bbc.com/sport/football/articles/c6wy9d7wqy7wo]
+            image "image unavailable"
+            image
+            heading
+              text "Pochettino's first Man Utd training session filmed by drone operator"
+            paragraph
+              text "Mauricio Pochettino's first Manchester United training session has been filmed by fan with a drone from outside the club's Carrington training ground."
+            text "10 hrs ago"
+            text "Man Utd"
+          anchor [ref=10278, loc=href:/sport/football/articles/cmlye2n7p7d9o, url=https://www.bbc.com/sport/football/articles/cmlye2n7p7d9o]
+            image "image unavailable"
+            image
+            heading
+              text "England fined for fans' anti-Catholic chants in Spain"
+            paragraph
+              text "England are punished by Uefa following anti-Catholic chanting from the away fans during their Nations League victory in Spain."
+            text "9 hrs ago"
+            text "England Men"
+      container
+        anchor [ref=10279, url=https://www.bbc.com/]
+          image "British Broadcasting Corporation"
+        navigation "Footer navigation"
+          unordered_list
+            list_item
+              anchor [ref=10280, url=https://www.bbc.com/]
+                text "Home"
+            list_item
+              anchor [ref=10281, url=https://www.bbc.com/news]
+                text "News"
+            list_item
+              anchor [ref=10282, url=https://www.bbc.com/sport]
+                text "Sport"
+            list_item
+              anchor [ref=10283, url=https://www.bbc.com/business]
+                text "Business"
+            list_item
+              anchor [ref=10284, url=https://www.bbc.com/technology]
+                text "Technology"
+            list_item
+              anchor [ref=10285, url=https://www.bbc.com/health]
+                text "Health"
+            list_item
+              anchor [ref=10286, url=https://www.bbc.com/culture]
+                text "Culture"
+            list_item
+              anchor [ref=10287, url=https://www.bbc.com/arts]
+                text "Arts"
+            list_item
+              anchor [ref=10288, url=https://www.bbc.com/travel]
+                text "Travel"
+            list_item
+              anchor [ref=10289, url=https://www.bbc.com/future-planet]
+                text "Earth"
+            list_item
+              anchor [ref=10290, url=https://www.bbc.com/audio]
+                text "Audio"
+            list_item
+              anchor [ref=10291, url=https://www.bbc.com/video]
+                text "Video"
+            list_item
+              anchor [ref=10292, url=https://www.bbc.com/live]
+                text "Live"
+            list_item
+              anchor [ref=10293, url=https://www.bbc.com/video/docs]
+                text "Documentaries"
+            list_item
+              anchor [ref=10294, url=https://www.bbc.com/weather]
+                text "Weather"
+            list_item
+              anchor [ref=10295, loc=href:https://shop.bbc.com/, url=https://shop.bbc.com/]
+                text "BBC Shop"
+            list_item
+              anchor [ref=10296, url=https://www.britbox.com/?utm_source=bbc.com&utm_medium=referral&utm_campaign=footer]
+                text "BritBox"
+        button [ref=10297]
+          text "BBC in other languages"
+          svg_root
+        text "Follow BBC on:"
+        button "Follow BBC on x" [ref=10298, loc=css:button[aria-label="Follow BBC on x"]]
+          svg_root
+        button "Follow BBC on facebook" [ref=10299, loc=css:button[aria-label="Follow BBC on facebook"]]
+          svg_root
+        button "Follow BBC on instagram" [ref=10300, loc=css:button[aria-label="Follow BBC on instagram"]]
+          svg_root
+        button "Follow BBC on tiktok" [ref=10301, loc=css:button[aria-label="Follow BBC on tiktok"]]
+          svg_root
+        button "Follow BBC on linkedin" [ref=10302, loc=css:button[aria-label="Follow BBC on linkedin"]]
+          svg_root
+        button "Follow BBC on youtube" [ref=10303, loc=css:button[aria-label="Follow BBC on youtube"]]
+          svg_root
+        unordered_list
+          list_item
+            anchor [ref=10304, loc=href:/pages/terms-of-use, url=https://www.bbc.com/pages/terms-of-use]
+              text "Terms of Use"
+          list_item
+            anchor [ref=10305, loc=href:/pages/subscription-terms, url=https://www.bbc.com/pages/subscription-terms]
+              text "Subscription Terms"
+          list_item
+            anchor [ref=10306, loc=href:https://www.bbc.co.uk/aboutthebbc, url=https://www.bbc.co.uk/aboutthebbc]
+              text "About the BBC"
+          list_item
+            anchor [ref=10307, loc=href:/pages/privacy-policy, url=https://www.bbc.com/pages/privacy-policy]
+              text "Privacy Policy"
+          list_item
+            anchor [ref=10308, url=https://www.bbc.com/usingthebbc/cookies/how-can-i-change-my-bbc-cookie-settings/]
+              text "Cookies"
+          list_item
+            anchor [ref=10309, url=https://www.bbc.com/usingthebbc/cookies/how-can-i-change-my-bbc-cookie-settings/]
+              text "Do not share or sell my info"
+          list_item
+            anchor [ref=10310, loc=href:https://www.bbc.co.uk/accessibility/, url=https://www.bbc.co.uk/accessibility/]
+              text "Accessibility Help"
+          list_item
+            anchor [ref=10311, loc=href:https://www.bbc.co.uk/contact, url=https://www.bbc.co.uk/contact]
+              text "Contact the BBC"
+          list_item
+            anchor [ref=10312, loc=href:https://advertising.bbcstudios.com/, url=https://advertising.bbcstudios.com/]
+              text "Advertise with us"
+          list_item
+            anchor [ref=10313, loc=href:https://help.bbc.com/hc/, url=https://help.bbc.com/hc/]
+              text "BBC.com Help & FAQs"
+          list_item
+            anchor [ref=10314, loc=href:/pages/content-index, url=https://www.bbc.com/pages/content-index]
+              text "Content Index"
+          list_item
+            anchor [ref=10315, url=https://www.bbc.com/future/article/20260128-how-to-make-google-put-trusted-sources-up-top-when-you-search]
+              text "Set Preferred Source"
+        paragraph
+          text "Copyright 2026 BBC. All rights reserved. The BBC is not responsible for the content of external sites. "
+          anchor [ref=10316, loc=href:/editorialguidelines/guidance/links-and-feeds, url=https://www.bbc.com/editorialguidelines/guidance/links-and-feeds]
+            text "Read about our approach to external linking."
+        paragraph
+    alert
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root

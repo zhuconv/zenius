@@ -1,0 +1,72 @@
+[p1 "Web form" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "Web form"]
+root
+  container
+    heading
+      text "Web form"
+    form
+      container
+        container
+          text "Text input"
+          textbox [ref=10614, loc=css:input[name="my-text"]]
+        container
+          text "Password"
+          textbox [ref=10615, loc=css:input[name="my-password"]]
+        container
+          text "Textarea"
+          textbox [ref=10616, loc=css:textarea[name="my-textarea"]]
+        container
+          text "Disabled input"
+          textbox [ref=10617, loc=css:input[name="my-disabled"]]
+            text "Disabled input"
+        container
+          text "Readonly input"
+          textbox [ref=10618, loc=css:input[name="my-readonly"]]
+            text "Readonly input"
+        anchor [ref=10619, loc=href:/selenium/web/index.html, url=https://www.selenium.dev/selenium/web/index.html]
+          text "Return to index"
+      container
+        container
+          text "Dropdown (select)"
+          combobox [ref=10620, loc=css:select[name="my-select"]]
+            text "Open this select menu"
+        container
+          text "Dropdown (datalist)"
+          textbox [ref=10621, loc=css:input[name="my-datalist"]]
+            text "Type to search..."
+        container
+          text "File input"
+          textbox [ref=10622, loc=css:input[name="my-file"]]
+            button [ref=10623]
+              text "Choose File"
+            text "No file chosen"
+        container
+          container
+            checkbox [ref=10624]
+            text "Checked checkbox"
+          container
+            checkbox [ref=10625]
+            text "Default checkbox"
+        container
+          radio [ref=10626]
+          text "Checked radio"
+        container
+          radio [ref=10627]
+          text "Default radio"
+        button [ref=10628]
+          text "Submit"
+      container
+        container
+          text "Color picker"
+          textbox [ref=10629, loc=css:input[name="my-colors"]]
+        container
+          text "Date picker"
+          textbox [ref=10630, loc=css:input[name="my-date"]]
+        container
+          text "Example range"
+          spinbutton [ref=10631, loc=css:input[name="my-range"]]
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root

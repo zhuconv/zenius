@@ -1,0 +1,165 @@
+[p1 "zoo: document semantics" | space "zen-eval golden 1795148479936"(5): 1 managed, 0 untracked — p1* "zoo: document semantics"]
+root
+  container
+    container
+      anchor "Home" [ref=264, loc=css:a[aria-label="Home"], url={{BASE}}/]
+        image "Logo"
+      container "Primary"
+        unordered_list
+          list_item
+            anchor [ref=265, url={{BASE}}/nav-target]
+              text "Relative link"
+          list_item
+            anchor [ref=266, loc=href:https://example.com/absolute?x=1#y, url=https://example.com/absolute?x=1#y]
+              text "Absolute link"
+          list_item
+            anchor [ref=267, loc=href:/zoo/semantics.html#section-2, url={{BASE}}/zoo/semantics.html#section-2]
+              text "Fragment link"
+          list_item
+            anchor [ref=268, loc=href:mailto:test@example.com, url=mailto:test@example.com]
+              text "Mail link"
+          list_item
+            anchor [ref=269, loc=href:javascript:void(0), url=javascript:void(0)]
+              text "Script link"
+          list_item
+            anchor [ref=270]
+              text "Anchor without href"
+          list_item
+            anchor [ref=271, loc=href:/secondary, url={{BASE}}/secondary]
+              text "New tab link"
+    container
+      heading
+        text "Document semantics"
+      paragraph
+        text "Plain paragraph with"
+        text "strong"
+        text ","
+        text "emphasis"
+        text ","
+        text "code"
+        text ","
+        text "HTML"
+        text ","
+        text "marked"
+        text "and"
+        anchor [ref=272, url={{BASE}}/nav-target]
+          text "an inline link"
+        text "."
+      paragraph
+        text "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut a..."
+      heading
+        text "Lists"
+      unordered_list
+        list_item
+          text "Unordered one"
+        list_item
+          text "Unordered two"
+          unordered_list
+            list_item
+              text "Nested item"
+      ordered_list
+        list_item
+          text "Ordered three"
+        list_item
+          text "Ordered four"
+      unordered_list
+        list_item
+          text "Term"
+        list_item
+          text "Definition of the term."
+      heading
+        text "Table"
+      table
+        text "Quarterly revenue"
+        table_row
+          table_cell
+            text "Quarter"
+          table_cell
+            text "Revenue"
+          table_cell
+            text "Action"
+        table_row
+          table_cell
+            text "Q1"
+          table_cell
+            text "$10M"
+          table_cell
+            button [ref=273]
+              text "Details Q1"
+        table_row
+          table_cell
+            text "Q2"
+          table_cell
+            text "$12M"
+          table_cell
+            anchor [ref=274, loc=href:/nav-target?q=2, url={{BASE}}/nav-target?q=2]
+              text "Details Q2"
+        table_row
+          table_cell
+            text "Totals are unaudited."
+      heading
+        text "Media"
+      container
+        image
+        text "Figure caption text"
+      image
+      image
+      svg_root
+      heading
+        text "Disclosure"
+      container [ref=275]
+        text "Open details"
+      paragraph
+        text "Visible details body."
+      container [ref=276]
+        text "Closed details"
+      paragraph
+        text "Hidden details body."
+      heading
+        text "Quotes and code"
+      text "A quoted passage."
+      text "const x = 1; console.log(x);"
+      container "Visibility"
+        heading
+          text "Visibility"
+        text "aria hidden text"
+        button [ref=277]
+          text "Inert button"
+        text "opacity zero text"
+        text "offscreen text"
+        text "visually hidden but accessible text"
+        text "zero size text"
+      container
+        heading
+          text "Interactive without semantics"
+        text "Div with click handler"
+        container [ref=278]
+          text "Focusable span"
+        text "Pointer cursor div"
+        container
+          checkbox [ref=279]
+          text "Checkbox in label"
+        button [ref=280]
+          svg_root
+        button "Close dialog" [ref=281, loc=css:button[aria-label="Close dialog"]]
+          text "×"
+        button [ref=282]
+          text "⚙"
+        anchor [ref=283, url={{BASE}}/nav-target]
+          image
+      container
+        heading
+          text "Article heading"
+        paragraph
+          text "Article text"
+          text "November 19, 2026"
+          text "."
+    container "Related"
+      paragraph
+        text "Sidebar content."
+    container
+      paragraph
+        text "© zenius fixtures"
+      text "Contact:"
+      anchor [ref=284, loc=href:mailto:a@b.c, url=mailto:a@b.c]
+        text "a@b.c"

@@ -1,0 +1,55 @@
+[p1 "BBC News - Breaking news, video and the latest top stories from the U.S. and ..." | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "BBC News - Breaking news, video and the latest top stories from the U.S. and ..."]
+root
+  container
+    link "Skip to content" [ref=25210, loc=css:a[aria-label="Skip to content"], url=https://www.bbc.com/news#bbc-main]
+      text "Skip to content"
+    container
+      container
+        button "Open menu" [ref=25211, loc=css:button[aria-label="Open menu"]]
+          svg_root
+        anchor [ref=25212, url=https://www.bbc.com/watch-live-news/]
+          svg_root
+          text "Watch Live"
+      anchor [ref=25213, url=https://www.bbc.com/]
+        image "British Broadcasting Corporation"
+      container
+        container
+          button [ref=25214]
+            text "Subscribe"
+          anchor [ref=25215, url=https://session.bbc.com/session?userOrigin=BBCS_BBC&ptrt=https%3A%2F%2Fwww.bbc.com%2Fnews]
+            button "Sign In" [ref=25216, loc=css:button[aria-label="Sign In"]]
+              text "Sign In"
+        button [ref=25217]
+          svg_root
+    unordered_list
+      list_item
+        anchor [ref=25218, url=https://www.bbc.com/]
+          text "Home"
+      list_item
+        anchor [ref=25219, url=https://www.bbc.com/news]
+          text "News"
+      list_item
+        anchor [ref=25220, url=https://www.bbc.com/sport]
+          text "Sport"
+      list_item
+        anchor [ref=25221, url=https://www.bbc.com/business]
+          text "Business"
+      list_item
+        anchor [ref=25222, url=https://www.bbc.com/technology]
+          text "Technology"
+      list_item
+        anchor [ref=25223, url=https://www.bbc.com/health]
+          text "Health"
+      list_item
+        anchor [ref=25224, url=https://www.bbc.com/culture]
+          text "Culture"
+      list_item
+        anchor [ref=25225, url=https://www.bbc.com/arts]
+          text "Arts"
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+[more content below the viewport: scrollY=0, viewport 829 / page 13106 px; scroll or use snapshot({ scope: "full_page" })]

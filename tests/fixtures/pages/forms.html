@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>zoo: forms</title>
+<style>
+  body { font: 15px system-ui, sans-serif; margin: 16px; }
+  fieldset { margin: 8px 0; }
+  label { display: block; margin: 4px 0; }
+</style>
+</head>
+<body>
+<h1>Form controls</h1>
+<form id="signup" action="/api/echo" method="post" aria-label="Sign up">
+  <fieldset>
+    <legend>Account</legend>
+    <label for="email">Email address</label>
+    <input id="email" name="email" type="email" placeholder="you@example.com" required>
+    <label>Password <input name="password" type="password" autocomplete="new-password"></label>
+    <input name="nickname" type="text" aria-label="Nickname">
+    <span id="phone-label">Phone number</span>
+    <input name="phone" type="tel" aria-labelledby="phone-label">
+    <input name="website" type="url" title="Personal website">
+    <input name="q" type="search" placeholder="Search the docs">
+    <input name="readonly" type="text" value="cannot edit" readonly aria-label="Read-only field">
+    <input name="disabled" type="text" value="disabled value" disabled aria-label="Disabled field">
+    <input name="hidden" type="hidden" value="secret">
+  </fieldset>
+  <fieldset>
+    <legend>Numbers and dates</legend>
+    <label>Age <input name="age" type="number" min="0" max="120" value="30"></label>
+    <label>Volume <input name="volume" type="range" min="0" max="10" value="4"></label>
+    <label>Birthday <input name="birthday" type="date" value="2000-01-02"></label>
+    <label>Meeting <input name="meeting" type="datetime-local"></label>
+    <label>Month <input name="month" type="month"></label>
+    <label>Week <input name="week" type="week"></label>
+    <label>Time <input name="time" type="time"></label>
+    <label>Favorite color <input name="color" type="color" value="#3366ff"></label>
+  </fieldset>
+  <fieldset>
+    <legend>Choices</legend>
+    <label><input type="checkbox" name="terms" checked> I agree to the terms</label>
+    <label><input type="checkbox" name="news"> Send me news</label>
+    <label><input type="checkbox" name="mixed" id="mixed"> Mixed state</label>
+    <div role="radiogroup" aria-label="Plan">
+      <label><input type="radio" name="plan" value="free" checked> Free</label>
+      <label><input type="radio" name="plan" value="pro"> Pro</label>
+      <label><input type="radio" name="plan" value="team" disabled> Team (unavailable)</label>
+    </div>
+    <label for="country">Country</label>
+    <select id="country" name="country">
+      <option value="">Choose one</option>
+      <option value="us">United States</option>
+      <option value="cn" selected>China</option>
+      <option value="de">Germany</option>
+    </select>
+    <label>Toppings
+      <select name="toppings" multiple size="4">
+        <optgroup label="Veg">
+          <option>Onion</option>
+          <option selected>Pepper</option>
+        </optgroup>
+        <optgroup label="Meat">
+          <option>Ham</option>
+          <option>Bacon</option>
+        </optgroup>
+      </select>
+    </label>
+    <label>Browser <input name="browser" list="browsers"></label>
+    <datalist id="browsers"><option value="Zen"><option value="Firefox"><option value="Chromium"></datalist>
+  </fieldset>
+  <fieldset>
+    <legend>Text</legend>
+    <label>Bio <textarea name="bio" rows="3" placeholder="Tell us about yourself"></textarea></label>
+    <label>Prefilled <textarea name="notes" rows="2">Line one
+Line two</textarea></label>
+    <div id="editor" contenteditable="true" aria-label="Rich text editor" style="border:1px solid #888;min-height:40px">Editable <b>bold</b> text</div>
+    <label>Attachment <input type="file" name="attachment" multiple></label>
+  </fieldset>
+  <fieldset>
+    <legend>Output</legend>
+    <output name="total" for="age">42</output>
+    <progress value="70" max="100" aria-label="Upload progress">70%</progress>
+    <meter value="0.6" aria-label="Disk usage">60%</meter>
+  </fieldset>
+  <button type="submit">Create account</button>
+  <button type="reset">Reset</button>
+  <button type="button" disabled>Disabled button</button>
+  <input type="submit" value="Submit (input)">
+  <input type="button" value="Plain input button">
+  <input type="image" alt="Image submit" src="/api/image.png" width="16" height="16">
+</form>
+<script>document.getElementById("mixed").indeterminate = true;</script>
+</body>
+</html>

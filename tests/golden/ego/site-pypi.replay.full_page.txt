@@ -1,0 +1,659 @@
+[p1 "requests · PyPI" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "requests · PyPI"]
+root
+  container
+    anchor [ref=25126, loc=href:https://pypi.org/project/requests/#content, url=https://pypi.org/project/requests/#content]
+      text "Skip to main content"
+    container
+      container
+        container
+          anchor [ref=25101, url=https://pypi.org/]
+            image
+          search
+            text "Search PyPI"
+            textbox [ref=25102]
+              text "Type '/' to search projects"
+            button [ref=25103]
+              text ""
+              text "Search"
+        container
+          container "Main navigation"
+            unordered_list
+              list_item
+                anchor [ref=25104, url=https://blog.pypi.org/]
+                  text "Blog"
+              list_item
+                anchor [ref=25105, url=https://docs.pypi.org/]
+                  text "Docs"
+              list_item
+                anchor [ref=25106, url=https://pypi.org/account/login/?next=https%3A%2F%2Fpypi.org%2Fproject%2Frequests%2F]
+                  text "Log in"
+              list_item
+                anchor [ref=25107, url=https://pypi.org/account/register/]
+                  text "Register"
+          container "Localization"
+            button "Change language" [ref=25108, loc=css:button[aria-label="Change language"]]
+              text ""
+            form
+      table
+        table_row
+          table_cell
+    container
+      container
+        heading
+          text "requests 2.34.2"
+        paragraph
+          text "Python HTTP for Humans."
+        paragraph
+          text "pip install requests"
+          button [ref=25109]
+            text ""
+            text "Copy PIP instructions"
+        table
+          table_row
+            table_cell
+      container
+        container
+          container "Navigation for requests"
+            tablist
+              list_item
+                tab "Project description. Focus will be moved to the description." [ref=25110, loc=css:a[aria-label="Project description. Focus will be moved to the description."], url=https://pypi.org/project/requests/#description]
+                  text ""
+                  text "Description"
+              list_item
+              list_item
+                tab "Release files. Focus will be moved to the release files panel." [ref=25111, loc=css:a[aria-label="Release files. Focus will be moved to the release files panel."], url=https://pypi.org/project/requests/#files]
+                  text ""
+                  text "Release files"
+              list_item
+                tab "Release security. Focus will be moved to the security panel." [ref=25112, loc=css:a[aria-label="Release security. Focus will be moved to the security panel."], url=https://pypi.org/project/requests/#security]
+                  text ""
+                  text "Security"
+              list_item
+                tab "Release history. Focus will be moved to the release history panel." [ref=25113, loc=css:a[aria-label="Release history. Focus will be moved to the release history panel."], url=https://pypi.org/project/requests/#history]
+                  text ""
+                  text "Release history"
+          table
+            table_row
+              table_cell
+        container
+          tabpanel "Description" [ref=25114]
+            container
+              heading
+                text "Requests"
+                anchor [ref=25127, loc=href:https://pypi.org/project/requests/#user-content-requests, url=https://pypi.org/project/requests/#user-content-requests]
+              paragraph
+                anchor [ref=25115, loc=href:https://pypi.org/project/requests/, url=https://pypi.org/project/requests/]
+                  image
+                anchor [ref=25116, loc=href:https://pypi.org/project/requests, url=https://pypi.org/project/requests]
+                  image
+                anchor [ref=25117, loc=href:https://pepy.tech/project/requests, url=https://pepy.tech/project/requests]
+                  image
+                anchor [ref=25118, loc=href:https://github.com/psf/requests/graphs/contributors, url=https://github.com/psf/requests/graphs/contributors]
+                  image
+                anchor [ref=25119, url=https://requests.readthedocs.io/]
+                  image
+              paragraph
+                text "Requests"
+                text "is a simple, yet elegant, HTTP library."
+              container
+                text ">>>"
+                text "import"
+                text "requests"
+                text ">>>"
+                text "r"
+                text "="
+                text "requests"
+                text "."
+                text "get"
+                text "("
+                text "'https://httpbin.org/basic-auth/user/pass'"
+                text ","
+                text "auth"
+                text "="
+                text "("
+                text "'user'"
+                text ","
+                text "'pass'"
+                text "))"
+                text ">>>"
+                text "r"
+                text "."
+                text "status_code"
+                text "200"
+                text ">>>"
+                text "r"
+                text "."
+                text "headers"
+                text "["
+                text "'content-type'"
+                text "]"
+                text "'application/json; charset=utf8'"
+                text ">>>"
+                text "r"
+                text "."
+                text "encoding"
+                text "'utf-8'"
+                text ">>>"
+                text "r"
+                text "."
+                text "text"
+                text "'{"authenticated": true, ...'"
+                text ">>>"
+                text "r"
+                text "."
+                text "json"
+                text "()"
+                text "{"
+                text "'authenticated'"
+                text ":"
+                text "True"
+                text ","
+                text "..."
+                text "}"
+              paragraph
+                text "Requests allows you to send HTTP/1.1 requests extremely easily. There’s no need to manually add query strings to your URLs, or to form-encode your"
+                text "PUT"
+                text "&"
+                text "POST"
+                text "data — but nowadays, just use the"
+                text "json"
+                text "method!"
+              paragraph
+                text "Requests is one of the most downloaded Python packages today, pulling in around"
+                text "300M downloads / week"
+                text "— according to GitHub, Requests is currently"
+                anchor [ref=25128, url=https://github.com/psf/requests/network/dependents?package_id=UGFja2FnZS01NzA4OTExNg%3D%3D]
+                  text "depended upon"
+                text "by"
+                text "4,000,000+"
+                text "repositories."
+              heading
+                text "Installing Requests and Supported Versions"
+                anchor [ref=25129, url=https://pypi.org/project/requests/#user-content-installing-requests-and-supported-versions]
+              paragraph
+                text "Requests is available on PyPI:"
+              container
+                text "$"
+                text "python"
+                text "-m"
+                text "pip"
+                text "install"
+                text "requests"
+              paragraph
+                text "Requests officially supports Python 3.10+."
+              heading
+                text "Supported Features & Best–Practices"
+                anchor [ref=25130, url=https://pypi.org/project/requests/#user-content-supported-features--bestpractices]
+              paragraph
+                text "Requests is ready for the demands of building robust and reliable HTTP–speaking applications, for the needs of today."
+              unordered_list
+                list_item
+                  text "Keep-Alive & Connection Pooling"
+                list_item
+                  text "International Domains and URLs"
+                list_item
+                  text "Sessions with Cookie Persistence"
+                list_item
+                  text "Browser-style TLS/SSL Verification"
+                list_item
+                  text "Basic & Digest Authentication"
+                list_item
+                  text "Familiar"
+                  text "dict"
+                  text "–like Cookies"
+                list_item
+                  text "Automatic Content Decompression and Decoding"
+                list_item
+                  text "Multi-part File Uploads"
+                list_item
+                  text "SOCKS Proxy Support"
+                list_item
+                  text "Connection Timeouts"
+                list_item
+                  text "Streaming Downloads"
+                list_item
+                  text "Automatic honoring of"
+                  text ".netrc"
+                list_item
+                  text "Chunked HTTP Requests"
+              heading
+                text "Cloning the repository"
+                anchor [ref=25131, loc=href:https://pypi.org/project/requests/#user-content-cloning-the-repository, url=https://pypi.org/project/requests/#user-content-cloning-the-repository]
+              paragraph
+                text "When cloning the Requests repository, you may need to add the"
+                text "-c fetch.fsck.badTimezone=ignore"
+                text "flag to avoid an error about a bad commit timestamp (see"
+                anchor [ref=25132, loc=href:https://github.com/psf/requests/issues/2690, url=https://github.com/psf/requests/issues/2690]
+                  text "this issue"
+                text "for more background):"
+              container
+                text "git"
+                text "clone"
+                text "-c"
+                text "fetch.fsck.badTimezone"
+                text "="
+                text "ignore"
+                text "https://github.com/psf/requests.git"
+              paragraph
+                text "You can also apply this setting to your global Git config:"
+              container
+                text "git"
+                text "config"
+                text "--global"
+                text "fetch.fsck.badTimezone"
+                text "ignore"
+              paragraph
+                anchor [ref=25133, loc=href:https://kennethreitz.org/, url=https://kennethreitz.org/]
+                  image
+                anchor [ref=25134, loc=href:https://www.python.org/psf, url=https://www.python.org/psf]
+                  image
+            container
+              container
+                heading
+                  text "Project links"
+                container
+                  container
+                    container [ref=25120]
+                      text "Data verified by PyPI on May 14, 2026"
+                      text "›"
+                    text "Data provided by the project maintainers, verified at the time the release was uploaded to PyPI."
+                  unordered_list
+                    list_item
+                      anchor [ref=25121, url=https://github.com/psf/requests]
+                        text ""
+                        text "Source"
+                unordered_list
+                  list_item
+                    anchor [ref=25122, url=https://requests.readthedocs.io/]
+                      text ""
+                      text "Documentation"
+              container
+                heading
+                  text "Key dates"
+                container
+                  container
+                    container [ref=25123]
+                      text "PyPI data"
+                      text "›"
+                    text "Data sourced directly from PyPI's database."
+                  container
+                    unordered_list
+                      list_item
+                        text "Released:"
+                        container "2026-05-14 14:25:26 (-05:00)"
+                          text "May 14, 2026"
+                    text "LATEST RELEASE"
+              container
+                heading
+                  text "3 maintainers"
+                container
+                  container
+                    container [ref=25124]
+                      text "PyPI data"
+                      text "›"
+                    text "Data sourced directly from PyPI's database."
+                  container
+                    anchor "graffatcolmingov" [ref=25125, url=https://pypi.org/user/graffatcolmingov/]
+                      image
+                      text "graffatcolmingov"
+                    anchor "Lukasa" [ref=25135, url=https://pypi.org/user/Lukasa/]
+                      image
+                      text "Lukasa"
+                    anchor "nateprewitt" [ref=25136, url=https://pypi.org/user/nateprewitt/]
+                      image
+                      text "nateprewitt"
+              heading
+                text "Credits"
+              paragraph
+                text "Author:"
+                anchor [ref=25137, url=mailto:me@kennethreitz.org]
+                  text "Kenneth Reitz"
+                  text ""
+              paragraph
+                text "Maintainer:"
+                anchor [ref=25138, url=mailto:graffatcolmingov@gmail.com]
+                  text "Ian Stapleton Cordasco"
+                  text ""
+              heading
+                text "GitHub Statistics"
+              container [ref=25139]
+                text "Data verified by PyPI on May 14, 2026"
+                text "›"
+              text "The GitHub source repository was provided by the project maintainers and verified by PyPI at the time of upload. Stars, forks, and open issues/PRs are derived from that repository and have not been in..."
+              unordered_list
+                list_item
+                  anchor [ref=25140, url=https://github.com/psf/requests]
+                    text ""
+                    text "Repository"
+                list_item
+                  anchor [ref=25141, url=https://github.com/psf/requests/stargazers]
+                    text ""
+                    text "Stars:"
+                    text "54731"
+                list_item
+                  anchor [ref=25142, url=https://github.com/psf/requests/network/members]
+                    text ""
+                    text "Forks:"
+                    text "10899"
+                list_item
+                  anchor [ref=25143, url=https://github.com/psf/requests/issues]
+                    text ""
+                    text "Open issues:"
+                    text "168"
+                list_item
+                  anchor [ref=25144, url=https://github.com/psf/requests/pulls]
+                    text ""
+                    text "Open PRs:"
+                    text "88"
+              heading
+                text "Provenance"
+                anchor "About provenance" [ref=25145, url=https://docs.pypi.org/using-pypi/package-security/provenance/]
+                  text ""
+              container [ref=25146]
+                text "Data verified by PyPI on May 14, 2026"
+                text "›"
+              text "Data provided by the project maintainers and verified by PyPI at the time of upload."
+              paragraph
+                text ""
+                text "Full provenance"
+              paragraph
+                text "Both files in this release have provenance metadata."
+              paragraph
+                anchor [ref=25147, url=https://pypi.org/project/requests/#security]
+                  text "View provenance details"
+              heading
+                text "License"
+              paragraph
+                text "Apache Software License (Apache-2.0)"
+              heading
+                text "Requires"
+              paragraph
+                text "Python"
+                text ">=3.10"
+              heading
+                text "Provides Extra"
+              paragraph
+                text "security"
+                text "socks"
+                text "use-chardet-on-py3"
+              heading
+                text "Classifiers"
+              unordered_list
+                list_item
+                  text "Development Status"
+                  unordered_list
+                    list_item
+                      anchor [ref=25148, url=https://pypi.org/search/?c=Development+Status+%3A%3A+5+-+Production%2FStable]
+                        text "5 - Production/Stable"
+                list_item
+                  text "Environment"
+                  unordered_list
+                    list_item
+                      anchor [ref=25149, url=https://pypi.org/search/?c=Environment+%3A%3A+Web+Environment]
+                        text "Web Environment"
+                list_item
+                  text "Intended Audience"
+                  unordered_list
+                    list_item
+                      anchor [ref=25150, url=https://pypi.org/search/?c=Intended+Audience+%3A%3A+Developers]
+                        text "Developers"
+                list_item
+                  text "License"
+                  unordered_list
+                    list_item
+                      anchor [ref=25151, url=https://pypi.org/search/?c=License+%3A%3A+OSI+Approved+%3A%3A+Apache+Software+License]
+                        text "OSI Approved :: Apache Software License"
+                list_item
+                  text "Natural Language"
+                  unordered_list
+                    list_item
+                      anchor [ref=25152, url=https://pypi.org/search/?c=Natural+Language+%3A%3A+English]
+                        text "English"
+                list_item
+                  text "Operating System"
+                  unordered_list
+                    list_item
+                      anchor [ref=25153, url=https://pypi.org/search/?c=Operating+System+%3A%3A+OS+Independent]
+                        text "OS Independent"
+                list_item
+                  text "Programming Language"
+                  unordered_list
+                    list_item
+                      anchor [ref=25154, url=https://pypi.org/search/?c=Programming+Language+%3A%3A+Python]
+                        text "Python"
+                    list_item
+                      anchor [ref=25155, url=https://pypi.org/search/?c=Programming+Language+%3A%3A+Python+%3A%3A+3]
+                        text "Python :: 3"
+                    list_item
+                      anchor [ref=25156, url=https://pypi.org/search/?c=Programming+Language+%3A%3A+Python+%3A%3A+3+%3A%3A+Only]
+                        text "Python :: 3 :: Only"
+                    list_item
+                      anchor [ref=25157, url=https://pypi.org/search/?c=Programming+Language+%3A%3A+Python+%3A%3A+3.10]
+                        text "Python :: 3.10"
+                    list_item
+                      anchor [ref=25158, url=https://pypi.org/search/?c=Programming+Language+%3A%3A+Python+%3A%3A+3.11]
+                        text "Python :: 3.11"
+                    list_item
+                      anchor [ref=25159, url=https://pypi.org/search/?c=Programming+Language+%3A%3A+Python+%3A%3A+3.12]
+                        text "Python :: 3.12"
+                    list_item
+                      anchor [ref=25160, url=https://pypi.org/search/?c=Programming+Language+%3A%3A+Python+%3A%3A+3.13]
+                        text "Python :: 3.13"
+                    list_item
+                      anchor [ref=25161, url=https://pypi.org/search/?c=Programming+Language+%3A%3A+Python+%3A%3A+3.14]
+                        text "Python :: 3.14"
+                    list_item
+                      anchor [ref=25162, url=https://pypi.org/search/?c=Programming+Language+%3A%3A+Python+%3A%3A+3.15]
+                        text "Python :: 3.15"
+                    list_item
+                      anchor [ref=25163, url=https://pypi.org/search/?c=Programming+Language+%3A%3A+Python+%3A%3A+Free+Threading+%3A%3A+2+-+Beta]
+                        text "Python :: Free Threading :: 2 - Beta"
+                    list_item
+                      anchor [ref=25164, url=https://pypi.org/search/?c=Programming+Language+%3A%3A+Python+%3A%3A+Implementation+%3A%3A+CPython]
+                        text "Python :: Implementation :: CPython"
+                    list_item
+                      anchor [ref=25165, url=https://pypi.org/search/?c=Programming+Language+%3A%3A+Python+%3A%3A+Implementation+%3A%3A+PyPy]
+                        text "Python :: Implementation :: PyPy"
+                list_item
+                  text "Topic"
+                  unordered_list
+                    list_item
+                      anchor [ref=25166, url=https://pypi.org/search/?c=Topic+%3A%3A+Internet+%3A%3A+WWW%2FHTTP]
+                        text "Internet :: WWW/HTTP"
+                    list_item
+                      anchor [ref=25167, url=https://pypi.org/search/?c=Topic+%3A%3A+Software+Development+%3A%3A+Libraries]
+                        text "Software Development :: Libraries"
+          table
+            table_row
+              table_cell
+    container
+      anchor [ref=25168, url=https://pypi.org/]
+        image
+        text "PyPI"
+      paragraph
+        text "Developed and maintained by the"
+        anchor [ref=25169, loc=href:https://www.python.org/psf/, url=https://www.python.org/psf/]
+          text "Python Software Foundation"
+          text ""
+        text "and Python community, for the Python community."
+      paragraph
+        anchor [ref=25170, loc=href:https://status.python.org/, url=https://status.python.org/]
+          text "Status:"
+          text "All Systems Operational"
+          text ""
+      anchor [ref=25171, loc=href:https://donate.pypi.org/, url=https://donate.pypi.org/]
+        text "Donate today!"
+      heading
+        text "Help"
+      container "Help navigation"
+        unordered_list
+          list_item
+            anchor [ref=25172, url=https://docs.pypi.org/]
+              text "PyPI documentation"
+          list_item
+            anchor [ref=25173, loc=href:https://docs.pypi.org/about/getting-help/, url=https://docs.pypi.org/about/getting-help/]
+              text "Getting help"
+          list_item
+            anchor [ref=25174, loc=href:https://packaging.python.org/tutorials/installing-packages/, url=https://packaging.python.org/tutorials/installing-packages/]
+              text "Installing packages"
+              text ""
+          list_item
+            anchor [ref=25175, loc=href:https://packaging.python.org/tutorials/packaging-projects/, url=https://packaging.python.org/tutorials/packaging-projects/]
+              text "Uploading packages"
+              text ""
+          list_item
+            anchor [ref=25176, loc=href:https://packaging.python.org/, url=https://packaging.python.org/]
+              text "Packaging user guide"
+              text ""
+      heading
+        text "About PyPI"
+      container "About PyPI navigation"
+        unordered_list
+          list_item
+            anchor [ref=25177, url=https://blog.pypi.org/]
+              text "PyPI blog"
+          list_item
+            anchor [ref=25178, loc=href:https://dtdg.co/pypi, url=https://dtdg.co/pypi]
+              text "Infrastructure dashboard"
+              text ""
+          list_item
+            anchor [ref=25179, loc=href:https://pypi.org/stats/, url=https://pypi.org/stats/]
+              text "Statistics"
+          list_item
+            anchor [ref=25180, url=https://pypi.org/trademarks/]
+              text "Logos & trademarks"
+          list_item
+            anchor [ref=25181, url=https://pypi.org/sponsors/]
+              text "Our sponsors"
+      heading
+        text "Contributing to PyPI"
+      container "How to contribute navigation"
+        unordered_list
+          list_item
+            anchor [ref=25182, loc=href:https://docs.pypi.org/about/contributing/#reporting-bugs, url=https://docs.pypi.org/about/contributing/#reporting-bugs]
+              text "Bugs and feedback"
+          list_item
+            anchor [ref=25183, loc=href:https://github.com/pypi/warehouse, url=https://github.com/pypi/warehouse]
+              text "Contribute on GitHub"
+              text ""
+          list_item
+            anchor [ref=25184, loc=href:https://hosted.weblate.org/projects/pypa/warehouse/, url=https://hosted.weblate.org/projects/pypa/warehouse/]
+              text "Translate PyPI"
+              text ""
+          list_item
+            anchor [ref=25185, url=https://pypi.org/sponsors/]
+              text "Sponsor PyPI"
+          list_item
+            anchor [ref=25186, loc=href:https://github.com/pypi/warehouse/graphs/contributors, url=https://github.com/pypi/warehouse/graphs/contributors]
+              text "Development credits"
+              text ""
+      heading
+        text "Using PyPI"
+      container "Using PyPI navigation"
+        unordered_list
+          list_item
+            anchor [ref=25187, loc=href:https://policies.python.org/pypi.org/Terms-of-Service/, url=https://policies.python.org/pypi.org/Terms-of-Service/]
+              text "Terms of Service"
+              text ""
+          list_item
+            anchor [ref=25188, loc=href:https://pypi.org/security/, url=https://pypi.org/security/]
+              text "Report security issue"
+          list_item
+            anchor [ref=25189, loc=href:https://policies.python.org/python.org/code-of-conduct/, url=https://policies.python.org/python.org/code-of-conduct/]
+              text "Code of conduct"
+              text ""
+          list_item
+            anchor [ref=25190, loc=href:https://policies.python.org/pypi.org/Privacy-Notice/, url=https://policies.python.org/pypi.org/Privacy-Notice/]
+              text "Privacy Notice"
+              text ""
+          list_item
+            anchor [ref=25191, loc=href:https://policies.python.org/pypi.org/Acceptable-Use-Policy/, url=https://policies.python.org/pypi.org/Acceptable-Use-Policy/]
+              text "Acceptable Use Policy"
+              text ""
+    anchor [ref=25192, loc=href:https://www.anthropic.com/, url=https://www.anthropic.com/]
+      image
+      text "Anthropic, PBC"
+      text "Visionary sponsor"
+    anchor [ref=25193, loc=href:https://www.techatbloomberg.com/, url=https://www.techatbloomberg.com/]
+      image
+      text "Bloomberg"
+      text "Visionary sponsor"
+    anchor [ref=25194, loc=href:https://www.hudsonrivertrading.com/careers/, url=https://www.hudsonrivertrading.com/careers/]
+      image
+      text "Hudson River Trading"
+      text "Visionary sponsor"
+    anchor [ref=25195, loc=href:https://about.facebook.com/meta/, url=https://about.facebook.com/meta/]
+      image
+      text "Meta"
+      text "Visionary sponsor"
+    anchor [ref=25196, loc=href:https://developer.nvidia.com/, url=https://developer.nvidia.com/]
+      image
+      text "NVIDIA"
+      text "Visionary sponsor"
+    anchor [ref=25197, loc=href:https://aka.ms/python, url=https://aka.ms/python]
+      image
+      text "Microsoft"
+      text "Sustainability sponsor"
+    anchor [ref=25198, loc=href:https://depot.dev/, url=https://depot.dev/]
+      image
+      text "Depot"
+      text "Continuous Integration"
+    anchor [ref=25199, loc=href:https://aws.amazon.com/, url=https://aws.amazon.com/]
+      image
+      text "AWS"
+      text "Cloud computing and Security Sponsor"
+    anchor [ref=25200, loc=href:https://www.datadoghq.com/, url=https://www.datadoghq.com/]
+      image
+      text "Datadog"
+      text "Monitoring"
+    anchor [ref=25201, loc=href:https://www.fastly.com/, url=https://www.fastly.com/]
+      image
+      text "Fastly"
+      text "CDN"
+    anchor [ref=25202, loc=href:https://careers.google.com/, url=https://careers.google.com/]
+      image
+      text "Google"
+      text "Download Analytics"
+    anchor [ref=25203, url=https://sentry.io/for/python/?utm_source=pypi&utm_medium=paid-community&utm_campaign=python-na-evergreen&utm_content=static-ad-pypi-sponsor-learnmore]
+      image
+      text "Sentry"
+      text "Error logging"
+    anchor [ref=25204, loc=href:https://statuspage.io/, url=https://statuspage.io/]
+      image
+      text "StatusPage"
+      text "Status page"
+    unordered_list
+      list_item
+        text ""PyPI", "Python Package Index", and the blocks logos are registered"
+        anchor [ref=25205, url=https://pypi.org/trademarks/]
+          text "trademarks"
+        text "of the"
+        anchor [ref=25206, loc=href:https://www.python.org/psf-landing, url=https://www.python.org/psf-landing]
+          text "Python Software Foundation"
+          text ""
+        text "."
+      list_item
+        text "© 2026"
+        anchor [ref=25207, loc=href:https://www.python.org/psf-landing/, url=https://www.python.org/psf-landing/]
+          text "Python Software Foundation"
+          text ""
+      list_item
+        anchor [ref=25208, loc=href:https://pypi.org/sitemap/, url=https://pypi.org/sitemap/]
+          text "Site map"
+      list_item
+        text "Deployed from"
+        anchor [ref=25209, url=https://github.com/pypi/warehouse/commit/27a15423247ae2a1d6a63faec30f04d3fef2c73c]
+          text "27a1542"
+          text ""
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+    svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root

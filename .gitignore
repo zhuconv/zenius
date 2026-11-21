@@ -1,0 +1,7 @@
+refs/
+node_modules/
+dist/
+.DS_Store
+*.log
+/tmp/
+tests/**/out/

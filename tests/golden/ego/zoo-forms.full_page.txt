@@ -1,0 +1,164 @@
+[p1 "zoo: forms" | space "zen-eval golden 1795148479936"(5): 1 managed, 0 untracked — p1* "zoo: forms"]
+root
+  container
+    heading
+      text "Form controls"
+    form "Sign up"
+      group [ref=185]
+        text "Account"
+        text "Email address"
+        textbox [ref=186, loc=css:input[name="email"]]
+          text "you@example.com"
+        container
+          text "Password"
+          textbox [ref=187, loc=css:input[name="password"]]
+        textbox "Nickname" [ref=188, loc=css:input[name="nickname"]]
+        text "Phone number"
+        textbox "Phone number" [ref=189, loc=css:input[name="phone"]]
+        textbox [ref=190, loc=css:input[name="website"]]
+        searchbox [ref=191, loc=css:input[name="q"]]
+          text "Search the docs"
+        textbox "Read-only field" [ref=192, loc=css:input[name="readonly"]]
+          text "cannot edit"
+        textbox "Disabled field" [ref=193, loc=css:input[name="disabled"]]
+          text "disabled value"
+      group [ref=194]
+        text "Numbers and dates"
+        container
+          text "Age"
+          spinbutton [ref=195, loc=css:input[name="age"]]
+            text "30"
+        container
+          text "Volume"
+          spinbutton [ref=196, loc=css:input[name="volume"]]
+        container
+          text "Birthday"
+          textbox [ref=197, loc=css:input[name="birthday"]]
+            spinbutton "Year" [ref=198]
+              text "2000"
+            text "/"
+            spinbutton "Month" [ref=199]
+              text "01"
+            text "/"
+            spinbutton "Day" [ref=200]
+              text "02"
+        container
+          text "Meeting"
+          textbox [ref=201, loc=css:input[name="meeting"]]
+            spinbutton "Year" [ref=202]
+              text "yyyy"
+            text "/"
+            spinbutton "Month" [ref=203]
+              text "mm"
+            text "/"
+            spinbutton "Day" [ref=204]
+              text "dd"
+            text ","
+            spinbutton "Hours" [ref=205]
+              text "--"
+            text ":"
+            spinbutton "Minutes" [ref=206]
+              text "--"
+        container
+          text "Month"
+          textbox [ref=207, loc=css:input[name="month"]]
+            spinbutton "Month" [ref=208]
+              text "---------"
+            spinbutton "Year" [ref=209]
+              text "----"
+        container
+          text "Week"
+          textbox [ref=210, loc=css:input[name="week"]]
+            text "Week"
+            spinbutton "Week" [ref=211]
+              text "--"
+            text ","
+            spinbutton "Year" [ref=212]
+              text "----"
+        container
+          text "Time"
+          textbox [ref=213, loc=css:input[name="time"]]
+            spinbutton "Hours" [ref=214]
+              text "--"
+            text ":"
+            spinbutton "Minutes" [ref=215]
+              text "--"
+        container
+          text "Favorite color"
+          textbox [ref=216, loc=css:input[name="color"]]
+      group [ref=217]
+        text "Choices"
+        container
+          checkbox [ref=218, loc=css:input[name="terms"]]
+          text "I agree to the terms"
+        container
+          checkbox [ref=219, loc=css:input[name="news"]]
+          text "Send me news"
+        container
+          checkbox [ref=220, loc=css:input[name="mixed"]]
+          text "Mixed state"
+        radiogroup "Plan"
+          container
+            radio [ref=221]
+            text "Free"
+          container
+            radio [ref=222]
+            text "Pro"
+          container
+            radio [ref=223]
+            text "Team (unavailable)"
+        text "Country"
+        combobox [ref=224, loc=css:select[name="country"]]
+          text "China"
+        container
+          text "Toppings"
+          listbox [ref=225, loc=css:select[name="toppings"]]
+            container
+              container "Veg"
+                text "Veg"
+              text "Onion"
+              text "Pepper"
+            container
+              container "Meat"
+                text "Meat"
+              text "Ham"
+              text "Bacon"
+        container
+          text "Browser"
+          textbox [ref=226, loc=css:input[name="browser"]]
+      group [ref=227]
+        text "Text"
+        container
+          text "Bio"
+          textbox [ref=228, loc=css:textarea[name="bio"]]
+            text "Tell us about yourself"
+        container
+          text "Prefilled"
+          textbox [ref=229, loc=css:textarea[name="notes"]]
+            text "Line one"
+            text "Line two"
+        container "Rich text editor" [ref=230]
+          text "Editable"
+          text "bold"
+          text "text"
+        container
+          text "Attachment"
+          textbox [ref=231, loc=css:input[name="attachment"]]
+            button [ref=232]
+              text "Choose Files"
+            text "No file chosen"
+      group [ref=233]
+        text "Output"
+        output [ref=234]
+          text "42"
+      button [ref=235]
+        text "Create account"
+      button [ref=236]
+        text "Reset"
+      button [ref=237]
+        text "Disabled button"
+      button [ref=238]
+        text "Submit (input)"
+      button [ref=239]
+        text "Plain input button"
+      image [ref=240]

@@ -1,0 +1,117 @@
+[p1 "zoo: ARIA widgets" | space "zen-eval golden 1795148479936"(5): 1 managed, 0 untracked — p1* "zoo: ARIA widgets"]
+root
+  container
+    heading
+      text "ARIA widgets"
+    container
+      tablist "Settings sections"
+        tab [ref=241]
+          text "General"
+        tab [ref=242]
+          text "Privacy"
+        tab [ref=243]
+          text "Advanced"
+      tabpanel "General"
+        text "General settings live here."
+    toolbar "Formatting"
+      button [ref=244]
+        text "Bold"
+      button [ref=245]
+        text "Italic"
+      button "Align left" [ref=246, loc=css:button[aria-label="Align left"]]
+        text "⟸"
+      switch [ref=247]
+        text "Spell check"
+    container
+      button [ref=248]
+        text "File"
+      menu "File"
+        menuitem
+          text "New window"
+        menuitemcheckbox [ref=249]
+          text "Autosave"
+        menuitemradio [ref=250]
+          text "Compact view"
+        menuitem
+          text "Print"
+    container
+      text "City"
+      comboboxgrouping "City" [ref=251]
+        text "Au"
+      listbox "City suggestions"
+        listboxoption
+          text "Aurora"
+        listboxoption
+          text "Auckland"
+        listboxoption
+          text "Augsburg"
+    tree "Files"
+      treeitem
+        text "src"
+        group
+          treeitem
+            text "index.js"
+          treeitem
+            text "app.js"
+      treeitem
+        text "docs"
+    grid "Scores"
+      row
+        columnheader
+          text "Name"
+        columnheader
+          text "Score"
+      row
+        rowheader
+          text "Ada"
+        gridcell
+          text "98"
+      row
+        rowheader
+          text "Linus"
+        gridcell [ref=252]
+          text "91"
+    container
+      slider "Brightness" [ref=258, loc=role:slider[name="Brightness"]]
+      spinbutton "Copies" [ref=253, loc=role:spinbutton[name="Copies"]]
+        text "3"
+      progressindicator "Sync"
+        text "40%"
+      checkbox [ref=254]
+        text "Select all"
+      link [ref=255]
+        text "Span link"
+      button [ref=256]
+        text "Div button"
+      image "Five stars"
+        text "★★★★★"
+    container
+      alert
+        text "Your session expires in 5 minutes."
+      status
+        text "3 results"
+      log
+        text "Connected."
+      note
+        text "Notes are informative."
+      search
+        searchbox "Search site" [ref=257, loc=css:input[aria-label="Search site"]]
+      text "Hidden from assistive tech"
+      text "Presentational wrapper text"
+      button [ref=259]
+        text "Inside role=none"
+    dialog "Cookie preferences"
+      heading
+        text "Cookie preferences"
+      paragraph
+        text "Choose which cookies to allow."
+      button [ref=260]
+        text "Accept all"
+      button [ref=261]
+        text "Reject all"
+    dialog_modeless "Native dialog" [ref=262]
+      paragraph
+        text "Native open dialog"
+      form
+        button [ref=263]
+          text "Close"

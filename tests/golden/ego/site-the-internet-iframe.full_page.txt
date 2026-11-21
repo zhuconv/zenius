@@ -1,0 +1,105 @@
+[p1 "The Internet" | space "zen-eval golden 1795148869834"(8): 1 managed, 0 untracked — p1* "The Internet"]
+root
+  container
+    anchor [ref=10678, loc=href:/iframe#content, url=https://the-internet.herokuapp.com/iframe#content]
+      text "Skip to content"
+    anchor "The Internet: home" [ref=10649, loc=css:a[aria-label="The Internet: home"], url=https://the-internet.herokuapp.com/]
+      text "The Internet"
+      text "powered by Sauce Labs"
+    container
+      table
+        table_row
+          table_cell
+      region "Messages"
+      table
+        table_row
+          table_cell
+    container
+      table
+        table_row
+          table_cell
+      main
+        heading
+          text "An iFrame containing the TinyMCE WYSIWYG Editor"
+        application
+          container
+            menubar
+              menuitem [ref=10650]
+                text "File"
+              menuitem [ref=10651]
+                text "Edit"
+              menuitem [ref=10652]
+                text "View"
+              menuitem [ref=10653]
+                text "Insert"
+              menuitem [ref=10654]
+                text "Format"
+            group
+              group
+                toolbar [ref=10655]
+                  button "Undo" [ref=10656, loc=css:button[aria-label="Undo"]]
+                    svg_root
+                  button "Redo" [ref=10657, loc=css:button[aria-label="Redo"]]
+                    svg_root
+                toolbar [ref=10658]
+                  button "Format Paragraph" [ref=10659, loc=css:button[aria-label="Format Paragraph"]]
+                    text "Paragraph"
+                    svg_root
+                toolbar [ref=10660]
+                  button "Bold" [ref=10661, loc=css:button[aria-label="Bold"]]
+                    svg_root
+                  button "Italic" [ref=10662, loc=css:button[aria-label="Italic"]]
+                    svg_root
+                toolbar [ref=10663]
+                  button "Align left" [ref=10664, loc=css:button[aria-label="Align left"]]
+                    svg_root
+                  button "Align center" [ref=10665, loc=css:button[aria-label="Align center"]]
+                    svg_root
+                  button "Align right" [ref=10666, loc=css:button[aria-label="Align right"]]
+                    svg_root
+                  button "Justify" [ref=10667, loc=css:button[aria-label="Justify"]]
+                    svg_root
+                toolbar [ref=10668]
+                  button "Decrease indent" [ref=10669, loc=css:button[aria-label="Decrease indent"]]
+                    svg_root
+                  button "Increase indent" [ref=10670, loc=css:button[aria-label="Increase indent"]]
+                    svg_root
+          container
+            iframe [ref=10671]
+              root
+                container "Rich Text Area. Press ALT-0 for help." [ref=10672]
+                  paragraph
+                    text "Your content goes here."
+            container [ref=10679]
+          container
+            container
+              navigation
+                button [ref=10673]
+                  text "P"
+              anchor "Powered by Tiny" [ref=10674, loc=css:a[aria-label="Powered by Tiny"], url=https://www.tiny.cloud/powered-by-tiny?utm_campaign=poweredby&utm_source=tiny&utm_medium=referral&utm_content=v6]
+                svg_root
+            container "Press the Up and Down arrow keys to resize the editor." [ref=10675]
+              svg_root
+      table
+        table_row
+          table_cell
+    contentinfo
+      table
+        table_row
+          table_cell
+      container
+        text "Powered by"
+        anchor [ref=10676, loc=href:https://elementalselenium.com/, url=https://elementalselenium.com/]
+          text "Elemental Selenium"
+        text "and"
+        anchor [ref=10677, loc=href:https://saucelabs.com/, url=https://saucelabs.com/]
+          text "Sauce Labs"
+      table
+        table_row
+          table_cell
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
+  svg_root
