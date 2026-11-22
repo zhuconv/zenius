@@ -7,12 +7,18 @@
 //   or press in a live task's tab discards the agent's worlds there
 //   (zen-observe's discard, content/agentworld.sys.mjs), synchronously,
 //   before any listener of the page sees it.
-// - The typing guard (the manager's owners note and its change, 2026-11-20).
-//   In a page the agent's world wrote into (zen-observe's flag "clean": the
-//   page's own code may hold the agent's), the user's first press or key
-//   anywhere in the tab is stopped before any listener of the page, and so
-//   is every press and key of theirs after it, until the tab's top document
-//   is replaced: no handler the agent's code wrote runs on their input. A
+// - The typing guard (the manager's owners note and its change, 2026-11-20),
+//   on evidence only (the user's call, 2026-11-21; docs/briefs/
+//   defenses-evidence.md, A1). In a page the agent's code left something
+//   hooked in (zen-observe's evidence, reason hooked), the user's first press
+//   or key anywhere in the tab is stopped before any listener of the page,
+//   and so is every press and key of theirs after it, until the tab's top
+//   document is replaced: nothing the agent's code left runs on their input.
+//   A page the agent's code only filled, clicked or read has no evidence,
+//   and the user's input goes through as in any page. Nor does a listed or
+//   flagged page hold it (the manager's call, 2026-11-21): the danger there
+//   is the page itself, which a clean copy can't remove, so zen-ux warns
+//   instead. A
 //   stopped press is stopped whole, so the focus stays where it was. zen-core
 //   reloads the page (cleanOnDemand, from the parent's half,
 //   input/typing.sys.mjs) with the form carried over, and puts the focus on
@@ -35,7 +41,9 @@
 
 import { TASK_BROWSERS_KEY } from "chrome://userscripts/content/zenius/content/guards.sys.mjs";
 import { secretKind } from "chrome://userscripts/content/zenius/content/secrets.sys.mjs";
-import { discard, pageFlag, WRITTEN_DOCS_KEY } from "chrome://userscripts/content/zenius/content/agentworld.sys.mjs";
+import { discard } from "chrome://userscripts/content/zenius/content/agentworld.sys.mjs";
+import { evidenceFlag, evidenceOf } from "chrome://userscripts/content/zenius/content/evidence.sys.mjs";
+import { EVIDENCE_DOCS_KEY } from "chrome://userscripts/content/zenius/content/worldkeys.sys.mjs";
 import {
   keydownEntry,
   mergedInput,
@@ -105,8 +113,12 @@ function isTaskTab(bc) {
   }
 }
 
-/** Did the agent's world write into `bc`'s page, so its own code may hold the agent's? */
-const isWrittenPage = bc => pageFlag(bc) === "clean";
+/**
+ * Did the agent's code leave something hooked in `bc`'s page, its top
+ * document or a frame (zen-observe's evidence)? Only that holds the user's
+ * input. A page the agent made reads "drop", and keeps it on, hooked or not.
+ */
+const isHookedPage = bc => evidenceFlag(bc) !== "drop" && evidenceOf(bc).hooked !== undefined;
 
 /** The top document of `bc`'s tab, by innerWindowId. */
 function topDocId(bc) {
@@ -119,7 +131,7 @@ function topDocId(bc) {
 
 /**
  * Is the top document of `bc`'s tab held, since the user's trigger in a
- * written page (or a hand-off's reload that brought no new one)? Then none
+ * hooked page (or a hand-off's reload that brought no new one)? Then none
  * of the user's presses and keys reach it.
  */
 function documentHeld(bc) {
@@ -307,13 +319,12 @@ function onUserEvent(e) {
     // for another field than their typing after it.
     noteHeldInput(win, bc, e, false);
   }
-  // The trigger: the user's first press or key anywhere in a written page,
+  // The trigger: the user's first press or key anywhere in a hooked page,
   // during its task or after (the manager's change, 2026-11-20). Never the
   // replay's own keys, whatever the page's flag says (the manager's ask,
   // 2026-11-21): a hold already took them once, and a clean copy born
-  // written (a written popup or opener in its group) would otherwise hold,
-  // load afresh and replay without end.
-  if (replaying || !isWrittenPage(bc)) {
+  // hooked would otherwise hold, load afresh and replay without end.
+  if (replaying || !isHookedPage(bc)) {
     return;
   }
   const field = press ? pressedField(target) : isEditable(target) ? target : null;
@@ -334,7 +345,7 @@ function onUserEvent(e) {
 
 // ------------------------------------------------- the clean copy's replay
 //
-// The keys the user types while the clean copy of a written page loads
+// The keys the user types while the clean copy of a hooked page loads
 // aren't lost (the manager's rule, 2026-11-20). This guard drops them as
 // before, and logs what it drops: here, for the tab's current top document,
 // and at the parent (input/typing.sys.mjs), which keeps them for the
@@ -652,8 +663,8 @@ function removeListeners(root) {
 }
 
 /**
- * The listeners go only on the roots of tasks' tabs and of pages the
- * agent's world wrote into, kept pages after a task included, and stay on
+ * The listeners go only on the roots of tasks' tabs and of pages with
+ * something hooked in them, kept pages after a task included, and stay on
  * while a tab's typing is held: the keys the user types in a clean copy
  * before its hold lifts wait for its replay. capture.sys.mjs
  * calls this for each root it arms, with a BrowsingContext of its tab, and
@@ -671,7 +682,7 @@ export function syncTypingRoot(root, bc = tabOfRoot.get(root)) {
   watchTabs();
   let want = false;
   try {
-    want = !bc.isDiscarded && (isTaskTab(bc) || isWrittenPage(bc) || typingHeld(bc));
+    want = !bc.isDiscarded && (isTaskTab(bc) || isHookedPage(bc) || typingHeld(bc));
   } catch {}
   if (want === typingRoots.has(root)) {
     return;
@@ -693,7 +704,7 @@ export function setArmedRoots(fn) {
   rootsOfProcess = fn;
 }
 
-const WATCHED_KEYS = [TASK_BROWSERS_KEY, WRITTEN_DOCS_KEY, TYPING_HELD_TABS_KEY, TYPING_HELD_DOCS_KEY];
+const WATCHED_KEYS = [TASK_BROWSERS_KEY, EVIDENCE_DOCS_KEY, TYPING_HELD_TABS_KEY, TYPING_HELD_DOCS_KEY];
 
 function watchTabs() {
   if (watching) {

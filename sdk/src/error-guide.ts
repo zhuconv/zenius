@@ -40,8 +40,8 @@ export const CODE_GUIDE: Record<string, CodeGuide> = {
     said: /open it again|try again once nothing is writing/,
   },
   ZEN_PATH_NOT_ALLOWED: {
-    what: "In the sandboxed CLI, a write outside the run's output and temporary folders, or an upload of a file outside the working folder, the runs' output folders and the temporary folder, or of a link to one.",
-    next: "Give screenshot() and saveAs() a relative path, which lands in the output folder. For an upload, ask the user to copy the file into the working folder.",
+    what: "In the sandboxed CLI, a write outside the run's output and temporary folders, or an upload of a file outside the working folder, the runs' output folders, the temporary folder and the folder the install lets scripts read (install-cli.sh --read-dir, such as ~/Downloads), or of a link to one.",
+    next: "Give screenshot() and saveAs() a relative path, which lands in the output folder. For an upload, ask the user to copy the file into the working folder, or into the folder the message names that scripts may read.",
     said: /Pass a relative path|ask the user to copy/,
   },
   ZEN_UNSUPPORTED: {
@@ -73,7 +73,7 @@ export const CODE_GUIDE: Record<string, CodeGuide> = {
   ZEN_TASK_SPACE_INACTIVE: {
     ego: "EGO_TASK_SPACE_INACTIVE",
     owned: true,
-    what: "The task has ended: task.finish(), or the user stopped it or closed its last tab.",
+    what: "The task has ended (data.reason): task.finish() (\"finished\"), the user's Stop in Zen (\"stopped\"), or its last tab closed (\"closed\").",
     next: "A hard stop: don't retry. Claim it with claimTaskSpace(id) only when the user asks you to continue there.",
   },
   ZEN_TASK_SPACE_UNAVAILABLE: {
@@ -220,7 +220,7 @@ export const CODE_GUIDE: Record<string, CodeGuide> = {
     said: /Load one with page\.goto|act elsewhere|page\.snapshot still works/,
   },
   ZEN_AGENT_CODE_REFUSED: {
-    what: "zenius ran none of the agent's code in this page, or stopped it (data.method, data.reason). \"group\": the page shares a window group with a window outside the task, which code here could reach (data.windows); that covers page.evaluate(), page.waitForFunction(), page.goto() to a data: or blob: URL or to another site, and page.keyboard.paste() with html. \"pageWorld\": your page code tried to run code in the page itself (data.route: a script element, an on* handler it wrote, eval, Function, a string timer or document.write), and the call fails even if your code caught that. \"hold\": the user holds a page in its window group after your handOff().",
+    what: "zenius ran none of the agent's code in this page, or stopped it (data.method, data.reason). \"group\": the page shares a window group with a window outside the task, which code here could reach (data.windows); that covers page.evaluate(), page.waitForFunction(), page.goto() to a data: or blob: URL or to another site, and page.keyboard.paste() with html. \"hold\": the user holds a page in its window group after your handOff().",
     next: "Clicks, typing, snapshots and screenshots still work here. To run code on this site, or to load another site, open it in a new Page (task.newPage(), then goto()); to paste, pass the text alone.",
     said: /new page of the task|Paste the text without html/,
   },
@@ -250,6 +250,30 @@ export const CODE_GUIDE: Record<string, CodeGuide> = {
     what: "No file chooser opened before page.waitForFileChooser() timed out.",
     next: "Check that the action opens one; for an <input type=file> in the page, use page.setInputFiles().",
   },
+  ZEN_REMOTE_OFF: {
+    what: "The user turned remote tasks off (zenius.agentSidebar.allowRemoteTasks is false), so the sidebar takes none.",
+    next: "Don't retry. Tell whoever asked that the user's browser isn't taking remote tasks now.",
+  },
+  ZEN_REMOTE_LIMIT: {
+    what: "A remote-task limit refused it: 2 tasks running at once (error.limit is running) or 20 starts in an hour (hourly).",
+    next: "Wait until a task's turn ends (`zenius sidebar list`), or error.retryAfterMs for the hourly limit, then try once more.",
+  },
+  ZEN_REMOTE_TASK_NOT_FOUND: {
+    what: "No remote task has that taskId: it never ran in this Zen, or the user removed it and Zen has quit since.",
+    next: "`zenius sidebar list` shows the remote tasks there are; treat a task you started as ended.",
+  },
+  ZEN_REMOTE_TASK_BUSY: {
+    what: "The task's turn is still running, or waits for the user, so it can't take a follow-up yet.",
+    next: "Wait for the turn to end (`zenius sidebar status <taskId> --wait 10m`), then send it again.",
+  },
+  ZEN_REMOTE_TASK_ENDED: {
+    what: "The task has stopped or failed, so it takes no more messages.",
+    next: "Start a new task with `zenius sidebar start` if the work isn't done.",
+  },
+  ZEN_SIDEBAR_UNAVAILABLE: {
+    what: "The sidebar can't run the task: it isn't in this Zen (error.reason no_sidebar), has no agents (no_agents), or the agent asked for can't run (agent_unavailable).",
+    next: "Run `zenius doctor`: its sidebar line says what's missing. Don't retry until it's fixed.",
+  },
 };
 
 /** After a certificate warning, only the user can decide (navigation's data.certificateWarning). */
@@ -278,11 +302,6 @@ export const SANDBOX_BLOCKED_NEXT =
   "Don't start or restart Zen. Run this zenius command outside that sandbox: in Codex, rerun it with " +
   'sandbox_permissions "require_escalated", or ask the user to turn on network access for the workspace.';
 
-// ZEN_AGENT_CODE_REFUSED with reason "pageWorld": the agent's code tried to
-// run code in the page's own world. The runtime's message says to do the work
-// in the function; this names each route's form there.
-const PAGE_WORLD_NEXT =
-  "Each route has a form that stays in your function: addEventListener() for an on* handler, a function for a string timer, createElement() and DOM methods for a script element or document.write(), and plain code for eval() or Function().";
 // ZEN_PAGE_GLOBAL_HIDDEN whose message already says to read the DOM: what the
 // help entry's next step adds to it.
 const PAGE_GLOBAL_MARKUP_NEXT =
@@ -300,9 +319,16 @@ const NO_RESPONSE_NEXT = "Zen may be busy or hung: retry once, and if it still d
 const STILL_THE_USERS =
   "The user still has control: end the round, tell them what you need, and resume with takeOverTaskSpace(id) once they say so.";
 
-// The manager's prompt decision (2026-11-21): with no location, sites ask for a typed place.
-const LOCATION_NEXT =
-  "Nothing to do. For the location, sites then ask for a typed place (a city or postcode): type it, or ask the user for it. If the task needs one of the others, tell the user it works in their own tab.";
+// What counts as evidence of danger in a page (SPI, "The evidence flag"):
+// hooked, made, listed and flagged.
+const EVIDENCE =
+  "a page with evidence (your code wrote into it, you opened it as a data: or blob: page, a phishing or malware list names its site, or you flagged it)";
+
+// The manager's prompt decision (2026-11-21): with no location, sites ask for
+// a typed place. A device is the user's during their hold, unless the page
+// shows evidence (A8, with zen-observe's C).
+const DEVICE_NEXT =
+  "For the location, sites then ask for a typed place (a city or postcode): type it, or ask the user for it. If the task needs a device, hand the task to the user with task.handOff({ message }) saying what for: the page asks them during their hold, unless the message names evidence; then tell the user it works in their own tab.";
 
 export const REFUSAL_GUIDE: Record<string, RefusalGuide> = {
   print: {
@@ -394,16 +420,16 @@ export const REFUSAL_GUIDE: Record<string, RefusalGuide> = {
     next: "Nothing to do; the page loads what it needs from the network.",
   },
   deviceAccess: {
-    what: "The page asked for the camera, microphone, screen, location, MIDI or speech recognition: refused in a task's pages for the task's whole life, before any prompt, since the system's consent would cover the user's whole browser. The page got a user's no (NotAllowedError; location: PERMISSION_DENIED), and enumerateDevices() lists none.",
-    next: LOCATION_NEXT,
+    what: `The page asked for the camera, microphone, screen, speakers or speech recognition while you drive it, or for any of these, the location or MIDI on ${EVIDENCE}, where they stay refused during the user's hold too. zenius refused it before any prompt, since the system's consent would cover the user's whole browser: the page got a user's no (NotAllowedError; location: PERMISSION_DENIED), and enumerateDevices() lists none. With api "stopSharing", zenius stopped the streams the user started in the page during their hold, as it came back to you.`,
+    next: DEVICE_NEXT,
   },
   notification: {
-    what: "The page, or a worker it started, tried to show a desktop notification: refused in a task's pages for the task's whole life, even on a site the user allowed. The page got an error event (new Notification) or a TypeError (showNotification).",
+    what: `The page tried to show a desktop notification on ${EVIDENCE}, during the user's hold too, or a worker of a task's page tried to, which is always refused. The page got an error event (new Notification) or a TypeError (showNotification).`,
     next: "Nothing to do; read what the page shows instead.",
   },
   promptDenied: {
-    what: "The page asked for something a task's pages never get: the location, notifications, persistent storage, MIDI, a serial port, XR, or the camera, microphone or screen. zenius cancelled its prompt without asking the user, also while the user holds a page after a hand-off, and stored nothing.",
-    next: LOCATION_NEXT,
+    what: `zenius cancelled a permission prompt without asking the user, and stored nothing for the site: on ${EVIDENCE}, every prompt is cancelled, during the user's hold too, and while you drive, so is the camera, microphone, screen or speakers' prompt. The message says which. The page got what a dismissed prompt gives (location: PERMISSION_DENIED).`,
+    next: DEVICE_NEXT,
   },
   localNetwork: {
     what: "The page, or a blob: shared worker of its site, tried to reach a private or link-local address or a .local name, or the page tried to start WebRTC, which reads local addresses: refused in a task's pages, since macOS's consent for the local network would cover the user's whole browser. Loopback stays open; new RTCPeerConnection() throws NotAllowedError. A shared worker from a data: URL is refused too (SecurityError): its requests name no site, so zenius couldn't keep them from the local network.",
@@ -450,8 +476,6 @@ export function nextStep(code: string, message: string, data?: Record<string, un
         ? DIALOG_DURING_NEXT
         : code === "ZEN_AGENT_CODE_REFUSED" && data?.reason === "hold"
         ? HOLD_NEXT
-        : code === "ZEN_AGENT_CODE_REFUSED" && data?.reason === "pageWorld"
-        ? PAGE_WORLD_NEXT
         : code === "ZEN_PAGE_GLOBAL_HIDDEN" && /from the DOM/.test(message)
         ? PAGE_GLOBAL_MARKUP_NEXT
         : code === "ZEN_TIMEOUT" && typeof data?.ownership === "string" && data.ownership !== "agent"

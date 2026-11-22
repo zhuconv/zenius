@@ -65,6 +65,16 @@ export const ErrorCodes = Object.freeze(
       // (data.site, data.asked, data.declined).
       "ZEN_PAGE_CODE_OFF",
       "ZEN_PAGE_CODE_ASKED",
+      // Remote tasks (zen-observe's sidebar.* methods), which Ego doesn't
+      // have: the user's off pref, a limit (data.limit), no such task, a
+      // turn still running or waiting for the user, a task that ended, and
+      // a sidebar that can't run one (data.reason).
+      "ZEN_REMOTE_OFF",
+      "ZEN_REMOTE_LIMIT",
+      "ZEN_REMOTE_TASK_NOT_FOUND",
+      "ZEN_REMOTE_TASK_BUSY",
+      "ZEN_REMOTE_TASK_ENDED",
+      "ZEN_SIDEBAR_UNAVAILABLE",
     ].map(c => [c, c])
   )
 );

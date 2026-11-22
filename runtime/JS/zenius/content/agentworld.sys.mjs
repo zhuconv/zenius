@@ -15,14 +15,29 @@
 // - onNativeCall on the world sees every built-in that runs in the world's
 //   realm, called by the agent's code or scheduled by it to run later. A
 //   built-in that isn't a known read or action counts as a write and flags
-//   the group's documents here. The window's own timers and location
-//   setters run only from the world's wrappers, which refuse a string timer
-//   and a javascript: URL. The call's deadline ends a runaway script here,
-//   since the parent's cancel only reaches the page's own global.
-// - onNewScript on the page's windows refuses eval and Function compiled
-//   with no page frame on the stack, and a script element the world inserts.
+//   the group's documents here. The call's deadline ends a runaway script
+//   here, since the parent's cancel only reaches the page's own global.
+// - onNewScript on the page's windows sees eval and Function compiled with
+//   no page frame on the stack, and a script element the world inserts.
+//
+// Hooked (docs/research/hooked.md; the user's pass on the defenses brief,
+// 2026-11-21): what the agent's code leaves that outlives the discard of its
+// world marks the page with evidence (content/evidence.sys.mjs). Listeners,
+// timers, observers and workers end with the world, so they don't count.
+// What does:
+// - code in the page's own realm, which now runs instead of being refused: a
+//   script element, the page's eval and Function, a string timer, another
+//   window's timer or location setter, a javascript: URL;
+// - a change a write of the world makes that redirects what the user types
+//   next (hookedRecord). From the world's first write in a run until the run
+//   ends, a MutationObserver watches its group's documents, and only the
+//   records a write made are checked, not those of an action such as a
+//   click, which are the page's own doing;
+// - style rules, a shadow root and document.write, which leave no record,
+//   by the built-in itself.
 
 import { MADE_DOCS_KEY, WORLD_URL, WRITTEN_DOCS_KEY } from "chrome://userscripts/content/zenius/content/worldkeys.sys.mjs";
+import { hookedRecord, markHooked } from "chrome://userscripts/content/zenius/content/evidence.sys.mjs";
 
 // Content modules import them from here too; the parent imports worldkeys.
 export { MADE_DOCS_KEY, WORLD_URL, WRITTEN_DOCS_KEY };
@@ -30,8 +45,8 @@ export { MADE_DOCS_KEY, WORLD_URL, WRITTEN_DOCS_KEY };
 /**
  * The agent's worlds in this process, by document (innerWindowId):
  * {sandbox, group, browserId, report}. A world's report collects, during a
- * call, the page globals its code read and couldn't see, and the routes into
- * the page itself it was refused; evaluate takes it after each call.
+ * call, the page globals its code read and couldn't see; evaluate takes it
+ * after each call.
  */
 const worlds = new Map();
 
@@ -43,18 +58,20 @@ const worlds = new Map();
 //   window.X;
 // - window and self as the world's own global, and document.defaultView too,
 //   so window.X goes through that Proxy and window.__x stays in the world;
-// - setTimeout and setInterval that take only a function: a string, or an
-//   object that turns into one, would run in the page itself;
-// - window.location: reads as the page's, and refuses a javascript: URL. The
-//   page's other location setters (document.location, another window's)
-//   are refused by the native hook, since an Xray won't let them be wrapped;
+// - setTimeout and setInterval: a function runs in the world; a string, or
+//   an object that turns into one, runs in the page itself and marks it
+//   hooked;
+// - window.location: reads as the page's; a javascript: URL marks the page
+//   hooked before it runs there. The page's other location setters
+//   (document.location, another window's) mark it in the native hook, which
+//   can't see their URL, since an Xray won't let them be wrapped;
 // - Worker and SharedWorker that record what they start, for the discard,
 //   and count as a write;
 // - the page's console, so the agent's console.log is the page's, as before;
 // - the counter and the tick the agent's loops call (instrumentLoops).
 // It returns {ours, takeWorkers, track, adopter}: `ours` are the wrappers
 // whose frames may call the timers and location setters.
-const SETUP = `(function (pageOnly, missed, refused, xrayWindow, isJavaScriptURL, wrote, tick, unrewrite) {
+const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL, wrote, tick, unrewrite) {
   "use strict";
   const apply = Reflect.apply;
   const reflectConstruct = Reflect.construct;
@@ -114,8 +131,8 @@ const SETUP = `(function (pageOnly, missed, refused, xrayWindow, isJavaScriptURL
     const timer = own({
       [name](handler) {
         if (typeof handler !== "function") {
-          refused("string timer");
-          throw new TypeErrorCtor("zenius: " + name + " takes only a function here: a string, or an object that turns into one, would run in the page itself");
+          // It runs in the page itself, where it outlives the world.
+          hooked("a string timer");
         }
         return apply(native, xrayWindow, arguments);
       },
@@ -133,8 +150,7 @@ const SETUP = `(function (pageOnly, missed, refused, xrayWindow, isJavaScriptURL
   const go = own(function go(url, how) {
     const s = StringCtor(url);
     if (isJavaScriptURL(s)) {
-      refused("javascript: URL");
-      throw new TypeErrorCtor("zenius: a javascript: URL would run its code in the page itself; set window.location to a page's address, or use page.goto");
+      hooked("a javascript: URL (location)");
     }
     return apply(how === "assign" ? nativeAssign : how === "replace" ? nativeReplace : hrefSet, locationOf(), [s]);
   });
@@ -296,8 +312,7 @@ const SETUP = `(function (pageOnly, missed, refused, xrayWindow, isJavaScriptURL
         value = function open(url) {
           const s = url === undefined ? url : StringCtor(url);
           if (s !== undefined && isJavaScriptURL(s)) {
-            refused("javascript: URL");
-            throw new TypeErrorCtor("zenius: window.open with a javascript: URL would run its code in the page itself");
+            hooked("a javascript: URL (window.open)");
           }
           return apply(inner, this, [s, arguments[1], arguments[2]]);
         };
@@ -445,6 +460,19 @@ const TIMER = 2;
 const NAVIGATE = 3;
 const HISTORY = 4;
 const OPEN = 5;
+// A read that reaches into a shadow tree: the world's watch then observes the
+// documents' shadow roots too, which a document's observer doesn't reach.
+const SHADOW = 6;
+// Built-ins whose effect outlives the world and leaves no MutationObserver
+// record: each marks the page hooked by itself.
+const HOOK_STYLE = 7;
+const HOOK_SHADOW = 8;
+const HOOK_WRITE = 9;
+const HOOK_DETAILS = { [HOOK_STYLE]: "a style rule", [HOOK_SHADOW]: "a shadow root", [HOOK_WRITE]: "document.write" };
+const isWriteKind = kind => kind === WRITE || kind >= HOOK_STYLE;
+// Our shims of those built-ins in a task's pages (adopt): the world calls the
+// shim, which calls the native from chrome, where the hook doesn't see it.
+const MIRROR_KINDS = { "Element.prototype.attachShadow": HOOK_SHADOW };
 
 // The DOM's methods and setters that neither write nor run code: reads, and
 // the agent's actions. Every other method or setter of the DOM counts as a
@@ -607,6 +635,21 @@ function referenceTables(win) {
       return undefined;
     }
   };
+  // Before the reads, which share some of their names: the first match wins.
+  put(desc(win.Element?.prototype, "shadowRoot")?.get, SHADOW);
+  put(desc(win.Event?.prototype, "composedPath")?.value, SHADOW);
+  put(desc(win.Node?.prototype, "getRootNode")?.value, SHADOW);
+  for (const name of ["insertRule", "addRule", "replace", "replaceSync"]) {
+    put(desc(win.CSSStyleSheet?.prototype, name)?.value, HOOK_STYLE);
+  }
+  put(desc(win.CSSGroupingRule?.prototype, "insertRule")?.value, HOOK_STYLE);
+  put(desc(win.CSSStyleRule?.prototype, "selectorText")?.set, HOOK_STYLE);
+  put(desc(win.Document?.prototype, "adoptedStyleSheets")?.set, HOOK_STYLE);
+  put(desc(win.ShadowRoot?.prototype, "adoptedStyleSheets")?.set, HOOK_STYLE);
+  put(desc(win.Element?.prototype, "attachShadow")?.value, HOOK_SHADOW);
+  for (const name of ["write", "writeln", "open"]) {
+    put(desc(win.Document?.prototype, name)?.value, HOOK_WRITE);
+  }
   for (const [iface, names] of Object.entries(SAFE_METHODS)) {
     const proto = win[iface]?.prototype;
     for (const name of names) {
@@ -662,6 +705,12 @@ function classify(callee) {
   }
   try {
     if (callee.isNativeGetterWithJitInfo()) {
+      // A getter reads; shadowRoot's opens a shadow tree for the world's watch.
+      for (const [fn, kind] of tables.dom.get(name) ?? []) {
+        if (kind === SHADOW && callee.isSameNativeWithJitInfo(fn)) {
+          return SHADOW;
+        }
+      }
       return SAFE;
     }
   } catch {}
@@ -869,27 +918,12 @@ function fromOurs(world) {
   }
 }
 
-const REFUSED_TEXT = {
-  timer: "the agent's code called another window's setTimeout or setInterval. zenius runs those only through the world's own (setTimeout(fn, ms)), which takes only a function: another window's could run a string in the page itself.",
-  open: "the agent's code called a window's own open, past zenius's window.open, which refuses a javascript: URL. Call window.open.",
-  location: "the agent's code set a location other than window.location's (document.location, another window's, or Location's own setter). Only window.location may navigate, since it refuses a javascript: URL; use it, or page.goto.",
-};
-
-/** A refusal: the call fails if one is running, else the agent hears it as an event. */
-function refuse(world, route, text) {
-  noteRefusal(world, route, text);
-  return { throw: `zenius: ${text}` };
-}
-
-function noteRefusal(world, route, text) {
-  if (route !== "runaway" && world.calls.size > 0) {
-    world.report.refused.push(route);
-    return;
-  }
+/** A callback the world's code left ran too long between calls: the agent hears of it as a page event. */
+function noteRunaway(world) {
   try {
     world.win.windowGlobalChild?.getActor("Zenius")?.emit("observe.refused", {
       kind: "agentCode",
-      message: `The agent's code, run earlier, was refused: ${text}`,
+      message: `The agent's code, run earlier, was refused: ${RUNAWAY_TEXT}`,
       url: String(world.win.location.href).slice(0, 2000),
     });
   } catch {}
@@ -939,7 +973,7 @@ function pastDeadline(world) {
   // after an await runs in a later turn, and may take the call's time.
   if (!world.calls.size && !world.turnCall && now - world.turnStart > IDLE_LIMIT_MS) {
     world.turnStart = now;
-    noteRefusal(world, "runaway", RUNAWAY_TEXT);
+    noteRunaway(world);
     return true;
   }
   if (now - world.turnStart >= CONTROL_CHECK_MS && now - world.controlCheckedAt >= CONTROL_CHECK_MS) {
@@ -982,22 +1016,35 @@ function onNative(world, callee, reason) {
   if (pastDeadline(world)) {
     return null;
   }
+  // What the previous built-in changed, before this one runs.
+  if (world.watch?.on) {
+    takeWatched(world);
+  }
   let kind = world.kinds.get(callee);
   if (kind === undefined) {
     kind = classify(callee);
     world.kinds.set(callee, kind);
-    if (kind === WRITE && world.writes.length < 50) {
+    if (isWriteKind(kind) && world.writes.length < 50) {
       world.writes.push(`${callee.name}${reason === "set" ? " (set)" : ""}`);
     }
   }
+  world.lastKind = kind;
   switch (kind) {
     case SAFE:
       return undefined;
+    case SHADOW:
+      world.shadowSeen = true;
+      return undefined;
     case TIMER:
-      return fromOurs(world) ? undefined : refuse(world, "timer", REFUSED_TEXT.timer);
+      if (!fromOurs(world)) {
+        leftCode(world, "another window's timer");
+      }
+      return undefined;
     case NAVIGATE:
       if (!fromOurs(world)) {
-        return refuse(world, "location", REFUSED_TEXT.location);
+        // The hook can't see the URL: a javascript: one runs in this
+        // document, and any other replaces the document, mark and all.
+        leftCode(world, "a location set past window.location");
       }
       noteURLChange(world);
       return undefined;
@@ -1006,10 +1053,148 @@ function onNative(world, callee, reason) {
       flagWritten(world);
       return undefined;
     case OPEN:
-      return refuse(world, "open", REFUSED_TEXT.open);
+      leftCode(world, "window.open past zenius's");
+      return undefined;
+    case HOOK_STYLE:
+    case HOOK_SHADOW:
+    case HOOK_WRITE:
+      leftCode(world, HOOK_DETAILS[kind]);
+      return undefined;
     default:
       flagWritten(world);
+      watchWrites(world);
       return undefined;
+  }
+}
+
+/** The world left code in the page's own realm, or a change only its built-in shows: the page is hooked, and written. */
+function leftCode(world, detail) {
+  flagWritten(world);
+  markHooked(world.win, detail);
+}
+
+/** The shadow roots in `doc`, nested ones too. */
+function shadowRootsOf(doc) {
+  const roots = [];
+  const walk = root => {
+    const it = doc.createTreeWalker(root, 1);
+    for (let el = it.nextNode(); el; el = it.nextNode()) {
+      const shadow = el.openOrClosedShadowRoot;
+      if (shadow) {
+        roots.push(shadow);
+        walk(shadow);
+      }
+    }
+  };
+  try {
+    walk(doc);
+  } catch {}
+  return roots;
+}
+
+/**
+ * The world wrote: its watch observes the group's documents (and their
+ * shadow roots, once its code has reached into one) until the run ends.
+ */
+function watchWrites(world) {
+  if (world.watch?.on) {
+    return;
+  }
+  if (!world.watch) {
+    try {
+      world.watch = { mo: new world.win.MutationObserver(records => recordsLeft(world, records)), on: false };
+    } catch (e) {
+      console.error("[zenius] watching the agent's writes", e);
+      return;
+    }
+  }
+  const options = { childList: true, subtree: true, attributes: true };
+  for (const win of windowsOfGroup(world.bc)) {
+    try {
+      world.watch.mo.observe(win.document, options);
+      if (world.shadowSeen) {
+        for (const root of shadowRootsOf(win.document)) {
+          world.watch.mo.observe(root, options);
+        }
+      }
+    } catch {}
+  }
+  world.watch.on = true;
+  armRunEnd(world);
+}
+
+/** The run ends when its oldest frame of the world's pops: a return, a throw, or an await. */
+function armRunEnd(world) {
+  try {
+    let frame = world.dbg.getNewestFrame();
+    while (frame?.older) {
+      frame = frame.older;
+    }
+    if (!frame || world.runFrame === frame) {
+      return;
+    }
+    world.runFrame = frame;
+    frame.onPop = () => endRun(world);
+  } catch (e) {
+    console.error("[zenius] watching the end of the agent's run", e);
+  }
+}
+
+/** The watch takes the run's last records and stops, so the page's own changes after it are never the world's. */
+function endRun(world) {
+  world.runFrame = null;
+  const watch = world.watch;
+  if (!watch?.on) {
+    return;
+  }
+  takeWatched(world);
+  try {
+    watch.mo.disconnect();
+  } catch {}
+  watch.on = false;
+  world.lastKind = SAFE;
+}
+
+/** Records that waited past a run whose end the watch couldn't see: they count as the run's, and it stops. */
+function recordsLeft(world, records) {
+  if (records.length && isWriteKind(world.lastKind)) {
+    checkRecords(world, records);
+  }
+  endRun(world);
+}
+
+/** The records since the last built-in: a write's count, an action's are the page's doing. */
+function takeWatched(world) {
+  let records = [];
+  try {
+    records = world.watch.mo.takeRecords();
+  } catch {}
+  if (records.length && isWriteKind(world.lastKind)) {
+    checkRecords(world, records);
+  }
+}
+
+/**
+ * Each document a record that counts as hooked is in is marked: the agent's
+ * code wrote there (rule 3 of docs/safety-rubric.md), the world's own page
+ * or another of its group.
+ */
+function checkRecords(world, records) {
+  const marked = new Set();
+  for (const record of records) {
+    let win = world.win;
+    try {
+      const node = record.target;
+      win = (node.nodeType === 9 ? node : node.ownerDocument)?.defaultView ?? win;
+    } catch {}
+    if (marked.has(win)) {
+      continue;
+    }
+    const detail = hookedRecord(record);
+    if (detail) {
+      markHooked(win, detail);
+      marked.add(win);
+    }
   }
 }
 
@@ -1071,23 +1256,24 @@ function onPageScript(group, script) {
   if (who === "page" || (who === null && !isEval)) {
     return;
   }
-  const route = isEval ? type : "script element";
+  // It runs, in the page's own realm, where it outlives the world: the page
+  // is hooked (A9 of the user's pass on the defenses brief).
+  const detail = !isEval ? "a script element" : type === "eval" ? "eval in the page" : "Function in the page";
   try {
-    const first = script.getPossibleBreakpoints()[0];
-    const text = `the agent's code ran ${route === "script element" ? "a script element" : route} in the page itself. zenius runs the agent's code only in its isolated world; do the work in your function, or act through page.click, page.fill and page.type.`;
-    script.setBreakpoint(first?.offset ?? 0, { hit: () => ({ throw: `zenius: ${text}` }) });
-    // The calls running in the group's worlds fail; with none, the agent
-    // hears it once, as an event.
     const group_ = [...worlds.values()].filter(w => w.group === group);
-    const running = group_.filter(w => w.calls.size > 0);
-    for (const world of running) {
-      world.report.refused.push(route);
+    let win = null;
+    try {
+      win = script.global.unsafeDereference();
+    } catch {}
+    for (const world of group_) {
+      flagWritten(world);
     }
-    if (!running.length && group_.length) {
-      noteRefusal(group_[0], route, text);
+    const target = win ?? group_[0]?.win;
+    if (target) {
+      markHooked(target, detail);
     }
   } catch (e) {
-    console.error("[zenius] refusing the agent's code in the page", e);
+    console.error("[zenius] marking the agent's code in the page", e);
   }
 }
 
@@ -1387,7 +1573,7 @@ export function worldFor(win) {
     dS,
     group: win.browsingContext.group.id,
     browserId: win.browsingContext.top.browserId,
-    report: { missed: [], refused: [] },
+    report: { missed: [] },
     // Debugger.Object → its kind (SAFE, WRITE, …), and our wrappers.
     kinds: new WeakMap(),
     ours: new WeakSet(),
@@ -1410,10 +1596,17 @@ export function worldFor(win) {
     },
     flaggedEpoch: -1,
     settingUp: true,
+    // Hooked: the watch of its writes ({mo, on}), the kind of the last
+    // built-in, the frame whose pop ends the run, and whether its code
+    // reached into a shadow tree.
+    watch: null,
+    lastKind: SAFE,
+    runFrame: null,
+    shadowSeen: false,
   };
-  const exported = fn => {
+  const exported = (fn, kind = SAFE) => {
     const f = Cu.exportFunction(fn, sandbox);
-    world.kinds.set(dS.makeDebuggeeValue(f), SAFE);
+    world.kinds.set(dS.makeDebuggeeValue(f), kind);
     return f;
   };
   world.exported = exported;
@@ -1426,10 +1619,7 @@ export function worldFor(win) {
     }
   });
   const missed = exported(name => void world.report.missed.push(String(name)));
-  const refused = exported(route => {
-    const r = String(route);
-    noteRefusal(world, r, r);
-  });
+  const hooked = exported(detail => leftCode(world, String(detail)));
   const isJavaScriptURL = exported(s => {
     try {
       return new URL(String(s), "http://zenius.invalid/").protocol === "javascript:";
@@ -1442,7 +1632,7 @@ export function worldFor(win) {
   const tick = exported(() => {});
   const unrewriteText = exported(text => unrewrite(String(text)));
   const api = Cu.waiveXrays(
-    Cu.evalInSandbox(SETUP, sandbox, "latest", WORLD_URL + "/setup", 1)(pageOnly, missed, refused, win, isJavaScriptURL, wrote, tick, unrewriteText)
+    Cu.evalInSandbox(SETUP, sandbox, "latest", WORLD_URL + "/setup", 1)(pageOnly, missed, hooked, win, isJavaScriptURL, wrote, tick, unrewriteText)
   );
   for (let i = 0; i < api.ours.length; i++) {
     world.ours.add(dS.makeDebuggeeValue(api.ours[i]));
@@ -1472,10 +1662,10 @@ export function worldFor(win) {
   return world;
 }
 
-/** What the world's code met since the last take: {missed: [names], refused: [routes]}. */
+/** What the world's code met since the last take: {missed: [names]}. */
 export function takeReport(world) {
   const report = world.report;
-  world.report = { missed: [], refused: [] };
+  world.report = { missed: [] };
   return report;
 }
 
@@ -1640,7 +1830,7 @@ function adopt(world, win) {
         world.adopter.getter(win, parts, name, world.exported(fn));
         continue;
       }
-      world.adopter.method(win, own, parts, name, world.exported(fn));
+      world.adopter.method(win, own, parts, name, world.exported(fn, MIRROR_KINDS[`${path}.${name}`] ?? SAFE));
     } catch (e) {
       console.error(`[zenius] the agent's world didn't get ${path || "window"}.${name}`, e);
     }
@@ -1727,6 +1917,9 @@ function discardWorld(id, world) {
     return;
   }
   worlds.delete(id);
+  try {
+    world.watch?.mo.disconnect();
+  } catch {}
   try {
     world.dbg.onNativeCall = undefined;
     world.dbg.removeAllDebuggees();

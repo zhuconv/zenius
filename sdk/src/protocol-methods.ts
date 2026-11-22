@@ -22,6 +22,7 @@ export const RUNTIME_METHODS: Readonly<Record<string, readonly string[]>> = {
   "page.goto": ["page.goto"],
   "page.reload": ["page.reload"],
   "page.info": ["page.info"],
+  "page.flag": ["page.flag"],
   "page.url": ["page.url", "page.waitForURL(predicate)"],
   "page.title": ["page.title"],
   "page.waitForURL": ["page.waitForURL"],
@@ -53,4 +54,10 @@ export const RUNTIME_METHODS: Readonly<Record<string, readonly string[]>> = {
   "download.failure": ["download.failure"],
   "download.cancel": ["download.cancel"],
   "download.delete": ["download.delete"],
+  // Remote tasks in the sidebar (a command in src/extensions/ may call them too).
+  "sidebar.start": ["zenius sidebar start"],
+  "sidebar.send": ["zenius sidebar send"],
+  "sidebar.status": ["zenius sidebar status"],
+  "sidebar.list": ["zenius sidebar list"],
+  "sidebar.stop": ["zenius sidebar stop"],
 };

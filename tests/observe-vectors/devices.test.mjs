@@ -1,13 +1,15 @@
 // The user's devices and location in an agent task's pages
-// (content/refusals.sys.mjs). getUserMedia, mozGetUserMedia,
-// getDisplayMedia, selectAudioOutput, geolocation, MIDI and speech
-// recognition get the answer a page gets when the user says no, and
-// enumerateDevices() lists none: in every document of the task's pages
-// (fresh frames, cross-site frames, a popup from its first document), for
-// the task's whole life, the user's hold included. No request leaves the
-// page. The system's consent prompt for these (macOS's TCC) would bind the
-// whole Zen.app, the user's daily Zen included, and Gecko asks it before
-// its own prompt once a site has a grant (WebRTCParent's checkOSPermission).
+// (content/refusals.sys.mjs; A8 of the user's pass on
+// docs/briefs/defenses-evidence.md, 2026-11-21). While the agent drives a
+// task's page, getUserMedia, mozGetUserMedia, getDisplayMedia,
+// selectAudioOutput and speech recognition get the answer a page gets when
+// the user says no, and enumerateDevices() lists none, in every document of
+// the page (fresh frames, cross-site frames, a popup from its first
+// document): the agent never uses the user's devices. Location and MIDI go
+// on to the prompt layer, as on any site. On evidence of danger
+// (content/evidence.sys.mjs) every one of them is refused, the user's hold
+// included. During the hold, without evidence, the page asks as a tab of the
+// user's does. No refused request leaves the page.
 //
 // Two counters, for the file's duration:
 // - every WebRTC request MediaManager sends the parent, counted and denied
@@ -22,9 +24,10 @@
 // would be Zen.app asking the system.
 //
 // Then notifications, WebRTC and the local network, on the fixture's
-// /vectors-net: notifications are refused in the task's pages and workers
-// for its whole life; new RTCPeerConnection() throws, and WebRTC's own list
-// of the browser's peer connections shows none was made; requests to
+// /vectors-net: notifications are refused in a task's pages on evidence, and
+// in their workers for the task's whole life; while the agent drives, new
+// RTCPeerConnection() throws, and WebRTC's own list of the browser's peer
+// connections shows none was made; requests to
 // private and link-local addresses and .local names are cancelled in the
 // parent before they look anything up. lan.local and lan-ok.local resolve
 // to 127.0.0.1 here (network.dns.localDomains), so a request the refusal
@@ -257,7 +260,7 @@ async function outcomes(page, counts) {
 const counts = expected => Object.fromEntries(Object.entries(expected).map(([id, r]) => [id, r.length]));
 
 /** The API a refusal names, and which document reported it. */
-const apiOf = e => /\(([\w.]+)\)\. A task's/.exec(e.message)?.[1] ?? e.message;
+const apiOf = e => / \(([\w.]+)\)\. The (?:agent|page) /.exec(e.message)?.[1] ?? e.message;
 const whereOf = e =>
   e.url === `${vectors.base}/vectors` || e.url === `${vectors.base}/vectors-net` ? "page" : e.url === "about:blank" ? "frame" : e.url.startsWith(vectors.crossBase) ? "cross" : e.url;
 
@@ -287,9 +290,83 @@ const ALL = {
     : { ...NOT_ON_MAC, "devices-cross-frame": ["NotAllowedError", "error 1", "NotAllowedError"] }),
 };
 
-test("an agent task's pages get a user's no from every device and location API, and no request reaches MediaManager or the geolocation provider", () =>
+/** The devices alone: while the agent drives, these are refused; location and MIDI go on. */
+const MEDIA = {
+  camera: ["NotAllowedError"],
+  microphone: ["NotAllowedError"],
+  "moz-get-user-media": ["NotAllowedError"],
+  "enumerate-devices": ["devices 0"],
+  "media-fresh-frame": ["NotAllowedError", "NotAllowedError"],
+  "media-cross-frame": ["NotAllowedError"],
+  ...(MAC ? {} : { screen: ["NotAllowedError"], "select-audio-output": ["NotAllowedError"], "speech-recognition": ["error not-allowed", "end"] }),
+};
+// zen-ux's card reads what was asked from these, not from the message.
+const MEDIA_WORDS = { "the camera and microphone": "camera microphone", "the camera": "camera", "the microphone": "microphone", "the screen": "screen", "the camera or microphone": "camera microphone" };
+const ASKED = {
+  enumerateDevices: "device list",
+  "geolocation.getCurrentPosition": "location",
+  "geolocation.watchPosition": "location",
+  getDisplayMedia: "screen",
+  selectAudioOutput: "speakers",
+  requestMIDIAccess: "midi",
+  "SpeechRecognition.start": "microphone",
+};
+function checkWhat(events) {
+  const media = e => MEDIA_WORDS[/^The page asked for (.*?) \((?:moz)?getUserMedia\)/i.exec(e.message)?.[1]];
+  for (const e of events) {
+    assert.equal(e.api, apiOf(e), JSON.stringify(e));
+    assert.equal(e.asked, /getUserMedia$/i.test(e.api) ? media(e) : ASKED[e.api], JSON.stringify(e));
+  }
+}
+/** The agent's code leaves a style sheet in the page: evidence (hooked) for it and its frames. */
+const hook = async page => {
+  await page.evaluate(() => {
+    document.head.append(Object.assign(document.createElement("style"), { textContent: "#zo-hooked {}" }));
+    return 1;
+  });
+  const reasons = await env.chrome(
+    `return ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/evidence.sys.mjs").evidenceOf(ctx.resolvePage(arg).browser);`,
+    page.P
+  );
+  assert.deepEqual(reasons, { hooked: "a style sheet" });
+};
+
+test("while the agent drives, a task's pages get a user's no from the camera, microphone, screen, speakers and speech recognition, and an empty device list: no request reaches MediaManager", () =>
   env.inSpace("devices", async page => {
     await page.goto(`${vectors.base}/vectors`);
+    await page.call("page.events");
+    const before = await counters();
+    await runVectors(page, `setTimeout(() => { for (const id of ${JSON.stringify(Object.keys(MEDIA))}) window.__vectors[id](); }, 0); 1`);
+    assert.deepEqual(await outcomes(page, counts(MEDIA)), MEDIA);
+    await sleep(300);
+    assert.deepEqual(await counters(), before, "no WebRTC request reached the parent");
+
+    const events = await refusedEvents(page);
+    assert.ok(events.every(e => e.kind === "deviceAccess"), JSON.stringify(events));
+    checkWhat(events);
+    // Once per document and API: the page, its fresh frame, its cross-site frame.
+    assert.deepEqual(
+      events.map(e => `${whereOf(e)} ${apiOf(e)}`).sort(),
+      [
+        "page getUserMedia",
+        "page mozGetUserMedia",
+        "page enumerateDevices",
+        "frame getUserMedia",
+        "cross getUserMedia",
+        ...(MAC ? [] : ["page getDisplayMedia", "page selectAudioOutput", "page SpeechRecognition.start"]),
+      ].sort(),
+      JSON.stringify(events)
+    );
+    assert.ok(
+      events.some(e => e.message.startsWith("The page asked for the camera and microphone (getUserMedia). The agent never uses the user's devices, so zenius refused it before any prompt (NotAllowedError).")),
+      JSON.stringify(events)
+    );
+  }));
+
+test("on evidence (here the agent's code left a style sheet), every device, location and MIDI request in a task's page and its frames is refused, and none reaches MediaManager or the geolocation provider", () =>
+  env.inSpace("devices evidence", async page => {
+    await page.goto(`${vectors.base}/vectors`);
+    await hook(page);
     await page.call("page.events");
     const before = await counters();
     await runVectors(page, `setTimeout(() => { for (const id of ${JSON.stringify(Object.keys(ALL))}) window.__vectors[id](); }, 0); 1`);
@@ -299,23 +376,7 @@ test("an agent task's pages get a user's no from every device and location API, 
 
     const events = await refusedEvents(page);
     assert.ok(events.every(e => e.kind === "deviceAccess"), JSON.stringify(events));
-    // zen-ux's card reads what was asked from these, not from the message.
-    const MEDIA = { "the camera and microphone": "camera microphone", "the camera": "camera", "the microphone": "microphone", "the screen": "screen", "the camera or microphone": "camera microphone" };
-    const media = e => MEDIA[/^The page asked for (.*?) \((?:moz)?getUserMedia\)/i.exec(e.message)?.[1]];
-    const ASKED = {
-      enumerateDevices: "device list",
-      "geolocation.getCurrentPosition": "location",
-      "geolocation.watchPosition": "location",
-      getDisplayMedia: "screen",
-      selectAudioOutput: "speakers",
-      requestMIDIAccess: "midi",
-      "SpeechRecognition.start": "microphone",
-    };
-    for (const e of events) {
-      assert.equal(e.api, apiOf(e), JSON.stringify(e));
-      assert.equal(e.asked, /getUserMedia$/i.test(e.api) ? media(e) : ASKED[e.api], JSON.stringify(e));
-    }
-    // Once per document and API: the page, its fresh frame, its cross-site frame.
+    checkWhat(events);
     assert.deepEqual(
       events.map(e => `${whereOf(e)} ${apiOf(e)}`).sort(),
       [
@@ -335,10 +396,27 @@ test("an agent task's pages get a user's no from every device and location API, 
       JSON.stringify(events)
     );
     assert.ok(
-      events.some(e => e.message.startsWith("The page asked for the camera and microphone (getUserMedia). A task's pages never use the user's devices or location")),
+      events.some(e => e.message.startsWith("The page asked for the user's location (geolocation.getCurrentPosition). The page shows evidence of danger (hooked: a style sheet), so zenius refused it before any prompt (PERMISSION_DENIED), during the user's hold too.")),
       JSON.stringify(events)
     );
   }));
+
+test(
+  "while the agent drives, a task's page asks for the location as any site does: with the site's grant, the provider is asked",
+  { skip: MAC && "it would be Zen.app asking macOS for the location" },
+  () =>
+    env.inSpace("location", async page => {
+      await page.goto(`${vectors.base}/vectors`);
+      await page.call("page.events");
+      const before = await counters();
+      await runVectors(page, `window.__vectors.geolocation(); 1`);
+      // A hidden document gets no position: the request times out once the provider was asked.
+      const { geolocation } = await outcomes(page, { geolocation: 1 });
+      assert.match(geolocation[0], /^(?:position|error 3)$/);
+      assert.ok((await counters()).geo > before.geo, "the geolocation provider was asked");
+      assert.deepEqual((await refusedEvents(page)).filter(e => e.kind === "deviceAccess"), []);
+    })
+);
 
 test("workers have none of these APIs", () =>
   env.inSpace("devices workers", async page => {
@@ -354,27 +432,38 @@ test("workers have none of these APIs", () =>
     assert.deepEqual(JSON.parse(seen), ["undefined undefined undefined undefined", "undefined undefined undefined undefined"]);
   }));
 
-test("a popup's first document is refused at once, before the popup is the task's", () =>
+test("a popup an agent-driven page opens is refused the camera from its first document, before the popup is the task's", () =>
   env.inSpace("devices popup", async page => {
     await page.goto(`${vectors.base}/vectors`);
     const before = await counters();
-    await page.call("page.click", { target: "#v-devices-popup" });
-    assert.deepEqual(await outcomes(page, { "devices-popup": 2 }), { "devices-popup": ["NotAllowedError", "error 1"] });
+    await page.call("page.click", { target: "#v-media-popup" });
+    assert.deepEqual(await outcomes(page, { "media-popup": 1 }), { "media-popup": ["NotAllowedError"] });
     await sleep(300);
     assert.deepEqual(await counters(), before);
   }));
 
-test("the refusals hold while the user holds the task", () =>
+test("during the user's hold, a task's page uses the camera, the device list and the location as a tab of the user's does: its requests reach MediaManager and the provider", () =>
   env.inSpace("devices hold", async page => {
     await page.goto(`${vectors.base}/vectors`);
+    await page.call("page.events");
+    const browserId = await env.chrome(`return ctx.resolvePage(arg).browser.browserId;`, page.P);
     const before = await counters();
-    const held = { camera: ["NotAllowedError"], geolocation: ["error 1"], ...(MAC ? {} : { midi: ["NotAllowedError"] }) };
-    await runVectors(page, `setTimeout(() => { for (const id of ${JSON.stringify(Object.keys(held))}) window.__vectors[id](); }, 600); 1`);
+    // Location only where the site has a grant: elsewhere it waits for the user's answer.
+    const ids = ["camera", "enumerate-devices", ...(MAC ? [] : ["geolocation"])];
+    await runVectors(page, `setTimeout(() => { for (const id of ${JSON.stringify(ids)}) window.__vectors[id](); }, 600); 1`);
     await page.call("spaces.handOff", { reason: "manual_takeover" });
     await sleep(2000);
     await page.call("spaces.takeOver");
-    assert.deepEqual(await outcomes(page, counts(held)), held);
-    assert.deepEqual(await counters(), before);
+    const out = await outcomes(page, Object.fromEntries(ids.map(id => [id, 1])));
+    // The counter's no, standing for the user's answer to Firefox's prompt.
+    assert.deepEqual(out.camera, ["NotAllowedError"]);
+    assert.match(out["enumerate-devices"][0], /^devices [1-9]\d*$/, "the fake devices listed");
+    assert.deepEqual((await webrtcRequests()).slice(before.webrtc), [browserId], "the camera request reached the parent");
+    if (!MAC) {
+      assert.match(out.geolocation[0], /^(?:position|error 3)$/);
+      assert.ok((await counters()).geo > before.geo, "the geolocation provider was asked");
+    }
+    assert.deepEqual((await refusedEvents(page)).filter(e => e.kind === "deviceAccess"), []);
   }));
 
 /**
@@ -490,6 +579,17 @@ const hits = () => ({ ...vectors.stats.hits });
 const newHits = before => Object.fromEntries(Object.entries(vectors.stats.hits).filter(([k, n]) => n !== (before[k] ?? 0)).map(([k, n]) => [k, n - (before[k] ?? 0)]));
 const run = (page, ids, delay = 0) =>
   runVectors(page, `setTimeout(() => { for (const id of ${JSON.stringify(ids)}) window.__vectors[id](); }, ${delay}); 1`);
+/** Firefox's own notification windows open now (with alerts.useSystemBackend off). */
+const alertWindows = () => env.chrome(`return [...Services.wm.getEnumerator("alert:alert")].length;`);
+/** Close them, and give the browser window back the focus an alert window took. */
+const closeAlerts = () =>
+  env.chrome(`
+    for (const w of Services.wm.getEnumerator("alert:alert")) { try { w.close(); } catch {} }
+    const browserActive = () => Services.focus.activeWindow?.document?.documentElement?.getAttribute("windowtype") === "navigator:browser";
+    for (let i = 0; i < 40 && !browserActive(); i++) await new Promise(r => setTimeout(r, 50));
+    if (!browserActive()) Services.wm.getMostRecentWindow("navigator:browser")?.focus();
+    for (let i = 0; i < 40 && !browserActive(); i++) await new Promise(r => setTimeout(r, 50));
+    return browserActive();`);
 const NOTIFICATION_GRANT = verb =>
   env.chrome(
     `const p = Services.scriptSecurityManager.createContentPrincipalFromOrigin(arg);
@@ -506,9 +606,28 @@ test("the workers' fake Notification is the pages' (two copies of one text)", ()
   assert.equal(fake("../../runtime/JS/zenius/content/workerguard.js"), page);
 });
 
-test("notifications are refused in a task's pages, their fresh frames and their workers", () =>
+/** A notification without the site's grant, as Firefox answers it: it errs, and nothing shows. */
+const NOTIFY_NATIVE = {
+  "notify-show": ["permission default", "error"],
+  "notify-prototype": ["error"],
+  "notify-fresh-frame": ["error"],
+  "notify-worker": ["error"],
+};
+
+test("without evidence, a task's pages make their notifications as any site does; their workers' are refused for the task's whole life", () =>
   env.inSpace("notifications", async page => {
     await page.goto(`${vectors.base}/vectors-net`);
+    await page.call("page.events");
+    await run(page, Object.keys(NOTIFY_NATIVE));
+    assert.deepEqual(await outcomes(page, counts(NOTIFY_NATIVE)), NOTIFY_NATIVE);
+    const events = (await refusedEvents(page)).filter(e => e.kind === "notification");
+    assert.deepEqual(events.map(e => `${whereOf(e)} ${/^A worker the page started/.test(e.message) ? "worker" : "document"}`), ["page worker"], JSON.stringify(events));
+  }));
+
+test("on evidence, notifications are refused in a task's pages, their fresh frames and their workers", () =>
+  env.inSpace("notifications evidence", async page => {
+    await page.goto(`${vectors.base}/vectors-net`);
+    await hook(page);
     await run(page, Object.keys(NOTIFY));
     assert.deepEqual(await outcomes(page, counts(NOTIFY)), NOTIFY);
     const events = (await refusedEvents(page)).filter(e => e.kind === "notification");
@@ -525,12 +644,16 @@ test("notifications are refused in a task's pages, their fresh frames and their 
   }));
 
 test(
-  "where the site may show notifications, nothing shows: zen-ux's quiet one while the agent drives, a refusal while the user holds the task and in workers",
+  "where the site may show notifications: zen-ux's quiet one while the agent drives and a refusal in workers; during the user's hold the page's own goes on",
   { skip: MAC && "a miss would be a real notification on the Mac's screen" },
   async () => {
+    // Firefox's own alert window: the Linux server has no notification daemon, where the
+    // system backend fails and the page would hear "error".
+    const saved = await env.chrome(SET_PREFS, { "alerts.useSystemBackend": false });
     await NOTIFICATION_GRANT("allow");
     try {
       await env.inSpace("notifications granted", async page => {
+        const shown = await alertWindows();
         await page.goto(`${vectors.base}/vectors-net`);
         await run(page, ["notify-show", "notify-worker"]);
         assert.deepEqual(await outcomes(page, { "notify-show": 2, "notify-worker": 1 }), {
@@ -540,23 +663,35 @@ test(
         const events = await page.call("page.events");
         assert.ok(events.some(e => e.method === "Zenius.notification" && e.params.title === "zenius vector"), "zen-ux's guard told the agent");
         assert.ok(events.some(e => e.method === "Zenius.refused" && e.params.kind === "notification" && /^A worker the page started/.test(e.params.message)));
+        assert.equal(await alertWindows(), shown, "zen-ux's quiet one shows nothing");
       });
       await env.inSpace("notifications granted hold", async page => {
+        const shown = await alertWindows();
         await page.goto(`${vectors.base}/vectors-net`);
+        await page.call("page.events");
         await run(page, ["notify-show"], 600);
         await page.call("spaces.handOff", { reason: "manual_takeover" });
         await sleep(2000);
         await page.call("spaces.takeOver");
-        assert.deepEqual(await outcomes(page, { "notify-show": 2 }), { "notify-show": ["permission granted", "error"] });
-        assert.ok((await refusedEvents(page)).some(e => e.kind === "notification" && whereOf(e) === "page"));
+        assert.deepEqual(await outcomes(page, { "notify-show": 2 }), { "notify-show": ["permission granted", "shown"] });
+        assert.equal(await alertWindows(), shown + 1, "Firefox showed the page's own");
+        // Headless gives the alert window focus, which a system notification
+        // never takes: close it and give the browser window its focus back,
+        // so the I1 check sees what the user would.
+        await closeAlerts();
+        const events = await page.call("page.events");
+        assert.deepEqual(events.filter(e => e.method === "Zenius.notification"), [], "not zen-ux's quiet one");
+        assert.deepEqual(events.filter(e => e.method === "Zenius.refused" && e.params.kind === "notification"), []);
       });
     } finally {
       await NOTIFICATION_GRANT("remove");
+      await closeAlerts().catch(() => {});
+      await env.chrome(RESTORE_PREFS, saved).catch(() => {});
     }
   }
 );
 
-test("WebRTC is refused in a task's pages and their fresh frames: the browser made no peer connection", () =>
+test("while the agent drives, WebRTC is refused in a task's pages and their fresh frames: the browser made no peer connection; during the user's hold the page makes its own", () =>
   env.inSpace("webrtc", async page => {
     await page.goto(`${vectors.base}/vectors-net`);
     const before = await peerConnections();
@@ -566,6 +701,13 @@ test("WebRTC is refused in a task's pages and their fresh frames: the browser ma
     const events = (await refusedEvents(page)).filter(e => e.kind === "localNetwork");
     assert.deepEqual(events.map(whereOf).sort(), ["frame", "page"], JSON.stringify(events));
     assert.ok(events.every(e => e.message.startsWith("The page tried to open a WebRTC connection (new RTCPeerConnection).")));
+
+    await runVectors(page, `window.__vectorResults.rtc = []; setTimeout(() => window.__vectors.rtc(), 600); 1`);
+    await page.call("spaces.handOff", { reason: "manual_takeover" });
+    await sleep(1500);
+    await page.call("spaces.takeOver");
+    assert.deepEqual(await outcomes(page, { rtc: 1 }), { rtc: ["made"] });
+    assert.ok((await peerConnections()) > before, "the browser lists the page's peer connection");
   }));
 
 test("a task's pages never reach a private or link-local address or a .local name; loopback and the user's list stay open", () =>
@@ -625,7 +767,7 @@ test("page.goto refuses the local network before loading, and says so when a red
     assert.deepEqual(newHits(before), { "goto-allowed": 1 });
   }));
 
-test("the local network stays refused while the user holds the task", () =>
+test("the local network stays refused while the user holds the task; WebRTC is the user's then, as the devices are (A8)", () =>
   env.inSpace("local network hold", async page => {
     await page.goto(`${vectors.base}/vectors-net`);
     const before = hits();
@@ -633,7 +775,7 @@ test("the local network stays refused while the user holds the task", () =>
     await page.call("spaces.handOff", { reason: "manual_takeover" });
     await sleep(2000);
     await page.call("spaces.takeOver");
-    assert.deepEqual(await outcomes(page, { "lan-name": 1, rtc: 1 }), { "lan-name": ["TypeError"], rtc: ["NotAllowedError"] });
+    assert.deepEqual(await outcomes(page, { "lan-name": 1, rtc: 1 }), { "lan-name": ["TypeError"], rtc: ["made"] });
     assert.deepEqual(newHits(before), {});
   }));
 
@@ -1037,7 +1179,7 @@ test("a load the user starts in a task's tab during their hold is refused, and z
     }
   }));
 
-test("a kept page on a site where the agent's code ran elsewhere keeps the refusals too (zen-ux's mark, by site)", async () => {
+test("a kept page on a site where the agent's code ran elsewhere is the user's: with no evidence, its camera request reaches MediaManager", async () => {
   const mark = `zo-kept-site-${Date.now()}`;
   const space = await env.call("spaces.create", { name: `kept site ${Date.now() % 100000}` });
   let finished = false;
@@ -1049,11 +1191,10 @@ test("a kept page on a site where the agent's code ran elsewhere keeps the refus
     await env.chrome(`ctx.resolvePage(arg.P).tab.setAttribute(arg.mark, "kept"); return true;`, { P: { space: space.id, page: label }, mark });
     await env.call("spaces.finish", { space: space.id, keep: ["p1", label] });
     finished = true;
-    const out = await until("the kept page's refusal", async () => {
-      const r = (await tabRun(mark, `return await navigator.mediaDevices.getUserMedia({ video: true }).then(() => "granted", e => e.name);`)).out;
-      return r === "NotAllowedError" ? r : null;
-    }, 3000);
-    assert.equal(out, "NotAllowedError");
+    const before = await counters();
+    const { browserId, out } = await tabRun(mark, `return await navigator.mediaDevices.getUserMedia({ video: true }).then(() => "granted", e => e.name);`);
+    assert.equal(out, "NotAllowedError", "the counter's no");
+    assert.deepEqual((await webrtcRequests()).slice(before.webrtc), [browserId], "the request reached the parent");
   } finally {
     if (!finished) {
       await env.call("spaces.finish", { space: space.id, keep: [] }).catch(() => {});
@@ -1079,10 +1220,12 @@ test("a link the user clicks in a kept page the agent's code wrote: the press lo
   );
   try {
     await env.call("page.goto", { ...P, url: `${vectors.base}/plain?kept-link` });
-    // The agent's code adds the link: the page ran it.
+    // The agent's code adds the link: the page ran it. And a style sheet,
+    // so the page is hooked: a link alone is no evidence, and the typing
+    // guard holds the user's press only in a hooked page (zen-input's glue).
     await env.call("page.evaluate", {
       ...P,
-      fn: `() => { const a = document.createElement("a"); a.id = "lan"; a.href = "http://lan.local:${port}/hit?kept-link"; a.textContent = "the printer"; document.body.append(a); }`,
+      fn: `() => { const a = document.createElement("a"); a.id = "lan"; a.href = "http://lan.local:${port}/hit?kept-link"; a.textContent = "the printer"; document.body.append(a); document.head.append(document.createElement("style")); }`,
       isFunction: true,
     });
     await env.chrome(`ctx.resolvePage(arg.P).tab.setAttribute(arg.mark, "kept"); return true;`, { P, mark });
@@ -1122,6 +1265,71 @@ test("a link the user clicks in a kept page the agent's code wrote: the press lo
     assert.deepEqual(newHits(before), {});
   } finally {
     await env.chrome(`Services.prefs.clearUserPref("zenius.handoff.quietReload"); return true;`).catch(() => {});
+    await env.chrome(`win.__zoUnlisten?.(); delete win.__zoUnlisten; delete win.__zoNotices; return true;`).catch(() => {});
+    if (!finished) {
+      await env.call("spaces.finish", { space: space.id, keep: [] }).catch(() => {});
+    }
+    await removeTabs(mark).catch(() => {});
+  }
+});
+
+test("a plain link the agent's code wrote in a kept page is no evidence (B), so the user's click follows it with no clean copy first; the local network stays refused there, since the agent wrote into the page, and zen-ux's notice hears of it (zen-input's case)", async () => {
+  const mark = `zo-kept-plain-link-${Date.now()}`;
+  const port = new URL(vectors.base).port;
+  const space = await env.call("spaces.create", { name: `kept plain link ${Date.now() % 100000}` });
+  const P = { space: space.id, page: "p1" };
+  let finished = false;
+  await env.chrome(
+    `win.__zoNotices = [];
+     const L = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/localnet.sys.mjs");
+     win.__zoUnlisten = L.onUserLoadRefused(n => win.__zoNotices.push({ url: n.url, typed: n.typed, scope: n.scope }));
+     return true;`
+  );
+  try {
+    await env.call("page.goto", { ...P, url: `${vectors.base}/plain?kept-plain-link` });
+    await env.call("page.evaluate", {
+      ...P,
+      fn: `() => { const a = document.createElement("a"); a.id = "lan"; a.href = "http://lan.local:${port}/hit?kept-plain-link"; a.textContent = "the printer"; document.body.append(a); }`,
+      isFunction: true,
+    });
+    assert.deepEqual(
+      await env.chrome(
+        `const EV = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/evidence.sys.mjs");
+         return EV.evidenceOf(ctx.resolvePage(arg.P).browser);`,
+        { P }
+      ),
+      {},
+      "a plain link is no evidence"
+    );
+    await env.chrome(`ctx.resolvePage(arg.P).tab.setAttribute(arg.mark, "kept"); return true;`, { P, mark });
+    await env.call("spaces.finish", { space: space.id, keep: ["p1"] });
+    finished = true;
+    const before = hits();
+    const find = `[...(win.gZenWorkspaces?.allStoredTabs ?? win.gBrowser.tabs)].find(t => t.hasAttribute(arg.mark))`;
+    // The user clicks it, as a user does: with user activation.
+    await env.chrome(
+      `const tab = [...(win.gZenWorkspaces?.allStoredTabs ?? win.gBrowser.tabs)].find(t => t.hasAttribute(arg));
+       return await ctx.content(tab.linkedBrowser.browsingContext, "dev#evalContent", {
+         privileged: true,
+         code: \`const el = actor.document.querySelector("#lan");
+           const r = el.getBoundingClientRect(); const w = actor.contentWindow;
+           w.synthesizeMouseEvent("mousedown", r.x + r.width / 2, r.y + r.height / 2, { button: 0, buttons: 1, clickCount: 1 }, {});
+           w.synthesizeMouseEvent("mouseup", r.x + r.width / 2, r.y + r.height / 2, { button: 0, buttons: 0, clickCount: 1 }, {});
+           return true\`,
+       });`,
+      mark
+    );
+    // No evidence, so no clean copy: the press follows the agent's link. The
+    // agent's code wrote into the page, though, so the task's refusals stay
+    // in it (observe/agentcode.sys.mjs keeps a written page's mark), the
+    // local network's among them; the user's own typed load would go.
+    await until("the refused load", async () => (await env.chrome(`return win.__zoNotices.length;`)) > 0);
+    await sleep(300);
+    assert.deepEqual(await env.chrome(`return win.__zoNotices;`), [{ url: `http://lan.local:${port}/hit?kept-plain-link`, typed: false, scope: "agentCode" }]);
+    assert.deepEqual(newHits(before), {});
+    assert.equal(await env.chrome(`return ${find}.linkedBrowser.currentURI.spec;`, { mark }), `${vectors.base}/plain?kept-plain-link`);
+    assert.equal((await tabRun(mark, `return !!document.querySelector("#lan");`)).out, true, "the agent's link is still there: no clean copy");
+  } finally {
     await env.chrome(`win.__zoUnlisten?.(); delete win.__zoUnlisten; delete win.__zoNotices; return true;`).catch(() => {});
     if (!finished) {
       await env.call("spaces.finish", { space: space.id, keep: [] }).catch(() => {});

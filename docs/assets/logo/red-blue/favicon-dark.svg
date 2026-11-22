@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 1000 1000" role="img" aria-label="zen(ius)">
+<defs><linearGradient id="red-blue-dark-grad1" gradientUnits="userSpaceOnUse" x1="393.36" y1="125.8" x2="582.31" y2="839.45"><stop offset="0" stop-color="#E2475A" stop-opacity="1"/><stop offset="0.45" stop-color="#EC5B67" stop-opacity="1"/><stop offset="1" stop-color="#F39AA0" stop-opacity="1"/></linearGradient><linearGradient id="red-blue-dark-grad2" gradientUnits="userSpaceOnUse" x1="257.02" y1="809.53" x2="839.57" y2="697.77"><stop offset="0" stop-color="#4A66FF" stop-opacity="1"/><stop offset="1" stop-color="#3A22C4" stop-opacity="1"/></linearGradient><linearGradient id="red-blue-dark-grad3" gradientUnits="userSpaceOnUse" x1="393.36" y1="125.8" x2="582.31" y2="839.45"><stop offset="0" stop-color="#E2475A" stop-opacity="1"/><stop offset="0.45" stop-color="#EC5B67" stop-opacity="1"/><stop offset="1" stop-color="#F39AA0" stop-opacity="1"/></linearGradient></defs>
+<rect width="1000" height="1000" rx="210" fill="#18181D"/>
+<g transform="translate(-38.21 40.93) scale(0.98)">
+<g style="isolation:isolate">
+<path d="M283.96 746.23 L393.36 125.8" fill="none" stroke="url(#red-blue-dark-grad1)" stroke-width="172" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M257.02 809.53 L283.96 746.23 Q450.39 355.19 787.93 652.31 L839.57 697.77" fill="none" stroke="url(#red-blue-dark-grad2)" stroke-width="172" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
+<path d="M787.93 652.31 L393.36 125.8" fill="none" stroke="url(#red-blue-dark-grad3)" stroke-width="172" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+</g>
+</g>
+</svg>

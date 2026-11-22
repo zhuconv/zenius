@@ -21,6 +21,7 @@
 import { MADE_DOCS_KEY, WORLD_URL, WRITTEN_DOCS_KEY } from "chrome://userscripts/content/zenius/content/worldkeys.sys.mjs";
 import { AGENT_CODE_DOCS_KEY, TASK_SPACES_KEY } from "chrome://userscripts/content/zenius/content/refusals.sys.mjs";
 import { AGENT_BROWSERS_KEY } from "chrome://userscripts/content/zenius/content/guards.sys.mjs";
+import { markEvident, onEvidentMessage } from "chrome://userscripts/content/zenius/observe/evidence.sys.mjs";
 
 const lazy = {};
 // Loaded only once a document is marked: the user's own pages never load it (I4).
@@ -210,6 +211,11 @@ export function noteMade(bc) {
   }
   made.set(id, top.browserId);
   publish(MADE_DOCS_KEY, made);
+  let scheme = "data";
+  try {
+    scheme = top.currentWindowGlobal.documentURI?.scheme || scheme;
+  } catch {}
+  markEvident(top.currentWindowGlobal, "made", `a ${scheme}: page`);
 }
 
 /** Was the page's current top document made by the agent (data:, blob:)? */
@@ -510,10 +516,12 @@ export function setAgentWorldActive(on) {
   listening = !!on;
   if (listening) {
     Services.ppmm.addMessageListener("zenius:written", onWrittenMessage);
+    Services.ppmm.addMessageListener("zenius:evident", onEvidentMessage);
     Services.ppmm.addMessageListener("zenius:worldStop", onWorldStop);
     Services.obs.addObserver(onHangReport, "process-hang-report");
   } else {
     Services.ppmm.removeMessageListener("zenius:written", onWrittenMessage);
+    Services.ppmm.removeMessageListener("zenius:evident", onEvidentMessage);
     Services.ppmm.removeMessageListener("zenius:worldStop", onWorldStop);
     Services.obs.removeObserver(onHangReport, "process-hang-report");
     stopAsks.clear();

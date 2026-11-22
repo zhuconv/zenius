@@ -13,9 +13,10 @@ import { marked } from "./vendor/marked.esm.js";
 import { imageFromClipboard, kindOf, readAttachment, Refused } from "./attachments.mjs";
 import { copyText, extensionFor, fileName, saveText } from "./saving.mjs";
 
-const { AgentService, MODEL_OPTION, EFFORT_OPTIONS, optionValues, STATE_LABELS, age } = ChromeUtils.importESModule(
+const { AgentService, isCredentialAsk, MODEL_OPTION, EFFORT_OPTIONS, optionValues, concreteModel, modelGeneration, newestModels, STATE_LABELS, age, remoteSource, remoteEnd } = ChromeUtils.importESModule(
   new URL("AgentService.sys.mjs", import.meta.url).href
 );
+const { ENDED_TEXT, sourceParts } = ChromeUtils.importESModule(new URL("external.sys.mjs", import.meta.url).href);
 const glue = window.browsingContext.topChromeWindow.ucAgentSidebar;
 const parser = Cc["@mozilla.org/parserutils;1"].getService(Ci.nsIParserUtils);
 const BLANK = Services.io.newURI("about:blank");
@@ -27,6 +28,9 @@ const PLACEHOLDERS = {
 };
 const DEFAULT_FAVICON = "chrome://global/skin/icons/defaultFavicon.svg";
 const CTRL_TAB = Services.appinfo.OS === "Darwin" ? "⌃Tab" : "Ctrl+Tab";
+// Steer's keys: Cmd+Enter on a Mac, Ctrl+Enter elsewhere.
+const STEER_KEY = Services.appinfo.OS === "Darwin" ? "⌘Enter" : "Ctrl+Enter";
+const steerKey = event => (Services.appinfo.OS === "Darwin" ? event.metaKey : event.ctrlKey);
 // The live card's picture is drawn again this often while the agent works.
 const LIVE_EVERY_MS = 2000;
 
@@ -39,6 +43,13 @@ const els = {
   live: $("live"),
   liveShot: $("live-shot"),
   liveText: $("live-text"),
+  liveSrc: $("live-src"),
+  remoteEnd: $("remote-end"),
+  arrival: $("arrival"),
+  arrivalText: $("arrival-text"),
+  arrivalWatch: $("arrival-watch"),
+  arrivalStop: $("arrival-stop"),
+  arrivalClose: $("arrival-close"),
   watch: $("watch"),
   watchHint: $("watch-hint"),
   takeOver: $("take-over"),
@@ -52,17 +63,31 @@ const els = {
   removeTask: $("remove-task"),
   messages: $("messages"),
   empty: $("empty"),
-  model: $("model"),
+  pick: $("pick"),
+  pickModel: $("pick-model"),
   pickDot: $("pick-dot"),
-  effort: $("effort"),
+  pickEffort: $("pick-effort"),
+  picker: $("picker"),
+  pickSearch: $("pick-search"),
+  pickFam: $("pick-fam"),
+  pickNote: $("pick-note"),
+  pickList: $("pick-list"),
+  pickFly: $("pick-fly"),
+  box: $("box"),
   input: $("input"),
   send: $("send"),
   stop: $("stop"),
+  steer: $("steer"),
+  queue: $("queue"),
+  queueList: $("queue-list"),
   chip: $("chip"),
   chipText: $("chip-text"),
   attachments: $("attachments"),
   attach: $("attach"),
   fileInput: $("file-input"),
+  extBar: $("ext-bar"),
+  extBarText: $("ext-bar-text"),
+  extStop: $("ext-stop"),
 };
 
 let conv = null;
@@ -149,6 +174,24 @@ function div(className, text) {
   return el;
 }
 
+/**
+ * Fill `el` with a remote task's source ("From <address> · <label>",
+ * remoteSource), its address, the first isolate, set apart as a chip. The
+ * text stays the same. The isolate's marks stay outside the chip: Gecko
+ * breaks a line after a leading one even in a nowrap span, which leaves a
+ * sliver of the chip on the line before (seen in Zen's narrow sidebar).
+ */
+function fillSource(el, text) {
+  const start = text.indexOf("\u2068");
+  const end = start < 0 ? -1 : text.indexOf("\u2069", start);
+  if (end < 0) {
+    el.textContent = text;
+  } else {
+    el.replaceChildren(text.slice(0, start + 1), span("addr", text.slice(start + 1, end)), text.slice(end));
+  }
+  return el;
+}
+
 function span(className, text) {
   const el = document.createElement("span");
   el.className = className;
@@ -178,10 +221,142 @@ function fileBadge(file, className) {
 function listFor(c) {
   let list = lists.get(c);
   if (!list) {
-    list = div("list");
+    list = c.external ? externalView() : div("list");
     lists.set(c, list);
   }
   return list;
+}
+
+// --- A task the sidebar doesn't drive (external.sys.mjs) ---------------------
+//
+// Read-only (the user's ask, docs/briefs/external-tasks.md): where it's driven
+// from, its steps from the runtime's own record (zen-input's ring), a card
+// while it needs the user, then the live card. Every part from the page or the
+// agent goes in as text, and each name a step quotes sits in its own isolate,
+// so a step can't pass for a row of the panel's or pull the panel's words
+// around (zen-snapshot's points for external tasks).
+
+function externalView() {
+  const view = div("list ext-view");
+  const src = div("ext-src");
+  src.id = "ext-src";
+  const steps = div("ext-steps");
+  steps.id = "ext-steps";
+  view.append(src, steps);
+  return view;
+}
+
+/** One line of text, at most `max` characters, for what a step or the agent says. */
+function plainText(text, max) {
+  return typeof text === "string" ? text.replace(/[\s\p{Cc}\p{Cf}]+/gu, " ").trim().slice(0, max) : "";
+}
+
+/**
+ * A step's text, each double-quoted name in its own isolate (dir="auto"):
+ * zen-input quotes a page's names and turns quote marks inside them into
+ * apostrophes, so the pairs can't mix ('Drag "Card" to "Done"').
+ */
+function fillStepText(el, text) {
+  const parts = text.split('"');
+  const nodes = [];
+  parts.forEach((part, i) => {
+    if (i % 2 === 1 && i < parts.length - 1) {
+      const name = span("ext-name", part);
+      name.dir = "auto";
+      nodes.push('"', name, '"');
+    } else if (part) {
+      nodes.push(i % 2 === 1 ? `"${part}` : part);
+    }
+  });
+  el.replaceChildren(...nodes);
+}
+
+/** "14:03:27": when a step began. */
+function clockTime(at) {
+  return Number.isFinite(at) ? new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) : "";
+}
+
+/** A step's row: its text, its page when the task has more than one, its
+ * outcome, its time. `prev` is the step before it: the look shows a page
+ * where it changes (data-same-page). */
+function stepRow(step, withPage, prev = null) {
+  const outcome = step.outcome === "running" ? "running" : step.outcome === "ok" ? "ok" : "failed";
+  const row = div("ext-step");
+  row.dataset.step = String(step.id);
+  row.dataset.outcome = outcome;
+  const text = span("ext-text");
+  fillStepText(text, plainText(step.text, 300));
+  row.append(text);
+  if (withPage && step.page) {
+    row.append(span("ext-page", plainText(step.page, 40)));
+    if (prev?.page === step.page) {
+      row.dataset.samePage = "true";
+    }
+  }
+  row.append(span("ext-outcome", outcome === "failed" ? plainText(String(step.outcome ?? ""), 60) : ""), span("ext-time", clockTime(step.at)));
+  return row;
+}
+
+/** The external view's source line, steps and needs card, from the task as it stands. */
+function renderExternal() {
+  if (!conv?.external) {
+    return;
+  }
+  const view = listFor(conv);
+  // The task's state, for the look: a running step waits for the user while
+  // it needs them, and has stopped once the task ended.
+  view.dataset.state = conv.task.state;
+  const src = view.querySelector(".ext-src");
+  const parts = sourceParts(conv.from);
+  const line = `Driven from ${parts ? parts.text : "elsewhere"} · read-only`;
+  if (parts?.terminal) {
+    fillSource(src, line);
+  } else {
+    src.textContent = line;
+  }
+  const steps = AgentService.externalTasks()?.steps(conv) ?? [];
+  const withPage = new Set(steps.map(step => step.page).filter(Boolean)).size > 1;
+  const box = view.querySelector(".ext-steps");
+  const bottom = nearBottom();
+  box.replaceChildren(...(steps.length ? steps.map((step, i) => stepRow(step, withPage, steps[i - 1])) : [div("ext-empty", "No steps yet")]));
+  view.querySelector(".ext-needs")?.remove();
+  if (conv.task.state === "needs") {
+    const card = div("ext-needs");
+    const text = span("ext-needs-text", conv.task.text);
+    text.dir = "auto";
+    const watch = document.createElement("button");
+    watch.className = "ghost";
+    watch.textContent = "Watch";
+    watch.addEventListener("click", () => {
+      if (conv?.external) {
+        glue.watch(conv.uid).then(shown => shown || renderLive());
+      }
+    });
+    card.append(span("ext-needs-title", "Needs you"), text, watch);
+    view.append(card);
+  }
+  if (bottom) {
+    els.messages.scrollTop = els.messages.scrollHeight;
+  }
+  renderExternalBar();
+}
+
+/** The composer's line for an external task: Stop while it runs, how it ended once done. */
+function renderExternalBar() {
+  const external = !!conv?.external;
+  els.extBar.hidden = !external;
+  if (!external) {
+    return;
+  }
+  const done = conv.task.state === "done";
+  els.extBarText.textContent = done ? `${ENDED_TEXT[conv.ended] ?? "Ended"} · ${age(conv.endedAt || conv.task.since)}` : "The sidebar can't chat with this agent";
+  els.extStop.hidden = done;
+  // How it ended, for the look's mark.
+  if (done && ENDED_TEXT[conv.ended]) {
+    els.extBar.dataset.ended = conv.ended;
+  } else {
+    delete els.extBar.dataset.ended;
+  }
 }
 
 /** Icon buttons, [action, title] each: copy and save for a whole answer or one
@@ -217,8 +392,19 @@ function addCodeActions(body) {
  * text, and a button to edit it. */
 function fillQuestion(el, message) {
   const parts = [];
+  if (message.steered) {
+    // Sent into the running turn (Steer, Cmd+Enter): the answer above it was
+    // still coming, and it goes on below.
+    parts.push(div("src", "steered into the agent's turn"));
+  }
   if (message.source === "urlbar") {
     parts.push(div("src", "from the address bar"));
+  } else if (message.source === "remote") {
+    // Another of the user's agents sent it (remote tasks): which one.
+    const from = remoteSource(conv);
+    if (from) {
+      parts.push(fillSource(div("src"), from));
+    }
   }
   if (message.selection) {
     parts.push(div("selection", message.selection));
@@ -240,6 +426,264 @@ function fillQuestion(el, message) {
     parts.push(div("meta", `${what} ${how}${cut} · ${message.page?.title ?? ""}`));
   }
   parts.push(actionRow([["edit", "Edit"]]));
+  el.replaceChildren(...parts);
+}
+
+// --- The agent's own question (the explicit ask) ------------------------------
+//
+// AgentService turns an agent's ask (elicitation/create: Claude Code's
+// AskUserQuestion, Codex's request_user_input, an MCP server's form) into
+// { role: "ask", title, questions: [{ key, text, header, multi, options:
+// [{ value, label, description }], other, secret }], answer }, and answers it
+// with answerAsk(conv, message, { [key]: { picks, text } } or null for Skip).
+// The card is Needs you's: the question with its options as buttons. With
+// one question of one pick, a click answers at once; otherwise the picks wait
+// for Send. Words go in the question box (Enter), which answers the first
+// question that takes words; a secret one has a masked field of its own in
+// the card, since the box's text is the chat's draft, which Stop puts back.
+// The card names who asks: the chat's agent, or an MCP server (message.from).
+// An ask for a password or a code (AgentService's isCredentialAsk; the
+// safety rubric's row on the explicit ask) masks every field of words and
+// says in a fixed line where those go: an injected agent can ask, but only
+// the prompt kept passwords in the site. AgentService keeps none of its
+// answer. A masked question shows its field right under it, and its options
+// after the field as quiet pills, each one's description its tooltip.
+
+/** The card's own line on an ask for a password or a code, which nothing the agent sends can change. */
+const CREDENTIAL_LINE = "Passwords and codes go into the site itself: use Take over to sign in.";
+
+/** Who asks: an MCP server's name for its form (message.from), else the chat's agent. */
+function askerOf(message) {
+  return message.from || harnesses.find(h => h.id === conv?.harness)?.name || conv?.harness || "The agent";
+}
+
+/** What the user gave each question of an open ask so far: { picks, text } by key. */
+const askState = new WeakMap();
+
+function heldFor(message) {
+  let held = askState.get(message);
+  if (!held) {
+    held = new Map(message.questions.map(q => [q.key, { picks: [], text: "" }]));
+    askState.set(message, held);
+  }
+  return held;
+}
+
+/** The agent's open ask in `target`, which it waits on: the box answers it. */
+function openAsk(target = conv) {
+  return target?.busy ? target.messages.findLast(m => m.role === "ask" && m.answer === null) : null;
+}
+
+/** One question of one pick, with no masked field: its option's click is the whole answer. */
+function answersAtOnce(message) {
+  const [q, ...rest] = message.questions;
+  return !!q && !rest.length && !q.multi && !masked(message, q) && q.options.length > 0;
+}
+
+/** Whether `q` takes words at all: its "other" field, or a question of words only. */
+function wordsFor(q) {
+  return !!q.other || !q.options.length;
+}
+
+/** Whether `q`'s words go in a masked field of the card's own: a secret, or any of an ask for a password or a code. */
+function masked(message, q) {
+  return q.secret || (wordsFor(q) && isCredentialAsk(message));
+}
+
+/** Whether the question box's words can answer `q`. */
+function takesWords(message, q) {
+  return wordsFor(q) && !masked(message, q);
+}
+
+function isAnswered(held) {
+  return held.picks.length > 0 || !!held.text.trim();
+}
+
+/** Every question has a pick or words: Send may go. */
+function askComplete(message) {
+  const held = heldFor(message);
+  return message.questions.every(q => isAnswered(held.get(q.key)));
+}
+
+/** The answers answerAsk takes, from what the card holds. */
+function askAnswers(message) {
+  const held = heldFor(message);
+  const answers = {};
+  for (const q of message.questions) {
+    const { picks, text } = held.get(q.key);
+    if (picks.length || text.trim()) {
+      answers[q.key] = { picks: [...picks], text: text.trim() };
+    }
+  }
+  return answers;
+}
+
+function sendAsk(message, answers) {
+  if (message.answer === null && conv?.messages.includes(message)) {
+    AgentService.answerAsk(conv, message, answers);
+  }
+}
+
+/** Words from the question box for the first question that takes them and has no answer yet: they answer it, and the ask goes once every question has one. */
+function askWords(message, words) {
+  const held = heldFor(message);
+  const q =
+    message.questions.find(q => takesWords(message, q) && !isAnswered(held.get(q.key))) ??
+    message.questions.find(q => takesWords(message, q));
+  if (!q) {
+    return false;
+  }
+  held.get(q.key).text = words;
+  if (askComplete(message)) {
+    sendAsk(message, askAnswers(message));
+  } else {
+    const entry = rendered.get(message);
+    if (entry) {
+      fillAsk(entry.el, message);
+    }
+  }
+  return true;
+}
+
+/** The card of an ask: open, its question and options; answered, what the user said. */
+function fillAsk(el, message) {
+  const first = message.questions[0];
+  el.setAttribute("role", "group");
+  el.setAttribute("aria-label", `${askerOf(message)} asks: ${first?.text || message.title || ""}`);
+  if (message.answer !== null) {
+    el.classList.add("answered");
+    const { action, summary } = message.answer;
+    const said = action === "accept" ? `→ ${summary ?? ""}` : action === "decline" ? "Skipped" : "Not answered";
+    // The question it answers: the ask's own title, else its questions'.
+    const asked = message.title || message.questions.map(q => q.text).join(" · ");
+    el.replaceChildren(div("ask-text", asked), div("ask-answer", said));
+    // What the user typed, a secret's too, lives no longer than the card's question.
+    askState.delete(message);
+    return;
+  }
+  el.classList.remove("answered");
+  const held = heldFor(message);
+  // Needs you's dot and color, with the agent that asks: in Work, the user's
+  // tasks may run on different agents.
+  const parts = [div("ask-title", `${askerOf(message)} asks`)];
+  if (isCredentialAsk(message)) {
+    parts.push(div("ask-guard", CREDENTIAL_LINE));
+  }
+  if (message.title) {
+    parts.push(div("ask-lead", message.title));
+  }
+  const send = document.createElement("button");
+  send.className = "pill ask-send";
+  send.textContent = "Send";
+  const update = () => {
+    send.disabled = !askComplete(message);
+  };
+  for (const q of message.questions) {
+    const box = div("ask-q");
+    if (q.header) {
+      box.append(span("ask-header", q.header));
+    }
+    box.append(div("ask-text", q.text));
+    // A masked question's field comes first, since its answer goes there,
+    // and its options follow as one row of quiet pills (zen-ux's code card):
+    // Claude Code's AskUserQuestion brings 2 to 4 options even for a code.
+    const hidden = masked(message, q);
+    let list = null;
+    if (q.options.length) {
+      list = div(hidden ? "ask-pills" : "ask-options");
+      list.setAttribute("role", "group");
+      list.setAttribute("aria-label", q.text);
+      const buttons = new Map();
+      const press = () => {
+        for (const [button, value] of buttons) {
+          button.setAttribute("aria-pressed", String(held.get(q.key).picks.includes(value)));
+        }
+      };
+      for (const option of q.options) {
+        const button = document.createElement("button");
+        if (hidden) {
+          button.className = "ask-pill";
+          button.textContent = option.label;
+          if (option.description) {
+            button.title = option.description;
+          }
+        } else {
+          button.className = q.multi ? "ask-opt multi" : "ask-opt";
+          button.append(span("label", option.label));
+          if (option.description) {
+            button.append(span("desc", option.description));
+          }
+        }
+        button.addEventListener("click", () => {
+          if (answersAtOnce(message)) {
+            sendAsk(message, { [q.key]: { picks: [option.value], text: "" } });
+            return;
+          }
+          const mine = held.get(q.key);
+          mine.picks = !q.multi
+            ? [option.value]
+            : mine.picks.includes(option.value)
+              ? mine.picks.filter(value => value !== option.value)
+              : [...mine.picks, option.value];
+          press();
+          update();
+        });
+        buttons.set(button, option.value);
+        list.append(button);
+      }
+      press();
+      if (!hidden) {
+        box.append(list);
+      }
+    }
+    if (hidden) {
+      const input = document.createElement("input");
+      input.type = "password";
+      input.className = "ask-secret";
+      input.autocomplete = "off";
+      input.spellcheck = false;
+      // Beside options, the field is the adapter's "Other" box, which is
+      // what Claude tells the user to type in ("type the code in Other").
+      input.placeholder = q.options.length ? "Other: hidden as you type" : "Hidden as you type. It goes to the agent, not into the chat.";
+      input.setAttribute("aria-label", q.text);
+      input.value = held.get(q.key).text;
+      input.addEventListener("input", () => {
+        held.get(q.key).text = input.value;
+        update();
+      });
+      input.addEventListener("keydown", event => {
+        if (event.key === "Enter" && !event.isComposing) {
+          event.preventDefault();
+          if (askComplete(message)) {
+            sendAsk(message, askAnswers(message));
+          }
+        }
+      });
+      box.append(input);
+      if (list) {
+        box.append(list);
+      }
+    } else if (takesWords(message, q) && held.get(q.key).text) {
+      // Words the box gave this question while others still wait.
+      box.append(div("ask-words", held.get(q.key).text));
+    }
+    parts.push(box);
+  }
+  const actions = div("ask-actions");
+  actions.append(
+    span("ask-hint", message.questions.some(q => takesWords(message, q)) ? "Or answer in your own words below." : "")
+  );
+  const skip = document.createElement("button");
+  skip.className = "ask-skip";
+  skip.textContent = "Skip";
+  skip.addEventListener("click", () => sendAsk(message, null));
+  actions.append(skip);
+  if (!answersAtOnce(message)) {
+    send.addEventListener("click", () => sendAsk(message, askAnswers(message)));
+    actions.append(send);
+  }
+  update();
+  parts.push(actions);
   el.replaceChildren(...parts);
 }
 
@@ -288,11 +732,111 @@ function fillStep(el, message) {
   el.title = message.step?.includes("\n") ? message.step : "";
 }
 
+// --- The agent's wait for its first words --------------------------------------
+//
+// AgentService's thought, from the moment the question goes out until the
+// agent's first words, step or question for the user: "Thinking · <what it's
+// on> · 12 s" while it lasts (Codex's reasoning titles; Claude Code's
+// thinking shows no words), then "Thought for 23 s", which opens to what it
+// thought. Codex at a high effort can think for half a minute before its first
+// word, which looked like a stall (the user's report, 2026-11-22). A thought
+// with nothing to keep goes when it ends (endThought).
+
+let thoughtTimer = null;
+
+function thoughtSeconds(s) {
+  return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${s % 60} s`;
+}
+
+/**
+ * The row's words: "Thinking · <title> · 12 s" while it lasts, "Thought for
+ * 23 s" after. "Thinking · <title>" clamps to two lines (zen-ux's call:
+ * Claude Code's titles are whole sentences), the seconds stay beside it on
+ * the first line, and the whole title is the row's tooltip.
+ */
+function fillThoughtLine(line, message) {
+  const ended = message.ms !== null && message.ms !== undefined;
+  const s = ended ? Math.max(1, Math.round(message.ms / 1000)) : Math.floor((Date.now() - message.started) / 1000);
+  const label = ended ? `Thought for ${thoughtSeconds(s)}` : "Thinking";
+  const title = ended ? "" : message.title || "";
+  const time = !ended && s >= 1 ? ` · ${thoughtSeconds(s)}` : "";
+  const key = `${label}\n${title}\n${time}`;
+  if (line.dataset.key === key) {
+    return;
+  }
+  line.dataset.key = key;
+  // The parts keep their elements, and only their words change: a new label
+  // each second, or with each new title, would start its pulse over, a
+  // blink right where the user looks during the wait.
+  if (line.childElementCount !== 2) {
+    const head = span("head");
+    head.append(span("label"), span("sep"), span("title"));
+    line.replaceChildren(head, span("time"));
+  }
+  const [head, timeEl] = line.children;
+  const words = [label, title ? " · " : "", title, time];
+  for (const [i, el] of [...head.children, timeEl].entries()) {
+    if (el.textContent !== words[i]) {
+      el.textContent = words[i];
+    }
+  }
+  if (title) {
+    line.title = title;
+  } else {
+    line.removeAttribute("title");
+  }
+}
+
+function fillThought(el, message) {
+  const ended = message.ms !== null && message.ms !== undefined;
+  el.classList.toggle("live", !ended);
+  if (message.text?.trim()) {
+    let details = el.querySelector(":scope > details");
+    if (!details) {
+      details = document.createElement("details");
+      details.append(document.createElement("summary"), div("body"));
+      el.replaceChildren(details);
+    }
+    fillThoughtLine(details.firstChild, message);
+    renderMarkdown(details.lastChild, message.text);
+  } else {
+    const line = el.querySelector(":scope > .line") ?? div("line");
+    fillThoughtLine(line, message);
+    if (line.parentNode !== el) {
+      el.replaceChildren(line);
+    }
+  }
+}
+
+/** The seconds of a live row go on with no word from the agent, while one shows (renderMessages). */
+function tickThoughtsWhileLive() {
+  if (!thoughtTimer && els.messages.querySelector(".msg.thought.live")) {
+    thoughtTimer = setInterval(tickThoughts, 250);
+  }
+}
+
+function tickThoughts() {
+  const live = [...els.messages.querySelectorAll(".msg.thought.live")];
+  for (const el of live) {
+    const message = messageOf.get(el);
+    const line = el.querySelector(":scope > .line, :scope > details > summary");
+    if (message && line) {
+      fillThoughtLine(line, message);
+    }
+  }
+  if (!live.length) {
+    clearInterval(thoughtTimer);
+    thoughtTimer = null;
+  }
+}
+
 /** The element of a new message, in its place: a tool call joins the steps
- * box of the tool calls right before it. */
+ * box of the tool calls right before it. So does a thought that comes after
+ * a step, as a line of the box, and the steps after it go on in the same box
+ * (zen-ux's call: the box stays one list). */
 function placeMessage(message, index, el) {
   const list = listFor(conv);
-  if (message.role !== "tool") {
+  if (message.role !== "tool" && message.role !== "thought") {
     list.append(el);
     return;
   }
@@ -301,9 +845,13 @@ function placeMessage(message, index, el) {
     i--;
   }
   const before = conv.messages[i];
-  const beforeEl = before?.role === "tool" ? rendered.get(before)?.el : null;
+  const beforeEl = before?.role === "tool" || before?.role === "thought" ? rendered.get(before)?.el : null;
   let group = beforeEl?.parentElement?.classList.contains("steps") ? beforeEl.parentElement : null;
   if (!group || group !== list.lastElementChild) {
+    if (message.role === "thought") {
+      list.append(el);
+      return;
+    }
     group = div("steps");
     list.append(group);
   }
@@ -312,7 +860,19 @@ function placeMessage(message, index, el) {
 
 function renderMessage(message, index) {
   if (message.hidden) {
-    return; // AgentService's HIDDEN_TOOLS
+    // AgentService's HIDDEN_TOOLS, and an ask's own tool call, which the
+    // ask's card stands for: hidden once the ask comes (AgentService.onAsk),
+    // which may be after the step showed.
+    const shown = rendered.get(message);
+    if (shown) {
+      const group = shown.el.parentElement;
+      shown.el.remove();
+      rendered.delete(message);
+      if (group?.classList.contains("steps") && !group.childElementCount) {
+        group.remove();
+      }
+    }
+    return;
   }
   let entry = rendered.get(message);
   if (!entry) {
@@ -338,21 +898,25 @@ function renderMessage(message, index) {
       }
       break;
     case "assistant": {
-      // The buttons come once the answer is complete: while it streams, it
-      // is parsed again every 50 ms.
+      // A code block's buttons come once its part of the answer is complete:
+      // while it streams, it is parsed again every 50 ms. The answer's own
+      // come with the turn's end (renderAnswerActions).
       const body = el.firstChild ?? el.appendChild(div("body"));
       renderMarkdown(body, message.text);
       el.dataset.state = message.state;
       if (message.state !== "streaming") {
         addCodeActions(body);
-        if (!body.nextSibling) {
-          el.append(actionRow([["copy", "Copy the Markdown"], ["save", "Save as .md"]]));
-        }
       }
       break;
     }
     case "tool":
       fillStep(el, message);
+      break;
+    case "ask":
+      fillAsk(el, message);
+      break;
+    case "thought":
+      fillThought(el, message);
       break;
     case "permission": {
       const row = div("options");
@@ -364,6 +928,9 @@ function renderMessage(message, index) {
           button.addEventListener("click", () => AgentService.answerPermission(conv, message, option.id));
           row.append(button);
         }
+      } else if (message.replied) {
+        // The user wrote back instead of choosing (steer declines it).
+        row.textContent = "Declined: you replied";
       } else {
         const chosen = message.options.find(o => o.id === message.answer);
         row.textContent = chosen ? `→ ${chosen.name}` : "Not allowed";
@@ -390,10 +957,80 @@ function renderMessages() {
   }
   const stick = nearBottom();
   conv.messages.forEach((message, i) => renderMessage(message, i));
+  renderAnswerActions();
   if (stick) {
     els.messages.scrollTop = els.messages.scrollHeight;
   }
+  tickThoughtsWhileLive();
   renderStatus();
+}
+
+/** A turn's answer: its parts, from the question to the next one, without
+ * thoughts, steps, asks or notes. A steer starts a turn of its own. */
+function turnParts(message) {
+  const i = conv.messages.indexOf(message);
+  let from = i;
+  while (from > 0 && conv.messages[from - 1].role !== "user") {
+    from--;
+  }
+  let to = i;
+  while (to + 1 < conv.messages.length && conv.messages[to + 1].role !== "user") {
+    to++;
+  }
+  return conv.messages.slice(from, to + 1).filter(m => m.role === "assistant" && !m.hidden && m.text.trim());
+}
+
+/**
+ * One copy and save row per turn, on its last part, once the turn has ended
+ * (zen-ux's call): the parts between thoughts and steps are one answer, which
+ * the row copies and saves whole (act). Code blocks keep their own buttons.
+ */
+function renderAnswerActions() {
+  // The turn the agent is on, steers and all, hasn't ended.
+  const going = conv.busy ? conv.messages.findLastIndex(m => m.role === "user" && !m.steered) : conv.messages.length;
+  const ends = new Set();
+  let last = null;
+  conv.messages.forEach((message, i) => {
+    if (message.role === "user") {
+      if (last && i <= going) {
+        ends.add(last);
+      }
+      last = null;
+    } else if (message.role === "assistant" && !message.hidden && message.text.trim()) {
+      last = message;
+    }
+  });
+  if (last && !conv.busy) {
+    ends.add(last);
+  }
+  for (const el of listFor(conv).querySelectorAll(":scope > .msg.assistant")) {
+    const has = el.querySelector(":scope > .actions");
+    const wanted = ends.has(messageOf.get(el));
+    if (wanted && !has) {
+      el.append(actionRow([["copy", "Copy the Markdown"], ["save", "Save as .md"]]));
+    } else if (!wanted && has) {
+      has.remove();
+    }
+  }
+}
+
+/**
+ * A chat shown again: the panel hears only the chat it shows, so what left
+ * it meanwhile (a thought with nothing to keep, endThought) leaves its list
+ * now.
+ */
+function pruneList() {
+  const kept = new Set(conv.messages);
+  const list = listFor(conv);
+  for (const el of list.querySelectorAll(".msg, .step")) {
+    const message = messageOf.get(el);
+    if (message && !kept.has(message)) {
+      el.remove();
+    }
+  }
+  for (const group of list.querySelectorAll(":scope > .steps:empty")) {
+    group.remove();
+  }
 }
 
 function scheduleRender() {
@@ -401,30 +1038,6 @@ function scheduleRender() {
     const wait = Math.max(0, lastRender + RENDER_INTERVAL - Date.now());
     renderTimer = setTimeout(() => window.requestAnimationFrame(renderMessages), wait);
   }
-}
-
-/** Fill a <select> from an ACP config option (flat or grouped values). */
-function fillSelect(select, option, value) {
-  select.replaceChildren();
-  const add = (parent, o) => {
-    const el = document.createElement("option");
-    el.value = o.value;
-    el.textContent = o.name || o.value;
-    parent.append(el);
-  };
-  for (const o of option.options ?? []) {
-    if (Array.isArray(o.options)) {
-      const group = document.createElement("optgroup");
-      group.label = o.name;
-      o.options.forEach(x => add(group, x));
-      select.append(group);
-    } else {
-      add(select, o);
-    }
-  }
-  select.value = value;
-  select.dataset.optionId = option.id;
-  select.title = `${option.name || option.id}: ${select.selectedOptions[0]?.textContent ?? value}`;
 }
 
 /** A task keeps the agent it started with: a session can't move to another. */
@@ -435,18 +1048,29 @@ function harnessLocked() {
 /**
  * An agent's settings as the panel shows them: its session's own, or,
  * before a session exists, the last ones it reported, with the user's
- * choice in them.
+ * choice in them. A pick the session hasn't taken yet shows at once, as
+ * one made while the agent answers does until the turn ends
+ * (AgentService.pickModel).
  */
 function settingsOf(harness) {
   const live = conv?.harness === harness && conv.configOptions;
+  const picked = live && conv.pickedModel;
   const options = (live ? conv.configOptions : AgentService.options.get(harness)) ?? [];
-  const value = option => {
-    const wanted = live ? option.currentValue : AgentService.preferredValue(harness, option.id);
-    return optionValues(option).includes(wanted) ? wanted : option.currentValue;
-  };
+  const value = (option, wanted) => (optionValues(option).includes(wanted) ? wanted : option.currentValue);
   const model = options.find(o => o.id === MODEL_OPTION) ?? null;
   const effort = options.find(o => EFFORT_OPTIONS.includes(o.id)) ?? null;
-  return { model, modelValue: model && value(model), effort, effortValue: effort && value(effort) };
+  // Claude Code's "default" shows as the model it runs as (concreteModel).
+  const modelValue =
+    model && concreteModel(model, picked ? value(model, picked) : live ? model.currentValue : value(model, AgentService.preferredValue(harness, model.id)));
+  // Each model keeps its own effort (AgentService.effortFor).
+  const effortValue = effort && (live && !picked ? effort.currentValue : value(effort, AgentService.effortFor(harness, effort.id, modelValue)));
+  return { model, modelValue, effort, effortValue };
+}
+
+/** The name an option gives one of its values. */
+function nameOf(option, value) {
+  const choice = modelChoices(option).find(o => o.value === value);
+  return choice?.name || choice?.value || value || "";
 }
 
 /** A model option's flat list of { value, name } (ACP may group them). */
@@ -470,67 +1094,462 @@ function availability(harness) {
 }
 
 /**
- * The agent and model, as one menu grouped by agent (the row reads "Opus 5.5
- * · Low"), and the effort. An option's value is "<harness>/<model>"; an agent
- * that hasn't reported its models yet is one option, its name. A task keeps
- * its agent, so the other agents' groups are off there; an agent that can't
- * run here is off everywhere, its group saying why.
+ * The composer's label: the chat's model and its effort ("Opus 5.5 · Low"),
+ * or the agent's name until it reports its models. It opens the model
+ * picker, which redraws with it.
  */
 function renderOptions() {
   if (!conv) {
     return;
   }
-  const locked = harnessLocked();
-  const groups = [];
-  for (const h of harnesses) {
-    const { model, modelValue } = settingsOf(h.id);
-    const group = document.createElement("optgroup");
-    const available = availability(h.id);
-    group.label = available.ok ? h.name : `${h.name}: ${available.reason || "not available"}`;
-    group.dataset.harness = h.id;
-    group.disabled = (locked && h.id !== conv.harness) || !available.ok;
-    if (!available.ok) {
-      group.dataset.unavailable = "true";
-    }
-    const choices = modelChoices(model);
-    for (const choice of choices.length ? choices : [{ value: "", name: h.name }]) {
-      const el = document.createElement("option");
-      el.value = `${h.id}/${choice.value}`;
-      el.dataset.harness = h.id;
-      el.textContent = choice.name || choice.value;
-      el.selected = h.id === conv.harness && (choice.value === (modelValue ?? "") || !choices.length);
-      group.append(el);
-    }
-    groups.push(group);
-  }
-  els.model.replaceChildren(...groups);
-  // A model the agent no longer offers: its first one, never another agent's.
-  if (!els.model.value.startsWith(`${conv.harness}/`)) {
-    const first = els.model.querySelector(`option[data-harness="${CSS.escape(conv.harness)}"]`);
-    if (first) {
-      first.selected = true;
-    }
-  }
-  els.model.hidden = !groups.length;
   const current = settingsOf(conv.harness);
   const agent = harnesses.find(h => h.id === conv.harness)?.name ?? conv.harness;
-  els.model.title = `${agent}${current.model ? ` · ${els.model.selectedOptions[0]?.textContent ?? ""}` : ""}${
-    locked ? " (this task's agent)" : ""
-  }`;
-
-  els.effort.hidden = !current.effort;
-  els.pickDot.hidden = !current.effort;
-  if (current.effort) {
-    fillSelect(els.effort, current.effort, current.effortValue);
+  const model = current.model ? nameOf(current.model, current.modelValue) : "";
+  const effort = current.effort ? nameOf(current.effort, current.effortValue) : "";
+  els.pickModel.textContent = model || agent;
+  els.pickEffort.textContent = effort;
+  els.pickEffort.hidden = els.pickDot.hidden = !effort;
+  els.pick.title = `${agent}${model ? ` · ${model}` : ""}${effort ? ` · ${effort}` : ""}${harnessLocked() ? " (this task's agent)" : ""}`;
+  els.pick.hidden = !harnesses.length;
+  if (!els.picker.hidden) {
+    renderPicker();
   }
-  disableOptions();
 }
 
-function disableOptions() {
-  const busy = !!conv?.busy;
-  els.model.disabled = busy;
-  els.effort.disabled = busy;
+// --- The model picker ---------------------------------------------------------
+// The user's pick (2026-11-21): a search; a segmented bar of model families,
+// one per agent that may run here (Claude: Claude Code's models, GPT:
+// Codex's), gone while only one can; the open family's newest generation,
+// each model with its own effort and a ✓ on the chat's; and the efforts in a
+// flyout beside the row. The search field keeps the focus and drives both
+// lists (aria-activedescendant): ↑ ↓ move, → opens the efforts and ← closes
+// them, Enter picks, Esc closes, and typing filters.
+
+const picking = { family: null, active: null, flyFor: null, flyActive: null, hover: null };
+
+/** The bar's families: every agent that may run here, and the chat's own.
+ * Claude first, then GPT, as the user picked them; other agents after, in
+ * config.json's order. */
+function families() {
+  const rank = f => ["Claude", "GPT"].indexOf(f.name) >>> 0;
+  const list = harnesses
+    .filter(h => h.id === conv?.harness || availability(h.id).ok)
+    .map(h => ({ harness: h.id, agent: h.name, name: AgentService.familyOf(h.id) }))
+    .sort((a, b) => rank(a) - rank(b));
+  // Two agents of one family go by their own names.
+  for (const f of list) {
+    if (list.filter(g => g.name === f.name).length > 1) {
+      f.name = f.agent;
+    }
+  }
+  return list;
 }
+
+/** A family's rows: its newest models, each with the effort it runs with. */
+function rowsOf(harness) {
+  const { model, modelValue, effort, effortValue } = settingsOf(harness);
+  const mine = harness === conv.harness;
+  // Every model but Claude Code's "default" (the user's call), of the
+  // newest generation.
+  const choices = newestModels(modelChoices(model).filter(c => c.value !== "default"), mine ? modelValue : null);
+  if (!choices.length) {
+    // An agent that hasn't reported its models yet: its name starts it.
+    return [{ value: "", name: harnesses.find(h => h.id === harness)?.name ?? harness, effort: "", current: mine }];
+  }
+  return choices.map(c => {
+    let value = "";
+    if (effort) {
+      value = mine && conv.configOptions && c.value === modelValue ? effortValue : AgentService.effortFor(harness, effort.id, c.value);
+      if (!optionValues(effort).includes(value)) {
+        value = effort.currentValue;
+      }
+    }
+    return {
+      value: c.value,
+      name: c.name || c.value,
+      effort: value,
+      effortName: effort ? nameOf(effort, value) : "",
+      current: mine && c.value === modelValue,
+      versioned: modelGeneration(c) !== null,
+    };
+  });
+}
+
+function renderPicker() {
+  const list = families();
+  const locked = harnessLocked();
+  // Another family's model starts a new chat (setHarness), which would take
+  // the answer the agent is writing with it: while the agent answers, its
+  // tab waits, and the picker shows the chat's own family.
+  const own = locked || !!conv.busy;
+  if (!list.some(f => f.harness === picking.family) || (own && picking.family !== conv.harness)) {
+    picking.family = list.some(f => f.harness === conv.harness) ? conv.harness : list[0]?.harness ?? conv.harness;
+  }
+  els.pickFam.hidden = list.length < 2;
+  els.pickFam.replaceChildren(
+    ...list.map(f => {
+      const tab = document.createElement("button");
+      tab.setAttribute("role", "tab");
+      tab.dataset.harness = f.harness;
+      tab.textContent = f.name;
+      tab.title = f.agent;
+      const on = f.harness === picking.family;
+      tab.setAttribute("aria-selected", String(on));
+      tab.tabIndex = on ? 0 : -1;
+      if (locked && f.harness !== conv.harness) {
+        tab.disabled = true;
+        tab.title = `${f.agent}: a task keeps the agent it started with`;
+      } else if (conv.busy && f.harness !== conv.harness) {
+        tab.disabled = true;
+        tab.title = `${f.agent}: once this answer ends, picking one of its models starts a new chat`;
+      } else if (f.harness !== conv.harness && conv.messages.length) {
+        tab.title = `${f.agent}: picking one of its models starts a new chat`;
+      }
+      return tab;
+    })
+  );
+  // A session can't move to another agent, so in a chat with messages
+  // another family's model starts the chat over (setHarness). The rows say
+  // so, with no question to answer (t10x's call: the user dislikes
+  // interruptions).
+  const anew = !locked && picking.family !== conv.harness && conv.messages.length > 0;
+  els.pickNote.hidden = !anew;
+  els.pickNote.textContent = anew ? "Picking a model here starts a new chat" : "";
+  // The search field keeps the focus and points at the rows
+  // (aria-activedescendant), so a screen reader hears the note from it.
+  for (const el of [els.pickList, els.pickSearch]) {
+    if (anew) {
+      el.setAttribute("aria-describedby", "pick-note");
+    } else {
+      el.removeAttribute("aria-describedby");
+    }
+  }
+  const words = els.pickSearch.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const rows = rowsOf(picking.family).filter(r => words.every(w => r.name.toLowerCase().includes(w)));
+  // Models without a version first, then a rule.
+  const ordered = [...rows.filter(r => !r.versioned), ...rows.filter(r => r.versioned)];
+  const items = [];
+  ordered.forEach((row, i) => {
+    if (i > 0 && row.versioned && !ordered[i - 1].versioned) {
+      items.push(Object.assign(document.createElement("div"), { className: "pick-rule" }));
+    }
+    const el = document.createElement("div");
+    el.className = "pick-row";
+    el.id = `pick-option-${i}`;
+    el.setAttribute("role", "option");
+    el.setAttribute("aria-selected", String(row.current));
+    el.dataset.value = row.value;
+    el.dataset.effort = row.effort;
+    const end = span("end");
+    if (row.current) {
+      end.append(span("pick-check"));
+    }
+    if (row.value && row.effort) {
+      end.append(span("more", "›"));
+    }
+    el.append(span("name", row.name));
+    if (row.effortName) {
+      el.append(span("eff", row.effortName));
+    }
+    el.append(end);
+    items.push(el);
+  });
+  if (!ordered.length) {
+    items.push(Object.assign(document.createElement("div"), { className: "pick-none", textContent: "No models match" }));
+  }
+  els.pickList.replaceChildren(...items);
+  const values = ordered.map(r => r.value);
+  if (!values.includes(picking.active)) {
+    picking.active = ordered.find(r => r.current)?.value ?? values[0] ?? null;
+  }
+  if (picking.flyFor !== null && !values.includes(picking.flyFor)) {
+    closeFly();
+  }
+  showActive();
+  if (picking.flyFor !== null) {
+    openFly(rowEl(picking.flyFor), { keep: true });
+  }
+}
+
+const rowEl = value => (value === null ? null : els.pickList.querySelector(`.pick-row[data-value="${CSS.escape(value)}"]`));
+
+/** Mark the active row, or the flyout's active effort, for the keys and for
+ * assistive technology. */
+function showActive({ scroll = true } = {}) {
+  for (const el of els.pickList.querySelectorAll(".pick-row.active")) {
+    el.classList.remove("active");
+  }
+  const row = rowEl(picking.active);
+  row?.classList.add("active");
+  if (scroll) {
+    row?.scrollIntoView({ block: "nearest" });
+  }
+  let id = row?.id ?? "";
+  if (!els.pickFly.hidden) {
+    for (const el of els.pickFly.children) {
+      el.classList.toggle("active", el.dataset.value === picking.flyActive);
+    }
+    id = els.pickFly.querySelector(".pick-eff.active")?.id ?? id;
+  }
+  if (id) {
+    els.pickSearch.setAttribute("aria-activedescendant", id);
+  } else {
+    els.pickSearch.removeAttribute("aria-activedescendant");
+  }
+}
+
+function placePicker() {
+  const box = els.box.getBoundingClientRect();
+  const fly = 124;
+  const width = Math.min(window.innerWidth - 16, Math.max(208, Math.min(300, window.innerWidth - 16 - fly)));
+  els.picker.style.width = `${width}px`;
+  els.picker.style.left = `${Math.max(8, Math.min(box.left, window.innerWidth - 8 - width))}px`;
+  els.picker.style.bottom = `${window.innerHeight - box.top + 6}px`;
+  els.picker.style.maxHeight = `${Math.max(160, Math.min(480, box.top - 14))}px`;
+}
+
+function openPicker() {
+  if (!conv) {
+    return;
+  }
+  closeMenu();
+  picking.family = conv.harness;
+  picking.active = null;
+  els.pickSearch.value = "";
+  els.picker.hidden = false;
+  els.pick.setAttribute("aria-expanded", "true");
+  placePicker();
+  renderPicker();
+  els.pickSearch.focus();
+}
+
+function closePicker({ focus = true } = {}) {
+  if (els.picker.hidden) {
+    return;
+  }
+  closeFly();
+  clearTimeout(picking.hover);
+  els.picker.hidden = true;
+  els.pick.setAttribute("aria-expanded", "false");
+  if (focus) {
+    els.input.focus();
+  }
+}
+
+/** The efforts the agent offers, for one row, beside it. */
+function openFly(row, { keep = false } = {}) {
+  const option = row?.dataset.value ? AgentService.effortOption(picking.family, conv) : null;
+  if (!option) {
+    closeFly();
+    return;
+  }
+  const own = row.dataset.effort;
+  if (!keep || picking.flyFor !== row.dataset.value) {
+    picking.flyActive = own;
+  }
+  picking.flyFor = row.dataset.value;
+  els.pickFly.replaceChildren(
+    ...modelChoices(option).map((o, i) => {
+      const el = document.createElement("div");
+      el.className = "pick-eff";
+      el.id = `pick-effort-${i}`;
+      el.setAttribute("role", "option");
+      el.setAttribute("aria-selected", String(o.value === own));
+      el.dataset.value = o.value;
+      el.append(span("name", o.name || o.value));
+      if (o.value === own) {
+        el.append(span("pick-check"));
+      }
+      return el;
+    })
+  );
+  els.pickFly.setAttribute("aria-label", `Effort for ${row.querySelector(".name")?.textContent ?? ""}`);
+  els.pickFly.hidden = false;
+  const r = row.getBoundingClientRect();
+  const p = els.picker.getBoundingClientRect();
+  const w = els.pickFly.offsetWidth;
+  const h = els.pickFly.offsetHeight;
+  // Beside the list; over its edge where the sidebar has no room.
+  const left = Math.max(4, Math.min(p.right + 4, window.innerWidth - 4 - w));
+  const top = Math.max(4, Math.min(r.top - 5, window.innerHeight - 4 - h));
+  els.pickFly.style.left = `${left}px`;
+  els.pickFly.style.top = `${top}px`;
+  showActive({ scroll: false });
+}
+
+function closeFly() {
+  if (els.pickFly.hidden && picking.flyFor === null) {
+    return;
+  }
+  els.pickFly.hidden = true;
+  picking.flyFor = null;
+  picking.flyActive = null;
+  showActive({ scroll: false });
+}
+
+/** Pick a model of the open family, with an effort or with its own. Another
+ * family's starts its agent: a session can't move. While the agent answers,
+ * the pick is the next answer's (AgentService.pickModel). */
+async function pickModel(value, effort = null) {
+  const harness = picking.family;
+  closePicker();
+  if (!conv) {
+    return;
+  }
+  if (harness !== conv.harness) {
+    if (harnessLocked() || conv.busy) {
+      renderOptions();
+      return;
+    }
+    AgentService.setHarness(conv, harness);
+  }
+  if (value) {
+    await AgentService.pickModel(conv, value, effort);
+  }
+}
+
+function selectFamily(harness, { focusTab = false } = {}) {
+  if (harness === picking.family) {
+    return;
+  }
+  picking.family = harness;
+  picking.active = null;
+  closeFly();
+  renderPicker();
+  if (focusTab) {
+    els.pickFam.querySelector(`[data-harness="${CSS.escape(harness)}"]`)?.focus();
+  }
+}
+
+/** Move through the rows, or through the efforts while the flyout is open. */
+function step(by) {
+  if (!els.pickFly.hidden) {
+    const values = [...els.pickFly.children].map(el => el.dataset.value);
+    const i = values.indexOf(picking.flyActive);
+    picking.flyActive = values[Math.max(0, Math.min(values.length - 1, i + by))] ?? null;
+    showActive({ scroll: false });
+    return;
+  }
+  const values = [...els.pickList.querySelectorAll(".pick-row")].map(el => el.dataset.value);
+  const i = values.indexOf(picking.active);
+  picking.active = values[Math.max(0, Math.min(values.length - 1, i < 0 ? 0 : i + by))] ?? null;
+  showActive();
+}
+
+els.pick.addEventListener("click", () => (els.picker.hidden ? openPicker() : closePicker()));
+els.pickSearch.addEventListener("input", () => {
+  closeFly();
+  picking.active = null;
+  renderPicker();
+});
+els.pickSearch.addEventListener("keydown", event => {
+  if (event.isComposing) {
+    return;
+  }
+  const fly = !els.pickFly.hidden;
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    step(event.key === "ArrowDown" ? 1 : -1);
+  } else if (event.key === "ArrowRight" && !fly && els.pickSearch.selectionStart === els.pickSearch.value.length) {
+    const row = rowEl(picking.active);
+    if (row?.querySelector(".more")) {
+      event.preventDefault();
+      openFly(row);
+    }
+  } else if (event.key === "ArrowLeft" && fly) {
+    event.preventDefault();
+    closeFly();
+  } else if (event.key === "Enter") {
+    event.preventDefault();
+    if (fly) {
+      pickModel(picking.flyFor, picking.flyActive);
+    } else if (rowEl(picking.active)) {
+      pickModel(picking.active);
+    }
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    if (fly) {
+      closeFly();
+    } else {
+      closePicker();
+    }
+  }
+});
+els.pickFam.addEventListener("click", event => {
+  const tab = event.target.closest?.("button[role='tab']");
+  if (tab && !tab.disabled) {
+    selectFamily(tab.dataset.harness);
+    els.pickSearch.focus();
+  }
+});
+els.pickFam.addEventListener("keydown", event => {
+  const tabs = [...els.pickFam.querySelectorAll("button:not(:disabled)")];
+  const i = tabs.indexOf(document.activeElement);
+  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+    event.preventDefault();
+    const next = tabs[(i + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length];
+    if (next) {
+      selectFamily(next.dataset.harness, { focusTab: true });
+    }
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    closePicker();
+  } else if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    els.pickSearch.focus();
+  } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    // Typing anywhere in the picker filters.
+    event.preventDefault();
+    els.pickSearch.focus();
+    els.pickSearch.setRangeText(event.key, els.pickSearch.value.length, els.pickSearch.value.length, "end");
+    els.pickSearch.dispatchEvent(new Event("input"));
+  }
+});
+// The pointer: a row it rests on opens its efforts; a click picks.
+els.pickList.addEventListener("mousedown", event => event.preventDefault());
+els.pickFly.addEventListener("mousedown", event => event.preventDefault());
+els.pickList.addEventListener("pointermove", event => {
+  const row = event.target.closest?.(".pick-row");
+  if (!row) {
+    return;
+  }
+  if (picking.active !== row.dataset.value) {
+    picking.active = row.dataset.value;
+    showActive({ scroll: false });
+  }
+  if (picking.flyFor !== row.dataset.value) {
+    clearTimeout(picking.hover);
+    picking.hover = setTimeout(() => {
+      if (!els.picker.hidden && picking.active === row.dataset.value) {
+        openFly(row);
+      }
+    }, 160);
+  }
+});
+els.pickList.addEventListener("click", event => {
+  const row = event.target.closest?.(".pick-row");
+  if (row) {
+    pickModel(row.dataset.value);
+  }
+});
+els.pickFly.addEventListener("pointermove", event => {
+  clearTimeout(picking.hover);
+  const option = event.target.closest?.(".pick-eff");
+  if (option && picking.flyActive !== option.dataset.value) {
+    picking.flyActive = option.dataset.value;
+    showActive({ scroll: false });
+  }
+});
+els.pickFly.addEventListener("click", event => {
+  const option = event.target.closest?.(".pick-eff");
+  if (option) {
+    pickModel(picking.flyFor, option.dataset.value);
+  }
+});
+els.pickList.addEventListener("scroll", () => closeFly());
+window.addEventListener("resize", () => closePicker({ focus: false }));
 
 // --- The header (the chat's title) and the Chat | Work switch ---------------------
 
@@ -549,6 +1568,7 @@ els.favicon.addEventListener("error", () => {
 function renderBinding() {
   const work = conv?.kind === "work";
   document.documentElement.dataset.mode = work ? "work" : "chat";
+  document.documentElement.dataset.external = String(!!conv?.external);
   els.toChat.setAttribute("aria-pressed", String(!work));
   els.toWork.setAttribute("aria-pressed", String(work));
   els.dir.hidden = !work;
@@ -565,6 +1585,11 @@ function renderBinding() {
     els.title.title = info.url ? `${info.title}\n${info.url}` : info.title;
     setFavicon(info.image);
   }
+  // A remote task that ended says why under its last answer (zen-observe's
+  // stop reasons).
+  const ended = work && !conv.busy ? remoteEnd(conv) : null;
+  els.remoteEnd.hidden = !ended;
+  els.remoteEnd.textContent = ended ?? "";
   renderNeeds();
   renderMenu();
   renderLive();
@@ -616,6 +1641,9 @@ document.addEventListener(
     if (!els.menu.hidden && !event.target.closest?.("#menu, #more")) {
       closeMenu();
     }
+    if (!els.picker.hidden && !event.target.closest?.("#picker, #pick-fly, #pick")) {
+      closePicker({ focus: false });
+    }
   },
   true
 );
@@ -625,7 +1653,8 @@ document.addEventListener(
 function renderMenu() {
   const work = conv?.kind === "work";
   els.newChat.hidden = work;
-  els.removeTask.hidden = !work || !AgentService.tasks.has(conv?.uid);
+  // An external task leaves the list once it ended; the runtime's feed keeps it.
+  els.removeTask.hidden = !work || !AgentService.isListed(conv) || (!!conv.external && conv.task.state !== "done");
 }
 
 function closeMenu() {
@@ -683,38 +1712,120 @@ $("close").addEventListener("click", () => {
 
 // --- The composer --------------------------------------------------------------
 
-function placeholder() {
+/** What the idle box says, longest first (hintsFor). */
+function placeholders() {
   const available = conv ? availability(conv.harness) : { ok: true };
   if (!available.ok) {
-    return available.reason || "This agent isn't available";
+    return [available.reason, "This agent isn't available"].filter(Boolean);
   }
   if (conv?.kind === "work") {
-    return conv.messages.length ? PLACEHOLDERS.reply : PLACEHOLDERS.task;
+    return [conv.messages.length ? PLACEHOLDERS.reply : PLACEHOLDERS.task];
   }
-  return PLACEHOLDERS.chat;
+  return [PLACEHOLDERS.chat];
+}
+
+/**
+ * What the empty box says, longest first: it shows the first that fits its
+ * two lines (fitHint). At Zen's narrowest sidebar a busy chat's
+ * "<status> · Enter queues, ⌘Enter steers" takes three, so there it says
+ * only what Enter and Steer do.
+ */
+function hintsFor(busy) {
+  if (!busy) {
+    return waitingFor && waitingFor === conv ? ["Reading the files…"] : placeholders();
+  }
+  const ask = openAsk();
+  if (ask) {
+    return ask.questions.some(q => takesWords(ask, q))
+      ? ["Answer in your own words, or pick above…", "Type an answer, or pick above…"]
+      : ["Answer the agent's question above, or Skip", "Answer above, or Skip"];
+  }
+  if (openPermission()) {
+    return ["Reply to decline, and say what to do instead…", "Reply to decline…"];
+  }
+  const keys = `Enter queues, ${STEER_KEY} steers`;
+  return thinkingRow() ? [keys] : [`${conv.status || "Working…"} · ${keys}`, keys];
+}
+
+/** The empty box's words, longest first (hintsFor). */
+let hints = [];
+
+function setHints(texts) {
+  if (texts.length === hints.length && texts.every((text, i) => text === hints[i])) {
+    return;
+  }
+  hints = texts;
+  fitHint();
+}
+
+/**
+ * The box shows the first hint that fits its two lines, else the last.
+ * Gecko counts an empty box's placeholder in scrollHeight, so one that
+ * doesn't fit reads as a scrollHeight past clientHeight. Words in the box
+ * hide the placeholder: it fits again once they go (autoGrow), and when the
+ * box's width changes.
+ */
+function fitHint() {
+  const input = els.input;
+  for (const [i, text] of hints.entries()) {
+    input.placeholder = text;
+    if (input.value || i === hints.length - 1 || input.scrollHeight <= input.clientHeight + 1) {
+      return;
+    }
+  }
+}
+
+/** The agent's open permission request, which a message sent now declines
+ * (AgentService.steer): the user wrote back instead of choosing. */
+function openPermission(target = conv) {
+  return target?.busy ? target.messages.findLast(m => m.role === "permission" && m.answer === null) : null;
 }
 
 /** While the agent works, the empty question box says what it is doing and
- * Send turns into Stop. */
+ * what Enter and Steer do, and Send turns into Stop. */
 function renderStatus() {
+  // For every chat, since it hides the bar too: called only for a task
+  // another agent drives, it left "Finished · now" on the next chat shown
+  // (the user's bug in 5ca03b1).
+  renderExternalBar();
+  if (conv?.external) {
+    // Read-only: no question box, no Send, Steer or Stop of the chat's.
+    els.send.hidden = true;
+    els.stop.hidden = true;
+    els.steer.hidden = true;
+    els.empty.hidden = true;
+    document.body.classList.remove("busy");
+    return;
+  }
   const busy = !!conv?.busy;
   els.send.hidden = busy;
   els.stop.hidden = !busy;
-  els.input.placeholder = busy
-    ? conv.status || "Working…"
-    : waitingFor && waitingFor === conv
-      ? "Reading the files…"
-      : placeholder();
+  setHints(hintsFor(busy));
   document.body.classList.toggle("busy", busy);
   els.empty.hidden = !!conv?.messages.length;
-  disableOptions();
   updateSend();
 }
 
-/** Send is dimmed while there is nothing to send. */
+/**
+ * Whether the chat ends in a thought row that's still live (fillThought): it
+ * already says the agent is thinking, so the busy box leaves its status out
+ * (the relay's polish). A later wait has no row, and the box says it.
+ */
+function thinkingRow() {
+  const last = conv?.messages.findLast(m => !m.hidden);
+  return last?.role === "thought" && (last.ms === null || last.ms === undefined);
+}
+
+/** Send is dimmed while there is nothing to send. While the agent works,
+ * Steer shows beside Stop once there is: Enter queues the message, and Steer
+ * sends it into the running turn. With a permission open, Enter sends it at
+ * once as well (openPermission), so Steer would only repeat it. */
 function updateSend() {
   const draft = conv?.draft;
-  els.send.disabled = !els.input.value.trim() && !draft?.selection && !draft?.attachments?.length;
+  const empty = !els.input.value.trim() && !draft?.selection && !draft?.attachments?.length;
+  els.send.disabled = empty;
+  els.steer.hidden = empty || !conv?.busy || !!conv.external || !!openPermission() || !!openAsk();
+  els.steer.title = `Send it now, into the agent's turn (${STEER_KEY}). Enter queues it for when the turn ends.`;
 }
 
 function renderChip() {
@@ -757,10 +1868,13 @@ function renderAttachments() {
 
 function renderAll() {
   els.messages.replaceChildren(listFor(conv), els.live);
+  pruneList();
+  renderExternal();
   renderBinding();
   renderOptions();
   renderChip();
   renderAttachments();
+  renderQueue();
   renderMessages();
   els.messages.scrollTop = els.messages.scrollHeight;
 }
@@ -792,6 +1906,14 @@ function onChange(change) {
     }
   } else if (change.type === "task" || change.type === "zen") {
     scheduleBinding();
+    renderExternal();
+  } else if (change.type === "steps") {
+    renderExternal();
+  } else if (change.type === "queue") {
+    renderQueue();
+  } else if (change.type === "draft") {
+    // Stop, or a failed turn, put the queued messages back in the box.
+    loadDraft();
   } else {
     scheduleRender();
   }
@@ -799,9 +1921,19 @@ function onChange(change) {
 
 // --- Composer ---------------------------------------------------------------
 
+/** The box grows with what the user types. Empty, it keeps its two lines
+ * (rows, min-height), and its hint fits them (fitHint): Gecko counts an
+ * empty box's placeholder in scrollHeight, so a busy chat's that wrapped
+ * past two lines at Zen's narrowest sidebar sized the box, and the next
+ * chat's too, since show() grows the box before that chat's placeholder
+ * goes in (zen-eval's look run on 4f97629). */
 function autoGrow() {
   els.input.style.height = "auto";
-  els.input.style.height = `${Math.min(els.input.scrollHeight, 200)}px`;
+  if (els.input.value) {
+    els.input.style.height = `${Math.min(els.input.scrollHeight, 200)}px`;
+  } else {
+    fitHint();
+  }
 }
 
 function saveDraft() {
@@ -816,7 +1948,7 @@ function saveDraft() {
 /** Attach files to the shown conversation's next question. They are read
  * right away, while the user types. */
 function addFiles(files) {
-  if (!conv || !files.length) {
+  if (!conv || conv.external || !files.length) {
     return;
   }
   const target = conv;
@@ -841,11 +1973,11 @@ function addFiles(files) {
   renderAttachments();
 }
 
-async function submit() {
-  if (!conv || conv.busy || waitingFor === conv) {
-    return;
-  }
-  const target = conv;
+/** The box's message for `target` once its files are read, and the box
+ * emptied; null when there is nothing to send, or another tab is shown by
+ * then (the files stay with this one). Files that Stop put back in the box
+ * (AgentService's queue) are read already and have no state. */
+async function composed(target) {
   const items = target.draft?.attachments ?? [];
   if (items.some(item => item.state === "reading")) {
     waitingFor = target;
@@ -856,28 +1988,115 @@ async function submit() {
       waitingFor = null;
     }
     if (conv !== target) {
-      return; // another tab is shown now; the files stay with this one
+      return null;
     }
     renderStatus();
-    if (target.busy) {
-      return;
-    }
   }
   const selection = target.draft?.selection ?? "";
   const attachments = items
-    .filter(item => item.state === "ready")
+    .filter(item => (item.state ?? "ready") === "ready")
     .map(({ state, error, ready, ...attachment }) => attachment);
   const question = els.input.value.trim() || (selection || attachments.length ? glue.defaultQuestion() : "");
   if (!question) {
-    return;
+    return null;
   }
   els.input.value = "";
   autoGrow();
   target.draft = null;
   renderChip();
   renderAttachments();
-  await glue.submit(target, { question, selection, attachments });
+  return { question, selection, attachments };
 }
+
+/** Send the box's message. While the agent works, Enter queues it for when
+ * the turn ends, and Steer (or Cmd+Enter) sends it into the running turn;
+ * with a permission open, it goes at once and declines the request. Whether
+ * the agent works is decided once the files are read. */
+async function submit({ steer = false } = {}) {
+  if (!conv || conv.external || waitingFor === conv) {
+    return;
+  }
+  const target = conv;
+  const ask = openAsk(target);
+  if (ask) {
+    // The agent waits on its question: the box's words answer it. What
+    // else the box holds (the selection, files) stays for the next message.
+    const words = els.input.value.trim();
+    if (words && askWords(ask, words)) {
+      els.input.value = "";
+      autoGrow();
+      saveDraft();
+      updateSend();
+    }
+    return;
+  }
+  const message = await composed(target);
+  if (!message) {
+    return;
+  }
+  if (!target.busy) {
+    await glue.submit(target, message);
+  } else if (steer || openPermission(target)) {
+    await glue.steer(target, message);
+  } else {
+    glue.enqueue(target, message);
+  }
+}
+
+/** The box shows the conversation's draft again: Stop, or a failed turn, put
+ * the queued messages back in it (AgentService.cancel). */
+function loadDraft() {
+  els.input.value = conv?.draft?.text ?? "";
+  autoGrow();
+  renderChip();
+  renderAttachments();
+  updateSend();
+}
+
+/** The messages waiting for the agent's turn to end, oldest first, each on
+ * one line with its files' count, Steer (send it now) and ✕. */
+function renderQueue() {
+  const items = conv && !conv.external ? (conv.queue ?? []) : [];
+  els.queue.hidden = !items.length;
+  els.queueList.replaceChildren(
+    ...items.map(item => {
+      const row = document.createElement("li");
+      row.append(div("text", item.question));
+      const files = item.files?.length ?? item.attachments?.length ?? 0;
+      if (files) {
+        row.append(div("count", files === 1 ? "1 file" : `${files} files`));
+      }
+      const steer = document.createElement("button");
+      steer.className = "pill";
+      steer.textContent = "Steer";
+      steer.title = "Send it now, into the agent's turn";
+      steer.addEventListener("click", () => {
+        const target = conv;
+        AgentService.dequeue(target, item.id);
+        glue.steer(target, item);
+      });
+      const remove = document.createElement("button");
+      remove.className = "icon";
+      remove.textContent = "✕";
+      remove.title = "Don't send it";
+      remove.setAttribute("aria-label", "Don't send it");
+      remove.addEventListener("click", () => AgentService.dequeue(conv, item.id));
+      row.append(steer, remove);
+      return row;
+    })
+  );
+}
+
+// The box's width follows the sidebar's: its words take their lines again,
+// and its hint fits again. A frame later, since growing the box in the
+// observer's own callback is a resize loop the observer reports.
+let inputWidth = -1;
+new ResizeObserver(() => {
+  if (els.input.clientWidth !== inputWidth) {
+    inputWidth = els.input.clientWidth;
+    requestAnimationFrame(autoGrow);
+  }
+}).observe(els.input);
 
 /** Typing a question starts the agent and the session if they were stopped
  * (after sitting unused) or closed, so they are ready by the time it is sent. */
@@ -889,14 +2108,23 @@ function warmUp() {
 
 els.input.addEventListener("input", () => {
   autoGrow();
+  // The draft stays current, so that Stop's putting the queue back in the
+  // box (AgentService.cancel) keeps what is typed.
+  saveDraft();
   updateSend();
   warmUp();
 });
 els.input.addEventListener("focus", warmUp);
 els.input.addEventListener("keydown", event => {
-  if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+  // A key the user's IME takes (a Chinese or Japanese composition's Enter or
+  // Escape) only commits or cancels the composition, whichever way the
+  // platform's keydown reads.
+  if (event.isComposing) {
+    return;
+  }
+  if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
-    submit();
+    submit({ steer: steerKey(event) });
   } else if (event.key === "Escape") {
     event.preventDefault();
     if (glue.directoryOpen) {
@@ -906,7 +2134,8 @@ els.input.addEventListener("keydown", event => {
     }
   }
 });
-els.send.addEventListener("click", submit);
+els.send.addEventListener("click", () => submit());
+els.steer.addEventListener("click", () => submit({ steer: true }));
 els.stop.addEventListener("click", () => conv && AgentService.cancel(conv));
 $("chip-remove").addEventListener("click", () => {
   if (conv?.draft) {
@@ -979,33 +2208,45 @@ document.addEventListener("drop", event => {
   }
 });
 
-// The agent and model menu: another agent's model starts that agent (a
-// session can't move), with the model as its pick.
-els.model.addEventListener("change", () => {
-  if (!conv) {
-    return;
-  }
-  const value = els.model.value;
-  const cut = value.indexOf("/");
-  const harness = value.slice(0, cut);
-  const model = value.slice(cut + 1);
-  if (harness !== conv.harness) {
-    if (harnessLocked()) {
-      renderOptions();
-      return;
-    }
-    AgentService.setHarness(conv, harness);
-  }
-  if (model) {
-    AgentService.setOption(conv, MODEL_OPTION, model);
-  }
-  els.input.focus();
-});
-els.effort.addEventListener("change", () => {
-  if (conv && els.effort.dataset.optionId) {
-    AgentService.setOption(conv, els.effort.dataset.optionId, els.effort.value);
-  }
-});
+
+// --- A remote task's arrival ---------------------------------------------------
+
+let arrivalActions = null;
+let arrivalTimer = null;
+
+/** The arrival card: `text`, with Watch and Stop, for `ms`. It takes no focus. */
+function showArrival(text, actions, ms) {
+  fillSource(els.arrivalText, text);
+  els.arrival.setAttribute("aria-label", text);
+  els.arrival.hidden = false;
+  arrivalActions = actions;
+  armArrival(ms);
+}
+
+/** Go after `ms`, but not from under the pointer or the keyboard's focus. */
+function armArrival(ms) {
+  clearTimeout(arrivalTimer);
+  arrivalTimer = setTimeout(() => (els.arrival.matches(":hover, :focus-within") ? armArrival(ms) : hideArrival()), ms);
+}
+
+function hideArrival() {
+  clearTimeout(arrivalTimer);
+  arrivalTimer = null;
+  arrivalActions = null;
+  els.arrival.hidden = true;
+}
+
+for (const [button, name] of [
+  [els.arrivalWatch, "watch"],
+  [els.arrivalStop, "stop"],
+]) {
+  button.addEventListener("click", () => {
+    const actions = arrivalActions;
+    hideArrival();
+    actions?.[name]?.();
+  });
+}
+els.arrivalClose.addEventListener("click", hideArrival);
 
 // --- Editing a question -------------------------------------------------------
 
@@ -1026,9 +2267,11 @@ function startEditing(el) {
   const cancel = document.createElement("button");
   cancel.className = "cancel";
   cancel.textContent = "Cancel";
+  // The same round Send as the question box's.
   const send = document.createElement("button");
-  send.className = "send";
-  send.textContent = "Send";
+  send.className = "send round";
+  send.title = "Send (Enter)";
+  send.setAttribute("aria-label", "Send");
   const buttons = div("buttons");
   buttons.append(cancel, send);
   const editor = div("editor");
@@ -1043,7 +2286,11 @@ function startEditing(el) {
   };
   box.addEventListener("input", grow);
   box.addEventListener("keydown", event => {
-    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+    // As in the question box: the IME's own keys only compose.
+    if (event.isComposing) {
+      return;
+    }
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       sendEdit(box.value);
     } else if (event.key === "Escape") {
@@ -1085,7 +2332,9 @@ function sendEdit(text) {
   }
   editing = null; // the question's element goes with it
   els.input.focus();
-  glue.submit(conv, { question, selection: message.selection, attachments, replace: message, source: message.source });
+  // The edit is the user's own words, even of a question another of their
+  // agents sent (a remote task's): it doesn't keep that source.
+  glue.submit(conv, { question, selection: message.selection, attachments, replace: message, source: message.source === "remote" ? null : message.source });
 }
 
 // --- Copying and saving answers ---------------------------------------------
@@ -1131,7 +2380,9 @@ async function act(button) {
     text = code.textContent.replace(/\n$/, "");
     extension = extensionFor(languageOf(code));
   } else {
-    text = message.text.trim();
+    text = turnParts(message)
+      .map(m => m.text.trim())
+      .join("\n\n");
     extension = "md";
   }
   try {
@@ -1202,6 +2453,23 @@ let liveAgain = false; // the card's tab changed during a picture: one more
 let liveTab = null; // the tab the card's picture is of; null: draw one once it can be seen
 let liveEvery = LIVE_EVERY_MS;
 let liveKept = false; // a picture was too slow to paint again: the card keeps it
+// The task whose page the card's picture is of; null: the card is blank. The
+// card keeps a picture only for its own task: drawPicture paints a page only
+// while the agent has it, so a finished task's card would keep the last
+// task's picture, another task's page.
+let livePictureOf = null;
+
+/**
+ * A blank card, until a picture of the shown task's page comes. While the
+ * agent isn't on the page, none comes, so the card shows only its foot
+ * (data-pictured, panel.css).
+ */
+function clearLive() {
+  const canvas = els.liveShot;
+  canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+  livePictureOf = null;
+  els.live.dataset.pictured = "false";
+}
 
 /**
  * The card is drawn only while the user can see it: some of it on screen
@@ -1262,10 +2530,17 @@ function renderLive() {
     return;
   }
   const { rec, tab, held, live } = state;
+  if (livePictureOf !== conv.uid) {
+    clearLive();
+  }
   const host = hostOf(tab);
   const watching = glue.watching === conv.uid;
   els.live.dataset.live = String(live);
   els.live.dataset.watching = String(watching);
+  // A remote task's card says which of the user's agents sent it.
+  const from = remoteSource(conv);
+  els.liveSrc.hidden = !from;
+  fillSource(els.liveSrc, from ?? "");
   els.liveText.textContent =
     held === "takeover" ? `You have control · ${host}` : held ? `Waiting for you · ${host}` : live ? `Live · ${host}` : host;
   els.liveText.title = [tab.label, tab.linkedBrowser?.currentURI?.spec].filter(Boolean).join("\n");
@@ -1327,7 +2602,8 @@ function stopLive() {
  * the page's process; the panel copies its pixels in. The picture is for the
  * user's eyes only and never goes to the agent. drawPicture paints only an
  * agent's page of the chat's own task while the agent has it: otherwise, as
- * while the user holds the task, the card keeps its last picture.
+ * while the user holds the task, the card keeps its last picture of that task
+ * (livePictureOf), or stays blank.
  */
 async function drawLive(tab) {
   const canvas = els.liveShot;
@@ -1339,6 +2615,7 @@ async function drawLive(tab) {
     return;
   }
   liveDrawing = true;
+  const of = conv?.uid ?? null;
   try {
     const dpr = window.devicePixelRatio || 1;
     const width = Math.round(canvas.clientWidth * dpr);
@@ -1349,7 +2626,7 @@ async function drawLive(tab) {
     const asked = performance.now();
     const picture = await drawPicture(conv, tab, { width, height });
     const ms = performance.now() - asked;
-    if (tab !== liveTab) {
+    if (tab !== liveTab || (conv?.uid ?? null) !== of) {
       return;
     }
     if (ms > LIVE_SLOW_MS) {
@@ -1375,6 +2652,8 @@ async function drawLive(tab) {
     ctx.fillStyle = "white";
     ctx.fillRect(0, 0, width, height);
     ctx.putImageData(new ImageData(pixels, picture.width, picture.height), 0, 0);
+    livePictureOf = of;
+    els.live.dataset.pictured = "true";
     // How many pictures the card has drawn: tests count them.
     els.live.dataset.drawn = String(Number(els.live.dataset.drawn ?? 0) + 1);
   } catch (e) {
@@ -1398,6 +2677,12 @@ els.watchHint.replaceChildren(Object.assign(document.createElement("kbd"), { tex
 els.watch.addEventListener("click", () => {
   if (conv && glue.watching !== conv.uid) {
     glue.watch(conv.uid).then(shown => shown || renderLive());
+  }
+});
+
+els.extStop.addEventListener("click", () => {
+  if (conv?.external) {
+    AgentService.stopExternal(conv);
   }
 });
 
@@ -1427,6 +2712,7 @@ const api = {
     }
     stopEditing();
     saveDraft();
+    closePicker({ focus: false });
     unsubscribe?.();
     conv = next;
     unsubscribe = conv.subscribe(onChange);
@@ -1461,6 +2747,10 @@ const api = {
   /** The window started or stopped watching a task (the live card's Watch says Back). */
   watchChanged() {
     renderLive();
+  },
+  /** A remote task just started (the glue's arrival): its card, with Watch and Stop, for `ms`. */
+  arrive(text, actions, ms) {
+    showArrival(text, actions, ms);
   },
 };
 

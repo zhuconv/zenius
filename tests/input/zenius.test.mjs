@@ -234,6 +234,21 @@ const writtenFlag = page =>
     code: `const { isWritten } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/agentworld.sys.mjs");
       return isWritten(ctx.resolvePage(arg).browser);`,
   });
+/** zen-observe's evidence against `page`, as its own process reads it (content/evidence.sys.mjs), at once after a paste there. */
+const evidenceInPage = page =>
+  h.call("dev.evalChrome", {
+    arg: { space: page.spaceId, page: page.label },
+    code: `return await ctx.content(ctx.resolvePage(arg).browser.browsingContext, "dev#evalContent", { privileged: true,
+        code: "return ChromeUtils.importESModule('chrome://userscripts/content/zenius/content/evidence.sys.mjs').evidenceOf(actor.contentWindow);" });`,
+  });
+/** The same, as the parent holds it, which content's word reaches a moment later. */
+const evidenceOf = page =>
+  h.call("dev.evalChrome", {
+    arg: { space: page.spaceId, page: page.label },
+    code: `const EV = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/evidence.sys.mjs");
+      return EV.evidenceOf(ctx.resolvePage(arg).browser);`,
+  });
+const ONERROR = { hooked: "a paste with an inline handler (onerror)" };
 /** zen-core's pages.codeRefusal, answering for `page` only, as in a page the user's tab opened. */
 const refuseCodeIn = (page, on) =>
   h.call("dev.evalChrome", {
@@ -268,6 +283,10 @@ test("page.keyboard.paste's html reaches the page sanitized: neither a site's pa
     }
     assert.equal(await agentCodeMarked(page), true, "the page holds the agent's code");
     assert.equal(await writtenFlag(page), true, "and is written");
+    // The markup carried code, which never ran: evidence all the same (A5).
+    assert.deepEqual(await evidenceInPage(page), ONERROR);
+    await h.until(async () => (await evidenceOf(page)).hooked !== undefined, "the parent to hold the paste's evidence");
+    assert.deepEqual(await evidenceOf(page), ONERROR);
   }));
 
 test("Ctrl/Cmd+V of the Space clipboard's html is sanitized too, and the page it went into holds the agent's code (sanitizer)", () =>
@@ -286,6 +305,46 @@ test("Ctrl/Cmd+V of the Space clipboard's html is sanitized too, and the page it
     assert.doesNotMatch(s.handled, /onerror/, "without its onerror");
     assert.equal(await agentCodeMarked(page), true, "the page holds the agent's code");
     assert.equal(await writtenFlag(page), true, "and is written");
+    assert.deepEqual(await evidenceInPage(page), ONERROR, "the Space clipboard's markup is checked as page.keyboard's is (A5)");
+  }));
+
+// The agent's pasted markup, and the evidence it leaves (A5): only what
+// zen-observe's hookedMarkup counts, read from the markup as the agent sent
+// it, the whole document, head included.
+const PASTE_CASES = [
+  ["<b>bold</b> and <i>italic</i>", {}],
+  ["<meta charset='utf-8'><html><body><!--StartFragment--><p style='color:#c00'>red</p><!--EndFragment--></body></html>", {}],
+  ["<a href='https://example.com/'>a link</a> <img src='data:,x' alt='x'> <button type=button>Go</button>", {}],
+  ["<table><tr><td>cell</td></tr></table><ul><li>item</li></ul><template><script>1</script></template>", {}],
+  ["<form action='/x'><input name=q></form>", { hooked: "a paste with a form" }],
+  ["<p>x</p><div><input type=password name=p></div>", { hooked: "a paste with a password field" }],
+  ["<label>Code <input name=code></label>", { hooked: "a paste with a field (input)" }],
+  ["<div contenteditable>x</div>", { hooked: "a paste with an editable area" }],
+  ["<p><img src=x onerror='document.title = 1'></p>", ONERROR],
+  ["<a href=' javascript:alert(1)'>x</a>", { hooked: "a paste with a javascript: URL (href)" }],
+  ["<script>document.title = 1</script><b>x</b>", { hooked: "a paste with a script element" }],
+  ["<iframe src='/'></iframe>", { hooked: "a paste with a frame" }],
+  ["<html><head><meta http-equiv='refresh' content='0;url=/x'></head><body>x</body></html>", { hooked: "a paste with a meta refresh" }],
+  ["<style>p { color: red }</style><p>x</p>", { hooked: "a paste with a style sheet" }],
+];
+
+test("an agent's paste with html is evidence against the page only when its markup carries code, a frame, a form, a field, an editable area, a meta refresh or a style sheet (A5)", () =>
+  withPasteSite(async url => {
+    const page = track(await h.newPageAt(task, url));
+    const got = [];
+    for (const [i, [html]] of PASTE_CASES.entries()) {
+      // Evidence is per document: each case in a new one.
+      await page.goto(`${url}?a5=${i}`);
+      await page.click("#native");
+      await page.keyboard.paste({ text: "x", html });
+      got.push([html, await evidenceInPage(page)]);
+    }
+    assert.deepEqual(got, PASTE_CASES);
+    // A paste of text alone that reads as markup is text: nothing to check.
+    await page.goto(`${url}?a5=text`);
+    await page.click("#native");
+    await page.keyboard.paste("<form><input type=password></form>");
+    assert.deepEqual(await evidenceInPage(page), {}, "text that reads as markup");
   }));
 
 test("Ctrl/Cmd+V in a page that shares a window group outside the task pastes the Space clipboard's text only (closed groups)", () =>
@@ -1667,6 +1726,44 @@ test("I1: a dialog with input sent behind it, then dismissed, leaves the user's 
   assert.deepEqual(promptUi, { loaded: 0, attention: 0 }, "Firefox's prompt UI never opened for the agent's dialog");
 });
 
+/**
+ * Counts calls to every browser window's focus(), which raises Zen over the
+ * app the user is in (requirement 3). Firefox's openLinkIn calls it on the
+ * window it loads in, even for a tab in the background. Returns the calls'
+ * callers once stopped; the spy calls the real focus meanwhile.
+ */
+async function spyOnWindowFocus() {
+  await h.call("dev.evalChrome", {
+    code: `
+      for (const w of Services.wm.getEnumerator("navigator:browser")) {
+        if (w.__zenInputFocusSpy) continue;
+        const own = Object.getOwnPropertyDescriptor(w, "focus");
+        const real = w.focus;
+        const calls = [];
+        w.__zenInputFocusSpy = { own, calls };
+        w.focus = function (...args) {
+          calls.push(new Error().stack.split("\\n").slice(1, 4).join(" < "));
+          return real.apply(this, args);
+        };
+      }
+      return true;`,
+  });
+  return () =>
+    h.call("dev.evalChrome", {
+      code: `
+        const calls = [];
+        for (const w of Services.wm.getEnumerator("navigator:browser")) {
+          const spy = w.__zenInputFocusSpy;
+          if (!spy) continue;
+          if (spy.own) Object.defineProperty(w, "focus", spy.own);
+          else delete w.focus;
+          delete w.__zenInputFocusSpy;
+          calls.push(...spy.calls);
+        }
+        return calls;`,
+    });
+}
+
 test("D3: a middle click on a link opens it as a new page of the task, as on Ego, and leaves the user's view alone", async () => {
   // The manager's decision (2026-11-20): Ego's result, a new page in the
   // task listed in receipt.popups, but nothing outside the task and no
@@ -1695,12 +1792,15 @@ test("D3: a middle click on a link opens it as a new page of the task, as on Ego
   const pagesBefore = await labels();
   const url = await page.url();
   const before = await userView();
+  const focusCalls = await spyOnWindowFocus();
   const receipt = await page.click("#i1-middle", { button: "middle" });
   assert.equal(receipt.popups?.length, 1, `the receipt lists the new page, as Ego's does: ${JSON.stringify(receipt)}`);
   const popup = task.page(receipt.popups[0].label);
   try {
     assert.deepEqual(await labels(), [...pagesBefore, popup.label], "the new page is the task's");
     assert.equal(await popup.url(), href, "on the link's URL");
+    // What a user's middle click gives the page: the link's referrer, and no opener.
+    assert.deepEqual(await popup.evaluate(() => ({ referrer: document.referrer, opener: window.opener === null })), { referrer: url, opener: true });
     assert.equal(await page.url(), url, "the page itself didn't navigate");
     assert.deepEqual(await page.evaluate(() => window.__log), ["mousedown:1", "mouseup:1", "auxclick:1"]);
     // I1: nothing changed for the user but the task's new, unselected tab.
@@ -1724,7 +1824,10 @@ test("D3: a middle click on a link opens it as a new page of the task, as on Ego
     await task.page(raw.popups[0].label).close();
     await h.sleep(300);
     assert.deepEqual(await labels(), [...pagesBefore, popup.label], "nothing else joined the task");
+    // Requirement 3: no window was raised over the app the user is in.
+    assert.deepEqual(await focusCalls(), [], "a middle click raised a Zen window (its focus() was called)");
   } finally {
+    await focusCalls().catch(() => {});
     await popup.close().catch(() => {});
   }
 });

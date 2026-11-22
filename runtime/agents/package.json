@@ -1,0 +1,13 @@
+{
+  "name": "zenius-agents",
+  "private": true,
+  "description": "The ACP adapters the agent sidebar's built-in agents run when there's no config.json of the user's own: zenius's installer installs them in ~/.zenius/agents (docs/agent-sidebar.md).",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.3"
+  },
+  "dependencies": {
+    "@agentclientprotocol/claude-agent-acp": "0.107.0",
+    "@agentclientprotocol/codex-acp": "2.6.0"
+  }
+}

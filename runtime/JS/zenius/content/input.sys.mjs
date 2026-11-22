@@ -12,6 +12,7 @@ import { blockedError, blocker, dispatchIn, dispatchPointer, pressElsewhere } fr
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
+  hookedMarkup: "chrome://userscripts/content/zenius/content/evidence.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
@@ -1236,6 +1237,32 @@ export function pasteInto(win, data, { plain = false } = {}) {
 export function sanitizePastedHtml(html) {
   const flags = Ci.nsIParserUtils.SanitizerAllowStyle | Ci.nsIParserUtils.SanitizerAllowComments;
   return Cc["@mozilla.org/parserutils;1"].getService(Ci.nsIParserUtils).sanitize(html, flags);
+}
+
+/**
+ * What in the agent's pasted html counts as hooked, in a few words, or null
+ * (the defenses brief's A5, on the user's call of 2026-11-21): code, a
+ * frame, a form, a field, an editable area, a base, a meta refresh or a
+ * style sheet, by zen-observe's hookedMarkup, which its world runs on what
+ * the agent's code inserts, so the two count the same things. It reads the
+ * markup as the agent sent it, not as the sanitizer lets it through: a paste
+ * that carries code is evidence against the page, though the page never
+ * runs that code. The parse is inert: a DOMParser's document runs no script
+ * and loads nothing. It's the page's DOMParser, through its Xray, which the
+ * page's code can't change.
+ *
+ * @param {Window} win  the window the paste goes into
+ * @param {string} html
+ * @returns {string|null}
+ */
+export function hookedPaste(win, html) {
+  try {
+    return lazy.hookedMarkup(new win.DOMParser().parseFromString(html, "text/html"));
+  } catch (e) {
+    // Markup it couldn't read counts: the defense fails closed.
+    console.error("[zenius] reading the agent's pasted html", e);
+    return "markup zenius couldn't read";
+  }
 }
 
 /**

@@ -1,10 +1,15 @@
 // The hand-off (the manager's rule of 2026-11-20): before the user holds a
-// page, zenius makes it safe for their typing. zen-core's parts: the quiet
-// load (a new GET entry, the form and the focus carried over), the remedy
-// handOffCheck's answer picks (in place, or into a group of its own), the
-// hold's refusals of the agent's code and of new windows, the discard of the
-// agent's sandboxes (the user's decision (A)), and what the hand back tells
-// the agent. zen-observe's guards (tests/observe) cover the rest.
+// page, zenius makes it safe for their typing, on evidence only since the
+// user's call of 2026-11-21 (docs/briefs/defenses-evidence.md, A1 to A3).
+// Only a page the agent's code left something hooked in, or one the agent
+// made, gets the quiet load, the hold's COOP, the channel mute and the
+// refusal of new windows: filling, clicking and reading are no evidence, nor
+// is a flag or a list, which zen-ux warns of instead. zen-core's parts: the
+// quiet load (a new GET entry, the form and the focus carried over), the
+// two-step replacement of a site's marked windows, the hold's refusal of new
+// windows, the discard of the agent's sandboxes (the user's decision (A)),
+// and what the hand back tells the agent. zen-observe's guards
+// (tests/observe) cover the rest.
 import assert from "node:assert/strict";
 import http from "node:http";
 import { after, before, test } from "node:test";
@@ -212,8 +217,8 @@ const discards = () => h.chrome(`return ctx.service.hoDiscards;`);
 const freshDiscards = () => h.chrome(`ctx.service.hoDiscards.length = 0; ctx.service.hoDiscardFail = null; return true;`);
 const taskOf = space => h.chrome(`return "task " + ctx.spaces.get(arg).id;`, space);
 
-/** The group switch waits on the user's decision about the isolated world: off unless a test turns it on. */
-const groupSwitch = on =>
+/** The group switch is gone (the user's pass on the defenses, 2026-11-21), but a profile may still set its pref. */
+const leftoverGroupSwitch = on =>
   h.chrome(
     on ? `Services.prefs.setBoolPref("zenius.handoff.groupSwitch", true); return true;` : `Services.prefs.clearUserPref("zenius.handoff.groupSwitch"); return true;`
   );
@@ -228,13 +233,41 @@ const FILL = `(() => {
 const READ = `const f = document.forms[0];
   return [f.t.value, f.h.value, f.p.value, f.c.checked, f.s.value, f.ta.value].join(",") + "|" + (document.activeElement?.name ?? "");`;
 
-test("a hand-off loads afresh a page where the agent's code ran: its visible fields and focus come back, not the agent's hidden value or a secret", async () => {
+/**
+ * Agent code that leaves something hooked in the page: a style sheet, which
+ * outlives the discard of its world (zen-observe's evidence). Every document
+ * of the page's site in its window group is marked with it.
+ */
+const HOOK = `(document.head.append(document.createElement("style")), 1)`;
+const hook = (space, label) => h.call("page.evaluate", { space, page: label, isFunction: false, fn: HOOK });
+const EV_URL = "chrome://userscripts/content/zenius/observe/evidence.sys.mjs";
+/** The page's evidence, its top document and frames (zen-observe's evidenceOf). */
+const evidenceIn = (space, label) =>
+  h.chrome(
+    `const s = ctx.spaces.get(arg.space);
+     const b = ctx.pages.tabFor(ctx.pages.get(s, arg.label)).linkedBrowser;
+     return ChromeUtils.importESModule(${JSON.stringify(EV_URL)}).evidenceOf(b);`,
+    { space, label }
+  );
+/** Mark the page's top document with `reason`, as the agent's world, Safe Browsing or page.flag would; its evidence after. */
+const markPage = (space, label, reason = "hooked", detail = "a script element") =>
+  h.chrome(
+    `const s = ctx.spaces.get(arg.space);
+     const b = ctx.pages.tabFor(ctx.pages.get(s, arg.label)).linkedBrowser;
+     const EV = ChromeUtils.importESModule(${JSON.stringify(EV_URL)});
+     EV.markEvident(b, arg.reason, arg.detail);
+     return EV.evidenceOf(b);`,
+    { space, label, reason, detail }
+  );
+
+test("a hand-off loads afresh a page the agent's code left something hooked in: its visible fields and focus come back, not the agent's hidden value or a secret", async () => {
   const space = await h.space("ho reload");
   await freshDiscards();
   try {
     const { label } = await h.call("pages.new", { space, url: site("/form?ho=1") });
     await loaded(space, label, "ho=1");
     await h.call("page.evaluate", { space, page: label, isFunction: false, fn: FILL });
+    await hook(space, label);
     const before = await info(space, label);
     await listen();
     const reply = await h.call("spaces.handOff", { space });
@@ -246,11 +279,13 @@ test("a hand-off loads afresh a page where the agent's code ran: its visible fie
     assert.equal(now.history, before.history, "in place of the old entry");
     assert.equal(now.held, true);
     assert.equal(await inPage(space, label, READ), "typed,orig,,true,b,area|t", `the quiet load: ${await quietNote()}`);
+    assert.deepEqual(await evidenceIn(space, label), {}, "the fresh document has no evidence");
     const events = await heard();
     assert.equal(events.length, 1);
     assert.equal(events[0].ownership, "agentDelegatedToUser");
     assert.equal(events[0].reloaded, "reload");
     assert.equal(events[0].carried, true);
+    assert.deepEqual(events[0].evidence, { [label]: { hooked: "a style sheet" } }, "zen-ux's card says why");
     await resume(space);
     const back = await h.call("spaces.waitForControl", { space, timeout: 5000 });
     assert.deepEqual(back.reloaded, [label]);
@@ -268,6 +303,7 @@ test("a POST result is loaded again by GET, never resubmitted", async () => {
     await loaded(space, label, "ho=2");
     await h.call("page.evaluate", { space, page: label, isFunction: false, fn: "(document.forms[0].t.value = 'x', document.forms[0].submit(), 1)" });
     await loaded(space, label, "/post");
+    await hook(space, label);
     const posts = server.posts;
     const gets = server.getsOfPost;
     await listen();
@@ -296,6 +332,29 @@ test("a page where the agent's code never ran is held, not loaded again", async 
     assert.equal(now.inner, before.inner);
     assert.equal(now.held, true);
     assert.equal((await heard())[0].reloaded, undefined);
+    assert.equal((await heard())[0].evidence, undefined, "nothing loaded afresh, so no evidence");
+  } finally {
+    await cleanUp(space);
+  }
+});
+
+test("a page the agent's code only filled and focused is held as it is, with what the agent typed: that's no evidence (the user's call, 2026-11-21), and nor is a flag or a list", async () => {
+  const space = await h.space("ho filled");
+  await freshDiscards();
+  try {
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=filled") });
+    await loaded(space, label, "ho=filled");
+    await h.call("page.evaluate", { space, page: label, isFunction: false, fn: FILL });
+    await h.call("page.flag", { space, page: label, reason: "asks for more than the task needs" });
+    assert.deepEqual(Object.keys(await markPage(space, label, "listed", "phishing: test-list")).sort(), ["flagged", "listed"]);
+    const before = await info(space, label);
+    const reply = await h.call("spaces.handOff", { space });
+    assert.equal(reply.reloaded, undefined);
+    assert.deepEqual(await discards(), [await taskOf(space)], "the agent's sandboxes go all the same");
+    const now = await info(space, label);
+    assert.equal(now.inner, before.inner, "the same document");
+    assert.equal(now.held, true);
+    assert.match(await inPage(space, label, READ), /^typed,planted,secret,true,b,area\|/, "the agent's values stay");
   } finally {
     await cleanUp(space);
   }
@@ -344,32 +403,94 @@ test("when the agent's code doesn't stop, the hand-off is refused (discardFailed
   }
 });
 
-test("with the group switch paused (the default), a held popup on the agent's site keeps its group and opener: the agent's window there loads afresh in place", async () => {
+test("a held popup beside the agent's page on its site, which the agent's code hooked: that page loads afresh, and the popup, where the agent's code left nothing, is held as it is, with its group and opener (the rubric's rule 3)", async () => {
+  const space = await h.space("ho beside");
+  try {
+    const { label: T } = await h.call("pages.new", { space, url: site("/form?ho=4bT") });
+    await loaded(space, T, "ho=4bT");
+    await h.call("page.evaluate", { space, page: T, isFunction: false, fn: `(window.__p = window.open(${JSON.stringify(site("/form?ho=4bP"))}), 1)` });
+    const P = await pageOf(space, "ho=4bP");
+    await loaded(space, P, "ho=4bP");
+    await h.call("page.evaluate", { space, page: P, isFunction: false, fn: FILL });
+    await hook(space, T);
+    assert.deepEqual(await evidenceIn(space, P), {}, "being reachable from a hooked page is no evidence");
+    await front(space, P);
+    const [tBefore, pBefore] = [await info(space, T), await info(space, P)];
+    const reply = await h.call("spaces.handOff", { space });
+    assert.deepEqual(reply.reloaded, [T]);
+    const [tNow, pNow] = [await info(space, T), await info(space, P)];
+    assert.notEqual(tNow.inner, tBefore.inner, "T loaded afresh");
+    assert.equal(pNow.inner, pBefore.inner, "P as it was");
+    assert.deepEqual([await evidenceIn(space, T), await evidenceIn(space, P)], [{}, {}], "T's copy came in clean beside P");
+    assert.equal(pNow.tops, 2, "P keeps its group");
+    assert.equal(await inPage(space, P, "return String(window.opener !== null);"), "true");
+  } finally {
+    await cleanUp(space);
+  }
+});
+
+test("a held popup and the agent's page beside it on its site, both of which the agent's code hooked: each loads afresh on its own, the page first, and both copies come in clean; the popup keeps its group and opener (a leftover zenius.handoff.groupSwitch true changes nothing)", async () => {
   const space = await h.space("ho paused");
+  await leftoverGroupSwitch(true);
   try {
     const { label: T } = await h.call("pages.new", { space, url: site("/form?ho=4T") });
     await loaded(space, T, "ho=4T");
     await h.call("page.evaluate", { space, page: T, isFunction: false, fn: `(window.__p = window.open(${JSON.stringify(site("/form?ho=4P"))}), 1)` });
     const P = await pageOf(space, "ho=4P");
     await loaded(space, P, "ho=4P");
+    await h.call("page.evaluate", { space, page: P, isFunction: false, fn: FILL });
+    await hook(space, P);
+    await hook(space, T);
     await front(space, P);
-    const tBefore = (await info(space, T)).inner;
+    const [tBefore, pBefore] = [await info(space, T), await info(space, P)];
     const reply = await h.call("spaces.handOff", { space });
-    assert.deepEqual([...reply.reloaded].sort(), [P, T].sort());
-    assert.notEqual((await info(space, T)).inner, tBefore, "T loaded afresh, and its handle with it");
-    assert.equal((await info(space, P)).tops, 2, "P keeps its group");
+    assert.deepEqual(reply.reloaded, [T, P], "T, which could reach P, first");
+    const [tNow, pNow] = [await info(space, T), await info(space, P)];
+    assert.notEqual(tNow.inner, tBefore.inner, "T loaded afresh");
+    assert.notEqual(pNow.inner, pBefore.inner, "P loaded afresh");
+    assert.deepEqual([tNow.url, pNow.url], [site("/form?ho=4T"), site("/form?ho=4P")]);
+    assert.deepEqual([tNow.history, pNow.history], [tBefore.history, pBefore.history], "each in place of its old entry");
+    assert.deepEqual([await evidenceIn(space, T), await evidenceIn(space, P)], [{}, {}], "neither copy came in marked");
+    assert.equal(await inPage(space, P, READ), "typed,orig,,true,b,area|t", `P's form came back: ${await quietNote()}`);
+    assert.equal(pNow.tops, 2, "P keeps its group");
     assert.equal(await inPage(space, P, "return String(window.opener !== null);"), "true");
     await resume(space);
     const back = await h.call("spaces.waitForControl", { space, timeout: 5000 });
     assert.equal(back.openerCut, undefined);
   } finally {
+    await leftoverGroupSwitch(false).catch(() => {});
     await cleanUp(space);
   }
 });
 
-test("with the group switch on, a popup on the agent's site goes into a group of its own: handles to it close, its own popups join it, and the hand back says openerCut", async () => {
-  const space = await h.space("ho group");
-  await groupSwitch(true);
+test("a popup the agent's page opened, where its code left nothing hooked: neither loads afresh, since the discard ended the agent's handle, and during the hold that page opens windows as usual", async () => {
+  const space = await h.space("ho popup plain");
+  await freshDiscards();
+  try {
+    const { label: T } = await h.call("pages.new", { space, url: site("/form?ho=pp-T") });
+    await loaded(space, T, "ho=pp-T");
+    await h.call("page.evaluate", { space, page: T, isFunction: false, fn: `(window.__p = window.open(${JSON.stringify(site("/form?ho=pp-P"))}), 1)` });
+    const P = await pageOf(space, "ho=pp-P");
+    await loaded(space, P, "ho=pp-P");
+    await h.call("page.evaluate", { space, page: P, isFunction: false, fn: FILL });
+    await front(space, P);
+    const [tBefore, pBefore] = [await info(space, T), await info(space, P)];
+    const reply = await h.call("spaces.handOff", { space });
+    assert.equal(reply.reloaded, undefined);
+    assert.equal((await info(space, T)).inner, tBefore.inner, "T as it was");
+    assert.equal((await info(space, P)).inner, pBefore.inner, "P as it was");
+    assert.equal((await info(space, P)).held, true);
+    assert.deepEqual(await worldOf(space, T), { none: true }, "the agent's world and its handle are gone");
+    assert.equal(await inPage(space, P, "return String(window.opener !== null);"), "true");
+    assert.equal(await inPage(space, T, `return String(!!window.open(${JSON.stringify(site("/form?ho=pp-x"))}));`), "true", "no evidence, so no refusal");
+    assert.ok(await pageOf(space, "ho=pp-x"));
+  } finally {
+    await cleanUp(space);
+  }
+});
+
+test("a held popup whose opener is on another site keeps it: the agent's hooked window on the popup's site loads afresh in place, and during the hold the group runs no agent code and the opener, which the agent hooked, opens nothing", async () => {
+  const space = await h.space("ho other");
   const off = await h.chrome(
     `const W = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/windows.sys.mjs");
      ctx.service.hoRefused = [];
@@ -377,42 +498,6 @@ test("with the group switch on, a popup on the agent's site goes into a group of
      return true;`
   );
   assert.ok(off);
-  try {
-    const { label: T } = await h.call("pages.new", { space, url: site("/form?ho=5T") });
-    await loaded(space, T, "ho=5T");
-    await h.call("page.evaluate", { space, page: T, isFunction: false, fn: `(window.__p = window.open(${JSON.stringify(site("/form?ho=5P"))}), 1)` });
-    const P = await pageOf(space, "ho=5P");
-    await loaded(space, P, "ho=5P");
-    await front(space, P);
-    assert.equal((await info(space, P)).tops, 2);
-    const reply = await h.call("spaces.handOff", { space });
-    assert.deepEqual(reply.reloaded, [P]);
-    const now = await info(space, P);
-    assert.equal(now.tops, 1, "alone in its group");
-    // The agent's handle lived in its world, which the hand-off ended (zen-observe's glue).
-    assert.deepEqual(await worldOf(space, T), { none: true }, "the agent's world and its handle are gone");
-    assert.equal(await inPage(space, P, "return String(window.opener);"), "null");
-    // While the user holds P: T, where the agent's code ran, opens nothing,
-    // with an opener or without; P's own popup joins the task.
-    assert.equal(await inPage(space, T, `return String(window.open(${JSON.stringify(site("/form?ho=5x"))}));`), "null");
-    assert.equal(await inPage(space, T, `return String(window.open(${JSON.stringify(site("/form?ho=5y"))}, "_blank", "noopener"));`), "null");
-    assert.deepEqual(await h.chrome(`return ctx.service.hoRefused;`), [true, true]);
-    assert.equal(await inPage(space, P, `return String(!!window.open(${JSON.stringify(site("/form?ho=5Q"))}));`), "true");
-    const Q = await pageOf(space, "ho=5Q");
-    assert.ok(Q);
-    await resume(space);
-    const back = await h.call("spaces.waitForControl", { space, timeout: 5000 });
-    assert.equal(back.openerCut, true);
-    assert.deepEqual(back.reloaded, [P]);
-  } finally {
-    await h.chrome(`ctx.service.hoRefusedOff?.(); delete ctx.service.hoRefusedOff; delete ctx.service.hoRefused; return true;`).catch(() => {});
-    await groupSwitch(false).catch(() => {});
-    await cleanUp(space);
-  }
-});
-
-test("a held popup whose opener is on another site keeps it: the agent's window on the popup's site loads afresh in place, and during the hold the group runs no agent code", async () => {
-  const space = await h.space("ho other");
   try {
     const { label: T } = await h.call("pages.new", { space, url: other("/form?ho=6T") });
     await loaded(space, T, "ho=6T");
@@ -426,11 +511,12 @@ test("a held popup whose opener is on another site keeps it: the agent's window 
     const R = await pageOf(space, "ho=6R");
     await loaded(space, P, "ho=6P");
     await loaded(space, R, "ho=6R");
-    await h.call("page.evaluate", { space, page: R, isFunction: false, fn: "1" });
+    await hook(space, R);
+    await hook(space, T);
     await front(space, P);
     const rBefore = (await info(space, R)).inner;
     const reply = await h.call("spaces.handOff", { space });
-    assert.ok(reply.reloaded.includes(R), `reloaded ${reply.reloaded}`);
+    assert.deepEqual(reply.reloaded, [R], "P, beside R, isn't hooked (the rubric's rule 3)");
     assert.notEqual((await info(space, R)).inner, rBefore, "R loaded afresh");
     assert.equal((await info(space, P)).tops, 3, "P keeps its group");
     assert.equal(await inPage(space, P, "return String(window.opener !== null);"), "true");
@@ -441,21 +527,30 @@ test("a held popup whose opener is on another site keeps it: the agent's window 
       h.chrome(`const s = ctx.spaces.get(arg.space); return ctx.pages.codeRefusal(s, ctx.pages.get(s, arg.label));`, { space, label });
     assert.deepEqual(await refusal(T), { reason: "hold", windows: 1 });
     assert.deepEqual(await refusal(R), { reason: "hold", windows: 1 });
+    // While the user holds P: T, which the agent's code hooked, opens
+    // nothing, with an opener or without; P's own popup joins the task.
+    assert.equal(await inPage(space, T, `return String(window.open(${JSON.stringify(other("/form?ho=6x"))}));`), "null");
+    assert.equal(await inPage(space, T, `return String(window.open(${JSON.stringify(other("/form?ho=6y"))}, "_blank", "noopener"));`), "null");
+    assert.deepEqual(await h.chrome(`return ctx.service.hoRefused;`), [true, true]);
+    assert.equal(await inPage(space, P, `return String(!!window.open(${JSON.stringify(site("/form?ho=6Q"))}));`), "true");
+    assert.ok(await pageOf(space, "ho=6Q"));
     await resume(space);
     await h.call("spaces.waitForControl", { space, timeout: 5000 });
     assert.equal(await refusal(T), null, "not kept: it ended with the hold");
   } finally {
+    await h.chrome(`ctx.service.hoRefusedOff?.(); delete ctx.service.hoRefusedOff; delete ctx.service.hoRefused; return true;`).catch(() => {});
     await cleanUp(space);
   }
 });
 
-test("with the group switch on, the held page's load onto a site where the agent's code ran leaves the group (a sign-in's callback), and the hand back says openerCut", async () => {
+test("the held page's load onto a site where the agent's code left something hooked leaves the group (a sign-in's callback), and the hand back says openerCut", async () => {
   const space = await h.space("ho callback");
-  await groupSwitch(true);
   try {
     const { label: T } = await h.call("pages.new", { space, url: site("/form?ho=7T") });
     await loaded(space, T, "ho=7T");
     await h.call("page.evaluate", { space, page: T, isFunction: false, fn: `(window.__p = window.open(${JSON.stringify(other("/form?ho=7P"))}), 1)` });
+    // T now holds what the agent's code left hooked, which outlives its discard.
+    await hook(space, T);
     const P = await pageOf(space, "ho=7P");
     await loaded(space, P, "ho=7P");
     await front(space, P);
@@ -472,7 +567,29 @@ test("with the group switch on, the held page's load onto a site where the agent
     const back = await h.call("spaces.waitForControl", { space, timeout: 5000 });
     assert.equal(back.openerCut, true);
   } finally {
-    await groupSwitch(false).catch(() => {});
+    await cleanUp(space);
+  }
+});
+
+test("the held page's load onto the agent's site stays in its group when the agent's code there left nothing hooked: a written paragraph is no evidence", async () => {
+  const space = await h.space("ho callback plain");
+  try {
+    const { label: T } = await h.call("pages.new", { space, url: site("/form?ho=7bT") });
+    await loaded(space, T, "ho=7bT");
+    await h.call("page.evaluate", { space, page: T, isFunction: false, fn: `(window.__p = window.open(${JSON.stringify(other("/form?ho=7bP"))}), 1)` });
+    await h.call("page.evaluate", { space, page: T, isFunction: false, fn: `(document.body.append(document.createElement("p")), 1)` });
+    const P = await pageOf(space, "ho=7bP");
+    await loaded(space, P, "ho=7bP");
+    await front(space, P);
+    await h.call("spaces.handOff", { space });
+    await inPage(space, P, `location.href = ${JSON.stringify(site("/form?ho=7bcb"))}; return 1;`);
+    await loaded(space, P, "ho=7bcb");
+    assert.equal((await info(space, P)).tops, 2, "still beside T");
+    assert.equal(await inPage(space, P, "return String(window.opener !== null);"), "true");
+    await resume(space);
+    const back = await h.call("spaces.waitForControl", { space, timeout: 5000 });
+    assert.equal(back.openerCut, undefined);
+  } finally {
     await cleanUp(space);
   }
 });
@@ -484,6 +601,7 @@ test("the user's Take over does what a hand-off does, and its spaceChanged says 
     const { label } = await h.call("pages.new", { space, url: site("/form?ho=8") });
     await loaded(space, label, "ho=8");
     await h.call("page.evaluate", { space, page: label, isFunction: false, fn: FILL });
+    await hook(space, label);
     await listen();
     const result = await h.chrome(
       `const s = ctx.spaces.get(arg.space);
@@ -493,13 +611,14 @@ test("the user's Take over does what a hand-off does, and its spaceChanged says 
     );
     assert.deepEqual(
       result,
-      { agentPage: false, how: "reload", reloaded: [label], carried: true, openerCut: false },
+      { agentPage: false, how: "reload", reloaded: [label], carried: true, openerCut: false, evidence: { [label]: { hooked: "a style sheet" } } },
       `the quiet load: ${await quietNote()}`
     );
     assert.deepEqual(await discards(), [await taskOf(space)]);
     const [event] = await heard();
     assert.equal(event.source, "user");
     assert.equal(event.reloaded, "reload");
+    assert.deepEqual(event.evidence, { [label]: { hooked: "a style sheet" } });
     assert.equal(await inPage(space, label, READ), "typed,orig,,true,b,area|t");
   } finally {
     await cleanUp(space);
@@ -523,6 +642,7 @@ test("a page's leave prompt can't stop the hand-off: the agent's window, with a 
     await h.call("page.evaluate", { space, page: T, isFunction: false, fn: `(window.__p = window.open(${JSON.stringify(site("/form?ho=11P"))}), 1)` });
     const P = await pageOf(space, "ho=11P");
     await loaded(space, P, "ho=11P");
+    await hook(space, T);
     await front(space, P);
     // A handler the site's code or the agent's left, on an activated page:
     // Gecko would ask the user whether to leave.
@@ -546,6 +666,8 @@ test("a load that brings no new document refuses the hand-off, which names the p
     await h.call("page.evaluate", { space, page: T, isFunction: false, fn: `(window.__p = window.open(${JSON.stringify(site("/form?ho=12P"))}), 1)` });
     P = await pageOf(space, "ho=12P");
     await loaded(space, P, "ho=12P");
+    await hook(space, P);
+    await hook(space, T);
     await front(space, P);
     // With this Gecko pref a leave prompt shows without an activation too,
     // and in an agent tab zen-observe holds it for the agent: H's load
@@ -562,7 +684,7 @@ test("a load that brings no new document refuses the hand-off, which names the p
       const data = e.details ?? e.data;
       assert.equal(data.reason, "reloadFailed");
       assert.equal(data.page, P);
-      assert.deepEqual(data.reloaded, [T], "T loaded afresh before H's load failed");
+      assert.deepEqual(data.reloaded, [T], "T went first, and loaded afresh before P's load failed");
       assert.equal(data.offSite, undefined, "a load that didn't come isn't one that left the site");
       assert.match(e.message, /didn't load afresh.*task\.handOff\(\) again/);
       return true;
@@ -570,6 +692,7 @@ test("a load that brings no new document refuses the hand-off, which names the p
     assert.equal(await h.ownership(space), "agent");
     assert.equal((await info(space, P)).held, false);
     assert.equal((await info(space, P)).inner, pBefore, "the old document is there, and the task is still the agent's");
+    assert.equal((await info(space, T)).url, site("/form?ho=12T"), "T's copy shows its page");
   } finally {
     await h
       .chrome(
@@ -609,6 +732,7 @@ test("the site's router shows its open redirect: the quiet load stops before any
     const { label } = await h.call("pages.new", { space, url: site("/form?ho=13") });
     await loaded(space, label, "ho=13");
     await h.call("page.evaluate", { space, page: label, isFunction: false, fn: FILL });
+    await hook(space, label);
     await routeTo(space, label, other("/form?ho=13away"));
     const before = await info(space, label);
     const away = server.away;
@@ -632,6 +756,7 @@ test("the same through the site's pushState, at the user's Take over: the page's
     const { label } = await h.call("pages.new", { space, url: site("/form?ho=16") });
     await loaded(space, label, "ho=16");
     await h.call("page.evaluate", { space, page: label, isFunction: false, fn: FILL });
+    await hook(space, label);
     await inPage(space, label, `history.pushState(null, "", "/jsnext?to=" + encodeURIComponent(${JSON.stringify(other("/form?ho=16away"))})); return 1;`);
     const away = server.away;
     const result = await userTakeOver(space, label);
@@ -654,6 +779,7 @@ test("a page whose own URL now leads off its site too is refused: the load to th
     const { label } = await h.call("pages.new", { space, url: site(`/once?ho=13b&to=${encodeURIComponent(other("/form?ho=13onceaway"))}`) });
     await loaded(space, label, "ho=13b");
     await h.call("page.evaluate", { space, page: label, isFunction: false, fn: FILL });
+    await hook(space, label);
     await routeTo(space, label, other("/form?ho=13away"));
     const before = await info(space, label);
     const away = server.away;
@@ -693,6 +819,7 @@ test("a quiet load that ends on another origin of the page's site is handed off,
     const { label } = await h.call("pages.new", { space, url: site("/form?ho=14") });
     await loaded(space, label, "ho=14");
     await h.call("page.evaluate", { space, page: label, isFunction: false, fn: FILL });
+    await hook(space, label);
     const there = `http://127.0.0.1:${port2}/form?ho=14there`;
     await routeTo(space, label, there);
     const reply = await h.call("spaces.handOff", { space });
@@ -718,7 +845,7 @@ const say = (space, label, word) =>
   inPage(space, label, `try { __ch.postMessage(${JSON.stringify(word)}); __w.port.postMessage(${JSON.stringify(word)}); return "ok"; } catch (e) { return "threw " + e.name; }`);
 const heardIn = (space, label) => inPage(space, label, "return __heard.slice().sort().join();");
 
-test("the hold mutes the channels and shared workers the held page opened before it: neither it nor the task's other page hears the other, and its own code doesn't throw", async () => {
+test("the hold mutes the channels and shared workers the held page opened before it, beside a task page on its site that the agent's code hooked: neither hears the other, and its own code doesn't throw", async () => {
   const space = await h.space("ho mute");
   try {
     const { label: T } = await h.call("pages.new", { space, url: site("/form?ho=15T") });
@@ -727,6 +854,7 @@ test("the hold mutes the channels and shared workers the held page opened before
     await loaded(space, H, "ho=15H");
     await inPage(space, T, LISTEN);
     await inPage(space, H, LISTEN);
+    await hook(space, T);
     // Both ways before the hold (the worker may still be connecting the
     // second page, so say it until it's heard).
     await h.until(async () => {
@@ -743,12 +871,43 @@ test("the hold mutes the channels and shared workers the held page opened before
     await h.call("spaces.handOff", { space });
     const now = await info(space, H);
     assert.equal(now.held, true);
-    assert.equal(now.inner, before.inner, "a page where the agent's code never ran is held as it is");
+    assert.equal(now.inner, before.inner, "a page with no evidence is held as it is: T's marks stay in T's own window group");
     assert.equal(await say(space, T, "t2"), "ok");
     assert.equal(await say(space, H, "h2"), "ok", "the site's own code in the held page keeps working");
     await new Promise(resolve => setTimeout(resolve, 600));
     assert.equal(await heardIn(space, H), heardH, "the held page hears nothing of the task's page");
     assert.equal(await heardIn(space, T), heardT, "the task's page hears nothing of the held page");
+  } finally {
+    await cleanUp(space);
+  }
+});
+
+test("without evidence in the task's pages, the hold mutes nothing: the site's own channels and shared workers go on", async () => {
+  const space = await h.space("ho no mute");
+  try {
+    const { label: T } = await h.call("pages.new", { space, url: site("/form?ho=15bT") });
+    await loaded(space, T, "ho=15bT");
+    const { label: H } = await h.call("pages.new", { space, url: site("/form?ho=15bH") });
+    await loaded(space, H, "ho=15bH");
+    await inPage(space, T, LISTEN);
+    await inPage(space, H, LISTEN);
+    await h.call("page.evaluate", { space, page: T, isFunction: false, fn: FILL });
+    await h.until(async () => {
+      await say(space, T, "t1");
+      await say(space, H, "h1");
+      return (await heardIn(space, H)).includes("w:t1") && (await heardIn(space, T)).includes("w:h1");
+    }, 10000);
+    await front(space, H);
+    const before = await info(space, H);
+    await h.call("spaces.handOff", { space });
+    const now = await info(space, H);
+    assert.equal(now.held, true);
+    assert.equal(now.inner, before.inner, "no evidence: H is held as it is");
+    await h.until(async () => {
+      await say(space, T, "t2");
+      await say(space, H, "h2");
+      return (await heardIn(space, H)).includes("c:t2") && (await heardIn(space, T)).includes("c:h2");
+    }, 5000);
   } finally {
     await cleanUp(space);
   }
@@ -760,6 +919,7 @@ test("a page that sends itself to another site with its own script as it loads a
     const { label } = await h.call("pages.new", { space, url: site(`/once?ho=16b&to=${encodeURIComponent(other("/form?ho=16onceaway"))}`) });
     await loaded(space, label, "ho=16b");
     await h.call("page.evaluate", { space, page: label, isFunction: false, fn: FILL });
+    await hook(space, label);
     await inPage(space, label, `history.replaceState(null, "", "/jsnext?to=" + encodeURIComponent(${JSON.stringify(other("/form?ho=16away"))})); return 1;`);
     const away = server.away;
     await assert.rejects(h.call("spaces.handOff", { space }), e => {
@@ -780,9 +940,10 @@ test("a page that sends itself to another site with its own script as it loads a
   }
 });
 
-// Landing (2): zenius's clean loads under the isolated world. zen-observe's
-// world flags what the agent's code wrote, and the URL it set in place;
-// these tests flag through its hook (observe/agentworld.sys.mjs noteWritten)
+// Landing (2): zenius's clean loads under the isolated world, on evidence
+// since the user's call (A1, A3). zen-observe's world records the URL the
+// agent's code set in place (observe/agentworld.sys.mjs noteWritten), and
+// marks what its code left hooked; these tests set both through those hooks,
 // as content would.
 
 const AW_URL = "chrome://userscripts/content/zenius/observe/agentworld.sys.mjs";
@@ -806,7 +967,7 @@ const agentSetURL = async (space, label, to) => {
   return { before, agentSet, ...(await flagWritten(space, label, { before, agentSet })) };
 };
 
-test("landing (2): the reload on demand loads a written page afresh, its form carried over and the focus on the field the user went for; a page that isn't written has nothing to clean", async () => {
+test("landing (2): the clean copy on demand loads a hooked page afresh, its form carried over and the focus on the field the user went for, and says what it acted on; a page with nothing hooked, written, listed or flagged, has nothing to clean", async () => {
   const space = await h.space("ho demand");
   try {
     const { label } = await h.call("pages.new", { space, url: site("/form?ho=demand") });
@@ -814,20 +975,26 @@ test("landing (2): the reload on demand loads a written page afresh, its form ca
     await h.call("page.evaluate", { space, page: label, isFunction: false, fn: FILL });
     const clean = () => h.chrome(`${BROWSER} return ctx.service.cleanOnDemand(b);`, { space, label });
     const before = await info(space, label);
-    assert.deepEqual(await clean(), { how: null, carried: false, focused: false });
-    assert.equal((await info(space, label)).inner, before.inner, "nothing loaded");
-    // The world wrote into it, and the user's press went for the textarea
-    // (zen-input's guard notes it before the focus moves).
+    assert.deepEqual(await clean(), { how: null, carried: false, focused: false, evidence: {} });
     assert.equal((await flagWritten(space, label)).written, true);
+    assert.deepEqual(await clean(), { how: null, carried: false, focused: false, evidence: {} }, "written is no evidence");
+    await markPage(space, label, "listed", "phishing: test-list");
+    const marks = await markPage(space, label, "flagged", "asks for a card number");
+    assert.deepEqual(await clean(), { how: null, carried: false, focused: false, evidence: marks }, "a clean copy can't remove a list's or a flag's danger");
+    assert.equal((await info(space, label)).inner, before.inner, "nothing loaded");
+    // The agent's code left something hooked, and the user's press went for
+    // the textarea (zen-input's guard notes it before the focus moves).
+    const evidence = await markPage(space, label);
     await h.chrome(
       `${BROWSER}
        return ctx.content(b.browsingContext, "dev#evalContent", { privileged: true, code: "ChromeUtils.importESModule('chrome://userscripts/content/zenius/content/forms.sys.mjs').noteUserTarget(content.document.forms[0].ta); return 1;" });`,
       { space, label }
     );
-    assert.deepEqual(await clean(), { how: "reload", carried: true, focused: true, urlBefore: null }, await quietNote());
+    assert.deepEqual(evidence, { hooked: "a script element", listed: "phishing: test-list", flagged: "asks for a card number" });
+    assert.deepEqual(await clean(), { how: "reload", carried: true, focused: true, urlBefore: null, evidence }, await quietNote());
     assert.notEqual((await info(space, label)).inner, before.inner, "a new document");
     assert.match(await inPage(space, label, READ), /^typed,orig,,true,b,area\|ta$/, await quietNote());
-    assert.equal(await h.chrome(`${BROWSER} return ChromeUtils.importESModule(${JSON.stringify(AW_URL)}).isWritten(b);`, { space, label }), false, "the fresh document is clean");
+    assert.deepEqual(await evidenceIn(space, label), {}, "the fresh document has no evidence");
   } finally {
     await cleanUp(space);
   }
@@ -841,12 +1008,12 @@ test("the clean copy on demand loads one tab afresh at most cleanCopyCap.max tim
     await h.chrome(`ctx.service.cleanCopyCap = { max: 2, windowMs: 60000 }; return true;`);
     const clean = () => h.chrome(`${BROWSER} return ctx.service.cleanOnDemand(b);`, { space, label });
     for (let n = 1; n <= 2; n++) {
-      assert.equal((await flagWritten(space, label)).written, true);
+      assert.ok((await markPage(space, label)).hooked);
       const inner = (await info(space, label)).inner;
       assert.equal((await clean()).how, "reload", `clean copy ${n}`);
       assert.notEqual((await info(space, label)).inner, inner, `clean copy ${n}: a new document`);
     }
-    assert.equal((await flagWritten(space, label)).written, true);
+    assert.ok((await markPage(space, label)).hooked);
     const inner = (await info(space, label)).inner;
     await assert.rejects(clean(), /loaded afresh 2 times in 60 s/);
     assert.equal((await info(space, label)).inner, inner, "no third load");
@@ -870,6 +1037,7 @@ test("landing (2): the clean load goes to the URL from before the agent's change
         await h.call("page.evaluate", { space, page: label, isFunction: false, fn: FILL });
         const set = await agentSetURL(space, label, to);
         assert.deepEqual([set.before, set.urlBefore], [start, start], JSON.stringify(set));
+        await markPage(space, label);
         const before = await info(space, label);
         const away = server.away;
         if (how === "handOff") {
@@ -889,23 +1057,25 @@ test("landing (2): the clean load goes to the URL from before the agent's change
   }
 });
 
-test("landing (2): at the task's end, a written page that stays open loads afresh with its form; one whose load brings no new document stays written", async () => {
+test("landing (2): at the task's end, a hooked page that stays open loads afresh with its form; one whose load brings no new document stays hooked; one the agent's code only wrote into stays as it is", async () => {
   const space = await h.space("ho end");
   const ids = [];
   try {
-    for (const part of ["enda", "endb"]) {
+    for (const part of ["enda", "endb", "endc"]) {
       const { label } = await h.call("pages.new", { space, url: site(`/form?ho=${part}`) });
       await loaded(space, label, `ho=${part}`);
       await h.call("page.evaluate", { space, page: label, isFunction: false, fn: FILL });
       ids.push({ label, ...(await info(space, label)), id: await h.chrome(`${BROWSER} return b.browserId;`, { space, label }) });
     }
-    const [a, b] = ids;
-    await flagWritten(space, a.label);
+    const [a, b, c] = ids;
+    await markPage(space, a.label);
     // B's clean load goes to a URL that never answers.
     await flagWritten(space, b.label, { before: site("/hang"), agentSet: b.url });
+    await markPage(space, b.label);
+    await flagWritten(space, c.label);
     // Long enough for A's load while test-all runs every suite at once.
     await h.chrome(`ctx.service.quietLoadTimeoutMs = 5000; return true;`);
-    await h.call("spaces.finish", { space, keep: [a.label, b.label] });
+    await h.call("spaces.finish", { space, keep: [a.label, b.label, c.label] });
     const finishedAt = Date.now();
     const byId = `const W = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/windows.sys.mjs");
       const t = [...W.allTabs()].find(t => t.linkedBrowser.browserId === arg.id);
@@ -914,18 +1084,21 @@ test("landing (2): at the task's end, a written page that stays open loads afres
       h.chrome(
         `${byId}
          const read = await ctx.content(bc, "dev#evalContent", { privileged: false, code: ${JSON.stringify(READ)} }).catch(e => "ERR " + e.message);
-         return { inner: bc.currentWindowGlobal?.innerWindowId ?? 0, read, written: ChromeUtils.importESModule(${JSON.stringify(AW_URL)}).isWritten(t.linkedBrowser) };`,
+         return { inner: bc.currentWindowGlobal?.innerWindowId ?? 0, read, evidence: ChromeUtils.importESModule(${JSON.stringify(EV_URL)}).evidenceOf(t.linkedBrowser) };`,
         { id }
       );
     let sa = null;
     await h.until(async () => (sa = await state(a.id)).inner !== a.inner && /\|t$/.test(sa.read), 10000).catch(() => {});
-    assert.notEqual(sa.inner, a.inner, `the written page loaded afresh (${JSON.stringify(sa)}, ${await quietNote()})`);
+    assert.notEqual(sa.inner, a.inner, `the hooked page loaded afresh (${JSON.stringify(sa)}, ${await quietNote()})`);
     assert.equal(sa.read, "typed,orig,,true,b,area|t", await quietNote());
-    assert.equal(sa.written, false);
+    assert.deepEqual(sa.evidence, {});
     await new Promise(r => setTimeout(r, Math.max(0, finishedAt + 6500 - Date.now())));
     const sb = await state(b.id);
     assert.equal(sb.inner, b.inner, "no new document came");
-    assert.equal(sb.written, true, "so it stays written");
+    assert.ok(sb.evidence.hooked, "so it stays hooked");
+    const sc = await state(c.id);
+    assert.equal(sc.inner, c.inner, "written is no evidence: no load");
+    assert.match(sc.read, /^typed,planted,secret,true,b,area\|/);
   } finally {
     await h.chrome(`delete ctx.service.quietLoadTimeoutMs; return true;`).catch(() => {});
     await h
@@ -940,7 +1113,7 @@ test("landing (2): at the task's end, a written page that stays open loads afres
   }
 });
 
-test("landing (2): onKeptRefused and onOpenRefused say whether the page is written", async () => {
+test("landing (2): onKeptRefused and onOpenRefused say evident, with the page's evidence, when it has what a clean copy clears (hooked or made), and never written", async () => {
   const space = await h.space("ho flags");
   try {
     const { label } = await h.call("pages.new", { space, url: site("/form?ho=flags") });
@@ -952,14 +1125,22 @@ test("landing (2): onKeptRefused and onOpenRefused say whether the page is writt
        // A stand-in with the page's browsing context, so no listener's UI shows for it.
        const page = { browsingContext: b.browsingContext, browserId: b.browserId };
        const got = [];
-       const offKept = W.onKeptRefused(i => i.browser === page && got.push("kept " + i.written));
-       const offOpen = W.onOpenRefused(i => i.browser === page && got.push("open " + i.written));
+       const EV = ChromeUtils.importESModule(${JSON.stringify(EV_URL)});
+       const say = i => JSON.stringify([i.evident, i.evidence, "written" in i]);
+       const offKept = W.onKeptRefused(i => i.browser === page && got.push("kept " + say(i)));
+       const offOpen = W.onOpenRefused(i => i.browser === page && got.push("open " + say(i)));
+       const both = () => {
+         W.noteKeptRefused({ browser: page, kind: "deviceAccess", api: "", asked: "" });
+         W.noteOpenRefused({ browser: page, url: "", reopened: false });
+       };
        try {
-         W.noteKeptRefused({ browser: page, kind: "deviceAccess", api: "", asked: "" });
-         W.noteOpenRefused({ browser: page, url: "", reopened: false });
+         both();
          AW.noteWritten(b.browsingContext, [b.browsingContext.currentWindowGlobal.innerWindowId]);
-         W.noteKeptRefused({ browser: page, kind: "deviceAccess", api: "", asked: "" });
-         W.noteOpenRefused({ browser: page, url: "", reopened: false });
+         both();
+         EV.markEvident(b, "listed", "phishing: test-list");
+         both();
+         EV.markEvident(b, "hooked", "a form");
+         both();
        } finally {
          offKept();
          offOpen();
@@ -967,8 +1148,15 @@ test("landing (2): onKeptRefused and onOpenRefused say whether the page is writt
        return got;`,
       { space, label }
     );
-    // Not written: left out, so zen-ux's own rule decides.
-    assert.deepEqual(got, ["kept undefined", "open undefined", "kept true", "open true"]);
+    // Without hooked or made, both are left out, so zen-ux reads the page.
+    const none = JSON.stringify([null, null, false]);
+    const yes = JSON.stringify([true, { hooked: "a form", listed: "phishing: test-list" }, false]);
+    assert.deepEqual(got, [
+      `kept ${none}`, `open ${none}`,
+      `kept ${none}`, `open ${none}`,
+      `kept ${none}`, `open ${none}`,
+      `kept ${yes}`, `open ${yes}`,
+    ]);
   } finally {
     await cleanUp(space);
   }
@@ -1011,6 +1199,79 @@ test("landing (2): finish({keep}) sends the discard to every tab of the task, th
         keptId
       )
       .catch(() => {});
+    await cleanUp(space);
+  }
+});
+
+/** The user's Resume as zen-ux's button does it: the hand back's step before the agent runs (beforeHandBack), then the agent has the task. */
+const resumeByUser = space =>
+  h.chrome(
+    `const s = ctx.spaces.get(arg);
+     await ctx.service.beforeHandBack(s);
+     ctx.spaces.setOwnership(s, "agent", { source: "user" });
+     return true;`,
+    space
+  );
+/** A load the user makes in the held tab, as their click on Create would. */
+const userLoads = (space, label, url) =>
+  h.chrome(
+    `const s = ctx.spaces.get(arg.space);
+     const b = ctx.pages.tabFor(ctx.pages.get(s, arg.label)).linkedBrowser;
+     b.loadURI(Services.io.newURI(arg.url), { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+     return true;`,
+    { space, label, url }
+  );
+
+test("a hand-off with secret: spaceChanged says secret, and at the user's Resume the tab shows about:blank with no history before the agent has control; the hand back says blanked", async () => {
+  const space = await h.space("ho secret");
+  try {
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=s1") });
+    await loaded(space, label, "ho=s1");
+    await assert.rejects(h.call("spaces.handOff", { space, secret: "yes" }), e => e.code === "ZEN_INVALID_ARGUMENT");
+    await listen();
+    await h.call("spaces.handOff", { space, secret: true });
+    const [event] = await heard();
+    assert.equal(event.secret, true);
+    // The user's step: Create shows the new token on a page of its own.
+    await userLoads(space, label, site("/form?ho=s1-token"));
+    await loaded(space, label, "ho=s1-token");
+    assert.ok((await info(space, label)).history >= 2);
+    await resumeByUser(space);
+    const now = await info(space, label);
+    assert.equal(now.url, "about:blank");
+    assert.equal(now.history, 1, "no entry to go back to, and so nothing in the back-forward cache");
+    const back = await h.call("spaces.waitForControl", { space, timeout: 5000 });
+    assert.deepEqual(back.blanked, [label]);
+    // A hand-off without secret leaves the tab as it is at the next hand back.
+    await h.call("page.goto", { space, page: label, url: site("/form?ho=s1-again") });
+    await loaded(space, label, "ho=s1-again");
+    await h.call("spaces.handOff", { space });
+    await resumeByUser(space);
+    assert.equal((await info(space, label)).url, site("/form?ho=s1-again"));
+    assert.equal((await h.call("spaces.waitForControl", { space, timeout: 5000 })).blanked, undefined);
+  } finally {
+    await cleanUp(space);
+  }
+});
+
+test("a hand-off with secret: the agent's own takeOver blanks the tab first too, and so does the hand back after a Take over the user made before the agent's hand-off", async () => {
+  const space = await h.space("ho secret take");
+  try {
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=s2") });
+    await loaded(space, label, "ho=s2");
+    await h.call("spaces.handOff", { space, secret: true });
+    await userLoads(space, label, site("/form?ho=s2-token"));
+    await loaded(space, label, "ho=s2-token");
+    const back = await h.call("spaces.takeOver", { space });
+    assert.deepEqual(back.blanked, [label]);
+    assert.equal((await info(space, label)).url, "about:blank");
+    await h.call("page.goto", { space, page: label, url: site("/form?ho=s2-b") });
+    await loaded(space, label, "ho=s2-b");
+    await userTakeOver(space, label);
+    await h.call("spaces.handOff", { space, secret: true });
+    await resumeByUser(space);
+    assert.equal((await info(space, label)).url, "about:blank");
+  } finally {
     await cleanUp(space);
   }
 });

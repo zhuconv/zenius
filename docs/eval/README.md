@@ -13,6 +13,8 @@ both (SPEC §6). The suites live in `tests/` (see `tests/README.md`).
 | `live-tasks.md` | C | the live-site tasks, their rubrics and how they run (approved) |
 | `live-pilot.md` | C | the zenius half of the pilot: results and cost, how runs are isolated and contained, the canary |
 | `pilot-evaluate-bodies.md` | C | the pilot's `page.evaluate` and `waitForFunction` bodies, scrubbed to their shape, with counts by pattern (for zen-sdk's isolated-world measurement) |
+| `live-round1.md` | C | round 1 on both targets: the judged and hand-checked scores, the hand checks, per-task times and costs, the method, and its safety record |
+| `live-round2.md` | C | round 2, with round 1's fixes and the order swapped: both rounds' scores and the pooled test, the hand checks, per-task times and costs, what changed in the method, and its safety record |
 | `tryout.md` | – | the user's try-out Zen (profile "try", installed as the install would) and its agent: what opens, what to try, how to stop and restart |
 | `no-preemption.md` | D | requirement 3: what each browser did to the user's view while an agent worked, from owner-only window samples |
 

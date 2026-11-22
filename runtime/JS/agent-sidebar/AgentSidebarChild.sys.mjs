@@ -2,9 +2,10 @@
  *
  *   GetSelection  the text the user selected in this frame (or in a focused
  *                 text field).
- *   GetPageText   the page's text as the user sees it, and only the text the
- *                 user can see (#visibleText). In Firefox's PDF viewer this is
- *                 the PDF's text, page by page.
+ *   GetPageText   the page's text as the user sees it (#visibleText), with
+ *                 the text it lays out where the user can't see it marked as
+ *                 hidden, and the links the user can see (#links). In
+ *                 Firefox's PDF viewer this is the PDF's text, page by page.
  *
  * Nothing here runs until the parent asks.
  */
@@ -20,10 +21,12 @@ const PDF_OPEN_MS = 30000;
 // navigation, and the header and footer of the whole page. The header and
 // footer of an article or section stay (#isSitePart).
 const SITE_PARTS = "nav, header, footer, [role=navigation], [role=banner], [role=contentinfo]";
-// Text that is laid out but that the user can't read stays out of the page's
-// text, since a page could hide instructions for the agent in it
+// Text that is laid out but that the user can't read comes marked as hidden
+// (#hidden): a page could hide instructions for the agent in it
 // (zen-snapshot's red team, docs/research/agent-sidebar-redteam.md, finding
-// 2): text smaller than this,
+// 2). It was left out until the user's pass on defenses (2026-11-21, A11):
+// trust the agent, and let it see what the user can't, marked so. Hidden is
+// text smaller than this,
 const MIN_FONT_PX = 4;
 // squeezed or clipped into a box thinner than this (screen-reader-only
 // text's 1 px box, a transform),
@@ -41,6 +44,20 @@ const NOT_TEXT = new Set(["script", "style", "template", "textarea", "select", "
 // background of its own.
 const DARK_CANVAS = { r: 28, g: 27, b: 34, a: 1 };
 const LIGHT_CANVAS = { r: 255, g: 255, b: 255, a: 1 };
+// The page's links a read returns (#links): at most this many, each URL at
+// most this long, each name at most this long.
+const MAX_LINKS = 200;
+const MAX_LINK_CHARS = 2000;
+const MAX_LINK_NAME = 80;
+
+/**
+ * Text the user can't see, as the agent reads it: marked, and quoted as a
+ * JSON string, so a page can't end the mark inside its own hidden text and
+ * pass the rest off as shown.
+ */
+function hidden(text) {
+  return `[hidden: ${JSON.stringify(text)}]`;
+}
 
 /** A computed color as {r, g, b, a}, or null for one this can't read. */
 function parseColor(value) {
@@ -217,7 +234,7 @@ export class AgentSidebarChild extends JSWindowActorChild {
       if (i) {
         text += parts[i - 1].inline && parts[i].inline ? " " : "\n";
       }
-      text += parts[i].text;
+      text += parts[i].hidden ? hidden(parts[i].text) : parts[i].text;
     }
     text = text
       .replace(/[ \t]+\n/g, "\n")
@@ -227,7 +244,58 @@ export class AgentSidebarChild extends JSWindowActorChild {
       kind: "html",
       text: text.slice(0, maxChars),
       truncated: text.length > maxChars,
+      links: this.#links(seen),
     };
+  }
+
+  /**
+   * The links the user can see, for Chat's fetch (the user's call on D1,
+   * docs/research/chat-fetch.md): Chat opens only a URL from its sources, the
+   * page's links among them. Each is a link with text the user can see
+   * (#visibleText), outside the site's navigation, http(s) only, to another
+   * page than this one, once, in page order: {url, name}. A link the page
+   * hides, or one without text, isn't one the user could follow, so it stays
+   * out; its name is only the text the user can see in it, so no hidden text
+   * goes unmarked.
+   *
+   * @param {{shown: Set<Text>, lit: Set<Element>}} seen
+   * @returns {Array<{url: string, name: string}>}
+   */
+  #links(seen) {
+    const links = [];
+    const here = this.document.URL.replace(/#.*$/s, "");
+    const known = new Set();
+    for (const a of this.document.links) {
+      if (links.length >= MAX_LINKS) {
+        break;
+      }
+      if (!seen.lit.has(a)) {
+        continue;
+      }
+      let url = "";
+      try {
+        url = new URL(a.href).href;
+      } catch {}
+      // A link within this page fetches the same document.
+      if (!/^https?:\/\//i.test(url) || url.length > MAX_LINK_CHARS || url.replace(/#.*$/s, "") === here || known.has(url)) {
+        continue;
+      }
+      known.add(url);
+      links.push({ url, name: this.#shownText(a, seen) });
+    }
+    return links;
+  }
+
+  /** The text the user can see in `el`, on one line, cut to MAX_LINK_NAME. */
+  #shownText(el, seen) {
+    let text = "";
+    const walker = this.document.createTreeWalker(el, this.contentWindow.NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node && text.length < MAX_LINK_NAME * 4; node = walker.nextNode()) {
+      if (seen.shown.has(node)) {
+        text += node.data;
+      }
+    }
+    return text.replace(/\s+/g, " ").trim().slice(0, MAX_LINK_NAME);
   }
 
   /** Whether an element has a box, or lays out its children in its parent's
@@ -258,20 +326,22 @@ export class AgentSidebarChild extends JSWindowActorChild {
    * same way, plus what no scrolling reaches.
    *
    * @param {Element} root
-   * @returns {{shown: Set<Text>, mixed: Set<Element>, site: Set<Element>}}
-   *   the text the user can see; the elements around text they can't or
-   *   around a site part, which #renderedText reads child by child; and the
-   *   site parts
+   * @returns {{shown: Set<Text>, hidden: Set<Text>, mixed: Set<Element>, lit: Set<Element>, siteIn: Set<Element>, site: Set<Element>}}
+   *   the text the user can see, and the text laid out where they can't; the
+   *   elements around hidden text or a site part, which #renderedText reads
+   *   child by child; those around text the user can see, and around a site
+   *   part; and the site parts
    */
   #visibleText(root) {
     const win = this.contentWindow;
     const doc = this.document;
-    const seen = { shown: new Set(), mixed: new Set(), site: new Set() };
-    const markUp = el => {
-      for (let p = el; p && !seen.mixed.has(p); p = p === root ? null : p.parentElement) {
-        seen.mixed.add(p);
+    const seen = { shown: new Set(), hidden: new Set(), mixed: new Set(), lit: new Set(), siteIn: new Set(), site: new Set() };
+    const up = (set, el) => {
+      for (let p = el; p && !set.has(p); p = p === root ? null : p.parentElement) {
+        set.add(p);
       }
     };
+    const markUp = el => up(seen.mixed, el);
     const styles = new Map();
     const scheme = win.getComputedStyle(doc.documentElement).colorScheme;
     const dark = /\bdark\b/.test(scheme) && (!/\blight\b/.test(scheme) || win.matchMedia("(prefers-color-scheme: dark)").matches);
@@ -306,6 +376,7 @@ export class AgentSidebarChild extends JSWindowActorChild {
         if (this.#isSitePart(node)) {
           seen.site.add(node);
           markUp(node.parentElement);
+          up(seen.siteIn, node.parentElement);
           return FILTER_REJECT;
         }
         return FILTER_SKIP;
@@ -315,7 +386,9 @@ export class AgentSidebarChild extends JSWindowActorChild {
       const visible = this.#textVisible(text, ctx);
       if (visible) {
         seen.shown.add(text);
+        up(seen.lit, text.parentElement);
       } else if (visible === false) {
+        seen.hidden.add(text);
         markUp(text.parentElement);
       }
     }
@@ -446,24 +519,32 @@ export class AgentSidebarChild extends JSWindowActorChild {
     return media.some(r => overlap(r, rect));
   }
 
-  /** The text of `el` the user can see, as parts: read whole (innerText)
-   * when nothing in it is hidden or belongs to the site, else child by
-   * child. Inline parts are joined by a space, others by a line break. */
+  /** The rendered text of `el` as parts: read whole (innerText) when nothing
+   * in it is hidden or belongs to the site, or when all of it is hidden (one
+   * hidden part), else child by child. Inline parts are joined by a space,
+   * others by a line break. */
   #renderedText(el, parts, seen) {
-    if (!seen.mixed.has(el)) {
+    const mixed = seen.mixed.has(el);
+    if (!mixed || (!seen.lit.has(el) && !seen.siteIn.has(el))) {
       const text = el.innerText?.trim();
       if (text) {
-        parts.push({ text, inline: this.contentWindow.getComputedStyle(el).display.startsWith("inline") });
+        // Hidden text out of the flow reads in the line it sits in:
+        // screen-reader-only text is positioned absolutely, which makes it
+        // a block.
+        const style = this.contentWindow.getComputedStyle(el);
+        const inline = style.display.startsWith("inline") || (mixed && /^(absolute|fixed)$/.test(style.position));
+        parts.push({ text, inline, hidden: mixed });
       }
       return;
     }
     for (const child of el.childNodes) {
       if (child.nodeType === child.TEXT_NODE) {
-        if (seen.shown.has(child)) {
+        const hidden = seen.hidden.has(child);
+        if (hidden || seen.shown.has(child)) {
           const pre = /^(pre|break-spaces)/.test(this.contentWindow.getComputedStyle(el).whiteSpace);
           const text = pre ? child.data.replace(/^\n+|\s+$/g, "") : child.data.replace(/\s+/g, " ").trim();
           if (text) {
-            parts.push({ text, inline: true });
+            parts.push({ text, inline: true, hidden });
           }
         }
       } else if (child.nodeType === child.ELEMENT_NODE && !NOT_TEXT.has(child.localName) && !seen.site.has(child) && this.#rendered(child)) {

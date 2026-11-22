@@ -5,13 +5,14 @@
 // without one has no listener of it in any tab, and a process loses them
 // when its last task page goes. The guard is about input state that Gecko
 // shares between a process's tabs, so where no task page lives there is
-// nothing to guard. A page the agent's world wrote into also arms its
-// processes, after its task too: the typing guard (content/typing.sys.mjs)
+// nothing to guard. A page the agent's code left something hooked in
+// (zen-observe's evidence, reason hooked) also arms its processes, after its
+// task too: the typing guard (content/typing.sys.mjs)
 // watches the user's keys there. So does a tab whose typing is held
 // (input/typing.sys.mjs), until the hold lifts: the keys the user types in
 // its clean copy meanwhile are held too, for the replay.
 
-import { WRITTEN_DOCS_KEY } from "chrome://userscripts/content/zenius/content/worldkeys.sys.mjs";
+import { EVIDENCE_DOCS_KEY } from "chrome://userscripts/content/zenius/content/worldkeys.sys.mjs";
 import { TASK_BROWSERS_KEY } from "chrome://userscripts/content/zenius/content/guards.sys.mjs";
 import { TYPING_HELD_DOCS_KEY, TYPING_HELD_TABS_KEY } from "chrome://userscripts/content/zenius/content/typingkeys.sys.mjs";
 import { noteSecretTyped } from "chrome://userscripts/content/zenius/input/handback.sys.mjs";
@@ -19,7 +20,7 @@ import { noteHeldInput, noteUserTyping } from "chrome://userscripts/content/zeni
 import { allTabs } from "chrome://userscripts/content/zenius/modules/windows.sys.mjs";
 
 const ACTOR = "ZeniusInput";
-const WATCHED_KEYS = [TASK_BROWSERS_KEY, WRITTEN_DOCS_KEY, TYPING_HELD_TABS_KEY, TYPING_HELD_DOCS_KEY];
+const WATCHED_KEYS = [TASK_BROWSERS_KEY, EVIDENCE_DOCS_KEY, TYPING_HELD_TABS_KEY, TYPING_HELD_DOCS_KEY];
 
 export class ZeniusInputParent extends JSWindowActorParent {
   receiveMessage({ name, data }) {
@@ -28,8 +29,8 @@ export class ZeniusInputParent extends JSWindowActorParent {
       // tab (content/typing.sys.mjs).
       noteSecretTyped(this.manager);
     } else if (name === "typingHeld") {
-      // The typing guard stopped the user's first press or key into a field
-      // of a written page (content/typing.sys.mjs).
+      // The typing guard stopped the user's first press or key in a hooked
+      // page (content/typing.sys.mjs).
       noteUserTyping(this.manager?.browsingContext?.top?.embedderElement ?? null, data);
     } else if (name === "typingHeldKey") {
       // The user's input that a hold dropped, for the clean copy's replay.
@@ -83,7 +84,7 @@ function heldTabIds() {
   return Services.ppmm.sharedData.get(TYPING_HELD_TABS_KEY) ?? new Set();
 }
 
-/** The top BrowsingContexts of task pages, of pages the agent's world wrote into, and of tabs whose typing is held. */
+/** The top BrowsingContexts of task pages, of hooked pages, and of tabs whose typing is held. */
 function guardedTops() {
   const tops = new Set();
   for (const id of [...taskIds(), ...heldTabIds()]) {
@@ -92,7 +93,7 @@ function guardedTops() {
       tops.add(top);
     }
   }
-  for (const id of [...(Services.ppmm.sharedData.get(WRITTEN_DOCS_KEY) ?? []), ...(Services.ppmm.sharedData.get(TYPING_HELD_DOCS_KEY) ?? [])]) {
+  for (const id of [...guardedDocs(), ...(Services.ppmm.sharedData.get(TYPING_HELD_DOCS_KEY) ?? [])]) {
     const top = WindowGlobalParent.getByInnerWindowId(id)?.browsingContext?.top;
     if (top) {
       tops.add(top);
@@ -194,7 +195,20 @@ function onWindowGlobal(wg, topic) {
   }
 }
 
-/** Is the document `innerWindowId` one the agent's world wrote into? */
+/**
+ * Is the document `innerWindowId` hooked, the only evidence the typing guard
+ * acts on? Listed and flagged pages get zen-ux's warning instead, and a page
+ * the agent made keeps the user's input on (content/typing.sys.mjs).
+ */
 function flagged(innerWindowId) {
-  return !!innerWindowId && !!Services.ppmm.sharedData.get(WRITTEN_DOCS_KEY)?.has(innerWindowId);
+  return !!innerWindowId && guards(Services.ppmm.sharedData.get(EVIDENCE_DOCS_KEY)?.get(innerWindowId));
+}
+
+/** {reason: detail} of a document, as zen-observe's EVIDENCE_DOCS_KEY holds it: hooked? */
+const guards = reasons => !!reasons && reasons.hooked !== undefined;
+
+/** The hooked documents, which the typing guard acts on. */
+function guardedDocs() {
+  const docs = Services.ppmm.sharedData.get(EVIDENCE_DOCS_KEY);
+  return docs ? [...docs].filter(([, reasons]) => guards(reasons)).map(([id]) => id) : [];
 }

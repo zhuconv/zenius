@@ -102,6 +102,29 @@ console.log(JSON.stringify({ receipt, listed }));`);
     assert.equal(out.listed, false);
   });
 
+  // zen-core's page.flag: the SDK checks only that the reason is a string, so
+  // the runtime's rules (one line, 1 to 200 characters) are the ones that hold.
+  it("page.flag(reason) flags the loaded page and returns nothing; the runtime refuses an empty, multi-line or long reason", async (t) => {
+    if (!needs(t, context, "spaces.create", "page.goto", "page.flag")) return;
+    const result = await run(`const task = await taskSpace(${JSON.stringify(unique("it flag"))});
+const page = task.page("p1");
+await page.goto(${JSON.stringify(`${context.base}/`)});
+const flagged = await page.flag("Asks for the user's bank password, which the task doesn't need");
+const refused = [];
+for (const reason of ["", "two\\nlines", "x".repeat(201)]) {
+  try {
+    await page.flag(reason);
+    refused.push("accepted");
+  } catch (error) {
+    refused.push(error.code);
+  }
+}
+await task.finish({ keep: [] });
+console.log(JSON.stringify({ flagged: flagged ?? null, refused }));`);
+    assert.equal(result.code, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), { flagged: null, refused: ["ZEN_INVALID_ARGUMENT", "ZEN_INVALID_ARGUMENT", "ZEN_INVALID_ARGUMENT"] });
+  });
+
   it("snapshot prints Ego's header and tree", async (t) => {
     if (!needs(t, context, "spaces.create", "page.goto", "page.snapshot")) return;
     const result = await run(`const task = await taskSpace(${JSON.stringify(unique("it snapshot"))});

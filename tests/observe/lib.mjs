@@ -7,6 +7,7 @@
 // element) must be the same after the test as before it.
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { readdirSync, readFileSync, rmSync } from "node:fs";
 import { isDeepStrictEqual, promisify } from "node:util";
 import { connect } from "../../scripts/lib/rpc.mjs";
 import { closeFixtureServer, startFixtureServer } from "../fixtures/server.mjs";
@@ -260,4 +261,39 @@ export async function timed(fn) {
   const t0 = performance.now();
   const value = await fn();
   return { value, ms: performance.now() - t0 };
+}
+
+/** PIDs of the processes whose command line names `path` (Linux; none where there's no /proc). */
+function processesNaming(path) {
+  let pids;
+  try {
+    pids = readdirSync("/proc").filter(p => /^\d+$/.test(p));
+  } catch {
+    return [];
+  }
+  return pids.filter(pid => {
+    try {
+      return readFileSync(`/proc/${pid}/cmdline`, "latin1").includes(path);
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
+ * Remove a test's scratch folder once nothing writes there. The sidebar's
+ * fake agents get their log paths in it and may still be ending after
+ * A.stop: a log line written during the removal made rmSync fail with
+ * ENOTEMPTY, and the after hook never reached env.close, so the file hung
+ * until run.sh's limit (zen-sdk's run, 2026-11-21). Waits up to 5 s for
+ * them, then removes with retries.
+ */
+export async function removeScratch(dir) {
+  if (!dir) {
+    return;
+  }
+  for (let i = 0; i < 50 && processesNaming(dir).length; i++) {
+    await new Promise(r => setTimeout(r, 100));
+  }
+  rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 }

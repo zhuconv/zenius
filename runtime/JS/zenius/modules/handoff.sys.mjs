@@ -1,23 +1,32 @@
 // zen-core: the page the user holds (H), at an agent's hand-off or the
-// user's Take over, for the manager's rule of 2026-11-20. In this order:
-// nothing of the agent's can reach what the user types in H; H keeps its
-// opener when it can; only documents that may hold the agent's code reload.
-// zen-observe's handOffCheck says where that code may be
-// (observe/agentcode.sys.mjs), and its holdPage keeps everything else away
-// while the user holds H (observe/hold.sys.mjs). This module picks the
-// remedy and does the loads.
+// user's Take over, for the manager's rule of 2026-11-20, on evidence since
+// the user's call of 2026-11-21 (docs/briefs/defenses-evidence.md, A2), and
+// for docs/safety-rubric.md's test a: page code capturing what the user
+// types after a takeover. In this order: nothing the agent's code left can
+// reach what the user types in H; H keeps its opener when it can; only a
+// document the agent's code left something in loads afresh, never one that
+// is only reachable from such a document (the rubric's rule 3). That's
+// zen-observe's evidence flag (observe/evidence.sys.mjs) with reason
+// hooked: what the agent's code left that outlives the discard of its
+// world. A page the agent made (made, a data: or blob: page it opened) is
+// held as it is, and the agent's own hand-off of it is refused. A listed or
+// flagged page gets zen-ux's warning instead: a reload brings its danger
+// back (the manager's call). The discard runs at every hand-off all the
+// same, and zen-observe's holdPage keeps everything else away while the
+// user holds H (observe/hold.sys.mjs). This module picks the remedy and
+// does the loads.
 //
 // A quiet load (cleanLoad) brings the page's URL again as a new GET entry in
 // place of the current one. A POST result is never resubmitted, and Gecko
 // restores no form state: a plain reload puts hidden inputs back too, where
 // the agent may have planted a payee or a redirect (measured on Gecko 160,
 // 2026-11-20). The visible, ordinary fields come back explicitly, secrets
-// never (content/forms.sys.mjs). A load into a group of its own (`newGroup`)
-// gets COOP same-origin-allow-popups on that one response, and Gecko then
-// replaces the tab's browsing context, as for any COOP change: other
-// windows' handles to it read closed and its opener is cut, while the
-// popups it opens later keep theirs.
-
+// never (content/forms.sys.mjs). During a hold, a load of H that would bring
+// it next to a window with that evidence gets COOP same-origin-allow-popups
+// on that one response, and Gecko then replaces the tab's browsing context,
+// as for any COOP change: other windows' handles to it read closed and its
+// opener is cut, while the popups it opens later keep theirs.
+//
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
 import { log } from "chrome://userscripts/content/zenius/modules/util.sys.mjs";
 
@@ -28,6 +37,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // zen-observe's modules, whole, once a hold needs them.
 Object.defineProperties(lazy, {
   agentCode: { get: () => ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/agentcode.sys.mjs") },
+  evidence: { get: () => ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/evidence.sys.mjs") },
   hold: { get: () => ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/hold.sys.mjs") },
 });
 
@@ -38,6 +48,8 @@ const DISCARD_TIMEOUT_MS = 10000;
 const RECORD_TIMEOUT_MS = 3000;
 /** fill() waits for the new document's load event, up to 5 s, first. */
 const FILL_TIMEOUT_MS = 8000;
+/** How long a secret step's tab gets to show about:blank at the hand back. */
+const BLANK_TIMEOUT_MS = 10000;
 const COOP = "Cross-Origin-Opener-Policy";
 const RESPONSE_TOPICS = ["http-on-examine-response", "http-on-examine-cached-response", "http-on-examine-merged-response"];
 /**
@@ -48,15 +60,6 @@ const RESPONSE_TOPICS = ["http-on-examine-response", "http-on-examine-cached-res
 const SETTLE_MS = 300;
 
 /**
- * The group switch waits on the user's decision about the isolated world
- * (the manager, 2026-11-20): with the agent's code in sandboxes zenius
- * discards at the hand-off, other windows' handles reach only the site's
- * own code. Off, the windows that could reach H load afresh in place
- * instead, and a load during the hold gets no COOP.
- */
-const GROUP_SWITCH_PREF = "zenius.handoff.groupSwitch";
-const groupSwitchOn = () => Services.prefs.getBoolPref(GROUP_SWITCH_PREF, false);
-/**
  * Tests of the hold's other layers (the refusals that apply to code planted
  * before a hold) turn the quiet loads off, to keep that code; never off
  * otherwise.
@@ -65,8 +68,6 @@ const QUIET_RELOAD_PREF = "zenius.handoff.quietReload";
 
 /** @type {object|null} ZeniusService, for the response hook */
 let service = null;
-/** Tabs (browserId) whose next document response goes into a group of its own. */
-const coopLoads = new Set();
 /**
  * Tabs (browserId) whose quiet load must stay on the page's site: the site
  * it started on, and the URL of a redirect off it that zenius stopped.
@@ -112,14 +113,6 @@ async function newDocument(browser, before, ms, stopped = () => null) {
       throw new Error(`no new document came in ${ms / 1000} s`);
     }
     await new Promise(resolve => lazy.setTimeout(resolve, 25));
-  }
-}
-
-function aloneInGroup(bc) {
-  try {
-    return bc.group.getToplevels().every(top => top.browserId === bc.browserId);
-  } catch {
-    return false;
   }
 }
 
@@ -173,6 +166,135 @@ function redirectTarget(channel) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Evidence (zen-observe's flag), the defenses' trigger
+
+/**
+ * The page's evidence: zen-observe's evidenceOf, over its top document and
+ * frames. When it can't be read, the page counts as hooked: a needless load
+ * costs less than a page left with what the agent's code left there.
+ *
+ * @param {Element|BrowsingContext} target
+ * @returns {Record<string, string>} reason → detail
+ */
+export function evidenceOf(target) {
+  try {
+    return lazy.evidence.evidenceOf(target);
+  } catch (e) {
+    log("reading a page's evidence failed, so it counts as hooked:", e.message);
+    return { hooked: "unknown: its evidence couldn't be read" };
+  }
+}
+
+/**
+ * Has the evidence a reason a clean copy clears: hooked or made? Those are
+ * the defenses' trigger (the manager's call, 2026-11-21); listed and
+ * flagged pages get zen-ux's warning instead.
+ *
+ * @param {Record<string, string>} evidence
+ */
+export function cleanable(evidence) {
+  return evidence.hooked !== undefined || evidence.made !== undefined;
+}
+
+/**
+ * Does the page need a clean copy: did the agent's code leave something in
+ * it (hooked), in a page it didn't make? A reload of a page the agent made
+ * would only bring it back.
+ *
+ * @param {Record<string, string>} evidence
+ */
+export function needsCleanCopy(evidence) {
+  return evidence.hooked !== undefined && evidence.made === undefined;
+}
+
+/** The sites (siteOriginNoSuffix) of a tab's documents, its frames' too; none for an opaque one, which nothing else can script. */
+function sitesIn(top) {
+  const found = new Set();
+  try {
+    for (const bc of top.getAllBrowsingContextsInSubtree()) {
+      const principal = bc.currentWindowGlobal?.documentPrincipal;
+      if (principal?.isContentPrincipal && principal.siteOriginNoSuffix) {
+        found.add(principal.siteOriginNoSuffix);
+      }
+    }
+  } catch {}
+  return found;
+}
+
+/** The other live tops of `top`'s browsing context group, less those in its hold. */
+function othersOutsideHold(top) {
+  let tops = [];
+  try {
+    tops = top.group?.getToplevels() ?? [];
+  } catch {}
+  const hold = lazy.hold.holdOf(top);
+  return tops.filter(other => {
+    try {
+      return other.id !== top.id && !other.isDiscarded && (hold === undefined || lazy.hold.holdOf(other) !== hold);
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
+ * The windows of H's browsing context group, outside its hold, that need a
+ * clean copy themselves (needsCleanCopy: the agent's code left something
+ * in them, not only beside them, the rubric's rule 3), and that show a site
+ * one of H's documents shows, top or frame on either side. Through top, opener and frames, which
+ * work across origins, such a window can walk to H's document of that site
+ * and script it. Site, not origin: Gecko 160's agent clusters are
+ * site-keyed by default, so two documents of a site that both set
+ * document.domain script each other. Windows of another site can't read H;
+ * the navigation guard stops them moving it.
+ *
+ * @param {Element} browser  H's <browser>
+ * @returns {Element[]} their <browser>s
+ */
+function markedReaching(browser) {
+  const top = browser?.browsingContext?.top;
+  if (!top) {
+    return [];
+  }
+  const sites = sitesIn(top);
+  const found = [];
+  for (const other of othersOutsideHold(top)) {
+    try {
+      const el = other.embedderElement;
+      if (el && needsCleanCopy(evidenceOf(other)) && [...sitesIn(other)].some(site => sites.has(site))) {
+        found.push(el);
+      }
+    } catch {}
+  }
+  return found;
+}
+
+/**
+ * Could what the agent's code left hear the held page through the channels
+ * and shared workers its documents opened before the hold? Only from a
+ * document with evidence a clean copy clears on one of H's sites: a task
+ * page, or a window of H's group, outside its hold. An error counts as yes.
+ */
+function channelsReach(svc, rec, browser) {
+  try {
+    const top = browser.browsingContext.top;
+    const sites = sitesIn(top);
+    const hold = lazy.hold.holdOf(top);
+    const near = new Set(othersOutsideHold(top));
+    for (const tab of svc.pages?.tabsOf?.(rec) ?? []) {
+      const bc = tab.linkedBrowser?.browsingContext;
+      if (bc && bc.id !== top.id && (hold === undefined || lazy.hold.holdOf(bc) !== hold)) {
+        near.add(bc);
+      }
+    }
+    return [...near].some(bc => cleanable(evidenceOf(bc)) && [...sitesIn(bc)].some(site => sites.has(site)));
+  } catch (e) {
+    log("checking who could hear the held page's channels failed, so they're muted:", e.message);
+    return true;
+  }
+}
+
 let requestHookOn = false;
 
 /**
@@ -209,7 +331,7 @@ function syncResponseHook() {
       Services.obs.removeObserver(requestHook, "http-on-modify-request");
     }
   }
-  const want = coopLoads.size > 0 || holds.size > 0 || quietSites.size > 0;
+  const want = holds.size > 0 || quietSites.size > 0;
   if (want === hookOn) {
     return;
   }
@@ -226,7 +348,6 @@ function syncResponseHook() {
 /**
  * COOP on this response, unless the site sends its own: same-origin is
  * stricter than what zenius would add, and same-origin-allow-popups is it.
- * The caller checks the result in the new document (aloneInGroup).
  */
 function setCoop(channel) {
   let sent = "";
@@ -240,45 +361,23 @@ function setCoop(channel) {
 
 /**
  * Would H's top, on `uri`'s site, share its group with a window outside its
- * hold that holds what the agent's world wrote (ZeniusService.isWritten) and
- * shows that site? An error counts as yes.
+ * hold that shows that site and has evidence a clean copy clears? An error
+ * counts as yes.
  */
-function reachesWritten(bc, uri) {
+function reachesEvident(bc, uri) {
   try {
     const site = siteOf(uri);
-    const top = bc.top;
-    const hold = lazy.hold.holdOf(top);
-    return top.group.getToplevels().some(other => {
-      if (other.id === top.id || other.isDiscarded || (hold !== undefined && lazy.hold.holdOf(other) === hold)) {
-        return false;
-      }
-      return (
-        !!service?.isWritten(other) &&
+    return othersOutsideHold(bc.top).some(
+      other =>
+        cleanable(evidenceOf(other)) &&
         other.getAllBrowsingContextsInSubtree().some(c => {
           const doc = c.currentWindowGlobal?.documentURI;
           return !!doc && siteOf(doc) === site;
         })
-      );
-    });
+    );
   } catch (e) {
-    log("checking for written windows next to the held page failed, so its load leaves the group:", e.message);
+    log("checking for windows with evidence next to the held page failed, so its load leaves the group:", e.message);
     return true;
-  }
-}
-
-/** During a hold, a load that zen-observe says would bring H next to the agent's code (holdNeedsCoop). */
-function holdNeedsCoop(bc, uri) {
-  const hold = lazy.hold;
-  if (typeof hold.holdNeedsCoop !== "function" || hold.holdOf(bc) === undefined) {
-    return false;
-  }
-  const browser = bc.embedderElement;
-  const rec = browser ? (service?.controlOf(browser)?.space ?? null) : null;
-  try {
-    return !!hold.holdNeedsCoop(rec, browser, uri);
-  } catch (e) {
-    log("holdNeedsCoop failed", e.message);
-    return false;
   }
 }
 
@@ -322,19 +421,14 @@ const responseHook = {
       }
       return;
     }
-    if (coopLoads.has(browserId)) {
-      coopLoads.delete(browserId);
-      setCoop(channel);
-      return;
-    }
-    // Never reachable: with the group switch off, a window the load would
-    // bring H next to has had its agent's code discarded, so only one that
-    // still holds the world's writes needs H out of the group.
-    if (!holds.size || !holdNeedsCoop(bc, channel.URI) || !(groupSwitchOn() || reachesWritten(bc, channel.URI))) {
+    // A window the load would bring H next to has had the agent's code
+    // discarded, so only one with evidence a clean copy clears (what that
+    // code left, or a page the agent made) needs H out of the group.
+    if (!holds.size || lazy.hold.holdOf(bc) === undefined || !reachesEvident(bc, channel.URI)) {
       return;
     }
     setCoop(channel);
-    log("the held page leaves its group as it loads a site where the agent's code may run");
+    log("the held page leaves its group as it loads a site where a window has evidence of the agent's code");
     if (bc.opener) {
       const control = bc.embedderElement ? service?.controlOf(bc.embedderElement) : null;
       if (control) {
@@ -359,7 +453,7 @@ const responseHook = {
  *
  * @param {object} svc  ZeniusService
  * @param {Element} browser
- * @param {{newGroup?: boolean, sameSite?: boolean}} [opts]
+ * @param {{sameSite?: boolean, evidentFails?: boolean}} [opts]
  *   sameSite: the load must end on the page's site (the page the user is
  *   about to hold): a redirect off it, or a load of another site that the
  *   new document starts, is stopped before it's sent. The site's own router
@@ -367,14 +461,14 @@ const responseHook = {
  *   load then goes once more, to the URL that brought the document
  *   (loadedFromURL), stopped off the site the same way; if there's no such
  *   URL, or it's stopped too, the load fails (the manager, 2026-11-21)
- *   writtenFails: the clean copy on demand. A load whose document comes in
- *   written fails (`stillWritten` on the error), the tab's typing held on
- *   it and nothing replayed
- * @returns {Promise<{how: "reload"|"get", alone: boolean, openerCut: boolean, carried: boolean, focused: boolean, urlBefore: string|null, loadedFrom: string|null}>}
+ *   evidentFails: the clean copy on demand. A load whose document comes in
+ *   with evidence a clean copy clears fails (`stillEvident` and `evidence`
+ *   on the error), the tab's typing held on it and nothing replayed
+ * @returns {Promise<{how: "reload"|"get", openerCut: boolean, carried: boolean, focused: boolean, urlBefore: string|null, loadedFrom: string|null}>}
  *   how: "get" when a POST result was loaded again by GET; loadedFrom: the
  *   URL that brought the document, when the load went there instead
  */
-export async function cleanLoad(svc, browser, { newGroup = false, sameSite = false, writtenFails = false } = {}) {
+export async function cleanLoad(svc, browser, { sameSite = false, evidentFails = false } = {}) {
   service = svc;
   const bc = browser?.browsingContext;
   const windowGlobal = bc?.currentWindowGlobal;
@@ -420,13 +514,11 @@ export async function cleanLoad(svc, browser, { newGroup = false, sameSite = fal
   if (quiet) {
     quietSites.set(browser.browserId, quiet);
   }
-  if (newGroup) {
-    coopLoads.add(browser.browserId);
-  }
   syncResponseHook();
   // zen-observe's glue: what this load brings holds nothing of the agent's,
-  // so handOffCheck doesn't count it by site (a clean copy isn't reloaded
-  // again at Take over, zen-sdk's rehearsal on 424962d).
+  // so the sites where the agent's code may be (agentcode.sys.mjs's
+  // agentSitesNear, for a hold's frame and COOP rule) leave it out until the
+  // agent's code runs in its group again.
   try {
     lazy.agentCode.noteCleanLoad?.(browser);
   } catch (e) {
@@ -505,33 +597,32 @@ export async function cleanLoad(svc, browser, { newGroup = false, sameSite = fal
       }
       log("the quiet load would have left the site, so it goes to the URL that brought the page's document");
       quiet.stopped = null;
-      if (newGroup) {
-        coopLoads.add(browser.browserId);
-      }
       // The first load may have brought a document before it was stopped.
       done = await loadOnce(instead, browser.browsingContext?.currentWindowGlobal?.innerWindowId ?? before);
       wentInstead = true;
     }
-    // Beside a window of its group that still holds the agent's writes (a
-    // popup on its site, or the page that opened it), a new document comes
-    // in written too (zen-observe's flagIfExposed). The user's typing can't
-    // go into that copy, and its replay would be their next trigger there:
-    // on 99cdc39 the page loaded afresh again and again (zen-snapshot's Take
-    // over probes). The settle above gave content's flag time to come.
-    if (writtenFails && svc.isWritten(browser)) {
-      release?.({ failed: true, holdNow: true });
-      throw Object.assign(
-        new Error(
-          "the clean copy came in written too: a window of its group still holds the agent's writes (a popup on its site, or the page that opened it). The user's typing there stays held until that window closes and the page loads again"
-        ),
-        { stillWritten: true }
-      );
+    // During the task, the agent's code in another window of its group (a
+    // popup on its site, or the page that opened it) can leave something in
+    // the copy as it comes in. The user's typing can't go into that copy,
+    // and its replay would be their next trigger there: on 99cdc39 the page
+    // loaded afresh again and again (zen-snapshot's Take over probes). The
+    // settle above gave content's mark time to come.
+    if (evidentFails) {
+      const evidence = evidenceOf(browser);
+      if (cleanable(evidence)) {
+        release?.({ failed: true, holdNow: true });
+        throw Object.assign(
+          new Error(
+            "the clean copy came in with evidence too: the agent's code reached it from a window of its group (a popup on its site, or the page that opened it). The user's typing there stays held until that window closes and the page loads again"
+          ),
+          { stillEvident: true, evidence }
+        );
+      }
     }
     release?.();
     const now = browser.browsingContext;
     return {
       how: post && !back ? "get" : "reload",
-      alone: aloneInGroup(now),
       openerCut: hadOpener && !now.opener,
       carried: done.filled > 0,
       focused: done.focused,
@@ -552,9 +643,6 @@ export async function cleanLoad(svc, browser, { newGroup = false, sameSite = fal
     if (quiet) {
       quietSites.delete(browser.browserId);
     }
-    if (newGroup) {
-      coopLoads.delete(browser.browserId);
-    }
     syncResponseHook();
   }
 }
@@ -564,9 +652,11 @@ export async function cleanLoad(svc, browser, { newGroup = false, sameSite = fal
  * shared-worker ports H's documents opened before the hold, in each of them
  * (zen-observe's content/refusals.sys.mjs, muteChannels). Opened in the
  * task's scope, they let H hear the task's pages, and them H, both ways;
- * what H opens from now on gets the held scope. It runs after the
- * agent-page check, so a hand-off refused there leaves the site's channels
- * open. A document that went away meanwhile took its channels with it.
+ * what H opens from now on gets the held scope. Since the user's call on
+ * evidence, only when something the agent's code left could be at the other
+ * end (channelsReach). It runs after the agent-page check, so a hand-off
+ * refused there leaves the site's channels open. A document that went away
+ * meanwhile took its channels with it.
  */
 async function muteHeldChannels(svc, browser) {
   const calls = [];
@@ -588,40 +678,93 @@ function refused(svc, browser, reason, message) {
 }
 
 /**
- * The user is about to hold the page in `browser` (H): hold it
- * (zen-observe's holdPage), then make it safe as the manager's rule says.
- * zen-observe's handOffCheck decides what may hold the agent's code: its
- * `page` is the one predicate for H's own reload.
- * - H's own documents may hold the agent's code, and no other window of its
- *   group that may hold it shares a site with H: H reloads in place, and
- *   keeps its opener.
- * - Such a window exists: those windows reload in place, and H keeps its
- *   group and opener. With the group switch on (GROUP_SWITCH_PREF), H
- *   reloads into a group of its own instead, unless its opener is on
- *   another site (zen-observe's opener "other"), whose sign-in flow the
- *   switch would cut.
- * - Afterwards nothing may still reach H. If something does, those windows
- *   reload in place (the last resort), and if even then, the hold is refused.
- * A page the agent made (data:, blob:, a written about:blank) is held and
- * left as it is (`agentPage`). With `refuseAgentPage` (the agent's own
- * hand-off) nothing else happens, and the caller refuses it.
+ * A secret step's tab at the hand back (an agent's hand-off with secret):
+ * about:blank in its place and its history gone, so neither back nor the
+ * back-forward cache can bring the page with the secret back for the agent.
+ * Whether the tab is blank now.
  *
- * Before any load, the agent's sandboxes go, with the workers they started,
- * in every process (zen-observe's discard, the user's decision (A)): what
- * the agent's code left running can't act on H or on the loads.
+ * @param {Element} browser
+ */
+export async function blankTab(browser) {
+  const bc = browser?.browsingContext;
+  if (!browser?.isConnected || !bc) {
+    return false;
+  }
+  const before = bc.currentWindowGlobal?.innerWindowId;
+  browser.loadURI(Services.io.newURI("about:blank"), {
+    triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+  });
+  await newDocument(browser, before, BLANK_TIMEOUT_MS);
+  // The blank document's entry reaches the parent's history after the
+  // document does: purging before it would keep the secret page's entry.
+  const end = Date.now() + BLANK_TIMEOUT_MS;
+  for (;;) {
+    const history = browser.browsingContext?.sessionHistory;
+    const current = history?.count ? history.getEntryAtIndex(history.index) : null;
+    if (history && current?.URI?.spec === "about:blank" && history.index === history.count - 1) {
+      if (history.count > 1) {
+        history.purgeHistory(history.count - 1);
+      }
+      return true;
+    }
+    if (Date.now() > end) {
+      throw new Error("the blank page's history entry didn't come");
+    }
+    await new Promise(resolve => lazy.setTimeout(resolve, 25));
+  }
+}
+
+/** The tabs a hand back blanks for a secret step: H, and the popups it opened that share its hold. */
+export function heldWith(browser) {
+  const tabs = [browser];
+  try {
+    const hold = lazy.hold.holdOf(browser);
+    if (hold !== undefined) {
+      for (const other of browser.browsingContext.group.getToplevels()) {
+        const el = other.embedderElement;
+        if (el && el !== browser && !other.isDiscarded && lazy.hold.holdOf(other) === hold) {
+          tabs.push(el);
+        }
+      }
+    }
+  } catch (e) {
+    log("finding the held page's popups failed:", e.message);
+  }
+  return tabs;
+}
+
+/**
+ * The user is about to hold the page in `browser` (H): hold it
+ * (zen-observe's holdPage), then make it safe as the manager's rule says,
+ * on evidence (see the top of this file).
+ * - A page the agent made (made, a data: or blob: page it opened) is held
+ *   and left as it is (`agentPage`). With `refuseAgentPage` (the agent's
+ *   own hand-off) nothing else happens, and the caller refuses it.
+ * - Before any load, the agent's sandboxes go, with the workers they
+ *   started, in every process (zen-observe's discard, the user's decision
+ *   (A)): what the agent's code left running can't act on H or on the
+ *   loads. H's channels are muted when channelsReach says so.
+ * - Each window of H's group that could reach it and that the agent's code
+ *   left something in (markedReaching) loads afresh in place, one at a
+ *   time; then H, if the agent's code left something in it. H keeps its
+ *   group and opener.
+ * - Afterwards nothing the agent's code left may be in H or reach it. If
+ *   something is, those load afresh again, and if even then, the hold is
+ *   refused.
  *
  * @param {object} svc  ZeniusService
  * @param {object} rec  the live task's SpaceRecord
  * @param {Element} browser  H's <browser>
  * @param {{refuseAgentPage?: boolean}} [opts]
- * @returns {Promise<{agentPage: boolean, how: "reload"|"get"|null, reloaded: Element[], carried: boolean, openerCut: boolean}>}
- *   how: H's own load, if it had one; reloaded: every tab loaded afresh
+ * @returns {Promise<{agentPage: boolean, how: "reload"|"get"|null, reloaded: Element[], carried: boolean, openerCut: boolean, evidence: Map<Element, Record<string, string>>}>}
+ *   how: H's own load, if it had one; reloaded: every tab loaded afresh;
+ *   evidence: what each of them had before its load (zen-ux's notice)
  * @throws {ZenError} ZEN_HANDOFF_REFUSED (reason "discardFailed", "reloadFailed" or "reachable"), with the hold released;
  *   a "reloadFailed" whose load of H would have left H's site has data.offSite, the other site's URL
  */
 export async function holdFor(svc, rec, browser, { refuseAgentPage = false } = {}) {
   service = svc;
-  const { hold, agentCode } = lazy;
+  const { hold } = lazy;
   if (!hold.holdPage(browser)) {
     throw new ZenError("ZEN_PAGE_NOT_FOUND", "the page has no document to hold");
   }
@@ -631,12 +774,21 @@ export async function holdFor(svc, rec, browser, { refuseAgentPage = false } = {
   }
   held.add(browser);
   syncResponseHook();
-  const result = { agentPage: false, how: null, reloaded: [], carried: false, openerCut: false };
+  const result = { agentPage: false, how: null, reloaded: [], carried: false, openerCut: false, evidence: new Map() };
+  // What each page had before its first load here (zen-ux's notice and card).
+  const noteEvidence = b => {
+    if (!result.evidence.has(b)) {
+      result.evidence.set(b, evidenceOf(b));
+    }
+  };
+  // What needs a clean copy: H, and the windows that could reach it.
+  const evidenceCheck = () => ({ page: needsCleanCopy(evidenceOf(browser)), reaching: markedReaching(browser) });
   // Each quiet load says where and why in the log (zen-sdk's ask): the user
   // sees only a reload.
-  const loadH = async (newGroup, why) => {
-    log(`the held page loads afresh ${newGroup ? "into a new window group" : "in place"}: ${why}`);
-    const r = await cleanLoad(svc, browser, { newGroup, sameSite: true });
+  const loadH = async why => {
+    log(`the held page loads afresh in place: ${why}`);
+    noteEvidence(browser);
+    const r = await cleanLoad(svc, browser, { sameSite: true });
     result.how ??= r.how;
     result.carried ||= r.carried;
     result.openerCut ||= r.openerCut;
@@ -646,10 +798,9 @@ export async function holdFor(svc, rec, browser, { refuseAgentPage = false } = {
   };
   const loadOther = async (other, why) => {
     log(`${svc.pages.forBrowser?.(other)?.label ?? "a page"}, which could reach the held page, loads afresh in place: ${why}`);
-    // Its documents from now on are fresh for handOffCheck, as H's are
-    // (zen-observe's holdReload): nothing of its site with the agent's code
-    // is left in H's group to script them, and codeRefusal refuses new code
-    // there for the whole hold.
+    noteEvidence(other);
+    // Its documents from now on are the hold's (zen-observe's holdReload),
+    // and codeRefusal refuses new code there for the whole hold.
     hold.holdReload?.(other, browser);
     try {
       await cleanLoad(svc, other);
@@ -667,15 +818,15 @@ export async function holdFor(svc, rec, browser, { refuseAgentPage = false } = {
     }
   };
   try {
-    let check = agentCode.handOffCheck(rec, browser);
-    result.agentPage = !!check.agentPage;
+    result.agentPage = evidenceOf(browser).made !== undefined;
     if (result.agentPage && refuseAgentPage) {
       // Refused: the agent keeps its code.
       return result;
     }
+    const mute = channelsReach(svc, rec, browser);
     try {
       await within(
-        Promise.all([svc.discardAgentCode({ task: rec.id }), muteHeldChannels(svc, browser)]),
+        Promise.all([svc.discardAgentCode({ task: rec.id }), mute ? muteHeldChannels(svc, browser) : null]),
         DISCARD_TIMEOUT_MS,
         "stopping the agent's code and muting the page's channels"
       );
@@ -694,31 +845,23 @@ export async function holdFor(svc, rec, browser, { refuseAgentPage = false } = {
       log("the hand-off's quiet loads are off (a test of the hold's other layers)");
       return result;
     }
-    if (check.reaching.length && check.opener !== "other" && groupSwitchOn()) {
-      const n = check.reaching.length;
-      await loadH(true, `${n} ${n === 1 ? "window" : "windows"} of its group may hold the agent's code`);
-    } else {
-      for (const { browser: other } of check.reaching) {
-        if (other) {
-          await loadOther(other, "it may hold the agent's code");
-        }
-      }
-      if (check.page) {
-        await loadH(false, "its document may hold the agent's code");
-      }
+    let check = evidenceCheck();
+    for (const other of check.reaching) {
+      await loadOther(other, "it may hold what the agent's code left");
     }
-    check = agentCode.handOffCheck(rec, browser);
+    if (check.page) {
+      await loadH("its document may hold what the agent's code left");
+    }
+    check = evidenceCheck();
     if (check.page || check.reaching.length) {
       log(`the held page can still be reached (page: ${check.page}, windows: ${check.reaching.length}): they reload in place`);
-      for (const { browser: other } of check.reaching) {
-        if (other) {
-          await loadOther(other, "it may still hold the agent's code");
-        }
+      for (const other of check.reaching) {
+        await loadOther(other, "it may still hold what the agent's code left");
       }
       if (check.page) {
-        await loadH(false, "its document may still hold the agent's code");
+        await loadH("its document may still hold what the agent's code left");
       }
-      check = agentCode.handOffCheck(rec, browser);
+      check = evidenceCheck();
       if (check.page || check.reaching.length) {
         throw refused(
           svc,

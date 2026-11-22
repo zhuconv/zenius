@@ -26,8 +26,9 @@ const wav = (() => {
 
 /**
  * A cross-site frame the page allows the devices and location (Permissions
- * Policy): its own requests, in its own process. `message` is "devices", or
- * "devices no-midi" to leave MIDI out.
+ * Policy): its own requests, in its own process. `message` is "devices",
+ * "devices no-midi" to leave MIDI out, or "media" for the camera and
+ * microphone alone.
  */
 function crossDevicesFrame(message) {
   return `const f = document.createElement("iframe");
@@ -175,6 +176,19 @@ export const VECTORS = {
         .then(() => new Promise(r => where.call(p.navigator.geolocation, () => r("position"), e => r("error " + e.code)))).then(note)
         .finally(() => setTimeout(() => p.close(), 1500));
     }`,
+  // The camera and microphone alone, where location would go on to the
+  // prompt layer and wait: a fresh frame, a cross-site frame, a popup's first
+  // document (needs a click).
+  "media-fresh-frame": `const f = document.createElement("iframe"); document.body.append(f); const w = f.contentWindow;
+    w.MediaDevices.prototype.getUserMedia.call(navigator.mediaDevices, { video: true }).then(() => "granted", e => e.name).then(note)
+      .then(() => w.navigator.mediaDevices.getUserMedia({ audio: true })).then(() => note("granted"), e => note(e.name))
+      .finally(() => f.remove());`,
+  "media-cross-frame": crossDevicesFrame("media"),
+  "media-popup": `const p = window.open("about:blank", "_blank");
+    if (!p) { note("blocked"); } else {
+      p.MediaDevices.prototype.getUserMedia.call(p.navigator.mediaDevices, { video: true }).then(() => "granted", e => e.name).then(note)
+        .finally(() => setTimeout(() => p.close(), 1500));
+    }`,
 };
 
 /**
@@ -299,9 +313,10 @@ addEventListener("message", e => {
 /** A cross-site frame's own device and location requests, on its parent's message. */
 const DEVICES_FRAME = `<!doctype html><html><body>devices frame<script>
 addEventListener("message", async e => {
-  if (e.data !== "devices" && e.data !== "devices no-midi") return;
+  if (e.data !== "devices" && e.data !== "devices no-midi" && e.data !== "media") return;
   const say = t => parent.postMessage("devices " + t, "*");
   await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(() => say("granted"), err => say(err.name));
+  if (e.data === "media") return;
   await new Promise(r => navigator.geolocation.getCurrentPosition(() => r("position"), err => r("error " + err.code))).then(say);
   if (e.data === "devices") await navigator.requestMIDIAccess().then(() => say("granted"), err => say(err.name));
 });

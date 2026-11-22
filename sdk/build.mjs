@@ -4,7 +4,7 @@
 // This runs on any Node the CLI supports (22.3 and later), so it imports no
 // TypeScript: Node strips types only from 22.18 and 23.6 on, and the Mac's
 // default Node is 23.5. esbuild compiles what it needs from src/.
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -25,9 +25,19 @@ if (custom) {
   mkdirSync(dist, { recursive: true });
 }
 
+// The CLI, and the commands src/extensions/ adds (src/commands.ts): each
+// module there registers its own as it loads. A build without the folder has
+// only the built-in commands.
+const extensionsDir = join(root, "src/extensions");
+const extensions = existsSync(extensionsDir) ? readdirSync(extensionsDir).filter((file) => file.endsWith(".ts")).sort() : [];
 await build({
   ...forNode,
-  entryPoints: [join(root, "src/cli.ts")],
+  stdin: {
+    contents: ['export * from "./src/cli.ts";', ...extensions.map((file) => `import "./src/extensions/${file}";`)].join("\n"),
+    resolveDir: root,
+    sourcefile: "zenius-entry.ts",
+    loader: "ts",
+  },
   outfile: join(dist, "zenius.mjs"),
   minifySyntax: true,
   minifyWhitespace: true,

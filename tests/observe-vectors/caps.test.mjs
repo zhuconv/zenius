@@ -146,9 +146,14 @@ test("the main process caps what it buffers, whatever sent it: each event's text
     const start = await heapMiB();
     // 100 MB pushed in the main process itself, as a notification's body
     // would come: the cut text must not keep the whole string alive.
+    // The page's late requests (its default favicon, fetched after load) can
+    // land after a drain, more so in a busy test-all: each script below drains
+    // the buffer before it pushes, and runs to its end before another event
+    // can come in.
     const big = await env.chrome(
-      `const { pushEvent, bufferedEvents } = ChromeUtils.importESModule(arg.EVENTS);
+      `const { pushEvent, bufferedEvents, drainEvents } = ChromeUtils.importESModule(arg.EVENTS);
        const { browser } = ctx.resolvePage(arg.P);
+       drainEvents(browser.browserId);
        for (let i = 0; i < 20; i++) {
          pushEvent(browser.browserId, "Zenius.notification", { title: "t" + i, body: "y".repeat(5e6), tag: "", url: "" });
        }
@@ -158,7 +163,7 @@ test("the main process caps what it buffers, whatever sent it: each event's text
     assert.equal(big.events, 20);
     const grown = await heapGrowth(start);
     assert.ok(grown < 16, `the main process is still ${grown.toFixed(1)} MiB up 10 s after 100 MB of event text`);
-    const notes = await page.call("page.events");
+    const notes = (await page.call("page.events")).filter(e => e.method === "Zenius.notification");
     assert.equal(notes.length, 20);
     for (const [i, e] of notes.entries()) {
       assert.equal(e.method, "Zenius.notification");
@@ -171,6 +176,7 @@ test("the main process caps what it buffers, whatever sent it: each event's text
     const kept = await env.chrome(
       `const { pushEvent, bufferedEvents, drainEvents } = ChromeUtils.importESModule(arg.EVENTS);
        const { browser } = ctx.resolvePage(arg.P);
+       drainEvents(browser.browserId);
        for (let i = 0; i < 300; i++) {
          pushEvent(browser.browserId, "Zenius.notification", { title: String(i), body: "z".repeat(4000), tag: "z".repeat(4000), url: "" });
        }
@@ -187,6 +193,7 @@ test("the main process caps what it buffers, whatever sent it: each event's text
     const shapes = await env.chrome(
       `const { pushEvent, drainEvents } = ChromeUtils.importESModule(arg.EVENTS);
        const { browser } = ctx.resolvePage(arg.P);
+       drainEvents(browser.browserId);
        let deep = { leaf: 1 };
        for (let i = 0; i < 50; i++) deep = { deep };
        const wide = Object.fromEntries(Array.from({ length: 1000 }, (_, i) => ["k" + i, i]));

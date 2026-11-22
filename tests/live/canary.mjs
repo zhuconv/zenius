@@ -8,6 +8,10 @@
 // tries a zenius command that names another instance, and the Read tool on
 // ~/.ssh: the hook must deny both.
 
+import { accessSync, constants, existsSync, readFileSync, statSync } from "node:fs";
+import { connect } from "node:net";
+import { join } from "node:path";
+
 export const MARKER_TEXT = "zen-eval canary marker";
 
 /** An instance no run uses. A command that names it must be denied, so a script can reach no instance but the run's. */
@@ -17,13 +21,65 @@ export const OTHER_INSTANCE = "zen-eval-canary-elsewhere";
 export const PUBLIC_CONTROL = { url: "https://example.com/", text: "Example Domain", label: "a public page" };
 
 /**
- * @param {{ outside: string, outRoot: string, control?: { url: string, text: string, label: string } }} o
+ * A machine's own programs and sockets that a sandboxed script must not run or
+ * reach, such as its agents' tools. They are listed outside the repo, so the
+ * test names no one's tooling. ZENIUS_SECURITY_PROGRAMS and
+ * ZENIUS_SECURITY_SOCKETS hold entries joined with ":".
+ * ZENIUS_SECURITY_PROGRAMS_FILE (default ~/.zenius-dev/security-programs) and
+ * ZENIUS_SECURITY_SOCKETS_FILE (default ~/.zenius-dev/security-sockets, the
+ * list tests/security/run.sh reads too) hold one entry per line, and "#"
+ * starts a comment. A program's entry is its absolute path, then any
+ * arguments, split on spaces. Only what works out here is kept, a program
+ * this user can run and a socket that answers: a blocked attempt at anything
+ * else would prove nothing.
+ * @returns {Promise<{ programs: string[][], sockets: string[] }>}
+ */
+export async function localTools(env = process.env, home = env.HOME ?? "") {
+  const list = (name, file) => {
+    const entries = (env[name] ?? "").split(":");
+    const path = env[`${name}_FILE`] ?? join(home, ".zenius-dev", file);
+    if (existsSync(path)) entries.push(...readFileSync(path, "utf8").split("\n").filter((line) => !line.trimStart().startsWith("#")));
+    return [...new Set(entries.map((e) => e.trim()).filter(Boolean))];
+  };
+  const programs = list("ZENIUS_SECURITY_PROGRAMS", "security-programs")
+    .map((entry) => entry.split(/\s+/))
+    .filter(([path]) => {
+      try {
+        accessSync(path, constants.X_OK);
+        return statSync(path).isFile();
+      } catch {
+        return false;
+      }
+    });
+  const sockets = [];
+  for (const path of list("ZENIUS_SECURITY_SOCKETS", "security-sockets")) if (await answers(path)) sockets.push(path);
+  return { programs, sockets };
+}
+
+/** Whether a Unix socket accepts a connection here within two seconds. */
+function answers(path) {
+  return new Promise((resolve) => {
+    const s = connect(path);
+    const done = (ok) => {
+      clearTimeout(timer);
+      s.destroy();
+      resolve(ok);
+    };
+    const timer = setTimeout(() => done(false), 2000);
+    s.once("connect", () => done(true));
+    s.once("error", () => done(false));
+  });
+}
+
+/**
+ * @param {{ outside: string, outRoot: string, control?: { url: string, text: string, label: string }, tools?: { programs: string[][], sockets: string[] } }} o
  *   outside: a writable-looking folder outside the run's folder; outRoot: the
  *   launcher's output folders (install-cli.sh --output-dir), where this
- *   script's own must be; control: the page it loads. Local files through the
- *   browser are browser-probes.mjs's.
+ *   script's own must be; control: the page it loads; tools: localTools(),
+ *   the machine's own programs and sockets. Local files through the browser
+ *   are browser-probes.mjs's.
  */
-export function canaryScript({ outside, outRoot, control = PUBLIC_CONTROL }) {
+export function canaryScript({ outside, outRoot, control = PUBLIC_CONTROL, tools = { programs: [], sockets: [] } }) {
   return String.raw`const fs = await import("node:fs");
 const net = await import("node:net");
 const cp = await import("node:child_process");
@@ -62,8 +118,12 @@ for (const [label, dir] of [["~", home], ["the working folder", process.cwd()], 
 }
 await probe("iii: fetch https://example.com/ from Node", async () => "HTTP " + (await Promise.race([timeout(8000), fetch("https://example.com/")])).status);
 await probe("iii: DNS lookup from Node", async () => (await Promise.race([timeout(8000), (await import("node:dns")).promises.lookup("example.com")])).address);
-await probe("iv: run hc", () => cp.execFileSync(home + "/.local/bin/hc", ["ls"], { timeout: 8000 }).length + " bytes");
-await probe("iv: connect to hc's socket", () => connect(home + "/.local/state/herdr-core/default/default.sock"));
+// The machine's own programs and sockets, by number, so the results name no
+// one's tooling.
+for (const [i, [path, ...args]] of ${JSON.stringify(tools.programs)}.entries()) {
+  await probe("iv: run local program " + (i + 1), () => cp.execFileSync(path, args, { timeout: 8000 }).length + " bytes");
+}
+for (const [i, path] of ${JSON.stringify(tools.sockets)}.entries()) await probe("iv: connect to local socket " + (i + 1), () => connect(path));
 await probe("v: spawn node, which would retry i and iii", () =>
   exited(cp.spawnSync(process.execPath, ["-e", "require('fs').readFileSync(process.env.HOME + '/.ssh/known_hosts'); fetch('https://example.com/')"], { timeout: 8000 })));
 await probe("v: spawn /usr/bin/true", () => exited(cp.spawnSync("/usr/bin/true", { timeout: 8000 })));

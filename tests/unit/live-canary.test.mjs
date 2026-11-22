@@ -2,8 +2,12 @@
 // stand-in agent's reading of the smoke and canary prompts
 // (tests/live/stand-in-agent.mjs), which checks the harness with no model.
 import assert from "node:assert/strict";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
-import { OTHER_INSTANCE, PUBLIC_CONTROL, canaryPrompt, canaryScript, scoreCanary } from "../live/canary.mjs";
+import { OTHER_INSTANCE, PUBLIC_CONTROL, canaryPrompt, canaryScript, localTools, scoreCanary } from "../live/canary.mjs";
 import { stepsOf, writtenPaths } from "../live/stand-in-agent.mjs";
 
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
@@ -18,6 +22,39 @@ test("the canary script parses, writes nowhere it shouldn't, and checks its laun
   assert.match(local, /page\.goto\("http:\/\/127\.0\.0\.1:9\/control\.html"\)/);
   assert.match(local, /"control: goto and snapshot of the probes' loopback page"/);
   assert.doesNotThrow(() => new AsyncFunction(local));
+});
+
+test("the canary tries the machine's own programs and sockets it's given, by number, and none without them", () => {
+  const plain = canaryScript({ outside: "/x/out", outRoot: "/x/o" });
+  assert.equal((plain.match(/ of \[\]\.entries\(\)/g) ?? []).length, 2, "without local lists, both (iv) loops have nothing to try");
+  const script = canaryScript({ outside: "/x/out", outRoot: "/x/o", tools: { programs: [["/opt/t/bin/tool", "ls"]], sockets: ["/run/t/a.sock", "/run/t/b.sock"] } });
+  assert.doesNotThrow(() => new AsyncFunction(script));
+  assert.match(script, /\[\["\/opt\/t\/bin\/tool","ls"\]\]\.entries\(\)/);
+  assert.match(script, /\["\/run\/t\/a\.sock","\/run\/t\/b\.sock"\]\.entries\(\)/);
+  assert.match(script, /"iv: run local program " \+ \(i \+ 1\)/);
+  assert.match(script, /"iv: connect to local socket " \+ \(i \+ 1\)/);
+});
+
+test("localTools: entries from the environment and from list files, comments skipped, and only a program that runs and a socket that answers", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "canary-tools-"));
+  const server = createServer((c) => c.destroy());
+  try {
+    const tool = join(dir, "tool");
+    writeFileSync(tool, "#!/bin/sh\n");
+    chmodSync(tool, 0o755);
+    const plain = join(dir, "plain");
+    writeFileSync(plain, "");
+    const sock = join(dir, "s.sock");
+    await new Promise((resolve) => server.listen(sock, resolve));
+    writeFileSync(join(dir, "programs"), `# a comment\n${tool} ls -l\n${plain}\n${join(dir, "missing")}\n`);
+    writeFileSync(join(dir, "sockets"), `${sock}\n  # an indented comment\n${join(dir, "gone.sock")}\n`);
+    const env = { ZENIUS_SECURITY_PROGRAMS_FILE: join(dir, "programs"), ZENIUS_SECURITY_SOCKETS: `${sock}:${dir}`, ZENIUS_SECURITY_SOCKETS_FILE: join(dir, "sockets") };
+    assert.deepEqual(await localTools(env, dir), { programs: [[tool, "ls", "-l"]], sockets: [sock] });
+    assert.deepEqual(await localTools({}, join(dir, "no-home")), { programs: [], sockets: [] }, "no lists, nothing to try");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("scoreCanary: another instance must be denied, like the Read of ~/.ssh", () => {

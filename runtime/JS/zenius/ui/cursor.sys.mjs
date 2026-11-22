@@ -23,8 +23,13 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 // Our own arrowhead in a 24-unit box with its tip at (3, 2): black with a
 // thin white edge in a soft glow, after Codex's cursor, which the user
 // preferred to the purple arrow (2026-11-21). The CSS offsets the tip onto
-// the layer's origin.
-const ARROW_PATH = "M3 2 L19.3 11.3 L10.2 12.2 L6.2 20.5 Z";
+// the layer's origin. Its corners are round, as the user asked (2026-11-21,
+// their pick of three rounder candidates): each is a quadratic whose control
+// point is the old sharp corner (tip (3, 2), wings toward (19.3, 11.3) and
+// (6.2, 20.5)), with a shallower notch and slightly longer wings. The tip's
+// curve is symmetric, so its middle, the farthest point the arrow reaches,
+// is (3, 2): tests/ux/cursor.test.mjs pins it on the click point.
+const ARROW_PATH = "M4.54 2.37 L16.91 9.84 Q19.99 11.70 16.47 12.41 L13.44 13.02 Q11.09 13.49 9.84 15.54 L8.21 18.22 Q6.34 21.29 5.64 17.76 L2.82 3.58 Q2.32 1.03 4.54 2.37Z";
 // The glow's color when the pref is unset or isn't a color: the reference's
 // blue. zenius's purple is #7c4dff.
 const DEFAULT_GLOW = "#3d8bff";

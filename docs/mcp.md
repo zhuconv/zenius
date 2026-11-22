@@ -56,8 +56,11 @@ keep Ego's `taskSpace()`, which finds a task again by its name.
     such task in this instance, the user's, or ended. The agent's `open`
     then starts a new task.
   - The server reads the variable once.
-  - Codex's server comes from `CODEX_CONFIG`, which every session of a
-    codex-acp process shares, so Codex gets no `ZENIUS_TASK_SPACE`.
+  - Codex's server comes from `CODEX_CONFIG`, which codex-acp reads once per
+    process, so each Codex Work chat has a process of its own, and one from
+    before the chat's task is replaced before the chat's next session (a
+    session's own ACP server would replace `CODEX_CONFIG`'s whole
+    `mcp_servers` table in codex-acp 2.6.0).
 
 ## When the task isn't the agent's
 

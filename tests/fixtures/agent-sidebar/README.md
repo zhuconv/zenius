@@ -25,6 +25,8 @@ The mock's keywords that matter here:
   until the zenius task is handed back.
 - `SCENARIO:weather` opens, reads and finishes, so Done.
 - `QUESTION` ends its answer with a question, so Needs you.
+- `CHOICES` asks, lists the choices, then says what it does once the user
+  picks (Needs you too).
 - `SUMMARY` is a three-point answer, so Done.
 - `ECHOTASK:<name>` only echoes `taskSpace("<name>")` and open's first
   sentence in a shell call: the chat must stay unlinked.

@@ -59,11 +59,16 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   agentCodeDocument: "chrome://userscripts/content/zenius/observe/agentcode.sys.mjs",
-  agentCodeInPage: "chrome://userscripts/content/zenius/observe/agentcode.sys.mjs",
   hasAgentCodeMarks: "chrome://userscripts/content/zenius/observe/agentcode.sys.mjs",
   holdOf: "chrome://userscripts/content/zenius/observe/hold.sys.mjs",
+  markEvident: "chrome://userscripts/content/zenius/observe/evidence.sys.mjs",
   // The hold's module loads with a task's first hold, not at startup (I4).
   cleanLoad: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
+  cleanable: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
+  evidenceOf: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
+  needsCleanCopy: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
+  blankTab: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
+  heldWith: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
   holdFor: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
   holdingInTask: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
   releaseHold: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
@@ -103,6 +108,16 @@ const GUARD_TIMEOUT_MS = 2000;
  * copy comes in written again (zen-snapshot's Take over probes on 99cdc39).
  */
 const CLEAN_COPY_CAP = { max: 5, windowMs: 60_000 };
+/**
+ * What a Safe Browsing list says of a page, for its listed evidence: the
+ * classifier's result codes (docs/research/safe-browsing.md).
+ */
+const LISTED_KINDS = [
+  ["NS_ERROR_PHISHING_URI", "phishing"],
+  ["NS_ERROR_MALWARE_URI", "malware"],
+  ["NS_ERROR_UNWANTED_URI", "unwanted software"],
+  ["NS_ERROR_HARMFUL_URI", "harmful"],
+];
 
 /**
  * How the dispatcher gates a call that names a `space` (invariant I3).
@@ -163,7 +178,7 @@ class Service {
   /** @type {Map<string, number[]>} method → recent durations (ms) */
   #stats = new Map();
   #eventListeners = new Set();
-  /** The clean load running for a written page, by <browser> (#cleanWritten). */
+  /** The clean load running for a hooked page, by <browser> (#cleanCopy). */
   #cleanLoads = new WeakMap();
   /** <browser> → when its recent clean copies on demand began (ms), for CLEAN_COPY_CAP. */
   #cleanCopyTimes = new WeakMap();
@@ -174,6 +189,8 @@ class Service {
   /** @type {JsonStore|null} */
   #store = null;
   #notePage = undefined;
+  /** zen-input's step ring (input/steps.sys.mjs), null without it. */
+  #steps = undefined;
   /** browserIds last published as agent task pages (publishAgentBrowsers). */
   #taskBrowserIds = new Set();
   /** Have the parent backstops loaded (modules/backstops.sys.mjs)? */
@@ -551,6 +568,7 @@ class Service {
     // joins a task or leaves one (finish, Stop, release, a close).
     const left = [...this.#taskBrowserIds].filter(id => !taskIds.has(id));
     this.#taskBrowserIds = taskIds;
+    this.#syncListedCheck();
     Services.ppmm.sharedData.set(AGENT_BROWSERS_KEY, ids);
     Services.ppmm.sharedData.set(TASK_BROWSERS_KEY, taskIds);
     Services.ppmm.sharedData.flush();
@@ -726,12 +744,18 @@ class Service {
   /** Has any page been held for the user since startup? Until then the hold's module stays unloaded (I4). */
   #heldForUser = false;
 
+  /** Task record → the held tabs of its secret step (an agent's hand-off with secret), blanked at the hand back. */
+  #secretSteps = new WeakMap();
+
   /**
-   * While the user holds a page of a task, a page of that task that may
-   * hold the agent's code opens nothing, with an opener or without: a
-   * look-alike of the held page could take what the user types (the
-   * manager's decision on zen-observe's question, 2026-11-20). The held
-   * page and the popups that joined its hold open as usual.
+   * While the user holds a page of a task, a page of that task with
+   * evidence a clean copy clears (what the agent's code left there, or a
+   * page the agent made: the user's call on evidence, A2) opens nothing,
+   * with an opener or without: a look-alike of the held page could take
+   * what the user types (the manager's decision on zen-observe's question,
+   * 2026-11-20). The held page and the popups that joined its hold open as
+   * usual, and so does a page where the agent's code only ran, since the
+   * hand-off discarded it.
    *
    * @returns {{browser: Element, hold: true}|null}
    */
@@ -740,8 +764,7 @@ class Service {
     if (!this.#heldForUser || !control || control.space.gone || !lazy.holdingInTask(control.space.id) || lazy.holdOf(browser) !== undefined) {
       return null;
     }
-    const mayHold = lazy.agentCodeDocument(browser.browsingContext) || lazy.agentCodeInPage(control.space, browser);
-    return mayHold ? { browser, hold: true } : null;
+    return lazy.cleanable(lazy.evidenceOf(browser)) ? { browser, hold: true } : null;
   }
 
   /**
@@ -752,13 +775,19 @@ class Service {
    * reload on the spaceChanged for zen-ux's card. A page the agent made is
    * refused to the agent; the user's Take over holds it as it is.
    *
+   * With `secret`, the agent's step will show a secret (an API key, a
+   * token, recovery codes): the held tab is blanked at the hand back
+   * (blankSecretSteps), and spaceChanged says secret, for zen-ux's card.
+   *
    * @param {object} rec  the live task's SpaceRecord
    * @param {Element} browser
-   * @param {{source?: "agent"|"user", reason?: string}} [opts]
-   * @returns {Promise<{agentPage: boolean, how: "reload"|"get"|null, reloaded: string[], carried: boolean, openerCut: boolean}>}
+   * @param {{source?: "agent"|"user", reason?: string, secret?: boolean}} [opts]
+   * @returns {Promise<{agentPage: boolean, how: "reload"|"get"|null, reloaded: string[], carried: boolean, openerCut: boolean, evidence: Record<string, Record<string, string>>}>}
+   *   evidence: label → the evidence each reloaded page had before its load
+   *   (zen-observe's {reason: detail}), for zen-ux's notice
    * @throws {ZenError} ZEN_HANDOFF_REFUSED
    */
-  async holdForUser(rec, browser, { source = "user", reason = "manual_takeover" } = {}) {
+  async holdForUser(rec, browser, { source = "user", reason = "manual_takeover", secret = false } = {}) {
     // The hand back tells the agent what changed since it last had control.
     if (rec.ownership === "agent") {
       this.spaces.clearHandBackNotes(rec);
@@ -767,6 +796,15 @@ class Service {
     // The agent's hand-off of its own page is refused before its code is discarded.
     const result = await lazy.holdFor(this, rec, browser, { refuseAgentPage: source === "agent" });
     const labels = result.reloaded.map(b => this.pages.forBrowser(b)?.label).filter(Boolean);
+    // What each reloaded page had, for zen-ux's notice (Take over's result)
+    // and its hand-off card (spaceChanged).
+    const evidence = {};
+    for (const b of result.reloaded) {
+      const label = this.pages.forBrowser(b)?.label;
+      if (label) {
+        evidence[label] = result.evidence?.get(b) ?? {};
+      }
+    }
     this.spaces.noteReloaded(rec, labels);
     if (result.openerCut) {
       this.spaces.noteOpenerCut(rec);
@@ -776,7 +814,7 @@ class Service {
       const page = this.pages.forBrowser(browser)?.label ?? null;
       throw new ZenError(
         "ZEN_HANDOFF_REFUSED",
-        `${page ?? "The page"} is a page the agent made (a data: or blob: URL, or an about:blank the agent wrote into), where nothing the user types is safe. Load the site's own page with page.goto() and hand that off.`,
+        `${page ?? "The page"} is a page the agent made (a data: or blob: URL it opened), where nothing the user types is safe. Load the site's own page with page.goto() and hand that off.`,
         { page, reason: "agentPage" }
       );
     }
@@ -784,10 +822,24 @@ class Service {
       // The task ended while the page loaded.
       lazy.releaseHolds(rec);
     } else if (source === "user" || rec.ownership === "agent") {
+      const secretStep = source === "agent" && secret;
+      if (secretStep) {
+        this.noteSecretStep(rec, browser);
+      }
       // An agent's hand-off that the user's Take over overtook keeps theirs.
-      this.spaces.setOwnership(rec, "agentDelegatedToUser", { reason, source, reloaded: result.how, carried: result.carried });
+      this.spaces.setOwnership(rec, "agentDelegatedToUser", {
+        reason,
+        source,
+        reloaded: result.how,
+        carried: result.carried,
+        secret: secretStep,
+        evidence,
+      });
+    } else if (source === "agent" && secret) {
+      // The user's Take over came first: their hold stays, and the step is still a secret one.
+      this.noteSecretStep(rec, browser);
     }
-    return { agentPage: result.agentPage, how: result.how, reloaded: labels, carried: result.carried, openerCut: result.openerCut };
+    return { agentPage: result.agentPage, how: result.how, reloaded: labels, carried: result.carried, openerCut: result.openerCut, evidence };
   }
 
   /**
@@ -806,22 +858,29 @@ class Service {
   }
 
   /**
-   * Does the page hold what the agent's world wrote, in its top document or
-   * a frame? zen-observe's isWritten, which only its write tracking flags
-   * (noteWritten): marks of the agent's code in the page world don't count
-   * here (handOffCheck and the kept refusals read those). An error counts as
-   * written: a needless load costs less than a page left with the agent's
-   * writes.
+   * The page's evidence, its top document and frames (zen-observe's
+   * evidenceOf): reason → detail. Unreadable, it counts as hooked.
    *
    * @param {Element|BrowsingContext} target
+   * @returns {Record<string, string>}
    */
-  isWritten(target) {
-    try {
-      return !!agentWorld()?.isWritten?.(target);
-    } catch (e) {
-      log("isWritten failed, so the page counts as written:", e.message);
-      return true;
-    }
+  evidenceOf(target) {
+    return lazy.evidenceOf(target);
+  }
+
+  /**
+   * Does the page get a clean copy before the user types there? Its
+   * documents have what the agent's code left hooked in them (zen-observe's
+   * evidence; the user's call, 2026-11-21), and the agent didn't make it: a
+   * page the agent made comes back the same from a reload, so zen-input's
+   * guard drops the typing there instead. A listed or flagged page gets
+   * zen-ux's warning, not a clean copy.
+   *
+   * @param {Element|BrowsingContext} target
+   * @param {Record<string, string>} [evidence]  the page's, if already read
+   */
+  needsCleanCopy(target, evidence = this.evidenceOf(target)) {
+    return lazy.needsCleanCopy(evidence);
   }
 
   /**
@@ -844,22 +903,26 @@ class Service {
 
   /**
    * zen-input's typing guard stopped the user's first press or key in a page
-   * the agent's world wrote into, and holds their keys there: a written page
-   * loads afresh, its form and the focus carried over (modules/handoff.sys.mjs
-   * cleanOnDemand), and the task's hand back names it. Resolves at once when
-   * there was nothing to clean. Rejects, the user's typing there held and
-   * nothing replayed, when no new document came, when the new one came in
-   * written too (beside a written window of its group), and past
+   * the agent's code left something hooked in, and holds their keys there:
+   * the page loads afresh (needsCleanCopy), its form and the focus carried
+   * over (modules/handoff.sys.mjs cleanLoad), and the task's hand back names
+   * it. Resolves at once when there was nothing to clean. Rejects, the
+   * user's typing there held and nothing replayed, when no new document
+   * came, when the new one came in with evidence too (`stillEvident`: the
+   * agent's code reached it from a window of its group), and past
    * CLEAN_COPY_CAP: a page isn't loaded afresh without end.
    *
    * @param {Element} browser
-   * @returns {Promise<{how: "reload"|"get"|null, carried: boolean, focused: boolean}>}
+   * @returns {Promise<{how: "reload"|"get"|null, carried: boolean, focused: boolean, urlBefore?: string|null, evidence: Record<string, string>}>}
+   *   evidence: the page's as the user's press came, before any load
+   *   (zen-ux's notice says why it reloaded)
    */
   async cleanOnDemand(browser) {
-    let result = { how: null, carried: false, focused: false };
-    if (this.#cleanLoads.has(browser) || this.isWritten(browser)) {
-      const { how, carried, focused, urlBefore } = await this.#cleanWritten(browser, { onDemand: true });
-      result = { how, carried, focused, urlBefore };
+    const evidence = this.evidenceOf(browser);
+    let result = { how: null, carried: false, focused: false, evidence };
+    if (this.#cleanLoads.has(browser) || this.needsCleanCopy(browser, evidence)) {
+      const { how, carried, focused, urlBefore } = await this.#cleanCopy(browser, { onDemand: true });
+      result = { how, carried, focused, urlBefore, evidence };
     }
     const rec = result.how ? this.controlOf(browser)?.space : null;
     if (rec && !rec.gone && this.spaces.isAgentTask(rec)) {
@@ -870,29 +933,21 @@ class Service {
   }
 
   /**
-   * At the task's end, after the discard: every page of it that stays open
-   * and holds what the agent's world wrote loads afresh, its form carried
-   * over (the user's approval of landing (2)). One that doesn't load afresh
-   * stays written, and keeps what a written page keeps.
-   *
-   * @param {Element[]} browsers  the task's pages as it ended
-   */
-  /**
-   * The clean load of a written page, one per page at a time: an ask while
+   * The clean load of a hooked page, one per page at a time: an ask while
    * one runs (the user's press during the task's-end reload) shares it. One
-   * on demand fails when its copy comes in written, and counts toward
+   * on demand fails when its copy comes in with evidence, and counts toward
    * CLEAN_COPY_CAP: past it, it throws before any load.
    *
    * @param {Element} browser
    * @param {{onDemand?: boolean}} [opts]
    */
-  #cleanWritten(browser, { onDemand = false } = {}) {
+  #cleanCopy(browser, { onDemand = false } = {}) {
     let running = this.#cleanLoads.get(browser);
     if (!running) {
       if (onDemand) {
         this.#countCleanCopy(browser);
       }
-      running = lazy.cleanLoad(this, browser, { sameSite: true, writtenFails: onDemand }).finally(() => this.#cleanLoads.delete(browser));
+      running = lazy.cleanLoad(this, browser, { sameSite: true, evidentFails: onDemand }).finally(() => this.#cleanLoads.delete(browser));
       this.#cleanLoads.set(browser, running);
     }
     return running;
@@ -907,7 +962,7 @@ class Service {
     if (times.length >= max) {
       log(`clean copy on demand: refused, the tab loaded afresh ${times.length} times in ${windowMs / 1000} s`);
       throw new Error(
-        `the page was loaded afresh ${times.length} times in ${windowMs / 1000} s and was written again each time; it isn't loaded again, and the user's typing there stays held`
+        `the page was loaded afresh ${times.length} times in ${windowMs / 1000} s and had what the agent's code left in it again each time; it isn't loaded again, and the user's typing there stays held`
       );
     }
     times.push(now);
@@ -916,7 +971,8 @@ class Service {
   /**
    * A task ends (finish, Stop, its last tab closed). The agent's code goes
    * from the group of each of its tabs, kept pages included, then each
-   * written page that stays open loads afresh (landing (2)). finish() calls
+   * hooked page that stays open loads afresh (landing (2), on evidence:
+   * reloadHookedAfterTask). finish() calls
    * this before endTask: the tabs are taken while they are still the
    * task's, and every discard goes out now (discard() sends before its
    * first await), before endTask's publish drops the tabs from
@@ -946,28 +1002,104 @@ class Service {
     const discards = [{ task: rec.id }, ...groups.values()].map(target => this.discardAgentCode(target).catch(failed));
     const stays = tabs.filter(tab => !closing.has(tab)).map(tab => tab.linkedBrowser);
     return Promise.all(discards)
-      .then(() => this.reloadWrittenAfterTask(stays))
+      .then(() => this.reloadHookedAfterTask(stays))
       .then(
         () => {},
-        e => log("reloading the written pages at the task's end failed:", e.message)
+        e => log("reloading the hooked pages at the task's end failed:", e.message)
       );
   }
 
-  async reloadWrittenAfterTask(browsers) {
+  /**
+   * At the task's end, after the discard: every page of it that stays open
+   * and has what the agent's code left hooked in it loads afresh, its form
+   * carried over (the user's approval of landing (2); needsCleanCopy since
+   * the user's call on evidence). One that doesn't load afresh keeps its
+   * evidence, and what such a page keeps.
+   *
+   * @param {Element[]} browsers  the task's pages that stay open
+   * @returns {Promise<number>} how many were to load afresh
+   */
+  async reloadHookedAfterTask(browsers) {
     // Tests of the other layers keep what the agent put in a page (the
     // hand-off's and Resume's loads skip too; never off otherwise).
     if (!Services.prefs.getBoolPref("zenius.handoff.quietReload", true)) {
       return 0;
     }
-    const written = browsers.filter(b => b?.isConnected && b.browsingContext?.currentWindowGlobal && this.isWritten(b));
+    const hooked = browsers.filter(b => b?.isConnected && b.browsingContext?.currentWindowGlobal && this.needsCleanCopy(b));
     await Promise.all(
-      written.map(b =>
-        this.#cleanWritten(b)
-          .then(() => log("a written page reloaded at its task's end"))
-          .catch(e => log("a written page didn't reload at its task's end, so it stays written:", e.message))
+      hooked.map(b =>
+        this.#cleanCopy(b)
+          .then(() => log("a hooked page reloaded at its task's end"))
+          .catch(e => log("a hooked page didn't reload at its task's end, so it keeps its evidence:", e.message))
       )
     );
-    return written.length;
+    return hooked.length;
+  }
+
+  /**
+   * The agent says the user's step in `browser` will show a secret (its
+   * hand-off with secret): the hand back blanks that tab first.
+   *
+   * @param {object} rec
+   * @param {Element} browser
+   */
+  noteSecretStep(rec, browser) {
+    let tabs = this.#secretSteps.get(rec);
+    if (!tabs) {
+      this.#secretSteps.set(rec, (tabs = new Set()));
+    }
+    tabs.add(browser);
+  }
+
+  /**
+   * At the hand back, before the agent has control (the user's Resume,
+   * spaces.takeOver, spaces.claim): each secret step's tab, and the popups
+   * it opened in its hold, show about:blank with their history gone, so
+   * nothing the agent can reach still shows the secret, back and the
+   * back-forward cache included (the Cloudflare token, 2026-11-21). The hand
+   * back's notes say which (blanked). A tab that doesn't blank is closed
+   * instead: the agent never gets it back with the secret.
+   *
+   * @param {object} rec
+   * @returns {Promise<string[]>} the labels of the pages blanked or closed
+   */
+  async blankSecretSteps(rec) {
+    const steps = this.#secretSteps.get(rec);
+    this.#secretSteps.delete(rec);
+    if (!steps?.size) {
+      return [];
+    }
+    const tabs = new Set();
+    for (const browser of steps) {
+      if (browser.isConnected) {
+        for (const tab of lazy.heldWith(browser)) {
+          tabs.add(tab);
+        }
+      }
+    }
+    const labels = [];
+    for (const browser of tabs) {
+      const label = this.pages.forBrowser?.(browser)?.label ?? null;
+      const started = Date.now();
+      try {
+        await lazy.blankTab(browser);
+        log(`a secret step's tab is blank: ${label ?? "a page"} (${Date.now() - started} ms)`);
+      } catch (e) {
+        log(`a secret step's tab didn't blank (${e.message}), so it closes: ${label ?? "a page"}`);
+        try {
+          browser.ownerGlobal?.gBrowser?.removeTab(browser.ownerGlobal.gBrowser.getTabForBrowser(browser));
+        } catch (closing) {
+          log("closing it failed too:", closing.message);
+        }
+      }
+      if (label) {
+        labels.push(label);
+      }
+    }
+    if (labels.length) {
+      this.spaces.noteBlanked(rec, labels);
+    }
+    return labels;
   }
 
   /** zen-ux's Take over, in every form: the prompt, its countdown, the panel, the user's typing. */
@@ -990,7 +1122,7 @@ class Service {
    * its visible ordinary fields and the focus carried over, typing dropped
    * meanwhile. zen-ux's Resume reload.
    *
-   * @returns {Promise<{how: "reload"|"get", alone: boolean, openerCut: boolean, carried: boolean, focused: boolean}>}
+   * @returns {Promise<{how: "reload"|"get", openerCut: boolean, carried: boolean, focused: boolean}>}
    */
   cleanLoad(browser, opts) {
     return lazy.cleanLoad(this, browser, opts);
@@ -1465,7 +1597,7 @@ class Service {
   #afterTaskTabClosed(rec) {
     if (rec?.kind === "task" && !rec.gone && this.pages.tabsOf(rec).length === 0) {
       if (this.spaces.isAgentTask(rec)) {
-        this.spaces.setOwnership(rec, "user", { source: "user" });
+        this.spaces.setOwnership(rec, "user", rec.finishing ? { source: "agent" } : { source: "user", endedHow: "closed" });
       } else {
         this.pages.dropSpace(rec.id);
         this.emit("spaceFinished", { space: rec.id, closedSpace: true });
@@ -1497,6 +1629,8 @@ class Service {
         if (!this.#codeEnded.has(rec)) {
           this.endTaskCode(rec);
         }
+        // Its tabs are the user's now: no hand back will blank them.
+        this.#secretSteps.delete(rec);
         // The user's now (Stop, or finish): pages stop running as agent tabs.
         // Their labels stay for a later claim unless finish() ended them.
         for (const page of this.pages.list(rec.id)) {
@@ -1735,8 +1869,13 @@ class Service {
       return this.#rebuilding.then(() => this.dispatch(method, params, conn, { onHold, pageBudget }));
     }
     const t0 = now();
+    // A client's call shows in its task's steps while it runs (zen-input's
+    // ring); a handler's own calls don't.
+    const startedAt = Date.now();
+    const step = conn ? this.#noteStep("beginCall", { method, params, at: startedAt }) : null;
     let heldMs = 0;
     let promise;
+    let ctx = null;
     try {
       const entry = this.#methods.get(method);
       if (!entry) {
@@ -1773,7 +1912,7 @@ class Service {
       };
       const access = this.accessOf(method);
       const hasSpace = params.space !== undefined && params.space !== null;
-      const ctx = this.#makeCtx(method, conn, {
+      ctx = this.#makeCtx(method, conn, {
         pageBudget: pageBudget ?? defaultPageBudget(),
         // For a handler about to act after a long step (a pointer action
         // after moveCursor): I3 again, with held frames. Resolves to the ms
@@ -1801,6 +1940,9 @@ class Service {
       this.#record(method, ms);
       const held = heldMs ? ` (held ${heldMs.toFixed(0)}ms)` : "";
       log(`rpc ${method} ${ms.toFixed(1)}ms ${outcome}${held}${conn ? "" : " (internal)"}`);
+      if (conn) {
+        this.#noteStep("endCall", step, { method, params, outcome, ms, at: startedAt, found: ctx?.step });
+      }
     };
     return promise.then(
       result => {
@@ -1856,6 +1998,81 @@ class Service {
     const url = `${BASE_URL}ui/pages.sys.mjs`;
     if (chromeFileExists(url)) {
       ChromeUtils.importESModule(url).onNotePage?.(tab => this.pages.noteFront(tab));
+    }
+  }
+
+  /**
+   * zen-input's step ring (input/steps.sys.mjs): what the sidebar shows of
+   * each task. A ring that fails to load costs only the steps: every call
+   * still runs (zen-core's review).
+   */
+  #noteStep(fn, ...args) {
+    if (this.#steps === undefined) {
+      this.#steps = null;
+      try {
+        const url = `${BASE_URL}input/steps.sys.mjs`;
+        if (chromeFileExists(url)) {
+          this.#steps = ChromeUtils.importESModule(url);
+        }
+      } catch (e) {
+        log(`zen-input's step ring didn't load, so tasks show no steps: ${e.message}`);
+      }
+    }
+    try {
+      return this.#steps?.[fn]?.(...args) ?? null;
+    } catch (e) {
+      log(`the step of ${args.at(-1)?.method} failed: ${e.message}`);
+      return null;
+    }
+  }
+
+  /** Is the listed check's observer on (from the first task page to the last, I4)? */
+  #listedOn = false;
+  #listedObserver = { observe: subject => this.#checkListed(subject) };
+
+  #syncListedCheck() {
+    const want = this.#taskBrowserIds.size > 0;
+    if (want === this.#listedOn) {
+      return;
+    }
+    this.#listedOn = want;
+    if (want) {
+      Services.obs.addObserver(this.#listedObserver, "window-global-created");
+    } else {
+      Services.obs.removeObserver(this.#listedObserver, "window-global-created");
+    }
+  }
+
+  /**
+   * The listed evidence (the user's pass on the defenses): a new document of
+   * a task page whose site Gecko's phishing or malware lists name is marked
+   * listed, with the list, for zen-ux's warning. Gecko blocks such a page as
+   * it loads, so this finds the one someone clicked through its warning to.
+   * The classifier asks the network only for a prefix that matched the
+   * lists on disk.
+   */
+  #checkListed(windowGlobal) {
+    try {
+      const browserId = windowGlobal?.browsingContext?.top?.browserId;
+      if (!browserId || !this.#taskBrowserIds.has(browserId)) {
+        return;
+      }
+      const principal = windowGlobal.documentPrincipal;
+      if (!principal?.isContentPrincipal || !(principal.schemeIs("http") || principal.schemeIs("https"))) {
+        return;
+      }
+      const classifier = Cc["@mozilla.org/url-classifier/dbservice;1"].getService(Ci.nsIURIClassifier);
+      classifier.classify(principal, {
+        onClassifyComplete: (code, list) => {
+          const kind = LISTED_KINDS.find(([name]) => Cr[name] === code)?.[1];
+          if (kind) {
+            log(`a task page is on a Safe Browsing list (${kind}), so it's marked listed`);
+            lazy.markEvident(windowGlobal, "listed", `${kind}: ${list}`);
+          }
+        },
+      });
+    } catch (e) {
+      log("the listed check of a task document failed:", e.message);
     }
   }
 

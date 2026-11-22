@@ -13,7 +13,8 @@
 //   - codePage: such a page where the agent's code ran too (H_PLANT);
 //   - madePage: a page the agent made (data:), check only.
 // - Runs:
-//   - check: what zenius decides at the hand-off (observe's handOffCheck),
+//   - check: whether H needs a clean copy at the hand-off, from zen-core's
+//     own decision (needsCleanCopy(evidenceOf(H)), modules/handoff.sys.mjs),
 //     and whether H was reloaded or moved to a new group;
 //   - agentCode: the agent's calls during the hold, on H and on T;
 //   - keys: the user types in H's fields; what code planted earlier in T
@@ -27,14 +28,10 @@
 // spaces.handOff holds the task's front page (zen-core's ab3e065), so the
 // probe shows H's tab first. The probe holds nothing itself: each result
 // lists what the hand-off held (handOff.held), and a hand-off that holds
-// nothing says so there. A refused hand-off skips the run. zen-core's COOP
-// group switch is off by default; hold-prefs.js turns it on, in a profile of
-// its own.
+// nothing says so there. A refused hand-off skips the run.
 //
 //   scripts/zen-dev.sh zen-snapshot start
 //   ZENIUS_INSTANCE=zen-snapshot node tests/snapshot/tools/hold-probe.mjs [path[:run] ...]
-//   ZENIUS_DEV_PREFS=tests/snapshot/tools/hold-prefs.js scripts/zen-dev.sh zen-snapshot-coop start
-//   ZENIUS_INSTANCE=zen-snapshot-coop node tests/snapshot/tools/hold-probe.mjs
 //
 // Dev profiles only, loopback fixtures only. Each case hands the task back,
 // ends the hold, finishes the task and closes the tabs it opened. The user's
@@ -480,10 +477,10 @@ const RUNS = {
     return chrome(
       C +
         `
-      const rec = ctx.spaces.peek(arg.space);
       const h = topById(arg.H);
-      const c = AC.handOffCheck(rec, h.embedderElement);
-      return { page: c.page, agentPage: c.agentPage, opener: c.opener, reaching: c.reaching.map(r => ({ role: r.browser ? roleOfId(r.browser.browserId) ?? "other" : null, opener: r.opener })) };
+      const HO = ChromeUtils.importESModule('chrome://userscripts/content/zenius/modules/handoff.sys.mjs');
+      const ev = HO.evidenceOf(h.embedderElement);
+      return { page: HO.needsCleanCopy(ev), agentPage: ev.made !== undefined, hooked: ev.hooked !== undefined };
     `,
       { space: env.space, H: env.roles.H }
     );
@@ -633,7 +630,6 @@ async function runCase(path, run) {
     env = await PATHS[path]();
     if (env.setupError) throw new Error(`setup: ${env.setupError}`);
     if (PRE[run]) await PRE[run](env);
-    out.groupSwitch = await chrome(`return Services.prefs.getBoolPref("zenius.handoff.groupSwitch", false);`);
     out.before = await chrome(C + `return state();`);
     out.handOff = await handOff(env);
     out.atHold = await chrome(C + `return state();`);

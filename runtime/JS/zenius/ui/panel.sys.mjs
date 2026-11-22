@@ -48,6 +48,11 @@ export function idleText(hours) {
  * @property {{id: string, title: string}[]} [tabs]  the task's tabs (SPEC §3.8)
  * @property {string|null} [idleFor]  "3 days" when the auto-close would take
  *   it (SPEC §3.4), else null
+ * @property {boolean} [needs]  it waits for the user (needsUser)
+ *
+ * @typedef {{uid: string, name: string}} SidebarWaiting  an agent sidebar's
+ *   task that needs the user with no zenius task saying so
+ *  (ZeniusUI.noteSidebarWaiting)
  *
  * @typedef {object} PanelActions
  * @property {() => TaskRow[]} [rows]  fresh rows when the panel opens: tab
@@ -60,7 +65,21 @@ export function idleText(hours) {
  * @property {(id: number) => void} takeOver
  * @property {(id: number) => void} handBack
  * @property {(id: number) => void} stop
+ * @property {(uid: string, win: Window) => void} [openSidebar]  the agent
+ *   sidebar on one of its waiting tasks
  */
+
+/**
+ * Does the task wait for the user's answer, as the strip counts it? A
+ * hand-off, a page's prompt, or the takeover prompt's pause; not a task the
+ * user paused from the panel, which only waits for them. The agent sidebar's
+ * Work count reads the same number (ZeniusUI.needsCount).
+ *
+ * @param {TaskRow} row
+ */
+export function needsUser(row) {
+  return row.state === "needs-user" || (row.state === "paused" && !row.paused);
+}
 
 /**
  * Each window's strip and panel. `els` holds one row element per task for as
@@ -80,12 +99,13 @@ const windows = new WeakMap();
  * @param {TaskRow[]} rows
  * @param {PanelActions} actions
  */
-export function updateTasks(win, rows, actions) {
+export function updateTasks(win, rows, actions, waiting = []) {
   const w = ensureWindow(win, actions);
   if (!w) {
     return;
   }
   w.rows = rows;
+  w.waiting = waiting;
   renderStrip(win, w);
   if (w.panel?.state === "open" || w.panel?.state === "showing") {
     // Mid-press, nothing in the panel moves: a row that grew or came above
@@ -153,15 +173,16 @@ export function stripSeen(win) {
 
 function renderStrip(win, w) {
   const rows = w.rows;
-  // A takeover prompt pauses a task to ask the user something: that needs
-  // them. A task the user paused from this panel only waits for them.
-  const attention = rows.filter(r => r.state === "needs-user" || (r.state === "paused" && !r.paused)).length;
+  // The agent sidebar's tasks that need the user with no zenius task saying
+  // so count too, so the strip and the sidebar's Work count agree.
+  const waiting = w.waiting?.length ?? 0;
+  const attention = rows.filter(needsUser).length + waiting;
   const working = rows.filter(r => r.state === "working").length;
   const paused = rows.filter(r => r.paused).length;
   const hint = watchHints.get(win);
-  w.strip.hidden = rows.length === 0 && !hint;
+  w.strip.hidden = rows.length + waiting === 0 && !hint;
   setAttr(w.strip, "state", attention ? "needs-user" : working ? "working" : paused ? "paused" : "idle");
-  const text = stripText(rows.length, attention, working, paused);
+  const text = stripText(rows.length + waiting, attention, working, paused);
   const label = w.strip.querySelector(".zenius-strip-text");
   if (hint) {
     // Once the watched task is done there may be no tasks to count.
@@ -526,6 +547,89 @@ function ensureWindow(win, actions) {
   return w;
 }
 
+const ARRIVAL_ID = "zenius-arrival";
+
+/**
+ * A remote task just started while the agent sidebar is closed (its glue's
+ * arrival): a small card right over the strip, where zenius tells the user a
+ * task needs them, saying `text` with Watch and Stop. It takes no focus,
+ * opens nothing and selects nothing (I1), and goes after `ms`, though not from
+ * under the pointer or the keyboard's focus, or when dismissed. A new arrival
+ * takes the card's place. It has the look of the agent sidebar's own card
+ * (zenius-ux.css), whose panel sets the address apart the same way.
+ *
+ * @param {Window} win
+ * @param {{text: string, watch: () => void, stop: () => void, ms: number}} arrival
+ * @returns {boolean} whether it shows
+ */
+export function showArrival(win, { text, watch, stop, ms }) {
+  const doc = win.document;
+  const foot = doc.getElementById("zen-sidebar-foot-buttons");
+  if (!foot?.parentElement || typeof text !== "string" || !text) {
+    return false;
+  }
+  hideArrival(win);
+  const make = (tag, className, label) => {
+    const el = doc.createElementNS(XHTML_NS, tag);
+    el.className = className;
+    if (label) {
+      el.textContent = label;
+    }
+    return el;
+  };
+  const card = make("div", "zenius-arrival");
+  card.id = ARRIVAL_ID;
+  card.setAttribute("role", "group");
+  card.setAttribute("aria-label", text);
+  const button = (label, fn, which, extra = {}) => {
+    const el = make("button", `zenius-arrival-button zenius-arrival-${which}`, label);
+    el.type = "button";
+    for (const [name, value] of Object.entries(extra)) {
+      el.setAttribute(name, value);
+    }
+    el.addEventListener("click", event => {
+      event.stopPropagation();
+      hideArrival(win);
+      fn?.();
+    });
+    return el;
+  };
+  // The address, the text's first isolate ("Task from <address> · <label>"),
+  // is a chip; the text stays the same. The isolate's marks stay outside the
+  // chip: Gecko breaks a line after a leading one even in a nowrap span,
+  // which left a sliver of the chip on the line before.
+  const line = make("span", "zenius-arrival-text");
+  const start = text.indexOf("\u2068");
+  const end = start < 0 ? -1 : text.indexOf("\u2069", start);
+  if (end < 0) {
+    line.textContent = text;
+  } else {
+    line.append(text.slice(0, start + 1), make("span", "zenius-arrival-addr", text.slice(start + 1, end)), text.slice(end));
+  }
+  card.append(
+    line,
+    button("Watch", watch, "watch"),
+    button("Stop", stop, "stop"),
+    button("✕", null, "close", { title: "Dismiss", "aria-label": "Dismiss" })
+  );
+  const strip = doc.getElementById(STRIP_ID);
+  foot.parentElement.insertBefore(card, strip?.parentElement === foot.parentElement ? strip : foot);
+  const arm = () => {
+    card.zeniusTimer = win.setTimeout(() => (card.matches(":hover, :focus-within") ? arm() : hideArrival(win)), ms);
+  };
+  arm();
+  return true;
+}
+
+/** The arrival card goes, if it's up. */
+export function hideArrival(win) {
+  const card = win.document.getElementById(ARRIVAL_ID);
+  if (card) {
+    win.clearTimeout(card.zeniusTimer);
+    card.remove();
+  }
+}
+
 const setAttr = (el, name, value) => {
   if (el.getAttribute(name) !== value) {
     el.setAttribute(name, value);
@@ -785,7 +889,7 @@ function renderPanel(win, w, actions) {
     body.prepend(title);
   }
   let empty = body.querySelector(":scope > .zenius-tasks-empty");
-  if (w.rows.length) {
+  if (w.rows.length || w.waiting?.length) {
     empty?.remove();
   } else if (!empty) {
     empty = doc.createElementNS(XHTML_NS, "div");
@@ -812,5 +916,44 @@ function renderPanel(win, w, actions) {
       prev.after(el);
     }
     prev = el;
+  }
+  renderWaiting(doc, body, prev, w);
+}
+
+/**
+ * The agent sidebar's tasks that need the user before a zenius task says so
+ * (a chat's question, error or permission): one line under the rows, with
+ * Open, which shows the first in the sidebar. The strip counts them.
+ */
+function renderWaiting(doc, body, prev, w) {
+  const waiting = w.waiting ?? [];
+  let line = body.querySelector(":scope > .zenius-tasks-waiting");
+  if (!waiting.length) {
+    line?.remove();
+    return;
+  }
+  if (!line) {
+    line = doc.createElementNS(XHTML_NS, "div");
+    line.className = "zenius-tasks-waiting";
+    const text = doc.createElementNS(XHTML_NS, "span");
+    text.className = "zenius-tasks-waiting-text";
+    const open = doc.createElementNS(XHTML_NS, "button");
+    open.className = "zenius-task-button";
+    open.textContent = "Open";
+    open.addEventListener("click", async () => {
+      const now = windows.get(doc.defaultView);
+      const uid = now?.waiting?.[0]?.uid;
+      if (uid) {
+        await hidePanel(now.panel);
+        now.actions?.openSidebar?.(uid, doc.defaultView);
+      }
+    });
+    line.append(text, open);
+  }
+  const more = w.rows.length ? " more" : "";
+  const text = waiting.length === 1 ? `1${more} task needs you in the agent sidebar` : `${waiting.length}${more} tasks need you in the agent sidebar`;
+  setText(line.querySelector(".zenius-tasks-waiting-text"), text);
+  if (prev.nextElementSibling !== line) {
+    prev.after(line);
   }
 }

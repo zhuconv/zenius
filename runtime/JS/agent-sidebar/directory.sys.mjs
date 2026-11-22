@@ -13,7 +13,8 @@
  * time the user opens it.
  */
 
-import { AgentService, STATE_LABELS, age } from "./AgentService.sys.mjs";
+import { AgentService, STATE_LABELS, age, remoteSource } from "./AgentService.sys.mjs";
+import { externalSource, sourceParts } from "./external.sys.mjs";
 
 const HTML = "http://www.w3.org/1999/xhtml";
 const SHEET = new URL("directory.css", import.meta.url).href;
@@ -27,6 +28,14 @@ const WIDTH = 264;
 const TUCK = 14;
 const CLOSE_MS = 180;
 const DEFAULT_FAVICON = "chrome://global/skin/icons/defaultFavicon.svg";
+
+/** A remote task's address and label, or where an external task is driven from, as a search matches them. */
+function sourceWords(conv) {
+  if (conv.external) {
+    return Object.values(conv.from ?? {}).filter(value => typeof value === "string").join("\n");
+  }
+  return conv.source === "remote" ? `${conv.remote?.address ?? ""}\n${conv.remote?.label ?? ""}` : "";
+}
 
 export class Directory {
   /**
@@ -56,6 +65,25 @@ export class Directory {
       el.textContent = text;
     }
     return el;
+  }
+
+  /**
+   * A remote task's source line ("From <address> · <label>", remoteSource),
+   * its address, the first isolate, set apart as a chip, as in the panel
+   * (fillSource, whose note says why the isolate's marks stay outside it).
+   * An external task's line (externalSource) chips its terminal, and has no
+   * chip without one. The text stays the same.
+   */
+  source(text, { chip = true } = {}) {
+    const line = this.el("div", "asb-dir-src");
+    const start = chip ? text.indexOf("\u2068") : -1;
+    const end = start < 0 ? -1 : text.indexOf("\u2069", start);
+    if (end < 0) {
+      line.textContent = text;
+    } else {
+      line.append(text.slice(0, start + 1), this.el("span", "asb-dir-addr", text.slice(start + 1, end)), text.slice(end));
+    }
+    return line;
   }
 
   build() {
@@ -234,7 +262,7 @@ export class Directory {
 
   /** Show a task in the sidebar, and close. */
   pick(uid) {
-    const conv = AgentService.tasks.get(uid);
+    const conv = AgentService.taskByUid(uid);
     if (!conv) {
       return;
     }
@@ -255,8 +283,8 @@ export class Directory {
   /** The tasks that match the search, by group, newest first. */
   groups() {
     const query = this.input.value.trim().toLowerCase();
-    const tasks = AgentService.taskList().filter(
-      conv => !query || `${conv.title}\n${conv.task.text}`.toLowerCase().includes(query)
+    const tasks = AgentService.directoryList().filter(
+      conv => !query || `${conv.title}\n${conv.task.text}\n${sourceWords(conv)}`.toLowerCase().includes(query)
     );
     return GROUPS.map(([state, label]) => ({
       state,
@@ -312,11 +340,20 @@ export class Directory {
     row.setAttribute("aria-selected", String(isCurrent));
     row.classList.toggle("current", isCurrent);
     row.classList.toggle("active", this.active === conv.uid);
-    row.title = `${conv.title}\n${STATE_LABELS[state] ?? ""}${text ? `: ${text}` : ""}`;
+    // Which of the user's agents sent a remote task, or where a task the
+    // sidebar doesn't drive is driven from.
+    const from = conv.external ? externalSource(conv) : remoteSource(conv);
+    row.title = `${conv.title}\n${from ? `${from}\n` : ""}${STATE_LABELS[state] ?? ""}${text ? `: ${text}` : ""}`;
+    if (conv.external) {
+      row.dataset.external = "true";
+    }
 
     const top = this.el("div", "asb-dir-rt");
     top.append(this.el("span", "asb-dot"), this.el("b", "", conv.title), this.el("span", "asb-dir-age", age(since)));
     row.append(top);
+    if (from) {
+      row.append(this.source(from, { chip: !conv.external || !!sourceParts(conv.from)?.terminal }));
+    }
     row.append(this.el("div", "asb-dir-rd", text || STATE_LABELS[state] || ""));
     if (state === "working") {
       row.append(this.el("div", "asb-dir-bar"));
@@ -347,6 +384,10 @@ export class Directory {
   }
 
   onKey(event) {
+    // The search's IME keys (a composition's Enter, Escape and arrows) only compose.
+    if (event.isComposing) {
+      return;
+    }
     if (event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();

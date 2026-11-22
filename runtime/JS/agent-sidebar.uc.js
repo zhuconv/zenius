@@ -45,7 +45,7 @@
   function startSidebar() {
     const SCRIPT_URL = Components.stack.filename.split(" -> ").pop();
     const BASE = SCRIPT_URL.slice(0, SCRIPT_URL.lastIndexOf("/") + 1) + "agent-sidebar/";
-    const { AgentService } = ChromeUtils.importESModule(BASE + "AgentService.sys.mjs");
+    const { AgentService, remoteSource } = ChromeUtils.importESModule(BASE + "AgentService.sys.mjs");
     AgentService.init(BASE);
     const { Directory } = ChromeUtils.importESModule(BASE + "directory.sys.mjs");
     const { registerSidebar, unregisterSidebar } = ChromeUtils.importESModule(BASE + "AgentSidebar.sys.mjs");
@@ -60,10 +60,45 @@
     const READ_TIMEOUT_MS = { html: 5000, pdf: 30000 };
     const PREF_READ_TIMEOUT = "uc.agent-sidebar.page-read-timeout";
     const PREF_PLACED = "uc.agent-sidebar.placed-right";
-    const PREF_WIDENED = "uc.agent-sidebar.widened";
-    // The panel draws its own header, so hide the sidebar's while it is open.
+    // The panel's width as the user last dragged it (px), and the first one.
+    const PREF_WIDTH = "uc.agent-sidebar.width";
+    const PANEL_WIDTH = 420;
+    // Narrower than any sidebar Zen allows: not a width the user chose.
+    const MIN_KEPT_WIDTH = 120;
+    // How long a remote task's arrival card stays (ms); the pref is for tests.
+    const ARRIVAL_MS = 10000;
+    const PREF_ARRIVAL_MS = "uc.agent-sidebar.arrival-ms";
+    // A remote task restored at startup, or older than this, arrives quietly.
+    const ARRIVAL_FRESH_MS = 30000;
     const STYLE = `data:text/css,${encodeURIComponent(
-      "#sidebar-box[agent-sidebar] #sidebar-header { display: none !important; }"
+      [
+        // The panel draws its own header, so hide the sidebar's while it is open.
+        "#sidebar-box[agent-sidebar] #sidebar-header { display: none !important; }",
+        // The page and the panel sit one --zen-element-separation apart, as two
+        // panes of a Zen split do (--zen-split-row-gap). Zen's margins on the
+        // splitter leave 4 px plus the splitter's width there, whatever the
+        // separation, and Firefox pads the box's start (var(--space-small),
+        // inline). So the splitter takes back the tabbox's gap on one side and
+        // its own width, and the panel fills the box. In a split with the box
+        // on the right ([sidebar-positionend]), the splitter takes back the
+        // last pane's right margin too (on the left, the first pane has none).
+        "#sidebar-box[agent-sidebar] ~ #sidebar-splitter { margin-inline: calc((var(--splitter-width, 2px) + var(--zen-element-separation)) / -2) !important; }",
+        "#tabbrowser-tabbox[zen-split-view='true'] > #sidebar-box[agent-sidebar][sidebar-positionend] ~ #sidebar-splitter { margin-inline: calc((var(--splitter-width, 2px) + var(--zen-element-separation) + var(--zen-split-row-gap, 0px)) / -2) !important; }",
+        // In a split, Zen pulls the tabbox's right edge out by
+        // --zen-split-column-gap (its margin-right), meant for the last pane's
+        // margin. With the box on the right, that put the box past the window's
+        // edge, so the box takes it back: its right edge stays where it is
+        // outside a split.
+        "#tabbrowser-tabbox[zen-split-view='true'] > #sidebar-box[agent-sidebar][sidebar-positionend] { margin-right: var(--zen-split-column-gap) !important; }",
+        "#sidebar-box[agent-sidebar] { padding: 0 !important; }",
+        // One area, like the page's box beside it: the panel's background
+        // (panel.css's --bg) edge to edge, with the page's corner and shadow
+        // (Zen's rule for .browserSidebarContainer) in place of Zen's
+        // sidebar's own (a radius 1.3 times larger, as a squircle).
+        "#sidebar-box[agent-sidebar] { background-color: light-dark(#fbfbfc, #1f1f23) !important; }",
+        ":root:not([zen-no-padding='true']) #sidebar-box[agent-sidebar] { corner-shape: round !important; border-radius: calc(var(--zen-native-inner-radius) / var(--zen-squircle-value)) !important; box-shadow: var(--zen-big-shadow) !important; }",
+        ":root[zen-no-padding='true'] #sidebar-box[agent-sidebar] { border-radius: 0 !important; box-shadow: none !important; }",
+      ].join("\n")
     )}`;
 
     const conversations = new WeakMap(); // tab -> Conversation
@@ -102,7 +137,7 @@
 
     /** The task Work mode shows: the one picked last, else the newest, else a new one. */
     function workConversation() {
-      const listed = currentTask && AgentService.tasks.has(currentTask.uid);
+      const listed = AgentService.isListed(currentTask);
       if (!listed && currentTask !== draft) {
         currentTask = AgentService.taskList()[0] ?? null;
       }
@@ -126,13 +161,28 @@
      * @param {string|object} task  its uid, or its conversation
      */
     function showTask(task) {
-      const conv = typeof task === "string" ? AgentService.tasks.get(task) : task;
+      const conv = typeof task === "string" ? AgentService.taskByUid(task) : task;
       if (!conv) {
         return;
       }
       mode = "work";
       currentTask = conv;
       panel?.show(conv);
+    }
+
+    /**
+     * The sidebar open on a task (zenius's tasks panel, for a task that
+     * needs the user with no zenius task saying so).
+     *
+     * @param {string} uid
+     */
+    async function openTask(uid) {
+      const conv = AgentService.taskByUid(uid);
+      if (!conv) {
+        return;
+      }
+      showTask(conv);
+      (await openPanel()).show(conv);
     }
 
     /** '+ New task': Work mode on a new task, ready to type. */
@@ -169,6 +219,59 @@
       return conv.uid;
     }
 
+    // --- A remote task's arrival ---------------------------------------------
+    //
+    // Another of the user's agents started a task (remote tasks; the user's
+    // call "可以弹一个卡片但是不需要同意": a card pops up, with no approval). A
+    // small card says "Task from <address> · <label>", with Watch and Stop:
+    // in the agent sidebar if it's open in this window, else over zenius's
+    // strip in Zen's own sidebar, where zenius tells the user a task needs
+    // them. It takes no focus, opens nothing and selects nothing (I1), and
+    // goes after ARRIVAL_MS, or when dismissed. Only the front window shows
+    // it, and only for a task that just started.
+
+    const arrived = new Set(AgentService.tasks.keys());
+    cleanups.push(
+      AgentService.subscribeTasks(conv => {
+        if (!conv || conv.source !== "remote" || arrived.has(conv.uid) || !AgentService.tasks.has(conv.uid)) {
+          return;
+        }
+        arrived.add(conv.uid);
+        if (Date.now() - (conv.createdAt ?? 0) > ARRIVAL_FRESH_MS) {
+          return;
+        }
+        if (Services.wm.getMostRecentWindow("navigator:browser") === window) {
+          showArrival(conv);
+        }
+      })
+    );
+
+    function showArrival(conv) {
+      const text = remoteSource(conv, "Task from");
+      if (!text) {
+        return;
+      }
+      const ms = Services.prefs.getIntPref(PREF_ARRIVAL_MS, ARRIVAL_MS);
+      const actions = { watch: () => watchArrival(conv), stop: () => AgentService.cancel(conv) };
+      if (panel && panelIsOpen()) {
+        panel.arrive(text, actions, ms);
+      } else {
+        AgentService.zeniusUI()?.remoteArrival?.(window, { text, ...actions, ms });
+      }
+    }
+
+    /** The arrival card's Watch, the user's click: the task's page if it has one yet, else the task in the sidebar. */
+    async function watchArrival(conv) {
+      if (!AgentService.tasks.has(conv.uid)) {
+        return;
+      }
+      if (AgentService.zenRecord(conv) && (await watch(conv))) {
+        return;
+      }
+      showTask(conv);
+      (await openPanel()).show(conv);
+    }
+
     // --- Watch: a task's tabs in this window, and ⌃Tab back ------------------
     //
     // zenius's watch (ZeniusUI.watch, ui/watch.sys.mjs): every way to an
@@ -184,17 +287,12 @@
     let watchingUid = null;
 
     function taskOf(task) {
-      return typeof task === "string" ? (AgentService.tasks.get(task) ?? null) : (task ?? null);
+      return typeof task === "string" ? AgentService.taskByUid(task) : (task ?? null);
     }
 
-    /** The chat that follows zenius task `id`, if any. */
+    /** The listed task that follows zenius task `id`, if any: a chat's, or one the sidebar doesn't drive. */
     function chatOfTask(id) {
-      for (const conv of AgentService.tasks.values()) {
-        if (AgentService.zenRecord(conv)?.id === id) {
-          return conv;
-        }
-      }
-      return null;
+      return AgentService.taskOfSpace(id);
     }
 
     function onWatchChanged(event) {
@@ -308,6 +406,59 @@
 
     function panelIsOpen() {
       return SidebarController.isOpen && SidebarController.currentID === PANEL;
+    }
+
+    /** The panel's width: as the user last dragged it, else 420 px (the
+     * browser's default is too narrow for answers). */
+    function panelWidth() {
+      const kept = Services.prefs.getIntPref(PREF_WIDTH, 0);
+      return kept >= MIN_KEPT_WIDTH ? kept : PANEL_WIDTH;
+    }
+
+    /** A width the box took while the panel shows (the user's drag) is kept
+     * for the next open and the next start: the browser keeps the box's
+     * width only while the window lives. */
+    function keepWidth(box) {
+      const width = Math.round(Number.parseFloat(box.style.width));
+      if (width >= MIN_KEPT_WIDTH && width !== Services.prefs.getIntPref(PREF_WIDTH, 0)) {
+        Services.prefs.setIntPref(PREF_WIDTH, width);
+      }
+    }
+
+    // The box takes the panel's look (no browser header, the panel's
+    // background) and the panel's width as the browser shows it, before its
+    // first paint, on every open. In attachPanel, once panel.html had
+    // loaded, both came frames late: every open painted the browser's own
+    // "Agent ×" header first, a profile's first open its default 216 px, and
+    // after a restart the box stayed at 216 px, its widening done once per
+    // profile through an inline width that doesn't outlive the window
+    // (zen-eval's take-6 captures and probe). The browser unhides the box
+    // and sets "checked" on each show, and the panel's id with them; the
+    // observer runs before the next paint.
+    function fitBox(records) {
+      const box = document.getElementById("sidebar-box");
+      if (!box) {
+        return;
+      }
+      const ours = panelIsOpen();
+      box.toggleAttribute("agent-sidebar", ours);
+      if (!ours) {
+        return;
+      }
+      if (records.some(r => r.attributeName !== "style")) {
+        const width = `${panelWidth()}px`;
+        if (box.style.width !== width) {
+          box.style.width = width;
+        }
+      } else {
+        keepWidth(box);
+      }
+    }
+    const sidebarBox = document.getElementById("sidebar-box");
+    if (sidebarBox) {
+      const boxObserver = new MutationObserver(fitBox);
+      boxObserver.observe(sidebarBox, { attributes: true, attributeFilter: ["hidden", "checked", "style"] });
+      cleanups.push(() => boxObserver.disconnect());
     }
 
     async function openPanel() {
@@ -431,6 +582,20 @@
       }
       const tab = tabOf(conv) ?? gBrowser.selectedTab;
       return AgentService.send(conv, { question, selection, attachments, replace, source, page: pageOf(tab) });
+    }
+
+    /** A message the user sent while the agent worked (zen-ux's queue and
+     * steer). Enter queues it: a Chat one goes with its tab's page as it is
+     * when it goes out, so `page` is a function AgentService calls then.
+     * Steer sends it into the running turn, with the page as it is now. */
+    function enqueue(conv, { question, selection, attachments }) {
+      const page = conv.kind === "work" ? null : () => pageOf(tabOf(conv) ?? gBrowser.selectedTab);
+      return AgentService.enqueue(conv, { question, selection, attachments, page });
+    }
+
+    function steer(conv, { question, selection, attachments }) {
+      const page = conv.kind === "work" ? null : pageOf(tabOf(conv) ?? gBrowser.selectedTab);
+      return AgentService.steer(conv, { question, selection, attachments, page });
     }
 
     function normalizeModifiers(modifiers) {
@@ -560,6 +725,8 @@
       AgentService,
       toggle,
       submit,
+      enqueue,
+      steer,
       uninit,
       get mode() {
         return mode;
@@ -569,6 +736,7 @@
         return mode === "work" ? workConversation() : currentTask;
       },
       showTask,
+      openTask,
       newTask,
       startWorkChat,
       watch,
@@ -592,16 +760,9 @@
       },
       attachPanel(api) {
         panel = api;
-        const box = document.getElementById("sidebar-box");
-        box?.setAttribute("agent-sidebar", "");
-        // The default sidebar width is too narrow for answers. Widen it once;
-        // after that the width the user drags to is kept.
-        if (box && !Services.prefs.getBoolPref(PREF_WIDENED, false)) {
-          Services.prefs.setBoolPref(PREF_WIDENED, true);
-          if (box.getBoundingClientRect().width < 400) {
-            box.style.width = "420px";
-          }
-        }
+        // fitBox set it as the box showed; this is for a panel the browser
+        // loaded some other way.
+        document.getElementById("sidebar-box")?.setAttribute("agent-sidebar", "");
         for (const resolve of panelWaiters.splice(0)) {
           resolve(api);
         }

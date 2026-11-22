@@ -29,7 +29,22 @@
 // its last line (a quoted delimiter keeps the body literal), where ARG is a
 // bare word, a '...' string, or a "..." string with no $, backtick or
 // backslash. ALLOW_CLI_LOG names a file that gets one JSON line per decision.
-import { accessSync, appendFileSync, constants, readFileSync, realpathSync, statSync } from "node:fs";
+// ALLOW_CLI_SCRIPTS names a folder that keeps each allowed command whole, its
+// script included, one numbered file each, for the report (zen-manager,
+// 2026-11-21).
+// ALLOW_CLI_SHAPE=ego-browser narrows Bash to the Ego CLI's subcommands that
+// an agent's browser work needs: `skill`, `help [topic]`, `--help`,
+// `--version`, and `nodejs` with its script on stdin or as one -e/--eval
+// argument. Its `import` and `upgrade` change Ego Lite's data or app, and
+// `--ego-server-name` reaches another browser, so they never run. Ego runs an
+// agent's scripts in its own Node helper, outside any sandbox of ours: the
+// user chose to run it so (2026-11-21).
+// ALLOW_CLI_READ_IMAGE_ROOTS (folders, one per line) with ALLOW_CLI_READ_IMAGES_SINCE
+// (epoch ms) also allow Read of an image (PNG, JPEG, GIF or WebP, by its first bytes)
+// under one of those folders and modified since then. Ego's scripts save a screenshot
+// wherever its absolute path says, or in the system temp folder when it names none (its
+// guide), so its agents read them there; zenius's land in the run's output folder.
+import { accessSync, appendFileSync, closeSync, constants, mkdirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -83,6 +98,19 @@ export function instancesNamed(args) {
   return names;
 }
 
+/**
+ * Whether Ego's CLI arguments are one of the shapes an agent's browser work
+ * needs (ALLOW_CLI_SHAPE=ego-browser).
+ * @param {string[]} args
+ */
+export function egoShapeAllowed(args) {
+  const [sub, ...rest] = args;
+  if (["skill", "--help", "-h", "--version", "-v"].includes(sub)) return rest.length === 0;
+  if (sub === "help") return rest.length <= 1 && rest.every((topic) => /^[a-z-]+$/.test(topic));
+  if (sub === "nodejs") return rest.length === 0 || (rest.length === 2 && (rest[0] === "-e" || rest[0] === "--eval"));
+  return false;
+}
+
 const shellQuote = (text) => `'${text.replaceAll("'", `'\\''`)}'`;
 
 function isRunnable(file) {
@@ -99,8 +127,36 @@ export function toolResultsRoot(workdir, home = homedir()) {
   return join(home, ".claude", "projects", workdir.replace(/[^A-Za-z0-9]/g, "-"));
 }
 
-/** @param {string} path @param {string} workdir @param {string} [home] @param {string|null} [readRoot] */
-export function readAllowed(path, workdir, home = homedir(), readRoot = null) {
+const IMAGE_SIGNATURES = [
+  (b) => b[0] === 0x89 && b.subarray(1, 4).toString("latin1") === "PNG",
+  (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
+  (b) => b.subarray(0, 4).toString("latin1") === "GIF8",
+  (b) => b.subarray(0, 4).toString("latin1") === "RIFF" && b.subarray(8, 12).toString("latin1") === "WEBP",
+];
+
+/** Whether a file is an image by its first bytes, modified at or after `sinceMs`. @param {string} file @param {number} sinceMs */
+export function recentImage(file, sinceMs) {
+  try {
+    const stat = statSync(file);
+    if (!stat.isFile() || stat.mtimeMs < sinceMs) return false;
+    const fd = openSync(file, "r");
+    try {
+      const head = Buffer.alloc(12);
+      readSync(fd, head, 0, 12, 0);
+      return IMAGE_SIGNATURES.some((matches) => matches(head));
+    } finally {
+      closeSync(fd);
+    }
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * @param {string} path @param {string} workdir @param {string} [home] @param {string|null} [readRoot]
+ * @param {{ roots: string[], since: number } | null} [images] recent images under these folders too
+ */
+export function readAllowed(path, workdir, home = homedir(), readRoot = null, images = null) {
   let real;
   try {
     real = realpathSync(path);
@@ -116,21 +172,29 @@ export function readAllowed(path, workdir, home = homedir(), readRoot = null) {
     }
   };
   const results = toolResultsRoot(workdir, home);
-  return insideReal(workdir) || (readRoot !== null && insideReal(readRoot)) || (inside(results) && real.includes("/tool-results/"));
+  return (
+    insideReal(workdir) ||
+    (readRoot !== null && insideReal(readRoot)) ||
+    (inside(results) && real.includes("/tool-results/")) ||
+    (images !== null && images.roots.some(insideReal) && recentImage(real, images.since))
+  );
 }
 
 /**
  * @param {{ tool_name?: string, tool_input?: Record<string, unknown> }} input
- * @param {{ cli: string, skill: string, workdir: string, readRoot?: string|null, launcher?: string|null, instance?: string|null }} o
+ * @param {{ cli: string, skill: string, workdir: string, readRoot?: string|null, launcher?: string|null, instance?: string|null, shape?: string|null, images?: { roots: string[], since: number } | null }} o
  * @returns {{ allow: boolean, reason: string, updatedInput?: Record<string, unknown> }}
  */
-export function decide(input, { cli, skill, workdir, readRoot = null, launcher = null, instance = null }) {
+export function decide(input, { cli, skill, workdir, readRoot = null, launcher = null, instance = null, shape = null, images = null }) {
   const tool = input.tool_name;
   const args = input.tool_input ?? {};
   if (tool === "Bash") {
     const command = String(args.command ?? "");
     const parsed = parseCli(cli, command);
     if (!parsed) return { allow: false, reason: `Only the ${cli} CLI may run in this evaluation, as one command (heredoc allowed); nothing else.` };
+    if (shape === "ego-browser" && !egoShapeAllowed(parsed.args)) {
+      return { allow: false, reason: `In this evaluation ${cli} runs only skill, help, --help, --version and nodejs (a script on stdin or one -e script).` };
+    }
     if (instance && instancesNamed(parsed.args).some((name) => name !== instance)) {
       return { allow: false, reason: `This evaluation runs on its own browser instance: a command can't name another with --instance.` };
     }
@@ -140,7 +204,7 @@ export function decide(input, { cli, skill, workdir, readRoot = null, launcher =
     return { allow: true, reason: `runs only ${cli}, as the run's launcher`, updatedInput: { ...args, command: shellQuote(launcher) + command.slice(cli.length) } };
   }
   if (tool === "Read") {
-    return readAllowed(String(args.file_path ?? ""), workdir, homedir(), readRoot)
+    return readAllowed(String(args.file_path ?? ""), workdir, homedir(), readRoot, images)
       ? { allow: true, reason: "inside the run's folder" }
       : { allow: false, reason: "Read is limited to this run's working folder in this evaluation." };
   }
@@ -160,8 +224,33 @@ if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop()
   // Fail closed: without the run's folder, nothing is allowed.
   const verdict =
     workdir && cli && skill
-      ? decide(input, { cli, skill, workdir, readRoot: env.ALLOW_CLI_READ_ROOT || null, launcher: env.ALLOW_CLI_LAUNCHER || null, instance: env.ALLOW_CLI_INSTANCE || null })
+      ? decide(input, {
+          cli,
+          skill,
+          workdir,
+          readRoot: env.ALLOW_CLI_READ_ROOT || null,
+          launcher: env.ALLOW_CLI_LAUNCHER || null,
+          instance: env.ALLOW_CLI_INSTANCE || null,
+          shape: env.ALLOW_CLI_SHAPE || null,
+          images:
+            env.ALLOW_CLI_READ_IMAGE_ROOTS && Number.isFinite(Number(env.ALLOW_CLI_READ_IMAGES_SINCE))
+              ? { roots: env.ALLOW_CLI_READ_IMAGE_ROOTS.split("\n").filter(Boolean), since: Number(env.ALLOW_CLI_READ_IMAGES_SINCE) }
+              : null,
+        })
       : { allow: false, reason: "the harness did not set the run's folder" };
+  if (verdict.allow && input.tool_name === "Bash" && env.ALLOW_CLI_SCRIPTS) {
+    // The agent's own text, before the launcher's path replaces its first word. Claude Code
+    // may run tool calls in parallel, so each number is taken by an exclusive create.
+    mkdirSync(env.ALLOW_CLI_SCRIPTS, { recursive: true });
+    for (let n = readdirSync(env.ALLOW_CLI_SCRIPTS).length + 1; ; n++) {
+      try {
+        writeFileSync(join(env.ALLOW_CLI_SCRIPTS, `${String(n).padStart(3, "0")}.sh`), String(input.tool_input?.command ?? "") + "\n", { flag: "wx" });
+        break;
+      } catch (error) {
+        if (error.code !== "EEXIST") throw error;
+      }
+    }
+  }
   if (env.ALLOW_CLI_LOG) {
     const detail = input.tool_input?.command ?? input.tool_input?.file_path ?? input.tool_input?.skill ?? "";
     appendFileSync(

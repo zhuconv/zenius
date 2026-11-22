@@ -1066,6 +1066,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   E10SUtils: "resource://gre/modules/E10SUtils.sys.mjs",
+  markHooked: "chrome://userscripts/content/zenius/content/evidence.sys.mjs",
   noteWrittenWindow: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
   resolveRef: "chrome://userscripts/content/zenius/content/snapshot/registry.sys.mjs",
 });
@@ -1189,13 +1190,89 @@ export async function act(actor, args) {
     }
     const counters = {};
     const kind = args.action === "page.dblclick" ? "click" : args.action.slice(5);
+    // Before the action, which may rename the element ("Signing in…").
+    const step = args.phase === "prepare" ? null : stepName(el);
     const out = await ACTIONS[kind](el, { ...args, point, counters, win, call });
     if (out?.prepared) {
       pending.set(win, { token: args.token, el, point: out.prepared });
       return { prepared: true, point: topPoint(el, out.prepared) };
     }
-    return { ...out, wheel: !!counters.wheel };
+    return { ...out, step, wheel: !!counters.wheel };
   });
+}
+
+/** Elements whose text is a value, which a label's text leaves out. */
+const VALUE_TEXT = new Set(["input", "select", "textarea", "option", "datalist"]);
+
+/** A node's text without the text of fields inside it (a select's options). */
+function textBesideFields(node, depth = 0) {
+  let text = "";
+  for (let c = node.firstChild; c && text.length < 300 && depth < 8; c = c.nextSibling) {
+    if (c.nodeType === 3) {
+      text += c.data;
+    } else if (c.nodeType === 1 && !VALUE_TEXT.has(c.localName)) {
+      text += textBesideFields(c, depth + 1);
+    }
+  }
+  return text;
+}
+
+/**
+ * The element as the task's step names it (input/steps.sys.mjs): `name`,
+ * what the user sees it called, or else `noun`, what it is. Never a field's
+ * value, nor an editable area's text, which may be the user's own. Cheap: it
+ * reads attributes and text, no layout. The parent cleans and caps the name:
+ * it comes from the page.
+ *
+ * @param {Element} el
+ * @returns {{name?: string, noun?: string}}
+ */
+export function stepName(el) {
+  try {
+    const attr = n => el.getAttribute(n)?.trim() || "";
+    const tag = el.localName;
+    const type = tag === "input" ? attr("type").toLowerCase() || "text" : "";
+    const button = tag === "input" && ["submit", "button", "reset", "image"].includes(type);
+    const field = !button && (tag === "input" || tag === "textarea" || tag === "select");
+    const editable = !field && el.isContentEditable;
+    const doc = el.ownerDocument;
+    const labelledBy = attr("aria-labelledby")
+      .split(/\s+/)
+      .filter(Boolean)
+      .map(id => doc.getElementById(id))
+      .filter(Boolean)
+      .map(node => textBesideFields(node))
+      .join(" ")
+      .trim();
+    const label = field && el.labels?.length ? textBesideFields(el.labels[0]).trim() : "";
+    const name =
+      attr("aria-label") ||
+      labelledBy ||
+      label ||
+      (button ? (type === "image" ? attr("alt") : attr("value")) : "") ||
+      attr("placeholder") ||
+      (tag === "img" || tag === "area" ? attr("alt") : "") ||
+      attr("title") ||
+      (field || editable ? "" : el.textContent.trim()) ||
+      (field ? attr("name") : "");
+    if (name) {
+      return { name: name.slice(0, 300) };
+    }
+    const noun = editable
+      ? "an editable area"
+      : field
+        ? "a field"
+        : tag === "a"
+          ? "a link"
+          : tag === "button" || button
+            ? "a button"
+            : tag === "img"
+              ? "an image"
+              : "an element";
+    return { noun };
+  } catch {
+    return {};
+  }
 }
 
 const ACTIONS = {
@@ -2238,6 +2315,14 @@ async function runKeySteps(win, { steps, isMac, clipboard, pasteContent, guardCh
             // page's paste handler may insert it as live markup (zen-observe's
             // glue).
             lazy.noteWrittenWindow(into);
+            // Evidence against the page only when the markup carries what
+            // zen-observe counts as hooked (the defenses brief's A5): here
+            // at once, before the paste, and in the parent. Inert markup,
+            // formatted text into a mail or a document, is none.
+            const hooked = I.hookedPaste(into, content["text/html"]);
+            if (hooked) {
+              lazy.markHooked(into, `a paste with ${hooked}`);
+            }
           }
           I.pasteInto(into, content, { plain: req.plain });
           continue;

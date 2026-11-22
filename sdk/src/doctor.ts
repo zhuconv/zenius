@@ -87,8 +87,11 @@ type Live = {
     dnsDisableIPv6?: boolean;
   };
   methods?: string[];
-  /** zen-ux's ui.sidebarStatus: what the running Zen knows of zenius's sidebar; config is "found", "missing" or "none". */
-  sidebar?: { loaded?: boolean; windows?: number; config?: string; configPath?: string; error?: string };
+  /**
+   * zen-ux's ui.sidebarStatus: what the running Zen knows of zenius's sidebar; config is "found", "missing",
+   * "none", or "builtin" when there's no config file and its built-in agents can run (builtin says which).
+   */
+  sidebar?: { loaded?: boolean; windows?: number; config?: string; configPath?: string; error?: string; builtin?: SidebarBuiltin };
   error?: string;
   /** The connect's errno, such as EPERM when a sandbox around doctor blocks the socket. */
   errno?: string;
@@ -249,8 +252,11 @@ function parseCommit(value: unknown): Commit | undefined {
   return match ? { hash: match[1]!.toLowerCase(), dirty: Boolean(match[2]) } : undefined;
 }
 
+// A recorded hash prints as recorded: git's --short adds characters when 7
+// name more than one commit, and the installers printed it that way. Only a
+// full hash (a checkout's HEAD, a release's commit) is cut, to git's 7.
 function showCommit(commit: Commit): string {
-  return `${commit.hash.slice(0, 7)}${commit.dirty ? "-dirty" : ""}`;
+  return `${commit.hash.length === 40 ? commit.hash.slice(0, 7) : commit.hash}${commit.dirty ? "-dirty" : ""}`;
 }
 
 function sameCommit(a: Commit, b: Commit): boolean {
@@ -435,6 +441,48 @@ function installRecordCheck(o: Resolved, entry: Check, profileDir: string): void
   }
 }
 
+/**
+ * What the sidebar found of its built-in agents, without a config file (zen-ux's builtinStatus): those
+ * that can run, the adapters' folder, each agent's CLI and adapter, and its own line when none can run.
+ */
+type SidebarBuiltin = {
+  agents?: unknown;
+  folder?: unknown;
+  node?: unknown;
+  clis?: Record<string, unknown>;
+  adapters?: Record<string, unknown>;
+  missing?: unknown;
+  error?: unknown;
+};
+
+const BUILTIN_AGENTS = { claude: "Claude Code", codex: "Codex" } as const;
+
+/** The built-in agents the sidebar can run, by their ids, in BUILTIN_AGENTS' order. */
+function builtinAgents(builtin: SidebarBuiltin | undefined): (keyof typeof BUILTIN_AGENTS)[] {
+  const agents = Array.isArray(builtin?.agents) ? builtin.agents : [];
+  return (Object.keys(BUILTIN_AGENTS) as (keyof typeof BUILTIN_AGENTS)[]).filter((id) => agents.includes(id));
+}
+
+/** The lines naming the built-in agents the sidebar runs, and why it doesn't offer the others. */
+function builtinLines(builtin: SidebarBuiltin, configPath: string | undefined): string[] {
+  const text = (value: unknown) => (typeof value === "string" && value ? value : undefined);
+  const folder = text(builtin.folder) ?? "its adapters' folder";
+  const runs = builtinAgents(builtin);
+  const named = runs.map((id) => `${BUILTIN_AGENTS[id]}${text(builtin.clis?.[id]) ? ` (${text(builtin.clis?.[id])})` : ""}`);
+  const lines = [
+    `With no config file${configPath ? ` at ${configPath}` : ""}, the sidebar runs ${named.join(" and ")}, through the adapters in ${folder}.`,
+  ];
+  for (const id of Object.keys(BUILTIN_AGENTS) as (keyof typeof BUILTIN_AGENTS)[]) {
+    if (runs.includes(id)) continue;
+    const cli = text(builtin.clis?.[id]);
+    if (!cli) lines.push(`It doesn't offer ${BUILTIN_AGENTS[id]}, which isn't installed (no ${id} command found).`);
+    else if (builtin.adapters?.[id] === false) {
+      lines.push(`It doesn't offer ${BUILTIN_AGENTS[id]} (${cli}): its adapter isn't in ${folder}. Running zenius's installer again puts it there.`);
+    }
+  }
+  return lines;
+}
+
 /** The fixed line in zenius's agent-sidebar.uc.js, among its first 20 (agreed with zen-ux, 2026-11-21). */
 const SIDEBAR_MARKER = "// zenius: agent-sidebar";
 
@@ -453,6 +501,8 @@ function sidebarCheck(o: Resolved, profileDir: string | undefined, live: Live, i
   const file = path.join(profileDir, "chrome", "JS", "agent-sidebar.uc.js");
   if (!installed) return skip(entry, "not installed: this profile's install has no zenius sidebar");
   const problems: string[] = [];
+  // Information that goes with the check whatever its status: the built-in agents.
+  const notes: string[] = [];
   // install.sh keeps a copy the user put back as theirs: Undo restores it (zen-core's f02a91c).
   const restore = "With the user's OK, reinstall with scripts/install.sh, which keeps the copy it replaces as the user's own for Undo; then the user quits and reopens Zen.";
   const present = isFile(file);
@@ -482,9 +532,19 @@ function sidebarCheck(o: Resolved, profileDir: string | undefined, live: Live, i
     } else if (status.loaded !== true && marked && disabled.length === 0) {
       problems.push("The running Zen hasn't loaded zenius's sidebar, which is installed: the user quits and reopens Zen to load it.");
     }
-    if (status.config === "missing") {
-      const where = typeof status.configPath === "string" && status.configPath ? status.configPath : "its config file";
+    const at = typeof status.configPath === "string" && status.configPath ? ` at ${status.configPath}` : "";
+    const builtin = status.builtin;
+    if (status.config === "missing" && typeof builtin?.error === "string" && builtin.error) {
+      problems.push(`The sidebar has no config file${at}, and looking for its built-in agents failed: ${builtin.error}`);
+    } else if (status.config === "missing" && typeof builtin?.missing === "string" && builtin.missing) {
+      // The sidebar's own line says what to install.
+      problems.push(`The sidebar has no config file${at} and no built-in agent it can run, so it offers no agent. ${builtin.missing}`);
+    } else if (status.config === "missing") {
+      // A path the pref names that is missing (built-in agents run only without the pref), or a runtime from before them.
+      const where = at ? at.slice(4) : "its config file";
       problems.push(`The sidebar has no config at ${where}, so it offers no agent. The user's own sidebar setup made that file; the pref uc.agent-sidebar.config can name another.`);
+    } else if (status.config === "builtin" && builtin) {
+      notes.push(...builtinLines(builtin, at ? at.slice(4) : undefined));
     }
     const windows = typeof status.windows === "number" ? ` in ${plural(status.windows, "window")}` : "";
     // "none" is uc.agent-sidebar.config = none, as zen-dev.sh sets it in dev profiles: no agent, on purpose.
@@ -493,19 +553,23 @@ function sidebarCheck(o: Resolved, profileDir: string | undefined, live: Live, i
         ? ", agents are off in this profile (uc.agent-sidebar.config = none)"
         : status.config === "found" && typeof status.configPath === "string"
           ? `, config ${status.configPath}`
-          : "";
+          : status.config === "builtin"
+            ? `, built-in agents (${builtinAgents(status.builtin).map((id) => BUILTIN_AGENTS[id]).join(", ")})`
+            : "";
     running = status.loaded === true ? `loaded${windows}${config}` : "not loaded";
   }
   // Codex is on by default (the user's call, 2026-11-21), and off is the user's choice: information,
   // not a warning. The lines say what holds Codex and the one read path no Codex setting removes, which
-  // the user accepted. A profile with no agents (config none or missing) runs no Codex either.
-  const noAgents = status?.config === "none" || status?.config === "missing";
+  // the user accepted. A profile with no agents (config none or missing) runs no Codex either, nor do
+  // built-in agents without Codex.
+  const noAgents =
+    status?.config === "none" || status?.config === "missing" || (status?.config === "builtin" && !builtinAgents(status.builtin).includes("codex"));
   const codexOff = profilePref(profileDir, "zenius.agentSidebar.allowCodex") === "false";
   const codex = noAgents ? "" : codexOff ? "; Codex is off (zenius.agentSidebar.allowCodex = false)" : "; Codex can run, within the limits below";
   const codexLines = noAgents || codexOff ? [] : CODEX_LIMITS;
-  if (problems.length > 0) return warn(entry, [...problems, ...codexLines], `${plural(problems.length, "problem")}${codex}`);
+  if (problems.length > 0) return warn(entry, [...problems, ...notes, ...codexLines], `${plural(problems.length, "problem")}${codex}`);
   entry.summary = `zenius's on disk; ${running}${codex}`;
-  entry.details.push(...codexLines);
+  entry.details.push(...notes, ...codexLines);
   return entry;
 }
 
@@ -760,9 +824,6 @@ function socketModeCheck(entry: Check, socket: string): void {
  *   reloads: a written page's before the user types in it, those of written
  *   pages in a held page's window group, and Resume's of a page the user
  *   typed a secret into (zen-ux).
- * - zenius.handoff.groupSwitch true (zen-core) moves the page a hand-off
- *   gives the user into a window group of its own, which the user decided
- *   against with the isolated world. The runtime still reads it.
  * - zenius.test.pageWorldEvaluate true (zen-observe) runs the agent's page
  *   code in the page's own JavaScript instead of its sandbox.
  * - zenius.test.loopCounterOff true (zen-observe) runs it without the
@@ -778,11 +839,6 @@ const TEST_ONLY_PREFS: readonly { pref: string; bad: "true" | "false"; off: stri
     pref: "zenius.handoff.quietReload",
     bad: "false",
     off: "the hand-off's and Resume's quiet reloads are off: a page the agent's code wrote into isn't loaded afresh before the user types there, nor a page the user typed a secret into at Resume agent",
-  },
-  {
-    pref: "zenius.handoff.groupSwitch",
-    bad: "true",
-    off: "a hand-off loads the page it gives the user into a window group of its own when another window can reach it, which cuts it off from the page that opened it (a sign-in popup can't report back): the user decided against that",
   },
   {
     pref: "zenius.test.pageWorldEvaluate",
@@ -1209,7 +1265,7 @@ function readIni(file: string): Map<string, Map<string, string>> | undefined {
  * and says which case it found.
  */
 const CODEX_LIMITS = [
-  "Codex runs read-only: no shell, no writes, and no network outside zenius. Its sub-agents and web search are off, and the sidebar refuses every approval it asks for.",
+  "Codex runs read-only: no shell, no writes, and no network outside zenius and its hosted web search, live in Work and cached in Chat. Its sub-agents are off, and the sidebar refuses every approval it asks for.",
   "One read path is left: apply_patch's check can tell Codex whether a file exists, or whether it holds a given line, though not what the file says.",
   "Setting zenius.agentSidebar.allowCodex to false in about:config turns Codex off, with no restart.",
 ];

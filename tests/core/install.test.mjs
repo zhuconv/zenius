@@ -524,6 +524,72 @@ test("without --profile it takes the profile Zen opens, from profiles.ini", () =
   assert.match(r.err, /names a different default profile for each Zen installation[\s\S]*Profiles\/a[\s\S]*Profiles\/c[\s\S]*Pass --profile/);
 });
 
+/** fx-autoconfig's loader as runtime/vendor has it, which --loader copies in. */
+const LOADER = path.join(ROOT, "runtime/vendor/fx-autoconfig/profile/chrome/utils");
+const LOADER_FILES = fs.readdirSync(LOADER).sort();
+
+test("--loader adds fx-autoconfig's loader from runtime/vendor to a profile with none, a fresh Zen's, and uninstall takes out exactly that, after a backup", () => {
+  const s = sandbox("loader");
+  const p = path.join(s.dir, "fresh");
+  fs.mkdirSync(p);
+  const refused = s.run(["--profile", p]);
+  assert.equal(refused.status, 1);
+  assert.match(refused.err, /has no fx-autoconfig .*With --loader, install\.sh adds the copy in runtime\/vendor\/fx-autoconfig/);
+  const dry = s.run(["--profile", p, "--loader", "--dry-run"]);
+  assert.equal(dry.status, 0, dry.err);
+  assert.ok(dry.out.includes(`would add fx-autoconfig's loader from runtime/vendor/fx-autoconfig: ${LOADER_FILES.length} files in chrome/utils`), dry.out);
+  assert.equal(fs.existsSync(path.join(p, "chrome")), false, "a dry run adds nothing");
+
+  const r = s.install(p, "--loader");
+  assert.ok(r.out.includes(`added fx-autoconfig's loader from runtime/vendor/fx-autoconfig: ${LOADER_FILES.length} files in chrome/utils`), r.out);
+  assert.deepEqual(fs.readdirSync(path.join(p, "chrome/utils")).sort(), LOADER_FILES);
+  for (const f of LOADER_FILES) {
+    assert.ok(fs.readFileSync(path.join(p, "chrome/utils", f)).equals(fs.readFileSync(path.join(LOADER, f))), f);
+  }
+  assert.ok(fs.existsSync(path.join(p, "chrome/JS/zenius.uc.js")));
+  // A reinstall finds the loader there and adds nothing.
+  const again = s.install(p, "--loader");
+  assert.match(again.out, /the profile has fx-autoconfig's loader already: --loader leaves it as it is/);
+
+  // What the user puts in chrome/utils is theirs.
+  fs.writeFileSync(path.join(p, "chrome/utils/mine.txt"), "mine\n");
+  const un = s.run(["--uninstall", "--profile", p]);
+  assert.equal(un.status, 0, un.err);
+  assert.ok(un.out.includes(`removed fx-autoconfig's loader, which --loader added: ${LOADER_FILES.length} files`), un.out);
+  assert.deepEqual(fs.readdirSync(path.join(p, "chrome/utils")), ["mine.txt"]);
+  const backup = un.out.match(/backed up what it removed to (\S+)/)[1];
+  assert.deepEqual(fs.readdirSync(path.join(backup, "chrome/utils")).sort(), LOADER_FILES, "the loader is in the backup");
+  assert.equal(fs.existsSync(path.join(s.zhome, "loader.added")), false, "nothing noted any more");
+  assert.equal(s.run(["--uninstall", "--profile", p]).status, 1, "nothing of zenius's is left to remove");
+});
+
+test("--loader leaves a profile's own loader as it is, and uninstall leaves the loader it added while other scripts in chrome/JS run on it", () => {
+  const s = sandbox("loader-kept");
+  const own = s.profile("own");
+  const r = s.install(own, "--loader");
+  assert.match(r.out, /the profile has fx-autoconfig's loader already: --loader leaves it as it is/);
+  assert.equal(fs.existsSync(path.join(s.zhome, "loader.added")), false);
+  assert.equal(s.run(["--uninstall", "--profile", own]).status, 0);
+  assert.deepEqual(fs.readdirSync(path.join(own, "chrome/utils")), ["boot.sys.mjs"], "the user's loader stays");
+
+  const fresh = path.join(s.dir, "fresh");
+  fs.mkdirSync(fresh);
+  s.install(fresh, "--loader");
+  // The user adds a script of their own, which runs on the loader.
+  fs.writeFileSync(path.join(fresh, "chrome/JS/mine.uc.js"), USER_SCRIPT);
+  const un = s.run(["--uninstall", "--profile", fresh]);
+  assert.equal(un.status, 0, un.err);
+  assert.match(un.out, /left fx-autoconfig's loader, which --loader added, in place: other scripts in chrome\/JS run on it/);
+  assert.ok(fs.existsSync(path.join(fresh, "chrome/utils/boot.sys.mjs")));
+  assert.equal(fs.existsSync(path.join(fresh, "chrome/JS/zenius.uc.js")), false);
+  // Once their script is gone, the next uninstall takes the loader out.
+  fs.rmSync(path.join(fresh, "chrome/JS/mine.uc.js"));
+  const later = s.run(["--uninstall", "--profile", fresh]);
+  assert.equal(later.status, 0, later.err);
+  assert.match(later.out, /zenius isn't in .* any more; removing fx-autoconfig's loader, which --loader added/);
+  assert.equal(fs.existsSync(path.join(fresh, "chrome/utils")), false);
+});
+
 test("--dry-run changes nothing", () => {
   const s = sandbox("dry");
   const p = s.profile();

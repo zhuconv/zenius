@@ -394,7 +394,7 @@ test("in each sidebar layout every card the user can meet sits whole on the agen
       "the agent made this page": () => put("zenius-kept-code", UIM.madePageCard()),
       "the agent made this page, a refusal": () => put("zenius-kept-code", UIM.madePageCard({ refused: "camera" })),
       "this page couldn't reload": () => put("zenius-typing-off", UIM.reloadFailedCard()),
-      "this page couldn't reload, another window on the site": () => put("zenius-typing-off", UIM.reloadFailedCard({ written: true })),
+      "this page couldn't reload, another window on the site": () => put("zenius-typing-off", UIM.reloadFailedCard({ stillEvident: true })),
       "can't take over, another tab can reach it": () => put("zenius-takeover-refused", UIM.takeOverRefusedCard({ reason: "reachable" })),
       "can't take over, off the site": () => put("zenius-takeover-refused", UIM.takeOverRefusedCard({ reason: "reloadFailed", offSite: true })),
       "page code, ask": () => put(PC.PAGE_CODE_NOTICE + "https://example.com", PC.pageCodeCard("https://example.com")),

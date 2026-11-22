@@ -36,8 +36,11 @@ test("the viewport and the full page in CSS pixels", () =>
     assert.ok(f.height >= 3000, `full page is ${f.height} px tall`);
   }));
 
+// Classic scrollbars: macOS's overlay thumb shows on the first scroll and
+// then fades, so the viewport shot and the same clip taken after it could
+// differ by the thumb (zen-eval's Mac runs, 3 of 7; 24 of 24 with classic).
 test("a clip is in document coordinates, scaled as CDP's", () =>
-  env.inSpace("screenshot clip", async page => {
+  env.inSpace("screenshot clip", page => classicScrollbars(async () => {
     await page.goto(TALL);
     await page.evaluate("scrollTo(0, 1000)");
     const info = await page.call("page.info");
@@ -55,7 +58,7 @@ test("a clip is in document coordinates, scaled as CDP's", () =>
     const dpr = await page.evaluate("devicePixelRatio");
     const scaled = await shot(page, { clip: { x: 0, y: 0, width: 50, height: 40, scale: 2 } });
     assert.deepEqual([scaled.width, scaled.height], [100 * dpr, 80 * dpr]);
-  }));
+  })));
 
 /** The RGB of one pixel of a screenshot, decoded by Gecko's own PNG decoder. */
 const pixel = (s, x, y) =>
@@ -78,13 +81,37 @@ const BARRED = `data:text/html,<title>bar</title><html style="scrollbar-color:ma
 const MAGENTA = "255,0,255";
 const GREEN = "0,128,0";
 
+/**
+ * Classic scrollbars for `fn`, which take room and are always drawn: macOS
+ * draws overlay ones by default, which take none and fade (zen-eval's Mac
+ * runs of 2026-11-21). A function declaration, so the clip case above can
+ * use it.
+ */
+async function classicScrollbars(fn) {
+  await env.chrome(`Services.prefs.setIntPref("ui.useOverlayScrollbars", 0); return true;`);
+  try {
+    return await fn();
+  } finally {
+    await env.chrome(`Services.prefs.clearUserPref("ui.useOverlayScrollbars"); return true;`);
+  }
+}
+
 test("a shot shows what's on screen, as Ego's: a clip inside the viewport has the scrollbar, one beyond it doesn't", () =>
-  env.inSpace("screenshot scrollbar", async page => {
+  env.inSpace("screenshot scrollbar", page => classicScrollbars(async () => {
     await page.goto(BARRED);
     await page.evaluate("scrollTo(0, 1000)");
     const info = await page.call("page.info");
     const bar = await page.evaluate("innerWidth - document.documentElement.clientWidth");
-    assert.ok(bar > 0, "a classic scrollbar takes room");
+    if (bar === 0) {
+      // Overlay scrollbars all the same: no scrollbar to find in a shot, so
+      // only what doesn't need one is checked.
+      console.log("[screenshot] overlay scrollbars here, even with ui.useOverlayScrollbars = 0: the scrollbar's pixels aren't checked");
+      const viewport = await shot(page);
+      const visible = await shot(page, { clip: { x: 0, y: info.sy, width: info.w, height: info.h } });
+      assert.ok(visible.bytes.equals(viewport.bytes), "the visible region, clipped, is the viewport shot");
+      assert.equal(await page.evaluate("scrollY"), 1000, "no shot scrolled the page");
+      return;
+    }
     const edge = info.w - Math.ceil(bar / 2);
 
     const viewport = await shot(page);
@@ -107,7 +134,7 @@ test("a shot shows what's on screen, as Ego's: a clip inside the viewport has th
     const across = await shot(page, { clip: { x: 0, y: info.sy + info.h - 50, width: info.w, height: 100 } });
     assert.equal(await pixel(across, edge, 10), GREEN, "a clip across the viewport's edge is the document");
     assert.equal(await page.evaluate("scrollY"), 1000, "no shot scrolled the page");
-  }));
+  })));
 
 test("a path is refused: the runtime writes no file an agent names (I5)", () =>
   env.inSpace("screenshot path", async page => {

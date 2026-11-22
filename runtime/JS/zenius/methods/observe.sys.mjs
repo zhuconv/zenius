@@ -270,8 +270,11 @@ async function recoverEvaluation(ctx, { browser, page }, call, outcome, timing) 
 /**
  * Ego polls Boolean(await predicate) every `polling` ms. A predicate that
  * throws ends the wait at once; one whose document goes away is polled
- * again on the new one. The content side loops, so a poll costs no round
- * trip; the parent bounds a predicate that never settles.
+ * again on the new one, `polling` ms later as Ego's is. A throw while a
+ * navigation is under way, or while the document is still loading (the
+ * content side), counts as not yet (zen-eval's round 2: a results page with
+ * no body yet). The content side loops, so a poll costs no round trip; the
+ * parent bounds a predicate that never settles.
  */
 async function waitForFunction(ctx, params) {
   const target = ctx.resolvePage(params);
@@ -288,6 +291,8 @@ async function waitForFunction(ctx, params) {
   // (a takeover prompt, the panel's Pause) stops the poll before its next
   // run and holds the wait; the user taking the Space ends it.
   let control = watchControl(space);
+  // After a navigation, the next document's first poll waits `polling` ms.
+  let delayMs = 0;
   const timedOut = (url, title) => {
     const popup = unhandledPopups(ctx, page)[0];
     return msg.functionTimeout({
@@ -316,8 +321,10 @@ async function waitForFunction(ctx, params) {
         hasArg: args.hasArg,
         arg: args.arg,
         polling,
+        delayMs,
         timeoutMs: Math.max(0, deadline - ChromeUtils.now()),
       });
+      delayMs = 0;
       call.catch(() => {});
       const outcome = Promise.race([call, dialogs.opened.then(dialog => ({ dialog })), control.lost.then(lost => ({ lost }))]);
       let reply;
@@ -327,6 +334,7 @@ async function waitForFunction(ctx, params) {
         reply = await beforeDeadline(outcome, deadline + PROBE_MS);
       } catch (e) {
         if (contextDestroyed(e) && ChromeUtils.now() < deadline) {
+          delayMs = polling;
           continue;
         }
         if (contextDestroyed(e)) {
@@ -374,12 +382,18 @@ async function waitForFunction(ctx, params) {
       if (reply.navigated && ChromeUtils.now() < deadline) {
         // Poll the frame's next document, once the parent has it as current.
         await sleep(10);
+        delayMs = polling;
         continue;
       }
       if (reply.worldRefused) {
         throw msg.agentWorldRefused("page.waitForFunction", page.label, reply.worldRefused);
       }
       if (reply.exception) {
+        // The page that threw is on its way out: poll the next one.
+        if (trackerFor(browser).pending && ChromeUtils.now() < deadline) {
+          delayMs = polling;
+          continue;
+        }
         throw pageException(reply.exception, args.expression);
       }
       // The predicate's execution deadline (terminated) ends the loop as a timeout.

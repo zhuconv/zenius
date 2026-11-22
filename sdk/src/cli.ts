@@ -5,10 +5,14 @@
 //   zenius help [name]          API help, e.g. `zenius help page.click`
 //   zenius status               list Zen instances and whether they answer
 //   zenius doctor               check Zen, the zenius install and the instance
+//   zenius sidebar <verb> …     remote tasks in the sidebar (sidebar.ts)
+//
+// A build may add commands of its own (commands.ts, src/extensions/).
 //
 // --instance <name> (or ZENIUS_INSTANCE) picks the Zen instance.
 
 import { API_SCHEMA } from "./api-schema.ts";
+import { EXTRA_COMMANDS } from "./commands.ts";
 import { claimTaskSpace, listTaskSpaces, profiles, takeOverTaskSpace, taskSpace } from "./globals.ts";
 import { readGuide } from "./guide.ts";
 import { defaultEntries, formatEntry, helpText } from "./help.ts";
@@ -22,7 +26,10 @@ import { finishRun, runScript, type ScriptGlobals } from "./run.ts";
 import { statusText } from "./status.ts";
 import { VERSION } from "./version.ts";
 
-export const USAGE = `Usage:
+/** `zenius --help`: the built-in commands, then those a build added (commands.ts), known only once they load. */
+export function usage(): string {
+  const extra = [...EXTRA_COMMANDS.values()].map((command) => command.usage).join("");
+  return `Usage:
   zenius nodejs <<'EOF'
   const task = await taskSpace("demo");
   const page = task.page("p1");
@@ -38,12 +45,15 @@ export const USAGE = `Usage:
                                  (--profile <dir> and --app <path> pick what to check)
   zenius mcp                     serve browser tools to Claude Code or Codex over MCP (stdio);
                                  see docs/mcp.md for registering it
-  zenius --version
+  zenius sidebar start|send|status|list|stop
+                                 remote tasks in the sidebar: zenius sidebar --help
+${extra}  zenius --version
 
 Options:
   --instance <name>   Zen instance to drive (default: $ZENIUS_INSTANCE or "default")
   --timing            print per-request timings on stderr
 `;
+}
 
 type ParsedArgs = {
   command?: string;
@@ -86,7 +96,7 @@ export async function main(argv: string[], launch: LaunchTimes = {}): Promise<nu
     case undefined:
     case "-h":
     case "--help":
-      writeStdout(USAGE);
+      writeStdout(usage());
       return 0;
     case "-v":
     case "--version":
@@ -112,8 +122,16 @@ export async function main(argv: string[], launch: LaunchTimes = {}): Promise<nu
       const { serveMcp } = await import("./mcp.ts");
       return serveMcp();
     }
-    default:
+    case "sidebar": {
+      // Loaded on demand, like doctor and mcp.
+      const { sidebarCommand } = await import("./sidebar.ts");
+      return sidebarCommand(args.rest, args.instance);
+    }
+    default: {
+      const extra = EXTRA_COMMANDS.get(args.command!);
+      if (extra) return extra.run(args.rest, args.instance);
       return usageError(`Unknown command: ${args.command}`);
+    }
   }
 }
 
@@ -277,7 +295,7 @@ function help(rest: string[]): number {
   if (rest.length === 0) {
     const index = defaultEntries().map((entry) => `  ${entry.signature}`).join("\n");
     writeStdout(
-      `${USAGE}\nScript API (zenius help <name> for details, zenius help all for everything):\n${index}\n` +
+      `${usage()}\nScript API (zenius help <name> for details, zenius help all for everything):\n${index}\n` +
         `Site learnings: zenius help learnings\n`,
     );
     return 0;
@@ -292,7 +310,7 @@ function help(rest: string[]): number {
 }
 
 function usageError(message: string): number {
-  writeStderr(`${message}\n\n${USAGE}`);
+  writeStderr(`${message}\n\n${usage()}`);
   return 2;
 }
 

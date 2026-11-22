@@ -1,22 +1,20 @@
-# Installing zenius into the user's daily Zen
+# Installing zenius into a daily Zen
 
-A runbook for the relay on the user's Mac. Run the steps in order. Each step
-gives the command, what you should see, and when to stop and report instead
-of going on.
-
-It describes zenius with every task in one shared Agents Space (SPEC §3.4,
-approved 2026-11-20). The install waits for that build and for I5 (SPEC
-§3.9). The manager reviews this file and says go before step 1. The manager
-also asks the user right before step 5, the restart.
+Step by step, from a checkout of this repository: zenius's runtime goes into
+the profile of the Zen someone uses every day, and the `zenius` command and
+its Skill go where their agents find them. "The user" below is that person;
+you run the steps, for them or for yourself. Run the steps in order. Each
+gives the command, what you should see, and when to stop instead of going
+on. The commands are for macOS, with Zen in `/Applications/Zen.app`.
 
 Rules that hold throughout:
 
 - Only the user quits and reopens Zen. Never restart or quit it from a
   script.
 - Never change `/Applications/Zen.app`.
-- Nothing here sends anything to GitHub or any other service. `npm ci` in
-  step 1 only downloads packages, and only if npm's cache lacks them.
-- On any output these steps don't describe, stop and send it to the manager.
+- Nothing here sends anything of the user's to GitHub or any other
+  service. Step 1 only fetches the code, and the packages npm's cache lacks.
+- On any output these steps don't describe, stop.
 
 ## What changes for the user
 
@@ -24,17 +22,14 @@ Until an agent connects, nothing the user can see:
 
 - **Same windows and session.** The same tabs, workspaces and session come
   back after the restart.
-- **No new controls.** zenius adds no buttons, panels, menus or toolbar
-  changes. The update that brings the agent's sidebar is the exception: it
-  puts zenius's sidebar in place of the user's own, and adds a '>' row to
-  the address bar (see "The update that brings the agent's sidebar",
-  below).
-- **One preference, the user's choice.** Zen makes no IPv6 lookups
-  (`network.dns.disableIPv6`), which ends the GitHub stall on the user's
-  IPv4-only network. The cost: a site reachable only over IPv6 doesn't load in
-  Zen. It's the only preference the install changes, and only with
-  `--disable-ipv6`, which this runbook's install commands pass. Undo
-  restores its earlier value.
+- **No other new controls.** Besides the agent's sidebar and a '>' row in
+  the address bar (see "The agent's sidebar", below), zenius adds no
+  buttons, panels, menus or toolbar changes.
+- **At most one preference.** With `--disable-ipv6`, the install has Zen
+  make no IPv6 lookups (`network.dns.disableIPv6`), which can end stalls on
+  an IPv4-only network. The cost: a site reachable only over IPv6
+  doesn't load in Zen. It's the only preference the install changes, and
+  only with that flag. Undo restores its earlier value.
 - **Hidden task strip.** The strip above the sidebar's foot buttons stays
   hidden while no agent task exists.
 - **Prompts and dialogs as before.** Popups, permission prompts, dialogs and
@@ -50,15 +45,14 @@ Until an agent connects, nothing the user can see:
   - With no agent connected it runs nothing: no timers, no wakeups, no
     network.
 
-  Measured on the Linux server; see I4 in `docs/reports/zen-core.md`.
+  Measured with Zen 1.24.2b, headless on Linux.
 
 Agents connect through the `zenius` command (step 2). The user's Claude Code
-and Codex sessions also get a `zenius` Skill, beside Ego Lite's. The user
-chose to turn Ego Lite's Skill off for everyday agents, so that they use
-zenius for browser work. Step 8, which the user runs themselves, moves the
-two links that offer it into a backup, and its undo moves them back. Neither
-the install nor step 8 changes Ego Lite's app or data: Ego Lite stays
-installed and works as before.
+and Codex sessions also get a `zenius` Skill. Where Ego Lite is installed
+too, its Skill stays beside zenius's. Step 8, optional, which the user runs
+themselves, turns Ego Lite's Skill off for everyday agents, so that they use
+zenius for browser work, and its undo turns it back on. Neither the install
+nor step 8 changes Ego Lite's app or data.
 
 Agent tabs never get the user's saved passwords:
 
@@ -135,8 +129,7 @@ When an agent works:
     zenius never touches a Space only because it's named Agents.
   - Sync: if the user signs in to Firefox Sync and turns on Zen's Spaces
     sync (`services.sync.engine.spaces`, off by default), the Agents Space
-    reaches their other devices as a plain Space. The daily Zen isn't signed
-    in to Sync (checked 2026-11-20).
+    reaches their other devices as a plain Space.
 - **Pages the task leaves open** (kept at the finish, left by the panel's
   Stop, or given back by the agent) hold none of the agent's code: it ran
   in its sandbox, which ends with the task, so they show nothing.
@@ -200,9 +193,8 @@ What agents can't do:
       button, so a page can't steer the user into listing its target.
   - In a page the agent's code wrote into, after the task, such a load
     makes the page load afresh, quietly, as other refusals there do.
-  - The user chose (2026-11-20) public internet pages only for agents: the
-    allowlist starts empty, so agent tabs refuse every private address until
-    the user adds one. If agents need pages on a private network later, see "Later,
+  - The allowlist starts empty, so agent tabs refuse every private address
+    until the user adds one. For web pages on a private network, see "Later,
     if needed".
 - **On Linux only:** an agent's text selection reaches the selection
   clipboard (PRIMARY), as any selection in Firefox does. The user can turn
@@ -214,187 +206,46 @@ What agents can't do:
   No answer denies it. It can't take back a task the user clicked or typed
   in during the last 10 s.
 
-### The update that brings the agent's sidebar
+### The agent's sidebar
 
-This update, the first after `cbac1ef`, puts zenius's agent sidebar in
-place of the user's own. `docs/agent-sidebar.md` has the details.
+zenius puts its agent sidebar in place of the profile's own, if it has one,
+and adds a '>' row to the address bar. `docs/agent-sidebar.md` has the
+details.
 
-- **The user's own sidebar is kept.** The install backs up their
-  `agent-sidebar.uc.js` and `agent-sidebar/`, and Undo puts them back
-  exactly. Their sidebar settings (`uc.agent-sidebar.*`), their agents'
-  config in `~/Library/Application Support/zenius-agent-sidebar/` (only read)
-  and their other scripts stay as they are. zenius writes nothing into
-  `~/.claude` or `~/.codex`.
-- **Chat and Work.** Chat is the sidebar as it was: one conversation per
-  tab, about its page. Work binds a chat to a zenius task instead of a tab.
-  The agent works in a task of its own in the Agents Space, and the chat
-  follows that task's tabs and hand-offs. The address bar's '>' row and
-  `+ New task` start one. The directory beside the sidebar lists the
-  tasks: Needs you, Working, Done.
-- **The sidebar's agents get the browser and nothing else.** A Chat
-  session has no tools: it answers from the page's text. A Work session's
-  tools are zenius's 12 browser tools and Claude Code's ToolSearch, and
-  nothing else (zen-eval's session check): no shell, no files, no web
-  fetch. Codex runs once `zenius.agentSidebar.allowCodex` is true.
-  Through `99cdc39` the pref is false by default, and the user sets it
-  after installing `99cdc39`; from the update after `99cdc39` on, it's true
-  by default. While it's false, the sidebar starts Claude Code, though the
-  user's config names Codex as its default agent.
+- **The user's own sidebar is kept.** The install backs up the profile's
+  `agent-sidebar.uc.js` and `agent-sidebar/`, if it has them, and Undo puts
+  them back exactly. The sidebar's settings (`uc.agent-sidebar.*`), its
+  agents' config in `~/Library/Application Support/zenius-agent-sidebar/`
+  (only read) and the user's other scripts stay as they are. zenius writes
+  nothing into `~/.claude` or `~/.codex`.
+- **Its agents** are the user's own Claude Code and Codex. A `config.json`
+  in that config folder names them, and wins. Without one, the sidebar uses
+  adapters in `~/.zenius/agents`, which only the one-command installer in
+  the README puts there: this guide installs none.
+- **Chat and Work.** Chat is one conversation per tab, about its page. Work
+  binds a chat to a zenius task instead of a tab. The agent works in a task
+  of its own in the Agents Space, and the chat follows that task's tabs and
+  hand-offs. The address bar's '>' row and `+ New task` start one. The
+  directory beside the sidebar lists the tasks: Needs you, Working, Done.
+- **The sidebar's agents get the browser and nothing else.** A Chat session
+  answers from the page's text. A Work session's tools are zenius's browser
+  tools and Claude Code's ToolSearch. Both can search the web and fetch
+  pages without a tab. No shell, no files. Codex runs within these limits:
+  read-only, no shell, no writes, no network outside zenius and its hosted
+  web search, sub-agents off, and every approval it asks for refused. One
+  read path is left: apply_patch's check can tell Codex whether a file
+  exists, or whether it holds a given line, though not what the file says.
+  Setting `zenius.agentSidebar.allowCodex` to false in `about:config` turns
+  Codex off, with no restart.
 - **Live card, Watch and Take over.** At the end of a Work chat, a picture
-  of the page its agent is on, drawn only while the user can see it.
-  Watch switches to the task's tab and shows a small "Watching <task>"
-  chip in the page area's top left corner. Its Back, or ⌃Tab, returns to
-  the tab the user came from. Take over gives the user the task, as the
-  tasks panel does.
+  of the page its agent is on, drawn only while the user can see it. Watch,
+  like every way to a task, shows the task's tab, and ⌃Tab returns to where
+  the user was. Take over gives the user the task, as the tasks panel does.
 - **Agents' page code is the user's setting.** By default it runs as
   before. With `zenius.agentTabs.pageCode` set to `ask`, an agent's code
   waits on each site the user hasn't allowed, and the agent's tab asks
   "Allow the agent's code on <site>?", with Allow on this site and Not
   now. `never` refuses it everywhere. See "Later, if needed".
-- **Known for now** (zen-sidebar's list for the user):
-  - The live card shows an iframe from another site as blank. On a page
-    that takes over a second to paint, or doesn't answer within 5 s, it
-    keeps its last picture until it appears again. The agent never sees
-    these pictures.
-  - The Agents strip's "N agents working" (agents that acted in the last
-    15 s) can differ from the sidebar's Working tasks (turns that run), and
-    the Watch chip's Back button covers a small strip of the page's top
-    left. The update after `107f93c` settles both (below).
-
-### The update after `107f93c`
-
-This update, the first after `107f93c`, changes how the user goes to an
-agent's task and back, and what a Take over that can't begin does.
-
-- **Every way to a task is a watch, and ⌃Tab is the way back.** The tasks
-  panel's Open, its tab names and Take over, a notification's click, and
-  the sidebar's live card and directory all show the task's tab and
-  remember where the user was. While the window watches, the strip reads
-  "Watching <task> · ⌃Tab". Where the strip can't be read (a collapsed
-  sidebar, compact mode), a chip in the page area's top left corner says
-  the same. It's only a hint, with no Back button: clicks go through it to
-  the page.
-  - ⌃Tab returns to where the user was: their tab, or, from an agent's
-    page or the Agents Space, their own Space, on the tab Zen remembers
-    there. Picking a tab outside the task, or another Space, ends the watch
-    where the user went. Outside a watch, ⌃Tab does what it always did in
-    Zen.
-  - When a watched task ends, the window stays on its page, and the strip
-    (or the chip) says "Task done · ⌃Tab back to your tabs". ⌃Tab still
-    goes back until the user presses it or picks another tab or Space
-    themselves; closing the page (Close now, or ⌘W) keeps the way back. The
-    page still closes once they leave it, unless the agent kept it or they
-    chose Keep tab.
-  - While the user watches a Work chat's task, its live card shows "⌃Tab
-    back to your tabs" in place of Watch. Take over stays, except after a
-    refused Take over (below).
-- **The strip agrees with the sidebar.** A Work chat's task counts as
-  working in the Agents strip while its turn runs, and as needing the user
-  while the chat waits for them, as in the sidebar's directory. The strip
-  still counts any task whose agent acted in the last 15 s too, so for a
-  moment after a turn ends, or with agents outside the sidebar, it can
-  count more than the sidebar's Working.
-- **A Take over that can't begin says why.** Before, the Take over prompt
-  came back with no reason, and only the panel's Stop got the user out. Now
-  the page shows "Can't take over this page", the reason in a line (such
-  as "The page didn't load afresh in time."), and Try again, Stop task and
-  Resume agent. When loading the page afresh would take the user to
-  another site, there's no Try again: zenius stopped that load, and Stop
-  task ends the task and leaves the page theirs. The agent stays paused
-  until the user picks. Meanwhile the task needs the user in its badge and
-  the strip. A Work chat's task is under Needs you in the sidebar's
-  directory, as "Can't take over this page", and its live card hides Take
-  over until Resume agent brings it back: the page's card offers Try again
-  where trying again can work.
-- **Codex comes back once the user sets its pref.** In this install the
-  pref is still false by default, so afterwards the user sets
-  `zenius.agentSidebar.allowCodex` to true in `about:config`, once: type
-  its name, choose Boolean, and press +. From the update after `99cdc39`
-  on, it's true by default. Then the sidebar offers Codex, with these
-  limits: read-only, no shell, no writes, and no network outside zenius;
-  its sub-agents and hosted web search are off, which newer versions of
-  Codex had left on; and the sidebar refuses every approval it asks for.
-  One read path is left, which the user accepted: apply_patch's check can
-  tell Codex whether a file exists, or whether it holds a given line,
-  though not what the file says.
-- **Smaller changes.** In an agent tab the user watches, the agent's cursor
-  now flies along a drag, to where it presses and on to where it drops, and
-  a click or double-click with no label of its own reads "Clicking
-  element", as in Ego. A question's Edit button in the sidebar is now a
-  pencil.
-- **No translucent look.** `99cdc39` still has a
-  `zenius.agentSidebar.translucent` pref for a translucent sidebar, which
-  the user tried in the try Zen and decided against. Leave it unset: the
-  sidebar stays solid, and the update after `99cdc39` removes the pref.
-- **Under the hood.** A site's service worker, which runs for the user's
-  own tabs, can't reach an agent's pages, the agent's code or their
-  workers, even by messaging them first. A task's shared worker stays out
-  of its reach even after the site's worker claims it, and can't reach the
-  local network either. The files an agent gives a file chooser, and its
-  downloads, are kept in Zen's profile folder (`zenius-uploads/`,
-  `zenius-downloads/`), out of a sandboxed CLI's reach, instead of the
-  temporary folder. A download whose folder something else changed is
-  refused, and a download's bytes are never read through a link. Nothing
-  changes on screen, except in a page the agent's code wrote into, kept
-  after the task: a notice the site's worker would raise by messaging the
-  page, such as an "update ready" banner, waits until the page is reloaded
-  or left.
-- **Known for now** (zen-observe's): while an agent's task shows a page of
-  a site, or a kept page the agent's code wrote into does (until a load
-  replaces that page), that site's `blob:` shared workers can't reach the
-  local network (private addresses and `.local` names), including those
-  the user's own tabs start. They can again once no such page shows the
-  site. A task page's `data:` shared worker is refused (SecurityError).
-
-### The update after `99cdc39`
-
-This update, the first after `99cdc39`, is still taking shape: its lines
-land here as its changes reach `main`.
-
-- **Under the hood.** In an agent's tab, a page that goes to another site
-  and then starts a download by itself (an interstitial, a meta refresh)
-  no longer leaves a temporary file in the user's Downloads folder, and an
-  agent's download that the browser begins outside zenius's folder is
-  refused before anything is saved. Versions before `99cdc39` kept the
-  files an agent gave a file chooser, and its downloads, in
-  `zenius-upload-<hash>/` and `zenius-downloads-<hash>/` in the temporary
-  folder (`$TMPDIR`). `99cdc39`'s start removed those, except any on
-  another volume than the profile. From this update on, zenius leaves them
-  alone: a process still inside one could have turned their removal
-  against other files. Only Undo or the system's temp cleanup removes them
-  now. With the sandboxed CLI, an upload through a link in the working
-  folder to a file outside the folders a script may read fails with
-  `ZEN_PATH_NOT_ALLOWED`, as the file itself would.
-- **The IPv6 preference is the install's option.** `install.sh` sets
-  `network.dns.disableIPv6` only with `--disable-ipv6` (`77d83f5`), so an
-  install turns IPv6 off only when asked; without the flag it leaves
-  `user.js` as it is. This runbook's install commands pass the flag, so the
-  user's Zen still makes no IPv6 lookups. Doctor's `DNS` line warns only
-  when zenius's line is in `user.js` and the running Zen has the pref off;
-  without that line, false or unset passes.
-- **Agents can upload a folder.** Where a page asks for a folder (an input
-  with `webkitdirectory`), an agent can now give it one. zenius's CLI reads
-  the folder without following links, at most 1000 files and 50 MiB, and
-  the page gets the files as from the user's own pick, though without the
-  user activation a pick gives. Firefox asks before any folder reaches a
-  page; for the agent's own folder, zenius answers yes itself, once, for
-  that folder only.
-- **Codex runs by default.** `zenius.agentSidebar.allowCodex` is now true
-  by default, and Codex runs within the limits in the `99cdc39` section
-  above. A new chat starts with the agent the user last picked in the
-  sidebar, else `config.json`'s default, which for the user is Codex, else
-  Claude Code. An automatic fallback is no longer stored as a pick.
-  Setting the pref to false in `about:config` turns Codex off with no
-  restart: new sessions and questions are refused at once, and the menu
-  greys Codex out the next time it's drawn. Doctor's `zenius sidebar` line
-  says Codex can run, and the lines under it list its limits (read-only,
-  no shell, no writes, no network outside zenius, sub-agents and web
-  search off, every approval refused), the one read path (apply_patch's
-  check), and how to turn it off.
-- **No translucent look.** The `zenius.agentSidebar.translucent` pref is
-  gone, and the sidebar's panel and drawer stay solid, as the user chose
-  (`d990e0d`). A value set for it does nothing now; the user can delete
-  it in `about:config`.
 
 ## Before you start
 
@@ -404,18 +255,19 @@ These checks change nothing:
 node --version                                  # v22.3 or later
 /opt/homebrew/opt/node@24/bin/node --version    # v24.x
 ls /Applications/Zen.app/Contents/Resources/config.js
-P=~/Library/"Application Support"/zen/Profiles/"<id>.Default (release)"
+P=~/Library/"Application Support"/zen/Profiles/"<profile>"
 ls "$P"/chrome/utils/boot.sys.mjs
 grep -n "inSafeMode" "$P"/chrome/utils/boot.sys.mjs
 ```
 
+`<profile>` is the folder of the profile Zen opens, which `about:support`
+shows as its Profile Folder.
+
 Two Nodes:
 
 - **The PATH's Node** is the one the user's agents run `zenius` with. The
-  installed CLI needs 22.3 or later (checked on 23.5).
-- **Homebrew's Node 24** builds the CLI in steps 1 and 2. The SDK's
-  `package.json` declares Node `^22.18 || >=23.6`, so with 23.5 `npm ci`
-  would print an `EBADENGINE` warning.
+  installed CLI needs 22.3 or later (checked on 22.3.0 and 23.5).
+- **Homebrew's Node 24** builds the CLI in steps 1 and 2.
 
 The `grep` should print a line with `!Services.appinfo.inSafeMode`, as in
 the copy zenius tests with
@@ -430,12 +282,12 @@ Stop if:
 - either file is missing. Without `config.js` in Zen.app or the profile's
   `chrome/utils/boot.sys.mjs`, fx-autoconfig isn't there, and zenius can't
   load. Restoring them changes Zen.app or the profile's loader, so it's the
-  user's call: send the manager the output;
+  user's call: fx-autoconfig's files are in `runtime/vendor/fx-autoconfig/`;
 - the `grep` prints nothing. Then Troubleshoot Mode may still load zenius,
-  and the manager decides how to go on.
+  and "If Zen won't start" can't count on it.
 
-You also need the commit the manager approved for this install, written
-`<commit>` below.
+Pick the commit to install, written `<commit>` below: a release's tag, such
+as `v0.1.0`, or a newer commit of `main`.
 
 ## 1. Get the code
 
@@ -443,19 +295,14 @@ Use a checkout that only the daily install uses, so nothing in progress
 elsewhere ends up in the user's Zen.
 
 ```bash
-[[ -d ~/zenius ]] || git clone <zenius's git URL> ~/zenius
-cd ~/zenius
+[[ -d ~/zenius-daily ]] || git clone <zenius's git URL> ~/zenius-daily
+cd ~/zenius-daily
 git fetch -q origin
 git checkout -q --detach <commit>
 git log --oneline -1               # shows <commit>
 git status --short                 # prints nothing
 (cd sdk && PATH=/opt/homebrew/opt/node@24/bin:$PATH npm ci --prefer-offline --no-audit --no-fund)
 ```
-
-On the Mac, `git fetch` may also print the git server's login banner and ssh warnings
-about port forwards, which come from the forwards in the Mac's ssh config
-(zen-eval saw them when installing `107f93c`). They're harmless: go on if
-`git log` shows `<commit>`.
 
 `npm ci` installs the SDK's build tools (about 36 MB), which
 `install-cli.sh` needs to build the CLI bundle. The bundle isn't in git.
@@ -465,19 +312,18 @@ only.
 npm 11 may end with an `npm warn install-scripts` block saying that
 esbuild's postinstall, `esbuild@<version> (postinstall: node install.js)`,
 isn't covered by allowScripts. That's fine: step 2's build works without that
-script. zen-sdk saw the block with npm 11.19.1 on the Linux server, and zen-eval on the Mac
-when installing `107f93c`; both builds worked. Leave allowScripts as it is:
-don't run the `npm install-scripts approve` the block suggests, which would
-write to `sdk/package.json`.
+script. Leave allowScripts as it is: don't run the `npm install-scripts
+approve` the block suggests, which would write to `sdk/package.json`.
 
 Stop if `git status` prints anything, or `npm ci` fails.
 
 ## 2. Install the CLI and its Skill
 
-The user chose the sandboxed CLI (2026-11-20), for the Codex rule at the end
-of this step. Run the dry run and the install under "The sandboxed CLI, the
-user's choice" below, in place of the plain ones next. The notes on the
-Skill links and the PATH apply to both.
+There are two ways: the plain CLI, next, or the sandboxed one, under "The
+sandboxed CLI" below, which runs every agent's `zenius` command in a
+sandbox. Pick one, and run its dry run and install. The Codex rule at the
+end of this step goes only with the sandboxed CLI. The notes on the Skill
+links and the PATH apply to both.
 
 First the dry run, again with Node 24 in front:
 
@@ -520,25 +366,24 @@ The install prints the dry run's lines as done (`built`, `installed`,
 `linked`), and its last line is `check    zenius <version> (protocol 1)`.
 The loop should print `--- 2` and the path for each link. Claude Code reads
 `~/.claude/skills/<name>/SKILL.md` and Codex reads `~/.agents/skills`, both
-through links (zen-sdk checked Claude Code 2.1.329 and Codex 0.169.0;
+through links (checked with Claude Code 2.1.329 and Codex 0.169.0;
 `references/install.md`). Codex skips a Skill whose `SKILL.md` lacks the
 frontmatter or its `description` without saying so. Stop if either line
 differs.
 
 Codex runs each command in a sandbox of its own, which blocks Zen's socket
 by default: a zenius command there fails as `blocked`, and the agent asks to
-run it outside Codex's sandbox. The user's setup for that is a Codex rule:
-see "Codex: a rule for the sandboxed CLI", after the sandboxed CLI below.
+run it outside Codex's sandbox. With the sandboxed CLI, a Codex rule sets
+that up: see "Codex: a rule for the sandboxed CLI", below.
 
 If `command -v zenius` prints nothing (or the dry run printed the `not on
 PATH` note), `~/.local/bin` isn't on the PATH. Use `~/.local/bin/zenius` in
-the steps below, and tell the manager: the user's agents need it on their
-PATH.
+the steps below, and add `~/.local/bin` to the PATH: the user's agents
+need it there.
 
-### The sandboxed CLI, the user's choice
+### The sandboxed CLI
 
-The user chose to sandbox the CLI (2026-11-20). Run this install instead of
-the plain one above.
+Run this install instead of the plain one above.
 
 `--sandbox` makes `~/.local/bin/zenius` a launcher, a file instead of a link,
 so every `zenius` command an agent runs is sandboxed: `sandbox-exec` with the
@@ -551,6 +396,9 @@ A script that `zenius nodejs` runs can then:
 - read the folder it starts in, but write nowhere in it. git, direnv, npm,
   pytest, make and agents run what a project holds (hooks, `.envrc`,
   `.venv/bin`, `conftest.py`), outside the sandbox;
+- read the folder `--read-dir` names, such as `~/Downloads` for uploads,
+  but write nothing there. An upload of a link in it to a file outside it
+  is refused, as in the working folder;
 - write an output folder of its own run,
   `~/.zenius/out/<folder name>-<checksum>/run.XXXXXX`. A relative path given
   to `screenshot()` or `saveAs()` lands there, and the script's output lists
@@ -565,8 +413,7 @@ It can't:
 
 - read any other file, or write anywhere else;
 - start programs or signal other processes;
-- reach the network or any other socket, such as ssh-agent's, Docker's or
-  hc's;
+- reach the network or any other socket, such as ssh-agent's or Docker's;
 - see environment variables beyond a short list (no `NODE_OPTIONS`, no
   tokens).
 
@@ -576,29 +423,36 @@ one, or when it holds or sits inside `~/.zenius`, Zen's profiles,
 folder such as `~/.ssh`. The script then starts in its temporary folder. The
 browser adds nothing to what a script can reach (I5).
 
-zen-eval checked this on the Mac:
+Checked on the Mac:
 
-- The canary, `tests/security/run.sh sandbox`, passed 6/6 at 24a1343 (with
-  aa0b007), on Homebrew's node@24, with hc and ssh-agent probed. Every reach
-  it probes failed for a script: planted `.git/hooks`, `core.fsmonitor` and
-  `.venv/bin/git` all failed to write. A pilot's work still worked: goto, a
+- The canary, `tests/security/run.sh sandbox`, passes on Homebrew's
+  node@24, with ssh-agent and other sockets probed. Every reach it probes
+  fails for a script: planted `.git/hooks`, `core.fsmonitor` and
+  `.venv/bin/git` all fail to write. A pilot's work still works: goto, a
   snapshot, an upload from the working folder, a screenshot to its run's
-  folder. Each run also got output and temporary folders of its own.
+  folder. Each run also gets output and temporary folders of its own.
 - In Claude Code 2.1.329, nothing gets past an allow rule `Bash(zenius:*)`:
   variables in front, chaining and heredoc tails were all denied. Still,
   never approve by hand a `zenius` command that starts with a variable: the
   variable acts before the sandbox does.
 - Each command takes about 20 ms more: from about 35 to 55 ms on the Mac,
-  and 40 ms more on the Linux server.
+  and 40 ms more on Linux.
 
 First the dry run, with Node 24 in front:
 
 ```bash
-PATH=/opt/homebrew/opt/node@24/bin:$PATH scripts/install-cli.sh --skill --sandbox --dry-run
+PATH=/opt/homebrew/opt/node@24/bin:$PATH scripts/install-cli.sh --skill --sandbox --read-dir ~/Downloads --dry-run
 ```
 
-Expect these lines (with `/Users/<user>` for `~`). zen-eval checked that
-the dry run changes nothing.
+`--read-dir ~/Downloads` lets scripts read the Downloads folder, for
+uploads: leave it out of both commands if they needn't, or name another
+folder. An older commit's `install-cli.sh` may not know it, and stops with
+`unknown argument`. macOS may ask once whether your terminal app can read
+Downloads. That's macOS's own guard on the folder: allowing it lets uploads
+from there work.
+
+Expect these lines (with `/Users/<user>` for `~`). The dry run changes
+nothing.
 
 ```
 would build sdk/dist/zenius.mjs
@@ -624,6 +478,7 @@ The printed launcher names this Mac's paths in these lines:
     BIN_DIR='/Users/<user>/.local/bin'
     OUT_ROOT='/Users/<user>/.zenius/out'
     OUT_KEEP_DAYS=7
+    READ_DIR='/Users/<user>/Downloads'
     case macos in
 ```
 
@@ -635,7 +490,7 @@ These lines are fine too:
 - `note … is not on PATH`, as above.
 
 Stop on any other line. After an `error    --sandbox: …` line, the install
-has changed nothing: send the line to the manager.
+has changed nothing, and the line says what's missing.
 
 To keep runs' output somewhere else, the user can name a folder outside
 every project. Add `--output-dir <absolute folder>` to both commands; later
@@ -644,7 +499,7 @@ installs keep it. `OUT_ROOT` in the printed launcher then names it.
 Then install and check:
 
 ```bash
-PATH=/opt/homebrew/opt/node@24/bin:$PATH scripts/install-cli.sh --skill --sandbox
+PATH=/opt/homebrew/opt/node@24/bin:$PATH scripts/install-cli.sh --skill --sandbox --read-dir ~/Downloads
 command -v zenius                  # ~/.local/bin/zenius
 zenius --version                   # zenius <version> (protocol 1, sandboxed)
 ```
@@ -670,9 +525,10 @@ With the sandbox, later steps change:
   ```
 
 - **Step 7** runs as written.
-- **Updating later.** `scripts/install-cli.sh --skill` keeps the sandbox. Its
-  first line is `note     ~/.local/bin/zenius is the sandboxed launcher, and
-  this install keeps it (--no-sandbox makes it a link again)`.
+- **Updating later.** `scripts/install-cli.sh --skill` keeps the sandbox,
+  with its `--output-dir` and `--read-dir`. Its first line is
+  `note     ~/.local/bin/zenius is the sandboxed launcher, and this install
+  keeps it (--no-sandbox makes it a link again)`.
 - **Homebrew upgrades.** `brew upgrade node@24` leaves zenius working: the
   launcher follows `/opt/homebrew/opt/node@24` at each start. If that path
   goes away, or stops being Node 24, every `zenius` command fails with
@@ -699,19 +555,18 @@ hand. Runs' output folders stay in `~/.zenius/out/` (or the
 Codex runs each command in a sandbox of its own. Its default,
 `workspace-write` with network access off, blocks Zen's socket. On the Mac
 no sandbox can start inside Codex's, so the sandboxed launcher stops there
-and says so, whatever Codex's network setting. zen-sdk checked Codex
-0.169.0's `codex sandbox` on Linux, and zen-eval on the Mac, with
-`tests/security/codex-sandbox.sh`. Without a setup, an agent asks to run the
+and says so, whatever Codex's network setting (checked with Codex 0.169.0's
+`codex sandbox` on Linux and the Mac, `tests/security/codex-sandbox.sh`).
+Without a setup, an agent asks to run the
 zenius command outside Codex's sandbox (`require_escalated`), as
 `references/install.md` tells it.
 
-The user chose a Codex rule (2026-11-20): each `zenius` command then runs
-outside Codex's sandbox without asking, and zenius's own sandbox applies to
-it. The rule is a file in `~/.codex`: give the user the lines below, and let
-them make the change. Nothing is applied without them. On the Mac, call
-Codex as `command codex`: the bare `codex` is the user's shell function.
-`/Users/<user>` stands for their home folder, since Codex wants absolute
-paths.
+A Codex rule sets that up: each `zenius` command then runs outside Codex's
+sandbox without asking, and zenius's own sandbox applies to it. The rule is
+a file in `~/.codex`: give the user the lines below, and let them make the
+change. Nothing is applied without them. `command codex` below skips any
+shell function or alias named `codex`. `/Users/<user>` stands for their
+home folder, since Codex wants absolute paths.
 
 Write the rule only once `zenius --version` ends in `sandboxed`. With the
 plain CLI, it would give every agent script the user's own access. The user
@@ -733,7 +588,7 @@ command codex execpolicy check --resolve-host-executables \
 
 It prints `"decision":"allow"`.
 
-- zen-sdk checked the rule with `codex execpolicy check` on the Linux server (Codex
+- Checked with `codex execpolicy check` (Codex
   0.169.0). `zenius --version`, `zenius doctor`, `zenius nodejs -e '…'` and
   `/Users/<user>/.local/bin/zenius …` match it. `./zenius` and any other path
   don't.
@@ -750,10 +605,10 @@ If the user's Codex config turns network access on already
 (`[sandbox_workspace_write] network_access = true`), that's their setting:
 leave it. zenius doesn't need it.
 
-Other setups, not chosen: the plain CLI with Codex's experimental network
+Other setups: the plain CLI with Codex's experimental network
 proxy open only to Zen's socket, which then carries every Codex command's
 network; or no change, with the user approving each zenius command when
-Codex asks. Their steps are in `git show ce24f90:docs/install-daily.md`.
+Codex asks.
 
 ## 3. See what the runtime install would do
 
@@ -761,14 +616,14 @@ Codex asks. Their steps are in `git show ce24f90:docs/install-daily.md`.
 scripts/install.sh --dry-run --disable-ipv6
 ```
 
-`--disable-ipv6` is the user's choice (see "The one pref" in step 4). Each
-install command in this runbook passes it, except one that goes back to a
-commit before `77d83f5` (see "Updating later", step 4).
+`--disable-ipv6` is optional (see "The one pref" in step 4): to leave IPv6
+as it is, leave it out of every install command below, and line 7 then has
+no `would set` part.
 
 Expect, in this order:
 
 1. `Installing zenius <version> (protocol <n>, commit <commit>) into
-   /Users/<user>/Library/Application Support/zen/Profiles/<id>.Default (release)`
+   /Users/<user>/Library/Application Support/zen/Profiles/<profile>`
 2. `profile chosen by: …/zen/profiles.ini, the Default= of its [Install…]
    section (the profile Zen opens)`
 3. `Zen (pid …) has this profile open: the change takes effect when the user
@@ -787,7 +642,7 @@ Expect, in this order:
 
 Stop if:
 
-- the profile isn't `<id>.Default (release)`;
+- the profile isn't `<profile>`, the one the user's Zen opens;
 - any listed path lies outside `chrome/JS/zenius.uc.js` and
   `chrome/JS/zenius/`;
 - a line starts with `Warning:` or `install.sh:`.
@@ -811,22 +666,20 @@ follows, with each one's pid and profile. Stop them before step 5.
 The running Zen doesn't change. Zen reads its scripts only when it starts.
 
 **The one pref.** With `--disable-ipv6`, the install sets
-`network.dns.disableIPv6` to true in the profile's `user.js`, which the
-user chose: Zen then makes no IPv6 lookups, which ends the GitHub stall on
-their IPv4-only network. The cost: sites reachable only over IPv6 don't load in
-Zen. It takes effect when Zen restarts (step 5). The install records the
-pref's value before it, and Undo puts that back. Without the flag, from
-`77d83f5` on, the install leaves `user.js` as it is; earlier commits set
-the pref without being asked.
+`network.dns.disableIPv6` to true in the profile's `user.js`: Zen then
+makes no IPv6 lookups, which can end stalls on an IPv4-only network.
+The cost: sites reachable only over IPv6 don't load in Zen. It takes effect
+when Zen restarts (step 5). The install records the pref's value before it,
+and Undo puts that back. Without the flag, the install leaves `user.js` as
+it is; some older commits set the pref without being asked.
 
 ## 5. The user quits and reopens Zen
 
-First stop every dev Zen on the Mac, the try Zen included. While any Zen
-from `/Applications/Zen.app` runs, even a headless one, opening Zen from the
-Dock only brings that one forward, and the daily Zen doesn't open. That's
-what happened at the first install (2026-11-21). Each Zen's owner stops it
-with `scripts/zen-dev.sh <name> stop`. Then check that only the daily Zen is
-left; the dev Zens are the ones started with `-profile`:
+First stop every other Zen that runs from `/Applications/Zen.app`, such as
+a dev Zen (`scripts/zen-dev.sh <name> stop`). While one runs, even a
+headless one, opening Zen from the Dock only brings that one forward, and
+the daily Zen doesn't open. Then check that only the daily Zen is left; the
+others are the ones started with `-profile`:
 
 ```bash
 pgrep -lf '/Applications/Zen.app/Contents/MacOS/zen .*-profile' || echo "no dev Zen"
@@ -834,7 +687,8 @@ pgrep -lf '/Applications/Zen.app/Contents/MacOS/zen .*-profile' || echo "no dev 
 
 Expect `no dev Zen`.
 
-The manager asks the user first; don't go on until the user says it's done.
+Ask the user first: it interrupts their work. Don't go on until they say
+it's done.
 The user quits Zen (⌘Q) and opens it again from the Dock or Applications.
 Zen restores the session as usual.
 
@@ -854,10 +708,11 @@ Expect every check to pass and exit status 0:
   `agents load only http:, https:, data:, blob: and about:blank; page gate
   on; self-tests refused about:config, file:/// and a browser document`. A
   runtime from an older commit doesn't report this, and fails;
-- the user's DNS choice is in place: `DNS` reads `network.dns.disableIPv6:
-  true, set by install.sh at the user's request (no IPv6 lookups in Zen)`.
+- with `--disable-ipv6`, `DNS` reads `network.dns.disableIPv6: true, set
+  by install.sh at the user's request (no IPv6 lookups in Zen)`.
 
-On a failure, stop and send the manager `zenius doctor --json`.
+On a failure, stop: the failing line says what's wrong, and `zenius doctor
+--json` has the details.
 
 A `warn` isn't a failure. On the `instance` line, `An earlier Agents Space,
 "Agents (old)", the <k>th Space in Zen's switcher, is still in Zen with <n>
@@ -874,14 +729,12 @@ Ask the user whether they did; it's their choice. Zen's next start turns it
 back on, from `user.js`, as the warning's last line says.
 
 On the `daily-driver (I4)` line, `zenius.handoff.quietReload false`,
-`zenius.handoff.groupSwitch true`, `zenius.test.pageWorldEvaluate true` or
-`zenius.test.loopCounterOff true` at its end means a preference only tests
-set is in the profile: zenius's quiet reloads are off, a hand-off moves the
-user's page into a window group of its own (which the user decided against),
-agents' page code runs in the page's own JavaScript instead of its sandbox,
-or a loop in it that calls no built-in isn't stopped. zenius never writes
-them outside tests. Ask the user whether they did, then reset it in
-`about:config`, and remove it from `user.js` if it's there.
+`zenius.test.pageWorldEvaluate true` or `zenius.test.loopCounterOff true` at
+its end means a preference only tests set is in the profile: zenius's quiet
+reloads are off, agents' page code runs in the page's own JavaScript instead
+of its sandbox, or a loop in it that calls no built-in isn't stopped. zenius
+never writes them outside tests. Ask the user whether they did, then reset it
+in `about:config`, and remove it from `user.js` if it's there.
 
 ## 7. A first task, in the Agents Space
 
@@ -908,7 +761,7 @@ console.log(left.length === 0 ? "finished: the task is closed" : `still listed: 
 JS
 ```
 
-Expect (from a dev Zen on the Linux server):
+Expect:
 
 ```
 title: zenius works
@@ -925,7 +778,7 @@ screenshot to the home folder: ZEN_PATH_NOT_ALLOWED
 finished: the task is closed
 ```
 
-The screenshot line shows only with the sandboxed CLI, the user's choice.
+The screenshot line shows only with the sandboxed CLI.
 With the plain CLI a script has the user's own access, so there is nothing
 to refuse, and the script skips it. Either way, `~/zenius-check.png` must not
 exist afterwards.
@@ -941,15 +794,17 @@ What the user sees, all within a few seconds:
 
 Stop if the output differs, or the user saw their view change.
 
-## 8. Turn off Ego Lite's Skill for everyday agents
+## 8. Optional: turn off Ego Lite's Skill for everyday agents
 
-The user runs this step themselves, after the install. Ego Lite stays
-installed. Only the two links that offer its Skill to the user's agents move,
-into a backup. Ego Lite made both when it was set up (2026-11-19), and both
-point to `~/.local/share/ego/ego-skills`, which leads into Ego Lite's app:
+Only where Ego Lite is installed too, and the user wants their everyday
+agents to use zenius for browser work. The user runs this step themselves,
+after the install. Ego Lite stays installed. Only the two links that offer
+its Skill to the user's agents move, into a backup. Ego Lite's setup makes
+both, pointing to `~/.local/share/ego/ego-skills`, which leads into Ego
+Lite's app:
 
 - `~/.claude/skills/ego-browser`, for Claude Code;
-- `~/.agents/skills/ego-browser`, for Codex. (`~/.codex/skills` is empty.)
+- `~/.agents/skills/ego-browser`, for Codex.
 
 Nothing else changes: not `~/.local/share/ego`, not Ego Lite's app, and none
 of the user's other skills. The block checks both links first, and moves
@@ -982,7 +837,7 @@ nothing unless both are the links Ego Lite made. `mv` keeps them links, and
 Expect `moved to …/.zenius/backups/<UTC time>/ego-skill:`, then two links,
 `agents-skills-ego-browser` and `claude-skills-ego-browser`, each
 `-> …/.local/share/ego/ego-skills`, and `targets.txt`. After `stop:`, nothing
-moved: show the manager the `ls -ld` line. Run the block once. A second run
+moved: the `ls -ld` line shows what's there. Run the block once. A second run
 stops, since the links have gone.
 
 Then check what fresh agents see, in a new terminal:
@@ -999,7 +854,7 @@ Then check what fresh agents see, in a new terminal:
   ```
 
   Expect one line, `- zenius: …`. If a `- ego-browser: …` line shows too,
-  Codex still finds Ego's Skill somewhere: stop and tell the manager.
+  Codex still finds Ego's Skill somewhere: stop, and find where.
 
 ### After an Ego Lite update
 
@@ -1050,7 +905,7 @@ likewise for `~/.agents/skills/ego-browser`.
 
 ## Later, if needed
 
-Not an install step: the user chose (2026-11-20) public internet pages only.
+Not install steps.
 
 **Private-network pages in agent tabs.** With the allowlist empty, agent tabs refuse
 private, link-local and `.local` hosts, and `page.goto()` there fails with
@@ -1105,7 +960,7 @@ listed.
 2. Remove the runtime from the profile:
 
    ```bash
-   cd ~/zenius
+   cd ~/zenius-daily
    scripts/install.sh --uninstall --dry-run   # lists what it would remove
    scripts/install.sh --uninstall
    ```
@@ -1144,7 +999,7 @@ listed.
    backup. If their installer put their sidebar back after zenius's last
    install, Undo leaves it as it is and says `  left agent-sidebar in place:
    it changed since zenius installed it, so it's the user's own`. Their
-   other scripts (`my-script.uc.js`), the sidebar's settings
+   other scripts, the sidebar's settings
    (`uc.agent-sidebar.*`) and `~/Library/Application Support/zenius-agent-sidebar/`
    stay as they are.
 3. Remove the CLI and the Skill links, and the sandboxed launcher if step 2
@@ -1170,10 +1025,10 @@ These stay behind:
 - `<profile>/agent-sidebar-tasks.json`: the list of Work chats from
   zenius's sidebar, with their messages. The user's own sidebar has no
   Work mode and doesn't use the file. Delete it by hand if the user
-  doesn't want those chats kept. From `52de584` on, Undo's `left in place:`
+  doesn't want those chats kept. Undo's `left in place:`
   line names it: `~/.zenius (backups, zenius's task records, the CLI if
   installed), the sidebar's chats (<profile>/agent-sidebar-tasks.json), and
-  the Agents Space …`. Earlier commits, `107f93c` included, don't mention it.
+  the Agents Space …`.
 - In the temporary folder (`$TMPDIR`): Node's `node-compile-cache/`, which
   the CLI turns on, and, with the sandboxed CLI, `zenius-sandbox-<uid>/`,
   which holds each run's temporary folder. Both can go.
@@ -1195,13 +1050,13 @@ A later install backs up the version it replaces under
 ## If Zen won't start, or misbehaves
 
 - **Zen starts, but agents can't reach it.** The browser itself is fine.
-  Run `zenius doctor` and send the manager its output.
+  Run `zenius doctor`: its failing lines say what's wrong.
 - **Zen doesn't open, crashes at startup or hangs.**
   1. If it hangs: force-quit it (⌥⌘⎋, then Zen).
   2. Remove zenius:
 
      ```bash
-     cd ~/zenius && scripts/install.sh --uninstall
+     cd ~/zenius-daily && scripts/install.sh --uninstall
      ```
 
      If it says Zen has the profile open, a Zen process is still running.
@@ -1217,27 +1072,24 @@ A later install backs up the version it replaces under
   `zenius.uc.js` to `userChromeJS.scriptsDisabled`, a comma-separated list
   of script file names with no spaces, such as `other.uc.js,zenius.uc.js`.
   fx-autoconfig doesn't trim the names, so `other.uc.js, zenius.uc.js`
-  leaves zenius on (zen-sdk checked both on the Linux server). Then the user restarts
+  leaves zenius on. Then the user restarts
   Zen. To turn zenius back on, take it out of the list and restart.
-- **For the manager.** Send `zenius doctor --json` and the Browser Console's
-  `[zenius]` lines (⌘⇧J in Zen).
+- **To report a problem,** include `zenius doctor --json` and the Browser
+  Console's `[zenius]` lines (⌘⇧J in Zen).
 
 ## Updating later
 
-The install's steps, with the newly approved commit as `<commit>`. zen-sdk
-rehearsed them on the Linux server (2026-11-20), from main `aa7d027` to
-`zen-core/lazy-methods` `040a271` and back, with the sandboxed CLI, step 8
-done, and an agent's task left open across the update. And again
-(2026-11-21) for the update that brings the agent's sidebar, from
-`cbac1ef` to `fe3bce9`, then Undo and back to `cbac1ef`, with the user's
-own sidebar and a Work chat that resumed in its own task. And for the
-update after `107f93c`, from `107f93c` to `99cdc39` and back, with Work
-chats before and after it.
+The install's steps, with the new commit as `<commit>`. An update replaces
+zenius's runtime in the profile and the CLI's copy. It keeps what the user
+set up: the CLI's sandbox and its folders, the Skill links, zenius's
+preferences (the allowlist, the page-code setting and its sites), the
+backups, and the Agents Space's tasks, which come back after the restart.
 
 1. Rerun the block in "1. Get the code". It checks out `<commit>` and
    reruns `npm ci`, with Node 24 in front.
-2. Reinstall the CLI, with Node 24 in front. `--sandbox` and `--output-dir`
-   aren't needed again: a later install keeps both.
+2. Reinstall the CLI, with Node 24 in front. `--sandbox`, `--output-dir` and
+   `--read-dir` aren't needed again: a later install keeps them, from the
+   launcher.
 
    ```bash
    PATH=/opt/homebrew/opt/node@24/bin:$PATH scripts/install-cli.sh --skill
@@ -1261,26 +1113,26 @@ chats before and after it.
    Skill links stay as they were; the copy they lead to now holds the new
    version. Stop on a `skip … left alone` line.
 
-   On the update that first passes the sidebar's task id through the
-   launcher (`ZENIUS_TASK_SPACE`, for a resumed chat's `zenius mcp`), the
-   launcher's line reads `updated  ~/.local/bin/zenius: the sandboxed
-   launcher`: install-cli.sh rewrites the launcher whenever its text
-   changes. The launcher stays sandboxed, with one more variable passed in.
+   When a version changes the launcher's text, as when it passes one more
+   variable in, the launcher's line reads `updated  ~/.local/bin/zenius: the
+   sandboxed launcher`: install-cli.sh rewrites the launcher whenever its
+   text changes. It stays sandboxed.
 
    Until step 5, agents run the new CLI against the old runtime. That works
    while both speak the same protocol, and doctor's full check (outside the
    sandbox) adds `Installed from commit <old>; this CLI is from <commit>.`
-3. Stop every dev Zen on the Mac and check that none is left, as in the
-   install's step 5: one that runs makes the reopen in step 5 fail. Then
-   the user quits Zen. As in the install's step 5, the manager asks the
-   user first, and you don't go on until the user says it's done.
+3. Stop every other Zen and check that none is left, as in the install's
+   step 5: one that runs makes the reopen in step 5 fail. Then the user
+   quits Zen. As in the install's step 5, ask the user first, and don't go
+   on until they say it's done.
 4. Install the runtime:
 
    ```bash
    scripts/install.sh --disable-ipv6
    ```
 
-   Expect lines 1 and 2 of the install's step 3, then:
+   Pass `--disable-ipv6` only if the install did. Expect lines 1 and 2 of
+   the install's step 3, then (with the flag):
 
    ```
      no running Zen has this profile open
@@ -1293,13 +1145,13 @@ chats before and after it.
    Run without `--disable-ipv6`, the install leaves `user.js` as it is, and
    that line reads `network.dns.disableIPv6 stays true in user.js, from an
    earlier install with --disable-ipv6; uninstall restores its previous
-   value`: nothing changes for the user. A commit before `77d83f5` doesn't
-   know the flag: its `install.sh` prints only `install.sh: unknown
-   argument: --disable-ipv6 (see --help)` and changes nothing. Run it
-   without the flag; it sets the pref unasked.
+   value`: nothing changes for the user. An older commit's `install.sh` may
+   not know the flag: then it prints only `install.sh: unknown argument:
+   --disable-ipv6 (see --help)` and changes nothing. Run it without the
+   flag; such a commit sets the pref unasked.
 
-   On the update that first brings the agent's sidebar, one more line
-   follows the backup's:
+   When the profile has a sidebar of its own that zenius's hasn't replaced
+   yet, one more line follows the backup's:
 
    ```
      backed up the profile's own agent-sidebar to /Users/<user>/.zenius/backups/<UTC time>; zenius's takes its place, and uninstall puts it back
@@ -1335,10 +1187,8 @@ chats before and after it.
    ends `Codex can run, within the limits below`, and three lines follow:
    Codex's limits, apply_patch's read path, and how to turn Codex off. With
    `zenius.agentSidebar.allowCodex` set to false, it ends `Codex is off
-   (zenius.agentSidebar.allowCodex = false)` instead. `99cdc39`'s doctor
-   speaks of Codex only once the pref is true: `Codex is allowed
-   (zenius.agentSidebar.allowCodex = true): it can read local files, so it
-   isn't browser-only`. Either way, it's the user's choice, not a fault. A
+   (zenius.agentSidebar.allowCodex = false)` instead. Either way, it's the
+   user's choice, not a fault. A
    `zenius.agentSidebar.allowUnknownAgents` warning on the I4 line is a
    test's pref: ask the user before resetting it, as for the other
    test-only prefs. The `agents' page code` line is information, not a
@@ -1352,7 +1202,7 @@ version an update replaced. To go back to that version, read its commit
 from the backup the update made:
 
 ```bash
-cd ~/zenius
+cd ~/zenius-daily
 backup=$(sed -n 's/^  "backup": "\(.*\)",$/\1/p' ~/.zenius/install.json)
 echo "backup: ${backup:-none}"
 if [ -f "$backup/chrome/JS/zenius/install.json" ]; then sed -n 's/^  "commit": "\(.*\)",$/\1/p' "$backup/chrome/JS/zenius/install.json"; fi
@@ -1360,25 +1210,28 @@ if [ -f "$backup/chrome/JS/zenius/install.json" ]; then sed -n 's/^  "commit": "
 
 Expect `backup: /Users/<user>/.zenius/backups/<UTC time>`, then a commit:
 the version the last install replaced. Run "Updating later" with that
-commit as `<commit>`, and its step 4 without `--disable-ipv6` if the commit
-comes before `77d83f5`; after the reopen, doctor's `zenius runtime` line
+commit as `<commit>`, and its step 4 without `--disable-ipv6` if that
+commit's `install.sh` doesn't know the flag; after the reopen, doctor's
+`zenius runtime` line
 shows it. `backup: none`, or a backup with no commit after it (it holds only the
 first install's `user.js`), means the last install replaced no version,
 since it was the first: going back then means "Undo".
 
 Don't copy the backup into the profile by hand. `install.sh` at that commit
-writes the same files the backup holds (zen-sdk compared them: identical
-but for `installedAt` in `install.json`). It also checks that Zen is closed,
+writes the same files the backup holds (identical but for `installedAt`
+in `install.json`). It also checks that Zen is closed,
 backs up the version it replaces, and keeps `~/.zenius/install.json` right,
-which a copy doesn't. The CLI has no backup, so only the checkout can put
-back its earlier version.
+which a copy doesn't. Going back to a commit whose `install-cli.sh` has no
+`--read-dir` rewrites the launcher without that folder, so the next update
+takes `--read-dir` again. The CLI has no
+backup, so only the checkout can put back its earlier version.
 
-To go back from the update that first brought the agent's sidebar (to
-`cbac1ef`), run "Undo" with the current checkout first, which puts the
-user's own sidebar back. Then run "Updating later" with `cbac1ef`. Its
-step 2 prints `updated  ~/.local/bin/zenius: the sandboxed launcher` again:
-`cbac1ef`'s launcher doesn't pass `ZENIUS_TASK_SPACE`, so the text changes
-back. `cbac1ef`'s `install.sh` alone would leave zenius's sidebar and '>'
-dispatch in place, since it doesn't know them. While zenius is installed, keep
-`~/.zenius/components.prior` and the backup folder it names: Undo gives the
-user's sidebar back from them, even after later updates.
+To go back to a version from before zenius's sidebar, run "Undo" with the
+current checkout first, which puts the user's own sidebar back. Then run
+"Updating later" with that commit. Its step 2 may say `updated` on the
+launcher's line, since an older launcher's text differs. That commit's
+`install.sh` alone would leave
+zenius's sidebar and '>' dispatch in place, since it doesn't know them.
+While zenius is installed, keep `~/.zenius/components.prior` and the backup
+folder it names: Undo gives the user's sidebar back from them, even after
+later updates.

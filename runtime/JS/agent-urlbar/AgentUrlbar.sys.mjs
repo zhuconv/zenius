@@ -235,6 +235,16 @@ class AgentAskBase extends UrlbarProvider {
     if (!result || result.providerName !== this.name) {
       return;
     }
+    // By now the box has reverted to the page's URL: the address bar reverts
+    // before it tells the row's provider. It would stay open, the URL
+    // selected in it, until the sidebar took focus a few frames on (zen-eval's
+    // take-6 captures). Closed in this same task, no frame shows that; Zen's
+    // floating box closes with the view and gives the page focus.
+    try {
+      (controller?.input ?? controller?.browserWindow?.gURLBar)?.view?.close();
+    } catch (e) {
+      console.error(LOG, "closing the address bar", e);
+    }
     dispatch(controller?.browserWindow, result.payload.query).catch(e => console.error(LOG, e));
   }
 

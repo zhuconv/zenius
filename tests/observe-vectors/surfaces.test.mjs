@@ -446,8 +446,10 @@ test("agent tabs make sound only while the user can see them; the page plays on 
     const receipt = await page.call("page.click", { target: "#v-tone" });
     await page.call("page.click", { target: "#v-audio" });
     await sleep(600);
-    // The page plays: its clock runs and its media plays.
-    assert.equal(await env.call("dev.evalContent", { ...page.P, code: `window.__tone.state` }), "running");
+    // The page plays: its clock runs and its media plays. On the Mac the
+    // context can stay "suspended" a while as the output device opens
+    // (zen-eval's run of 2026-11-21), so wait for the state.
+    await until("the tone's clock", async () => (await env.call("dev.evalContent", { ...page.P, code: `window.__tone.state` })) === "running", 8000);
     assert.deepEqual(await results(page, "audio"), ["playing"]);
     assert.equal(await env.call("dev.evalContent", { ...page.P, code: `String(window.__audio.paused)` }), "false");
     // The user hears nothing, and the agent hears why, once per muted spell.

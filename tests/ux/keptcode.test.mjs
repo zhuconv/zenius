@@ -2,10 +2,10 @@
 // code runs in a sandbox that zenius discards at the task's end, so a kept
 // page shows nothing: no mark, no tooltip line, no card, nothing heard, and
 // nothing takes the focus or moves a view (I1). zenius makes it safe itself:
-// - a page the agent's sandbox wrote into (zen-observe's isWritten, a
-//   stand-in here) loads afresh, quietly, when something the user just did
-//   there was refused (zen-core's onKeptRefused, called directly here),
-//   through zen-core's cleanLoad (a stand-in);
+// - a page with evidence of danger (zen-observe's evidenceOf, a stand-in
+//   here) loads afresh, quietly, when something the user just did there was
+//   refused (zen-core's onKeptRefused, called directly here), through
+//   zen-core's cleanLoad (a stand-in);
 // - zen-input's guard has zen-core reload such a page before the user types
 //   there (not zen-ux's: zen-input's suite tests it);
 // - a page the agent made itself can't be cleaned so: its card, whose form
@@ -26,7 +26,7 @@ before(async () => {
 });
 
 after(async () => {
-  await h?.chrome(`const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI; UI.cleanLoad = null; UI.isWritten = null; return true;`).catch(() => {});
+  await h?.chrome(`const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI; UI.cleanLoad = null; UI.evidenceOf = null; return true;`).catch(() => {});
   await h?.close();
 });
 
@@ -112,11 +112,11 @@ async function task(name, urls) {
 
 /** The agent runs its own code in a page: zen-observe records its site. */
 const agentCode = (space, page) => h.call("page.evaluate", { space, page, fn: "() => document.title", isFunction: true });
-/** The agent's code writes into the page: zen-observe's world flags it written. */
+/** The agent's code adds a field to the page: zen-observe's world flags it hooked. */
 const agentWrites = (space, page) =>
-  h.call("page.evaluate", { space, page, fn: "() => { document.documentElement.dataset.zeniusAgent = '1'; return true; }", isFunction: true });
+  h.call("page.evaluate", { space, page, fn: "() => { document.body.insertAdjacentHTML('beforeend', '<input id=zenius-agent-field>'); return true; }", isFunction: true });
 /**
- * zen-core's quiet loads off: a written page that stays open isn't reloaded
+ * zen-core's quiet loads off: a page with evidence that stays open isn't reloaded
  * at its task's end, as when that reload fails. zen-core's closed-groups
  * tests do the same.
  */
@@ -204,10 +204,10 @@ test("the user's click into a field of a kept page the agent's code ran in shows
   }
 });
 
-test("a kept page the agent made itself: as the user is about to type there, its card says it might contain malicious code, with a ✕ that hides it for that document; a refusal of what they just did there says what and why", async () => {
+test("a kept page the agent made itself that asks for a password: as the user is about to type there, its card says it might contain malicious code, with a ✕ that hides it for that document; a refusal of what they just did there says what and why", async () => {
   const { space, bids, labels } = await task("made", {
     p1: `${h.base}/zoo/forms.html`,
-    p2: "data:text/html,<title>Agent page</title><input id=x style='display:block;width:300px;height:40px'>",
+    p2: "data:text/html,<title>Agent page</title><input id=x type=password style='display:block;width:300px;height:40px'>",
   });
   try {
     await agentCode(space, labels.p1);
@@ -240,7 +240,33 @@ test("a kept page the agent made itself: as the user is about to type there, its
   }
 });
 
-test("a refusal of what the user just did in a kept page with the agent's writes loads it afresh, quietly, through zen-core's cleanLoad: no card, nothing heard, no view moved; with no input of theirs just before, for the speakers, or in a page with no writes, nothing happens", async () => {
+// The user's pass on defenses (2026-11-21, A6): the card comes only when the
+// page asks for a password, a card's details or a one-time code, or the
+// agent flagged it.
+test("a kept page the agent made that asks for no secret: the user's click into its field shows nothing, and the focus stays in the field", async () => {
+  const { space, bids, labels } = await task("plain", {
+    p1: `${h.base}/zoo/forms.html`,
+    p2: madeURL,
+  });
+  try {
+    await agentCode(space, labels.p1);
+    const field = await fieldAt(space, labels.p2, "#x");
+    await h.call("spaces.finish", { space, keep: [labels.p1, labels.p2] });
+    await view(bids.p2);
+    const out = await h.chrome(`${K}
+      await until(() => noted(${bids.p2}));
+      userClick(${bids.p2}, ${field[0]}, ${field[1]});
+      await sleep(1500);
+      return { card: card(${bids.p2}), focused: Services.focus.focusedElement === tabOf(${bids.p2}).linkedBrowser };
+    `);
+    assert.deepEqual(out, { card: null, focused: true });
+  } finally {
+    await closeTabs(bids);
+    await backToUser();
+  }
+});
+
+test("a refusal of what the user just did in a kept page with evidence of danger loads it afresh, quietly, through zen-core's cleanLoad: no card, nothing heard, no view moved; with no input of theirs just before, for the speakers, or in a page without evidence a clean copy clears (none, or a list's or the agent's flag), nothing happens", async () => {
   const { space, bids, labels } = await task("refused", { p1: `${h.base}/zoo/forms.html` });
   try {
     await agentCode(space, labels.p1);
@@ -249,8 +275,8 @@ test("a refusal of what the user just did in a kept page with the agent's writes
     const before = await h.call("dev.viewState");
     const out = await h.chrome(`${K}
       const b = tabOf(${bids.p1}).linkedBrowser;
-      // zen-observe's flag and zen-core's cleanLoad, standing in.
-      UI.isWritten = target => target === b;
+      // zen-observe's evidence and zen-core's cleanLoad, standing in.
+      UI.evidenceOf = target => (target === b ? { hooked: "a script element" } : {});
       const calls = [];
       UI.cleanLoad = async browser => {
         calls.push(browser.browserId);
@@ -265,7 +291,12 @@ test("a refusal of what the user just did in a kept page with the agent's writes
       userClick(${bids.p1}, 5, 5);
       await sleep(100);
       UI.keptRefused({ browser: b, kind: "deviceAccess", asked: "speakers" });
-      UI.keptRefused({ browser: b, kind: "deviceAccess", asked: "camera", written: false });
+      UI.evidenceOf = () => ({});
+      UI.keptRefused({ browser: b, kind: "deviceAccess", asked: "camera" });
+      // A list or the agent's flag: a clean copy can't clear the page itself.
+      UI.evidenceOf = target => (target === b ? { listed: "goog-phish-proto", flagged: "it asks for a seed phrase" } : {});
+      UI.keptRefused({ browser: b, kind: "deviceAccess", asked: "camera" });
+      UI.evidenceOf = target => (target === b ? { hooked: "a script element" } : {});
       await sleep(200);
       res.ignored = calls.length;
       await hush();
@@ -273,24 +304,24 @@ test("a refusal of what the user just did in a kept page with the agent's writes
       UI.keptRefused({ browser: b, kind: "deviceAccess", asked: "camera microphone" });
       await until(() => docOf(${bids.p1}) !== doc && !b.webProgress.isLoadingDocument);
       res.reloaded = { calls: calls.slice(), card: card(${bids.p1}), heard: await heard() };
-      // The event's own flag decides: written, though isWritten says no.
-      UI.isWritten = () => false;
+      // The event's own word: evident, though the page's read says no.
+      UI.evidenceOf = () => ({});
       userClick(${bids.p1}, 5, 5);
       await sleep(100);
       const next = docOf(${bids.p1});
-      UI.keptRefused({ browser: b, kind: "deviceAccess", asked: "camera", written: true });
+      UI.keptRefused({ browser: b, kind: "deviceAccess", asked: "camera", evident: true });
       await until(() => docOf(${bids.p1}) !== next && !b.webProgress.isLoadingDocument);
       res.flagged = calls.length;
       return res;
     `);
     const after = await h.call("dev.viewState");
     assert.equal(out.unasked, 0, "no input of the user's");
-    assert.equal(out.ignored, 0, "the speakers, and a page with no writes");
+    assert.equal(out.ignored, 0, "the speakers, and a page without evidence a clean copy clears");
     assert.deepEqual(out.reloaded, { calls: [bids.p1], card: null, heard: null });
-    assert.equal(out.flagged, 2, "the event's written: true, with isWritten saying no");
+    assert.equal(out.flagged, 2, "the event's evident: true, with the page's read saying no");
     assert.deepEqual(after, before, "no focus taken, no view moved");
   } finally {
-    await h.chrome(`${K} UI.cleanLoad = null; UI.isWritten = null; return true;`);
+    await h.chrome(`${K} UI.cleanLoad = null; UI.evidenceOf = null; return true;`);
     await closeTabs(bids);
     await backToUser();
   }
@@ -453,8 +484,8 @@ test("in a claimed Space, a blank tab of the user's that the agent adopted, wrot
   await agentWrites(space, label);
   await h.call("pages.release", { space, page: label });
   // A claimed Space's tabs are the task's at its end too: with quiet loads
-  // on, zen-core would reload the written page then. Off, as when that
-  // reload fails, so the user's click finds it written.
+  // on, zen-core would reload the hooked page then. Off, as when that
+  // reload fails, so the user's click finds it hooked.
   await quietLoads(false);
   let out;
   try {
@@ -469,13 +500,13 @@ test("in a claimed Space, a blank tab of the user's that the agent adopted, wrot
       };
       try {
         // zen-input's guard has zen-core load a clean copy before the
-        // user's press in a written page lands.
+        // user's press in a hooked page lands.
         Services.prefs.clearUserPref("zenius.handoff.quietReload");
-        const written = UI.isWritten(b);
+        const hooked = "hooked" in (UI.evidenceOf?.(b) ?? {});
         const before = docOf(${user.bid});
         userClick(${user.bid}, 5, 5);
         await until(() => (docOf(${user.bid}) || before) !== before, 8000);
-        return { written, noted: noted(${user.bid}), calls, card: card(${user.bid}) };
+        return { hooked, noted: noted(${user.bid}), calls, card: card(${user.bid}) };
       } finally {
         UI.cleanLoad = null;
       }
@@ -485,14 +516,14 @@ test("in a claimed Space, a blank tab of the user's that the agent adopted, wrot
   }
   await backToUser();
   assert.equal(user.url, "about:blank");
-  assert.deepEqual(out, { written: true, noted: false, calls: [], card: null });
+  assert.deepEqual(out, { hooked: true, noted: false, calls: [], card: null });
   await closeTabs({ agent: user.agentBid });
 });
 
 test("the panel's Stop leaves the page the agent made noted, with nothing shown until the user goes to type there; if the agent has the Space again, it's its own again: the page loses its card, and no view moves", async () => {
   const { space, bids, labels } = await task("stop", {
     p1: `${h.base}/zoo/forms.html`,
-    p2: "data:text/html,<title>Agent page</title><input id=x style='display:block;width:300px;height:40px'>",
+    p2: "data:text/html,<title>Agent page</title><input id=x type=password style='display:block;width:300px;height:40px'>",
   });
   try {
     await agentCode(space, labels.p1);

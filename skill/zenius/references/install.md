@@ -1,12 +1,30 @@
 # Install zenius
 
-Read this file only when `zenius` is not found, when `zenius skill` fails, when Claude Code or Codex doesn't list the zenius Skill, or when a script fails with `ZEN_BROWSER_UNAVAILABLE`. For day-to-day browser work, run `zenius skill` and follow its output.
+Read this file only when the user asks you to install zenius, when `zenius` is not found, when `zenius skill` fails, when Claude Code or Codex doesn't list the zenius Skill, or when a script fails with `ZEN_BROWSER_UNAVAILABLE`. For day-to-day browser work, run `zenius skill` and follow its output.
 
-zenius has two parts: the `zenius` command, and the zenius runtime that runs inside the user's Zen browser. Both come from the zenius repository.
+zenius has two parts: the `zenius` command, and the zenius runtime that runs inside the user's Zen browser. Both come from the zenius repository (github.com/zhuconv/zenius) and its releases.
+
+## Installing zenius
+
+When `zenius` isn't installed, install it from the latest release. Each step that changes the user's machine needs the user's OK.
+
+1. Check what it needs. Zen: on macOS `/Applications/Zen.app`, on Linux `zen` on `PATH` or the binary that `ZEN_BIN` names. Node.js 22.3 or later: `node --version`. If either is missing, tell the user; installing them is theirs to do.
+2. Ask the user to quit Zen. Never quit, start or restart it yourself.
+3. With the user's OK, run the installer. It prints each change it makes:
+
+   ```bash
+   curl -fsSL https://github.com/zhuconv/zenius/releases/latest/download/install.sh | bash
+   ```
+
+   It downloads the release and checks its SHA-256. Then it installs zenius into Zen's default profile, adding fx-autoconfig's loader there if the profile has none, the `zenius` command into `~/.local/bin`, and this Skill for Claude Code and Codex. For Zen's sidebar, npm installs the adapters that run the user's own Claude Code and Codex there into `~/.zenius/agents`. It backs up each file it replaces, under `~/.zenius/backups/`.
+4. If it ends with exit status 3, zenius is installed, but fx-autoconfig's two files are missing from Zen's app folder: show the user the two commands it printed. They change Zen's app, which zenius never does on its own: run them only if the user asks you to, or let the user run them. On macOS, if the terminal "was prevented from modifying apps", the user allows it under System Settings > Privacy & Security > App Management, or copies the files in Finder (Show Package Contents on Zen.app). A Zen update drops the two files again; the installer or `zenius doctor` then prints the same commands.
+5. Ask the user to open Zen, then run `zenius doctor` and follow what it says.
+
+The same script with `--uninstall` (`curl -fsSL <the URL above> | bash -s -- --uninstall`) takes it all out again and puts back what it replaced.
 
 ## `zenius` is not found
 
-`scripts/install-cli.sh` in a zenius checkout installs the command. It builds it, copies it to `~/.zenius/cli`, and links `~/.local/bin/zenius` to the copy, which needs Node.js 22.3 or later. Ask the user before running it, and check that `~/.local/bin` is on `PATH`.
+If zenius isn't installed at all, see "Installing zenius" above. In a zenius checkout, `scripts/install-cli.sh` installs the command instead: it builds it, copies it to `~/.zenius/cli`, and links `~/.local/bin/zenius` to the copy, which needs Node.js 22.3 or later. Ask the user before running it, and check that `~/.local/bin` is on `PATH`.
 
 ## `ZEN_BROWSER_UNAVAILABLE`
 
@@ -67,6 +85,7 @@ Installed plainly (`scripts/install-cli.sh`), a script has the user's own access
 
 - read the working folder, unless it is the home folder, a temp folder or above one, or holds or is inside zenius, Zen's profiles, `~/.config`, `~/.local`, `~/Library`, `~/.ssh` or another credentials folder. It never writes there: git, direnv, npm, pytest, make and agents run what a project holds (hooks, `core.fsmonitor`, `.envrc`, `.venv/bin`, `conftest.py`), outside the sandbox;
 - write an output folder of the run's own, `~/.zenius/out/<folder name>-<checksum>/run.XXXXXX` (`--output-dir` puts these elsewhere, outside any project). A relative path given to `screenshot()`, `saveAs()` or `fetch()`'s `saveAs` lands there, and the output lists each file the SDK wrote under `[zenius:files]`. Writes anywhere else, and uploads of files outside these folders and the working folder (or of links to them), fail with `ZEN_PATH_NOT_ALLOWED`. A run can also read the same working folder's earlier runs, and runs over 7 days old go;
+- read the folder the install names with `--read-dir` (for example `~/Downloads`), for uploads, held to the working folder's rules, and never write it. Later installs keep it, and `--read-dir none` drops it;
 - read and write a temporary folder of the run's own, where screenshots without a path and `download.path()` copies go: no other run can read it;
 - read the CLI's copy and the instance registry, and connect to the instance's socket.
 

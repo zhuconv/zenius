@@ -16,7 +16,9 @@
 // failed load may skip START and STOP and only commit an error page
 // (LOCATION_CHANGE_ERROR_PAGE). A fresh tab's first navigation may never
 // report START (docs/SPI.md "Waiting for a load"), so goto marks its own
-// navigation pending before calling loadURI.
+// navigation pending before calling loadURI. A load of the shown URL with
+// another fragment (or the same one again) stays in the document: it reports
+// only onLocationChange with LOCATION_CHANGE_SAME_DOCUMENT.
 
 const { setTimeout, clearTimeout } = ChromeUtils.importESModule("resource://gre/modules/Timer.sys.mjs");
 
@@ -221,17 +223,25 @@ export class NavTracker {
     return () => this.#listeners.delete(fn);
   }
 
-  /** Mark a navigation we are about to start, in case its START never comes. */
-  markPending(url) {
+  /**
+   * Mark a navigation we are about to start, in case its START never comes.
+   * `reload`: Firefox's reload, which always loads a new document.
+   */
+  markPending(url, { reload = false } = {}) {
     this.pending = { url, startedAt: ChromeUtils.now(), ours: true };
     this.#expected = stripRef(url);
     this.#expectedStarted = false;
+    // nsDocShell::IsSameDocumentNavigation: the shown URL but for its
+    // fragment, with one (even an empty one), and no POST.
+    this.#fragmentOnly = !reload && url.includes("#") && this.#expected === stripRef(this.currentURL);
   }
 
   /** The URL of the navigation we started last, until it commits or ends. */
   #expected = null;
   /** Whether its START came: only a STOP after that ends it (a reload's old load stops first). */
   #expectedStarted = false;
+  /** Whether it may stay in the document: a new fragment of the shown URL. */
+  #fragmentOnly = false;
 
   /** The URL the tab shows (committed document, or same-document change). */
   get currentURL() {
@@ -330,6 +340,15 @@ export class NavTracker {
     }
     const url = location?.spec ?? "";
     if (flags & WPL.LOCATION_CHANGE_SAME_DOCUMENT) {
+      // Our fragment navigation arrived: nothing more will come for it, so
+      // it ends here, before the listeners hear of it (the page gate's wait
+      // among them). A page's own pushState to that URL can't end it once a
+      // network load has started.
+      if (this.pending?.ours && this.#fragmentOnly && !this.#expectedStarted && url === this.pending.url) {
+        this.pending = null;
+        this.#expected = null;
+        this.#fragmentOnly = false;
+      }
       this.#emit({ type: "sameDocument", url, flags });
       return;
     }

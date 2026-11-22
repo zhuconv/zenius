@@ -33,7 +33,9 @@ import { askPageCode, endPageCodeAsks } from "chrome://userscripts/content/zeniu
 import {
   closeTasksPanel,
   idleText,
+  needsUser,
   openTasksPanel,
+  showArrival,
   updateTasks,
 } from "chrome://userscripts/content/zenius/ui/panel.sys.mjs";
 import { watchMutedTabs } from "chrome://userscripts/content/zenius/ui/muted.sys.mjs";
@@ -42,7 +44,7 @@ import { setTaskTag, watchTaskTags } from "chrome://userscripts/content/zenius/u
 import { isolate } from "chrome://userscripts/content/zenius/ui/text.sys.mjs";
 import { isTabVisible } from "chrome://userscripts/content/zenius/ui/visibility.sys.mjs";
 import { reportRefused } from "chrome://userscripts/content/zenius/observe/refusals.sys.mjs";
-import { watchPermissionPrompts } from "chrome://userscripts/content/zenius/ui/permissions.sys.mjs";
+import { isDevicePrompt, watchPermissionPrompts } from "chrome://userscripts/content/zenius/ui/permissions.sys.mjs";
 import { isAgentInput, Takeover } from "chrome://userscripts/content/zenius/ui/takeover.sys.mjs";
 import { log } from "chrome://userscripts/content/zenius/modules/util.sys.mjs";
 import {
@@ -106,6 +108,20 @@ const MAX_HOST_CHARS = 40;
 const LOCALNET_NOTICE = "zenius-localnet";
 /** The notice on a tab where the user's typing stays off: its quiet reload didn't come. */
 const TYPING_OFF_NOTICE = "zenius-typing-off";
+/**
+ * The notice on a page that loaded afresh at the user's press, without the
+ * agent's changes (#showReloaded): their first press or key in a page with
+ * evidence, or their Take over.
+ */
+const RELOADED_NOTICE = "zenius-reloaded";
+/** The warning on a page on a phishing or malware list, or that the agent flagged (#updatePageWarning). */
+const PAGE_WARNING_NOTICE = "zenius-page-warning";
+/**
+ * The evidence that a clean copy clears (#cleanable): the agent's code
+ * (hooked), its own page (made), and evidence zen-ux couldn't read
+ * (unknown). The rest, a list's and the agent's flag, is the page itself.
+ */
+const CLEANABLE = ["hooked", "made", "unknown"];
 /** The notice on a page whose Take over couldn't begin: why, and what still works. */
 const TAKEOVER_REFUSED_NOTICE = "zenius-takeover-refused";
 /** The claim gate's prompt, one per ask: this plus zen-core's id. */
@@ -136,6 +152,20 @@ export const CLEARS_LINE = clearsLine("Resume agent");
 export function clearsLine(label) {
   return `${label} clears password, card and code fields, so submit what you type there first.`;
 }
+/**
+ * The hold card's line after a hand-off with zen-core's secret flag: the
+ * user's step shows them a secret (an API key, a token, a recovery code),
+ * and their Resume loads about:blank in that tab, its history gone, before
+ * the agent gets control back (zen-core, 2026-11-21). So they copy what they
+ * need first. It leads the card, before the Resume line it makes moot.
+ */
+export const SECRET_LINE = "Resume agent clears this page, so copy what you need from it first.";
+/** The same under the tasks panel's Resume agent, away from that page. */
+export const PANEL_SECRET_LINE = "Resume agent clears the page the agent handed you, so copy what you need from it first.";
+/** How long each frame gets to say whether it asks for a secret (#asksSecrets). */
+const SECRET_KINDS_MS = 2000;
+/** How long a page the agent made counts as asking for no secret before it's asked again (#madeWarns). */
+const MADE_RECHECK_MS = 2000;
 /** How long a Resume waits for zen-input's typedSecrets before it goes on without it. */
 const TYPED_SECRETS_MS = 3000;
 /**
@@ -157,30 +187,48 @@ const ALLOW_PREF = "zenius.agentTabs.allowPrivateNetworks";
 /** Who can change a Space's ownership (zen-core's setOwnership). */
 const SOURCES = new Set(["agent", "user", "permission"]);
 
-/** The prompts a task's pages may hand to the user, by Ego's reason key. */
+/**
+ * The prompts a task's pages hand to the user, by Ego's reason key: for a
+ * task whose prompt's own words (PROMPT_NAMES) are gone. permission_prompt,
+ * Ego's catch-all, has none.
+ */
 const PERMISSION_NAMES = {
   storage_access: "for storage access",
   local_network_access: "to reach your local network",
+  location: "for your location",
+  notifications: "to show notifications",
+  midi: "for MIDI devices",
+  serial: "for a serial port",
 };
 
-/** The prompts they never get, by PopupNotifications id (permissions.sys.mjs). */
-const DENIED_NAMES = {
+/** What a prompt asks for, by PopupNotifications id (permissions.sys.mjs). */
+const PROMPT_NAMES = {
+  "storage-access": "for storage access",
+  "local-network": "to reach your local network",
+  "loopback-network": "to reach your local network",
   geolocation: "for your location",
   "web-notifications": "to show notifications",
   "persistent-storage": "for persistent storage",
   midi: "for MIDI devices",
   "webSerial-choosePort": "for a serial port",
   xr: "for virtual reality devices",
-  "webRTC-shareDevices": "for the camera, microphone or screen",
+  "webRTC-shareDevices": "for the camera, microphone, screen or speakers",
 };
 
 /**
- * What the agent reads when a task's page asked for a prompt it never gets.
+ * What the agent reads when zenius cancelled a task's page's prompt: on
+ * evidence of danger in the page, or the devices' while the agent drives.
  * Sites that can't have the location ask for a typed place instead.
+ *
+ * @param {"evidence"|"device"} why
  */
-function deniedText(id, origin) {
+function deniedText(id, origin, why) {
+  const asked = `${origin || "The page"} asked ${PROMPT_NAMES[id] ?? "for a permission"}`;
+  if (why === "device") {
+    return `${asked}, which the agent never gets, so the prompt was cancelled without asking the user. The user can allow it while they hold the task.`;
+  }
   const typed = id === "geolocation" ? " If the site takes a typed place instead, type it." : "";
-  return `${origin || "The page"} asked ${DENIED_NAMES[id] ?? "for a permission"}, which a task's pages never get, so the prompt was cancelled without asking the user.${typed}`;
+  return `${asked}, and zenius holds evidence of danger in this page, so the prompt was cancelled without asking the user.${typed}`;
 }
 
 /**
@@ -188,10 +236,11 @@ function deniedText(id, origin) {
  *
  * @param {"site"|"task"} why  the site left a request unanswered, or the
  *   task's pages left too many
+ * @param {string|null} [what]  what the prompt asks for (PROMPT_NAMES)
  */
-function refusedText(kind, reason, origin, why) {
+function refusedText(kind, reason, origin, why, what = null) {
   const site = origin || "The page";
-  const asked = kind === "passkey" ? "asked for a passkey" : `asked ${PERMISSION_NAMES[reason] ?? "for a permission"}`;
+  const asked = kind === "passkey" ? "asked for a passkey" : `asked ${what ?? PERMISSION_NAMES[reason] ?? "for a permission"}`;
   const result = kind === "passkey" ? "the page got NotAllowedError" : "the prompt was cancelled";
   const rule =
     why === "site"
@@ -254,6 +303,8 @@ class UiController {
   #cleanLoadFn = null;
   /** Tasks whose Take over waits for zen-core's reload (#takeOver). */
   #takingOver = new Set();
+  /** <browser> → the top document its RELOADED_NOTICE is for (#showReloaded). */
+  #reloadedDocs = new WeakMap();
   /** zen-input's typedSecrets, null without it; see typedSecrets. */
   #typedSecretsFn = undefined;
   /**
@@ -284,8 +335,23 @@ class UiController {
    * @type {WeakMap<Element, number>}
    */
   #inputAt = new WeakMap();
-  /** zen-observe's isWritten, null without it; see isWritten. */
-  #isWritten = undefined;
+  /** zen-observe's evidenceOf, null without it; see evidenceOf. */
+  #evidenceOf = undefined;
+  /**
+   * browserId → the top document whose warning the user dismissed
+   * (#updatePageWarning).
+   *
+   * @type {Map<number, number>}
+   */
+  #warningDismissed = new Map();
+  /**
+   * <browser> → whether its page the agent made asks for a secret, for the
+   * top document `doc` (#madeWarns): true, false (as of `at`), or a promise
+   * while a frame is still answering.
+   *
+   * @type {WeakMap<Element, {doc: number, value: boolean|Promise<boolean>, at: number}>}
+   */
+  #madeWarned = new WeakMap();
   /**
    * Whether zen-input tells when the user types a secret (onSecretTyped):
    * then the hold's card says Resume clears such fields only once they
@@ -301,7 +367,7 @@ class UiController {
    */
   /**
    * Each window's announcements waiting to go out together; see #announce.
-   * @type {WeakMap<Window, {texts: string[], timer: number}>}
+   * @type {WeakMap<Window, {texts: {text: string, still: (() => boolean)|null}[], timer: number}>}
    */
   #bursts = new WeakMap();
   /**
@@ -341,7 +407,15 @@ class UiController {
       }),
     handBack: id => this.#withRec(id, rec => this.#handBack(rec)),
     stop: id => this.#withRec(id, rec => this.stopByUser(rec)),
+    openSidebar: (uid, win) => win?.ucAgentSidebar?.openTask?.(uid),
   };
+  /**
+   * The agent sidebar's tasks that need the user with no zenius task saying
+   * so (noteSidebarWaiting): the strip and needsCount count them too.
+   *
+   * @type {import("chrome://userscripts/content/zenius/ui/panel.sys.mjs").SidebarWaiting[]}
+   */
+  #sidebarWaiting = [];
 
   /** @param {object} service  ZeniusService */
   start(service) {
@@ -406,6 +480,19 @@ class UiController {
       }
     } catch (e) {
       console.error("[zenius] onPageCodeAsk failed", e);
+    }
+    // A page on a phishing or malware list, or that the agent flagged,
+    // warns the user while they're on it, as zen-observe's mark comes
+    // (observe/evidence.sys.mjs).
+    try {
+      const off = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/evidence.sys.mjs").onEvident?.(event =>
+        this.evidenceAdded(event)
+      );
+      if (typeof off === "function") {
+        this.#unsubscribe.push(off);
+      }
+    } catch (e) {
+      console.error("[zenius] onEvident failed", e);
     }
     // zen-core refuses a window that a page opens with an opener, after its
     // task, while the page's window group holds a document that ran the
@@ -539,12 +626,19 @@ class UiController {
           if (tab) {
             removeNotice(tab, LOCALNET_NOTICE, { refocus: false });
             removeNotice(tab, TYPING_OFF_NOTICE, { refocus: false });
+            this.#updatePageWarning(browser);
+            // Not for the clean copy it came with, should its word come late.
+            if (this.#reloadedDocs.has(browser) && this.#reloadedDocs.get(browser) !== currentDoc(browser)) {
+              this.#reloadedDocs.delete(browser);
+              removeNotice(tab, RELOADED_NOTICE, { refocus: false });
+            }
           }
         }
       },
     });
     watchPermissionPrompts(win, {
-      onPrompt: (browser, reason, id, origin) => this.#onPermissionPrompt(win, browser, reason, id, { origin }),
+      // The words follow the prompt, not its key: Ego's catch-all key covers several.
+      onPrompt: (browser, reason, id, origin) => this.#onPermissionPrompt(win, browser, reason, id, { origin, what: PROMPT_NAMES[id] ?? null }),
       onPromptGone: (browser, reason, id, answered) => this.#onPermissionGone(win, browser, id, answered),
       denies: (browser, id, origin) => this.#deniesPrompt(win, browser, id, origin),
     });
@@ -562,7 +656,7 @@ class UiController {
         this.#showClaim(claim, win.gBrowser.selectedTab);
       }
       applyBadges(win);
-      updateTasks(win, this.tasks(), this.#panelActions);
+      updateTasks(win, this.tasks(), this.#panelActions, this.#sidebarWaiting);
       // A close that waited across a restart, if zen-core deferred it before
       // this window's UI was up.
       // On the copy that holds the tab's page (window sync), not on this
@@ -741,6 +835,10 @@ class UiController {
         // pages since the agent last ran (zen-input's onSecretTyped): the
         // hold's card then says Resume clears them.
         secretTyped: false,
+        // The agent's hand-off said its step shows the user a secret
+        // (spaceChanged's secret): Resume blanks the page, so the hold's
+        // card says to copy what they need first.
+        secretStep: false,
         // The task's "needs you" OS notification is up (#needsUser).
         notified: false,
         // Pages that joined the task during this hold, by label, with a
@@ -811,6 +909,8 @@ class UiController {
       if (rec.ownership !== "agent") {
         this.#endTakeOverRefused(ui);
       }
+      // Only the hand-off that said so: a Take over or a page's prompt isn't one.
+      ui.secretStep = rec.ownership === "agentDelegatedToUser" && ui.source === "agent" && params.secret === true;
       if (rec.ownership === "agent" && ui.secretTyped) {
         // The agent runs again: what the user typed was cleared, or sent.
         ui.secretTyped = false;
@@ -833,9 +933,18 @@ class UiController {
         this.#forgetKept(rec.id);
       }
       this.#onOwnership(rec, { ownership: rec.ownership, source: ui.source });
+      if (event === "spaceChanged" && rec.ownership === "agentDelegatedToUser" && params.source === "agent") {
+        this.#showHandOffReloads(rec, params);
+      }
     } else if ("stateText" in params && ui.noticeTab && ui.source === "agent" && rec.ownership === "agentDelegatedToUser") {
       // The agent updated what it needs while it waits for the user.
       this.#showControlNotice(rec, ui.noticeTab, ui.source);
+    }
+    if ("ownership" in params || "paused" in params) {
+      // After the hold's own card, so a screen reader hears that first.
+      for (const tab of this.#tabsOf(rec)) {
+        this.#updatePageWarning(tab.linkedBrowser);
+      }
     }
     this.#refreshBadge(rec);
   }
@@ -1090,6 +1199,10 @@ class UiController {
     if (!live || live.linkedBrowser !== browser || !k.docs.has(doc) || k.reminded.has(doc) || !focusedField(browser)) {
       return;
     }
+    // Only a page that asks for a secret, or that the agent flagged (A6).
+    if (!this.#madeWarns(browser, () => this.#checkTyping(browser))) {
+      return;
+    }
     k.reminded.add(doc);
     this.#stopTypingChecks(k);
     if (k.dismissed.has(doc) || k.card?.doc === doc) {
@@ -1180,33 +1293,28 @@ class UiController {
   }
 
   /**
-   * Does `browser`'s page hold writes the agent's world made into it
-   * (zen-observe's written flag, the user's decision (A))? A refusal event
-   * may say (`written`); else zen-observe's isWritten answers.
+   * Is there evidence in `browser`'s page that a clean copy clears
+   * (#cleanable), for a refusal there? Its event says so with evident: true,
+   * and leaves it out otherwise (zen-core's and zen-observe's, since the
+   * user's pass on defenses, 2026-11-21, keyed on hooked and made alone
+   * since the manager's call that day), so without it the page is asked.
    *
    * @param {Element} browser
    * @param {boolean} [flag]  the event's own answer
    */
-  #written(browser, flag) {
-    if (typeof flag === "boolean") {
-      return flag;
-    }
-    try {
-      return typeof this.isWritten === "function" && !!this.isWritten(browser);
-    } catch (e) {
-      console.error("[zenius] isWritten failed", e);
-      return false;
-    }
+  #cleanablePage(browser, flag) {
+    return flag === true || this.#cleanable(browser);
   }
 
   /**
-   * The page of `browser` holds the agent's writes, and something the user
-   * just did there was refused for that: it loads afresh, quietly, through
-   * zen-core's cleanLoad, with the form carried over (the user's decision
-   * (A): no card). Their next try works. Not a page of a task that runs, nor
-   * one the agent made, which a reload can't clean.
+   * There's evidence in the page of `browser` that a clean copy clears, and
+   * something the user just did there was refused for that: it loads
+   * afresh, quietly, through zen-core's cleanLoad, with the form carried
+   * over (the user's decision (A): no card). Their next try works. Not a
+   * page of a task that runs, nor one the agent made, which a reload can't
+   * clean.
    */
-  #reloadWritten(browser) {
+  #reloadCleanable(browser) {
     const rec = this.service.controlOf?.(browser)?.space;
     if ((rec && !rec.gone && rec.ownership !== "user") || this.#madeKept(browser)) {
       return;
@@ -1217,28 +1325,29 @@ class UiController {
   /**
    * zen-core refused a window that `browser`'s page opened with an opener
    * (item 3 of the closed-groups plan, docs/research/user-tab-reach.md):
-   * after its task, a page whose window group holds a document the agent
-   * wrote into can't open windows its code could reach.
+   * after its task, a page whose window group holds a document with
+   * evidence of danger can't open windows its code could reach.
    *
    * - Item 3 opens nothing in its place (zen-core: the parent can't tell a
    *   form's POST from a GET), so the user's click did nothing: a
    *   window.open, a link or form with an opener or a named target,
    *   about:blank, blob:, data:, a feature popup refused on the Mac.
    * - When it followed the user's own click or key there (USER_ACTION_MS),
-   *   the pages that hold the writes load afresh, quietly: this page if it
-   *   does (`written`), else the group's other pages that do. The user's
-   *   next try opens. A kept page the agent made gets its card instead.
+   *   the pages with evidence a clean copy clears load afresh, quietly: this
+   *   page if it has some (`evident`), else the group's other pages that
+   *   do. The user's next try opens. A kept page the agent made gets its
+   *   card instead.
    * - One that a plain tab opened in its place (reopened, which item 3
    *   doesn't do today) needs nothing.
    * - While the user holds a page of the task, zen-core refuses opens from
    *   the task's other pages that may hold the agent's code (hold): no new
    *   strings until the user's decision on them, so nothing shows.
    *
-   * @param {{browser: Element, url?: string, reopened?: boolean, hold?: boolean, written?: boolean}} event
-   *   url: what the page tried to open ("" for about:blank); written: the
-   *   opener's own page holds the agent's writes
+   * @param {{browser: Element, url?: string, reopened?: boolean, hold?: boolean, evident?: boolean}} event
+   *   url: what the page tried to open ("" for about:blank); evident: the
+   *   opener's own page has evidence
    */
-  openRefused({ browser, reopened, hold, written } = {}) {
+  openRefused({ browser, reopened, hold, evident } = {}) {
     const doc = currentDoc(browser);
     if (hold || reopened || !doc || !this.#userActed(browser)) {
       return;
@@ -1248,17 +1357,17 @@ class UiController {
       this.#showRefused(browser, k, doc, "window");
       return;
     }
-    if (this.#written(browser, written)) {
-      this.#reloadWritten(browser);
+    if (this.#cleanablePage(browser, evident)) {
+      this.#reloadCleanable(browser);
       return;
     }
-    for (const other of this.#writtenInGroup(browser)) {
-      this.#reloadWritten(other);
+    for (const other of this.#cleanableInGroup(browser)) {
+      this.#reloadCleanable(other);
     }
   }
 
   /**
-   * zen-observe refused something a kept page with the agent's writes
+   * zen-observe refused something a kept page with evidence of danger
    * asked for: the camera, the microphone, the screen, location or
    * notifications (zen-core's onKeptRefused, from the content guards). If
    * the user's own click or key there came just before, the page loads
@@ -1266,11 +1375,11 @@ class UiController {
    * gets its card, saying what and why. The speakers, the device list and
    * MIDI need nothing: the user wouldn't miss them.
    *
-   * @param {{browser: Element, kind: string, asked?: string, written?: boolean}} event
+   * @param {{browser: Element, kind: string, asked?: string, evident?: boolean}} event
    *   kind and asked: zen-observe's (deviceAccess or notification; a word
-   *   list such as "camera microphone"); written: zen-observe's flag
+   *   list such as "camera microphone"); evident: the page has evidence
    */
-  keptRefused({ browser, kind, asked, written } = {}) {
+  keptRefused({ browser, kind, asked, evident } = {}) {
     const refused = refusedKind(kind, typeof asked === "string" ? asked : "");
     const doc = currentDoc(browser);
     if (!refused || !doc || !this.#userActed(browser)) {
@@ -1280,8 +1389,8 @@ class UiController {
       this.#showRefused(browser, this.#keptCode.get(browser.browserId), doc, refused);
       return;
     }
-    if (this.#written(browser, written)) {
-      this.#reloadWritten(browser);
+    if (this.#cleanablePage(browser, evident)) {
+      this.#reloadCleanable(browser);
     }
   }
 
@@ -1297,14 +1406,14 @@ class UiController {
   }
 
   /**
-   * The other pages of `browser`'s window group that hold the agent's
-   * writes: what keeps it from opening windows, as zen-core's item 3 asks
+   * The other pages of `browser`'s window group with evidence a clean copy
+   * clears: what keeps it from opening windows, as zen-core's item 3 asks
    * of the group. Each as the <browser> that shows it.
    *
    * @param {Element} browser
    * @returns {Element[]}
    */
-  #writtenInGroup(browser) {
+  #cleanableInGroup(browser) {
     let tops = [];
     try {
       tops = browser.browsingContext?.group?.getToplevels() ?? [];
@@ -1315,7 +1424,7 @@ class UiController {
       if (top.browserId === browser.browserId || other?.localName !== "browser" || found.includes(other)) {
         continue;
       }
-      if (this.#written(other)) {
+      if (this.#cleanable(other)) {
         found.push(other);
       }
     }
@@ -1349,6 +1458,12 @@ class UiController {
     if (ownership !== "agentDelegatedToUser" && ui.noticeTab) {
       removeNotice(ui.noticeTab, CONTROL_NOTICE);
       ui.noticeTab = null;
+    }
+    if (ownership === "agentDelegatedToUser") {
+      // A hold asks its pages afresh whether they ask for a secret (#madeWarns).
+      for (const tab of this.#tabsOf(rec)) {
+        this.#madeWarned.delete(tab.linkedBrowser);
+      }
     }
     if (ownership !== "agentDelegatedToUser") {
       this.#endHandOffNotification(rec.id, ui);
@@ -1403,7 +1518,11 @@ class UiController {
     // The page its card is on (#onOwnership set it just before).
     const site = heldSite(this.#ui(rec.id).noticeTab?.linkedBrowser);
     const where = `${name ? ` in ${name}` : ""}${site ? `, on ${site}` : ""}`;
-    this.#announce(source === "permission" ? `${card.title}${where}: ${card.detail}.` : `${card.title}${where}.${card.note ? ` ${card.note}` : ""}`);
+    const secret = source === "agent" && this.#ui(rec.id).secretStep ? ` ${SECRET_LINE}` : "";
+    // Said only while this hold lasts: not once the user or the agent ended
+    // it, or the task finished, before the burst went out.
+    const holds = () => rec.ownership === "agentDelegatedToUser" && rec.heldBy === source && !rec.gone;
+    this.#announce(source === "permission" ? `${card.title}${where}: ${card.detail}.` : `${card.title}${where}.${secret}${card.note ? ` ${card.note}` : ""}`, undefined, holds);
     const text = source === "permission" ? `The ${card.detail}.` : rec.stateText || "It's waiting for you in its Space.";
     this.#ui(rec.id).notified ||= this.#notify(
       `zenius-handoff-${rec.id}`,
@@ -1421,9 +1540,9 @@ class UiController {
    *
    * The user types in the agent's own tab, and zenius makes that safe by
    * itself (the user's direction, 2026-11-20). zen-core's hand-off reloads
-   * a page whose document ran the agent's code before the hold begins, and
-   * the pill says so in one line (spaceChanged's reloaded). On a page the
-   * agent made itself, where only the user's own Take over lands (zen-core
+   * a page with evidence of danger before the hold begins, and the page
+   * says so in a card of its own (#showHandOffReloads). On a page the agent
+   * made itself, where only the user's own Take over lands (zen-core
    * refuses a hand-off there), the line says not to enter a password.
    */
   #showControlNotice(rec, tab, source) {
@@ -1436,51 +1555,125 @@ class UiController {
       return;
     }
     const lines = card.note ? [card.note] : [];
-    if (this.#madeByAgent(rec, tab.linkedBrowser)) {
+    const browser = tab.linkedBrowser;
+    if (this.#madeByAgent(rec, browser) && this.#madeWarns(browser, () => this.#redrawControlNotice(rec, tab))) {
       lines.push(AGENTS_PAGE_LINE);
     }
     // The Resume line, just in time: once the user typed a secret there, or
     // always when zen-input can't say. It leads then, since the user is
     // typing, and the rest waits behind the '?' (the manager, 2026-11-20).
+    // A secret step's line leads instead: Resume blanks the whole page.
     const clears = ui.secretTyped || !this.secretLineJustInTime;
+    const lead = ui.secretStep ? SECRET_LINE : clears ? CLEARS_LINE : null;
     showNotice(tab, CONTROL_NOTICE, {
       ...card,
-      note: (clears ? CLEARS_LINE : lines.join(" ")) || undefined,
-      more: (clears && lines.join(" ")) || undefined,
+      note: (lead ?? lines.join(" ")) || undefined,
+      more: (lead && lines.join(" ")) || undefined,
       buttons: [{ label: "Resume agent", primary: true, onClick: () => this.#handBack(rec) }],
     });
   }
 
   /**
+   * The agent's hand-off loaded pages afresh before the hold began (zen-core's
+   * holdForUser): the page it hands the user when it had evidence of danger
+   * (spaceChanged's reloaded), and any page that a popup the agent acted in
+   * could reach. Each says so, as after the user's Take over, since a form
+   * there may be back at its defaults while it looks filled in: a press would
+   * submit the defaults (zen-input's form tests, 2026-11-21; the Cloudflare
+   * token form). The pages are those zen-core noted for this hold, by label
+   * (the record's handBackReloaded, which the hold's start clears). Each
+   * says why when spaceChanged carries holdForUser's evidence by label, as
+   * Take over's result does (reloadReason).
+   *
+   * @param {object} rec
+   * @param {{reloaded?: string, evidence?: Object<string, Object<string, string>>}} params
+   *   the hold's spaceChanged
+   */
+  #showHandOffReloads(rec, params) {
+    const shown = new Set();
+    const why = (browser, label) => {
+      if (!label) {
+        try {
+          label = this.service.controlOf?.(browser)?.page?.label ?? null;
+        } catch {}
+      }
+      const all = params.evidence;
+      const evidence = label && all && typeof all === "object" && Object.hasOwn(all, label) ? all[label] : null;
+      return evidence && typeof evidence === "object" ? evidence : null;
+    };
+    const show = (browser, label = null) => {
+      if (browser && !shown.has(browser)) {
+        shown.add(browser);
+        this.#showReloaded(browser, { evidence: why(browser, label) });
+      }
+    };
+    for (const label of Array.isArray(rec.handBackReloaded) ? rec.handBackReloaded : []) {
+      show(this.#pageBrowser(rec, label), label);
+    }
+    if (params.reloaded === "reload" || params.reloaded === "get") {
+      let held = null;
+      try {
+        held = this.service.pages?.userTab?.(rec)?.linkedBrowser ?? null;
+      } catch (e) {
+        console.error("[zenius] couldn't find the page handed off", e);
+      }
+      show(held);
+    }
+  }
+
+  /** The hold's card again, if it's still up on `tab` (#madeWarns learned more). */
+  #redrawControlNotice(rec, tab) {
+    const now = this.#peek(rec.id);
+    const ui = this.#spaces.get(rec.id);
+    if (now?.ownership === "agentDelegatedToUser" && ui?.noticeTab === tab && noticeElement(tab, CONTROL_NOTICE)) {
+      this.#showControlNotice(now, tab, ui.source);
+    }
+  }
+
+  /**
    * The user is about to act in a page the agent's sandbox wrote into
-   * (zen-input's onUserTyping, for written pages only: their first press or
-   * key anywhere in it, a paste, a drop or a composition). zen-input's
+   * (zen-input's onUserTyping, for pages with evidence of danger only, since
+   * the user's pass on defenses: their first press or key anywhere in it, a
+   * paste, a drop or a composition). zen-input's
    * guard holds their presses and keys back and has zen-core load
    * the page afresh, quietly, with the form carried over
    * (cleanOnDemand), in a live task's page or a kept one (the user's
    * decision (A)); the UI does neither. The takeover prompt still answers
-   * the user's input in a page the agent drives. If no new document comes,
-   * the user's clicks and keys stay held there, and the tab says so, with
-   * Reload (#typingStaysOff). The new document can come in written too
-   * (zen-core's stillWritten): a window on the same site, such as a popup or
-   * the page's opener, shares its group and holds the agent's writes. Then
+   * the user's input in a page the agent drives. Once the new document is
+   * in, the page says it reloaded, since a form there may be back at its
+   * defaults (#showReloaded). If no new document comes, the user's clicks
+   * and keys stay held there, and the tab says so, with Reload
+   * (#typingStaysOff). The new document can come in with evidence too
+   * (zen-core's stillEvident): a window on the same site, such as a popup or
+   * the page's opener, shares its group and holds the agent's code. Then
    * reloading can't help until that window closes, and the card says so.
    *
-   * @param {{browser: Element, trigger?: string, reloaded?: Promise<unknown>}} event
-   *   trigger: "press", "key", "paste", "drop" or "composition"; reloaded:
-   *   zen-core's cleanOnDemand promise
+   * @param {{browser: Element, trigger?: string, field?: boolean, reloaded?: Promise<{how?: string|null}>}} event
+   *   trigger: "press", "key", "paste", "drop" or "composition"; field: it
+   *   went for a field, whose focus and keys the clean copy gets back
+   *   (zen-input's replay); reloaded: zen-core's cleanOnDemand promise, whose
+   *   `how` is null when there was nothing to clean
    */
-  userTyping({ browser, trigger, reloaded } = {}) {
+  userTyping({ browser, trigger, field, reloaded } = {}) {
     if (typeof reloaded?.then !== "function") {
       return null;
     }
+    // What the page reloads on: zen-core's result says (evidence). This hook
+    // runs before the new document commits, which starts clean, so a read
+    // now stands in for a result without it.
+    const before = this.#evidence(browser);
     return Promise.resolve(reloaded).then(
-      () => true,
+      result => {
+        if (result?.how) {
+          this.#showReloaded(browser, { clickLost: trigger === "press" && field !== true, evidence: result.evidence ?? before });
+        }
+        return true;
+      },
       e => {
-        const written = e?.stillWritten === true;
-        const what = written ? "came in written too: a window on the same site holds the agent's writes" : "didn't come";
+        const still = e?.stillEvident === true || e?.stillWritten === true;
+        const what = still ? "came in with evidence too: a window on the same site holds it" : "didn't come";
         console.error(`[zenius] the quiet reload before the user's ${trigger ?? "input"} ${what}; their clicks and keys stay held there`, browser?.currentURI?.spec ?? "", e);
-        this.#typingStaysOff(browser, { written });
+        this.#typingStaysOff(browser, { stillEvident: still });
         return false;
       }
     );
@@ -1496,10 +1689,11 @@ class UiController {
    * It takes no focus; a screen reader hears it when the tab is in view.
    *
    * @param {Element} browser
-   * @param {{written?: boolean}} [why]  written: the new document came in
-   *   written too, so the card says to close the site's other window first
+   * @param {{stillEvident?: boolean}} [why]  stillEvident: the new document
+   *   came in with evidence too, so the card says to close the site's other
+   *   window first
    */
-  #typingStaysOff(browser, { written = false } = {}) {
+  #typingStaysOff(browser, { stillEvident = false } = {}) {
     const win = browser?.ownerDocument?.defaultView;
     const tab = win?.gBrowser?.getTabForBrowser(browser);
     if (!tab || !browser.isConnected) {
@@ -1509,7 +1703,7 @@ class UiController {
     showNotice(
       tab,
       TYPING_OFF_NOTICE,
-      reloadFailedCard({ written }, {
+      reloadFailedCard({ stillEvident }, {
         reload: () => {
           if (currentDoc(browser) === doc) {
             this.#cleanLoad(browser);
@@ -1518,6 +1712,34 @@ class UiController {
       })
     );
     this.#announceCard(tab, TYPING_OFF_NOTICE);
+  }
+
+  /**
+   * `browser`'s page loaded afresh at the user's press, without the agent's
+   * changes: zen-core's clean copy at their first press or key in a page
+   * with evidence (userTyping), or at their Take over (#takeOver). A form there may
+   * be back at its defaults, and the page looks the same otherwise: a React
+   * form's state isn't carried over (the Cloudflare token form, where the
+   * user clicked Create twice on a reset form, 2026-11-21). So the page says
+   * so, and that the press that set it off went nowhere. It only informs:
+   * no choice, no focus (the manager, 2026-11-21); the reload stays
+   * automatic, as the user chose. It goes with its ✕ or the tab's next
+   * document. A screen reader hears it when the tab is in view.
+   *
+   * @param {Element} browser
+   * @param {{clickLost?: boolean, evidence?: Object<string, string>|null}} [what]
+   *   clickLost: the press that set it off went nowhere (not on a field,
+   *   whose focus comes back); evidence: what zen-core reloaded it on
+   *   ({reason: detail}), which the card says (reloadReason)
+   */
+  #showReloaded(browser, { clickLost = false, evidence = null } = {}) {
+    const tab = browser?.ownerDocument?.defaultView?.gBrowser?.getTabForBrowser(browser);
+    if (!tab || !browser.isConnected) {
+      return;
+    }
+    this.#reloadedDocs.set(browser, currentDoc(browser));
+    showNotice(tab, RELOADED_NOTICE, reloadedCard({ clickLost, evidence }, { dismiss: () => this.#reloadedDocs.delete(browser) }));
+    this.#announceCard(tab, RELOADED_NOTICE);
   }
 
   /**
@@ -1560,6 +1782,9 @@ class UiController {
     if (!held && !this.#userPaused.has(rec.id)) {
       return null;
     }
+    if (held && this.#ui(rec.id).secretStep) {
+      return PANEL_SECRET_LINE;
+    }
     if (!this.#ui(rec.id).secretTyped && this.secretLineJustInTime) {
       return null;
     }
@@ -1599,8 +1824,9 @@ class UiController {
     this.takeover.resolve(rec.id, "cancel");
     this.#ui(rec.id).currentTab = tab;
     let refusal = null;
+    let held = null;
     try {
-      await take.call(this.service, rec, browser);
+      held = await take.call(this.service, rec, browser);
     } catch (e) {
       refusal = takeOverRefusal(e);
       console.error("[zenius] the Take over couldn't begin", e);
@@ -1613,6 +1839,28 @@ class UiController {
     }
     if (now.ownership === "agentDelegatedToUser") {
       this.service.spaces.setPaused(now, false);
+      // What zen-core loaded afresh for the hold: the page taken over (how),
+      // and every page in reloaded, by label (holdForUser's), such as a form
+      // page that a popup the agent acted in last could reach (zen-input's
+      // probe). Each says so, and why: holdForUser's evidence, by label
+      // (#showReloaded).
+      const shown = new Set();
+      const show = (b, evidence) => {
+        if (b && !shown.has(b)) {
+          shown.add(b);
+          this.#showReloaded(b, { evidence });
+        }
+      };
+      if (held?.how) {
+        let label = null;
+        try {
+          label = this.service.controlOf?.(browser)?.page?.label ?? null;
+        } catch {}
+        show(browser, label ? held.evidence?.[label] : null);
+      }
+      for (const page of held?.reloaded ?? []) {
+        show(this.#pageBrowser(now, page), typeof page === "string" ? held.evidence?.[page] : null);
+      }
       return;
     }
     // zen-core released the hold, and zen-input keeps the user's typing out
@@ -1624,6 +1872,27 @@ class UiController {
       return;
     }
     this.takeover.host.setPaused(now, false);
+  }
+
+  /**
+   * The <browser> of a task's page: `page` is its label (zen-core's notes),
+   * or the <browser> itself. Null once it's gone.
+   *
+   * @param {object} rec
+   * @param {string|Element} page
+   * @returns {Element|null}
+   */
+  #pageBrowser(rec, page) {
+    if (typeof page !== "string") {
+      return page?.browsingContext ? page : null;
+    }
+    try {
+      const record = this.service.pages?.peek?.(rec.id, page);
+      return (record && this.service.pages.tabFor(record)?.linkedBrowser) ?? null;
+    } catch (e) {
+      console.error("[zenius] couldn't find a reloaded page", e);
+      return null;
+    }
   }
 
   /**
@@ -1772,27 +2041,196 @@ class UiController {
   }
 
   /**
-   * zen-observe's isWritten(target) (observe/agentworld.sys.mjs): whether
-   * the page's current top document, or a frame of it, holds writes the
-   * agent's sandbox made; false again once the top document is replaced.
-   * Tests set a stand-in; null restores the real one. Without it, no page
-   * counts as written.
+   * zen-observe's evidenceOf(target) (observe/evidence.sys.mjs): the
+   * evidence of phishing or danger in the page's current top document and
+   * its frames, as {reason: detail}. The reasons are hooked (the agent's
+   * code left something there that can still act), made (the agent made the
+   * page), listed (Safe Browsing's lists) and flagged (the agent flagged
+   * it); a detail is one line or "". Empty without any, and a reload or a
+   * new load starts clean. Tests set a stand-in; null restores the real one.
    *
-   * @type {((target: Element|BrowsingContext|WindowGlobalParent) => boolean)|null}
+   * @type {((target: Element|BrowsingContext|WindowGlobalParent) => Object<string, string>)|null}
    */
-  get isWritten() {
-    if (this.#isWritten === undefined) {
+  get evidenceOf() {
+    if (this.#evidenceOf === undefined) {
       try {
-        this.#isWritten = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/agentworld.sys.mjs").isWritten ?? null;
+        this.#evidenceOf = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/evidence.sys.mjs").evidenceOf ?? null;
       } catch {
-        this.#isWritten = null;
+        this.#evidenceOf = null;
       }
     }
-    return this.#isWritten;
+    return this.#evidenceOf;
   }
 
-  set isWritten(fn) {
-    this.#isWritten = typeof fn === "function" ? fn : undefined;
+  set evidenceOf(fn) {
+    this.#evidenceOf = typeof fn === "function" ? fn : undefined;
+  }
+
+  /**
+   * The evidence about `browser`'s page, {reason: detail}, empty without
+   * any. The defenses of zen-ux's that interrupt the user or the agent act
+   * only on evidence (the user's pass on defenses, 2026-11-21,
+   * docs/briefs/defenses-evidence.md). Without zen-observe's evidenceOf, or
+   * when it fails, the page counts as evident (unknown), so they act as
+   * they did before rather than not at all.
+   *
+   * @param {Element} browser
+   * @returns {Object<string, string>}
+   */
+  #evidence(browser) {
+    try {
+      const of = this.evidenceOf;
+      return typeof of === "function" ? (of(browser) ?? {}) : { unknown: "" };
+    } catch (e) {
+      console.error("[zenius] evidenceOf failed", e);
+      return { unknown: "" };
+    }
+  }
+
+  /**
+   * Is there evidence of danger in `browser`'s page (#evidence), of any
+   * kind? Permission prompts there are cancelled (#deniesPrompt), as
+   * zen-observe's backstops are: nothing reloads for that.
+   */
+  #evident(browser) {
+    return Object.keys(this.#evidence(browser)).length > 0;
+  }
+
+  /**
+   * Is there evidence in `browser`'s page that a clean copy clears
+   * (CLEANABLE): the agent's code or its own page? What reloads keys on
+   * these alone (the manager's call, 2026-11-21, from zen-input's finding):
+   * on a page on a list, or that the agent flagged, the danger is the page
+   * itself, which a clean copy can't remove (a listed copy is marked again,
+   * a flagged one loses its flag). Such a page gets its warning instead
+   * (#updatePageWarning).
+   */
+  #cleanable(browser) {
+    const evidence = this.#evidence(browser);
+    return CLEANABLE.some(reason => Object.hasOwn(evidence, reason));
+  }
+
+  /**
+   * Is the user on `browser`'s page, rather than an agent driving it: in
+   * the user's hold, with the agent paused, after the task, or in a page no
+   * task has?
+   */
+  #userOn(browser) {
+    let rec = null;
+    try {
+      rec = this.service.controlOf?.(browser)?.space ?? null;
+    } catch {}
+    return !rec || rec.gone || rec.ownership !== "agent" || !!rec.paused;
+  }
+
+  /**
+   * zen-observe's onEvident: a document in `browser`'s page gained a
+   * reason (once per document and reason). A list's mark or the agent's
+   * flag brings the page's warning, if the user is on it.
+   *
+   * @param {{browser?: Element, innerWindowId?: number, reason?: string, detail?: string}} [event]
+   *   browser: the tab's top <browser>; innerWindowId: the document, which
+   *   can be a frame's
+   */
+  evidenceAdded({ browser, reason } = {}) {
+    if ((reason === "listed" || reason === "flagged") && browser?.localName === "browser") {
+      this.#updatePageWarning(browser);
+    }
+  }
+
+  /**
+   * The warning on `browser`'s page while the user is on it (#userOn), when
+   * the page is on a phishing or malware list or the agent flagged it (the
+   * manager's call and wording, 2026-11-21): such a page gets no hold and
+   * no clean copy, only this (pageWarningCard). It only informs: no choice
+   * but its ✕, which keeps it away for that document, and no focus. A
+   * screen reader hears it as it comes up, if the tab is in view. It goes
+   * as the agent drives the page again, and with the document.
+   *
+   * @param {Element} browser
+   */
+  #updatePageWarning(browser) {
+    const tab = browser?.ownerDocument?.defaultView?.gBrowser?.getTabForBrowser(browser);
+    if (!tab) {
+      return;
+    }
+    const doc = currentDoc(browser);
+    const bid = browser.browserId;
+    if (this.#warningDismissed.has(bid) && this.#warningDismissed.get(bid) !== doc) {
+      this.#warningDismissed.delete(bid);
+    }
+    const card =
+      doc && browser.isConnected && !this.#warningDismissed.has(bid) && this.#userOn(browser)
+        ? pageWarningCard(this.#evidence(browser), { dismiss: () => this.#warningDismissed.set(bid, doc) })
+        : null;
+    if (!card) {
+      removeNotice(tab, PAGE_WARNING_NOTICE, { refocus: false });
+      return;
+    }
+    const was = noticeText(tab, PAGE_WARNING_NOTICE);
+    showNotice(tab, PAGE_WARNING_NOTICE, card);
+    if (noticeText(tab, PAGE_WARNING_NOTICE) !== was) {
+      this.#announceCard(tab, PAGE_WARNING_NOTICE);
+    }
+  }
+
+  /**
+   * Should the card of a page the agent made say so ("The agent made this
+   * page. It might contain malicious code…")? Only when the page asks for a
+   * password, a card's details or a one-time code, or the agent flagged it
+   * (the user's pass on defenses, 2026-11-21, A6). The frames answer
+   * asynchronously: until they have, this says no, and `learned` runs once
+   * the answer is yes. A no is asked again after MADE_RECHECK_MS, as a page
+   * can add a field.
+   *
+   * @param {Element} browser
+   * @param {() => void} [learned]
+   * @returns {boolean}
+   */
+  #madeWarns(browser, learned) {
+    if ("flagged" in this.#evidence(browser)) {
+      return true;
+    }
+    const doc = currentDoc(browser);
+    const known = this.#madeWarned.get(browser);
+    if (known?.doc === doc && (known.value === true || (known.value === false && Date.now() - known.at < MADE_RECHECK_MS))) {
+      return known.value;
+    }
+    if (known?.doc === doc && known.value instanceof Promise) {
+      return false;
+    }
+    const asking = this.#asksSecrets(browser).then(value => {
+      if (this.#madeWarned.get(browser)?.value === asking) {
+        this.#madeWarned.set(browser, { doc, value, at: Date.now() });
+        if (value && currentDoc(browser) === doc) {
+          learned?.();
+        }
+      }
+      return value;
+    });
+    this.#madeWarned.set(browser, { doc, value: asking, at: Date.now() });
+    return false;
+  }
+
+  /**
+   * Does `browser`'s page ask for a password, a card's details or a
+   * one-time code in any of its frames (content/uipage.sys.mjs)? No when
+   * no frame can say.
+   *
+   * @param {Element} browser
+   * @returns {Promise<boolean>}
+   */
+  async #asksSecrets(browser) {
+    const top = browser?.browsingContext;
+    if (!top) {
+      return false;
+    }
+    const answers = await Promise.all(
+      top.getAllBrowsingContextsInSubtree().map(bc =>
+        this.service.content(bc, "uipage#secretKinds", {}, { timeout: SECRET_KINDS_MS }).catch(() => null)
+      )
+    );
+    return answers.some(kinds => Array.isArray(kinds) && kinds.length > 0);
   }
 
   /** agentMadePage's answer; false if it fails. */
@@ -1857,10 +2295,13 @@ class UiController {
   }
 
   /**
-   * Before the agent gets a task back from the user's hold: a page that
-   * still holds a password, card number or code the user typed and didn't
-   * send loads afresh, so no page state keeps it (the user's rule: the
-   * agent never holds a secret). zen-input's typedSecrets names the pages
+   * Before the agent gets a task back from the user's hold: a page with
+   * evidence a clean copy clears (#cleanable) that still holds a password,
+   * card number or code the user typed and didn't send loads afresh, so no
+   * code the agent left there keeps it (the user's pass on defenses, A4: on
+   * evidence only; a list's mark or the agent's flag aren't such, the
+   * manager's call, 2026-11-21). zen-input's hand-back guard empties those fields in
+   * every page all the same (B1). zen-input's typedSecrets names the pages
    * whose document the user typed one into; zen-core's cleanLoad reloads
    * each quietly (a new GET entry in the current one's place); zen-core
    * notes which reloaded, for the hand back's report (noteReloaded).
@@ -1873,6 +2314,12 @@ class UiController {
    * @returns {Promise<Element[]>} the pages it reloaded
    */
   async beforeHandBack(rec) {
+    // zen-core's glue: a secret step's tab goes blank first (its blankSecretSteps).
+    try {
+      await this.service?.blankSecretSteps?.(rec);
+    } catch (e) {
+      console.error("[zenius] blankSecretSteps failed", e);
+    }
     const reloaded = await this.#reloadTyped(rec);
     if (reloaded.length) {
       try {
@@ -1900,6 +2347,7 @@ class UiController {
     } catch (e) {
       console.error("[zenius] typedSecrets failed", e);
     }
+    pages = pages.filter(browser => this.#cleanable(browser));
     const done = await Promise.all(pages.map(browser => this.#cleanLoad(browser)));
     return pages.filter((_, i) => done[i]);
   }
@@ -2007,12 +2455,12 @@ class UiController {
    * through (the user's decision (A)). Nothing takes focus or moves a view
    * (I1).
    *
-   * @param {{browser: Element, url: string, origin: string, reason: string, typed: boolean, scope?: "task"|"agentCode", written?: boolean}} event
+   * @param {{browser: Element, url: string, origin: string, reason: string, typed: boolean, scope?: "task"|"agentCode", evident?: boolean}} event
    *   typed: the user chose the URL; else the page did, and only its site's
    *   home page is offered. scope: why zen-observe refused it, a task's tab
    *   (or a popup of one) or a page with the agent's code or writes
    */
-  userLoadRefused({ browser, url, origin, typed, scope, written } = {}) {
+  userLoadRefused({ browser, url, origin, typed, scope, evident } = {}) {
     const win = browser?.ownerDocument?.defaultView;
     const tab = win?.gBrowser?.getTabForBrowser(browser);
     let target = null;
@@ -2027,8 +2475,8 @@ class UiController {
     const hit = this.service.controlOf(browser);
     const inTask = scope ? scope === "task" : !!hit && !!this.service.spaces.isAgentTask?.(hit.space);
     if (!inTask) {
-      if (this.#userActed(browser) && this.#written(browser, written)) {
-        this.#reloadWritten(browser);
+      if (this.#userActed(browser) && this.#cleanablePage(browser, evident)) {
+        this.#reloadCleanable(browser);
       }
       return;
     }
@@ -2361,18 +2809,20 @@ class UiController {
    * Window sync moved a docShell between two copies of `tab` (Zen's swap).
    * zen-core's pageMoved covers a page's; this moves what zen-ux shows on
    * a tab that isn't a page: the user's own tab's notice, and the pill of a
-   * close that waits for the user to leave the tab.
+   * close that waits for the user to leave the tab. A page's warning goes
+   * with its document, whoever's tab it is.
    */
   #onDocShellMoved(tab) {
     if (!tab) {
       return;
     }
-    if (this.service.pages.isDeferred?.(tab)) {
-      const live = liveCopy(tab);
-      for (const copy of copiesOf(tab)) {
-        if (live && copy !== live) {
+    const live = liveCopy(tab);
+    for (const copy of copiesOf(tab)) {
+      if (live && copy !== live) {
+        if (this.service.pages.isDeferred?.(tab)) {
           moveNotice(copy, live, CLOSING_NOTICE);
         }
+        moveNotice(copy, live, PAGE_WARNING_NOTICE);
       }
     }
     for (const k of this.#keptCode.values()) {
@@ -2446,7 +2896,7 @@ class UiController {
       const auto = this.#autoHandOffsOf(hit.rec.id);
       const why = auto.spent.has(origin) ? "site" : auto.unanswered >= MAX_UNANSWERED_HANDOFFS ? "task" : null;
       if (why) {
-        reportRefused(browser, kind === "passkey" ? "passkey" : "permissionPrompt", refusedText(kind, reason, origin, why));
+        reportRefused(browser, kind === "passkey" ? "passkey" : "permissionPrompt", refusedText(kind, reason, origin, why, what));
         return false;
       }
       auto.open.set(key, origin);
@@ -2465,10 +2915,11 @@ class UiController {
   }
 
   /**
-   * A prompt a task's pages never get showed anyway (zen-core's backstop
-   * cancels them before any prompt): it goes at once, while the user holds
-   * the task too, and the agent hears why. The user's own tabs, and a
-   * task's that ended, keep theirs.
+   * A prompt zenius cancels showed anyway (zen-observe's backstops cancel
+   * these before any prompt): any prompt on evidence of danger in the page,
+   * held or not, and the devices' while the agent drives. It goes at once,
+   * and the agent hears why. The user's own tabs, and a task's that ended,
+   * keep theirs.
    *
    * @returns {boolean} true to cancel it
    */
@@ -2478,7 +2929,11 @@ class UiController {
     if (!hit || hit.rec.gone || hit.rec.ownership === "user") {
       return false;
     }
-    reportRefused(browser, "promptDenied", deniedText(id, origin));
+    const why = this.#evident(browser) ? "evidence" : isDevicePrompt(id) && hit.rec.ownership === "agent" && !hit.rec.paused ? "device" : null;
+    if (!why) {
+      return false;
+    }
+    reportRefused(browser, "promptDenied", deniedText(id, origin, why));
     return true;
   }
 
@@ -2632,6 +3087,16 @@ class UiController {
   }
 
   /**
+   * Whether an announcement waits to go out in `win` (#announce's burst):
+   * for tests, which read the announcer once it has (announcementsOut).
+   *
+   * @param {Window} win
+   */
+  announcing(win) {
+    return !!this.#bursts.get(win)?.timer;
+  }
+
+  /**
    * Tell a screen reader without moving focus, through Firefox's own
    * announcer: an ARIA alert in the browser window (Firefox notes that JAWS
    * ignores aria-live in its chrome). Only for the moments that need the
@@ -2644,20 +3109,16 @@ class UiController {
    * leave a screen reader only the last. Those within ANNOUNCE_MS of the
    * first go out as one, each in the order it came, a repeat dropped.
    *
+   * A moment can pass in that time: a hold the user ended at once, or whose
+   * task finished (zen-eval's Mac run, 2026-11-22, heard one test's hold in
+   * the next). `still` says whether it holds as the burst goes out; one that
+   * passed isn't said.
+   *
    * @param {string} text
    * @param {Window} [win]  default: the browser window the user was in last
+   * @param {(() => boolean)|null} [still]  default: the moment stays
    */
-  /**
-   * Whether an announcement waits to go out in `win` (#announce's burst):
-   * for tests, which read the announcer once it has (announcementsOut).
-   *
-   * @param {Window} win
-   */
-  announcing(win) {
-    return !!this.#bursts.get(win)?.timer;
-  }
-
-  #announce(text, win = Services.wm.getMostRecentWindow("navigator:browser")) {
+  #announce(text, win = Services.wm.getMostRecentWindow("navigator:browser"), still = null) {
     if (!win || !text) {
       return;
     }
@@ -2666,16 +3127,34 @@ class UiController {
       burst = { texts: [], timer: 0 };
       this.#bursts.set(win, burst);
     }
-    if (!burst.texts.includes(text)) {
-      burst.texts.push(text);
+    // A repeat keeps its place, and the latest moment decides.
+    const queued = burst.texts.find(t => t.text === text);
+    if (queued) {
+      queued.still = still;
+    } else {
+      burst.texts.push({ text, still });
     }
     if (burst.timer) {
       return;
     }
     burst.timer = lazy.setTimeout(() => {
-      const said = burst.texts.join(" ");
+      const holds = t => {
+        try {
+          return !t.still || !!t.still();
+        } catch (e) {
+          console.error("[zenius] an announcement's check failed", e);
+          return false;
+        }
+      };
+      const said = burst.texts
+        .filter(holds)
+        .map(t => t.text)
+        .join(" ");
       burst.texts = [];
       burst.timer = 0;
+      if (!said) {
+        return;
+      }
       try {
         win.A11yUtils?.announce({ raw: said });
       } catch (e) {
@@ -2739,6 +3218,25 @@ class UiController {
    */
   stopWatching(win, { back = true } = {}) {
     return this.#watches.end(win, { back });
+  }
+
+  /**
+   * A remote task started while the agent sidebar is closed in `win` (the
+   * agent sidebar's arrival): the same small card it would show, over the
+   * strip (ui/panel.sys.mjs's showArrival). It takes no focus, opens nothing
+   * and selects nothing (I1).
+   *
+   * @param {Window} win
+   * @param {{text: string, watch: () => void, stop: () => void, ms: number}} arrival
+   * @returns {boolean} whether it shows
+   */
+  remoteArrival(win, arrival) {
+    try {
+      return showArrival(win, arrival);
+    } catch (e) {
+      console.error("[zenius] the remote task's arrival card failed", e);
+      return false;
+    }
   }
 
   /**
@@ -3119,8 +3617,42 @@ class UiController {
         idleFor: this.service.isIdleTask?.(rec) ? idleText(this.service.autoCloseHours) : null,
         clears: this.#panelClears(rec),
       });
+      rows.at(-1).needs = needsUser(rows.at(-1));
     }
     return rows;
+  }
+
+  /**
+   * How many tasks need the user: the strip's count, which the agent
+   * sidebar's Work count reads too, so they agree (the user's ask,
+   * docs/briefs/external-tasks.md). Every zenius task that waits for the
+   * user (needsUser), whoever drives it, plus the sidebar's tasks that need
+   * the user with no zenius task saying so (noteSidebarWaiting).
+   *
+   * @returns {number}
+   */
+  needsCount() {
+    return this.tasks().filter(row => row.needs).length + this.#sidebarWaiting.length;
+  }
+
+  /**
+   * The agent sidebar's word on its tasks that need the user where no zenius
+   * task says so: a chat's question, error or permission before its agent
+   * opened one (AgentService.noteWaiting). The strip counts them, and its
+   * panel has a line with Open, which shows the first in the sidebar.
+   *
+   * @param {Array<{uid: string, name: string}>} waiting
+   */
+  noteSidebarWaiting(waiting) {
+    const list = (Array.isArray(waiting) ? waiting : [])
+      .filter(item => typeof item?.uid === "string" && item.uid)
+      .slice(0, 50)
+      .map(item => ({ uid: item.uid.slice(0, 64), name: typeof item.name === "string" ? item.name.slice(0, 80) : "" }));
+    if (JSON.stringify(list) === JSON.stringify(this.#sidebarWaiting)) {
+      return;
+    }
+    this.#sidebarWaiting = list;
+    this.#refreshTasks();
   }
 
   /** Refresh every Space's badge on the next tick (coalesced). */
@@ -3151,7 +3683,7 @@ class UiController {
     const rows = this.tasks();
     for (const win of Services.wm.getEnumerator("navigator:browser")) {
       if (!win.closed && win.gBrowser) {
-        updateTasks(win, rows, this.#panelActions);
+        updateTasks(win, rows, this.#panelActions, this.#sidebarWaiting);
       }
     }
     // A watched task's new name.
@@ -3435,18 +3967,18 @@ export function takeOverRefusedCard({ reason, offSite = false } = {}, actions = 
  * The card on a tab where the quiet reload before the user's first click or
  * key didn't come, so their clicks and keys stay out of it (the manager's
  * recommendation and wording, 2026-11-20). Reload tries again; the card
- * stays up meanwhile. When the new document came in written too (`written`:
- * another window on the site holds the agent's writes, zen-core's
- * stillWritten), Reload alone can't help, so the note gives the way out
- * first (zen-core's: close the popup on the site, then reload).
+ * stays up meanwhile. When the new document came in with evidence too
+ * (`stillEvident`: another window on the site holds the agent's code,
+ * zen-core's stillEvident), Reload alone can't help, so the note gives the
+ * way out first (zen-core's: close the popup on the site, then reload).
  *
- * @param {{written?: boolean}} [why]
+ * @param {{stillEvident?: boolean}} [why]
  * @param {{reload?: () => void, dismiss?: () => void}} [actions]
  */
-export function reloadFailedCard({ written = false } = {}, actions = {}) {
+export function reloadFailedCard({ stillEvident = false } = {}, actions = {}) {
   return {
     title: "This page couldn't reload",
-    note: written
+    note: stillEvident
       ? "Clicks and typing here stay off. Close the popup or other window on this site, then reload."
       : "Clicks and typing here stay off until it does.",
     tone: "attention",
@@ -3454,6 +3986,105 @@ export function reloadFailedCard({ written = false } = {}, actions = {}) {
       { label: "Reload", primary: true, stays: true, onClick: actions.reload ?? (() => {}) },
       { label: "Dismiss", icon: "close", onClick: actions.dismiss ?? (() => {}) },
     ],
+  };
+}
+
+/**
+ * Why a page loaded afresh, in the reload notice's words, from the evidence
+ * zen-core acted on (zen-observe's reasons), the strongest first. Each says
+ * its detail behind the '?', if it has one worth reading. Only what a clean
+ * copy clears: a page on a list, or that the agent flagged, doesn't reload
+ * for that (the manager's call, 2026-11-21), and gets its warning.
+ */
+const RELOAD_WHY = [
+  ["hooked", () => "the agent's code had changed it", left => `What its code left: ${left}.`],
+  ["made", () => "the agent made it", () => ""],
+];
+
+/**
+ * A detail of zen-observe's or the agent's as one line of text: no control
+ * or format characters (bidi controls among them, which isolate() adds
+ * back around it), no line breaks, at most 200 characters. It stays text:
+ * the cards set it as text, and their details count down only with a
+ * deadline (notices.sys.mjs).
+ *
+ * @param {unknown} text
+ */
+function detailLine(text) {
+  return typeof text === "string" ? text.replace(/[\s\p{Cc}\p{Cf}]+/gu, " ").trim().slice(0, 200) : "";
+}
+
+/**
+ * The reload notice's reason for `evidence` ({reason: detail}), or null
+ * for none it knows. A detail is zen-observe's one line, isolated
+ * (detailLine).
+ *
+ * @param {Object<string, string>|null|undefined} evidence
+ * @returns {{why: string, more: string}|null}
+ */
+export function reloadReason(evidence) {
+  if (!evidence || typeof evidence !== "object") {
+    return null;
+  }
+  for (const [reason, why, more] of RELOAD_WHY) {
+    if (Object.hasOwn(evidence, reason)) {
+      const detail = detailLine(evidence[reason]);
+      return { why: why(detail), more: detail ? more(isolate(detail)) : "" };
+    }
+  }
+  return null;
+}
+
+/**
+ * The warning on a page that's on a phishing or malware list (zen-observe's
+ * listed, from Safe Browsing) or that the agent flagged (its flagged, with
+ * the agent's reason), while the user is on it (the manager's call and
+ * wording, 2026-11-21). Null for evidence with neither. It only informs:
+ * its one button is the ✕. The agent's reason is one line, isolated
+ * (detailLine): it can't add a line or a button, and it reads as the
+ * agent's, between zenius's title and note.
+ *
+ * @param {Object<string, string>|null|undefined} evidence
+ * @param {{dismiss?: () => void}} [actions]
+ */
+export function pageWarningCard(evidence, actions = {}) {
+  const has = reason => !!evidence && typeof evidence === "object" && Object.hasOwn(evidence, reason);
+  if (!has("listed") && !has("flagged")) {
+    return null;
+  }
+  const said = has("flagged") ? detailLine(evidence.flagged) : "";
+  const flag = said ? isolate(said) : "";
+  return {
+    title: has("listed") ? "This page is on a phishing or malware list" : "The agent flagged this page",
+    detail: !has("listed") && flag ? flag : undefined,
+    note: "Be careful what you enter here.",
+    more: has("listed") && has("flagged") ? (flag ? `The agent flagged it too: ${flag}.` : "The agent flagged it too.") : undefined,
+    tone: "attention",
+    buttons: [{ label: "Dismiss", icon: "close", onClick: actions.dismiss ?? (() => {}) }],
+  };
+}
+
+/**
+ * The card on a page that loaded afresh at the user's press, without the
+ * agent's changes (the manager's ask and wording, 2026-11-21): a form there
+ * may be back at its defaults, so the user checks it before submitting. It
+ * only informs: its one button is the ✕. `clickLost`: the press that set
+ * the reload off went nowhere, which the title says first. `evidence`: what
+ * zen-core reloaded it on ({reason: detail}, zen-observe's), which it says
+ * (the user's pass on defenses, 2026-11-21: the notice says why).
+ *
+ * @param {{clickLost?: boolean, evidence?: Object<string, string>|null}} [what]
+ * @param {{dismiss?: () => void}} [actions]
+ */
+export function reloadedCard({ clickLost = false, evidence = null } = {}, actions = {}) {
+  const reason = reloadReason(evidence);
+  return {
+    title: clickLost ? "Your click didn't go through" : "This page reloaded",
+    detail: clickLost ? (reason ? `the page reloaded, as ${reason.why}` : "the page reloaded") : reason?.why,
+    note: "A form here may be back to its defaults: check it before you submit.",
+    more: ["It reloaded without the agent's changes.", reason?.more].filter(Boolean).join(" "),
+    tone: "attention",
+    buttons: [{ label: "Dismiss", icon: "close", onClick: actions.dismiss ?? (() => {}) }],
   };
 }
 

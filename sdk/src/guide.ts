@@ -19,8 +19,13 @@ import { fs, url } from "./node.ts";
 export const GUIDE_TAG = "[zenius:skill]";
 export const GUIDE_PLATFORMS = ["macos", "linux"] as const;
 export type GuidePlatform = (typeof GUIDE_PLATFORMS)[number];
-/** Claude Code keeps 30,000 characters of command output; leave headroom. */
-export const MAX_GUIDE_LENGTH = 25_000;
+/**
+ * Claude Code keeps 30,000 characters of command output, and the cap leaves
+ * 4,500 of them as headroom. The manager raised it from 25,000 for the
+ * hand-off rules after a real-use bug (2026-11-21); make room by tightening
+ * before asking to raise it again.
+ */
+export const MAX_GUIDE_LENGTH = 25_500;
 
 const PLATFORM_OPEN = /^\s*<!--\s*platform:\s*([a-z, ]+?)\s*-->\s*$/;
 const PLATFORM_CLOSE = /^\s*<!--\s*\/platform\s*-->\s*$/;

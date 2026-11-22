@@ -1,9 +1,9 @@
 # Zenius: Agentic Zen
 
-Zenius adds Ego Lite's agent-browser capabilities to the user's existing Zen
+Zenius brings agent browsing on Ego Lite's level to the user's existing Zen
 Browser (Zen 1.24.2b, Gecko 160), without forking Zen. Agents such as Claude
-Code and Codex drive it with an Ego-compatible JavaScript API, each task in
-its own Zen Space, while the user keeps browsing in theirs.
+Code and Codex drive it with zenius's JavaScript API, each task in its own Zen
+Space, while the user keeps browsing in theirs.
 
 ## 1. Goals
 
@@ -37,7 +37,7 @@ its own Zen Space, while the user keeps browsing in theirs.
 
 ```text
 Claude Code / Codex
-  └─ zenius nodejs <<'EOF' … EOF        Node SDK, Ego-compatible globals and classes
+  └─ zenius nodejs <<'EOF' … EOF        Node SDK: zenius's globals and classes
        └─ Unix socket, NDJSON            ~/.zenius/run/<instance>.sock (0600)
             └─ Zen parent process
                  ZeniusService (.sys.mjs singleton, started by zenius.uc.js)

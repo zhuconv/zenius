@@ -19,23 +19,26 @@
 //   (docs/research/own-tab.md, item 3). These hold for the task's whole life,
 //   the user's hold included, and in the workers the task's pages start
 //   (workerguard.js).
-// - the user's devices and location, for the task's whole life too: the
-//   camera, microphone and screen (getUserMedia, mozGetUserMedia,
-//   getDisplayMedia, selectAudioOutput), location, MIDI and speech
-//   recognition get the denial a page gets when the user says no, and
-//   enumerateDevices() lists none. No request leaves the page: none reaches
-//   MediaManager or the geolocation provider. The system's consent for
-//   these (macOS's TCC) covers the whole browser, the user's own Zen
-//   included, and Gecko asks it before its own prompt once a site has a
-//   grant (WebRTCParent's checkOSPermission). Workers have none of these
-//   APIs.
-// - notifications, for the task's whole life, even where the site has the
-//   user's grant: new Notification() gives one that only errs, and
-//   showNotification() rejects, as where notifications are blocked; in the
-//   task's workers too.
-// - WebRTC: new RTCPeerConnection() throws NotAllowedError. ICE gathering
-//   can raise macOS's Local Network prompt; the parent refuses the pages'
-//   requests to the local network (observe/localnet.sys.mjs).
+// - the user's devices (A8 of the user's pass on the defenses brief,
+//   2026-11-21): while the agent drives the page, the camera, microphone and
+//   screen (getUserMedia, mozGetUserMedia, getDisplayMedia,
+//   selectAudioOutput) and speech recognition get the denial a page gets
+//   when the user says no, and enumerateDevices() lists none: the agent never
+//   uses the user's devices. So does a popup an agent-driven page opens,
+//   from its first document. A refused request never leaves the page: none
+//   reaches MediaManager. Workers have none of these APIs.
+// - WebRTC, by the same rule: new RTCPeerConnection() throws
+//   NotAllowedError. ICE gathering can raise macOS's Local Network prompt;
+//   the parent refuses the pages' requests to the local network
+//   (observe/localnet.sys.mjs).
+// - on evidence of danger (content/evidence.sys.mjs), all of those and the
+//   prompts' APIs: location and MIDI get the user's no, new Notification()
+//   gives one that only errs and showNotification() rejects, as where
+//   notifications are blocked. That holds during the user's hold too.
+//   Otherwise location, MIDI and notifications go on to the prompt layer as
+//   on any site (a stored grant applies), and during the hold the devices
+//   ask the user. The task's workers refuse notifications for the task's
+//   whole life: a worker can't read the hold or the evidence.
 
 // The checks a user's document needs (needsRefusals and the rest) are in the
 // leaf content/taskset.sys.mjs, zen-core's, which this module re-exports: a
@@ -54,6 +57,8 @@ export {
   isTaskPopup,
   needsRefusals,
 } from "chrome://userscripts/content/zenius/content/taskset.sys.mjs";
+
+import { EVIDENCE_REASONS, evidenceOf, isEvident } from "chrome://userscripts/content/zenius/content/evidence.sys.mjs";
 
 // Only a task's pages (and pages that keep the agent's code) use these.
 const lazy = {};
@@ -334,9 +339,18 @@ export function installRefusalGuards(actor) {
     );
   }
   guardServiceWorkerAccess(win, page, { report, guard, guardGetter, applies: taskPage });
-  guardDevices(page, win, { report, later, guard, worldGuard, applies: taskPage });
-  guardNotifications(win, page, { report, guard, applies: taskPage });
-  guardPeerConnections(win, page, { report, applies: taskPage });
+  // The user's devices and the prompts' APIs (A8): the devices while the
+  // agent drives the page, or a popup an agent-driven page opened before the
+  // parent makes it the task's; everything on evidence of danger, the user's
+  // hold included.
+  const opener = taskPopupOpener(bc);
+  const agentNow = () => isAgentDriven(bc) || (!!opener && !isAgentTaskPage(bc) && isAgentDriven(opener));
+  const evident = () => isEvident(bc);
+  const devices = () => evident() || agentNow();
+  const why = () => (evident() ? { evidence: evidenceWords(bc) } : { agent: true });
+  guardDevices(page, win, { report, later, guard, worldGuard, devices, prompts: evident, why });
+  guardNotifications(win, page, { report, guard, applies: evident, why });
+  guardPeerConnections(win, page, { report, applies: devices, why });
   watchWorkers();
   guardSharedWorkers(
     win,
@@ -565,22 +579,44 @@ function askedOf(constraints) {
   return { words: "camera microphone", text: "the camera or microphone" };
 }
 
+/** The opener of a task's popup (taskset's isTaskPopup), read at the document's start, or null. */
+function taskPopupOpener(bc) {
+  try {
+    return isTaskPopup(bc) ? (bc.top.opener ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The page's evidence in a few words for the agent: its first reason, with that reason's detail. */
+function evidenceWords(bc) {
+  const ev = evidenceOf(bc);
+  const reason = EVIDENCE_REASONS.find(r => r in ev);
+  return !reason ? "evidence" : ev[reason] ? `${reason}: ${ev[reason]}` : reason;
+}
+
 /**
- * The user's devices and location, refused while `applies()`: for a task's
- * pages, the task's whole life. Each refusal is reported once per document
- * and API, since pages retry.
+ * The user's devices, refused while `devices()`, and location and MIDI
+ * while `prompts()`; `why()` says why, for the agent: {evidence: words} or
+ * {agent: true}. Each refusal is reported once per document and API, since
+ * pages retry.
  */
-function guardDevices(page, win, { report, later, guard, worldGuard, applies }) {
+function guardDevices(page, win, { report, later, guard, worldGuard, devices, prompts, why }) {
   // Gecko's own words for a denied request.
   const notAllowed = () =>
     new page.DOMException("The request is not allowed by the user agent or the platform in the current context.", "NotAllowedError");
-  const refused = (api, asked, outcome, words) =>
+  const refused = (api, asked, outcome, words) => {
+    const { evidence } = why();
+    const head = `The page asked for ${asked} (${api}).`;
     report(
       "deviceAccess",
-      `The page asked for ${asked} (${api}). A task's pages never use the user's devices or location: the system's consent prompt for them would apply to the user's whole browser, so zenius refused it before any prompt (${outcome}). If the task needs it, tell the user: it works in their own tab.`,
+      evidence !== undefined
+        ? `${head} The page shows evidence of danger (${evidence}), so zenius refused it before any prompt (${outcome}), during the user's hold too.`
+        : `${head} The agent never uses the user's devices, so zenius refused it before any prompt (${outcome}). If the task needs it, hand the task to the user: while they hold the page, it can ask them.`,
       api,
       { api, asked: words }
     );
+  };
   guard(
     "MediaDevices",
     "getUserMedia",
@@ -589,7 +625,7 @@ function guardDevices(page, win, { report, later, guard, worldGuard, applies }) 
       refused("getUserMedia", asked.text, "NotAllowedError", asked.words);
       return page.Promise.reject(notAllowed());
     },
-    applies
+    devices
   );
   guard(
     "MediaDevices",
@@ -598,7 +634,7 @@ function guardDevices(page, win, { report, later, guard, worldGuard, applies }) 
       refused("getDisplayMedia", "the screen, to record or share it", "NotAllowedError", "screen");
       return page.Promise.reject(notAllowed());
     },
-    applies
+    devices
   );
   guard(
     "MediaDevices",
@@ -607,7 +643,7 @@ function guardDevices(page, win, { report, later, guard, worldGuard, applies }) 
       refused("selectAudioOutput", "a choice of speakers", "NotAllowedError", "speakers");
       return page.Promise.reject(notAllowed());
     },
-    applies
+    devices
   );
   // Answered here, as on a machine without devices: the browser's list
   // would name the user's devices where the site has a grant.
@@ -615,15 +651,19 @@ function guardDevices(page, win, { report, later, guard, worldGuard, applies }) 
     "MediaDevices",
     "enumerateDevices",
     () => {
+      const { evidence } = why();
+      const head = "The page asked which cameras, microphones and speakers there are (enumerateDevices).";
       report(
         "deviceAccess",
-        "The page asked which cameras, microphones and speakers there are (enumerateDevices). A task's pages never use the user's devices, so zenius answered with an empty list without asking the browser. If the task needs a device, tell the user: it works in their own tab.",
+        evidence !== undefined
+          ? `${head} The page shows evidence of danger (${evidence}), so zenius answered with an empty list without asking the browser.`
+          : `${head} The agent never uses the user's devices, so zenius answered with an empty list without asking the browser.`,
         "enumerateDevices",
         { api: "enumerateDevices", asked: "device list" }
       );
       return page.Promise.resolve(new page.Array());
     },
-    applies
+    devices
   );
   // The legacy callback form.
   guard(
@@ -638,7 +678,7 @@ function guardDevices(page, win, { report, later, guard, worldGuard, applies }) 
       }
       return undefined;
     },
-    applies
+    devices
   );
 
   // A PERMISSION_DENIED error, as when the user blocks location: own,
@@ -670,7 +710,7 @@ function guardDevices(page, win, { report, later, guard, worldGuard, applies }) 
         }
         return name === "watchPosition" ? ++watches : undefined;
       },
-      applies
+      prompts
     );
   }
 
@@ -681,7 +721,7 @@ function guardDevices(page, win, { report, later, guard, worldGuard, applies }) 
       refused("requestMIDIAccess", "MIDI devices", "NotAllowedError", "midi");
       return page.Promise.reject(notAllowed());
     },
-    applies
+    prompts
   );
 
   // A page's own passkey request waits for the user (zen-ux,
@@ -713,7 +753,7 @@ function guardDevices(page, win, { report, later, guard, worldGuard, applies }) 
       });
       return undefined;
     },
-    applies
+    devices
   );
 }
 
@@ -773,13 +813,14 @@ function exportHelpers(sandbox, helpers) {
 }
 
 /**
- * Notifications, refused while `applies()` (for a task's pages, the task's
- * whole life), even where the site has the user's grant: one would show on
- * the user's desktop.
+ * Notifications, refused while `applies()` (on evidence of danger), even
+ * where the site has the user's grant: one would show on the user's desktop.
+ * While the agent drives, zen-ux's guard keeps a granted site's quiet
+ * (ui/systemui/ZeniusSystemUiChild.sys.mjs).
  */
-function guardNotifications(win, page, { report, guard, applies }) {
+function guardNotifications(win, page, { report, guard, applies, why }) {
   const refused = api =>
-    `The page tried to show a notification (${api}). A task's pages never show notifications on the user's desktop, even where the site may, so zenius refused it (${api === "showNotification" ? "a TypeError" : "an error event"}, as where notifications are blocked).`;
+    `The page tried to show a notification (${api}). The page shows evidence of danger (${why().evidence ?? "evidence"}), so zenius refused it (${api === "showNotification" ? "a TypeError" : "an error event"}, as where notifications are blocked), during the user's hold too.`;
   guard(
     "ServiceWorkerRegistration",
     "showNotification",
@@ -834,12 +875,12 @@ function guardNotifications(win, page, { report, guard, applies }) {
 }
 
 /**
- * WebRTC, refused while `applies()`: ICE gathering reads the machine's local
- * network addresses and can raise macOS's Local Network prompt, whose answer
- * covers the user's whole browser. Fingerprinting scripts make one on many
- * sites; the camera and microphone are refused already.
+ * WebRTC, refused while `applies()` (the agent drives, or evidence): ICE
+ * gathering reads the machine's local network addresses and can raise
+ * macOS's Local Network prompt, whose answer covers the user's whole
+ * browser. Fingerprinting scripts make one on many sites.
  */
-function guardPeerConnections(win, page, { report, applies }) {
+function guardPeerConnections(win, page, { report, applies, why }) {
   if (typeof page.RTCPeerConnection !== "function") {
     return;
   }
@@ -849,9 +890,13 @@ function guardPeerConnections(win, page, { report, applies }) {
         if (!applies()) {
           return false;
         }
+        const { evidence } = why();
+        const head = "The page tried to open a WebRTC connection (new RTCPeerConnection).";
         report(
           "localNetwork",
-          "The page tried to open a WebRTC connection (new RTCPeerConnection). WebRTC gathers the machine's local network addresses, which can make macOS ask the user about the local network for their whole browser, so a task's pages can't use it (NotAllowedError). If the task needs a call, tell the user: it works in their own tab.",
+          evidence !== undefined
+            ? `${head} The page shows evidence of danger (${evidence}), so zenius refused it (NotAllowedError), during the user's hold too.`
+            : `${head} WebRTC gathers the machine's local network addresses, which can make macOS ask the user about the local network for their whole browser, so the agent's pages can't use it (NotAllowedError). If the task needs a call, hand the task to the user: while they hold the page, it can connect.`,
           "RTCPeerConnection"
         );
         return true;

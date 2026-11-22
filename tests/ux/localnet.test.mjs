@@ -24,7 +24,7 @@ before(async () => {
 });
 
 after(async () => {
-  await h?.chrome(`const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI; UI.cleanLoad = null; UI.isWritten = null; return true;`).catch(() => {});
+  await h?.chrome(`const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI; UI.cleanLoad = null; UI.evidenceOf = null; return true;`).catch(() => {});
   await h?.close();
 });
 
@@ -77,7 +77,7 @@ const K = `
   const standIn = bid => {
     const b = tabOf(bid).linkedBrowser;
     const doc = b.browsingContext.currentWindowGlobal.innerWindowId;
-    UI.isWritten = target => target === b && b.browsingContext.currentWindowGlobal?.innerWindowId === doc;
+    UI.evidenceOf = target => (target === b && b.browsingContext.currentWindowGlobal?.innerWindowId === doc ? { hooked: "a script element" } : {});
     UI.cleanLoad = async browser => {
       calls.push(browser.browserId);
       return { how: "reload" };
@@ -340,7 +340,7 @@ test("in a kept page with the agent's writes, a load the page chose after the us
     `);
     assert.deepEqual(out, { unasked: { calls: 0, card: null }, clicked: { calls: [bid], card: null } });
   } finally {
-    await h.chrome(`${K} UI.cleanLoad = null; UI.isWritten = null; return true;`);
+    await h.chrome(`${K} UI.cleanLoad = null; UI.evidenceOf = null; return true;`);
     await cleanUp([bid]);
   }
 });
@@ -363,7 +363,7 @@ test("after the user's Stop, the page is theirs: a refused load shows no notice 
       task: chosenNote(host()),
     });
   } finally {
-    await h.chrome(`${K} UI.cleanLoad = null; UI.isWritten = null; return true;`);
+    await h.chrome(`${K} UI.cleanLoad = null; UI.evidenceOf = null; return true;`);
     await cleanUp([bid]);
   }
 });

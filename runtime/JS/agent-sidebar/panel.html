@@ -28,10 +28,13 @@
       </div>
     </header>
     <main id="messages"></main>
+    <!-- A remote task that ended: why (remoteEnd), under its last answer. -->
+    <div id="remote-end" hidden></div>
     <!-- Work: the page the agent is on, live while it works, with Watch and
          Take over. renderLive keeps it at the end of the thread. -->
     <div id="live" hidden>
       <canvas id="live-shot" aria-hidden="true"></canvas>
+      <div id="live-src" hidden></div>
       <div id="live-cap">
         <span id="live-dot"></span>
         <span id="live-text"></span>
@@ -52,7 +55,39 @@
         <p>You can also type <kbd>&gt;</kbd> and the task in the address bar.</p>
       </div>
     </div>
+    <!-- A remote task just started (the glue's arrival): which of the user's
+         agents sent it, with Watch and Stop. It takes no focus, and goes on
+         its own after a few seconds, or when dismissed. -->
+    <div id="arrival" role="group" hidden>
+      <span id="arrival-text"></span>
+      <button id="arrival-watch" class="ghost">Watch</button>
+      <button id="arrival-stop" class="ghost">Stop</button>
+      <button id="arrival-close" class="ghost" title="Dismiss" aria-label="Dismiss">✕</button>
+    </div>
+    <!-- The model picker (the user's pick, 2026-11-21): a search, a bar of
+         model families (each agent's models), the family's newest
+         generation with each model's own effort, and the efforts in a
+         flyout beside the row. The search field drives both lists. -->
+    <div id="picker" role="dialog" aria-label="Models" hidden>
+      <div id="pick-find">
+        <span class="glass" aria-hidden="true"></span>
+        <input id="pick-search" type="text" placeholder="Search models" autocomplete="off" spellcheck="false"
+               role="combobox" aria-expanded="true" aria-controls="pick-list" aria-autocomplete="list" />
+      </div>
+      <div id="pick-fam" role="tablist" aria-label="Model family"></div>
+      <!-- Another family's models in a chat with messages: picking one
+           starts the chat over. -->
+      <div id="pick-note" hidden></div>
+      <div id="pick-list" role="listbox" aria-label="Models"></div>
+    </div>
+    <div id="pick-fly" role="listbox" aria-label="Effort" hidden></div>
     <footer id="composer">
+      <!-- What the user sent while the agent worked (Enter): each message goes
+           out in order when a turn ends; Steer sends one now, ✕ drops it. -->
+      <section id="queue" hidden aria-label="Queued messages">
+        <div id="queue-head">Queued · sent when the agent's turn ends</div>
+        <ol id="queue-list"></ol>
+      </section>
       <div id="chip" hidden>
         <div id="chip-text"></div>
         <button id="chip-remove" class="icon" title="Remove the selection">✕</button>
@@ -63,6 +98,12 @@
            or Stop. -->
       <div id="box">
         <textarea id="input" rows="2" placeholder="Ask about this page…"></textarea>
+        <!-- A task the sidebar doesn't drive (external.sys.mjs): no chat,
+             only its Stop, or how it ended. -->
+        <div id="ext-bar" hidden>
+          <span id="ext-bar-text"></span>
+          <button id="ext-stop" class="ghost">Stop task</button>
+        </div>
         <!-- Two groups, so a narrow box wraps the second (the pickers with
              send or stop) under the first as a whole. -->
         <div id="bar">
@@ -75,11 +116,16 @@
             </div>
           </div>
           <div id="bar-end">
+            <!-- The chat's model and its effort ("Opus 5.5 · Low"): opens
+                 the model picker. -->
             <div id="pickers">
-              <select id="model" title="Agent and model"></select>
-              <span id="pick-dot" aria-hidden="true">·</span>
-              <select id="effort" title="Reasoning effort" hidden></select>
+              <button id="pick" aria-haspopup="listbox" aria-expanded="false" aria-controls="picker">
+                <span id="pick-model"></span><span id="pick-dot" aria-hidden="true">·</span><span id="pick-effort"></span>
+              </button>
             </div>
+            <!-- While the agent works and the box has text: send it into the
+                 running turn now (Cmd+Enter). Stop keeps its place at the end. -->
+            <button id="steer" class="pill" hidden>Steer</button>
             <button id="stop" class="round" title="Stop" aria-label="Stop" hidden></button>
             <button id="send" class="round" title="Send (Enter)" aria-label="Send"></button>
           </div>

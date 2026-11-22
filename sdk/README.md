@@ -1,11 +1,11 @@
 # zenius SDK and CLI
 
 The `zenius` command and the Node SDK agents script Zen with. Agents pipe a
-script to `zenius nodejs`; it runs with Ego Lite's globals (`taskSpace`,
+script to `zenius nodejs`; it runs with zenius's globals (`taskSpace`,
 `listTaskSpaces`, `claimTaskSpace`, `takeOverTaskSpace`, `profiles`, `help`)
 and talks to the browser runtime over its Unix socket
 (`docs/PROTOCOL.md`). The SDK validates arguments, maps each call to one
-runtime request, and prints output the way Ego does; the runtime does the
+runtime request, and prints the script's output; the runtime does the
 browser work.
 
 ```bash
@@ -24,11 +24,13 @@ new as the sources, and the TypeScript sources otherwise (about 10 ms
 slower to start). So a fresh checkout works without a build, and a
 `git pull` never runs an old bundle: git replaces the files it updates,
 which changes their directories' mtimes. An editor that saves in place may
-not, so rebuild after editing (`npm test` builds first). Running the sources
-needs a Node that strips types (22.18+ or 23.6+, hence `engines`); on an
-older one, `bin/zenius` says to build instead. `npm run build` runs on any
-Node the CLI supports (22.3 and later): esbuild compiles the TypeScript it
-needs, so it imports none.
+not, so rebuild after editing (`npm test` builds first). Running the sources,
+as the tests do, needs a Node that strips types (22.18+ or 23.6+); on an
+older one, `bin/zenius` says to build instead. `engines` names the CLI's own
+floor, 22.3, which its bundle needs (process.getBuiltinModule): the bundle
+ran `--version`, `doctor`, a script and `zenius mcp` on Node 22.3.0 against a
+dev Zen (2026-11-21). `npm run build` runs on any Node the CLI supports:
+esbuild compiles the TypeScript it needs, so it imports none.
 
 Agents call the installed copy. `scripts/install-cli.sh` builds the bundle
 and copies it, with `bin/zenius`, the Skill and fx-autoconfig's files, to
@@ -62,20 +64,22 @@ fails.
 | `npm run test:integration` | the same CLI against a fresh headless dev Zen (`sdk-it-<checkout suffix>`); cases whose runtime methods have not landed are skipped |
 | `npm run coverage:protocol -- --instance <name>` | which runtime methods the SDK needs that an instance lacks |
 
-## Ego's configuration knobs
+## Scripts written for Ego Lite
 
-The SDK reads Ego's knobs under Ego's names, so that Ego's cases and runners
-configure zenius the same way. Agents don't need them, and the usage guide
-leaves them out. Each is read at every call, as Ego reads them, so a script
-may set them before its first call.
+A script written for Ego Lite runs under `zenius nodejs` once the command
+that runs it is changed, unless it relies on something `docs/PARITY.md`
+lists as different, such as CDP or Ego Lite's legacy v1 helpers. The SDK
+also reads Ego Lite's three knobs under their names. Agents don't need
+them, and the usage guide leaves them out. Each is read at every call, so a
+script may set them before its first call.
 
 | Knob | Effect |
 |---|---|
 | `EGO_BROWSER_RESPONSE_TIMEOUT_MS` | Every Page request's `responseTimeout` (ms). |
-| `EGO_BROWSER_PAGE_BUDGET` | How many managed Pages a task space may hold, for this process: the top-level `pageBudget` of every request. The runtime applies it in `newPage()` and `adopt()` and shows it in the snapshot header. Ego's default is 8. |
+| `EGO_BROWSER_PAGE_BUDGET` | How many managed Pages a task space may hold, for this process: the top-level `pageBudget` of every request. The runtime applies it in `newPage()` and `adopt()` and shows it in the snapshot header. The default is 8. |
 | `globalThis.EGO_BROWSER_OUTPUT_DIR` | An absolute directory for `screenshot()`'s default path, instead of the OS temp directory. |
 
-A value that isn't a positive integer counts as unset, as in Ego.
+A value that isn't a positive integer counts as unset.
 
 ## Layout
 

@@ -11,7 +11,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, it } from "node:test";
 
 import { ZeniusError } from "../src/errors.ts";
-import { claimTaskSpace, listTaskSpaces, profiles, startTaskSpace, takeOverTaskSpace, taskSpace } from "../src/globals.ts";
+import { claimTaskSpace, listTaskSpaces, profiles, startTaskSpace, takeOverTaskSpace, taskSource, taskSpace } from "../src/globals.ts";
 import { flushOutput, hasHardStop } from "../src/output.ts";
 import { clientLimitMs, type Download, Page, type RefusedEvent } from "../src/page.ts";
 import { UnmanagedPage } from "../src/task-space.ts";
@@ -54,9 +54,9 @@ async function withEnv(values: Record<string, string>, body: () => Promise<void>
   }
 }
 
-/** The agent variables clientLabel() reads, set as given and otherwise unset, around fn. */
+/** The agent variables clientLabel() and taskSource() read, set as given and otherwise unset, around fn. */
 async function withAgentEnv<T>(vars: Record<string, string>, fn: () => Promise<T>): Promise<T> {
-  const names = ["ZENIUS_CLIENT", "CLAUDECODE", "CODEX_SANDBOX", "CODEX_SANDBOX_NETWORK_DISABLED"];
+  const names = ["ZENIUS_CLIENT", "CLAUDECODE", "CODEX_SANDBOX", "CODEX_SANDBOX_NETWORK_DISABLED", "HC_TERMINAL_ID", "ZENIUS_SIDEBAR_TASK"];
   const saved = Object.fromEntries(names.map((name) => [name, process.env[name]]));
   for (const name of names) delete process.env[name];
   Object.assign(process.env, vars);
@@ -223,7 +223,7 @@ describe("globals", () => {
       await assert.rejects(() => taskSpace("one", { profileId: "default" }), /only applies when creating/);
       const task = await taskSpace("two", { profileId: "container-2" });
       assert.equal(task.name, "two");
-      assert.deepEqual(mock.requests.findLast((request) => request.method === "spaces.create")?.params, { name: "two", profileId: "container-2" });
+      assert.deepEqual(mock.requests.findLast((request) => request.method === "spaces.create")?.params, { name: "two", profileId: "container-2", source: taskSource() });
     }));
 
   it("listTaskSpaces() fills taskId from the name, as Ego does", () =>
@@ -244,7 +244,7 @@ describe("globals", () => {
       assert.equal(task.ownership, "agent");
       assert.deepEqual(mock.requests.at(-1), {
         method: "spaces.claim",
-        params: { space: space.id, name: "finished task" },
+        params: { space: space.id, name: "finished task", source: taskSource({}, process.cwd(), false) },
         receivedAt: mock.requests.at(-1)!.receivedAt,
       });
       const userPage = task.userPage();
@@ -267,6 +267,58 @@ describe("globals", () => {
         await withAgentEnv(vars, () => claimTaskSpace(space.id));
         assert.equal(mock.requests.at(-1)!.params.client, client, JSON.stringify(vars));
       }
+    }));
+
+  // The sidebar lists every zenius task by its source (docs/briefs/external-tasks.md).
+  // zen-core keeps each field that fits the label set and drops the rest, so a
+  // task always starts; the SDK fits them first, so nothing useful is dropped.
+  it("taskSource names the hc terminal, the agent's kind and the folder's name, fitted to the label set, and never a path", () => {
+    assert.deepEqual(taskSource({ HC_TERMINAL_ID: "t5x", CLAUDECODE: "1" }, "/Users/me/Projects/zenius-eval", false), {
+      terminal: "t5x",
+      agent: "Claude Code",
+      folder: "zenius-eval",
+    });
+    assert.deepEqual(taskSource({ CODEX_SANDBOX: "seatbelt" }, "/", false), { agent: "Codex" });
+    assert.deepEqual(taskSource({ HC_TERMINAL_ID: "  " }, "/srv/work", false), { agent: "script", folder: "work" });
+    assert.deepEqual(taskSource({ HC_TERMINAL_ID: " t5x\u202e ", ZENIUS_CLIENT: "Bot \u2603" }, "/tmp/My Project (2)", false), {
+      terminal: "t5x-",
+      agent: "Bot -",
+      folder: "My Project -2-",
+    });
+    assert.deepEqual(taskSource({}, `/x/${"a".repeat(100)}`, false), { agent: "script", folder: "a".repeat(80) });
+    // In the sandbox the working folder may not be granted, and the script then
+    // starts in its temporary folder: the launcher names the real one.
+    assert.deepEqual(taskSource({ ZENIUS_FOLDER: "zenius-eval", ZENIUS_CLIENT: "Codex" }, "/tmp/zenius-sandbox-501/run.Ab12Cd", true), {
+      agent: "Codex",
+      folder: "zenius-eval",
+    });
+    assert.deepEqual(taskSource({}, "/tmp/zenius-sandbox-501/run.Ab12Cd", true), { agent: "script" });
+  });
+
+  // The sidebar's own tasks (zen-ux gives its zenius server ZENIUS_SIDEBAR_TASK,
+  // its conversation's uid): the sidebar matches on it, so it goes exactly as
+  // given or not at all. Fitted like a label, it could name another chat.
+  it("taskSource carries the sidebar's conversation id exactly as given, or not at all", () => {
+    const uid = "3f2c9a10-7b4e-4c1d-9a2f-0e5d6c7b8a91";
+    assert.deepEqual(taskSource({ ZENIUS_SIDEBAR_TASK: uid, CLAUDECODE: "1" }, "/srv/work", false), { agent: "Claude Code", folder: "work", sidebar: uid });
+    assert.equal(taskSource({ ZENIUS_SIDEBAR_TASK: "a".repeat(64) }, "/tmp/zenius-sandbox-501/run.Ab12Cd", true).sidebar, "a".repeat(64));
+    for (const odd of ["", ` ${uid}`, `${uid}\n`, "3f2c 9a10", "3f2c_9a10", `{${uid}}`, "a".repeat(65), "3f2c9a10\u202e"]) {
+      assert.equal(taskSource({ ZENIUS_SIDEBAR_TASK: odd }, "/srv/work", false).sidebar, undefined, JSON.stringify(odd));
+    }
+  });
+
+  it("taskSpace and claimTaskSpace send that source, which spaces.create and spaces.claim keep", () =>
+    withMock(async ({ mock }) => {
+      const sidebarEnv = { HC_TERMINAL_ID: "t5x", CLAUDECODE: "1", ZENIUS_SIDEBAR_TASK: "c0ffee-42" };
+      await withAgentEnv(sidebarEnv, () => taskSpace("with a source"));
+      const created = mock.requests.findLast((request) => request.method === "spaces.create")!.params.source;
+      assert.deepEqual(created, taskSource(sidebarEnv, process.cwd(), false));
+      assert.deepEqual([created.terminal, created.agent, created.sidebar], ["t5x", "Claude Code", "c0ffee-42"]);
+      const space = mock.addSpace("claimed with a source", "user");
+      await withAgentEnv({ CODEX_SANDBOX: "seatbelt" }, () => claimTaskSpace(space.id));
+      const claimed = mock.requests.findLast((request) => request.method === "spaces.claim")!.params.source;
+      assert.deepEqual(claimed, taskSource({ CODEX_SANDBOX: "seatbelt" }, process.cwd(), false));
+      assert.equal(claimed.terminal, undefined);
     }));
 
   it("takeOverTaskSpace captures the user page only after a delegation", () =>
@@ -326,6 +378,23 @@ describe("globals", () => {
         await other.waitForControl({ timeout: 1000 });
         assert.equal(other.handBack, undefined, `not a list of labels: ${JSON.stringify(odd)}`);
       }
+    }));
+
+  it("lists the Pages zenius blanked after a secret hand-off, once", () =>
+    withMock(async ({ mock }) => {
+      const space = mock.addSpace("token", "agentDelegatedToUser");
+      mock.addPage(space, { url: "https://dash.example/tokens/new" });
+      space.handBackBlanked = ["p1"];
+      space.handBackReloaded = ["p2"];
+      const task = await takeOverTaskSpace(space.id);
+      assert.deepEqual(task.handBack, { reloaded: ["p2"], blanked: ["p1"] });
+      assert.ok(Object.isFrozen(task.handBack!.blanked));
+      assert.equal((await takeOverTaskSpace(space.id)).handBack, undefined, "reported once");
+
+      const waiting = await taskSpace(space.id);
+      space.handBackBlanked = ["p1", "p4"];
+      await waiting.waitForControl({ timeout: 1000 });
+      assert.deepEqual(waiting.handBack, { blanked: ["p1", "p4"] });
     }));
 });
 
@@ -452,6 +521,16 @@ describe("TaskSpace", () => {
       assert.equal(space.stateText, "");
     }));
 
+  it("handOff({ secret: true }) asks zenius to blank the tab at the hand back, and sends nothing for false", () =>
+    withMock(async ({ mock }) => {
+      const task = await taskSpace("secret");
+      await task.handOff({ message: "Create the token, copy it, then press Resume agent", secret: true });
+      assert.deepEqual(mock.requests.findLast((request) => request.method === "spaces.handOff")!.params, { space: task.id, secret: true });
+      mock.spaces.get(task.id)!.ownership = "agent";
+      await task.handOff({ secret: false });
+      assert.deepEqual(mock.requests.findLast((request) => request.method === "spaces.handOff")!.params, { space: task.id });
+    }));
+
   it("a refused hand-off takes its message back off the card, and a message must name the step", () =>
     withMock(async ({ mock }) => {
       const task = await taskSpace("refused");
@@ -466,6 +545,7 @@ describe("TaskSpace", () => {
       await assert.rejects(() => task.handOff({ message: "   " }), /task\.handOff message must name the step/);
       await assert.rejects(() => task.handOff({ message: 42 as unknown as string }), /message/);
       await assert.rejects(() => task.handOff({ note: "x" } as never), /unknown option: note/);
+      await assert.rejects(() => task.handOff({ secret: "yes" } as never), /secret/);
       assert.equal(mock.requests.length, before, "nothing reaches the runtime");
       assert.equal(space.ownership, "agent");
     }));
@@ -527,6 +607,27 @@ describe("Page", () => {
       assert.deepEqual((await page.click("#print")).refused, [refusal]);
       const refused = (await page.events()).filter((event): event is RefusedEvent => event.method === "Zenius.refused");
       assert.deepEqual(refused.map((event) => [event.params.kind, event.params.url]), [["print", "http://127.0.0.1/x"]]);
+    }));
+
+  // The agent's own evidence for zenius's defenses (docs/briefs/defenses-evidence.md,
+  // "Flagged"): zen-core's page.flag marks the page's current document.
+  it("flag(reason) asks zenius to guard the page, sends only the reason, and leaves its rules to the runtime", () =>
+    withMock(async ({ mock }) => {
+      mock.handle("page.flag", () => ({ ok: true }));
+      const task = await taskSpace("flagged");
+      const page = task.page("p1");
+      assert.equal(await page.flag("It asks for a card number the task didn't call for"), undefined);
+      const sent = mock.requests.findLast((request) => request.method === "page.flag")!.params;
+      assert.deepEqual([sent.space, sent.page, sent.reason], [task.id, "p1", "It asks for a card number the task didn't call for"]);
+      const count = mock.requests.length;
+      for (const reason of [undefined, 42, { reason: "x" }]) {
+        await assert.rejects(() => page.flag(reason as never), (error: any) => error instanceof TypeError && error.message === "page.flag reason must be a string");
+      }
+      assert.equal(mock.requests.length, count, "no request for a reason that isn't text");
+      mock.handle("page.flag", () => {
+        throw new MockError("ZEN_INVALID_ARGUMENT", "the reason is 1 to 200 characters on one line");
+      });
+      await assert.rejects(() => page.flag(""), (error: any) => error.code === "ZEN_INVALID_ARGUMENT" && /^page\.flag: /.test(error.message));
     }));
 
   it("task.page(label) is lazy and makes no request", () =>
@@ -901,6 +1002,41 @@ try { console.log("sent", (await readUploads([${JSON.stringify(file)}], "page.se
     } finally {
       rmSync(outside, { recursive: true, force: true });
       rmSync(granted, { recursive: true, force: true });
+    }
+  });
+
+  // install-cli.sh --sandbox --read-dir (the user's ~/Downloads): the launcher
+  // grants the folder and names it in ZENIUS_READ_DIR, for the messages.
+  it("under node --permission, the install's read folder uploads, and a refusal names it", { skip: !process.allowedNodeEnvironmentFlags.has("--permission") }, () => {
+    const sdk = fileURLToPath(new URL("..", import.meta.url));
+    const outside = realpathSync(mkdtempSync(join(tmpdir(), "zenius-outside-")));
+    const downloads = realpathSync(mkdtempSync(join(tmpdir(), "zenius-downloads-")));
+    const secret = join(outside, "secret.txt");
+    writeFileSync(secret, "secret");
+    writeFileSync(join(downloads, "report.txt"), "report");
+    symlinkSync(secret, join(downloads, "link.txt"));
+    const upload = (file: string, readDir: string | undefined) => {
+      const script = `const { readUploads } = await import(${JSON.stringify(pathToFileURL(join(sdk, "src", "files.ts")).href)});
+try { console.log("sent", (await readUploads([${JSON.stringify(file)}], "page.setInputFiles")).map((upload) => Buffer.from(upload.base64, "base64").toString()).join()); } catch (error) { console.log(error.code, error.message); }`;
+      const env: Record<string, string | undefined> = { ...process.env, ZENIUS_READ_DIR: readDir };
+      if (readDir === undefined) delete env.ZENIUS_READ_DIR;
+      const result = spawnSync(process.execPath, ["--permission", `--allow-fs-read=${sdk}`, `--allow-fs-read=${downloads}`, "--input-type=module", "-e", script], {
+        encoding: "utf8",
+        env,
+      });
+      return result.stdout.trim() || result.stderr;
+    };
+    const refusal = (where: string) =>
+      `ZEN_PATH_NOT_ALLOWED page.setInputFiles: a sandboxed script reads files only in its working folder, its runs' output folders, its temporary folder and ${downloads}, and ${where}. If the task needs this file, ask the user to copy it into the working folder or ${downloads}.`;
+    try {
+      assert.equal(upload(join(downloads, "report.txt"), downloads), "sent report");
+      assert.equal(upload(secret, downloads), refusal(`${secret} is outside them`));
+      assert.equal(upload(join(downloads, "link.txt"), downloads), refusal(`${join(downloads, "link.txt")} leads outside them, to ${secret}`));
+      // A relative ZENIUS_READ_DIR isn't the launcher's: the message names no such folder.
+      assert.match(upload(secret, "Downloads"), /its runs' output folders and its temporary folder, and /);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+      rmSync(downloads, { recursive: true, force: true });
     }
   });
 

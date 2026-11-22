@@ -43,41 +43,17 @@ export function agentCodeRefused(method, label, refusal, what = "code") {
   );
 }
 
-/** The routes into the page itself that the world refuses (content/agentworld.sys.mjs), as the message names them. */
-const WORLD_ROUTES = {
-  "string timer": "a string timer (setTimeout and setInterval take only a function here)",
-  "javascript: URL": "a javascript: URL",
-  open: "a window's own open, past zenius's window.open (call window.open)",
-  runaway: "a callback that ran past its time",
-  timer: "another window's setTimeout or setInterval (use the world's own: setTimeout(fn, ms))",
-  location: "a location setter other than window.location's (document.location, another window's, or Location's own); set window.location, or use page.goto",
-  eval: "the page's own eval",
-  Function: "the page's own Function constructor",
-  GeneratorFunction: "the page's own Function constructor",
-  AsyncFunction: "the page's own Function constructor",
-  AsyncGeneratorFunction: "the page's own Function constructor",
-  "script element": "a script element",
-};
-
 /**
- * The agent's code in its isolated world met the page's own JavaScript
- * (docs/research/isolated-world.md): it read a page global the world can't
- * see (`pageGlobal`), or tried to run code in the page itself
- * (`pageWorld`). The call fails even when the code caught the throw.
+ * The agent's code in its isolated world read a page global the world can't
+ * see (docs/research/isolated-world.md; `refusal.reason` "pageGlobal"). The
+ * call fails even when the code caught the throw. Its routes into the page's
+ * own JavaScript run and mark the page hooked instead (content/evidence.sys.mjs).
  */
 export function agentWorldRefused(method, label, refusal) {
-  if (refusal.reason === "pageGlobal") {
-    return new ZenError(
-      "ZEN_PAGE_GLOBAL_HIDDEN",
-      `${method}: the agent's code read ${refusal.name}, which is the page's own JavaScript. zenius runs the agent's code in an isolated world that shares only the page's DOM, so it can't see the page's globals. Read what you need from the DOM: text, attributes, form values.`,
-      { method, page: label, name: refusal.name }
-    );
-  }
-  const what = WORLD_ROUTES[refusal.route] ?? refusal.route;
   return new ZenError(
-    "ZEN_AGENT_CODE_REFUSED",
-    `${method}: the agent's code used ${what}, which would run code in the page itself, and zenius refused it. zenius runs the agent's code in an isolated world, and none of it may stay in the page. Do the work in your function, or act through page.click, page.fill and page.type.`,
-    { method, page: label, reason: "pageWorld", route: refusal.route }
+    "ZEN_PAGE_GLOBAL_HIDDEN",
+    `${method}: the agent's code read ${refusal.name}, which is the page's own JavaScript. zenius runs the agent's code in an isolated world that shares only the page's DOM, so it can't see the page's globals. Read what you need from the DOM: text, attributes, form values.`,
+    { method, page: label, name: refusal.name }
   );
 }
 

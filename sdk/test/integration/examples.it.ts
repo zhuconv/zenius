@@ -28,15 +28,19 @@ const CLI = join(SDK, "bin/zenius");
 
 type Block = { file: string; line: number; language: string; code: string; first: string };
 
-/** Every fenced code block in the Skill's Markdown, where agents read it. */
+/** Every fenced code block in the Skill's Markdown, where agents read it, a list item's indented ones included. */
 function skillBlocks(): Block[] {
   const references = readdirSync(join(ROOT, "skill/zenius/references")).filter((name) => name.endsWith(".md"));
   const files = ["skill/zenius/SKILL.md", "skill/guide.md", ...references.sort().map((name) => `skill/zenius/references/${name}`)];
   return files.flatMap((file) => {
     const text = readFileSync(join(ROOT, file), "utf8");
-    return [...text.matchAll(/^```(\w*)\n([\s\S]*?)^```$/gm)].map((match) => {
-      const code = match[2]!;
-      return { file, line: text.slice(0, match.index).split("\n").length, language: match[1]!, code, first: code.split("\n")[0]! };
+    return [...text.matchAll(/^( *)```(\w*)\n([\s\S]*?)^\1```$/gm)].map((match) => {
+      const indent = match[1]!;
+      const code = match[3]!
+        .split("\n")
+        .map((line) => (line.startsWith(indent) ? line.slice(indent.length) : line))
+        .join("\n");
+      return { file, line: text.slice(0, match.index).split("\n").length, language: match[2]!, code, first: code.split("\n")[0]! };
     });
   });
 }
@@ -506,6 +510,13 @@ console.log(JSON.stringify({ ...stored, refused }));${FINISH}`;
   "command codex debug prompt-input hi | grep -o -- '- zenius: [^\\]*'": {
     skip: "runs Codex: checked by hand, offline, with a scratch CODEX_HOME (zen-sdk's report, 2026-11-20)",
   },
+
+  // references/install.md: the release's installer. It downloads from
+  // GitHub, which tests never reach; sdk/test/release.test.ts runs the
+  // installer scripts/release.sh builds, against a local copy of the asset.
+  "curl -fsSL https://github.com/zhuconv/zenius/releases/latest/download/install.sh | bash": {
+    skip: "downloads the release from GitHub: sdk/test/release.test.ts runs the same installer offline",
+  },
 };
 
 /** On the Mac a miss would reach macOS's own consent prompts, so those probes skip there, as zen-observe's vectors do. */
@@ -521,15 +532,18 @@ const MAC_MISS = process.platform === "darwin";
  * parentheses.
  */
 const REFUSAL_PROBES: Record<string, { answers: string[]; code: string; skip?: string | false }> = {
-  "Camera, microphone, screen, location, MIDI, speech": {
-    answers: ["NotAllowedError", "PERMISSION_DENIED"],
-    skip: MAC_MISS && "a miss would ask macOS for the camera and location",
-    code: `answers.push(await page.evaluate('navigator.mediaDevices.getUserMedia({ video: true }).then(() => "allowed", (e) => e.name)'));
-answers.push(await page.evaluate('new Promise((resolve) => navigator.geolocation.getCurrentPosition(() => resolve("a position"), (e) => resolve(e.code === e.PERMISSION_DENIED ? "PERMISSION_DENIED" : "code " + e.code)))'));`,
+  "Camera, microphone, screen, speech": {
+    answers: ["NotAllowedError"],
+    skip: MAC_MISS && "a miss would ask macOS for the camera",
+    code: `answers.push(await page.evaluate('navigator.mediaDevices.getUserMedia({ video: true }).then(() => "allowed", (e) => e.name)'));`,
   },
-  Notifications: {
-    answers: ["an error event"],
-    code: `answers.push(await page.evaluate('new Promise((resolve) => { const n = new Notification("zenius"); n.onerror = () => resolve("an error event"); n.onshow = () => resolve("shown"); setTimeout(() => resolve("no event"), 5000); })'));`,
+  // Evidence: the agent's code leaves a style sheet in the page.
+  "Location, MIDI, notifications on a page with your code or a flag": {
+    answers: ["PERMISSION_DENIED", "an error event"],
+    skip: MAC_MISS && "a miss would ask macOS for the location",
+    code: `await page.evaluate(() => { document.head.append(document.createElement("style")); });
+answers.push(await page.evaluate('new Promise((resolve) => navigator.geolocation.getCurrentPosition(() => resolve("a position"), (e) => resolve(e.code === e.PERMISSION_DENIED ? "PERMISSION_DENIED" : "code " + e.code)))'));
+answers.push(await page.evaluate('new Promise((resolve) => { const n = new Notification("zenius"); n.onerror = () => resolve("an error event"); n.onshow = () => resolve("shown"); setTimeout(() => resolve("no event"), 5000); })'));`,
   },
   WebRTC: {
     answers: ["NotAllowedError"],
@@ -701,6 +715,29 @@ describe("the guide's lines on what a task's pages refuse", () => {
       await context.rpc.call("dev.evalChrome", { code: `Services.prefs.clearUserPref("zenius.handoff.quietReload"); return true;` }).catch(() => {});
       await closeTabs([url]);
     }
+  });
+
+  // zen-observe's 95c15a4 (A9): the sandbox's routes into the page's own
+  // JavaScript run there and mark the page hooked, instead of failing the call.
+  it("code you hand the page itself runs there, and the call doesn't fail", async () => {
+    const says = "Code you hand the page itself (`<script>`, `eval()`, string timers) runs there";
+    assert.ok(guideText().includes(says), `guide.md no longer says "${says}": update this probe`);
+    const { code } = opened(probePath("pageworld"));
+    const out = lastJson(
+      ok(
+        await new Runner("plain").script(`${code}const ran = await page.evaluate(async () => {
+  const root = document.documentElement;
+  const script = document.createElement("script");
+  script.textContent = 'document.documentElement.setAttribute("data-zenius-script", "ran")';
+  document.head.append(script);
+  setTimeout('document.documentElement.setAttribute("data-zenius-timer", "ran")', 0);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  return [root.getAttribute("data-zenius-script"), root.getAttribute("data-zenius-timer")];
+});${FINISH}
+console.log(JSON.stringify({ ran }));`),
+      ),
+    );
+    assert.deepEqual(out.ran, ["ran", "ran"]);
   });
 
   it("a tab that leaves or joins a task loads its Back and Forward pages afresh; within the task they come from the cache", async (t) => {

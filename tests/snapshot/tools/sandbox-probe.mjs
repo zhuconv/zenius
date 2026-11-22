@@ -132,6 +132,21 @@ const C = `
       return "threw " + e.message;
     }
   };
+  // The evidence flag (zen-observe's 15e12df A, 95c15a4 B): the page's reasons
+  // {hooked|made|listed|flagged: detail}, over the tab's top document and its
+  // frames. It replaces written as the defenses' trigger; a page-world route
+  // now runs and marks hooked (A9) instead of being refused.
+  let EVID = null;
+  try {
+    EVID = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/evidence.sys.mjs");
+  } catch {}
+  const evidence = t => {
+    try {
+      return typeof EVID?.evidenceOf === "function" ? EVID.evidenceOf(t.linkedBrowser) : null;
+    } catch (e) {
+      return "threw " + e.message;
+    }
+  };
   const pageWorld = t => inContent(t, "return { esc: window.__esc ?? null, siteClicks: window.__siteClicks ?? null, siteInputs: window.__siteInputs ?? null, siteInline: window.__siteInline ?? 0, url: location.href.slice(0, 70) }");
 `;
 
@@ -468,8 +483,8 @@ async function runRoute(space, name, kind = "mark") {
     await outcome(call("page.keyboard", { space, page: "p1", action: "press", key: route.press, options: {} }));
   }
   await sleep(1500);
-  const seen = await chrome(C + `const t = tabOf(arg, "p1"); return { page: await pageWorld(t), written: written(t) };`, space);
-  const out = { result, ...(click !== undefined ? { click } : {}), ranInPage: route.css ? "n/a (CSS)" : (seen.page.esc ?? []).includes(name), written: seen.written };
+  const seen = await chrome(C + `const t = tabOf(arg, "p1"); return { page: await pageWorld(t), written: written(t), hooked: evidence(t) };`, space);
+  const out = { result, ...(click !== undefined ? { click } : {}), ranInPage: route.css ? "n/a (CSS)" : (seen.page.esc ?? []).includes(name), written: seen.written, hooked: seen.hooked };
   if (route.site) Object.assign(out, { siteClicks: seen.page.siteClicks, siteInputs: seen.page.siteInputs, siteInline: seen.page.siteInline });
   if (!out.ranInPage) out.url = seen.page.url;
   return out;

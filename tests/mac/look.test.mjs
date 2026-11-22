@@ -473,3 +473,51 @@ test("the composer's row holds at the sidebar's narrowest width", () =>
     assert.ok(r.sw.needsShown && r.sw.needsText, `Work's count is hidden at ${r.after} px: ${JSON.stringify(r.sw)}`);
     assert.ok(r.header.titleLines <= 1.6 && r.chatHeader.titleLines <= 1.6, `the title wraps at ${r.after} px`);
   }));
+
+// 4f97629 at 168 px (zen-eval's Mac look, 2026-11-22): the busy box's hint, "<status> · Enter
+// queues, ⌘Enter steers", took 3 lines, and Chat's empty box kept that height after it, since
+// Gecko counts an empty box's placeholder in its scrollHeight. Where the whole hint doesn't fit
+// 2 lines, it now leaves out the status (zen-ux's 545564d). Linux's floor is wider (196 px on
+// the Linux server), so only the Mac's run reaches 168 px.
+test("at the sidebar's narrowest width, a busy task's empty box stays 2 lines and says 'Enter queues, ⌘Enter steers', which fits; so does Chat's after it", () =>
+  inTheme(h, "light", async () => {
+    const r = await look(`
+      const doc = await T.openPanel();
+      const A = win.ucAgentSidebar.AgentService;
+      const sidebar = L.sidebarBox();
+      const was = sidebar.style.width;
+      const min = parseFloat(win.getComputedStyle(sidebar).minWidth) || 0;
+      sidebar.style.width = (min >= 120 ? min : 200) + "px";
+      await T.sleep(500);
+      const fits = () => {
+        const input = doc.querySelector(H.PANEL.input);
+        return { lines: L.bar(doc).inputLines, scroll: input.scrollHeight, client: input.clientHeight, hint: input.placeholder };
+      };
+      const conv = A.createTask({ source: "new" });
+      try {
+        win.ucAgentSidebar.showTask(conv);
+        // The mock's SLOW answers for 6 s, a word every 0.1 s.
+        A.send(conv, { question: "SLOW one" });
+        await T.until(() => conv.busy && doc.body.classList.contains("busy"), 10000, "the busy box");
+        await T.sleep(300);
+        const busy = fits();
+        await L.mode(doc, "chat");
+        await T.sleep(300);
+        const chat = fits();
+        await L.mode(doc, "work");
+        return { width: Math.round(sidebar.getBoundingClientRect().width), busy, chat };
+      } finally {
+        if (conv.busy) A.cancel(conv);
+        A.removeTask(conv);
+        sidebar.style.width = was;
+        await T.sleep(300);
+      }
+    `);
+    console.log(`# narrowest, busy: ${JSON.stringify(r)}`);
+    const steer = process.platform === "darwin" ? "⌘Enter" : "Ctrl+Enter";
+    assert.equal(r.busy.hint, `Enter queues, ${steer} steers`, `the busy box at ${r.width} px leaves out the status: ${JSON.stringify(r.busy)}`);
+    for (const [where, box] of [["the busy task", r.busy], ["Chat after it", r.chat]]) {
+      assert.ok(box.lines >= 1.8 && box.lines <= 2.5, `${where} at ${r.width} px: the empty box is ${box.lines} lines, not 2: ${JSON.stringify(box)}`);
+      assert.ok(box.scroll <= box.client, `${where} at ${r.width} px: its hint doesn't fit the box (${box.scroll} > ${box.client}): ${JSON.stringify(box)}`);
+    }
+  }));

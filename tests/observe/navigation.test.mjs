@@ -192,6 +192,31 @@ test("a pending navigation that commits in time lets the call run on the new doc
     assert.equal(await page.evaluate("location.pathname + location.search", undefined), "/slow-page?ms=700");
   }));
 
+test("goto to another fragment of the page is a same-document navigation: it returns at once, and the next call runs at once on that document (zen-eval's Mac run)", () =>
+  env.inSpace("goto fragment", async page => {
+    const tall = `data:text/html,<title>fragments</title><p id=a>a</p><div style="height:3000px"></div><p id=b>b</p>`;
+    for (const url of [`${env.base}/nav-target`, tall]) {
+      await page.goto(`${url}#a`);
+      await page.evaluate("window.marker = 1");
+      // A new fragment, the same one again (Chromium scrolls to it again),
+      // and back.
+      for (const hash of ["#b", "#b", "#a"]) {
+        const go = await timed(() => page.goto(url + hash, { timeout: 5000 }));
+        assert.deepEqual(go.value, {}, `${url}${hash}`);
+        assert.ok(go.ms < 1000, `goto ${hash} took ${go.ms} ms`);
+        // It once held the next call 15 s for a commit that never comes,
+        // then failed it with ZEN_PAGE_EVALUATION_TIMED_OUT.
+        const read = await timed(() => page.evaluate("[location.hash, window.marker ?? null]"));
+        assert.deepEqual(read.value, [hash, 1], "the same document, at the new fragment");
+        assert.ok(read.ms < 1000, `evaluate after goto ${hash} took ${read.ms} ms`);
+        assert.equal(await page.call("page.url"), url + hash);
+      }
+      // Without a fragment, goto loads the page again.
+      await page.goto(url);
+      assert.equal(await page.evaluate("window.marker ?? null"), null);
+    }
+  }));
+
 test("navigation failures are Ego's plain errors", () =>
   env.inSpace("goto failed", async page => {
     await page.goto(`${env.base}/nav-target`);

@@ -14,6 +14,7 @@ function describe(ctx, rec) {
     profileId: rec.profileId,
     profileName: profileName(rec.userContextId),
     recentTabTitles: ctx.spaces.recentTabTitles(rec),
+    ...(rec.source ? { source: rec.source } : {}),
   };
 }
 
@@ -70,6 +71,8 @@ export const i5 = {
  * meanwhile, so the state is checked again after.
  */
 async function handBack(ctx, rec) {
+  // A secret step's tab goes blank before anything else of the hand back.
+  await ctx.service.blankSecretSteps(rec);
   await ctx.service.beforeHandBack(rec);
   if (rec.gone || rec.ownership === "user") {
     ctx.spaces.gate(rec, "task");
@@ -102,7 +105,8 @@ export const methods = {
         { spaceId: clash.id, ownership: clash.ownership }
       );
     }
-    const rec = await ctx.spaces.create({ name, profileId: params.profileId });
+    // source: who drives the task, for the sidebar (docs/briefs/external-tasks.md).
+    const rec = await ctx.spaces.create({ name, profileId: params.profileId, source: params.source });
     ctx.pages.open(rec);
     return {
       id: rec.id,
@@ -148,6 +152,9 @@ export const methods = {
     const userPage = ctx.pages.userPage(rec);
     if (rec.ownership !== "agent") {
       ctx.pages.markBoundary(rec);
+    }
+    if (params.source !== undefined) {
+      ctx.spaces.setSource(rec, params.source);
     }
     ctx.spaces.setOwnership(rec, "agent", { source: "agent" });
     adoptWindow(rec, userPage && ctx.pages.findTab(rec, userPage.tab));
@@ -198,6 +205,12 @@ export const methods = {
     if (params.reason !== undefined && typeof params.reason !== "string") {
       throw new ZenError("ZEN_INVALID_ARGUMENT", "spaces.handOff reason must be a string");
     }
+    // The user's step will show a secret (an API key, a token, recovery
+    // codes): the hand back blanks the tab before the agent has control.
+    if (params.secret !== undefined && typeof params.secret !== "boolean") {
+      throw new ZenError("ZEN_INVALID_ARGUMENT", "spaces.handOff secret must be true or false");
+    }
+    const secret = params.secret === true;
     // Already with the user (a takeover, or an earlier handOff): keep their reason.
     if (rec.ownership === "agent") {
       const reason = params.reason ?? "manual_takeover";
@@ -205,10 +218,15 @@ export const methods = {
       if (browser) {
         // The page the user will hold is made safe for their typing before
         // the card shows (the manager's hand-off rule, 2026-11-20).
-        const { reloaded } = await ctx.service.holdForUser(rec, browser, { source: "agent", reason });
+        const { reloaded } = await ctx.service.holdForUser(rec, browser, { source: "agent", reason, secret });
         return { id: rec.id, ownership: rec.ownership, ...(reloaded.length ? { reloaded } : {}) };
       }
       ctx.spaces.setOwnership(rec, "agentDelegatedToUser", { reason, source: "agent" });
+    } else if (secret && rec.ownership === "agentDelegatedToUser") {
+      const browser = ctx.pages.userTab(rec)?.linkedBrowser ?? null;
+      if (browser) {
+        ctx.service.noteSecretStep(rec, browser);
+      }
     }
     return { id: rec.id, ownership: rec.ownership };
   },
@@ -298,13 +316,16 @@ export function finishTask(ctx, rec, keep) {
   };
 
   if (keepsNothing && protectedTabCount === 0 && rec.kind === "task") {
+    // Its last tab's close ends the task on the way (service
+    // #afterTaskTabClosed): as finished, since the agent decided.
+    rec.finishing = true;
     for (const { tab } of inventory) {
       close(tab);
     }
     ctx.pages.dropSpace(rec.id);
     // Before the record goes, so listeners (zen-ux's badge) still find it.
     ctx.emit("spaceFinished", { space: rec.id, closedSpace: true });
-    ctx.spaces.remove(rec);
+    ctx.spaces.remove(rec, { endedHow: "finished" });
     return {
       spaceId: rec.id,
       closedSpace: true,

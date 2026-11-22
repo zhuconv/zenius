@@ -1,9 +1,15 @@
-// Permission prompts in agent pages: a page asking for storage access or for
-// the local network puts its Space under the user's control with Ego's reason
-// key, and gives it back once the prompt is answered. Every other permission
-// prompt is denied in a task's pages, during the user's hold too (the
-// manager, 2026-11-20). zen-core's backstop cancels those before any prompt;
-// one that shows anyway is cancelled here at once.
+// Permission prompts in agent pages, on evidence since the user's pass on
+// defenses (2026-11-21, A8; zen-observe's backstops follow the same rules):
+// - while the agent drives, a page's prompt puts its Space under the user's
+//   control with Ego's reason key, and gives it back once it's answered;
+// - during the user's hold it's theirs, as on any site: nothing happens here;
+// - on evidence of danger in the page (zen-observe's flag), it's cancelled at
+//   once, whoever holds the task;
+// - the camera, microphone, screen and speakers are never the agent's: while
+//   the agent drives, their prompt is cancelled (zen-observe's gate denies
+//   them before any prompt). During the hold they're the user's, and
+//   zen-observe stops what the user started when the task goes back to the
+//   agent.
 //
 // Firefox shows a tab's permission prompts through
 // PopupNotifications.show(browser, id, …), and keeps the ones for background
@@ -21,35 +27,32 @@
 // whether it was removed without the user's response.
 
 /**
- * PopupNotifications ids of the permission prompts a task's pages may still
- * ask the user (the manager's list, 2026-11-20) → Ego reason keys. An
+ * PopupNotifications ids of the permission prompts a task's pages hand to the
+ * user while the agent drives → Ego's reason keys (its
+ * EGO_TASK_SPACE_USER_IN_CONTROL list, which the SDK's guidance follows). An
  * embedded sign-in frame needs storage access during a login; the local
- * network's prompts carry zen-observe's allowlist past top-level loads.
+ * network's prompts carry zen-observe's allowlist past top-level loads; the
+ * rest a site may need for the task. Persistent storage and XR have no key
+ * of their own there, so they take its catch-all, permission_prompt.
  */
 const REASONS = {
   "storage-access": "storage_access",
   "local-network": "local_network_access",
   "loopback-network": "local_network_access",
+  geolocation: "location",
+  "web-notifications": "notifications",
+  midi: "midi",
+  "webSerial-choosePort": "serial",
+  "persistent-storage": "permission_prompt",
+  xr: "permission_prompt",
 };
 
-/**
- * The prompts a task's pages never get. A device or the location the user
- * allowed during a hold would carry on under the agent after Resume, and no
- * task needs the rest.
- */
-const DENIED = new Set([
-  "geolocation",
-  "web-notifications",
-  "persistent-storage",
-  "midi",
-  "webSerial-choosePort",
-  "xr",
-  "webRTC-shareDevices",
-]);
+/** The camera, microphone, screen and speakers' prompt: never the agent's. */
+const DEVICES = new Set(["webRTC-shareDevices"]);
 
 /**
- * Ego's reason key for a prompt a task's page may hand to the user, or null
- * (a denied one, or not a permission prompt: password saving, add-on
+ * Ego's reason key for a prompt a task's page hands to the user, or null
+ * (the devices', or not a permission prompt: password saving, add-on
  * progress, …).
  *
  * @param {string} id
@@ -59,12 +62,12 @@ export function reasonFor(id) {
 }
 
 /**
- * Whether a task's pages never get this prompt.
+ * Whether it's the camera, microphone, screen and speakers' prompt.
  *
  * @param {string} id
  */
-export function isDenied(id) {
-  return DENIED.has(id);
+export function isDevicePrompt(id) {
+  return DEVICES.has(id);
 }
 
 /**
@@ -73,7 +76,8 @@ export function isDenied(id) {
  *   false refuses the prompt
  * @property {(browser: Element, reason: string, id: string, answered: boolean) => void} onPromptGone
  * @property {(browser: Element, id: string, origin: string) => boolean} [denies]
- *   true cancels a denied prompt at once: the browser is a task's page
+ *   true cancels a permission prompt at once, before onPrompt: a task's
+ *   page with evidence of danger, or the devices' while the agent drives
  */
 
 const WRAPPED = Symbol("zenius.permissions");
@@ -127,10 +131,11 @@ export function watchPermissionPrompts(win, host) {
       }
       throw e;
     }
-    if (reason && notification && notify(() => host.onPrompt(browser, reason, id, originOf(options, browser))) === false) {
+    if ((reason || DEVICES.has(id)) && notification && notify(() => host.denies?.(browser, id, originOf(options, browser))) === true) {
       refused = true;
       this.remove(notification, /* withoutUserResponse */ true);
-    } else if (notification && DENIED.has(id) && notify(() => host.denies?.(browser, id, originOf(options, browser))) === true) {
+    } else if (reason && notification && notify(() => host.onPrompt(browser, reason, id, originOf(options, browser))) === false) {
+      refused = true;
       this.remove(notification, /* withoutUserResponse */ true);
     }
     return notification;

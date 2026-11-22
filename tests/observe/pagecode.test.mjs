@@ -19,6 +19,8 @@ const NO_PAGE_CODE = [
   "browser.health", "browser.methods", "browser.version", "profiles.list",
   "spaces.claim", "spaces.create", "spaces.finish", "spaces.handOff", "spaces.list", "spaces.open", "spaces.setState", "spaces.takeOver", "spaces.waitForControl",
   "pages.adopt", "pages.close", "pages.list", "pages.release", "pages.userPage", "tabs.list",
+  // zen-core's evidence: page.flag marks the page's document and runs none of its code.
+  "page.flag",
   "events.subscribe", "page.events", "page.waitForEvent",
   "page.url", "page.title", "page.info", "page.snapshot", "page.screenshot", "page.waitForSelector", "page.waitForURL", "page.waitForLoadState",
   "page.fetch", "page.acceptDialog", "page.dismissDialog",
@@ -26,6 +28,8 @@ const NO_PAGE_CODE = [
   "page.click", "page.dblclick", "page.hover", "page.focus", "page.fill", "page.press", "page.selectOption", "page.dragAndDrop",
   "page.keyboard", "page.mouse", "page.setInputFiles", "filechooser.setFiles",
   "ui.cursor", "ui.state", "ui.sidebarStatus",
+  // Remote tasks: the sidebar's agent acts through the methods above.
+  "sidebar.start", "sidebar.send", "sidebar.status", "sidebar.list", "sidebar.stop",
 ];
 
 let env;

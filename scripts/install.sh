@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install the zenius runtime into a Zen profile, or remove it.
 #
-#   scripts/install.sh [--profile <dir>] [--dry-run] [--while-running] [--disable-ipv6]
+#   scripts/install.sh [--profile <dir>] [--loader] [--dry-run] [--while-running] [--disable-ipv6]
 #   scripts/install.sh --uninstall [--profile <dir>] [--dry-run] [--while-running]
 #
 # Install copies (never links) runtime/JS/zenius.uc.js and runtime/JS/zenius/
@@ -15,6 +15,15 @@
 # DNS_PREF. Nothing else in the profile changes: the user's other scripts in
 # chrome/JS/ and fx-autoconfig stay as they are. See docs/SPI.md "Install
 # layout".
+#
+# With --loader, a profile without fx-autoconfig's loader
+# (chrome/utils/boot.sys.mjs), a fresh Zen's, gets the copy in
+# runtime/vendor/fx-autoconfig/profile: install adds each of its files and
+# folders the profile lacks, never replacing one, and notes them in
+# LOADER_NOTES. Uninstall takes out exactly those, after a backup, unless
+# chrome/JS/ still holds other scripts, which need the loader. A profile with
+# a loader keeps it as it is. fx-autoconfig's program part, in the Zen app,
+# stays the user's to put there (zenius doctor shows how).
 #
 # It never touches the Zen app and never quits or restarts Zen; quit Zen and
 # reopen it afterwards. While Zen has the profile open and zenius is installed
@@ -49,6 +58,12 @@ COMPONENTS=(agent-sidebar agent-urlbar)
 # the scripts and this file, and the next uninstall by this one still puts
 # the user's copy back.
 COMP_PRIOR=$ZHOME/components.prior
+# One line per profile and entry --loader added there: "<profile>\t<path in
+# the profile>", a folder's with a trailing slash. It sits beside the
+# backups, as COMP_PRIOR does.
+LOADER_NOTES=$ZHOME/loader.added
+LOADER_SRC=$ROOT/runtime/vendor/fx-autoconfig/profile
+LOADER=0
 MODE=install
 PROFILE=
 DRY=0
@@ -62,6 +77,7 @@ while (($#)); do
       shift 2
       ;;
     --uninstall) MODE=uninstall; shift ;;
+    --loader) LOADER=1; shift ;;
     --dry-run) DRY=1; shift ;;
     --while-running) WHILE_RUNNING=1; shift ;;
     --disable-ipv6) DISABLE_IPV6=1; shift ;;
@@ -411,6 +427,74 @@ drop_leftovers() {
   drop_zenius_prefs
   drop_staging
   drop_workspace
+  drop_loader
+}
+
+# Did --loader add anything to this profile?
+loader_noted() {
+  [[ -f $LOADER_NOTES ]] && P=$PROFILE awk -F '\t' '$1 == ENVIRON["P"] { found = 1 } END { exit !found }' "$LOADER_NOTES"
+}
+
+# --loader: fx-autoconfig's loader from runtime/vendor, into a profile that
+# has none. Each entry the profile lacks is added and noted, parents first;
+# nothing there is replaced.
+add_loader() {
+  [[ -f $LOADER_SRC/chrome/utils/boot.sys.mjs ]] || die "no fx-autoconfig loader in $LOADER_SRC"
+  local rel n=0
+  while IFS= read -r rel; do
+    if exists "$PROFILE/$rel"; then continue; fi
+    if [[ -d $LOADER_SRC/$rel ]]; then
+      run mkdir "$PROFILE/$rel"
+      note_loader "$rel/"
+    else
+      run cp "$LOADER_SRC/$rel" "$PROFILE/$rel"
+      note_loader "$rel"
+      n=$((n + 1))
+    fi
+  done < <(cd "$LOADER_SRC" && find chrome | LC_ALL=C sort)
+  if ((DRY)); then
+    say "  would add fx-autoconfig's loader from runtime/vendor/fx-autoconfig: $(plural "$n" file) in chrome/utils; uninstall takes them out"
+  else
+    say "  added fx-autoconfig's loader from runtime/vendor/fx-autoconfig: $(plural "$n" file) in chrome/utils (noted in $LOADER_NOTES); uninstall takes them out"
+  fi
+}
+
+note_loader() {
+  ((DRY)) && return 0
+  ensure_home
+  printf '%s\t%s\n' "$PROFILE" "$1" >>"$LOADER_NOTES"
+}
+
+# Take out what --loader added to this profile, after a backup: its files,
+# then its folders once they're empty. Other scripts left in chrome/JS/ run on
+# the loader, so it stays for them, noted for a later uninstall.
+drop_loader() {
+  loader_noted || return 0
+  if [[ -n $(find "$JSDIR" -mindepth 1 -maxdepth 1 ! -name '.*' -print -quit 2>/dev/null) ]]; then
+    say "  left fx-autoconfig's loader, which --loader added, in place: other scripts in chrome/JS run on it"
+    return 0
+  fi
+  local p rel dirs=() n=0
+  while IFS=$'\t' read -r p rel; do
+    [[ $p == "$PROFILE" ]] || continue
+    if [[ $rel == */ ]]; then
+      dirs=("${rel%/}" ${dirs[@]+"${dirs[@]}"})
+    elif exists "$PROFILE/$rel"; then
+      backup "$PROFILE/$rel"
+      run rm -f "$PROFILE/$rel"
+      n=$((n + 1))
+    fi
+  done <"$LOADER_NOTES"
+  if ((DRY)); then
+    say "  would remove fx-autoconfig's loader, which --loader added: $(plural "$n" file)"
+    return 0
+  fi
+  for rel in ${dirs[@]+"${dirs[@]}"}; do
+    rmdir "$PROFILE/$rel" 2>/dev/null || true
+  done
+  P=$PROFILE awk -F '\t' '$1 != ENVIRON["P"]' "$LOADER_NOTES" >"$LOADER_NOTES.tmp-$$"
+  if [[ -s $LOADER_NOTES.tmp-$$ ]]; then mv "$LOADER_NOTES.tmp-$$" "$LOADER_NOTES"; else rm -f "$LOADER_NOTES.tmp-$$" "$LOADER_NOTES"; fi
+  say "  removed fx-autoconfig's loader, which --loader added: $(plural "$n" file)"
 }
 
 # What to check before anything changes: which profile, why that one, and
@@ -564,9 +648,12 @@ warn_other_zens() {
 }
 
 install() {
-  local src=$ROOT/runtime/JS
-  [[ -f $PROFILE/chrome/utils/boot.sys.mjs ]] ||
-    die "$PROFILE has no fx-autoconfig (chrome/utils/boot.sys.mjs), which zenius runs on"
+  local src=$ROOT/runtime/JS need_loader=0
+  if [[ ! -f $PROFILE/chrome/utils/boot.sys.mjs ]]; then
+    ((LOADER)) ||
+      die "$PROFILE has no fx-autoconfig (chrome/utils/boot.sys.mjs), which zenius runs on. With --loader, install.sh adds the copy in runtime/vendor/fx-autoconfig, and --uninstall takes it out again"
+    need_loader=1
+  fi
   [[ -f $src/zenius.uc.js && -d $src/zenius ]] || die "no runtime in $src"
   local comps=() gone=() c
   for c in "${COMPONENTS[@]}"; do
@@ -596,9 +683,16 @@ install() {
   version=$(sed -n 's/^export const RUNTIME_VERSION = "\(.*\)";$/\1/p' "$util")
   protocol=$(sed -n 's/^export const PROTOCOL_VERSION = \([0-9][0-9]*\);$/\1/p' "$util")
   [[ -n $version && -n $protocol ]] || die "can't read RUNTIME_VERSION and PROTOCOL_VERSION in $util"
-  commit=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)
-  if [[ $commit != unknown && -n $(git -C "$ROOT" status --porcelain -- runtime/JS 2>/dev/null) ]]; then
-    commit=$commit-dirty
+  # A release's package has no git, and may sit inside another repo (a home
+  # folder kept in git): its RELEASE file names its commit (scripts/release.sh).
+  if [[ -f $ROOT/RELEASE ]]; then
+    commit=$(sed -n 's/^commit=\([0-9a-f]\{7,40\}\)$/\1/p' "$ROOT/RELEASE")
+    commit=${commit:-unknown}
+  else
+    commit=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)
+    if [[ $commit != unknown && -n $(git -C "$ROOT" status --porcelain -- runtime/JS 2>/dev/null) ]]; then
+      commit=$commit-dirty
+    fi
   fi
   now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
@@ -656,6 +750,12 @@ install() {
       note_component "$c" ""
     fi
   done
+
+  if ((need_loader)); then
+    add_loader
+  elif ((LOADER)); then
+    say "  the profile has fx-autoconfig's loader already: --loader leaves it as it is"
+  fi
 
   # Copy into a staging folder and swap it in, so a failed copy leaves the
   # previous install whole.
@@ -825,6 +925,11 @@ uninstall() {
     fi
     if exists "$WORKSPACE"; then
       say "zenius isn't in $PROFILE any more; removing the sidebar's agent workspace it left"
+      drop_leftovers
+      return
+    fi
+    if loader_noted; then
+      say "zenius isn't in $PROFILE any more; removing fx-autoconfig's loader, which --loader added"
       drop_leftovers
       return
     fi

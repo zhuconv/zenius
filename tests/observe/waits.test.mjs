@@ -3,6 +3,7 @@
 // page-load-states, page-popup-waiter and page-evaluate-timeout e2e cases.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
+import { createServer } from "node:http";
 import { setup, timed } from "./lib.mjs";
 
 let env;
@@ -387,6 +388,90 @@ test("waitForSelector looks in every frame: OOPIF, same-origin, nested", () =>
     );
     const replaced = 'loc=role:button[name="Run Replacement iframe subtree action"]';
     assert.equal(await page.call("page.waitForSelector", { target: replaced, options: { timeout: 3000 } }), true);
+  }));
+
+/**
+ * A loopback server for the page loads waitForFunction polls across:
+ * /late-body sends its head at once and its body 800 ms later (until then
+ * document.body is null); /late-headers answers only after 600 ms, so the
+ * navigation stays pending on the old page that long.
+ */
+async function lateServer() {
+  const server = createServer((req, res) => {
+    const timers = [];
+    req.on("close", () => timers.forEach(clearTimeout));
+    const head = "<!doctype html><html><head><title>late</title></head>";
+    const body = `<body data-ready="1"><p id="results">ok</p></body></html>`;
+    if (req.url.startsWith("/late-body")) {
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+      res.write(head);
+      timers.push(setTimeout(() => res.end(body), 800));
+    } else {
+      timers.push(
+        setTimeout(() => {
+          res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+          res.end(head + body);
+        }, 600)
+      );
+    }
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  return { base: `http://127.0.0.1:${server.address().port}`, close: () => server.close() };
+}
+
+async function until(fn, ms = 4000) {
+  for (const end = Date.now() + ms; !(await fn()); await sleep(50)) {
+    if (Date.now() > end) {
+      throw new Error("timed out");
+    }
+  }
+}
+
+test("waitForFunction: a throw while the page is still loading (no body yet) or while a navigation is under way counts as not yet, and the wait goes on; a loaded page's throw still ends it (zen-eval's round 2)", () =>
+  env.inSpace("wait function loading", async page => {
+    const late = await lateServer();
+    try {
+      // zen-eval's T3: the page has landed but has no body yet.
+      await page.goto(`${late.base}/late-body?landed`, { waitUntil: "commit" });
+      const landed = await timed(() =>
+        page.call("page.waitForFunction", { fn: "() => document.body.dataset.ready === '1'", isFunction: true, options: { timeout: 5000 } })
+      );
+      assert.equal(landed.value, true);
+      assert.ok(landed.ms >= 300, `${landed.ms} ms: it waited for the body`);
+
+      // A navigation during the wait, to a page still loading.
+      await page.goto(`${env.base}/nav-target`);
+      await page.evaluate(`setTimeout(() => { location.href = ${JSON.stringify(`${late.base}/late-body`)} }, 300)`);
+      const loading = await timed(() =>
+        page.call("page.waitForFunction", { fn: "() => document.body.dataset.ready === '1'", isFunction: true, options: { timeout: 5000 } })
+      );
+      assert.equal(loading.value, true);
+      assert.ok(loading.ms >= 900, `${loading.ms} ms: it waited for the body`);
+
+      // The navigation is under way: the old page, where the predicate throws, stays 600 ms.
+      await page.goto(`${env.base}/nav-target`);
+      await page.evaluate(`location.href = ${JSON.stringify(`${late.base}/late-headers`)}`);
+      await until(() =>
+        env.chrome(
+          `const { trackerFor } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/navtracker.sys.mjs");
+           return !!trackerFor(ctx.resolvePage(arg).browser).pending;`,
+          page.P
+        )
+      );
+      assert.equal(
+        await page.call("page.waitForFunction", { fn: "() => document.querySelector('#results').textContent === 'ok'", isFunction: true, options: { timeout: 5000 } }),
+        true
+      );
+
+      // On a loaded page, a throw still ends the wait at once.
+      const thrown = await timed(() =>
+        page.fail("page.waitForFunction", { fn: "() => document.querySelector('#none').id", isFunction: true, options: { timeout: 5000 } })
+      );
+      assert.equal(thrown.value.code, "ZEN_EVALUATION_FAILED");
+      assert.ok(thrown.ms < 1000, `${thrown.ms} ms`);
+    } finally {
+      late.close();
+    }
   }));
 
 test("waitForFunction: an async predicate gets the whole timeout; Ego's texts", () =>

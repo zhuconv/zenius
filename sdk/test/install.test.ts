@@ -294,7 +294,7 @@ describe("scripts/install-cli.sh", () => {
     const failed = install(home, [], { script, build: true, env });
     assert.equal(failed.code, 1, failed.out);
     assert.match(failed.out, /^error {4}building sdk\/dist\/zenius\.mjs failed under Node v\d+\.\d+\.\d+ \(\/.+\):$/m);
-    assert.match(failed.out, /^ {9}Error: the all-platform guide is \d+ characters; keep it under 25000$/m);
+    assert.match(failed.out, /^ {9}Error: the all-platform guide is \d+ characters; keep it under 25500$/m);
     assert.doesNotMatch(failed.out, /no sdk\/node_modules/);
     assert.ok(existsSync(join(home, "cli/install.json")), "the earlier copy stays");
   });
@@ -435,6 +435,56 @@ describe("scripts/install-cli.sh --sandbox", () => {
       const result = install(home, [...args], { env: { ...env, ...extra } });
       assert.equal(result.code, message.startsWith("error") ? 1 : 2, result.out);
       assert.ok(result.out.endsWith(message), result.out);
+    }
+  });
+
+  // The user's D4 (docs/briefs/defenses-evidence.md): ~/Downloads, for uploads.
+  it("lets scripts read the folder --read-dir names, keeps it, drops it with none, and refuses one wider than a task's", { skip }, () => {
+    const home = scratch("zenius-install-");
+    const real = realpathSync(home);
+    const env = sandboxEnv(home);
+    const bin = join(home, "bin/zenius");
+    const readDir = () => /^READ_DIR=(.*)$/m.exec(readFileSync(bin, "utf8"))?.[1];
+    const downloads = join(home, "Downloads");
+    mkdirSync(downloads);
+    mkdirSync(join(home, ".ssh"));
+
+    const fresh = install(home, ["--sandbox"], { env });
+    assert.equal(fresh.code, 0, fresh.out);
+    assert.equal(readDir(), "''", "none unless asked");
+    const first = install(home, ["--sandbox", "--read-dir", downloads], { env });
+    assert.equal(first.code, 0, first.out);
+    assert.equal(readDir(), `'${downloads}'`, "the path as given, which the launcher resolves at each start");
+    assert.match(first.out, /^check {4}zenius \d+\.\d+\.\d+ \(protocol 1, sandboxed\)$/m);
+    const kept = install(home, [], { env });
+    assert.equal(kept.code, 0, kept.out);
+    assert.equal(readDir(), `'${downloads}'`, "a later install keeps it");
+    const dropped = install(home, ["--sandbox", "--read-dir", "none"], { env });
+    assert.equal(dropped.code, 0, dropped.out);
+    assert.equal(readDir(), "''");
+
+    for (const [args, message, extra] of [
+      [["--sandbox", "--read-dir", "Downloads"], "install-cli.sh: --read-dir takes an absolute path, or none\n", {}],
+      [["--sandbox", "--read-dir"], "install-cli.sh: --read-dir takes an absolute path, or none\n", {}],
+      [["--no-sandbox", "--read-dir", downloads], "install-cli.sh: --read-dir goes with --sandbox\n", {}],
+      [["--sandbox", "--read-dir", join(home, "gone")], `error    --sandbox: --read-dir must be a folder that exists: ${join(home, "gone")}\n`, {}],
+      [["--sandbox", "--read-dir", home], `error    --sandbox: --read-dir can't be your home folder, a temporary folder or above one: ${real}\n`, { HOME: home }],
+      [["--sandbox", "--read-dir", "/tmp"], `error    --sandbox: --read-dir can't be your home folder, a temporary folder or above one: ${realpathSync("/tmp")}\n`, {}],
+      [
+        ["--sandbox", "--read-dir", join(home, ".ssh")],
+        `error    --sandbox: --read-dir can't hold or be inside zenius, its node, Zen's profiles, or a folder of settings or credentials: ${join(real, ".ssh")}\n`,
+        { HOME: home },
+      ],
+      [
+        ["--sandbox", "--read-dir", join(home, "zhome")],
+        `error    --sandbox: --read-dir can't hold or be inside zenius, its node, Zen's profiles, or a folder of settings or credentials: ${join(real, "zhome")}\n`,
+        {},
+      ],
+    ] as const) {
+      const result = install(home, [...args], { env: { ...env, ...extra } });
+      assert.equal(result.code, message.startsWith("error") ? 1 : 2, result.out);
+      assert.ok(result.out.endsWith(message), result.out);
+      assert.equal(readDir(), "''", `${args.join(" ")}: the launcher is as it was`);
     }
   });
 

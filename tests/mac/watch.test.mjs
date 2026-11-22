@@ -40,6 +40,23 @@ const W = {
   conv: uid => T.glue().AgentService.tasks.get(uid),
   rec: uid => { const c = W.conv(uid); return c ? T.glue().AgentService.zenRecord(c) : null; },
   space: () => win.gZenWorkspaces?.activeWorkspace ?? null,
+  // Where a user starts a watch from: a Space of theirs, on a tab of theirs. Closing an
+  // earlier test's tabs can leave the window on the Agents Space, since Zen moves on to a
+  // Space that still has tabs, and a watch begun there has no Space of the user's to leave
+  // or return to. Says where the window was, for the log.
+  async toUser(uid) {
+    const ws = win.gZenWorkspaces, gb = win.gBrowser, agents = W.rec(uid)?.uuid ?? null;
+    const was = W.space() === agents ? "the task's Space" : "a Space of the user's";
+    if (ws && W.space() === agents) {
+      const own = ws.getWorkspaces().find(w => w.uuid !== agents);
+      if (own) await ws.changeWorkspaceWithID(own.uuid);
+    }
+    if (gb.selectedTab.getAttribute("zen-workspace-id") === agents) {
+      gb.selectedTab = gb.addTab("about:blank", { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+    }
+    await T.until(() => W.space() !== agents && gb.selectedTab.getAttribute("zen-workspace-id") !== agents, 5000, "a Space and tab of the user's");
+    return was;
+  },
   state(uid) {
     const g = T.glue(), doc = T.panelDoc(), $ = s => doc?.querySelector(s);
     const rec = W.rec(uid), conv = W.conv(uid), shot = $(H.PANEL.liveShot);
@@ -333,8 +350,11 @@ test("Not watching: ⌃Tab is Zen's own tab switch", async () => {
       win.ctrlTab?.panel?.hidePopup?.();
       gb.removeTab(a);
       gb.removeTab(b);
+      await T.sleep(300);
+      win.__zeAfterTabs = { space: win.gZenWorkspaces?.activeWorkspace ?? null, tabs: gb.visibleTabs.length };
     }
   `, { a: `${h.base}/zoo/semantics.html`, b: `${h.base}/zoo/long.html` });
+  console.log(`# after its tabs closed: ${JSON.stringify(await h.chrome("return win.__zeAfterTabs;"))}`);
   assert.ok(r.adjacent, `couldn't put the second test tab right after the first: ${JSON.stringify(r)}`);
   assert.equal(r.landed, "the next tab", `⌃Tab: ${JSON.stringify(r)}`);
   assert.ok(r.spaceKept, "⌃Tab changed the Space");
@@ -345,6 +365,7 @@ test("A working task's live card shows its page, with Watch and Take over", { sk
   const r = await watchCall(`
     const { startWorkChat } = ChromeUtils.importESModule(H.MODULE);
     await T.openPanel();
+    const spaceBefore = W.space(), tabBefore = win.gBrowser.selectedTab;
     const uid = await startWorkChat(win, { text: arg.text, source: "new" });
     await T.until(() => {
       const c = W.conv(uid);
@@ -354,7 +375,8 @@ test("A working task's live card shows its page, with Watch and Take over", { sk
       await T.until(() => W.state(uid).card.shown && W.state(uid).card.live === "true", 15000, "the live card");
     } catch {}
     await T.sleep(500);
-    return { uid, ...W.state(uid), shot: await T.shot(arg.path, "white") };
+    const kept = { spaceBefore, spaceAfter: W.space(), taskSpace: W.rec(uid)?.uuid ?? null, sameTab: win.gBrowser.selectedTab === tabBefore };
+    return { uid, kept, ...W.state(uid), shot: await T.shot(arg.path, "white") };
   `, { text: "Track the price of the blue kettle SCENARIO:prices", path: join(OUT, "watch-card.png") });
   uid = r.uid;
   const all = JSON.stringify(r);
@@ -371,6 +393,10 @@ test("A working task's live card shows its page, with Watch and Take over", { sk
   assert.equal(r.ownership, "agent", `the agent doesn't have the page: ${all}`);
   assert.equal(r.watching, null, `the window watches already: ${all}`);
   assert.equal(r.pill, false, `the pill shows while not watching: ${all}`);
+  console.log(`# the task's start: ${JSON.stringify(r.kept)}`);
+  // I1: the agent's start doesn't move the user's window, wherever it was.
+  assert.equal(r.kept.spaceAfter, r.kept.spaceBefore, `the task's start moved the window to another Space: ${all}`);
+  assert.ok(r.kept.sameTab, `the task's start changed the selected tab: ${all}`);
 });
 
 test("The live card draws only while it can be seen", { skip }, async () => {
@@ -415,6 +441,7 @@ test("Watch shows the task's Space and tab; ⌃Tab returns to the user's own", {
   const r = await watchCall(`
     const g = T.glue(), gb = win.gBrowser;
     await W.layout("expanded");
+    const startedOn = await W.toUser(arg.uid);
     const userTab = gb.selectedTab, userSpace = W.space(), taskName = W.rec(arg.uid)?.name ?? null;
     const shown = await g.watch(arg.uid);
     await T.sleep(600);
@@ -427,9 +454,10 @@ test("Watch shows the task's Space and tab; ⌃Tab returns to the user's own", {
       await T.until(() => !win.document.documentElement.hasAttribute(H.WATCH.attr), 5000, "the end of Watch");
     } catch {}
     await T.sleep(300);
-    return { shown, userSpace, taskName, during, strip, chip, shot, back: { ...W.state(arg.uid), strip: W.strip(), onUserTab: gb.selectedTab === userTab } };
+    return { startedOn, shown, userSpace, taskName, during, strip, chip, shot, back: { ...W.state(arg.uid), strip: W.strip(), onUserTab: gb.selectedTab === userTab } };
   `, { uid, path: join(OUT, "watching.png") });
   const all = JSON.stringify(r);
+  console.log(`# started on ${r.startedOn}`);
   console.log(`# shot: ${r.shot}`);
   console.log(`# strip: ${JSON.stringify(r.strip)}`);
   const { shown, dataWatching, watchHidden, hintShown, hintText } = r.during.card;
@@ -469,6 +497,7 @@ test("A click on one of the task's tabs in the directory watches it, and ⌃Tab 
   needTask();
   const r = await watchCall(`
     const g = T.glue(), gb = win.gBrowser;
+    const startedOn = await W.toUser(arg.uid);
     const userTab = gb.selectedTab, userSpace = W.space();
     g.showTask(arg.uid);
     if (!g.directoryOpen) g.toggleDirectory();
@@ -493,9 +522,10 @@ test("A click on one of the task's tabs in the directory watches it, and ⌃Tab 
     await T.sleep(300);
     const back = { watching: g.watching ?? null, space: W.space(), onUserTab: gb.selectedTab === userTab };
     if (g.directoryOpen) g.closeDirectory();
-    return { userSpace, current, fromDir, back };
+    return { startedOn, userSpace, current, fromDir, back };
   `, { uid });
   const all = JSON.stringify(r);
+  console.log(`# started on ${r.startedOn}`);
   assert.equal(r.current, "true", `the shown task's row isn't current: ${all}`);
   assert.equal(r.fromDir.watching, uid, `the directory's tab didn't start a watch: ${all}`);
   assert.ok(r.fromDir.tabInTaskSpace, `the directory's watch isn't on the task's tab: ${all}`);
@@ -517,6 +547,7 @@ test("Take over hands the page to the user, and watches it", { skip }, async () 
   needTask();
   const r = await watchCall(`
     const g = T.glue(), gb = win.gBrowser;
+    const startedOn = await W.toUser(arg.uid);
     const userTab = gb.selectedTab, userSpace = W.space();
     const before = W.rec(arg.uid)?.ownership ?? null;
     const took = await g.takeOver(arg.uid);
@@ -527,9 +558,10 @@ test("Take over hands the page to the user, and watches it", { skip }, async () 
     const during = W.state(arg.uid);
     await g.stopWatching({ back: true });
     await T.sleep(300);
-    return { before, took, userSpace, during, back: { watching: g.watching ?? null, space: W.space(), onUserTab: gb.selectedTab === userTab } };
+    return { startedOn, before, took, userSpace, during, back: { watching: g.watching ?? null, space: W.space(), onUserTab: gb.selectedTab === userTab } };
   `, { uid });
   const all = JSON.stringify(r);
+  console.log(`# started on ${r.startedOn}`);
   assert.equal(r.before, "agent", `the agent didn't have the page before Take over: ${all}`);
   assert.equal(r.took, true, `takeOver() says the user doesn't have the task: ${all}`);
   assert.equal(r.during.held, "takeover", `the task isn't held by a Take over: ${all}`);
@@ -616,12 +648,14 @@ test("A watched task's end: 'Task done · ⌃Tab' stays whole in the strip, in L
       return c?.task?.state === "working" && c.messages.some(m => m.role === "tool" && m.status === "in_progress") && !!W.rec(uid);
     }, 60000, "the second task's running step");
     await W.layout("expanded");
+    const startedOn = await W.toUser(uid);
     const user = { tab: gb.selectedTab, space: W.space() };
     const shown = await g.watch(uid);
     await T.sleep(600);
     win.__zeDone = { user, taskTab: gb.selectedTab };
-    return { uid, space: W.rec(uid)?.id ?? null, shown, watching: g.watching ?? null, tabInTaskSpace: W.state(uid).tabInTaskSpace };
+    return { uid, startedOn, space: W.rec(uid)?.id ?? null, shown, watching: g.watching ?? null, tabInTaskSpace: W.state(uid).tabInTaskSpace };
   `, { text: "Find nonstop flights from SFO to Tokyo SCENARIO:flights" });
+  console.log(`# started on ${started.startedOn}`);
   doneUid = started.uid;
   doneSpace = started.space;
   assert.equal(started.shown, true, `watch() didn't show the second task: ${JSON.stringify(started)}`);

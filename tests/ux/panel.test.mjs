@@ -15,6 +15,9 @@ let userView;
 
 before(async () => {
   h = await setup();
+  // The OS notification is off by default, as these tests expect, whatever
+  // a kept profile's last run left (its after() may not have run).
+  await h.chrome(`Services.prefs.clearUserPref("zenius.ux.handoff.systemNotification"); return true;`);
   userView = await h.call("dev.viewState");
   ({ id: space } = await h.createSpace({ name: NAME }));
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/` });
@@ -164,7 +167,9 @@ test("Pause holds the agent's next action until Resume; user input opens no prom
       ran,
       prompt: UI.takeover.promptState(rec.id),
       actions: (await openPanel(), actionsOf()),
-      strip: strip.getAttribute("state"),
+      // The task's own word: the strip sums every task, and a kept profile
+      // may hold another that needs the user (zen-eval's Mac run, 15 saved).
+      badge: UI.badgeFor(rec)?.state ?? null,
     };
     await press("resume");
     await sleep(50);
@@ -177,7 +182,7 @@ test("Pause holds the agent's next action until Resume; user input opens no prom
   assert.equal(out.ran, false);
   assert.equal(out.prompt, null, "a Space the user paused opens no takeover prompt");
   assert.deepEqual(out.actions, ["open", "resume", "takeOver", "stop"]);
-  assert.notEqual(out.strip, "needs-user", "a task the user paused doesn't need them");
+  assert.equal(out.badge, "paused", "a task the user paused doesn't need them");
   assert.equal(out.ranAfterResume, true);
   const s = await state();
   assert.equal(s.paused, false);

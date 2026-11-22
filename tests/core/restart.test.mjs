@@ -467,16 +467,30 @@ const KILL_PREFS = {
   "zen.workspaces.continue-where-left-off": false,
 };
 const KILL_PREFS_NO_TABS = { ...KILL_PREFS, "browser.sessionstore.resume_from_crash": false };
+// A save that runDelayed armed before the stub still runs: its timer calls
+// SessionSaver's private save, which writes Zen's file without the Space. On
+// a loaded machine the kill can come after it (15 s after the last save), so
+// the stub cancels it too.
 const stubSessionSaves = () =>
   h.chrome(
     `const { SessionSaver } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionSaver.sys.mjs");
      SessionSaver.run = () => Promise.resolve();
      SessionSaver.runDelayed = () => {};
+     SessionSaver.cancel();
      return true;`
   );
 /** Every Space Zen has: [uuid, name, zenius's mark or null]. */
 const zenSpaces = () =>
   h.chrome(`return win.gZenWorkspaces.getWorkspaces().map(ws => [ws.uuid, ws.name, ws.zenius ?? null]);`);
+/**
+ * The start logged one restart line matching `re`. A mismatch shows every
+ * restart line it logged, so a failure says which heal ran, not only that
+ * the count was off.
+ */
+function assertRestartLine(re) {
+  const lines = h.instanceLog(/restart: /);
+  assert.equal(lines.filter(line => re.test(line)).length, 1, `one restart line matching ${re}; the start logged ${JSON.stringify(lines)}`);
+}
 
 test("an empty Agents Space a kill brings back goes at the start, and a Space the user named Agents stays", async () => {
   await removeAgentWork();
@@ -488,20 +502,25 @@ test("an empty Agents Space a kill brings back goes at the start, and a Space th
   const t = await h.space("orphan empty");
   const agents = await h.chrome(`return ctx.spaces.agentsSpace.uuid;`);
   assert.notEqual(agents, mine);
-  assert.ok((await zenSpaces()).some(([uuid, name, mark]) => uuid === agents && name === "Agents" && mark === "agents-space"));
+  // The only marked Space, so the start has exactly one to remove.
+  assert.deepEqual(
+    (await zenSpaces()).filter(([, , mark]) => mark === "agents-space"),
+    [[agents, "Agents", "agents-space"]]
+  );
   await saveSession([agents, mine]);
 
   // The task ends: zenius removes its Space and records none. Zen dies before its file catches up.
   await stubSessionSaves();
   await h.call("spaces.finish", { space: t, keep: [] });
   assert.equal(await h.chrome(`return ctx.spaces.agentsSpace.uuid;`), null);
+  assert.ok(await zenFileHas(agents), "Zen's own file still has the Agents Space at the kill");
   await killAndStart(KILL_PREFS_NO_TABS);
 
   const spaces = await zenSpaces();
   assert.ok(!spaces.some(([uuid]) => uuid === agents), "the empty marked Space went at the start");
   assert.ok(spaces.some(([uuid, name, mark]) => uuid === mine && name === "Agents" && mark === null), "the user's own Agents stayed");
   assert.equal(await h.chrome(`return ctx.spaces.agentsSpace.uuid;`), null);
-  assert.equal(h.instanceLog(/restart: Agents Space not adopted; removed 1 empty marked Space\(s\); left 0 with tabs/).length, 1);
+  assertRestartLine(/restart: Agents Space not adopted; removed 1 empty marked Space\(s\); left 0 with tabs/);
   assert.deepEqual((await h.call("browser.health")).strayAgentsSpaces, []);
   // Zen's own file drops it at once (zenius saves after its removal).
   await h.until(async () => !(await zenFileHas(agents)), 10000);
@@ -517,13 +536,14 @@ test("an Agents Space a kill brings back with a tab in it becomes the Agents Spa
   await stubSessionSaves();
   await h.call("spaces.finish", { space: t.space, keep: [] });
   assert.equal(await h.chrome(`return ctx.spaces.agentsSpace.uuid;`), null);
+  assert.ok(await zenFileHas(agents), "Zen's own file still has the Agents Space at the kill");
   await killAndStart(KILL_PREFS);
 
   // The crashed session brings the tab back in its Space; its task is gone,
   // so it stays as an unmanaged tab, and the Space is the Agents Space again.
   assert.equal(await h.chrome(`return ctx.spaces.agentsSpace.uuid;`), agents);
   assert.equal(await anyTabAt(url("/api/text?orphan-tab")), true);
-  assert.equal(h.instanceLog(new RegExp(`restart: Agents Space adopted ${agents.replace(/[{}]/g, "\\$&")}; removed 0`)).length, 1);
+  assertRestartLine(new RegExp(`restart: Agents Space adopted ${agents.replace(/[{}]/g, "\\$&")}; removed 0`));
   assert.ok(!(await listedIds()).includes(t.space));
   // The user closes it: the Space goes as any Agents Space does.
   await h.chrome(

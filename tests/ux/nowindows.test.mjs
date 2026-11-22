@@ -10,7 +10,7 @@
 // instead (reopened), or one refused during a hold changes nothing.
 // zen-core's hook, noteOpenRefused, stands in for its refusals here, a
 // reload for zen-core's cleanLoad, and a stand-in for zen-observe's
-// isWritten; tests/core has the refusals themselves.
+// evidenceOf; tests/core has the refusals themselves.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { setup } from "./lib.mjs";
@@ -25,7 +25,7 @@ before(async () => {
 });
 
 after(async () => {
-  await h?.chrome(`const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI; UI.cleanLoad = null; UI.isWritten = null; return true;`).catch(() => {});
+  await h?.chrome(`const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI; UI.cleanLoad = null; UI.evidenceOf = null; return true;`).catch(() => {});
   await h?.close();
 });
 
@@ -53,11 +53,12 @@ const K = `
   const windows = bid => read(bid, "zenius-no-windows");
   const docOf = bid => tabOf(bid)?.linkedBrowser.browsingContext?.currentWindowGlobal?.innerWindowId ?? 0;
   const refuse = (bid, url, reopened = false) => Win.noteOpenRefused({ browser: tabOf(bid).linkedBrowser, url, reopened });
-  // zen-observe's flag, standing in: these pages' current documents hold
-  // the agent's writes, and lose them with a new document.
-  const writtenDocs = new Set();
-  const writeInto = bid => writtenDocs.add(docOf(bid));
-  UI.isWritten = target => writtenDocs.has(target?.browsingContext?.currentWindowGlobal?.innerWindowId ?? target?.currentWindowGlobal?.innerWindowId ?? -1);
+  // zen-observe's evidence, standing in: these pages' current documents
+  // are hooked, and lose it with a new document.
+  const hookedDocs = new Set();
+  const writeInto = bid => hookedDocs.add(docOf(bid));
+  UI.evidenceOf = target =>
+    hookedDocs.has(target?.browsingContext?.currentWindowGlobal?.innerWindowId ?? target?.currentWindowGlobal?.innerWindowId ?? -1) ? { hooked: "a script element" } : {};
   // The user's own click in the page in view, through the parent as the
   // OS's would: what a quiet reload follows.
   const userClick = async bid => {

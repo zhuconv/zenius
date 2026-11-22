@@ -55,6 +55,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
   checkAgentLoad: "chrome://userscripts/content/zenius/observe/webcontent.sys.mjs",
   E10SUtils: "resource://gre/modules/E10SUtils.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  URILoadingHelper: "resource:///modules/URILoadingHelper.sys.mjs",
   Refs: "chrome://userscripts/content/zenius/snapshot/refs.sys.mjs",
   currentDialog: "chrome://userscripts/content/zenius/observe/dialogs.sys.mjs",
   dialogOpened: "chrome://userscripts/content/zenius/observe/messages.sys.mjs",
@@ -67,6 +69,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
+
+// openLinkIn's referrer for a link that has none.
+const ReferrerInfo = Components.Constructor("@mozilla.org/referrer-info;1", "nsIReferrerInfo", "init");
 
 export const IS_MAC = Services.appinfo.OS === "Darwin";
 
@@ -153,10 +158,12 @@ function clipboardFor(ctx, rp) {
  * The agent's input pasted html into `bc`'s document, page.keyboard's or the
  * Space clipboard's. The page got it sanitized (content/input.sys.mjs), and
  * it still counts as the agent's code there, as page.evaluate does, and as
- * written, as the agent's world's writes do (zen-observe's flags): a second
- * layer for what the sanitizer lets through. The typing guard then holds
- * the user's first press there and has the page reloaded clean (zen-core's
- * cleanOnDemand), and the task's end reloads it if it's kept.
+ * written, as the agent's world's writes do (zen-observe's flags), until
+ * written retires once every defense reads the evidence flag. Evidence comes
+ * from content only when the markup carries something hooked (the defenses
+ * brief's A5, content/actions.sys.mjs): the typing guard then holds the
+ * user's first press there and has the page reloaded clean (zen-core's
+ * cleanOnDemand).
  */
 function markPastedHtml(rp, bc) {
   lazy.noteAgentCode(rp.space, bc);
@@ -571,11 +578,17 @@ async function attempt(ctx, rp, method, parsed, base, state) {
 
 /**
  * D3: open the links an agent's middle click hit as new pages of its task,
- * in the background, as Firefox's ClickHandlerParent opens a user's (the
- * frame's principals, the link's referrer and policy container). Its
+ * in the background, with what Firefox's ClickHandlerParent gives a user's
+ * (the frame's principals, the link's referrer and policy container). Its
  * openerBrowser makes the wrapped addTab adopt each tab into the task as a
  * popup, so the receipt lists it, as Ego's does (receipt.popups). Only what
  * page.goto may load opens: never a mail client or a local file.
+ *
+ * It does what openLinkIn does for a tab, but for one thing: openLinkIn
+ * raises its window first (w.focus(), even for a background tab), which
+ * brings Zen in front of the app the user is in (requirement 3, zen-eval's
+ * headed probe on 9abcd8e). So the same window, the same principals and the
+ * same addTab, and no focus.
  *
  * @param {object} rp the resolved page
  * @param {{bcId?: number, openLinks?: {href: string, referrerInfo: string, policyContainer: string|null}[]}} r the content call's result
@@ -585,36 +598,46 @@ function openMiddleClickedLinks(rp, r) {
     return;
   }
   const wgp = BrowsingContext.get(r.bcId)?.currentWindowGlobal ?? rp.browser.browsingContext?.currentWindowGlobal;
-  const win = rp.browser.ownerDocument?.defaultView;
-  if (!wgp || typeof win?.openLinkIn !== "function") {
+  const from = rp.browser.ownerDocument?.defaultView;
+  // openLinkIn's window for a tab: this one, unless it's a popup window.
+  const win = from && lazy.URILoadingHelper.getTargetWindow(from, { skipPopups: true, skipTaskbarTabs: true });
+  if (!wgp || !win?.gBrowser) {
     return;
   }
   const principal = wgp.documentPrincipal;
+  const userContextId = principal?.originAttributes?.userContextId || undefined;
+  // openLinkIn's updatePrincipals: the target window's private browsing and
+  // container for a content principal.
+  const withOA = p =>
+    p?.isContentPrincipal
+      ? Services.scriptSecurityManager.principalWithOA(p, {
+          userContextId,
+          privateBrowsingId: lazy.PrivateBrowsingUtils.isWindowPrivate(win) ? 1 : 0,
+          firstPartyDomain: p.originAttributes.firstPartyDomain,
+        })
+      : p;
   for (const link of r.openLinks) {
     try {
       lazy.checkAgentLoad(Services.io.newURI(link.href), "page.click");
     } catch {
       continue;
     }
-    const params = {
+    win.gBrowser.addTab(link.href, {
+      referrerInfo: lazy.E10SUtils.deserializeReferrerInfo(link.referrerInfo) ?? new ReferrerInfo(Ci.nsIReferrerInfo.EMPTY, true, null),
+      charset: rp.browser.characterSet,
       // Never the user's view: the tab joins the task's Space, unselected.
       inBackground: true,
-      charset: rp.browser.characterSet,
-      referrerInfo: lazy.E10SUtils.deserializeReferrerInfo(link.referrerInfo),
+      userContextId,
+      originPrincipal: withOA(principal),
+      originStoragePrincipal: withOA(wgp.documentStoragePrincipal),
+      triggeringPrincipal: withOA(principal),
+      allowInheritPrincipal: true,
+      triggeringRemoteType: wgp.domProcess?.remoteType,
       policyContainer: link.policyContainer ? lazy.E10SUtils.deserializePolicyContainer(link.policyContainer) : null,
-      isContentWindowPrivate: wgp.browsingContext.usePrivateBrowsing,
-      originPrincipal: principal,
-      originStoragePrincipal: wgp.documentStoragePrincipal,
-      triggeringPrincipal: principal,
+      focusUrlBar: false,
       openerBrowser: rp.browser,
       hasValidUserGestureActivation: true,
-      triggeringRemoteType: wgp.domProcess?.remoteType,
-      allowInheritPrincipal: true,
-    };
-    if (principal?.originAttributes?.userContextId) {
-      params.userContextId = principal.originAttributes.userContextId;
-    }
-    win.openLinkIn(link.href, "tab", params);
+    });
   }
 }
 
@@ -655,6 +678,8 @@ async function runElementAction(ctx, params, method, extra = {}) {
         base.deadline = start + timeout + state.held;
         try {
           const r = await attempt(ctx, rp, method, parsed, base, state);
+          // What the action found, for the task's step (input/steps.sys.mjs).
+          ctx.step = { target: r?.step };
           // Here, not after the receipt: a dialog may end that first.
           notePastedHtml(rp, r);
           hints.fileInputClicked = r?.fileInputClicked;
@@ -1646,6 +1671,8 @@ export const methods = {
       );
     }
     await ctx.gate(page.spaceId);
+    // The call names a chooser: its task's step needs the page's (input/steps.sys.mjs).
+    ctx.step = { space: page.spaceId, page: page.label };
     // Held through a takeover prompt that kept the agent in control?
     const { bc, multiple } = chooserInfo(params.chooser);
     // Before anything is armed: a refused payload leaves the chooser open

@@ -286,12 +286,27 @@ async function checkRealPath(method: string, file: string): Promise<void> {
 // The fix is the user's: the grants exist so a script that read a hostile
 // page can't upload the user's other files.
 function notAllowed(method: string, file: string, where: string, data: Record<string, unknown> = {}): ZeniusError {
+  const reads = sandboxReadDir();
+  const folders = reads
+    ? `its working folder, its runs' output folders, its temporary folder and ${reads}`
+    : "its working folder, its runs' output folders and its temporary folder";
   return new ZeniusError(
     "ZEN_PATH_NOT_ALLOWED",
-    `${method}: a sandboxed script reads files only in its working folder, its runs' output folders and its temporary folder, and ${where}. ` +
-      "If the task needs this file, ask the user to copy it into the working folder.",
+    `${method}: a sandboxed script reads files only in ${folders}, and ${where}. ` +
+      `If the task needs this file, ask the user to copy it into the working folder${reads ? ` or ${reads}` : ""}.`,
     { path: file, ...data },
   );
+}
+
+/**
+ * The folder the install lets sandboxed scripts read besides the working
+ * folder (install-cli.sh --sandbox --read-dir, such as ~/Downloads), which
+ * the launcher names in ZENIUS_READ_DIR when it grants it. Node's permission
+ * model holds the grant; this only names the folder in messages.
+ */
+export function sandboxReadDir(): string | undefined {
+  const dir = process.env.ZENIUS_READ_DIR;
+  return inSandbox() && typeof dir === "string" && nodePath.isAbsolute(dir) ? dir : undefined;
 }
 
 function unreadable(method: string, file: string, cause: unknown): ZeniusError {

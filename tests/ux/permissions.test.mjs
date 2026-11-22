@@ -1,14 +1,18 @@
-// Permission prompts in agent pages (runtime/JS/zenius/ui/permissions.sys.mjs).
-// Storage access and the local network's put the Space under the user's
-// control with Ego's reason key, wait in the background for the user to open
-// the Space, and give control back once answered. Every other one is denied
-// in a task's pages, during the user's hold too (the manager, 2026-11-20).
+// Permission prompts in agent pages (runtime/JS/zenius/ui/permissions.sys.mjs),
+// on evidence since the user's pass on defenses (2026-11-21, A8). While the
+// agent drives, a page's prompt puts the Space under the user's control with
+// Ego's reason key, waits in the background for the user to open the Space,
+// and gives control back once answered. During the user's hold it's theirs.
+// On evidence of danger in the page it's cancelled, held or not; the camera,
+// microphone and screen's is cancelled while the agent drives.
 //
 // The prompts that hand off need a cross-site frame, or a public page asking
 // for a private address, to come up for real, so these tests raise them from
 // chrome with the requesting origin as displayURI, as PermissionUI does: the
-// watcher only sees PopupNotifications either way. A denied one is raised
-// for real too, by persist().
+// watcher only sees PopupNotifications either way. persist() and the
+// prompt service's requests raise them for real, through zen-observe's
+// backstops, which cancel them only on evidence (their commit C): those tests
+// give the page real evidence (the flag is per document) and end on a new load.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { iso, prelude, setup } from "./lib.mjs";
@@ -37,10 +41,14 @@ before(async () => {
   `;
   // A Block stored for the site would answer persist() without a prompt.
   await h.chrome(`${P} Services.perms.removeFromPrincipal(browser.contentPrincipal, "persistent-storage");`);
+  // No page has evidence of danger unless a test says so (zen-observe's
+  // flag, which their suites test).
+  await h.chrome(`${P} ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI.evidenceOf = () => ({}); return true;`);
 });
 
 after(async () => {
   await h?.chrome(`${P}
+    ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI.evidenceOf = null;
     for (const id of ["storage-access", "geolocation", "persistent-storage", "password"]) {
       const n = PN.getNotification(id, browser);
       if (n) PN.remove(n);
@@ -52,22 +60,22 @@ after(async () => {
 const state = () => h.call("ui.state", { space });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-test("the prompts a task's pages may hand to the user, with Ego's reason keys, and the ones they never get", async () => {
+test("the prompts a task's pages hand to the user, with Ego's reason keys (its catch-all for those without one), and the devices' prompt, which is never the agent's", async () => {
   const out = await h.chrome(`${P}
     const ids = ["storage-access", "local-network", "loopback-network", "geolocation", "web-notifications", "persistent-storage", "midi", "webSerial-choosePort", "xr", "webRTC-shareDevices", "password"];
-    return Object.fromEntries(ids.map(id => [id, Perm.reasonFor(id) ?? (Perm.isDenied(id) ? "denied" : null)]));
+    return Object.fromEntries(ids.map(id => [id, Perm.reasonFor(id) ?? (Perm.isDevicePrompt(id) ? "device" : null)]));
   `);
   assert.deepEqual(out, {
     "storage-access": "storage_access",
     "local-network": "local_network_access",
     "loopback-network": "local_network_access",
-    geolocation: "denied",
-    "web-notifications": "denied",
-    "persistent-storage": "denied",
-    midi: "denied",
-    "webSerial-choosePort": "denied",
-    xr: "denied",
-    "webRTC-shareDevices": "denied",
+    geolocation: "location",
+    "web-notifications": "notifications",
+    "persistent-storage": "permission_prompt",
+    midi: "midi",
+    "webSerial-choosePort": "serial",
+    xr: "permission_prompt",
+    "webRTC-shareDevices": "device",
     password: null,
   });
 });
@@ -218,9 +226,11 @@ test("a site whose prompt went unanswered can't ask again: after its own reload,
   assert.match(refused[0].message, /^http:\/\/127\.0\.0\.1:\d+ asked for storage access after leaving an earlier request unanswered in this task, so the prompt was cancelled without asking the user\./);
 });
 
-// zen-core's backstop cancels these before any prompt. The watcher is the
-// second line: one that shows anyway goes at once.
-test("a request a task's pages never get is cancelled without asking the user, while they hold the task too: persist() from the page's own code", async () => {
+// zen-observe's backstop (their C) cancels persist() before any prompt only in
+// a page with evidence of danger, held or not; otherwise the prompt shows. The
+// page gets real evidence for the last two cases: the flag is per document,
+// so they come last, and the test ends on a new load.
+test("persist() from the page's own code: while the agent drives, its prompt hands the task to the user; during their hold it's theirs; on evidence of danger it's cancelled without asking, held or not", async () => {
   const persist = () =>
     h.call("dev.evalContent", {
       space,
@@ -236,60 +246,116 @@ test("a request a task's pages never get is cancelled without asking the user, w
     }
     return null;
   };
-  // From where the tests before left it: the agent's, no prompt open.
-  await h.chrome(`${P}
-    ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI.forgetHandOffs(rec);
-    const n = PN.getNotification("storage-access", browser);
-    if (n) PN.remove(n);
-    if (rec.ownership !== "agent") ctx.spaces.setOwnership(rec, "agent", { source: "user" });
-    return true;
-  `);
+  const reset = () =>
+    h.chrome(`${P}
+      ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI.forgetHandOffs(rec);
+      for (const id of ["storage-access", "persistent-storage"]) {
+        const n = PN.getNotification(id, browser);
+        if (n) PN.remove(n);
+      }
+      if (rec.ownership !== "agent") ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+      return true;
+    `);
+  const look = async () => {
+    const st = await state();
+    const out = await h.chrome(`${P} return !!PN.getNotification("persistent-storage", browser);`);
+    return { ownership: st.ownership, reason: st.reason, pending: out };
+  };
   const seen = {};
   try {
-    for (const holder of ["agent", "user"]) {
-      if (holder === "user") {
-        await h.chrome(`${P} ctx.spaces.setOwnership(rec, "agentDelegatedToUser", { reason: "manual_takeover", source: "user" }); return true;`);
-      }
-      await persist();
-      const a = await answer();
-      const st = await state();
-      const out = await h.chrome(`${P}
-        const { SitePermissions } = ChromeUtils.importESModule("resource:///modules/SitePermissions.sys.mjs");
-        return {
-          pending: !!PN.getNotification("persistent-storage", browser),
-          stored: SitePermissions.getForPrincipal(browser.contentPrincipal, "persistent-storage", browser).state === SitePermissions.UNKNOWN ? null : "stored",
-        };
+    for (const [name, evident, held] of [["agent", false, false], ["held", false, true], ["evidentAgent", true, false], ["evidentHeld", true, true]]) {
+      await reset();
+      await h.chrome(`${P}
+        if (${evident}) {
+          const { markEvident, isEvident } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/evidence.sys.mjs");
+          markEvident(browser, "flagged", "zen-ux's permissions test");
+          if (!isEvident(browser)) throw new Error("the page has no evidence");
+        }
+        if (${held}) ctx.spaces.setOwnership(rec, "agentDelegatedToUser", { reason: "manual_takeover", source: "user" });
+        return true;
       `);
-      seen[holder] = { answer: a, ownership: st.ownership, reason: st.reason, ...out };
+      await persist();
+      if (evident) {
+        seen[name] = { answer: await answer(), ...(await look()) };
+      } else {
+        let st = await look();
+        for (let i = 0; i < 40 && !st.pending; i++) {
+          await sleep(50);
+          st = await look();
+        }
+        seen[name] = st;
+        if (name === "agent") {
+          // Ego's catch-all key, with the prompt's own words.
+          seen.notice = (await state()).controlNotice;
+        }
+      }
     }
   } finally {
-    await h.chrome(`${P} ctx.spaces.setOwnership(rec, "agent", { source: "user" }); return true;`);
+    await reset();
+    await h.call("page.goto", { space, page: "p1", url: `${h.base}/` });
   }
   assert.deepEqual(seen, {
-    agent: { answer: "resolved false", ownership: "agent", reason: null, pending: false, stored: null },
-    user: { answer: "resolved false", ownership: "agentDelegatedToUser", reason: "manual_takeover", pending: false, stored: null },
+    agent: { ownership: "agentDelegatedToUser", reason: "permission_prompt", pending: true },
+    held: { ownership: "agentDelegatedToUser", reason: "manual_takeover", pending: true },
+    evidentAgent: { answer: "resolved false", ownership: "agent", reason: null, pending: false },
+    evidentHeld: { answer: "resolved false", ownership: "agentDelegatedToUser", reason: "manual_takeover", pending: false },
+    notice: `Agent paused · page asks for persistent storage · ${site()}`,
   });
 });
 
-test("a denied prompt that shows anyway in a task's page goes at once, while the user holds the task too, and the agent hears why; the user's own tab keeps it", async () => {
+test("a permission prompt in a task's page: while the agent drives it hands the task to the user with its reason; during their hold it's theirs; on evidence of danger it goes at once, held or not, and the agent hears why; the camera, microphone, screen or speakers' goes at once while the agent drives and is the user's in their hold; the user's own tab keeps its prompts", async () => {
   await h.call("page.events", { space, page: "p1" });
-  const ids = ["geolocation", "web-notifications", "persistent-storage", "midi", "webSerial-choosePort", "xr", "webRTC-shareDevices"];
+  const reasons = { geolocation: "location", "web-notifications": "notifications", "persistent-storage": "permission_prompt", midi: "midi", "webSerial-choosePort": "serial", xr: "permission_prompt" };
+  const DEV = "webRTC-shareDevices";
   const out = await h.chrome(`${P}
-    const ids = ${JSON.stringify(ids)};
+    const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;
+    const ids = ${JSON.stringify(Object.keys(reasons))};
+    const DEV = ${JSON.stringify(DEV)};
     const show = (b, id) => PN.show(b, id, "Allow?", "geo-notification-icon", { label: "Allow", accessKey: "A", callback() {} }, null, { displayURI: Services.io.newURI("https://maps.example/") });
-    const res = { agent: {}, held: {} };
-    for (const id of ids) {
-      show(browser, id);
-      res.agent[id] = { pending: !!PN.getNotification(id, browser), owner: rec.ownership };
-    }
-    ctx.spaces.setOwnership(rec, "agentDelegatedToUser", { reason: "manual_takeover", source: "user" });
+    const drop = (b, id) => {
+      const n = PN.getNotification(id, b);
+      if (n) PN.remove(n);
+    };
+    const toAgent = () => {
+      if (rec.ownership !== "agent") ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+    };
+    const hold = () => ctx.spaces.setOwnership(rec, "agentDelegatedToUser", { reason: "manual_takeover", source: "user" });
+    const look = id => ({ pending: !!PN.getNotification(id, browser), owner: rec.ownership, reason: rec.reason ?? null });
+    const res = { agent: {}, held: {}, evident: {}, evidentHeld: {} };
     try {
-      for (const id of ids) {
+      UI.evidenceOf = () => ({});
+      for (const id of [...ids, DEV]) {
+        UI.forgetHandOffs(rec);
+        toAgent();
         show(browser, id);
-        res.held[id] = { pending: !!PN.getNotification(id, browser), owner: rec.ownership };
+        res.agent[id] = look(id);
+        drop(browser, id);
+      }
+      toAgent();
+      hold();
+      for (const id of [...ids, DEV]) {
+        show(browser, id);
+        res.held[id] = look(id);
+        drop(browser, id);
+      }
+      toAgent();
+      UI.evidenceOf = b => (b === browser ? { hooked: "a script element" } : {});
+      for (const id of ["geolocation", "storage-access", DEV]) {
+        UI.forgetHandOffs(rec);
+        show(browser, id);
+        res.evident[id] = look(id);
+        drop(browser, id);
+      }
+      hold();
+      for (const id of ["geolocation", DEV]) {
+        show(browser, id);
+        res.evidentHeld[id] = look(id);
+        drop(browser, id);
       }
     } finally {
-      ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+      UI.evidenceOf = () => ({});
+      UI.forgetHandOffs(rec);
+      toAgent();
     }
     // The user's own tab, in their Space.
     const mine = gBrowser.addTab("about:blank", { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
@@ -297,24 +363,33 @@ test("a denied prompt that shows anyway in a task's page goes at once, while the
       show(mine.linkedBrowser, "geolocation");
       res.mine = !!PN.getNotification("geolocation", mine.linkedBrowser);
     } finally {
-      const n = PN.getNotification("geolocation", mine.linkedBrowser);
-      if (n) PN.remove(n);
+      drop(mine.linkedBrowser, "geolocation");
       gBrowser.removeTab(mine, { animate: false });
     }
     return res;
   `);
-  const each = owner => Object.fromEntries(ids.map(id => [id, { pending: false, owner }]));
-  assert.deepEqual(out.agent, each("agent"));
-  assert.deepEqual(out.held, each("agentDelegatedToUser"), "the user's hold doesn't open them");
+  const handed = Object.fromEntries(Object.entries(reasons).map(([id, reason]) => [id, { pending: true, owner: "agentDelegatedToUser", reason }]));
+  assert.deepEqual(out.agent, { ...handed, [DEV]: { pending: false, owner: "agent", reason: null } }, "while the agent drives");
+  const theirs = { pending: true, owner: "agentDelegatedToUser", reason: "manual_takeover" };
+  assert.deepEqual(out.held, Object.fromEntries([...Object.keys(reasons), DEV].map(id => [id, theirs])), "in the user's hold");
+  const gone = { pending: false, owner: "agent", reason: null };
+  assert.deepEqual(out.evident, { geolocation: gone, "storage-access": gone, [DEV]: gone }, "on evidence, while the agent drives");
+  const goneHeld = { pending: false, owner: "agentDelegatedToUser", reason: "manual_takeover" };
+  assert.deepEqual(out.evidentHeld, { geolocation: goneHeld, [DEV]: goneHeld }, "on evidence, in the user's hold");
   assert.equal(out.mine, true, "the user's own tab keeps its prompt");
   const refused = (await h.call("page.events", { space, page: "p1" })).filter(e => e.method === "Zenius.refused").map(e => e.params);
-  assert.equal(refused.length, 2 * ids.length, JSON.stringify(refused));
   assert.ok(refused.every(r => r.kind === "promptDenied"), JSON.stringify(refused));
-  assert.equal(
-    refused[0].message,
-    "https://maps.example asked for your location, which a task's pages never get, so the prompt was cancelled without asking the user. If the site takes a typed place instead, type it.",
+  assert.deepEqual(
+    refused.map(r => r.message),
+    [
+      "https://maps.example asked for the camera, microphone, screen or speakers, which the agent never gets, so the prompt was cancelled without asking the user. The user can allow it while they hold the task.",
+      "https://maps.example asked for your location, and zenius holds evidence of danger in this page, so the prompt was cancelled without asking the user. If the site takes a typed place instead, type it.",
+      "https://maps.example asked for storage access, and zenius holds evidence of danger in this page, so the prompt was cancelled without asking the user.",
+      "https://maps.example asked for the camera, microphone, screen or speakers, and zenius holds evidence of danger in this page, so the prompt was cancelled without asking the user.",
+      "https://maps.example asked for your location, and zenius holds evidence of danger in this page, so the prompt was cancelled without asking the user. If the site takes a typed place instead, type it.",
+      "https://maps.example asked for the camera, microphone, screen or speakers, and zenius holds evidence of danger in this page, so the prompt was cancelled without asking the user.",
+    ],
   );
-  assert.equal(refused[1].message, "https://maps.example asked to show notifications, which a task's pages never get, so the prompt was cancelled without asking the user.");
 });
 
 test("a prompt that replaces the page's pending one keeps the task with the user", async () => {
@@ -396,17 +471,20 @@ test("after 3 unanswered requests in a task, no page can hand it to the user; th
   assert.equal(refused[0].message, "https://c4.example asked for storage access, but pages left 3 requests unanswered in this task, so the prompt was cancelled without asking the user. To let them answer it, hand them the task.");
 });
 
-// Real requests through Firefox's prompt service, past zen-core's prompt
+// Real requests through Firefox's prompt service, past zen-observe's prompt
 // backstop (modules/backstops.sys.mjs): ContentPermissionPrompt, its
 // Integration override, PermissionUI, PopupNotifications, the watcher. A
 // mock nsIContentPermissionRequest stands in for the page's, on the task's
-// browser; storage access comes from a cross-site frame.
-test("real requests through Firefox's prompt service: storage access and the local network's still hand the task to the user past zen-core's backstop; the rest are cancelled before any doorhanger; while the user holds the task, the kept ones are theirs", async () => {
+// browser; storage access comes from a cross-site frame. The page gets real
+// evidence for the last cases, so the override is what cancels them (their
+// C); the watcher's own cancel is the test before.
+test("real requests through Firefox's prompt service, past zen-observe's backstops: while the agent drives, each hands the task to the user with its reason; while the user holds the task, each is theirs; on evidence of danger, each is cancelled before any doorhanger, held or not", async () => {
   // A new document: zen-core tells the agent of each cancelled type once per document.
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/?prompt-service` });
   await h.call("page.events", { space, page: "p1" });
   const out = await h.chrome(`${P}
     const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;
+    const { markEvident, isEvident } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/evidence.sys.mjs");
     const service = Cc["@mozilla.org/content-permission/prompt;1"].getService(Ci.nsIContentPermissionPrompt);
     const frame = Services.scriptSecurityManager.createContentPrincipal(Services.io.newURI(${JSON.stringify(h.base.replace("127.0.0.1", "localhost"))}), {});
     const request = (type, from) => {
@@ -429,21 +507,31 @@ test("real requests through Firefox's prompt service: storage access and the loc
       };
     };
     // Content permission types → their doorhangers' ids.
-    const KEPT = { "storage-access": "storage-access", "local-network": "local-network", "loopback-network": "loopback-network" };
-    const DENIED = { "persistent-storage": "persistent-storage", geolocation: "geolocation", "desktop-notification": "web-notifications" };
-    const res = { agent: {}, user: {} };
+    const TYPES = {
+      "storage-access": "storage-access",
+      "local-network": "local-network",
+      "loopback-network": "loopback-network",
+      "persistent-storage": "persistent-storage",
+      geolocation: "geolocation",
+      "desktop-notification": "web-notifications",
+    };
+    const res = { agent: {}, user: {}, evidentAgent: {}, evidentUser: {} };
     try {
-      for (const holder of ["agent", "user"]) {
-        for (const [type, id] of Object.entries({ ...KEPT, ...DENIED })) {
+      for (const [name, holder, evident] of [["agent", "agent", false], ["user", "user", false], ["evidentAgent", "agent", true], ["evidentUser", "user", true]]) {
+        if (evident && !isEvident(browser)) {
+          markEvident(browser, "flagged", "zen-ux's permissions test");
+          if (!isEvident(browser)) throw new Error("the page has no evidence");
+        }
+        for (const [type, id] of Object.entries(TYPES)) {
           UI.forgetHandOffs(rec);
           if (holder === "agent" && rec.ownership !== "agent") ctx.spaces.setOwnership(rec, "agent", { source: "user" });
           if (holder === "user" && rec.ownership !== "agentDelegatedToUser") ctx.spaces.setOwnership(rec, "agentDelegatedToUser", { reason: "manual_takeover", source: "user" });
           const req = request(type, type === "storage-access" ? frame : browser.contentPrincipal);
           service.prompt(req);
-          if (type in KEPT) await until(() => PN.getNotification(id, browser), 3000).catch(() => {});
+          if (!evident) await until(() => PN.getNotification(id, browser), 3000).catch(() => {});
           else await sleep(150);
           const n = PN.getNotification(id, browser);
-          res[holder][type] = { shown: !!n, ownership: rec.ownership, reason: rec.reason ?? null, cancelled: req.cancelled };
+          res[name][type] = { shown: !!n, ownership: rec.ownership, reason: rec.reason ?? null, cancelled: req.cancelled };
           if (n) PN.remove(n);
         }
       }
@@ -458,20 +546,16 @@ test("real requests through Firefox's prompt service: storage access and the loc
     "storage-access": handed("storage_access"),
     "local-network": handed("local_network_access"),
     "loopback-network": handed("local_network_access"),
-    "persistent-storage": cancelled("agent", null),
-    geolocation: cancelled("agent", null),
-    "desktop-notification": cancelled("agent", null),
+    "persistent-storage": handed("permission_prompt"),
+    geolocation: handed("location"),
+    "desktop-notification": handed("notifications"),
   });
   const theirs = { shown: true, ownership: "agentDelegatedToUser", reason: "manual_takeover", cancelled: false };
-  assert.deepEqual(out.user, {
-    "storage-access": theirs,
-    "local-network": theirs,
-    "loopback-network": theirs,
-    "persistent-storage": cancelled("agentDelegatedToUser", "manual_takeover"),
-    geolocation: cancelled("agentDelegatedToUser", "manual_takeover"),
-    "desktop-notification": cancelled("agentDelegatedToUser", "manual_takeover"),
-  });
+  const types = Object.keys(out.agent);
+  assert.deepEqual(out.user, Object.fromEntries(types.map(t => [t, theirs])));
+  assert.deepEqual(out.evidentAgent, Object.fromEntries(types.map(t => [t, cancelled("agent", null)])));
+  assert.deepEqual(out.evidentUser, Object.fromEntries(types.map(t => [t, cancelled("agentDelegatedToUser", "manual_takeover")])));
   const refused = (await h.call("page.events", { space, page: "p1" })).filter(e => e.method === "Zenius.refused").map(e => e.params);
-  assert.ok(refused.length >= 3 && refused.every(r => r.kind === "promptDenied"), `the agent hears of the cancelled ones: ${JSON.stringify(refused)}`);
+  assert.ok(refused.length >= 1 && refused.every(r => r.kind === "promptDenied"), `the agent hears of the cancelled ones: ${JSON.stringify(refused)}`);
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/` });
 });

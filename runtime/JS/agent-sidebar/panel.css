@@ -17,6 +17,7 @@
   --seg-line: light-dark(#dcdce2, #4a4a52);
   /* The tasks that need the user: Work's count, a step waiting for them. */
   --needs-color: #f07c1b;
+  --needs-bg: light-dark(#fff6ec, #33281e);
   --purple: light-dark(#7c5cff, #a48bff);
   --green: light-dark(#28a745, #34c759);
 }
@@ -251,6 +252,18 @@ kbd {
   margin-bottom: 2px;
 }
 
+/* A remote task's address (devbox/t5) in its source line, over its question,
+ * on its live card and on its arrival card (fillSource). */
+.addr {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+  color: var(--fg);
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.92em;
+  white-space: nowrap;
+}
+
 /* Edit: to the left of a question, while the pointer is over it. Not while
  * the agent answers. */
 .msg.user {
@@ -300,6 +313,7 @@ body.busy .msg.user > .actions {
 
 .editor .buttons {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 6px;
   margin-top: 6px;
@@ -550,6 +564,163 @@ body.busy .msg.user > .actions {
   background: light-dark(#fafafc, #2a2a30);
 }
 
+/* No picture of this task's page, and none coming while the agent isn't on
+ * it (a finished task the card never drew): only the card's foot. */
+#live[data-pictured="false"]:not([data-live="true"]) > #live-shot {
+  display: none;
+}
+
+#live[data-pictured="false"]:not([data-live="true"]) > :is(#live-src, #live-cap) {
+  border-top: none;
+}
+
+/* A remote task's arrival, over the composer: a card that pops up and goes
+ * on its own. Working's purple dot, as on the task's row in the directory,
+ * the text (two lines at most) and ✕ in its corner; under them on the right,
+ * Watch and Stop, as the live card's Watch and Take over. It lines up with
+ * the question box under it. */
+#arrival {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "dot text text close"
+    ". . watch stop";
+  align-items: center;
+  gap: 6px;
+  margin: 0 8px 2px;
+  padding: 8px 8px 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--box-bg);
+  box-shadow: 0 6px 16px -8px light-dark(rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.6));
+  font-size: 12px;
+  line-height: 18px;
+  animation: arrival-in 180ms ease-out;
+}
+
+#arrival[hidden] {
+  display: none;
+}
+
+@keyframes arrival-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #arrival {
+    animation: none;
+  }
+}
+
+#arrival::before {
+  content: "";
+  grid-area: dot;
+  align-self: start;
+  width: 7px;
+  height: 7px;
+  margin-top: 5.5px;
+  border-radius: 50%;
+  background: var(--purple);
+}
+
+#arrival-text {
+  grid-area: text;
+  align-self: start;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+#arrival .ghost {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--box-bg);
+  color: var(--fg);
+  font: inherit;
+  line-height: 18px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+#arrival .ghost:hover {
+  filter: brightness(0.95);
+}
+
+#arrival-watch {
+  grid-area: watch;
+}
+
+#arrival .ghost#arrival-watch {
+  border-color: var(--fg);
+  background: var(--fg);
+  color: var(--bg);
+}
+
+#arrival-stop {
+  grid-area: stop;
+}
+
+#arrival .ghost#arrival-close {
+  grid-area: close;
+  align-self: start;
+  justify-self: end;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 20px;
+}
+
+#arrival .ghost#arrival-close:hover {
+  filter: none;
+  background: var(--code-bg);
+  color: var(--fg);
+}
+
+/* A remote task's source: which of the user's agents sent it. On the live
+ * card it heads the card's foot, over the Live line, with the line between
+ * the picture and the foot over it. */
+#live-src {
+  padding: 6px 10px 0;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#live-src[hidden] {
+  display: none;
+}
+
+#live-src:not([hidden]) + #live-cap {
+  padding-top: 2px;
+  border-top: none;
+}
+
+/* A remote task that ended: why, under its last answer. */
+#remote-end {
+  padding: 4px 14px 8px;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+
+#remote-end[hidden] {
+  display: none;
+}
+
 #live-cap {
   display: flex;
   align-items: center;
@@ -750,6 +921,107 @@ body.busy .msg.user > .actions {
   }
 }
 
+/* --- A stretch of the agent's thinking (fillThought): "Thinking · <what
+ * it's on> · 12 s" while it lasts, then "Thought for 23 s", which opens to
+ * what it thought, quiet as the steps are. "Thinking · <what it's on>"
+ * wraps to two lines at most, Claude Code's being whole sentences in a
+ * narrow sidebar, and the seconds stay beside its first line (zen-ux's
+ * call). After a step, it's a line of the steps' box. */
+.msg.thought {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.msg.thought .line,
+.msg.thought summary {
+  display: flex;
+  align-items: flex-start;
+  padding: 2px 0;
+}
+
+.msg.thought .head {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+/* Under the step labels. */
+.steps > .msg.thought {
+  padding-inline-start: 19px;
+}
+
+.msg.thought summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.msg.thought summary::-webkit-details-marker,
+.msg.thought summary::marker {
+  display: none;
+  content: "";
+}
+
+.msg.thought summary::after {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  /* Centered on the first line. */
+  margin-top: calc((1lh - 8px) / 2);
+  margin-inline-start: 6px;
+  background: url("chrome://global/skin/icons/arrow-down-12.svg") center / contain no-repeat;
+  -moz-context-properties: fill;
+  fill: var(--faint);
+  transition: transform 0.12s;
+}
+
+.msg.thought details[open] > summary::after {
+  transform: rotate(180deg);
+}
+
+.msg.thought .time {
+  flex: none;
+  white-space: pre;
+}
+
+.msg.thought.live .label {
+  animation: thought-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes thought-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msg.thought.live .label {
+    animation: none;
+  }
+}
+
+.msg.thought .body {
+  margin: 4px 0 2px;
+  padding-inline-start: 10px;
+  border-inline-start: 2px solid var(--line);
+  overflow-wrap: anywhere;
+}
+
+.msg.thought .body p {
+  margin: 4px 0;
+}
+
+.msg.thought .body > :first-child {
+  margin-top: 0;
+}
+
+.msg.thought .body > :last-child {
+  margin-bottom: 0;
+}
+
 /* finish's kept tabs, and a failure's reason, under the step. */
 .step .sub {
   margin-inline-start: 19px;
@@ -787,6 +1059,196 @@ body.busy .msg.user > .actions {
   gap: 6px;
   margin-top: 6px;
   color: var(--muted);
+}
+
+/* The agent's own question (the explicit ask): Needs you's card, with its
+ * options as buttons, each with its description under its label. Once
+ * answered, a plain line: the question and what the user said. */
+.msg.ask {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--needs-color) 26%, transparent);
+  border-radius: 12px;
+  background: var(--needs-bg);
+}
+
+.msg.ask.answered {
+  gap: 2px;
+  padding: 6px 10px;
+  border-color: var(--line);
+  background: transparent;
+}
+
+.ask-title {
+  color: var(--needs-color);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ask-title::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-inline-end: 6px;
+  border-radius: 50%;
+  background: var(--needs-color);
+  vertical-align: 1px;
+}
+
+/* The card's own line on an ask for a password or a code: the panel's words,
+   set apart from the agent's below it. */
+.ask-guard {
+  margin-top: -4px;
+  padding-inline-start: 13px;
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ask-lead,
+.ask-text {
+  overflow-wrap: anywhere;
+}
+
+.ask-q {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+
+.ask-text {
+  font-weight: 600;
+}
+
+.msg.ask.answered .ask-text {
+  font-weight: normal;
+  color: var(--muted);
+}
+
+.ask-header {
+  align-self: flex-start;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--box-bg);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.ask-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ask-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--box-bg);
+  text-align: start;
+}
+
+.ask-opt:hover {
+  border-color: var(--accent);
+  background: var(--box-bg);
+}
+
+.ask-opt[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.ask-opt.multi[aria-pressed="true"] .label::after {
+  content: " ✓";
+  color: var(--accent);
+}
+
+.ask-opt .label {
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
+.ask-opt .desc {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
+.ask-secret {
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--box-bg);
+  color: var(--fg);
+  font: inherit;
+}
+
+/* A masked question's options, under its field (zen-ux's code card): one
+ * row of quiet pills in Skip's look, each one's description its tooltip. */
+.ask-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ask-pill {
+  overflow-wrap: anywhere;
+}
+
+.ask-pill[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.ask-words {
+  padding-inline-start: 8px;
+  border-inline-start: 3px solid var(--quote);
+  color: var(--fg);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ask-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ask-hint {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.ask-skip,
+.ask-pill {
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: var(--box-bg);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.ask-send:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ask-answer {
+  color: var(--fg);
+  overflow-wrap: anywhere;
 }
 
 #composer {
@@ -1048,7 +1510,8 @@ body.dragging::after {
   text-align: center;
 }
 
-/* The agent and model ("Opus 5.5"), then the effort ("Low"), dimmer. */
+/* The model ("Opus 5.5"), then its effort ("Low"), dimmer: one button that
+ * opens the model picker. A narrow bar shortens the model's name. */
 #pickers {
   flex: 0 1 auto;
   min-width: 0;
@@ -1056,39 +1519,252 @@ body.dragging::after {
   align-items: center;
 }
 
-#pickers select {
-  appearance: none;
-  field-sizing: content;
+#pick {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
   min-width: 0;
-  max-width: 150px;
-  font: inherit;
+  max-width: 240px;
   font-size: 12.5px;
   color: var(--fg);
   border: none;
   border-radius: 6px;
-  padding: 3px 5px;
+  padding: 3px 6px;
   background: transparent;
-  text-overflow: ellipsis;
-  cursor: pointer;
+  white-space: nowrap;
 }
 
-#pickers #effort {
-  color: var(--muted);
-  max-width: 90px;
-}
-
-#pickers select:hover:not(:disabled) {
+#pick:hover,
+#pick[aria-expanded="true"] {
   background: var(--code-bg);
 }
 
-#pickers select:disabled {
-  cursor: default;
-  opacity: 0.75;
+#pick-model {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#pick-effort {
+  flex: none;
+  color: var(--muted);
 }
 
 #pick-dot {
+  flex: none;
   color: var(--faint);
   font-size: 12px;
+}
+
+/* --- The model picker: an opaque card over the chat, opening upward from
+ * the composer, with room on its right for the efforts' flyout. panel.js
+ * places both. */
+#picker {
+  position: fixed;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  background: var(--box-bg);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow:
+    0 18px 40px -10px light-dark(rgb(0 0 0 / 0.2), rgb(0 0 0 / 0.55)),
+    0 2px 8px light-dark(rgb(0 0 0 / 0.06), rgb(0 0 0 / 0.3));
+  overflow: hidden;
+}
+
+#picker[hidden],
+#pick-fly[hidden] {
+  display: none;
+}
+
+#pick-find {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* Zen's own magnifier, by its chrome:// URL. */
+#pick-find .glass {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  background: url("chrome://browser/skin/zen-icons/search-glass.svg") center / contain no-repeat;
+  -moz-context-properties: fill;
+  fill: var(--muted);
+}
+
+#pick-search {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--fg);
+  padding: 0;
+}
+
+#pick-search::placeholder {
+  color: var(--faint);
+}
+
+/* The families: segmented, like the composer's Chat | Work. Hidden while
+ * only one can run. */
+#pick-fam {
+  flex: none;
+  display: flex;
+  margin: 9px 10px 3px;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--seg-bg);
+}
+
+#pick-fam button {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 2px 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#pick-fam button:hover:not(:disabled) {
+  background: transparent;
+  color: var(--fg);
+}
+
+#pick-fam button[aria-selected="true"] {
+  background: var(--seg-on);
+  border-color: var(--seg-line);
+  color: var(--fg);
+}
+
+#pick-fam button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+#pick-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 6px 6px;
+}
+
+.pick-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 33px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  cursor: default;
+}
+
+.pick-row.active {
+  background: var(--code-bg);
+}
+
+.pick-row .name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pick-row .eff {
+  flex: none;
+  color: var(--muted);
+}
+
+.pick-row .end {
+  flex: none;
+  margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The way to the efforts, on the row the pointer or the keys are on. */
+.pick-row .more {
+  visibility: hidden;
+  color: var(--faint);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.pick-row.active .more {
+  visibility: visible;
+}
+
+.pick-check {
+  width: 14px;
+  height: 14px;
+  background: var(--muted);
+  mask: url("chrome://global/skin/icons/check.svg") center / contain no-repeat;
+}
+
+.pick-rule {
+  height: 1px;
+  margin: 5px 10px;
+  background: var(--line);
+}
+
+.pick-none {
+  padding: 10px;
+  color: var(--muted);
+}
+
+/* Another family's models, in a chat with messages: in line with the rows'
+   names. */
+#pick-note {
+  flex: none;
+  padding: 6px 16px 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* The efforts of the row the flyout is for, beside it. */
+#pick-fly {
+  position: fixed;
+  z-index: 21;
+  width: 120px;
+  padding: 4px;
+  background: var(--box-bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow:
+    0 14px 30px -10px light-dark(rgb(0 0 0 / 0.22), rgb(0 0 0 / 0.55)),
+    0 2px 6px light-dark(rgb(0 0 0 / 0.06), rgb(0 0 0 / 0.3));
+}
+
+.pick-eff {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 7px;
+  font-size: 13px;
+  cursor: default;
+}
+
+.pick-eff.active {
+  background: var(--code-bg);
+}
+
+.pick-eff .pick-check {
+  margin-inline-start: auto;
 }
 
 .round {
@@ -1128,8 +1804,13 @@ body.dragging::after {
   color: var(--accent-fg);
 }
 
-#send::before {
-  background-image: url("chrome://global/skin/icons/arrow-up.svg");
+/* zenius's own small up arrow (send.svg), here and in the edit box. */
+#send::before,
+.editor .send::before {
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  mask: url("send.svg") center / contain no-repeat;
 }
 
 #send:disabled {
@@ -1154,6 +1835,82 @@ body.dragging::after {
   background: currentColor;
 }
 
+/* Steer: send a message into the agent's running turn now. A small outlined
+ * pill in the accent, beside Stop in the box and on each queued row, so it
+ * reads as lighter than Send and Stop. */
+.pill {
+  flex: none;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pill:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+#steer[hidden] {
+  display: none;
+}
+
+/* What the user queued while the agent worked (Enter): one line each, over
+ * the box, dashed as not sent yet. */
+#queue {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#queue[hidden] {
+  display: none;
+}
+
+#queue-head {
+  padding-inline: 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+#queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#queue-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--user-bg);
+  padding: 3px 3px 3px 8px;
+}
+
+#queue-list .text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+#queue-list .count {
+  flex: none;
+  font-size: 11px;
+  color: var(--muted);
+}
+
 /* Zen's narrowest sidebars: '+' and the switch, with its count, still fit
  * one row. */
 @container question-box (max-width: 170px) {
@@ -1175,4 +1932,273 @@ body.dragging::after {
 
 [hidden] {
   display: none !important;
+}
+
+/* A task the sidebar doesn't drive (external.sys.mjs): read-only. zen-ux's
+   hooks, zen-sidebar's look: its steps in the box and with the marks of the
+   sidebar's own, the agent's hand-off in the directory's Needs you tint,
+   and in the question's place what the sidebar can still do. */
+:root[data-external="true"] #input,
+:root[data-external="true"] #attach,
+:root[data-external="true"] #pickers,
+:root[data-external="true"] #send,
+:root[data-external="true"] #stop,
+:root[data-external="true"] #chip,
+:root[data-external="true"] #attachments {
+  display: none !important;
+}
+
+/* Where it's driven from, over its steps. */
+.ext-src {
+  margin: 2px 2px 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+
+.ext-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ext-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 7px;
+  padding: 2px 0;
+  line-height: 18px;
+}
+
+/* Its mark, as a step of the sidebar's own has. */
+.ext-step::before {
+  flex: none;
+  width: 12px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.ext-step[data-outcome="ok"]::before {
+  content: "✓";
+  color: var(--green);
+}
+
+.ext-step[data-outcome="failed"]::before {
+  content: "✕";
+  color: var(--danger);
+}
+
+.ext-step[data-outcome="running"]::before {
+  content: "";
+  box-sizing: border-box;
+  width: 9px;
+  height: 9px;
+  margin-inline: 1.5px;
+  border: 1.5px solid color-mix(in srgb, var(--purple) 30%, transparent);
+  border-top-color: var(--purple);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ext-step[data-outcome="running"]::before {
+    animation: none;
+    border-color: var(--purple);
+  }
+}
+
+/* While the task needs the user, its running step waits for them; once it
+   ended, a step still running stopped with it. Each as the sidebar's own. */
+.ext-view[data-state="needs"] .ext-step[data-outcome="running"]::before {
+  width: 7px;
+  height: 7px;
+  margin-inline: 2.5px;
+  border: none;
+  background: var(--needs-color);
+  animation: none;
+}
+
+.ext-view[data-state="done"] .ext-step[data-outcome="running"]::before {
+  content: "–";
+  width: 12px;
+  height: auto;
+  margin-inline: 0;
+  border: none;
+  border-radius: 0;
+  color: var(--faint);
+  animation: none;
+}
+
+.ext-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--fg);
+}
+
+.ext-step[data-outcome="ok"] .ext-text {
+  color: color-mix(in srgb, var(--fg) 78%, var(--bg));
+}
+
+/* The page's own names stand out of a done step's words. */
+.ext-step[data-outcome="ok"] .ext-name {
+  color: var(--fg);
+}
+
+.ext-step[data-outcome="failed"] .ext-text {
+  color: var(--danger);
+}
+
+/* Which of the task's pages, where it changes (data-same-page). */
+.ext-page {
+  flex: none;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--fg) 7%, transparent);
+  color: var(--muted);
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 10.5px;
+  line-height: 15px;
+}
+
+.ext-step[data-same-page="true"] .ext-page {
+  display: none;
+}
+
+.ext-time {
+  margin-inline-start: auto;
+  padding-inline-start: 8px;
+  color: var(--faint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A failed step's code, under its words, as the reason under a step of the
+   sidebar's own. */
+.ext-outcome:empty {
+  display: none;
+}
+
+.ext-step[data-outcome="failed"] .ext-outcome {
+  order: 1;
+  flex-basis: 100%;
+  padding-inline-start: 19px;
+  color: var(--muted);
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 10.5px;
+  line-height: 15px;
+  overflow-wrap: anywhere;
+}
+
+.ext-empty {
+  padding: 2px 0;
+  color: var(--muted);
+}
+
+/* The agent's hand-off: its words, in the directory's Needs you tint. */
+.ext-needs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 10px;
+  margin-top: 8px;
+  padding: 8px 10px 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--needs-color) 26%, transparent);
+  border-radius: 12px;
+  background: var(--needs-bg);
+  font-size: 12.5px;
+  line-height: 18px;
+}
+
+.ext-needs-title {
+  flex-basis: 100%;
+  color: var(--needs-color);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ext-needs-title::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-inline-end: 6px;
+  border-radius: 50%;
+  background: var(--needs-color);
+  vertical-align: 1px;
+}
+
+.ext-needs-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--fg);
+}
+
+.ext-needs .ghost,
+#ext-stop {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--box-bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.ext-needs .ghost:hover,
+#ext-stop:hover {
+  filter: brightness(0.95);
+}
+
+/* In the question's place: that the sidebar can't chat with it, and its
+   Stop; once it ended, how (data-ended), with a step's mark. */
+#ext-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  padding: 0 2px 4px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+#ext-bar[hidden],
+#ext-stop[hidden] {
+  display: none;
+}
+
+#ext-bar-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#ext-bar[data-ended] #ext-bar-text::before {
+  display: inline-block;
+  width: 12px;
+  margin-inline-end: 5px;
+  text-align: center;
+  font-size: 11px;
+}
+
+#ext-bar[data-ended="finished"] #ext-bar-text::before {
+  content: "✓";
+  color: var(--green);
+}
+
+#ext-bar[data-ended="stopped"] #ext-bar-text::before,
+#ext-bar[data-ended="closed"] #ext-bar-text::before {
+  content: "–";
+  color: var(--faint);
 }

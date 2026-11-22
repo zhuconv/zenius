@@ -12,7 +12,10 @@
 #   tests/security/run.sh escape          one part (escape, dev-off or sandbox)
 #   ZENIUS_SECURITY_TIMEOUT=<s>           the run's limit (default 900)
 #   ZENIUS_SECURITY_SOCKETS=<a>:<b>       more sockets the sandbox must not reach,
-#                                         such as the Mac's hc and ssh-agent
+#                                         such as a machine's own agents'
+#   ZENIUS_SECURITY_SOCKETS_FILE=<file>   adds one socket path per line (default
+#                                         ~/.zenius-dev/security-sockets, kept
+#                                         outside the repo; # starts a comment)
 #
 # Scripts run through a private build of this checkout's CLI, so the SDK
 # suites rebuilding sdk/dist beside this one in scripts/test-all.sh can't
@@ -25,6 +28,15 @@ NAME=${ZENIUS_SECURITY_INSTANCE:-sectest-${suffix:-main}}
 DEV="$ROOT/scripts/zen-dev.sh"
 LIMIT=${ZENIUS_SECURITY_TIMEOUT:-900}
 if (($#)); then parts=("$@"); else parts=(escape dev-off sandbox); fi
+# A machine's own sockets, listed outside the repo, join the ones it names.
+list=${ZENIUS_SECURITY_SOCKETS_FILE:-$HOME/.zenius-dev/security-sockets}
+if [[ -f $list ]]; then
+  while IFS= read -r line || [[ -n $line ]]; do
+    [[ -z $line || $line == \#* ]] && continue
+    ZENIUS_SECURITY_SOCKETS="${ZENIUS_SECURITY_SOCKETS:-}${ZENIUS_SECURITY_SOCKETS:+:}$line"
+  done <"$list"
+  export ZENIUS_SECURITY_SOCKETS
+fi
 for part in "${parts[@]}"; do
   [[ $part == escape || $part == dev-off || $part == sandbox ]] || { echo "tests/security/run.sh: no part $part (escape, dev-off, sandbox)" >&2; exit 2; }
 done
@@ -80,10 +92,10 @@ install_launcher() {
   cp -R "$ROOT/skill/zenius" "$ROOT/skill/guide.md" "$copy/skill/"
   cp -R "$ROOT/runtime/vendor/fx-autoconfig" "$copy/runtime/vendor/"
   (cd "$ROOT/sdk" && ZENIUS_BUILD_DIST="$copy/sdk/dist" node build.mjs >/dev/null)
-  mkdir -p "$WORK/sandbox/tmp"
+  mkdir -p "$WORK/sandbox/tmp" "$WORK/sandbox/downloads"
   if ! ZENIUS_INSTALL_NO_BUILD=1 ZENIUS_CLI_DIR=$WORK/sandbox/cli ZENIUS_BIN_DIR=$WORK/sandbox/bin \
     ZENIUS_SKILL_DIRS=$WORK/sandbox/skills TMPDIR=$WORK/sandbox/tmp \
-    "$copy/scripts/install-cli.sh" --sandbox --output-dir "$WORK/sandbox/out" >"$WORK/sandbox/install.log" 2>&1; then
+    "$copy/scripts/install-cli.sh" --sandbox --output-dir "$WORK/sandbox/out" --read-dir "$WORK/sandbox/downloads" >"$WORK/sandbox/install.log" 2>&1; then
     echo "tests/security/run.sh: install-cli.sh --sandbox failed:" >&2
     sed 's/^/  /' "$WORK/sandbox/install.log" >&2
     return 1

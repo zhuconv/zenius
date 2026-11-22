@@ -509,8 +509,15 @@ test("after the task, a refusal in a kept page with the agent's code reaches onK
   );
   try {
     const { label: k1 } = await h.call("pages.new", { space, url: url("/api/text?cg=KR1") });
-    // The agent's code runs in KR1: its document is marked.
-    await h.call("page.evaluate", { space, page: k1, isFunction: false, fn: `document.documentElement.setAttribute("data-zo-agent", "1"), 1` });
+    // The agent's code runs in KR1: its document is marked. It also leaves a
+    // style sheet, evidence, which a notification's refusal needs since
+    // zen-observe's C (A8).
+    await h.call("page.evaluate", {
+      space,
+      page: k1,
+      isFunction: false,
+      fn: `document.documentElement.setAttribute("data-zo-agent", "1"), document.head.append(document.createElement("style")), 1`,
+    });
     // On another site, where the agent's code never ran.
     const { label: k2 } = await h.call("pages.new", { space, url: url("/api/text?cg=KR2").replace("127.0.0.1", "localhost") });
     await keepWritten();

@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 566" width="880" height="566" role="img" aria-labelledby="t d" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">
+<title id="t">Median time of each operation: zen(ius) against Ego Lite</title>
+<desc id="d">A dot plot on a log scale of the median time of 13 operations an agent uses, for Ego Lite 0.6.3.17 and zen(ius) 0.1.0 (a pre-release build, 2026-11-21). zen(ius) was faster on all 27 operations both runs timed. Start a script, first call: Ego Lite 166 ms, zen(ius) 44 ms, 3.8× faster. New task space: Ego Lite 246 ms, zen(ius) 47 ms, 5.2× faster. Open a local page: Ego Lite 258 ms, zen(ius) 6.6 ms, 39× faster. Open example.com (network): Ego Lite 527 ms, zen(ius) 239 ms, 2.2× faster. Snapshot, typical page: Ego Lite 103 ms, zen(ius) 7.9 ms, 13× faster. Snapshot, huge page: Ego Lite 9.3 s, zen(ius) 79 ms, 117× faster. Click: Ego Lite 1.0 s, zen(ius) 27 ms, 38× faster. Fill a field: Ego Lite 21 ms, zen(ius) 0.6 ms, 36× faster. Type 50 characters: Ego Lite 68 ms, zen(ius) 6.5 ms, 10× faster. Evaluate JavaScript: Ego Lite 5.2 ms, zen(ius) 0.21 ms, 25× faster. Screenshot, viewport: Ego Lite 84 ms, zen(ius) 10 ms, 8.1× faster. Wait for an element (200 ms): Ego Lite 216 ms, zen(ius) 202 ms, 1.1× faster. Finish a task: Ego Lite 54 ms, zen(ius) 16 ms, 3.5× faster.</desc>
+<rect width="880" height="566" fill="#ffffff"/>
+<text x="24" y="38" font-size="17" font-weight="600" fill="#1f2328">Median time of each operation (log scale)</text>
+<text x="24" y="61" font-size="13" fill="#59636e">Ego Lite 0.6.3.17 and zen(ius) 0.1.0 (a pre-release build, 2026-11-21), the same bench on the same Mac. Lower is faster.</text>
+<circle cx="30" cy="88" r="5" fill="#00846f"/><text x="42" y="92.5" font-size="13" fill="#1f2328">zen(ius)</text>
+<circle cx="116" cy="88" r="5" fill="#8c959f"/><text x="128" y="92.5" font-size="13" fill="#1f2328">Ego Lite</text>
+<text x="856" y="102" font-size="12" fill="#6e7781" text-anchor="end">times faster</text>
+<line x1="322.0" y1="108" x2="322.0" y2="496" stroke="#eaeef2" stroke-width="1"/>
+<text x="322.0" y="518" font-size="12" fill="#6e7781" text-anchor="middle">0.1 ms</text>
+<line x1="408.0" y1="108" x2="408.0" y2="496" stroke="#eaeef2" stroke-width="1"/>
+<text x="408.0" y="518" font-size="12" fill="#6e7781" text-anchor="middle">1 ms</text>
+<line x1="494.0" y1="108" x2="494.0" y2="496" stroke="#eaeef2" stroke-width="1"/>
+<text x="494.0" y="518" font-size="12" fill="#6e7781" text-anchor="middle">10 ms</text>
+<line x1="580.0" y1="108" x2="580.0" y2="496" stroke="#eaeef2" stroke-width="1"/>
+<text x="580.0" y="518" font-size="12" fill="#6e7781" text-anchor="middle">100 ms</text>
+<line x1="666.0" y1="108" x2="666.0" y2="496" stroke="#eaeef2" stroke-width="1"/>
+<text x="666.0" y="518" font-size="12" fill="#6e7781" text-anchor="middle">1 s</text>
+<line x1="752.0" y1="108" x2="752.0" y2="496" stroke="#eaeef2" stroke-width="1"/>
+<text x="752.0" y="518" font-size="12" fill="#6e7781" text-anchor="middle">10 s</text>
+<text x="304" y="126.5" font-size="13" fill="#1f2328" text-anchor="end">Start a script, first call</text>
+<line x1="549.3" y1="122" x2="598.9" y2="122" stroke="#d1d9e0" stroke-width="2" stroke-linecap="round"/>
+<circle cx="598.9" cy="122" r="5" fill="#8c959f" stroke="#ffffff" stroke-width="2"/>
+<circle cx="549.3" cy="122" r="5.5" fill="#00846f" stroke="#ffffff" stroke-width="2"/>
+<text x="856" y="126.5" font-size="13" font-weight="600" fill="#1f2328" text-anchor="end" style="font-variant-numeric: tabular-nums">3.8×</text>
+<text x="538.3" y="126" font-size="11" fill="#6e7781" text-anchor="end">zen(ius)</text>
+<text x="609.9" y="126" font-size="11" fill="#6e7781">Ego Lite</text>
+<text x="304" y="156.5" font-size="13" fill="#1f2328" text-anchor="end">New task space</text>
+<line x1="551.7" y1="152" x2="613.6" y2="152" stroke="#d1d9e0" stroke-width="2" stroke-linecap="round"/>
+<circle cx="613.6" cy="152" r="5" fill="#8c959f" stroke="#ffffff" stroke-width="2"/>
+<circle cx="551.7" cy="152" r="5.5" fill="#00846f" stroke="#ffffff" stroke-width="2"/>
+<text x="856" y="156.5" font-size="13" font-weight="600" fill="#1f2328" text-anchor="end" style="font-variant-numeric: tabular-nums">5.2×</text>
+<text x="304" y="186.5" font-size="13" fill="#1f2328" text-anchor="end">Open a local page</text>
+<line x1="478.2" y1="182" x2="615.4" y2="182" stroke="#d1d9e0" stroke-width="2" stroke-linecap="round"/>
+<circle cx="615.4" cy="182" r="5" fill="#8c959f" stroke="#ffffff" stroke-width="2"/>
+<circle cx="478.2" cy="182" r="5.5" fill="#00846f" stroke="#ffffff" stroke-width="2"/>
+<text x="856" y="186.5" font-size="13" font-weight="600" fill="#1f2328" text-anchor="end" style="font-variant-numeric: tabular-nums">39×</text>
+<text x="304" y="216.5" font-size="13" fill="#1f2328" text-anchor="end">Open example.com (network)</text>
+<line x1="612.5" y1="212" x2="642.1" y2="212" stroke="#d1d9e0" stroke-width="2" stroke-linecap="round"/>
+<circle cx="642.1" cy="212" r="5" fill="#8c959f" stroke="#ffffff" stroke-width="2"/>
+<circle cx="612.5" cy="212" r="5.5" fill="#00846f" stroke="#ffffff" stroke-width="2"/>
+<text x="856" y="216.5" font-size="13" font-weight="600" fill="#1f2328" text-anchor="end" style="font-variant-numeric: tabular-nums">2.2×</text>
+<text x="304" y="246.5" font-size="13" fill="#1f2328" text-anchor="end">Snapshot, typical page</text>
+<line x1="485.1" y1="242" x2="581.0" y2="242" stroke="#d1d9e0" stroke-width="2" stroke-linecap="round"/>
+<circle cx="581.0" cy="242" r="5" fill="#8c959f" stroke="#ffffff" stroke-width="2"/>
+<circle cx="485.1" cy="242" r="5.5" fill="#00846f" stroke="#ffffff" stroke-width="2"/>
+<text x="856" y="246.5" font-size="13" font-weight="600" fill="#1f2328" text-anchor="end" style="font-variant-numeric: tabular-nums">13×</text>
+<text x="304" y="276.5" font-size="13" fill="#1f2328" text-anchor="end">Snapshot, huge page</text>
+<line x1="571.3" y1="272" x2="749.2" y2="272" stroke="#d1d9e0" stroke-width="2" stroke-linecap="round"/>
+<circle cx="749.2" cy="272" r="5" fill="#8c959f" stroke="#ffffff" stroke-width="2"/>
+<circle cx="571.3" cy="272" r="5.5" fill="#00846f" stroke="#ffffff" stroke-width="2"/>
+<text x="856" y="276.5" font-size="13" font-weight="600" fill="#1f2328" text-anchor="end" style="font-variant-numeric: tabular-nums">117×</text>
+<text x="304" y="306.5" font-size="13" fill="#1f2328" text-anchor="end">Click</text>
+<line x1="530.8" y1="302" x2="666.3" y2="302" stroke="#d1d9e0" stroke-width="2" stroke-linecap="round"/>
+<circle cx="666.3" cy="302" r="5" fill="#8c959f" stroke="#ffffff" stroke-width="2"/>
+<circle cx="530.8" cy="302" r="5.5" fill="#00846f" stroke="#ffffff" stroke-width="2"/>
+<text x="856" y="306.5" font-size="13" font-weight="600" fill="#1f2328" text-anchor="end" style="font-variant-numeric: tabular-nums">38×</text>
+<text x="304" y="336.5" font-size="13" fill="#1f2328" text-anchor="end">Fill a field</text>
+<line x1="388.7" y1="332" x2="522.5" y2="332" stroke="#d1d9e0" stroke-width="2" stroke-linecap="round"/>
+<circle cx="522.5" cy="332" r="5" fill="#8c959f" stroke="#ffffff" stroke-width="2"/>
+<circle cx="388.7" cy="332" r="5.5" fill="#00846f" stroke="#ffffff" stroke-width="2"/>
+<text x="856" y="336.5" font-size="13" font-weight="600" fill="#1f2328" text-anchor="end" style="font-variant-numeric: tabular-nums">36×</text>
+<text x="304" y="366.5" font-size="13" fill="#1f2328" text-anchor="end">Type 50 characters</text>
+<line x1="478.1" y1="362" x2="565.6" y2="362" stroke="#d1d9e0" stroke-width="2" stroke-linecap="round"/>
+<circle cx="565.6" cy="362" r="5" fill="#8c959f" stroke="#ffffff" stroke-width="2"/>
+<circle cx="478.1" cy="362" r="5.5" fill="#00846f" stroke="#ffffff" stroke-width="2"/>
+<text x="856" y="366.5" font-size="13" font-weight="600" fill="#1f2328" text-anchor="end" style="font-variant-numeric: tabular-nums">10×</text>
+<text x="304" y="396.5" font-size="13" fill="#1f2328" text-anchor="end">Evaluate JavaScript</text>
+<line x1="350.1" y1="392" x2="469.7" y2="392" stroke="#d1d9e0" stroke-width="2" stroke-linecap="round"/>
+<circle cx="469.7" cy="392" r="5" fill="#8c959f" stroke="#ffffff" stroke-width="2"/>
+<circle cx="350.1" cy="392" r="5.5" fill="#00846f" stroke="#ffffff" stroke-width="2"/>
+<text x="856" y="396.5" font-size="13" font-weight="600" fill="#1f2328" text-anchor="end" style="font-variant-numeric: tabular-nums">25×</text>
+<text x="304" y="426.5" font-size="13" fill="#1f2328" text-anchor="end">Screenshot, viewport</text>
+<line x1="495.3" y1="422" x2="573.6" y2="422" stroke="#d1d9e0" stroke-width="2" stroke-linecap="round"/>
+<circle cx="573.6" cy="422" r="5" fill="#8c959f" stroke="#ffffff" stroke-width="2"/>
+<circle cx="495.3" cy="422" r="5.5" fill="#00846f" stroke="#ffffff" stroke-width="2"/>
+<text x="856" y="426.5" font-size="13" font-weight="600" fill="#1f2328" text-anchor="end" style="font-variant-numeric: tabular-nums">8.1×</text>
+<text x="304" y="456.5" font-size="13" fill="#1f2328" text-anchor="end">Wait for an element (200 ms)</text>
+<line x1="606.2" y1="452" x2="608.8" y2="452" stroke="#d1d9e0" stroke-width="2" stroke-linecap="round"/>
+<circle cx="608.8" cy="448" r="5" fill="#8c959f" stroke="#ffffff" stroke-width="2"/>
+<circle cx="606.2" cy="456" r="5.5" fill="#00846f" stroke="#ffffff" stroke-width="2"/>
+<text x="856" y="456.5" font-size="13" font-weight="600" fill="#1f2328" text-anchor="end" style="font-variant-numeric: tabular-nums">1.1×</text>
+<text x="304" y="486.5" font-size="13" fill="#1f2328" text-anchor="end">Finish a task</text>
+<line x1="510.9" y1="482" x2="557.2" y2="482" stroke="#d1d9e0" stroke-width="2" stroke-linecap="round"/>
+<circle cx="557.2" cy="482" r="5" fill="#8c959f" stroke="#ffffff" stroke-width="2"/>
+<circle cx="510.9" cy="482" r="5.5" fill="#00846f" stroke="#ffffff" stroke-width="2"/>
+<text x="856" y="486.5" font-size="13" font-weight="600" fill="#1f2328" text-anchor="end" style="font-variant-numeric: tabular-nums">3.5×</text>
+<text x="24" y="550" font-size="12" fill="#6e7781">13 of the 27 operations both runs timed; zen(ius) was faster on all 27. The median of 20 timed runs of each.</text>
+</svg>

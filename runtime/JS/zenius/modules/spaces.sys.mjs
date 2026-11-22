@@ -106,6 +106,97 @@ export function newLedger() {
 const AGENTS_SPACE_NAME = "Agents";
 
 /**
+ * A task's source (docs/briefs/external-tasks.md): who drives it, which the
+ * sidebar's directory shows as text. A field stays only in the remote
+ * label's plain set (zen-observe's sidebar.start LABEL), and anything else
+ * is left out, so an odd folder name never blocks the task.
+ */
+const SOURCE_FIELD = /^[A-Za-z0-9 _.:@#/-]{1,80}$/;
+const SOURCE_KEYS = ["terminal", "agent", "folder"];
+/**
+ * source.sidebar: the agent sidebar's conversation that drives the task
+ * (ZENIUS_SIDEBAR_TASK), so the sidebar tells its own tasks apart. An id
+ * is kept only exactly as given: a changed one could name another chat.
+ */
+const SIDEBAR_FIELD = /^[A-Za-z0-9-]{1,64}$/;
+/** How an ended task ended, for the feed and the agent's next call. */
+const END_HOWS = ["stopped", "finished", "closed"];
+/** Ended tasks the registry no longer holds, which the feed still lists as done, for a day. */
+const ENDED_FEED_KEPT = 50;
+const ENDED_FEED_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * @param {unknown} raw  spaces.create's or spaces.claim's source
+ * @returns {{terminal?: string, agent?: string, folder?: string}|null}
+ */
+export function cleanSource(raw) {
+  if (raw === undefined || raw === null) {
+    return null;
+  }
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    log("a task's source isn't an object, so it's left out");
+    return null;
+  }
+  const out = {};
+  for (const key of Object.keys(raw)) {
+    const value = typeof raw[key] === "string" ? raw[key].trim() : null;
+    if (key === "sidebar") {
+      if (typeof raw.sidebar === "string" && SIDEBAR_FIELD.test(raw.sidebar)) {
+        out.sidebar = raw.sidebar;
+      } else {
+        log("a task's source.sidebar isn't a conversation id, so it's left out");
+      }
+    } else if (SOURCE_KEYS.includes(key) && value && SOURCE_FIELD.test(value)) {
+      out[key] = value;
+    } else {
+      log(`a task's source.${SOURCE_KEYS.includes(key) ? key : "<other field>"} isn't in the label set, so it's left out`);
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/**
+ * The ended feed entries a start keeps from spaces.json: well-formed ones
+ * that ended within the last day, the newest 50.
+ *
+ * @param {unknown} list
+ * @param {number} [now]
+ */
+export function keptEndedFeed(list, now = Date.now()) {
+  if (!Array.isArray(list)) {
+    return [];
+  }
+  const kept = [];
+  for (const e of list) {
+    if (
+      !e ||
+      typeof e !== "object" ||
+      !Number.isInteger(e.space) ||
+      typeof e.name !== "string" ||
+      !END_HOWS.includes(e.ended) ||
+      !Number.isFinite(e.endedAt) ||
+      now - e.endedAt >= ENDED_FEED_MS
+    ) {
+      continue;
+    }
+    kept.push({
+      space: e.space,
+      name: e.name,
+      kind: e.kind === "workspace" ? "workspace" : "task",
+      source: cleanSource(e.source),
+      state: "done",
+      reason: null,
+      message: typeof e.message === "string" && e.message ? e.message : null,
+      ended: e.ended,
+      createdAt: Number.isFinite(e.createdAt) ? e.createdAt : e.endedAt,
+      updatedAt: Number.isFinite(e.updatedAt) ? e.updatedAt : e.endedAt,
+      endedAt: e.endedAt,
+    });
+  }
+  return kept.slice(-ENDED_FEED_KEPT);
+}
+
+/**
  * zenius's mark on its Agents Space, in the Space's own data in Zen. Zen 1.24
  * keeps a field it doesn't know through everything it does with a Space: its
  * edits (rename, icon, container) change the object in place, window sync
@@ -252,6 +343,8 @@ export class Spaces {
   onPersist = null;
   /** (event, params) => void: in-process listeners only (the service's emitLocal). */
   onLocalEvent = null;
+  /** Ended tasks removed from the registry, newest last, for feed(). */
+  #endedFeed = [];
 
   #emit(name, params) {
     this.onEvent?.(name, params);
@@ -290,6 +383,12 @@ export class Spaces {
         handBackVia: rec.handBackVia ?? null,
         openerCut: !!rec.openerCut,
         handBackReloaded: rec.handBackReloaded ?? [],
+        handBackBlanked: rec.handBackBlanked ?? [],
+        source: rec.source ?? null,
+        heldBy: rec.heldBy ?? null,
+        endedHow: rec.endedHow ?? null,
+        endedAt: rec.endedAt ?? null,
+        updatedAt: rec.updatedAt ?? null,
         ledger: { nextLabel: rec.ledger.nextLabel, usedLabels: rec.ledger.usedLabels, releasedLabels: rec.ledger.releasedLabels },
       });
     }
@@ -299,6 +398,7 @@ export class Spaces {
       agentsSpace: { ...this.#agents },
       notRestored: this.#notRestored,
       records,
+      endedFeed: keptEndedFeed(this.#endedFeed),
     };
   }
 
@@ -316,6 +416,7 @@ export class Spaces {
       this.#notRestored = (Array.isArray(data.notRestored) ? data.notRestored : [])
         .filter(Number.isInteger)
         .slice(-NOT_RESTORED_KEPT);
+      this.#endedFeed = keptEndedFeed(data.endedFeed);
       const agents = data.agentsSpace ?? {};
       this.#agents = {
         uuid: typeof agents.uuid === "string" ? agents.uuid : null,
@@ -360,6 +461,12 @@ export class Spaces {
       handBackVia: typeof saved.handBackVia === "string" && saved.handBackVia ? saved.handBackVia : null,
       openerCut: !!saved.openerCut,
       handBackReloaded: Array.isArray(saved.handBackReloaded) ? saved.handBackReloaded.filter(l => typeof l === "string") : [],
+      handBackBlanked: Array.isArray(saved.handBackBlanked) ? saved.handBackBlanked.filter(l => typeof l === "string") : [],
+      source: cleanSource(saved.source),
+      heldBy: ["agent", "user", "permission"].includes(saved.heldBy) ? saved.heldBy : null,
+      endedHow: END_HOWS.includes(saved.endedHow) ? saved.endedHow : null,
+      endedAt: Number.isFinite(saved.endedAt) ? saved.endedAt : null,
+      updatedAt: Number.isFinite(saved.updatedAt) ? saved.updatedAt : null,
       ledger: { ...newLedger(), ...pick(saved.ledger, ["nextLabel", "usedLabels", "releasedLabels"]) },
       window: null,
     };
@@ -442,7 +549,7 @@ export class Spaces {
       this.#persist();
       for (const rec of this.#byId.values()) {
         if (rec.kind === "task" && this.isAgentTask(rec)) {
-          this.setOwnership(rec, "user", { source: "user" });
+          this.setOwnership(rec, "user", { source: "user", endedHow: "closed" });
         }
       }
     }
@@ -465,9 +572,10 @@ export class Spaces {
    * Create a task in the Agents Space, and the Space itself if needed,
    * without switching any window.
    *
-   * @param {{name: string, profileId?: string}} opts
+   * @param {{name: string, profileId?: string, source?: unknown}} opts
+   *   source: the caller's, kept field by field (cleanSource)
    */
-  async create({ name, profileId }) {
+  async create({ name, profileId, source }) {
     const userContextId = userContextIdFor(profileId);
     const win = hostWindow();
     if (!win) {
@@ -476,11 +584,11 @@ export class Spaces {
     await win.gZenWorkspaces.promiseInitialized;
     // Number the existing workspaces first, so ids follow Zen's order.
     this.refresh();
-    return this.#createTask(win, name, userContextId);
+    return this.#createTask(win, name, userContextId, cleanSource(source));
   }
 
   /** A task in the Agents Space, which is created first if needed. */
-  async #createTask(win, name, userContextId) {
+  async #createTask(win, name, userContextId, source) {
     const uuid = await this.#ensureAgentsSpace(win);
     const rec = {
       id: this.#nextId++,
@@ -501,9 +609,16 @@ export class Spaces {
       handBackVia: null,
       openerCut: false,
       handBackReloaded: [],
+      handBackBlanked: [],
+      source,
+      heldBy: null,
+      endedHow: null,
+      endedAt: null,
+      updatedAt: null,
       ledger: newLedger(),
       window: win,
     };
+    rec.updatedAt = rec.createdAt;
     this.#byId.set(rec.id, rec);
     this.#persist();
     this.#emit("spaceCreated", {
@@ -512,7 +627,9 @@ export class Spaces {
       createdBy: rec.createdBy,
       ownership: rec.ownership,
       profileId: rec.profileId,
+      ...(source ? { source } : {}),
     });
+    this.#emitFeed(rec);
     return rec;
   }
 
@@ -706,8 +823,16 @@ export class Spaces {
    * removal runs beforeunload handlers, and an agent page's prompt would
    * hold it up.
    */
-  remove(rec) {
+  remove(rec, { endedHow = null } = {}) {
     const win = hostWindow(rec.window);
+    if (this.#inFeed(rec)) {
+      // endedHow: finish() removes a task it leaves nothing of, which never
+      // went through setOwnership's end.
+      const ended = rec.endedHow ?? (END_HOWS.includes(endedHow) ? endedHow : "closed");
+      const entry = { ...this.feedEntry(rec), state: "done", reason: null, ended, endedAt: rec.endedAt ?? Date.now() };
+      this.#endedFeed = [...this.#endedFeed.filter(e => e.space !== rec.id), entry].slice(-ENDED_FEED_KEPT);
+      this.onLocalEvent?.("taskFeed", entry);
+    }
     rec.gone = true;
     rec.paused = false;
     this.#wake(rec);
@@ -799,6 +924,7 @@ export class Spaces {
       rec.name = name;
       this.#persist();
       this.#emit("spaceChanged", { space: rec.id, name });
+      this.#emitFeed(rec);
       return;
     }
     const win = hostWindow(rec.window);
@@ -809,6 +935,64 @@ export class Spaces {
     rec.name = name;
     this.#persist();
     this.#emit("spaceChanged", { space: rec.id, name });
+    this.#emitFeed(rec);
+  }
+
+  /** A claimed Space's source (spaces.claim): the caller's, kept field by field. The ownership change after it tells the feed. */
+  setSource(rec, raw) {
+    rec.source = cleanSource(raw);
+    this.#persist();
+  }
+
+  // ---------------------------------------------------------------------------
+  // The task feed (docs/briefs/external-tasks.md): every task's life for the
+  // sidebar's directory, whoever drives it. feed() is the list now, and the
+  // "taskFeed" local event (service.addEventListener) carries an entry each
+  // time it changes.
+
+  #inFeed(rec) {
+    return rec.kind === "task" || rec.ended || this.isAgentTask(rec);
+  }
+
+  /**
+   * @returns {{space: number, name: string, kind: string, source: object|null,
+   *   state: "working"|"needs_you"|"held"|"done", reason: string|null,
+   *   message: string|null, ended: "stopped"|"finished"|"closed"|null,
+   *   createdAt: number, updatedAt: number, endedAt: number|null}}
+   *   needs_you: the agent's hand-off (or a permission prompt) waits for the
+   *   user; held: the user took over; message: the agent's words
+   *   (setState), which a hand-off's card shows
+   */
+  feedEntry(rec) {
+    const held = rec.ownership === "agentDelegatedToUser";
+    const state = rec.ownership === "agent" ? "working" : held ? (rec.heldBy === "user" ? "held" : "needs_you") : "done";
+    return {
+      space: rec.id,
+      name: rec.name,
+      kind: rec.kind,
+      source: rec.source ?? null,
+      state,
+      reason: held ? rec.reason : null,
+      message: rec.stateText || null,
+      ended: state === "done" ? (rec.endedHow ?? "stopped") : null,
+      createdAt: rec.createdAt,
+      updatedAt: rec.updatedAt ?? rec.createdAt,
+      endedAt: state === "done" ? (rec.endedAt ?? null) : null,
+    };
+  }
+
+  /** Every task's entry: live ones, then ended ones the registry no longer holds. */
+  feed() {
+    const live = [...this.#byId.values()].filter(rec => !rec.gone && this.#inFeed(rec)).map(rec => this.feedEntry(rec));
+    const ids = new Set(live.map(e => e.space));
+    this.#endedFeed = keptEndedFeed(this.#endedFeed);
+    return [...live, ...this.#endedFeed.filter(e => !ids.has(e.space))];
+  }
+
+  #emitFeed(rec) {
+    if (!rec.gone && this.#inFeed(rec)) {
+      this.onLocalEvent?.("taskFeed", this.feedEntry(rec));
+    }
   }
 
   /**
@@ -876,8 +1060,17 @@ export class Spaces {
    *     load did to the page the user holds (modules/handoff.sys.mjs):
    *     "reload" or "get" when it loaded afresh, and whether a field came
    *     back filled; zen-ux's card says so
+   *   secret: for agentDelegatedToUser, the agent's hand-off said the step
+   *     will show a secret, and the hand back blanks the tab; zen-ux's card
+   *     tells the user to copy what they need first
+   *   evidence: for agentDelegatedToUser, label → the evidence each page
+   *     the hold loaded afresh had before its load ({reason: detail},
+   *     zen-observe's), so zen-ux's reload card says why
+   *   endedHow: for a task that ends here, how: "closed" (its tabs went),
+   *     else "finished" when the agent decided and "stopped" when the user
+   *     did; the feed shows it, and so does the agent's next call
    */
-  setOwnership(rec, ownership, { reason = null, source = "agent", via = null, reloaded = null, carried = false } = {}) {
+  setOwnership(rec, ownership, { reason = null, source = "agent", via = null, reloaded = null, carried = false, secret = false, evidence = null, endedHow = null } = {}) {
     if (!OWNERSHIPS.includes(ownership)) {
       throw new ZenError("ZEN_INVALID_ARGUMENT", `unknown ownership ${JSON.stringify(ownership)}`);
     }
@@ -888,10 +1081,20 @@ export class Spaces {
     if (rec.ownership === ownership && rec.reason === nextReason && rec.ended === ended) {
       return;
     }
+    const wasEnded = rec.ended;
     rec.ownership = ownership;
     rec.reason = nextReason;
     rec.ended = ended;
+    rec.updatedAt = Date.now();
+    if (ended && !wasEnded) {
+      rec.endedHow = END_HOWS.includes(endedHow) ? endedHow : source === "agent" ? "finished" : "stopped";
+      rec.endedAt = rec.updatedAt;
+    } else if (!ended) {
+      rec.endedHow = null;
+      rec.endedAt = null;
+    }
     if (ownership === "agentDelegatedToUser") {
+      rec.heldBy = source;
       // The auto-close spares a task the user ever held (SPEC §3.4).
       rec.handedToUser = true;
       // A new handoff: the last hand back's via is spent.
@@ -910,7 +1113,10 @@ export class Spaces {
       ...(typeof via === "string" && via ? { via } : {}),
       ...(held && (reloaded === "reload" || reloaded === "get") ? { reloaded } : {}),
       ...(held && carried ? { carried: true } : {}),
+      ...(held && secret ? { secret: true } : {}),
+      ...(held && evidence && Object.keys(evidence).length ? { evidence } : {}),
     });
+    this.#emitFeed(rec);
     this.#wake(rec);
   }
 
@@ -928,6 +1134,15 @@ export class Spaces {
     }
   }
 
+  /** The secret steps' tabs the hand back blanked (service.blankSecretSteps), by label. */
+  noteBlanked(rec, labels) {
+    const add = labels.filter(label => typeof label === "string" && !rec.handBackBlanked?.includes(label));
+    if (add.length) {
+      rec.handBackBlanked = [...(rec.handBackBlanked ?? []), ...add];
+      this.#persist();
+    }
+  }
+
   noteOpenerCut(rec) {
     if (!rec.openerCut) {
       rec.openerCut = true;
@@ -936,24 +1151,27 @@ export class Spaces {
   }
 
   clearHandBackNotes(rec) {
-    if (rec.openerCut || rec.handBackReloaded?.length) {
+    if (rec.openerCut || rec.handBackReloaded?.length || rec.handBackBlanked?.length) {
       rec.openerCut = false;
       rec.handBackReloaded = [];
+      rec.handBackBlanked = [];
       this.#persist();
     }
   }
 
   /**
    * The hand back's notes, once, as spaces.takeOver and
-   * spaces.waitForControl report them: {openerCut: true} and {reloaded}
-   * only when there's something to say.
+   * spaces.waitForControl report them: {openerCut: true}, {reloaded} and
+   * {blanked} (a secret step's tabs, now about:blank) only when there's
+   * something to say.
    *
-   * @returns {{openerCut?: true, reloaded?: string[]}}
+   * @returns {{openerCut?: true, reloaded?: string[], blanked?: string[]}}
    */
   takeHandBackNotes(rec) {
     const notes = {
       ...(rec.openerCut ? { openerCut: true } : {}),
       ...(rec.handBackReloaded?.length ? { reloaded: [...rec.handBackReloaded] } : {}),
+      ...(rec.handBackBlanked?.length ? { blanked: [...rec.handBackBlanked] } : {}),
     };
     this.clearHandBackNotes(rec);
     return notes;
@@ -984,8 +1202,10 @@ export class Spaces {
       return;
     }
     rec.stateText = text;
+    rec.updatedAt = Date.now();
     this.#persist();
     this.#emit("spaceChanged", { space: rec.id, stateText: text });
+    this.#emitFeed(rec);
   }
 
   /**
@@ -1246,10 +1466,12 @@ export function controlError(rec) {
     });
   }
   if (rec.ended) {
+    const how = END_HOWS.includes(rec.endedHow) ? rec.endedHow : null;
+    const why = { stopped: ": the user stopped it in Zen", finished: " with finish()", closed: " when its tabs were closed" }[how] ?? "";
     return new ZenError(
       "ZEN_TASK_SPACE_INACTIVE",
-      `Task space ${rec.id} is no longer assigned to the agent: its task ended. Claim it only when the user asks you to continue there.`,
-      { space: rec.id }
+      `Task space ${rec.id} is no longer assigned to the agent: its task ended${why}. Claim it only when the user asks you to continue there.`,
+      { space: rec.id, ...(how ? { reason: how } : {}) }
     );
   }
   // A user Space the agent never claimed: Ego reports the user in control.

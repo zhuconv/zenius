@@ -17,6 +17,9 @@
 #                                        its run's output folder, in ~/.zenius/out
 #   ... --sandbox --output-dir DIR       put runs' output folders in DIR instead (absolute,
 #                                        outside your projects); later installs keep it
+#   ... --sandbox --read-dir DIR         also let scripts read DIR (absolute), such as
+#                                        ~/Downloads, for uploads, and never write it;
+#                                        later installs keep it, and --read-dir none drops it
 #   scripts/install-cli.sh --no-sandbox  make ~/.local/bin/zenius a link to the copy again
 #   scripts/install-cli.sh --uninstall   remove the copy, the links to it and the launcher
 #   scripts/install-cli.sh --dry-run ... print what would change, and with --sandbox the
@@ -45,13 +48,16 @@ BUNDLE=$ROOT/sdk/dist/zenius.mjs
 # fs.promises calls outside the grants throw uncaught.
 SANDBOX_NODE_MAJOR=24
 
-skill=0 uninstall=0 dry=0 sandbox=0 no_sandbox=0 output_dir= take_output=0
+skill=0 uninstall=0 dry=0 sandbox=0 no_sandbox=0 output_dir= take_output=0 read_dir= read_set=0 take_read=0
 for arg in "$@"; do
   if ((take_output)); then output_dir=$arg take_output=0; continue; fi
+  if ((take_read)); then read_dir=$arg read_set=1 take_read=0; continue; fi
   case $arg in
     --skill) skill=1 ;;
     --output-dir) take_output=1 ;;
     --output-dir=*) output_dir=${arg#--output-dir=} ;;
+    --read-dir) take_read=1 ;;
+    --read-dir=*) read_dir=${arg#--read-dir=} read_set=1 ;;
     --sandbox) sandbox=1 ;;
     --no-sandbox) no_sandbox=1 ;;
     --uninstall) uninstall=1 ;;
@@ -62,6 +68,10 @@ for arg in "$@"; do
 done
 if ((take_output)) || [[ -n $output_dir && $output_dir != /* ]]; then
   echo "install-cli.sh: --output-dir takes an absolute path" >&2
+  exit 2
+fi
+if ((take_read)) || { ((read_set)) && [[ $read_dir != none && $read_dir != /* ]]; }; then
+  echo "install-cli.sh: --read-dir takes an absolute path, or none" >&2
   exit 2
 fi
 if ((sandbox && no_sandbox)); then
@@ -207,8 +217,34 @@ if ((sandbox)); then
   case $out_root/ in "$(resolve "$DEST")"/* | "$(resolve "$BIN_DIR")"/*)
     sandbox_error "--output-dir can't be inside the CLI copy or $BIN_DIR: $out_root" ;;
   esac
+  # The folder scripts may also read (--read-dir), such as ~/Downloads: as
+  # given, else what the launcher there has, else none. It's held to the
+  # rules the launcher puts the working folder to, and the launcher checks it
+  # again at each start. A kept folder that has since gone stays: the
+  # launcher doesn't grant it while it's missing.
+  if ((!read_set)) && is_launcher "$BIN_DIR/zenius"; then read_dir=$(launcher_value READ_DIR); fi
+  [[ $read_dir == none ]] && read_dir=
+  if [[ -n $read_dir && -d $read_dir ]]; then
+    read_real=$(cd "$read_dir" && pwd -P)
+    for shared in "$home_real" /tmp /var/tmp /private/tmp /private/var/tmp /dev/shm "$(resolve "${TMPDIR:-/tmp}")"; do
+      case $shared/ in "${read_real%/}"/*) sandbox_error "--read-dir can't be your home folder, a temporary folder or above one: $read_real" ;; esac
+    done
+    node_real=$(node -p 'require("node:fs").realpathSync(process.execPath)')
+    for kept in "$(resolve "${ZENIUS_HOME:-$HOME/.zenius}")" "$(resolve "$DEST")" "$(resolve "$BIN_DIR")" "$out_root" \
+      "$(dirname "$(dirname "$node_real")")" "$(dirname "$(command -v node)")" "/run/user/$(id -u)" "$home_real/.zenius-dev" "$home_real/.zen" \
+      "$home_real/.config" "$home_real/.local" "$home_real/.ssh" "$home_real/.gnupg" "$home_real/.aws" "$home_real/.docker" "$home_real/.kube" "$home_real/Library"; do
+      case $kept/ in "$read_real"/*) sandbox_error "--read-dir can't hold or be inside zenius, its node, Zen's profiles, or a folder of settings or credentials: $read_real" ;; esac
+      case $read_real/ in "$kept"/*) sandbox_error "--read-dir can't hold or be inside zenius, its node, Zen's profiles, or a folder of settings or credentials: $read_real" ;; esac
+    done
+  elif [[ -n $read_dir ]] && ((read_set)); then
+    sandbox_error "--read-dir must be a folder that exists: $read_dir"
+  fi
+  read_dir=${read_dir%/}
 elif [[ -n $output_dir ]]; then
   echo "install-cli.sh: --output-dir goes with --sandbox" >&2
+  exit 2
+elif ((read_set)); then
+  echo "install-cli.sh: --read-dir goes with --sandbox" >&2
   exit 2
 fi
 
@@ -233,10 +269,10 @@ launcher_text() {
     done
   fi
   node - "$ROOT/sdk/sandbox/launcher.sh" "$(resolve "$DEST")" "$(resolve "${ZENIUS_HOME:-$HOME/.zenius}")" \
-    "$node_path" "$SANDBOX_NODE_MAJOR" "$platform" "$(id -u)" "${sysbinds# }" "$bwrap" "$(resolve "$BIN_DIR")" "$out_root" <<'EOF'
-const [template, cli, zhome, node, nodeMajor, platform, uid, sysbinds, bwrap, binDir, outRoot] = process.argv.slice(2);
+    "$node_path" "$SANDBOX_NODE_MAJOR" "$platform" "$(id -u)" "${sysbinds# }" "$bwrap" "$(resolve "$BIN_DIR")" "$out_root" "$read_dir" <<'EOF'
+const [template, cli, zhome, node, nodeMajor, platform, uid, sysbinds, bwrap, binDir, outRoot, readDir] = process.argv.slice(2);
 const quote = (text) => `'${text.replace(/'/g, "'\\''")}'`;
-const values = { CLI: quote(cli), ZHOME: quote(zhome), NODE: quote(node), NODE_MAJOR: nodeMajor, BIN_DIR: quote(binDir), OUT_ROOT: quote(outRoot), PLATFORM: platform, UID: uid, SYSBINDS: sysbinds, BWRAP: quote(bwrap) };
+const values = { CLI: quote(cli), ZHOME: quote(zhome), NODE: quote(node), NODE_MAJOR: nodeMajor, BIN_DIR: quote(binDir), OUT_ROOT: quote(outRoot), READ_DIR: quote(readDir), PLATFORM: platform, UID: uid, SYSBINDS: sysbinds, BWRAP: quote(bwrap) };
 const text = require("node:fs").readFileSync(template, "utf8").replace(/@([A-Z_]+)@/g, (match, key) => {
   if (!(key in values)) throw new Error(`unknown placeholder ${match}`);
   return values[key];
@@ -313,10 +349,17 @@ if ((!dry)) && ! bundle_current; then
 fi
 
 # The commit as scripts/install.sh writes it: a short hash, "-dirty" when
-# what the copy is made of has changes, or "unknown" outside git.
+# what the copy is made of has changes, or "unknown" outside git. A release's
+# package has no git, and may sit inside another repo: its RELEASE file names
+# the commit (scripts/release.sh).
 version=$(node -p 'require(process.argv[1]).version' "$ROOT/sdk/package.json" 2>/dev/null || echo unknown)
-commit=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)
-if [[ $commit != unknown && -n $(git -C "$ROOT" status --porcelain -- sdk/src sdk/bin skill runtime/vendor 2>/dev/null) ]]; then commit+=-dirty; fi
+if [[ -f $ROOT/RELEASE ]]; then
+  commit=$(sed -n 's/^commit=\([0-9a-f]\{7,40\}\)$/\1/p' "$ROOT/RELEASE")
+  commit=${commit:-unknown}
+else
+  commit=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)
+  if [[ $commit != unknown && -n $(git -C "$ROOT" status --porcelain -- sdk/src sdk/bin skill runtime/vendor 2>/dev/null) ]]; then commit+=-dirty; fi
+fi
 describe=$version
 if [[ $commit != unknown ]]; then describe+=", commit $commit"; fi
 
@@ -371,7 +414,7 @@ if ((skill)); then
 fi
 case ":$PATH:" in
   *":$BIN_DIR:"*) ;;
-  *) echo "note     $BIN_DIR is not on PATH" ;;
+  *) echo "note     $BIN_DIR is not on PATH: add it, so your shell and agents find the zenius command" ;;
 esac
 if ((!dry)) && [[ -x $BIN_DIR/zenius ]] && command -v node >/dev/null; then
   if version_line=$("$BIN_DIR/zenius" --version 2>&1); then

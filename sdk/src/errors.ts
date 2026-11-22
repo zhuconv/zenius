@@ -48,6 +48,14 @@ const INACTIVE_GUIDANCE = [
   `Offer the user choices like "Continue" or "Done" if your harness supports it; otherwise tell them: "This task has ended and the space is yours. Reply 'continue' if you want me to resume in it."`,
 ].join("\n");
 
+// The user's Stop in Zen's panel or sidebar (zen-core's data.reason "stopped"):
+// zenius lists every task there, whoever drives it, and it ends at their word.
+const STOPPED_GUIDANCE = [
+  "The user stopped this task in Zen. This is a hard stop, not an obstacle to route around: don't retry, and don't start another task for the same goal.",
+  "Tell the user what you finished before the stop. Continue only if they ask, by claiming the space:",
+  "  const task = await claimTaskSpace(spaceId)",
+].join("\n");
+
 const USER_CONTROL_GUIDANCE = [
   "Control of this task space is with the user, either through task.handOff() or a takeover in the browser, so browser commands are paused.",
   "This is a hard stop, not an obstacle to route around — do not retry and do not take control back on your own.",
@@ -105,7 +113,7 @@ export function isHardStopCode(code: unknown, data?: Record<string, unknown>): b
 
 /** The owned guidance for a hard-stop code, or undefined for any other code. */
 export function hardStopGuidance(code: unknown, data?: Record<string, unknown>): string | undefined {
-  if (code === "ZEN_TASK_SPACE_INACTIVE") return INACTIVE_GUIDANCE;
+  if (code === "ZEN_TASK_SPACE_INACTIVE") return data?.reason === "stopped" ? STOPPED_GUIDANCE : INACTIVE_GUIDANCE;
   if (code !== "ZEN_TASK_SPACE_USER_IN_CONTROL" || isUserInputWait(code, data)) return undefined;
   const reason = typeof data?.reason === "string" ? data.reason : undefined;
   return (reason && Object.hasOwn(USER_CONTROL_REASONS, reason) && USER_CONTROL_REASONS[reason]) || USER_CONTROL_GUIDANCE;

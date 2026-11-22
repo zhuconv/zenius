@@ -183,6 +183,14 @@ export class Page {
     return this[REQUEST]("page.info", "page.info", {}, UNSPECIFIED_LIMIT_MS);
   }
 
+  // The agent's own evidence for zenius's defenses (zen-core's page.flag).
+  // The reason's rules (one line, up to 200 characters) are the runtime's,
+  // so they live in one place.
+  async flag(reason: string): Promise<void> {
+    if (typeof reason !== "string") throw new TypeError("page.flag reason must be a string");
+    await this[REQUEST]("page.flag", "page.flag", { reason }, UNSPECIFIED_LIMIT_MS);
+  }
+
   async waitForURL(expected: unknown, options: PageOptions = {}): Promise<void> {
     validateOptions("Page.waitForURL", options);
     if (typeof expected === "function") {

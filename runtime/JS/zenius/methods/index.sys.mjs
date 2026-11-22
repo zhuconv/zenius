@@ -14,4 +14,5 @@ export const methodModules = [
   "snapshot", // zen-snapshot
   "actions", // zen-input
   "ui", // zen-ux
+  "sidebar", // zen-observe: remote tasks, in zen-ux's sidebar
 ];

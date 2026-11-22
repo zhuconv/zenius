@@ -14,7 +14,9 @@
 #   --message    the commit's message (default "zenius, first public version",
 #                then "zenius, update of <UTC date>")
 #   --scan-only  build and check the tree, commit nothing
-#   --test       then run scripts/test-all.sh in a fresh clone of the export
+#   --test       then run scripts/test-all.sh in a fresh clone of the export,
+#                and build the release's package there with zen-sdk's
+#                scripts/release.sh, when the export has it, for the same check
 #   --keep       keep the work folder (it is printed)
 #
 # What goes in: INCLUDE below, minus EXCLUDE and the public-page snapshots in
@@ -35,20 +37,35 @@
 #                        has looked at; any other image stops the export
 # This script holds none of those strings, and its report names a hit by file,
 # line and list entry, never by its text. Any hit stops the export, as does a
-# home folder, a key or token, or a binary file other than a .gz (whose
-# contents are checked too). Commits carry UTC dates.
+# home folder, a key or token, a binary file that's neither a .gz (whose
+# contents are checked too) nor an image, or an image (PNG, GIF, JPEG or WebP)
+# that holds anything besides its pixels: text, EXIF or XMP, or data after its
+# end (scripts/media-check.pl). So does a .gz whose header holds a file name,
+# comment, extra field or time, and, with --test, a release package whose
+# headers hold an account, each file's own time or extended attributes
+# (scripts/package-check.pl). Commits carry UTC dates.
 set -euo pipefail
 # The work folder sits in a shared /tmp on some machines, and the private
 # inputs' log beside them: nothing this script writes is for other users.
 umask 077
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
+MEDIA=$ROOT/scripts/media-check.pl
+PACKAGE=$ROOT/scripts/package-check.pl
 INCLUDE=(runtime sdk skill scripts tests README.md THIRD_PARTY.md LICENSE LICENSES .gitignore
   docs/SPEC.md docs/PROTOCOL.md docs/SPI.md docs/install-daily.md docs/eval docs/PARITY.md
-  docs/mcp.md docs/agent-sidebar.md)
-# The user's calls (2026-11-21): tryout.md is written for the agents that run
-# their own tryout.
-EXCLUDE=(docs/eval/tryout.md)
+  docs/mcp.md docs/agent-sidebar.md
+  # The README's own files: its Chinese copy, its images, and the skills CLI's
+  # pointer to skill/.
+  README.zh-CN.md docs/assets skills.sh.json)
+# The calls of 2026-11-21: tryout.md is written for the agents that run their
+# own tryout, and remote tasks' lab-only parts stay out: the bridge, gate,
+# installer and skill (scripts/remote), their tests, and the SDK's bridge with
+# its test and that test's fake gate. The runtime's sidebar.* methods are
+# generic, so they and their tests ship.
+EXCLUDE=(docs/eval/tryout.md
+  scripts/remote tests/remote tests/core/remote-gate.test.mjs tests/core/remote-client.test.mjs
+  sdk/src/extensions/remote-bridge.ts sdk/test/remote-bridge.test.ts sdk/test/fixtures/fake-gate.mjs)
 # Public-page snapshots to leave out, slugs from tests/golden/pages.mjs. None
 # since the user's call (2026-11-21): the five whose text has no open license
 # go in too, named as such in THIRD_PARTY.md.
@@ -106,7 +123,10 @@ for p in "${INCLUDE[@]}"; do
 done
 git -C "$ROOT" cat-file -e "$SHA:LICENSE" 2>/dev/null || die "${SHA:0:7} has no LICENSE"
 git -C "$ROOT" archive "$SHA" -- "${paths[@]}" | tar -x -C "$TREE"
-for p in "${EXCLUDE[@]}"; do rm -rf "${TREE:?}/$p"; done
+# A path that's gone may have moved, with what it held still going in.
+for p in "${EXCLUDE[@]}"; do
+  if [[ -e $TREE/$p ]]; then rm -rf "${TREE:?}/$p"; else echo "export-public: EXCLUDE's $p isn't in ${SHA:0:7} (moved?)"; fi
+done
 
 # 2. The public-page snapshots left out, and their records.
 command -v node >/dev/null || die "node isn't on PATH"
@@ -136,7 +156,7 @@ IFS= read -r -d "" PL <<'PERL' || true
   use strict; use warnings;
   use File::Find; use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
   use Digest::SHA;
-  my ($tree, $dir, $mode) = @ARGV;
+  my ($tree, $dir, $mode, $media, $package) = @ARGV;
   sub lines_of { my ($f) = @_; open my $h, "<:raw", $f or die "$f: $!"; my @l = <$h>; chomp @l; @l }
   my @files;
   find({ no_chdir => 1, wanted => sub { push @files, $File::Find::name if -f $_ } }, $tree);
@@ -145,6 +165,7 @@ IFS= read -r -d "" PL <<'PERL' || true
   sub slurp { my ($f) = @_; open my $h, "<:raw", $f or die "$f: $!"; local $/; my $t = <$h>; defined $t ? $t : "" }
   sub binary { index(substr($_[0], 0, 8192), "\0") >= 0 }
   sub unesc { my ($s) = @_; $s =~ s/\\n/\n/g; $s }
+  my $raster = qr/\.(?:png|jpe?g|gif|webp|ico|bmp|avif|tiff?)$/i;
 
   if ($mode eq "replace") {
     my @pairs;
@@ -158,7 +179,7 @@ IFS= read -r -d "" PL <<'PERL' || true
       push @pairs, [$n, $re, unesc($to), 0, 0];
     }
     for my $f (@files) {
-      next if $f =~ /\.gz$/;
+      next if $f =~ /\.gz$/ || $f =~ $raster;
       my $text = slurp($f);
       next if binary($text);
       my $changed = 0;
@@ -177,7 +198,9 @@ IFS= read -r -d "" PL <<'PERL' || true
     exit 0;
   }
 
-  # The check.
+  # The check. Images are scripts/media-check.pl's (image_extras).
+  require $media;
+  require $package;
   my @pats;
   my $n = 0;
   for my $line (lines_of("$dir/private-strings.txt")) {
@@ -216,9 +239,19 @@ IFS= read -r -d "" PL <<'PERL' || true
       hit("$rel: an image nobody has looked at yet; look at it, then add \"$sha  $rel\" to images-seen.txt") unless $seen{$sha};
     }
     my $text = slurp($f);
+    # An image's pixels aren't text; what else it holds is checked instead.
+    if ($f =~ $raster) {
+      my $x = image_extras($text);
+      if (!$x) { hit("$rel: an image format this check can't read; use PNG, GIF, JPEG or WebP") }
+      elsif (@$x) { hit("$rel: besides its pixels, the image has " . join("; ", @$x) . "; save it without them") }
+      next;
+    }
+    # Every member is read, and its header too: gzip records the source
+    # file's name and time unless run with -n.
     if ($f =~ /\.gz$/) {
-      my $out;
-      gunzip(\$text => \$out) or die "$rel: $GunzipError\n";
+      my ($x, $out) = gzip_extras($text);
+      if (!$x) { hit("$rel: a .gz this check can't read"); next }
+      hit("$rel: besides its contents, the .gz has " . join("; ", @$x) . "; compress it with gzip -n") if @$x;
       $text = $out;
     } elsif (binary($text)) {
       hit("$rel: binary file; look at it, and add it to the export only as a .gz or text");
@@ -243,7 +276,7 @@ PERL
 perl -e "$PL" "$TREE" "$DIR" replace
 
 echo "export-public: checking ${SHA:0:7}'s export"
-if ! perl -e "$PL" "$TREE" "$DIR" check; then
+if ! perl -e "$PL" "$TREE" "$DIR" check "$MEDIA" "$PACKAGE"; then
   die "the export holds what it must not (above); fix it at the source, or in $DIR"
 fi
 files=$(find "$TREE" -type f | wc -l | tr -d ' ')
@@ -289,4 +322,33 @@ if ((RUN_TESTS)); then
   git clone -q "$REPO" "$check"
   if [[ -d $ROOT/sdk/node_modules ]]; then cp -a "$ROOT/sdk/node_modules" "$check/sdk/"; else (cd "$check/sdk" && npm ci --no-audit --no-fund); fi
   (cd "$check" && scripts/test-all.sh) || die "test-all failed in the export's clone ($check; rerun with --keep to look)"
+  # 7. The release's package, built as anyone would build it from the export
+  # (zen-sdk's scripts/release.sh), gets the tree's check: its files, read
+  # from its one top folder so their paths match the tree's, then what goes
+  # beside it (the bootstrap and the checksum).
+  if [[ -x $check/scripts/release.sh ]]; then
+    out=$WORK/release
+    (cd "$check" && scripts/release.sh --out "$out") || die "scripts/release.sh failed in the export's clone"
+    pkg=$WORK/package
+    mkdir -p "$pkg/files" "$pkg/beside"
+    n=0
+    for f in "$out"/*.tar.gz; do
+      [[ -f $f ]] || continue
+      # Its headers first: tar records each entry's owner and time, and gzip
+      # the source's name and time, which the check of its files never sees.
+      perl "$PACKAGE" "$f" || die "the release's package's headers hold what they must not (above)"
+      tar -xzf "$f" -C "$pkg/files"
+      n=$((n + 1))
+    done
+    ((n == 1)) || die "scripts/release.sh made $n packages in $out, not one"
+    find "$out" -maxdepth 1 -type f ! -name '*.tar.gz' -exec cp {} "$pkg/beside/" \;
+    root=$pkg/files
+    tops=("$root"/*)
+    if ((${#tops[@]} == 1)) && [[ -d ${tops[0]} ]]; then root=${tops[0]}; fi
+    echo "export-public: checking the release's package"
+    perl -e "$PL" "$root" "$DIR" check "$MEDIA" "$PACKAGE" || die "the release's package holds what it must not (above)"
+    perl -e "$PL" "$pkg/beside" "$DIR" check "$MEDIA" "$PACKAGE" || die "what goes beside the release's package holds what it must not (above)"
+  else
+    echo "export-public: the export has no scripts/release.sh, so there's no release package to check"
+  fi
 fi

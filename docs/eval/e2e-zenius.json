@@ -1,19 +1,20 @@
 {
  "target": "zenius",
  "version": "0.1.0",
- "versionDetail": "zen 1.24.2b, commit 6c1ed53",
+ "versionDetail": "zen 1.24.3b, commit 9abcd8e",
  "sdk": "zenius",
  "runs": [
   {
-   "startedAt": "2026-11-20T14:02:14.340Z",
-   "totalMs": 100014,
+   "startedAt": "2026-11-22T01:18:57.839Z",
+   "totalMs": 114315,
    "summary": {
-    "total": 85,
-    "pass": 70,
+    "total": 87,
+    "pass": 71,
     "fail": 0,
     "skip": 0,
     "na": 15,
-    "assertions": 991
+    "differs": 1,
+    "assertions": 1011
    }
   }
  ],
@@ -75,12 +76,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 270,
+   "medianMs": 761,
    "assertions": 19,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 270,
+     "durationMs": 761,
      "assertions": 19
     }
    ]
@@ -91,12 +92,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 339,
+   "medianMs": 1495,
    "assertions": 4,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 339,
+     "durationMs": 1495,
      "assertions": 4
     }
    ]
@@ -244,12 +245,12 @@
    "zenius": "adapt",
    "reason": "opens an unknown-origin tab with legacy openOrReuseTab",
    "verdict": "pass",
-   "medianMs": 561,
+   "medianMs": 883,
    "assertions": 13,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 561,
+     "durationMs": 883,
      "assertions": 13
     }
    ]
@@ -261,12 +262,12 @@
    "zenius": "adapt",
    "reason": "observes tabs with legacy listTabs",
    "verdict": "pass",
-   "medianMs": 118,
+   "medianMs": 175,
    "assertions": 14,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 118,
+     "durationMs": 175,
      "assertions": 14
     }
    ]
@@ -278,12 +279,12 @@
    "zenius": "adapt",
    "reason": "closes a tab behind the SDK's back with legacy closeTab",
    "verdict": "pass",
-   "medianMs": 238,
+   "medianMs": 389,
    "assertions": 10,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 238,
+     "durationMs": 389,
      "assertions": 10
     }
    ]
@@ -294,12 +295,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 104,
+   "medianMs": 243,
    "assertions": 1,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 104,
+     "durationMs": 243,
      "assertions": 1
     }
    ]
@@ -310,12 +311,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 75,
+   "medianMs": 88,
    "assertions": 3,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 75,
+     "durationMs": 88,
      "assertions": 3
     }
    ]
@@ -327,12 +328,12 @@
    "zenius": "adapt",
    "reason": "sets EGO_BROWSER_PAGE_BUDGET, which the zenius SDK doesn't read yet; legacy listTabs",
    "verdict": "pass",
-   "medianMs": 475,
+   "medianMs": 700,
    "assertions": 9,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 475,
+     "durationMs": 700,
      "assertions": 9
     }
    ]
@@ -344,12 +345,12 @@
    "zenius": "adapt",
    "reason": "observes tabs with legacy listTabs",
    "verdict": "pass",
-   "medianMs": 174,
+   "medianMs": 479,
    "assertions": 19,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 174,
+     "durationMs": 479,
      "assertions": 19
     }
    ]
@@ -361,12 +362,12 @@
    "zenius": "adapt",
    "reason": "legacy currentTab for Page activation; page.cdp/task.cdp assertions",
    "verdict": "pass",
-   "medianMs": 573,
+   "medianMs": 1904,
    "assertions": 53,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 573,
+     "durationMs": 1904,
      "assertions": 53
     }
    ]
@@ -378,12 +379,12 @@
    "zenius": "adapt",
    "reason": "legacy currentTab for Page activation",
    "verdict": "pass",
-   "medianMs": 301,
+   "medianMs": 474,
    "assertions": 23,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 301,
+     "durationMs": 474,
      "assertions": 23
     }
    ]
@@ -395,12 +396,12 @@
    "zenius": "adapt",
    "reason": "legacy currentTab for Page activation",
    "verdict": "pass",
-   "medianMs": 315,
+   "medianMs": 509,
    "assertions": 25,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 315,
+     "durationMs": 509,
      "assertions": 25
     }
    ]
@@ -412,12 +413,12 @@
    "zenius": "adapt",
    "reason": "legacy currentTab; reads Ego's ledger file",
    "verdict": "pass",
-   "medianMs": 1666,
+   "medianMs": 2135,
    "assertions": 57,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 1666,
+     "durationMs": 2135,
      "assertions": 57
     }
    ]
@@ -428,12 +429,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 497,
+   "medianMs": 340,
    "assertions": 9,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 497,
+     "durationMs": 340,
      "assertions": 9
     }
    ]
@@ -444,12 +445,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 4032,
+   "medianMs": 4010,
    "assertions": 14,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 4032,
+     "durationMs": 4010,
      "assertions": 14
     }
    ]
@@ -460,12 +461,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 2073,
+   "medianMs": 2217,
    "assertions": 17,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 2073,
+     "durationMs": 2217,
      "assertions": 17
     }
    ]
@@ -476,12 +477,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 481,
+   "medianMs": 441,
    "assertions": 6,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 481,
+     "durationMs": 441,
      "assertions": 6
     }
    ]
@@ -492,12 +493,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 412,
+   "medianMs": 415,
    "assertions": 15,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 412,
+     "durationMs": 415,
      "assertions": 15
     }
    ]
@@ -509,12 +510,12 @@
    "zenius": "adapt",
    "reason": "one row asserts that raw Page.getFrameTree fails fast during a dialog",
    "verdict": "pass",
-   "medianMs": 504,
+   "medianMs": 525,
    "assertions": 30,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 504,
+     "durationMs": 525,
      "assertions": 30
     }
    ]
@@ -525,12 +526,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 4015,
+   "medianMs": 4245,
    "assertions": 17,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 4015,
+     "durationMs": 4245,
      "assertions": 17
     }
    ]
@@ -541,12 +542,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 246,
+   "medianMs": 289,
    "assertions": 13,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 246,
+     "durationMs": 289,
      "assertions": 13
     }
    ]
@@ -558,12 +559,12 @@
    "zenius": "run",
    "reason": "sets globalThis.EGO_BROWSER_OUTPUT_DIR, which the zenius SDK reads under that name",
    "verdict": "pass",
-   "medianMs": 255,
+   "medianMs": 264,
    "assertions": 9,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 255,
+     "durationMs": 264,
      "assertions": 9
     }
    ]
@@ -575,12 +576,12 @@
    "zenius": "run",
    "reason": "sets globalThis.EGO_BROWSER_OUTPUT_DIR, which the zenius SDK reads under that name",
    "verdict": "pass",
-   "medianMs": 213,
+   "medianMs": 246,
    "assertions": 4,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 213,
+     "durationMs": 246,
      "assertions": 4
     }
    ]
@@ -591,12 +592,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 218,
+   "medianMs": 470,
    "assertions": 4,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 218,
+     "durationMs": 470,
      "assertions": 4
     }
    ]
@@ -608,12 +609,12 @@
    "zenius": "adapt",
    "reason": "asserts the cross-origin frame is an OOPIF through task.cdp Target.getTargets",
    "verdict": "pass",
-   "medianMs": 437,
+   "medianMs": 532,
    "assertions": 13,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 437,
+     "durationMs": 532,
      "assertions": 13
     }
    ]
@@ -624,12 +625,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 575,
+   "medianMs": 643,
    "assertions": 46,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 575,
+     "durationMs": 643,
      "assertions": 46
     }
    ]
@@ -640,12 +641,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 1321,
+   "medianMs": 1626,
    "assertions": 10,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 1321,
+     "durationMs": 1626,
      "assertions": 10
     }
    ]
@@ -656,12 +657,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 496,
+   "medianMs": 1463,
    "assertions": 20,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 496,
+     "durationMs": 1463,
      "assertions": 20
     }
    ]
@@ -672,12 +673,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 771,
+   "medianMs": 1841,
    "assertions": 14,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 771,
+     "durationMs": 1841,
      "assertions": 14
     }
    ]
@@ -688,12 +689,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 99,
+   "medianMs": 193,
    "assertions": 5,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 99,
+     "durationMs": 193,
      "assertions": 5
     }
    ]
@@ -704,12 +705,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 4230,
+   "medianMs": 4525,
    "assertions": 12,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 4230,
+     "durationMs": 4525,
      "assertions": 12
     }
    ]
@@ -720,12 +721,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 265,
+   "medianMs": 326,
    "assertions": 10,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 265,
+     "durationMs": 326,
      "assertions": 10
     }
    ]
@@ -736,12 +737,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 483,
+   "medianMs": 814,
    "assertions": 8,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 483,
+     "durationMs": 814,
      "assertions": 8
     }
    ]
@@ -752,12 +753,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 141,
+   "medianMs": 118,
    "assertions": 3,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 141,
+     "durationMs": 118,
      "assertions": 3
     }
    ]
@@ -768,12 +769,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 311,
+   "medianMs": 300,
    "assertions": 2,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 311,
+     "durationMs": 300,
      "assertions": 2
     }
    ]
@@ -784,12 +785,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 76,
+   "medianMs": 70,
    "assertions": 3,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 76,
+     "durationMs": 70,
      "assertions": 3
     }
    ]
@@ -800,12 +801,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 332,
+   "medianMs": 430,
    "assertions": 14,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 332,
+     "durationMs": 430,
      "assertions": 14
     }
    ]
@@ -816,12 +817,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 219,
+   "medianMs": 370,
    "assertions": 14,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 219,
+     "durationMs": 370,
      "assertions": 14
     }
    ]
@@ -832,12 +833,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 220,
+   "medianMs": 291,
    "assertions": 18,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 220,
+     "durationMs": 291,
      "assertions": 18
     }
    ]
@@ -848,12 +849,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 375,
+   "medianMs": 352,
    "assertions": 11,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 375,
+     "durationMs": 352,
      "assertions": 11
     }
    ]
@@ -864,12 +865,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 369,
+   "medianMs": 413,
    "assertions": 4,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 369,
+     "durationMs": 413,
      "assertions": 4
     }
    ]
@@ -880,12 +881,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 404,
+   "medianMs": 1034,
    "assertions": 6,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 404,
+     "durationMs": 1034,
      "assertions": 6
     }
    ]
@@ -896,12 +897,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 2765,
+   "medianMs": 1736,
    "assertions": 16,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 2765,
+     "durationMs": 1736,
      "assertions": 16
     }
    ]
@@ -912,12 +913,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 829,
+   "medianMs": 770,
    "assertions": 11,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 829,
+     "durationMs": 770,
      "assertions": 11
     }
    ]
@@ -928,12 +929,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 410,
+   "medianMs": 615,
    "assertions": 8,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 410,
+     "durationMs": 615,
      "assertions": 8
     }
    ]
@@ -944,12 +945,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 729,
+   "medianMs": 1141,
    "assertions": 13,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 729,
+     "durationMs": 1141,
      "assertions": 13
     }
    ]
@@ -960,12 +961,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 1731,
+   "medianMs": 1836,
    "assertions": 6,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 1731,
+     "durationMs": 1836,
      "assertions": 6
     }
    ]
@@ -993,12 +994,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 327,
+   "medianMs": 1869,
    "assertions": 1,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 327,
+     "durationMs": 1869,
      "assertions": 1
     }
    ]
@@ -1009,12 +1010,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 99,
+   "medianMs": 594,
    "assertions": 4,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 99,
+     "durationMs": 594,
      "assertions": 4
     }
    ]
@@ -1026,12 +1027,12 @@
    "zenius": "adapt",
    "reason": "finds the frame target through task.cdp Target.getTargets",
    "verdict": "pass",
-   "medianMs": 766,
+   "medianMs": 1473,
    "assertions": 15,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 766,
+     "durationMs": 1473,
      "assertions": 15
     }
    ]
@@ -1043,12 +1044,12 @@
    "zenius": "adapt",
    "reason": "finds the frame target through task.cdp Target.getTargets",
    "verdict": "pass",
-   "medianMs": 70,
+   "medianMs": 93,
    "assertions": 7,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 70,
+     "durationMs": 93,
      "assertions": 7
     }
    ]
@@ -1060,12 +1061,12 @@
    "zenius": "adapt",
    "reason": "reads console events through page.cdp (egoAutomated.disable, Runtime.enable), task.cdp Target.getTargets and Ego's ledger file",
    "verdict": "pass",
-   "medianMs": 10698,
+   "medianMs": 11073,
    "assertions": 50,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 10698,
+     "durationMs": 11073,
      "assertions": 50
     }
    ]
@@ -1093,12 +1094,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 127,
+   "medianMs": 179,
    "assertions": 1,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 127,
+     "durationMs": 179,
      "assertions": 1
     }
    ]
@@ -1109,12 +1110,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 183,
+   "medianMs": 277,
    "assertions": 1,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 183,
+     "durationMs": 277,
      "assertions": 1
     }
    ]
@@ -1125,12 +1126,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 209,
+   "medianMs": 337,
    "assertions": 1,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 209,
+     "durationMs": 337,
      "assertions": 1
     }
    ]
@@ -1139,15 +1140,16 @@
    "name": "Page Service Worker startup",
    "file": "page-workers.mjs",
    "category": "v2",
-   "zenius": "run",
-   "verdict": "pass",
-   "medianMs": 301,
-   "assertions": 1,
+   "zenius": "differs",
+   "reason": "zenius refuses service worker registration in an agent task's pages (8d22cba): the registration would outlive the task and control the user's own tabs on the site; \"zen-eval: a task's service worker is refused\" checks the refusal",
+   "verdict": "differs",
+   "assertions": 0,
    "runs": [
     {
-     "status": "pass",
-     "durationMs": 301,
-     "assertions": 1
+     "status": "differs",
+     "durationMs": 0,
+     "assertions": 0,
+     "message": "zenius refuses service worker registration in an agent task's pages (8d22cba): the registration would outlive the task and control the user's own tabs on the site; \"zen-eval: a task's service worker is refused\" checks the refusal"
     }
    ]
   },
@@ -1157,12 +1159,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 3609,
+   "medianMs": 3451,
    "assertions": 40,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 3609,
+     "durationMs": 3451,
      "assertions": 40
     }
    ]
@@ -1173,12 +1175,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 2831,
+   "medianMs": 2761,
    "assertions": 46,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 2831,
+     "durationMs": 2761,
      "assertions": 46
     }
    ]
@@ -1190,12 +1192,12 @@
    "zenius": "run",
    "reason": "sets EGO_BROWSER_RESPONSE_TIMEOUT_MS, which the zenius SDK reads under that name",
    "verdict": "pass",
-   "medianMs": 13781,
+   "medianMs": 13447,
    "assertions": 24,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 13781,
+     "durationMs": 13447,
      "assertions": 24
     }
    ]
@@ -1207,12 +1209,12 @@
    "zenius": "adapt",
    "reason": "starts the held navigation with page.cdp Page.navigate; also EGO_BROWSER_RESPONSE_TIMEOUT_MS",
    "verdict": "pass",
-   "medianMs": 8715,
+   "medianMs": 8735,
    "assertions": 31,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 8715,
+     "durationMs": 8735,
      "assertions": 31
     }
    ]
@@ -1224,12 +1226,12 @@
    "zenius": "run",
    "reason": "sets EGO_BROWSER_RESPONSE_TIMEOUT_MS, which the zenius SDK reads under that name",
    "verdict": "pass",
-   "medianMs": 5121,
+   "medianMs": 5120,
    "assertions": 6,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 5121,
+     "durationMs": 5120,
      "assertions": 6
     }
    ]
@@ -1241,12 +1243,12 @@
    "zenius": "adapt",
    "reason": "starts the held navigation with page.cdp Page.navigate",
    "verdict": "pass",
-   "medianMs": 10237,
+   "medianMs": 10223,
    "assertions": 18,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 10237,
+     "durationMs": 10223,
      "assertions": 18
     }
    ]
@@ -1258,12 +1260,12 @@
    "zenius": "adapt",
    "reason": "reads Ego's ledger file to find the late popup",
    "verdict": "pass",
-   "medianMs": 372,
+   "medianMs": 395,
    "assertions": 1,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 372,
+     "durationMs": 395,
      "assertions": 1
     }
    ]
@@ -1275,12 +1277,12 @@
    "zenius": "adapt",
    "reason": "reads Ego's ledger file",
    "verdict": "pass",
-   "medianMs": 1099,
+   "medianMs": 1061,
    "assertions": 3,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 1099,
+     "durationMs": 1061,
      "assertions": 3
     }
    ]
@@ -1308,12 +1310,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 181,
+   "medianMs": 194,
    "assertions": 4,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 181,
+     "durationMs": 194,
      "assertions": 4
     }
    ]
@@ -1324,12 +1326,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 319,
+   "medianMs": 346,
    "assertions": 38,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 319,
+     "durationMs": 346,
      "assertions": 38
     }
    ]
@@ -1357,12 +1359,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 514,
+   "medianMs": 756,
    "assertions": 7,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 514,
+     "durationMs": 756,
      "assertions": 7
     }
    ]
@@ -1373,12 +1375,12 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 206,
+   "medianMs": 184,
    "assertions": 5,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 206,
+     "durationMs": 184,
      "assertions": 5
     }
    ]
@@ -1389,13 +1391,29 @@
    "category": "v2",
    "zenius": "run",
    "verdict": "pass",
-   "medianMs": 306,
+   "medianMs": 199,
    "assertions": 21,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 306,
+     "durationMs": 199,
      "assertions": 21
+    }
+   ]
+  },
+  {
+   "name": "zen-eval: v2 checks from N/A cases",
+   "file": "zen-cases/v2-na-coverage.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "verdict": "pass",
+   "medianMs": 1245,
+   "assertions": 11,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 1245,
+     "assertions": 11
     }
    ]
   },
@@ -1406,13 +1424,30 @@
    "zenius": "run",
    "reason": "drives Firefox's pdf.js viewer; zenius only, the counterpart of Ego's Page Chromium PDF viewer download",
    "verdict": "pass",
-   "medianMs": 1094,
-   "assertions": 11,
+   "medianMs": 1020,
+   "assertions": 12,
    "runs": [
     {
      "status": "pass",
-     "durationMs": 1094,
-     "assertions": 11
+     "durationMs": 1020,
+     "assertions": 12
+    }
+   ]
+  },
+  {
+   "name": "zen-eval: a task's service worker is refused",
+   "file": "zen-cases/service-worker-refused.mjs",
+   "category": "v2",
+   "zenius": "run",
+   "reason": "zenius only, the counterpart of Ego's Page Service Worker startup: zenius refuses service workers and Cache Storage writes in a task's pages",
+   "verdict": "pass",
+   "medianMs": 669,
+   "assertions": 9,
+   "runs": [
+    {
+     "status": "pass",
+     "durationMs": 669,
+     "assertions": 9
     }
    ]
   }

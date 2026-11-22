@@ -96,13 +96,13 @@ Each frame is one JSON object followed by `\n`, over the Unix socket
 
 | Method | Params | Result |
 |---|---|---|
-| `spaces.list` | none | `{taskSpaces: [{id, name, createdBy, ownership, profileId, profileName, recentTabTitles, pages?}]}`; only spaces with ownership `agent` carry `pages` (below). `recentTabTitles` is empty for a workspace of the user's that no agent claimed: its tabs' titles are the user's (I2). |
-| `spaces.create` | `{name, profileId?}` | `{id, name, ownership, profileId, pages}`, where `pages` is the live Pages as `[{label, tab, openedBy}]` (here `[{label: "p1", tab: "t…", openedBy: "agent"}]`), so the SDK has each `targetId` without a call; creates the task in the Agents Space (and the Space itself if needed) without switching any window and, as in Ego, starts it with managed page `p1` (`about:blank`). A name any task or user workspace already has fails with `ZEN_TASK_SPACE_NAME_IN_USE` (`data.spaceId`). |
+| `spaces.list` | none | `{taskSpaces: [{id, name, createdBy, ownership, profileId, profileName, recentTabTitles, pages?, source?}]}`; only spaces with ownership `agent` carry `pages` (below), and only those created or claimed with a source carry `source`. `recentTabTitles` is empty for a workspace of the user's that no agent claimed: its tabs' titles are the user's (I2). |
+| `spaces.create` | `{name, profileId?, source?}` | `{id, name, ownership, profileId, pages}`, where `pages` is the live Pages as `[{label, tab, openedBy}]` (here `[{label: "p1", tab: "t…", openedBy: "agent"}]`), so the SDK has each `targetId` without a call; creates the task in the Agents Space (and the Space itself if needed) without switching any window and, as in Ego, starts it with managed page `p1` (`about:blank`). A name any task or user workspace already has fails with `ZEN_TASK_SPACE_NAME_IN_USE` (`data.spaceId`). `source` says who drives the task, for the sidebar's directory: `{terminal?, agent?, folder?, sidebar?}`, for example `{terminal: "t5x", agent: "Claude Code", folder: "zenius-eval"}`. Each of the first three is kept only when, trimmed, it's 1 to 80 characters of ASCII letters, digits, spaces and `- _ . / : @ #`. `sidebar`, the agent sidebar's conversation id, is kept only exactly as given: 1 to 64 ASCII letters, digits and `-`. Anything else is left out, and the task starts anyway. |
 | `spaces.open` | `{space}` | `{id, name, ownership}`; fails unless the agent controls the space |
-| `spaces.claim` | `{space, name?, client?, timeout?}` | `{id, name, ownership: "agent", userPage, pages}` (`pages` as in `spaces.create`). A user Space or an ended task needs the user's Allow in the browser first: the call waits for it, up to `timeout` ms (Ego's 600000), and fails with `ZEN_TASK_SPACE_CLAIM_DENIED` on Deny or no answer. `client` is the name the client gives itself, which the prompt quotes after zenius's own words. A task handed to the user follows `spaces.takeOver`'s 10 s rule. Tabs that aren't pages stay unmanaged until adopted; `finish()` ended the old labels, a Stop by the user didn't. `name` renames the space. |
-| `spaces.takeOver` | `{space}` | `{id, name, ownership: "agent", userPage, pages, openerCut?, reloaded?}` (`pages` as in `spaces.create`; `openerCut` and `reloaded` below). For a task handed to the user; an ended task or a user Space fails with `ZEN_TASK_SPACE_INACTIVE` (claim it instead). Fails with `ZEN_TASK_SPACE_USER_IN_CONTROL` (`data.retryAfterMs`) until 10 s after the user's last real input in the task's tabs, and so does `spaces.claim` of such a task: an agent can't take a task back while the user types. |
-| `spaces.handOff` | `{space, reason?}` | `{id, ownership: "agentDelegatedToUser", reloaded?}`; `reason` defaults to `manual_takeover`. Before the user gets the task, the page they see is made safe for their typing (below, "The hand-off"): `reloaded` lists the pages that loaded afresh. Fails with `ZEN_HANDOFF_REFUSED` when it can't be, and the task stays the agent's. |
-| `spaces.waitForControl` | `{space, interval?, timeout?}` | `{ownership: "agent", openerCut?, reloaded?}` once the agent controls the space without taking control; `timeout` defaults to Ego's 600000 ms (`ZEN_TIMEOUT`); an ended task fails at once with `ZEN_TASK_SPACE_INACTIVE` |
+| `spaces.claim` | `{space, name?, client?, timeout?, source?}` | `{id, name, ownership: "agent", userPage, pages}` (`pages` as in `spaces.create`). A user Space or an ended task needs the user's Allow in the browser first: the call waits for it, up to `timeout` ms (Ego's 600000), and fails with `ZEN_TASK_SPACE_CLAIM_DENIED` on Deny or no answer. `client` is the name the client gives itself, which the prompt quotes after zenius's own words. A task handed to the user follows `spaces.takeOver`'s 10 s rule. Tabs that aren't pages stay unmanaged until adopted; `finish()` ended the old labels, a Stop by the user didn't. `name` renames the space. |
+| `spaces.takeOver` | `{space}` | `{id, name, ownership: "agent", userPage, pages, openerCut?, reloaded?, blanked?}` (`pages` as in `spaces.create`; `openerCut`, `reloaded` and `blanked` below). For a task handed to the user; an ended task or a user Space fails with `ZEN_TASK_SPACE_INACTIVE` (claim it instead). Fails with `ZEN_TASK_SPACE_USER_IN_CONTROL` (`data.retryAfterMs`) until 10 s after the user's last real input in the task's tabs, and so does `spaces.claim` of such a task: an agent can't take a task back while the user types. |
+| `spaces.handOff` | `{space, reason?, secret?}` | `{id, ownership: "agentDelegatedToUser", reloaded?}`; `reason` defaults to `manual_takeover`. Before the user gets the task, the page they see is made safe for their typing (below, "The hand-off"): `reloaded` lists the pages that loaded afresh. `secret: true` says the user's step will show a secret (an API key, a token, recovery codes): at the hand back, before the agent has control, the tab shows `about:blank` with its history gone (`blanked`, below). Fails with `ZEN_HANDOFF_REFUSED` when it can't be, and the task stays the agent's. |
+| `spaces.waitForControl` | `{space, interval?, timeout?}` | `{ownership: "agent", openerCut?, reloaded?, blanked?}` once the agent controls the space without taking control; `timeout` defaults to Ego's 600000 ms (`ZEN_TIMEOUT`); an ended task fails at once with `ZEN_TASK_SPACE_INACTIVE` |
 | `spaces.setState` | `{space, text}` | `{ok}`: the agent's progress text on the space (Ego's `setAgentTaskState`) |
 | `spaces.finish` | `{space, keep: "all" \| [labels]}` | Ego's receipt `{spaceId, closedSpace, keptManagedLabels, closedManagedLabels, preservedUnmanagedCount}` plus `protectedTabCount` and `pendingCloseCount`. Closes the agent's pages not kept and ends the task. A tab a window shows closes once the user leaves it: it counts in `closedManagedLabels` and `pendingCloseCount`. `closedSpace` is true when none of the task's tabs stays, as with `keep: []` and no tab of user or unknown origin. Otherwise those tabs go to the user. A claimed workspace of the user's is never removed (SPEC 3.4): there `closedSpace` is false even then, and the workspace stays listed as the user's. |
 
@@ -111,7 +111,11 @@ the space, captured in the same step as the ownership change. Calls on a
 space the agent doesn't control fail with `ZEN_TASK_SPACE_USER_IN_CONTROL`
 (`data.reason`) while the user has it (a handOff, a takeover, a permission
 prompt, or a user Space never claimed), and with `ZEN_TASK_SPACE_INACTIVE`
-after its task ended. This holds for reads too, as in Ego.
+after its task ended. This holds for reads too, as in Ego. The inactive
+error's `data.reason` says how the task ended, when zenius knows: `stopped`
+(the user stopped it in Zen), `finished` (the agent's `spaces.finish`) or
+`closed` (its tabs were closed). `spaces.claim` takes a `source` as
+`spaces.create` does.
 
 The first `spaces.takeOver` or `spaces.waitForControl` after a hold also
 reports, once, and only when there's something to say:
@@ -122,6 +126,11 @@ reports, once, and only when there's something to say:
   browsing context group of its own, so its `window.opener` is null and
   its opener's handle to it reads closed. A sign-in popup's message to its
   opener never arrived; start the sign-in again without a hand-off.
+- `blanked`: the labels of the pages a secret step showed (the hand-off's
+  `secret: true`): the tab handed off, and the popups it opened while the
+  user held it. Each now shows `about:blank`, with no history to go back
+  to; one that wouldn't blank was closed. What the step showed is the
+  user's: ask them for anything you need from it.
 
 The hand-off (zen-core, the manager's rule of 2026-11-20): the page the
 user will hold is held first (zen-observe's guards keep everything else
@@ -130,21 +139,27 @@ away from it while they type), then made safe:
   timers and the workers it started (zen-observe's isolated world). So does
   the user's Take over, and so does the task's end. After a hand back, what
   the agent's page code kept between calls is gone.
-- When its own documents may hold the agent's code, it loads afresh, as a
-  new GET entry in place of the current one: a POST result is loaded again
-  by GET, never resubmitted. If the agent's code changed the page's URL in
+- When the agent's code left something in its documents that outlives
+  that discard (zen-observe's evidence, reason `hooked`: a script, an
+  inline handler, a frame, a form or field, a style sheet and the like), it
+  loads afresh, as a new GET entry in place of the current one: a POST
+  result is loaded again by GET, never resubmitted. If the agent's code
+  changed the page's URL in
   place (pushState, replaceState), it loads the URL from before that
   change instead, unless the site's own code has moved the page on since. The visible, ordinary fields come back filled
   as they were, and the focus goes back to its field. Passwords, card
   fields, one-time codes and hidden inputs don't come back, and a form a
   script builds may not.
-- When another window of its group that may hold the agent's code shares a
-  site with it, those windows load afresh in place too, and the page keeps
-  its opener. (A group switch, which would move the page into a group of
-  its own instead and report `openerCut`, is off until the user decides on
-  the isolated world.)
-- A page the agent made (a `data:` or `blob:` URL, or an `about:blank` the
-  agent wrote into) isn't handed off: `ZEN_HANDOFF_REFUSED`, `data.reason:
+- When another window of its group with such evidence shares a site with
+  it, that window loads afresh in place too, first, and the page keeps its
+  opener. A window the agent's code left nothing in isn't loaded afresh
+  for being beside one it did.
+- Filling, clicking, reading and plain text the agent's code wrote are no
+  evidence: such a page is handed off as it is, the agent's values in it.
+  Nor is a Safe Browsing list or the agent's own `page.flag`: zen-ux warns
+  the user on such a page instead.
+- A page the agent made (a `data:` or `blob:` URL it opened) isn't handed
+  off: `ZEN_HANDOFF_REFUSED`, `data.reason:
   "agentPage"`, and the agent keeps its code. `"discardFailed"`: the
   agent's code didn't stop in every process within 10 s. `"reloadFailed"`:
   a page zenius meant to load afresh brought no new document in 15 s, or
@@ -177,6 +192,7 @@ whose tabs came back is gone: a call naming it fails at once with
 | `pages.release` | `{space, page, group?}` | `{tab, openedBy}`: stops managing a page without closing it; pages the agent opened must be closed instead. A page that shares a browsing context group with other pages of the task (an opener and its popups) fails with `ZEN_PAGE_GROUP_SHARED`: once the user's, it would share a group with pages where the agent's code runs (closed groups, `docs/research/user-tab-reach.md`). With `group: true` it releases the page and every page in its group, agent-opened ones included: `{tab, openedBy, released: [{page, tab, openedBy}]}`, the named page first. |
 | `pages.close` | `{space, page}` | `{ok, deferred}`: the page ends at once. `deferred` is true when a window shows its tab, which then closes once the user leaves it. Closing the task's last tab leaves a blank one, which is the agent's and never keeps `finish()` from closing the task. |
 | `pages.userPage` | `{space}` | `{label?, tab, openedBy}` or `null`: the task's tab a window shows; else the task's current Page, as in Ego: whichever came last of the page the agent made current (a new page, an acting call) and the task tab the user selected, else its first page. For a claimed workspace: its tab a window shows, else the one Zen shows when the user returns to it. |
+| `page.flag` | `{space, page, reason}` | `{ok: true}`: the agent flags the page as looking like phishing or wanting what the task doesn't need. Its current top document gets the evidence reason `flagged`, with `reason` as the detail, and zen-ux warns the user on it. `reason` is required: one line of 1 to 200 characters once trimmed, with no control or bidi formatting character, else `ZEN_INVALID_ARGUMENT`. A page with no document yet fails with `ZEN_PAGE_NOT_FOUND`. Under the control gate, as other page methods. Per document, as all evidence: a reload or a new load starts clean. |
 
 `tab` is a tab id such as `"t12"`, stable while the browser runs. `openedBy`
 is `agent` (opened by the agent: new pages, popups, the blank tab) or
@@ -212,7 +228,7 @@ a pending navigation, and `page.evaluate`'s budget.
 | `page.waitForURL` | `{space, page, matcher, options}` | `null`; matcher `{type: "glob", value, regex}` (the SDK compiles the glob, anchored) or `{type: "regex", value, flags}` |
 | `page.waitForLoadState` | `{space, page, state, options: {timeout?, idleMs?}}` | `null`; `domcontentloaded`, `load` or `networkidle` |
 | `page.waitForSelector` | `{space, page, target, options: {timeout?, state?}}` | `true`; Ego's selector forms and refs. Looks in every frame, as Ego's resolver does: a match in the main frame wins, else the first frame (tree order) with one; a locator (`loc=`, `text=`, `css=`, or a selector using `:has-text()`: zen-input's resolver treats all of them as Ego's strict locators, so waits and actions agree) must match once in the main frame or, failing that, once across the others, else `ZEN_SELECTOR_AMBIGUOUS` with Ego's text and `data.matches`; a raw CSS or XPath selector takes the first match. A stale ref (its document is gone) fails at once with `ZEN_REF_STALE`, Ego's "Stale ref: @N; take a new snapshot", whatever the state, before the wait or when its document goes during it |
-| `page.waitForFunction` | `{space, page, fn, isFunction, arg?, options: {timeout?, polling?}}` | `true` |
+| `page.waitForFunction` | `{space, page, fn, isFunction, arg?, options: {timeout?, polling?}}` | `true`. As in Ego, a predicate that throws ends the wait with `ZEN_EVALUATION_FAILED`, except while the page is still loading (no body yet) or a navigation is under way: then the throw counts as not yet. After a navigation the next document's first poll comes `polling` ms later, as Ego's does |
 | `page.waitForEvent` | `{space, page, event, options}` | popup → `{label, openedBy, targetId}`; download → `{download, url, suggestedFilename}` (a pdf.js viewer's own save gives one too, with the PDF's URL and file name); filechooser → `{chooser, multiple}` (zen-input's, see Actions) |
 | `page.evaluate` | `{space, page, fn, isFunction, arg?}` | the value, as Chrome's returnByValue; `undefined`, functions and symbols → `null`; NaN, ±Infinity, -0 and BigInt → `unserializable`. The code runs in the agent's isolated world for the document, never in the page's own JavaScript (see below) |
 | `page.fetch` | `{space, page, url, options: {timeout?, binary?, ...RequestInit}}` | `{ok, status, statusText, url, headers, body}`; with `binary: true`, `bodyBase64` in place of `body` (the SDK's `saveAs` sends it and writes the file). `options.saveAs` → `ZEN_INVALID_ARGUMENT`. A body over 50 MiB fails as Ego's fetch errors do (plain) |
@@ -269,10 +285,9 @@ a pending navigation, and `page.evaluate`'s budget.
   fails with `ZEN_PAGE_GLOBAL_HIDDEN`. Routes into the page's own JavaScript
   (string timers, another window's timers, `javascript:` URLs, location
   setters other than `window.location`, the page's `eval` and `Function`,
-  script elements) are refused, and the call fails with
-  `ZEN_AGENT_CODE_REFUSED` (`reason: "pageWorld"`, `route`), even when the
-  code caught the throw. A refusal outside a call is a `Zenius.refused`
-  event, kind `agentCode`. The world has the page's guards. The clipboard
+  script elements) run there. Since what they leave outlives the world, they
+  mark the page with evidence (`hooked`; SPI, "The evidence flag"), and the
+  user's defenses then apply to it. The world has the page's guards. The clipboard
   is the Space's, as for the page. A passkey request from the world is
   refused (`NotAllowedError`, a `deviceAccess` refusal), while the page's
   own waits for the user. A user's takeover stops the world's busy script
@@ -425,29 +440,46 @@ a pending navigation, and `page.evaluate`'s budget.
   - `deviceAccess`: the user's devices and location. The system's consent
     prompt for them (macOS's TCC) would decide for the user's whole
     browser, their own Zen included.
-    - `getUserMedia()`, `mozGetUserMedia()`, `getDisplayMedia()`,
-      `selectAudioOutput()` and `requestMIDIAccess()` reject with
-      NotAllowedError, as when the user says no. Geolocation calls the
-      error callback with PERMISSION_DENIED. Speech recognition ends with
-      a `not-allowed` error event. `enumerateDevices()` resolves to an
-      empty list.
-    - No request leaves the page: none reaches the browser's prompt, the
-      OS or the location provider. So these never hand the Space to the
-      user (`location`, `camera`, `microphone`).
-    - Where it holds is as for `serviceWorker`: every document of the
-      task's pages, for the task's whole life, the user's hold included,
-      and a popup they open from its first document. Workers have none of
-      these APIs.
+    - While the agent drives a page, the camera, microphone, screen,
+      speakers and speech recognition are refused. `getUserMedia()`,
+      `mozGetUserMedia()`, `getDisplayMedia()` and `selectAudioOutput()`
+      reject with NotAllowedError, as when the user says no. Speech
+      recognition ends with a `not-allowed` error event.
+      `enumerateDevices()` resolves to an empty list. No request leaves the
+      page: none reaches the browser's prompt or the OS. The message says
+      the task can go to the user for it.
+    - On evidence (SPI, "The evidence flag"), the location and MIDI are
+      refused too. Geolocation calls the error callback with
+      PERMISSION_DENIED, and `requestMIDIAccess()` rejects with
+      NotAllowedError. All of these hold during the user's hold then, and
+      the message names the evidence.
+    - Otherwise a page asks for the location and MIDI as any site does.
+      Its prompt goes to Firefox's own, which gives the Space to the user
+      while the agent drives (`location`), and a stored grant answers.
+    - During the user's hold (or Take over), with no evidence, the page
+      uses the devices through Firefox's own prompt, as a tab of the
+      user's does. When the agent has the tab again (Resume, a claim, an
+      adoption), every stream in it stops. The agent hears of it once,
+      with `api: "stopSharing"` and `asked` naming the devices it used.
+      The site keeps the grants the user gave, and a tab the user keeps at
+      the finish keeps its stream.
+    - Where it holds is every document of the task's pages, and a popup
+      they open from its first document. Workers have none of these APIs.
     - Each document reports each API once. A page the task kept is the
       user's again, as for `serviceWorker`.
-  - `notification`: a desktop notification, refused for the task's whole
-    life even where the site may show them. `new Notification()` gives one
-    that fires `error` and nothing else; `showNotification()` rejects with
-    a TypeError, as where notifications are blocked. Every document of the
-    task's pages and their workers, as for `serviceWorker`. While the agent
-    drives a page whose site has the user's grant, zen-ux's quiet
-    notification comes first: the page sees `show` and the agent gets
-    `Zenius.notification` (see "Notifications" in zen-ux's section).
+  - `notification`: a desktop notification, refused on evidence, during
+    the user's hold too. `new Notification()` gives one that fires `error`
+    and nothing else, and `showNotification()` rejects with a TypeError,
+    as where notifications are blocked. This covers every document of the
+    task's pages, their fresh frames and their workers.
+    - Without evidence a page makes its notifications as any site does.
+      Its prompt goes to Firefox's own. Where the site has the user's
+      grant, zen-ux's quiet notification answers while the agent drives:
+      the page sees `show`, and the agent gets `Zenius.notification` (see
+      "Notifications" in zen-ux's section). During the user's hold the
+      page's own shows.
+    - A task page's workers are refused for the task's whole life: a
+      worker can't tell who holds its page.
   - `localNetwork`: the local network. On macOS 15 an app's first reach
     into it raises the system's Local Network prompt, which decides for the
     whole browser.
@@ -466,8 +498,10 @@ a pending navigation, and `page.evaluate`'s budget.
       SecurityError, reported as `localNetwork`. Gecko's other ways to
       write an IP literal (decimal, hex, IPv4-mapped IPv6) count. Loopback
       (127/8, ::1, localhost) stays open.
-    - `new RTCPeerConnection()` throws NotAllowedError, since gathering
-      ICE candidates reads the machine's addresses.
+    - While the agent drives a page, or on evidence, `new
+      RTCPeerConnection()` throws NotAllowedError, since gathering ICE
+      candidates reads the machine's addresses. During the user's hold,
+      with no evidence, the page makes its own.
     - `page.goto` to such a host fails before loading:
       `ZEN_NAVIGATION_FAILED`, `data.error: "localNetwork"`, a message that
       starts `net::ERR_ACCESS_DENIED.` A redirect there, or the page's own
@@ -507,29 +541,33 @@ a pending navigation, and `page.evaluate`'s budget.
     the user's go. The agent hears of it when its page tried.
   - **The parent's second line.** The parent process refuses the same
     requests again, out of the page's reach, for when a page refusal is
-    bypassed. It holds for every page of a live task and its frames,
-    whoever holds the page (a hold and a Take over included), a stored
-    grant or not. The agent hears of each API once per document:
+    bypassed. It holds for every page of a live task and its frames, a
+    stored grant or not, by the same rules. The agent hears of each API
+    once per document:
     - Device requests (`getUserMedia`, `getDisplayMedia`,
-      `selectAudioOutput`) are denied before any prompt or OS check:
-      NotAllowedError, `deviceAccess`.
-    - A WebRTC peer connection is denied before it gathers an address:
-      NotAllowedError, `localNetwork` with `api: "RTCPeerConnection"`.
-    - Every permission prompt but the three above is cancelled before
-      PermissionUI shows it: zen-ux's `promptDenied` (see its "Prompts a
-      task's pages never get"), here with `api` and `asked` (`location`,
-      `notifications`, `persistent storage`, `midi`, …). The page gets
-      what a dismissed prompt gives: geolocation's PERMISSION_DENIED,
-      `"default"` from `Notification.requestPermission()`, `false` from
-      `storage.persist()`.
+      `selectAudioOutput`) are denied before any prompt or OS check while
+      the agent drives and on evidence: NotAllowedError, `deviceAccess`.
+      During the user's hold they reach Firefox's prompt.
+    - A WebRTC peer connection is denied the same way, before it gathers
+      an address: NotAllowedError, `localNetwork` with `api:
+      "RTCPeerConnection"`.
+    - On evidence, every permission prompt is cancelled before
+      PermissionUI shows it, the user's hold included. That is zen-ux's
+      `promptDenied` (see its "Permission prompts in a task's pages"), here
+      with `api` and `asked` (`location`, `notifications`, `persistent
+      storage`, `midi`, …). The page gets what a dismissed prompt gives:
+      geolocation's PERMISSION_DENIED, `"default"` from
+      `Notification.requestPermission()`, `false` from `storage.persist()`.
+      Without evidence every prompt goes on to Firefox's own: zen-ux's
+      hand-off while the agent drives, the user's answer during the hold.
     - What has no parent hook stays with the page refusals: a service
       worker, and a notification or MIDI the site already has the user's
       grant for (SPI's "Parent backstops").
-  - **After the task.** `serviceWorker`, `cacheStorage`, `deviceAccess`,
-    `notification` and `localNetwork` stay refused in a page the task leaves
-    to the user while it may hold the agent's code: the agent's world wrote
-    into it, the agent pasted html into it, or the agent made it (`data:`,
-    `blob:`). Code the agent only ran in its world goes with the world as
+  - **After the task.** `serviceWorker`, `cacheStorage` and `localNetwork`
+    stay refused in a page the task leaves to the user while it may hold
+    the agent's code: the agent's world wrote into it, the agent pasted html
+    into it, or the agent made it (`data:`, `blob:`). `deviceAccess` and
+    `notification` follow the evidence there, as in the task. Code the agent only ran in its world goes with the world as
     the page leaves the task, and the refusals go with it. A page leaves the
     task when it is kept at the finish, left by a Stop, released by the
     agent, or closed by the agent while the user views it.
@@ -565,15 +603,17 @@ a pending navigation, and `page.evaluate`'s budget.
   receipt of the action that caused it (`page.goto`, `page.reload`, and
   zen-input's actions). A `deviceAccess` or `notification` event adds
   `api`, the API the page called (`getUserMedia`,
-  `geolocation.watchPosition`, `Notification`, …), and `asked`, what it
-  asked for: `camera`, `microphone`, `camera microphone`, `screen`,
-  `speakers`, `device list`, `location`, `midi` or `notifications`.
-  Of the permission prompts, a task's pages show only three: Firefox's
-  local-network and loopback-network prompts and storage access. As in
-  Ego, each gives the Space to the user (`ZEN_TASK_SPACE_USER_IN_CONTROL`
-  with Ego's reason), once per site in a task (see zen-ux's "Once per site
-  in a task"). The parent cancels every other prompt (`promptDenied`,
-  below). docs/research/observe.md §10 has the full sweep.
+  `geolocation.watchPosition`, `Notification`, …, or `stopSharing` for a
+  stream zenius stopped), and `asked`, what it asked for: `camera`,
+  `microphone`, `camera microphone`, `screen`, `speakers`, `device list`,
+  `location`, `midi` or `notifications`.
+  A task's page shows Firefox's own permission prompts, as any site does,
+  unless it shows evidence. While the agent drives, each gives the Space to
+  the user as in Ego (`ZEN_TASK_SPACE_USER_IN_CONTROL` with Ego's reason),
+  once per site in a task (see zen-ux's "Once per site in a task"). During
+  the hold the user answers it. On evidence the parent cancels every
+  prompt (`promptDenied`, below). docs/research/observe.md §10 has the
+  full sweep.
 - **The agent's JavaScript runs only while it controls the Space (I3).**
   `page.evaluate` and `page.waitForFunction` are held while the Space is
   paused (a takeover prompt, the panel's Pause) and refused under user
@@ -914,8 +954,14 @@ goes away or the element is garbage-collected.
     into, as `page.evaluate` does, sanitized as it is: a `paste` with
     `html`, or a chord that pasted the Space clipboard's html. So the page
     keeps the refusals of "After the task" above when the task leaves it
-    to the user. It also counts as written, so the user's first press
-    there reloads it clean. A paste of text alone doesn't count.
+    to the user. A paste of text alone doesn't count.
+  - Pasted markup is evidence against the page (hooked) only when it
+    carries code (a script, an inline handler or a `javascript:` URL), a
+    frame, an object or embed, a form or a field, an editable area, a
+    `<base>`, a meta refresh or a style sheet. It's read as the agent sent
+    it, before the sanitizer. Then the user's first press there reloads the
+    page clean. Plain markup, such as formatted text pasted into a mail,
+    leaves the user's input there as in any page.
   - In a page that shares a window group with a window outside the task,
     a `paste` with `html` fails with `ZEN_AGENT_CODE_REFUSED`, and nothing
     is pasted. Text alone still pastes there, and a paste chord pastes
@@ -927,7 +973,7 @@ goes away or the element is garbage-collected.
 |---|---|---|
 | `ui.cursor` | `{space, page, x, y, label?, kind?}` | `{ok, visible, animated}` |
 | `ui.state` | `{space}` | `{space, ownership, paused, pausedByUser, reason, badge, prompt, controlNotice, controlNote, controlMore, controlButtons}`: what the user sees of the Space, for tests and tools (`controlNote` is the hold card's small text as shown, `controlMore` what waits behind its '?') |
-| `ui.sidebarStatus` | `{}` | `{loaded, windows, config, configPath, error?}`: zenius's agent sidebar, for doctor |
+| `ui.sidebarStatus` | `{}` | `{loaded, windows, config, configPath, builtin?, error?}`: zenius's agent sidebar, for doctor |
 
 `ui.cursor` moves the page's agent cursor to `x`, `y` (viewport CSS px of the
 page's top document) with `label` beside it. `kind` is one of `move`,
@@ -947,6 +993,18 @@ runs, for zen-sdk's doctor:
   `"none"` when the pref `uc.agent-sidebar.config` is `"none"` (no agents,
   as in every dev profile). `configPath` names it: the pref, else the
   user's `~/Library/Application Support/zenius-agent-sidebar/config.json`.
+  Without that file of the user's, while the pref is unset, the sidebar
+  offers its built-in agents (`docs/agent-sidebar.md`), and `config` is
+  `"builtin"` when one of them can run. So does the pref `"builtin"` (the
+  tests'). A path the pref names never falls back to them: when it's
+  missing, `config` is `"missing"`, with no `builtin`.
+- `builtin`, where the sidebar would use them: what it finds of its
+  built-in agents. `agents` lists those that can run. `folder` is the adapters'
+  folder (`~/.zenius/agents`), and `node` its link to Node, or null when
+  that's missing or broken. `clis` gives each agent's CLI path (or null),
+  and `adapters` whether each adapter is installed. `missing` is the one
+  line the sidebar shows when none can run, else null. If finding them
+  failed: `{agents: [], error}`.
 - `error`: the exception message of a window's start that threw.
 
 **Clipboard in agent tabs (zen-ux).** A page's own clipboard calls in an
@@ -998,16 +1056,128 @@ their clipboard as usual.
   - The agent's own `handOff()` is never limited, and while the user holds
     the task, the page's requests are theirs, as before. To let the user
     answer a refused one, hand them the task.
-- **Prompts a task's pages never get.** Only two kinds of permission prompt
-  hand the task to the user: storage access (`storage_access`, an embedded
-  sign-in frame's) and the local network's (`local_network_access`). Every
-  other one (location, notifications, persistent storage, MIDI, a serial
-  port, XR, the camera, microphone or screen) is cancelled without asking
-  the user, while they hold the task too, and nothing is stored for the
-  site. A device or the location allowed during a hold would carry on
-  under the agent after Resume. When zenius cancels one that came up, the
-  agent gets `Zenius.refused` `{kind: "promptDenied", message, url}`. A
-  site that can't have the location usually takes a typed place.
+- **Permission prompts in a task's pages** (A8, with zen-observe's C):
+  - While the agent drives, a page's prompt hands the task to the user
+    with Ego's reason key: `storage_access` (an embedded sign-in frame's),
+    `local_network_access`, `location`, `notifications`, `midi`, `serial`,
+    or `permission_prompt` for one without a key of its own (persistent
+    storage, XR).
+  - During the user's hold the prompt is theirs.
+  - The camera, microphone, screen or speakers' prompt is cancelled while
+    the agent drives, and is the user's during the hold.
+  - On evidence of danger in the page, every prompt is cancelled without
+    asking the user, held or not, and nothing is stored for the site.
+  - When zenius cancels one, the agent gets `Zenius.refused`
+    `{kind: "promptDenied", message, url}`, whose message says why. A site
+    that can't have the location usually takes a typed place.
+
+### Remote tasks: the sidebar (zen-observe)
+
+Another of the user's agents can send the sidebar's agent a task
+(`docs/briefs/remote-tasks.md`): a caller on the user's machine passes
+each request on through these methods. A remote task is a Work task in
+a new chat. It shows in the directory like any task, and its card names its
+source. It starts at once.
+
+| Method | Params | Result |
+|---|---|---|
+| `sidebar.start` | `{text, source: {address, label?}, requestId?, harness?}` | `{taskId, state}` |
+| `sidebar.send` | `{taskId, text}` | `{taskId, state}` |
+| `sidebar.status` | `{taskId}` | the task's status (below) |
+| `sidebar.list` | `{}` | `{tasks}`: each remote task's status, without `answer`, newest first |
+| `sidebar.stop` | `{taskId}` | `{taskId, state}` |
+
+- `text`: the task or a follow-up. It's at most 8192 bytes of UTF-8 and
+  not blank.
+- `source.address`: who asked, which is an hc address such as `lab/t5`.
+  It's 1 to 64 characters of
+  `A-Z a-z 0-9 . _ : @ / -`. `source.label`: once trimmed, at most 80
+  characters of ASCII `A-Z a-z 0-9`, space and `- _ . / : @ #`; empty means
+  no label. The agent's rules quote both
+  values as JSON strings, so neither can close its quotes.
+- `requestId`: the request's id, at most 64 characters of
+  `A-Z a-z 0-9 . _ -`. A start with a `requestId` that a remote task
+  already has returns that task, with no new chat and no limit check, so
+  the caller can retry safely.
+- `harness`: an agent in the sidebar's config.json that may run. By
+  default it follows the sidebar's order: the user's last pick, then
+  config.json's default, then Claude Code.
+- `taskId`: the task's id in the directory (its uid).
+
+A task's status is `{taskId, requestId?, state, source, title, harness,
+turn, answer?, answerTruncated?, needs?, error?, stopReason?, startedAt,
+updatedAt, endsAt, endedAt?}`, with times in ms since the epoch.
+- `state`:
+  - `running`: a turn is under way.
+  - `idle`: the turn ended with an answer. The answer may end with a
+    question for the caller.
+  - `needs_user`: the user has to act. `needs` is `{reason, message,
+    kind}`.
+    - `reason` comes from the agent's hand-off: `sign_in`,
+      `irreversible`, `human_check` or `other`.
+    - `kind` says what holds the task: `handoff` (the agent handed the tab
+      over), `takeover` (the user took it), `wait` (the agent waits for
+      the user to resume it), `permission`, or `zenius` (zenius can't hand
+      this page over).
+  - `stopped`: final. `stopReason` is one of:
+    - `caller`: `sidebar.stop`;
+    - `user`: the user pressed Stop, or removed the task;
+    - `limit`: the 60-minute limit;
+    - `zen_quit`: Zen quit during a turn;
+    - `off`: the user turned remote tasks off.
+  - `failed`: final. The turn ended with an error, given as
+    `error: {code, message}`.
+- `turn`: how many turns have finished, counting from 0.
+- `answer`: the agent's text at the end of the latest finished turn, at
+  most 32 KB. Beyond that it's cut, with `answerTruncated: true`. Only the
+  agent's text goes back: no page, tool result or file.
+- `endsAt`: when the 60-minute limit stops the task. `endedAt`: when it
+  stopped or failed.
+
+`sidebar.send` starts a turn only when none is running and the task hasn't
+ended. That means `idle`, or `needs_user` once the agent's turn is over.
+While a turn runs or waits for the user, `send` fails with
+`ZEN_REMOTE_TASK_BUSY`. `sidebar.stop` stops the running turn, and changes
+nothing on a task that has already ended.
+
+Limits, which are zenius's and not the user's to set:
+- At most 2 remote tasks are `running` at once. A `start`, or a `send` that
+  would make a third run, fails with `ZEN_REMOTE_LIMIT` `{limit:
+  "running"}`.
+- At most 20 starts in any 60 minutes. The 21st fails with
+  `ZEN_REMOTE_LIMIT` `{limit: "hourly", retryAfterMs}`.
+- A task stops 60 minutes after it started.
+- When both limits apply, `start` reports the hourly one, since its
+  `retryAfterMs` is a wait the caller can keep.
+- When a limit refuses a request, the caller keeps it and tries again:
+  once `retryAfterMs` has passed for the hourly limit, or once a running
+  task has ended.
+
+An ended task stays in `list` and `status` for at least 24 hours, unless
+the user removes it. A removed task reads `stopped`/`user` until Zen quits,
+and `ZEN_REMOTE_TASK_NOT_FOUND` after that.
+
+`zenius.agentSidebar.allowRemoteTasks` defaults to true, and about:config
+lists it. Setting it to false turns remote tasks off:
+- `start` and `send` fail with `ZEN_REMOTE_OFF`;
+- active remote tasks stop, with `stopReason: "off"`;
+- `status`, `list` and `stop` still answer.
+
+For tests, prefs can lower the limits but never raise them:
+`zenius.agentSidebar.remote.maxRunning`, `.maxPerHour` and
+`.maxTaskSeconds`. `.windowSeconds`, the span the hourly limit counts, is
+read only where `zenius.dev` is true.
+
+A remote task's agent is told that its messages come from another of the
+user's agents (the source), not from the user. Steps that can't be undone
+stop as `needs_user` with `reason: "irreversible"`, for the user to take
+through Take over: paying, sending a message or post as the user, deleting,
+and changing account or security settings. Everything else, the agent does
+on its own.
+
+The Zen log names each call with its time and outcome, never its params.
+These methods name no space, so the control gate never meets them. A remote
+task's agent can't reach them: its MCP tools don't, and it has no shell.
 
 ### Dev only (zen-core)
 
@@ -1035,10 +1205,14 @@ cut: return it in parts.
 | `events.subscribe` | `{space?, page?, names?: [..]}` | `{ok}`, then event frames on this connection for every event matching one of its filters |
 
 zen-core's events: `spaceCreated {space, name, createdBy, ownership,
-profileId}`, `spaceChanged {space, …}` with only the keys that changed
+profileId, source?}`, `spaceChanged {space, …}` with only the keys that changed
 (`ownership, reason, source`, plus, as a hold begins, `reloaded: "reload" |
-"get"` when the page the user holds loaded afresh and `carried: true` when
-a field came back filled; or `paused`, or `stateText`, or `name`),
+"get"` when the page the user holds loaded afresh, `carried: true` when
+a field came back filled, `secret: true` when the agent's hand-off said
+the step will show a secret, and `evidence: {label: {reason: detail}}`, for
+each page the hold loaded afresh, the evidence it had (zen-observe's
+reasons: `hooked`, `made`, `listed`, `flagged`); or `paused`, or
+`stateText`, or `name`),
 `spaceFinished {space, closedSpace}`, `pageClosed {space, page, tab}`,
 `popup {space, page, tab, opener}`.
 
@@ -1070,7 +1244,7 @@ ZEN_DIALOG_NOT_FOUND        ZEN_DOWNLOAD_FAILED
 - `ZEN_PAGE_NOT_WEB_CONTENT` (zen-observe, I5): the method would act in or read a document that isn't web content (a browser, local, add-on or error page, or one outside a web content process); `data.url` (what `page.url` reports), `data.page`, `data.method`; for a frame, `data.frame: true` and the frame's URL, except from `page.screenshot`, whose refusal for an add-on's or the browser's frame has no `data.url`.
 - `ZEN_PAGE_NOT_WEB_CONTENT` (zen-input, I5): raw input, or the point of a click, hover or drag, would land in a frame of the page that isn't web content; `data.url` is that frame's document, `data.method`, `data.frame: true`. For an add-on's frame there's no `data.url`, and the message says "an add-on's frame": its URL's host is the add-on's id in this profile.
 - `ZEN_HANDOFF_REFUSED` (zen-core): `spaces.handOff` can't make the page safe for the user's typing (`data.page`, `data.reason`: `agentPage`, `discardFailed`, `reloadFailed` or `reachable`; "The hand-off" above).
-- `ZEN_AGENT_CODE_REFUSED` (zen-observe and zen-input, closed groups): the page shares a window group with a window outside the task, which the agent's code there could reach, so zenius runs none of it. zen-observe's methods that run the agent's code, and its `page.goto` to another site (whose code could reach it), and zen-input's `page.keyboard.paste` with `html` (paste the text alone instead). `data`: `method`, `page`, `reason` (`"group"`), `windows`. zen-observe's isolated world also raises it with `reason: "pageWorld"` and `route` (`string timer`, `timer`, `javascript: URL`, `location`, `open`, `eval`, `Function`, `script element`) when the agent's code tried a route into the page's own JavaScript.
+- `ZEN_AGENT_CODE_REFUSED` (zen-observe and zen-input, closed groups): the page shares a window group with a window outside the task, which the agent's code there could reach, so zenius runs none of it. zen-observe's methods that run the agent's code, and its `page.goto` to another site (whose code could reach it), and zen-input's `page.keyboard.paste` with `html` (paste the text alone instead). `data`: `method`, `page`, `reason` (`"group"`), `windows`.
 - `ZEN_PAGE_GLOBAL_HIDDEN` (zen-observe): the agent's code read a page global its isolated world can't see; `data`: `method`, `page`, `name`.
 - `ZEN_PAGE_CODE_OFF` (zen-observe): the user's setting for agents' page code is `never` (`zenius.agentTabs.pageCode`), so the agent's code doesn't run, and its own `data:` or `blob:` page doesn't load; `data`: `method`, `page`, `setting`.
 - `ZEN_PAGE_CODE_ASKED` (zen-observe): the setting is `ask` and the user hasn't allowed page code on the page's site. `data`: `method`, `page`, `setting`, `site` (`null` for a page with no site to allow), `asked` (this call showed the user the card), and `declined: true` once the user said "Not now" for this task, after which the agent shouldn't ask or hand off for it again.
@@ -1081,10 +1255,17 @@ ZEN_DIALOG_NOT_FOUND        ZEN_DOWNLOAD_FAILED
 - `ZEN_TIMEOUT` (zen-input): an action or a `page.mouse` call waited out its timeout for another tab of its process; `data.reason` is `"user_composing"` (the user is composing text there, which a press would commit), `"mouse_held_elsewhere"` (a press held there would take the event) or `"user_scrolling"` (the user is scrolling there, and the process's wheel transaction would send the wheel to their page), and `data.timeoutMs` is the timeout.
 - `ZEN_PAGE_UNRESPONSIVE` (zen-input): an action, or raw `page.mouse` or `page.keyboard` input, hasn't come back from the page 5 s past its deadline; `data.reason: "input_stuck"`, `data.prompt` (a browser prompt is open in the tab, which the agent can't see or answer), `data.mayHaveLateEffects: true`.
 - `ZEN_PATH_NOT_ALLOWED` (zen-sdk, the sandboxed CLI): raised in the CLI before any request, never by the runtime. A script's screenshot, download or fetch `saveAs` would write outside its run's output folder and temporary folder, or an upload would read a file outside its working folder, its runs' output folders and its temporary folder, a link to one included; `data.path`, and `data.realPath` for a link.
+- `ZEN_REMOTE_OFF` (zen-observe): the user turned remote tasks off (`data.pref`: `zenius.agentSidebar.allowRemoteTasks`).
+- `ZEN_REMOTE_LIMIT` (zen-observe): a remote-task limit; `data.limit` is `running` or `hourly`, `data.max`, and `data.retryAfterMs` for `hourly`.
+- `ZEN_REMOTE_TASK_NOT_FOUND` (zen-observe): no remote task has that `taskId` (`data.taskId`).
+- `ZEN_REMOTE_TASK_BUSY` (zen-observe): `sidebar.send` while the task's turn runs or waits for the user (`data.state`).
+- `ZEN_REMOTE_TASK_ENDED` (zen-observe): `sidebar.send` to a stopped or failed task (`data.state`, `data.stopReason`).
+- `ZEN_SIDEBAR_UNAVAILABLE` (zen-observe): the sidebar can't run a remote task; `data.reason` is `no_sidebar`, `no_agents` or `agent_unavailable` (with `data.harness`).
 
 `ZEN_TASK_SPACE_USER_IN_CONTROL` uses Ego's reason keys in `data.reason`:
-`manual_takeover` (the user's Take over), and from a task's pages only
-`storage_access`, `local_network_access` and `permission_prompt` (a
-passkey request gives the last). The parent cancels every other
-permission prompt before it shows (`promptDenied`; see zen-ux's
-"Prompts a task's pages never get").
+`manual_takeover` (the user's Take over), and from a task's pages
+`storage_access`, `local_network_access`, `location`, `notifications`,
+`midi`, `serial` and `permission_prompt` (a passkey request, persistent
+storage or XR). On evidence of danger, the parent cancels every prompt
+before it shows (`promptDenied`; see zen-ux's "Permission prompts in a
+task's pages").

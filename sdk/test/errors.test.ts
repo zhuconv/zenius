@@ -146,6 +146,17 @@ describe("an error's message", () => {
     const stop = fromWireError({ code: "ZEN_TASK_SPACE_INACTIVE", message: "ended" }, "page.click", false);
     assert.match(stop.message, /^page\.click: This task space is no longer assigned to the agent/);
     assert.ok(!stop.message.includes("A hard stop"), "Ego's own wording only");
+    // The user's Stop in Zen (docs/briefs/external-tasks.md) says so, still a hard stop;
+    // the agent's own finish() and a closed last tab keep Ego's words.
+    for (const reason of ["finished", "closed", undefined]) {
+      const ended = fromWireError({ code: "ZEN_TASK_SPACE_INACTIVE", message: "ended", data: { reason } }, "page.click", false);
+      assert.match(ended.message, /^page\.click: This task space is no longer assigned to the agent/, String(reason));
+    }
+    const stopped = fromWireError({ code: "ZEN_TASK_SPACE_INACTIVE", message: "The user stopped this task in Zen.", data: { reason: "stopped" } }, "page.click", false);
+    assert.match(stopped.message, /^page\.click: The user stopped this task in Zen\. This is a hard stop/);
+    assert.match(stopped.message, /don't retry, and don't start another task for the same goal/);
+    assert.match(stopped.message, /claimTaskSpace\(spaceId\)/);
+    assert.equal(isHardStopCode("ZEN_TASK_SPACE_INACTIVE", { reason: "stopped" }), true);
     // A wrapped message keeps one next step.
     const inner = new ZeniusError("ZEN_INTERNAL", "boom");
     assert.equal(new ZeniusError("ZEN_INTERNAL", inner.message).message, inner.message);
@@ -202,15 +213,10 @@ describe("an error's message", () => {
     assert.match(group.message, /task\.newPage\(\)/);
   });
 
-  it("tells page code refused in the page's own world to keep its work in the callback", () => {
-    const error = fromWireError(
-      // zen-observe's words (observe/messages.sys.mjs), which say to do the work in the function.
-      { code: "ZEN_AGENT_CODE_REFUSED", message: "page.evaluate: the agent's code used a script element, which would run code in the page itself, and zenius refused it. zenius runs the agent's code in an isolated world, and none of it may stay in the page. Do the work in your function, or act through page.click, page.fill and page.type.", data: { method: "page.evaluate", page: "p1", reason: "pageWorld", route: "script element" } },
-      "page.evaluate",
-    );
-    assert.match(error.message, /act through page\.click, page\.fill and page\.type\.\nEach route has a form that stays in your function: addEventListener\(\) for an on\* handler, a function for a string timer/);
-    assert.doesNotMatch(error.message, /new Page|task\.newPage/, "a new Page doesn't help: every Page's code runs in the sandbox");
-    assert.equal(isHardStopCode((error as ZeniusError).code, (error as ZeniusError).data), false);
+  it("describes no pageWorld refusal: since zen-observe's 95c15a4, code the agent hands the page runs there", () => {
+    assert.doesNotMatch(CODE_GUIDE.ZEN_AGENT_CODE_REFUSED!.what, /pageWorld|script element|\beval\b|string timer/);
+    const error = fromWireError({ code: "ZEN_AGENT_CODE_REFUSED", message: "page.evaluate: refused.", data: { method: "page.evaluate", page: "p1", reason: "pageWorld" } }, "page.evaluate");
+    assert.doesNotMatch(error.message, /Each route has a form that stays in your function/);
   });
 
   it("tells page code that read a page global to read the DOM instead", () => {

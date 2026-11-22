@@ -9,15 +9,16 @@
 //   decide; under --permission-mode dontAsk, no decision is a denial. An
 //   allowed Bash command runs in bash in the working folder, as the hook's
 //   updatedInput has it (Claude Code 2.1.329 replaces the input with it);
-// - every Bash command finds a decoy zenius first on PATH, as the user's shell
-//   snapshot can put one there (~/.local/bin/zenius once the daily install
-//   made it). Only a command the hook pointed at the run's launcher misses it;
+// - every Bash command finds a decoy zenius (and ego-browser) first on PATH, as
+//   the user's shell snapshot can put one there (~/.local/bin/zenius once the
+//   daily install made it). Only a command the hook pointed at the run's
+//   launcher misses it;
 // - a skill's load prints "Base directory for this skill: <folder>" and its
 //   SKILL.md, as Claude Code 2.1.329 words it;
 // - a result event with the denials, where run.mjs reads them.
 // It reads these steps from the prompt, in order:
-// - a command: a line (after any "N. ") that starts with `zenius` or `ls`,
-//   with a heredoc's body up to its closing line;
+// - a command: a line (after any "N. ") that starts with `zenius`,
+//   `ego-browser` or `ls`, with a heredoc's body up to its closing line;
 // - "load the <name> skill", "with the skill <name>": a Skill call;
 // - "Read tool once on /path": a Read; "Read tool once on the screenshot ...
 //   wrote": a Read of the first path after "Wrote " in the latest output.
@@ -40,7 +41,7 @@ export function stepsOf(prompt) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const body = line.replace(/^\d+\.\s+/, "");
-    if (/^(zenius|ls)(\s|$)/.test(body)) {
+    if (/^(zenius|ego-browser|ls)(\s|$)/.test(body)) {
       let command = body;
       const heredoc = /<<-?[ \t]*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1[ \t]*$/.exec(body);
       if (heredoc) {
@@ -93,8 +94,10 @@ function main(argv) {
 
   const decoyDir = join(tmp, "stand-in-decoy");
   mkdirSync(decoyDir, { recursive: true });
-  writeFileSync(join(decoyDir, "zenius"), `#!/bin/sh\necho '${DECOY_TEXT}' >&2\nexit 97\n`);
-  chmodSync(join(decoyDir, "zenius"), 0o755);
+  for (const name of ["zenius", "ego-browser"]) {
+    writeFileSync(join(decoyDir, name), `#!/bin/sh\necho '${DECOY_TEXT}' >&2\nexit 97\n`);
+    chmodSync(join(decoyDir, name), 0o755);
+  }
 
   const skillsDir = join(cwd, ".claude", "skills");
   const skills = existsSync(skillsDir) ? readdirSync(skillsDir).filter((name) => existsSync(join(skillsDir, name, "SKILL.md"))) : [];

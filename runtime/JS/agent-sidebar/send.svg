@@ -1,0 +1,5 @@
+<!-- zenius's own send arrow, for the question box's Send and the edit box's: drawn from scratch for zenius (a short stem and a chevron head, centered), from no other icon. The panel paints it as a mask in the button's text color. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" fill="none" stroke="#000" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M7 11.25V2.75"/>
+  <path d="M3.25 6.5 7 2.75l3.75 3.75"/>
+</svg>

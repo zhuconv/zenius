@@ -7,7 +7,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { stepFor } from "../src/mcp.ts";
+import { ZeniusError } from "../src/errors.ts";
+import { callTool, stepFor } from "../src/mcp.ts";
 
 describe("zenius mcp steps", () => {
   it("name the kind of a secret field and never show what was typed into it", () => {
@@ -82,5 +83,31 @@ describe("zenius mcp steps", () => {
     } finally {
       Object.defineProperty(process, "platform", platform);
     }
+  });
+});
+
+describe("zenius mcp hard stops", () => {
+  it("say which browser prompt paused the task, by the runtime's reason key (zen-ux's A8)", async () => {
+    const paused = async (reason: string) => {
+      const session = {
+        connect() {},
+        async resume() {
+          throw new ZeniusError("ZEN_TASK_SPACE_USER_IN_CONTROL", "Control is with the user", { reason });
+        },
+        drop() {},
+        ended() {},
+      } as unknown as Parameters<typeof callTool>[0];
+      const result = await callTool(session, "read_page", {});
+      assert.equal(result.isError, true);
+      return /Zen is showing the user (.*) in the task's tab/.exec(result.content[0]!.text)?.[1];
+    };
+    assert.equal(await paused("location"), "a prompt asking for their location");
+    assert.equal(await paused("notifications"), "a prompt asking to send them notifications");
+    assert.equal(await paused("midi"), "a prompt asking for their MIDI devices");
+    assert.equal(await paused("serial"), "a prompt asking to connect to a serial port");
+    assert.equal(await paused("storage_access"), "a prompt asking for storage access");
+    assert.equal(await paused("permission_prompt"), "a browser prompt, such as a passkey request, or one asking for persistent storage or virtual reality");
+    // A key from a later runtime still says it's a prompt, by its key.
+    assert.equal(await paused("bluetooth"), "a browser prompt (bluetooth)");
   });
 });

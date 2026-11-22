@@ -6,6 +6,7 @@
 import { validateOptions } from "./api-schema.ts";
 import { ZeniusError } from "./errors.ts";
 import { NOTE_ENTRY, SEED_PAGES } from "./internal.ts";
+import { inSandbox, path as nodePath } from "./node.ts";
 import { round } from "./round.ts";
 import { clearHandOffMessage, createTaskSpace, TaskSpace, type TaskSpaceDescriptor, type UserPageEntry } from "./task-space.ts";
 
@@ -26,6 +27,46 @@ export function clientLabel(env: NodeJS.ProcessEnv = process.env): string | unde
   if (env.CLAUDECODE === "1") return "Claude Code";
   if (env.CODEX_SANDBOX || env.CODEX_SANDBOX_NETWORK_DISABLED) return "Codex";
   return undefined;
+}
+
+/** Who drives a task, for the sidebar's list of every zenius task (zen-core's spaces.create and spaces.claim). */
+export type TaskSource = { terminal?: string; agent: string; folder?: string; sidebar?: string };
+
+// The runtime keeps a source field only within the remote labels' set and
+// drops it otherwise, so a task always starts; fitting each field first keeps
+// an odd folder name showing as something close to itself.
+const OUTSIDE_LABEL_SET = /[^A-Za-z0-9 _.:@#\/-]/g;
+const SOURCE_FIELD_MAX = 80;
+
+function fitSourceField(value: string | undefined): string | undefined {
+  const fitted = value?.trim().replace(OUTSIDE_LABEL_SET, "-").slice(0, SOURCE_FIELD_MAX).trim();
+  return fitted || undefined;
+}
+
+// The sidebar's conversation uid, which zen-ux gives its own zenius server
+// (ZENIUS_SIDEBAR_TASK): the sidebar tells its tasks from external ones by
+// it, so it goes exactly as given or not at all. Fitted like a label, it could
+// name another chat. Like the rest of the source, it's the script's own claim.
+const SIDEBAR_TASK = /^[A-Za-z0-9-]{1,64}$/;
+
+/**
+ * The task's source: the hc terminal (HC_TERMINAL_ID, a local id such as
+ * "t5x"), the agent's kind, the working folder's base name, never a path,
+ * and for the sidebar's own agent its conversation (ZENIUS_SIDEBAR_TASK). In
+ * the sandbox the script may start in its temporary folder, so the launcher
+ * names the working folder in ZENIUS_FOLDER.
+ */
+export function taskSource(env: NodeJS.ProcessEnv = process.env, cwd: string = process.cwd(), sandboxed: boolean = inSandbox()): TaskSource {
+  const terminal = fitSourceField(env.HC_TERMINAL_ID);
+  const agent = fitSourceField(clientLabel(env)) ?? "script";
+  const folder = fitSourceField(sandboxed ? env.ZENIUS_FOLDER : nodePath.basename(cwd));
+  const sidebar = env.ZENIUS_SIDEBAR_TASK;
+  return {
+    ...(terminal ? { terminal } : {}),
+    agent,
+    ...(folder ? { folder } : {}),
+    ...(sidebar && SIDEBAR_TASK.test(sidebar) ? { sidebar } : {}),
+  };
 }
 
 export type Profile = { id: string; name: string; isDefault: boolean };
@@ -154,7 +195,7 @@ export async function startTaskSpace(name: string, options: { maxLength?: number
 }
 
 async function createSpace(name: string, profileId: string | undefined): Promise<TaskSpace> {
-  const params: Record<string, unknown> = { name };
+  const params: Record<string, unknown> = { name, source: taskSource() };
   if (profileId !== undefined) params.profileId = profileId;
   const created = normalizeTaskSpace(
     await round().call("spaces.create", params, { op: "taskSpace", safetyTimeoutMs: SAFETY_TIMEOUT_MS }),
@@ -194,6 +235,7 @@ export async function claimTaskSpace(nameOrId: string | number): Promise<TaskSpa
   if (space.name) params.name = space.name;
   const client = clientLabel();
   if (client) params.client = client;
+  params.source = taskSource();
   // A claim of the user's Space or of an ended task waits for their answer in the browser.
   const claimed = await round().call<Record<string, unknown>>("spaces.claim", params, {
     op: "claimTaskSpace",
@@ -217,7 +259,7 @@ export async function takeOverTaskSpace(nameOrId: string | number): Promise<Task
     { space: space.id },
     { op: "takeOverTaskSpace", safetyTimeoutMs: SAFETY_TIMEOUT_MS },
   );
-  const task = createTaskSpace({ ...space, ownership: "agent", openerCut: result?.openerCut, reloaded: result?.reloaded });
+  const task = createTaskSpace({ ...space, ownership: "agent", openerCut: result?.openerCut, reloaded: result?.reloaded, blanked: result?.blanked });
   // Re-taking an agent-controlled space is a no-op, not a user boundary: only a
   // delegated space can have gained tabs through the user's activity, or show
   // a hand-off message.

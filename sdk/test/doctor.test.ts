@@ -404,16 +404,25 @@ describe("zenius doctor", () => {
     assert.equal(byId(await doctor(clean.options())).instance.status, "ok");
   });
 
-  it("reads install.sh's commit notation: a short hash, -dirty or unknown", async () => {
+  it("reads install.sh's commit notation as recorded: git's short hash of 7 or more characters, -dirty or unknown; only a full hash is cut to 7", async () => {
     const fixture = install();
-    for (const [commit, shown] of [["unknown", undefined], [`${HEAD.slice(0, 7)}-dirty`, `${HEAD.slice(0, 7)}-dirty`], ["0000000", "0000000"]] as const) {
+    const ours = HEAD.slice(0, 7);
+    // [recorded, shown in the summary, the mismatch line]: git's --short
+    // takes an 8th character when 7 name more than one commit.
+    const rows: [string, string | undefined, string | undefined][] = [
+      ["unknown", undefined, undefined],
+      [`${ours}-dirty`, `${ours}-dirty`, undefined],
+      [HEAD.slice(0, 8), HEAD.slice(0, 8), undefined],
+      ["0000000", "0000000", `Installed from commit 0000000; this CLI is from ${ours}.`],
+      ["00000000-dirty", "00000000-dirty", `Installed from commit 00000000-dirty; this CLI is from ${ours}.`],
+      ["0123456789abcdef0123456789abcdef01234567", "0123456", `Installed from commit 0123456; this CLI is from ${ours}.`],
+    ];
+    for (const [commit, shown, mismatch] of rows) {
       writeInstallJson(fixture.profile, { commit });
       const runtime = byId(await doctor(fixture.options())).runtime;
       if (shown) assert.match(runtime.summary, new RegExp(`, commit ${shown},`));
       else assert.doesNotMatch(runtime.summary, /commit/);
-      const mismatch = runtime.details.find((line) => line.startsWith("Installed from commit"));
-      if (commit === "0000000") assert.equal(mismatch, `Installed from commit 0000000; this CLI is from ${HEAD.slice(0, 7)}.`);
-      else assert.equal(mismatch, undefined, "the same commit, or none to compare");
+      assert.equal(runtime.details.find((line) => line.startsWith("Installed from commit")), mismatch, commit);
     }
   });
 
@@ -575,19 +584,14 @@ describe("zenius doctor", () => {
     assert.equal(daily.status, "ok");
   });
 
-  it("warns when the profile turns on the hand-off's group switch (zenius.handoff.groupSwitch)", async () => {
+  it("says nothing of a leftover zenius.handoff.groupSwitch: the user's pass dropped the switch, so the pref does nothing", async () => {
     const fixture = install();
     await run(fixture);
     writeFileSync(join(fixture.profile, "prefs.js"), 'user_pref("zenius.handoff.groupSwitch", true);\n');
-    let daily = byId(await doctor(fixture.options())).daily;
-    assert.equal(daily.status, "warn");
-    assert.equal(daily.summary, "no zenius.dev pref, no links into a checkout, no dev.* methods, navigator.webdriver false; zenius.handoff.groupSwitch true");
-    assert.match(daily.details[0]!, /^The profile's prefs\.js sets zenius\.handoff\.groupSwitch to true, so a hand-off loads the page it gives the user into a window group of its own .*: the user decided against that\. .*ask the user whether they did\./);
-
-    // false is its default: nothing to say.
-    writeFileSync(join(fixture.profile, "prefs.js"), 'user_pref("zenius.handoff.groupSwitch", false);\n');
-    daily = byId(await doctor(fixture.options())).daily;
+    const daily = byId(await doctor(fixture.options())).daily;
     assert.equal(daily.status, "ok");
+    assert.equal(daily.summary, "no zenius.dev pref, no links into a checkout, no dev.* methods, navigator.webdriver false");
+    assert.deepEqual(daily.details, []);
   });
 
   it("fails I4 when the daily profile names another instance (zenius.instance), where agents don't look", async () => {
@@ -827,10 +831,10 @@ describe("zenius doctor's CLI line", () => {
     const copy = join(fixture.home, ".zenius", "cli");
     mkdirSync(copy, { recursive: true });
     cpSync(join(VENDOR), join(copy, "runtime", "vendor", "fx-autoconfig"), { recursive: true });
-    writeFileSync(join(copy, "install.json"), JSON.stringify({ version: VERSION, commit: "abcdef0-dirty", installedAt: "2026-11-20T12:00:00Z", from: ROOT }));
+    writeFileSync(join(copy, "install.json"), JSON.stringify({ version: VERSION, commit: "abcdef01-dirty", installedAt: "2026-11-20T12:00:00Z", from: ROOT }));
     const installed = byId(await doctor(fixture.options({ checkoutRoot: copy, typescript: false }))).cli;
     assert.equal(installed.status, "ok", "a copy runs only its bundle, whatever the Node");
-    assert.ok(installed.summary.endsWith(`, installed in ${copy} from commit abcdef0-dirty on 2026-11-20`), installed.summary);
+    assert.ok(installed.summary.endsWith(`, installed in ${copy} from commit abcdef01-dirty on 2026-11-20`), installed.summary);
 
     const checkout = byId(await doctor(fixture.options({ typescript: false }))).cli;
     assert.equal(checkout.status, "warn");
@@ -958,7 +962,7 @@ const SIDEBAR_OK = { loaded: true, windows: 2, config: "found", configPath: "/Us
 /** The sidebar line's Codex part: Codex is on by default (the user's call, 2026-11-21). */
 const CODEX_ON = "; Codex can run, within the limits below";
 const CODEX_LIMITS = [
-  "Codex runs read-only: no shell, no writes, and no network outside zenius. Its sub-agents and web search are off, and the sidebar refuses every approval it asks for.",
+  "Codex runs read-only: no shell, no writes, and no network outside zenius and its hosted web search, live in Work and cached in Chat. Its sub-agents are off, and the sidebar refuses every approval it asks for.",
   "One read path is left: apply_patch's check can tell Codex whether a file exists, or whether it holds a given line, though not what the file says.",
   "Setting zenius.agentSidebar.allowCodex to false in about:config turns Codex off, with no restart.",
 ];
@@ -1104,6 +1108,64 @@ describe("zenius doctor's sidebar check", () => {
     fakeCli(cli, "hang");
     mcp = byId(await doctor(fixture.options({ mcpTimeoutMs: 300 }))).mcp;
     assert.deepEqual(mcp.details, [`${cli} mcp didn't list its tools within 0.3 s, so the sidebar's agents get no browser tools. ${fix}`]);
+  });
+
+  it("names the built-in agents the sidebar runs without a config file, and why it doesn't offer one", async () => {
+    const fixture = install();
+    installSidebar(fixture);
+    const folder = join(fixture.home, ".zenius", "agents");
+    const builtin = {
+      agents: ["claude", "codex"],
+      folder,
+      node: join(folder, "node"),
+      clis: { claude: "/opt/homebrew/bin/claude", codex: "/home/u/.local/bin/codex" },
+      adapters: { claude: true, codex: true },
+      missing: null,
+    };
+    const status = (more: Record<string, unknown>) => ({ loaded: true, windows: 1, config: "builtin", configPath: "/home/u/cfg.json", builtin: { ...builtin, ...more } });
+    await run(fixture, { sidebar: status({}) });
+    let sidebar = byId(await doctor(fixture.options())).sidebar;
+    assert.equal(sidebar.status, "ok", sidebar.details.join("\n"));
+    assert.equal(sidebar.summary, `zenius's on disk; loaded in 1 window, built-in agents (Claude Code, Codex)${CODEX_ON}`);
+    assert.deepEqual(sidebar.details, [
+      `With no config file at /home/u/cfg.json, the sidebar runs Claude Code (/opt/homebrew/bin/claude) and Codex (/home/u/.local/bin/codex), through the adapters in ${folder}.`,
+      ...CODEX_LIMITS,
+    ]);
+
+    // Codex isn't installed: Claude Code alone, and no Codex limits to list.
+    await run(fixture, { sidebar: status({ agents: ["claude"], clis: { ...builtin.clis, codex: null } }) });
+    sidebar = byId(await doctor(fixture.options())).sidebar;
+    assert.equal(sidebar.status, "ok", sidebar.details.join("\n"));
+    assert.equal(sidebar.summary, "zenius's on disk; loaded in 1 window, built-in agents (Claude Code)");
+    assert.deepEqual(sidebar.details, [
+      `With no config file at /home/u/cfg.json, the sidebar runs Claude Code (/opt/homebrew/bin/claude), through the adapters in ${folder}.`,
+      "It doesn't offer Codex, which isn't installed (no codex command found).",
+    ]);
+
+    // Codex is installed, but its adapter isn't in the folder.
+    await run(fixture, { sidebar: status({ agents: ["claude"], adapters: { claude: true, codex: false } }) });
+    sidebar = byId(await doctor(fixture.options())).sidebar;
+    assert.equal(sidebar.status, "ok", sidebar.details.join("\n"));
+    assert.deepEqual(sidebar.details.slice(1), [
+      `It doesn't offer Codex (/home/u/.local/bin/codex): its adapter isn't in ${folder}. Running zenius's installer again puts it there.`,
+    ]);
+  });
+
+  it("warns with the sidebar's own line when it has no agent to offer, and when it couldn't look for one", async () => {
+    const fixture = install();
+    installSidebar(fixture);
+    const line = "No agent to offer: install Claude Code (claude) or Codex (codex); run zenius's installer again, for its agent adapters in ~/.zenius/agents.";
+    const builtin = { agents: [], folder: "/home/u/.zenius/agents", node: null, clis: { claude: null, codex: null }, adapters: { claude: false, codex: false }, missing: line };
+    await run(fixture, { sidebar: { loaded: true, windows: 1, config: "missing", configPath: "/home/u/cfg.json", builtin } });
+    let sidebar = byId(await doctor(fixture.options())).sidebar;
+    assert.equal(sidebar.status, "warn");
+    assert.equal(sidebar.summary, "1 problem");
+    assert.deepEqual(sidebar.details, [`The sidebar has no config file at /home/u/cfg.json and no built-in agent it can run, so it offers no agent. ${line}`]);
+
+    await run(fixture, { sidebar: { loaded: true, windows: 1, config: "missing", configPath: "/home/u/cfg.json", builtin: { agents: [], error: "Error: EACCES" } } });
+    sidebar = byId(await doctor(fixture.options())).sidebar;
+    assert.equal(sidebar.status, "warn");
+    assert.deepEqual(sidebar.details, ["The sidebar has no config file at /home/u/cfg.json, and looking for its built-in agents failed: Error: EACCES"]);
   });
 
   it("shows the sidebar's startup error and a missing config", async () => {

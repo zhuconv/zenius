@@ -1,37 +1,47 @@
 ## Reading this run
 
-All 68 rubric-A cases pass at 6c1ed53, and so do zen-eval's own two cases:
-the control lifecycle, and the pdf.js viewer case. This is the regression
-gate before the install candidate.
-- **Same as at 3ce3e2c:** each case keeps its verdict and its assertion
-  count from the last full run (991 in all), and none got twice as slow.
-- **What landed in between (232 commits, 98 of them in `runtime/` or
-  `sdk/src`):**
-  - I5;
-  - the Agents Space as the default;
-  - the claim prompt;
-  - the event, download and handoff caps;
-  - CSS generated content in snapshots.
+All 67 rubric-A cases pass at 9abcd8e, and so do zen-eval's own four cases.
+9abcd8e is round 2's build (`live-round2.md`), and the bench and the
+no-preemption check ran on it too (`bench-comparison.md`, `no-preemption.md`),
+so all four rubrics cite one build.
+- **The checkout:** 9abcd8e plus zen-eval's round 2 harness, a local commit
+  that touches only `tests/live`, two unit tests and `docs/eval` (on `main`
+  since e8b0182). The runtime, the SDK and this suite are 9abcd8e's, so the
+  results name 9abcd8e.
+- **Same as at 6c1ed53:** every Ego case keeps its verdict and assertion count
+  from the last full run, except "Page Service Worker startup", which is now
+  a deliberate difference (below). zen-eval's pdf.js case checks one thing
+  more (12 assertions, against 11).
+- **What landed in between (812 commits, 301 of them in `runtime/` or
+  `sdk/src`).** What this suite sees of it:
+  - zenius refuses service worker registration and Cache Storage writes in a
+    task's pages (8d22cba);
+  - page code runs in an isolated world, so the cases read a fixture page's
+    own objects in the page's world ("Adapted for zenius");
+  - snapshots print CSS generated content, as Ego does (7819d7d);
+  - a middle click on a link opens it as a new page of the task, as on Ego
+    (57352b0).
+- **Two new zen-eval cases:**
+  - "a task's service worker is refused": the counterpart of Ego's Service
+    Worker case. The agent sees the refusal through the public API: the
+    page's call rejects with SecurityError, and `page.events()` reports it
+    once. The site's own worker is hidden from a task's pages too (94a298f),
+    and reported apart.
+  - "v2 checks from N/A cases": the v2 checks that only N/A cases made, now
+    counted.
 - **The claim prompt:** the runner answers each prompt with Allow through
-  `dev.answerClaim`, as the user would (5d08803). In this run only the control
-  lifecycle case asks: it claims its ended task.
-- **The harness, for the Agents Space (6c1ed53):** the first run at 5188ec5
-  failed four page-label cases. The cause was the harness.
-  - The `openOrReuseTab` stand-in put its tab into the task's workspace,
-    which made it the task's untracked tab only while each task had a
-    workspace of its own.
-  - In the shared Space a tab belongs to a task through its session value,
-    so the stand-in now marks its tab as the task's tab of unknown origin, as
-    the runtime marks a claimed workspace's tabs.
-  - Cleanup then adopts and closes such tabs before `finish()`, which keeps
-    them. Closing the task's last tab from outside the SDK would end the task
-    and make the next call a hard stop.
-- **The pdf.js case:** pdf.js renders all 60 pages, the snapshot shows its
-  page counter, and a click on `#next` moves it. Its download button then
-  gives the viewer Page a download whose file matches the served PDF byte
-  for byte.
+  `dev.answerClaim`, as the user would. In this run only the control lifecycle
+  case asks: it claims its ended task.
 - **The adapt cases:** all 18 run with test-only stand-ins, ten of them also
   patched ("Adapted for zenius" below lists both). All 18 pass.
+- **Times:** the suite took 114 s, against 100 s at 6c1ed53, and eight short
+  cases took more than twice as long (for example "page basic operations",
+  573 ms then and 1904 ms now). The Mac was busy: its load average was about
+  10 on 8 cores (the 5-minute average at the run's end). Rubric A counts
+  passes and failures only.
+  - The bench separated load from code for the snapshot, which is slower on
+    large pages by 7819d7d's design (`bench-comparison.md`).
+  - For these cases load and code weren't separated.
 
 One difference is deliberate (zen-manager's decision, in PARITY): zenius
 doesn't re-adopt a popup its Page ledger lost.

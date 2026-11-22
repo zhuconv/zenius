@@ -5,16 +5,19 @@
 ; agents. The CLI runs agent-written scripts, and agents read untrusted pages,
 ; so this confines that process: it reads only the CLI copy, the instance
 ; registry, its own temporary and output folders, the output folders of the
-; working folder's other runs and the working folder; writes only its own
+; working folder's other runs, the working folder and the folder the install
+; lets scripts read (install-cli.sh --read-dir); writes only its own
 ; temporary and output folders; starts no process; and connects only to the
 ; instance's socket.
 ;
 ; Parameters, all real paths: CLI (the copy), REGISTRY (~/.zenius/instances),
 ; SOCK (the instance's socket), BOX (the temporary folder), OUTS (the working
 ; folder's runs' output folders), OUT (this run's, inside OUTS), WORK (the
-; working folder, or a path that doesn't exist when it isn't granted), NODE
-; (the node binary, which the launcher resolves at each start) and NODE_HOME
-; (its install). In this language later rules win.
+; working folder, or a path that doesn't exist when it isn't granted), READ
+; (the install's read folder, such as ~/Downloads, or a path that doesn't
+; exist when there is none), NODE (the node binary, which the launcher
+; resolves at each start) and NODE_HOME (its install). In this language later
+; rules win.
 (allow default)
 
 ; No reads under the users' homes, the shared temp folders or other volumes...
@@ -30,6 +33,7 @@
   (subpath (param "BOX"))
   (subpath (param "OUTS"))
   (subpath (param "WORK"))
+  (subpath (param "READ"))
   (subpath (param "NODE_HOME"))
   (literal (param "SOCK")))
 ; Metadata stays visible: Node resolves module paths through their parents.

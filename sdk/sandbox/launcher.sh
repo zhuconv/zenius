@@ -20,6 +20,9 @@
 #     pytest, make and agents run what a project holds, outside the sandbox
 #     (hooks, core.fsmonitor, .envrc, .venv/bin, conftest.py, Makefile). On
 #     Linux, a socket inside it can be reached;
+#   - read the folder the install names for it (install-cli.sh --read-dir),
+#     such as ~/Downloads, for uploads, held to the working folder's rules;
+#     never write it;
 #   - connect to the instance's socket, which it picks as the CLI does.
 # Nothing else: no other files, no programs, no network or other sockets,
 # and only the environment variables listed below. The browser adds nothing
@@ -44,6 +47,9 @@ BIN_DIR=@BIN_DIR@
 # days a run's folder is kept.
 OUT_ROOT=@OUT_ROOT@
 OUT_KEEP_DAYS=7
+# The folder scripts may also read (install-cli.sh --read-dir), such as
+# ~/Downloads, as given; empty for none.
+READ_DIR=@READ_DIR@
 
 fail() {
   echo "zenius (sandboxed): $*" >&2
@@ -100,25 +106,47 @@ run=$(cd "$ZHOME/run" 2>/dev/null && pwd -P) || run=$ZHOME/run
 sock=$run/$instance.sock
 registry=$(cd "$ZHOME/instances" 2>/dev/null && pwd -P) || registry=$ZHOME/instances
 
-# The working folder, unless granting it would hand over more than a task's
-# folder. A shared folder (home, the temp folders) is refused as the working
-# folder or above it. A folder a script must never reach (zenius itself,
+# Whether granting the folder $1 (a real path) would hand over more than a
+# task's folder. A shared folder (home, the temp folders) is refused, and so
+# is a folder above one. A folder a script must never reach (zenius itself,
 # the node it runs, Zen's profiles, credentials, the user's runtime sockets)
 # is refused inside it too.
-work=$(pwd -P)
 home=$(cd "$HOME" 2>/dev/null && pwd -P) || home=$HOME
 tmp=${TMPDIR:-/tmp}
 tmp=${tmp%/}
+too_wide() {
+  [ "$1" = / ] && return 0
+  for shared in "$home" /tmp /var/tmp /private/tmp /private/var/tmp /dev/shm "$tmp" "/private$tmp"; do
+    case $shared/ in "$1"/*) return 0 ;; esac
+  done
+  for kept in "$ZHOME" "$CLI" "$BIN_DIR" "$node_home" "${NODE%/*}" /run/user/@UID@ "$home/.zenius-dev" "$home/.zen" \
+    "$home/.config" "$home/.local" "$home/.ssh" "$home/.gnupg" "$home/.aws" "$home/.docker" "$home/.kube" "$home/Library"; do
+    case $kept/ in "$1"/*) return 0 ;; esac
+    case $1/ in "$kept"/*) return 0 ;; esac
+  done
+  return 1
+}
+
+# The working folder, unless granting it would hand over more than a task's.
+work=$(pwd -P)
 grant=1
-[ "$work" = / ] && grant=0
-for shared in "$home" /tmp /var/tmp /private/tmp /private/var/tmp /dev/shm "$tmp" "/private$tmp"; do
-  case $shared/ in "$work"/*) grant=0 ;; esac
-done
-for kept in "$ZHOME" "$CLI" "$BIN_DIR" "$node_home" "${NODE%/*}" /run/user/@UID@ "$home/.zenius-dev" "$home/.zen" \
-  "$home/.config" "$home/.local" "$home/.ssh" "$home/.gnupg" "$home/.aws" "$home/.docker" "$home/.kube" "$home/Library"; do
-  case $kept/ in "$work"/*) grant=0 ;; esac
-  case $work/ in "$kept"/*) grant=0 ;; esac
-done
+too_wide "$work" && grant=0
+
+# The folder the install lets scripts read (--read-dir), by its real path. It
+# is held to the same rules, and to the runs' output folders, which a script
+# reads only for its own working folder. Unlike a working folder, which an
+# agent picks, it is the install's choice, so a wide one stops every command
+# with the reason. One that has gone is simply not granted.
+reads=
+if [ -n "$READ_DIR" ] && reads=$(cd -P "$READ_DIR" 2>/dev/null && pwd -P); then
+  wide=0
+  too_wide "$reads" && wide=1
+  case $OUT_ROOT/ in "$reads"/*) wide=1 ;; esac
+  case $reads/ in "$OUT_ROOT"/*) wide=1 ;; esac
+  [ "$wide" = 0 ] || fail "the folder this install lets scripts read, $READ_DIR, holds more than a task's files ($reads): reinstall with scripts/install-cli.sh --sandbox --read-dir <a folder such as ~/Downloads>, or --read-dir none"
+else
+  reads=
+fi
 
 # A temporary folder of the sandbox's own. It must be this user's, and no
 # link: on a shared machine someone else could make it first. Each run gets a
@@ -174,6 +202,12 @@ if [ "$grant" = 1 ]; then
 else
   set -- "$CLI/sdk/bin/zenius" "$@"
 fi
+# The read folder by its real path and as given, since a script names it as
+# given (~/Downloads under a home that is itself a link).
+if [ -n "$reads" ]; then
+  set -- --allow-fs-read="$reads" "$@"
+  [ "$READ_DIR" = "$reads" ] || set -- --allow-fs-read="$READ_DIR" "$@"
+fi
 set -- --permission --allow-fs-read="$CLI" --allow-fs-read="$ZHOME/instances" --allow-fs-read="$sock" \
   --allow-fs-read="$box" --allow-fs-write="$box" --allow-fs-read="$outs" --allow-fs-write="$out" "$@"
 
@@ -190,6 +224,11 @@ linux)
   else
     set -- --ro-bind "$outs" "$outs" --bind "$out" "$out" --chdir "$box" "$node" "$@"
   fi
+  # The read folder comes before the output folders, so their binds win.
+  if [ -n "$reads" ]; then
+    set -- --ro-bind "$reads" "$reads" "$@"
+    [ "$READ_DIR" = "$reads" ] || set -- --ro-bind "$reads" "$READ_DIR" "$@"
+  fi
   set -- @BWRAP@ --ro-bind /usr /usr @SYSBINDS@ --ro-bind /etc /etc \
     --proc /proc --dev /dev --tmpfs /tmp \
     --ro-bind "$node_home" "$node_home" --ro-bind "$CLI" "$CLI" \
@@ -203,9 +242,23 @@ macos)
   if [ "$grant" = 1 ]; then granted=$work; else granted=$box/no-working-folder; cd "$box"; fi
   set -- /usr/bin/sandbox-exec -f "$CLI/sdk/sandbox/zenius.sb" \
     -D "CLI=$CLI" -D "REGISTRY=$registry" -D "SOCK=$sock" \
-    -D "BOX=$box" -D "OUTS=$outs" -D "OUT=$out" -D "WORK=$granted" -D "NODE=$node" -D "NODE_HOME=$node_home" "$node" "$@"
+    -D "BOX=$box" -D "OUTS=$outs" -D "OUT=$out" -D "WORK=$granted" -D "READ=${reads:-$box/no-read-folder}" -D "NODE=$node" -D "NODE_HOME=$node_home" "$node" "$@"
   ;;
 esac
+
+# The task's source for the sidebar's list of tasks (globals.ts's taskSource):
+# the hc terminal's id, if it's a plain one, and the working folder's name,
+# never its path, even when the folder isn't granted. Both are display text,
+# which the runtime keeps only within its label set.
+case ${HC_TERMINAL_ID-} in '' | *[!A-Za-z0-9._-]*) terminal= ;; *) terminal=$HC_TERMINAL_ID ;; esac
+[ ${#terminal} -le 64 ] || terminal=
+folder=${work##*/}
+# The sidebar's conversation id, which zen-ux gives the sidebar's zenius mcp
+# (this launcher, on a sandboxed install): the sidebar matches on it, so it
+# goes exactly as given or not at all. A script could set it itself, as it
+# can any of the source, so it adds no reach.
+case ${ZENIUS_SIDEBAR_TASK-} in '' | *[!A-Za-z0-9-]*) sidebar= ;; *) sidebar=$ZENIUS_SIDEBAR_TASK ;; esac
+[ ${#sidebar} -le 64 ] || sidebar=
 
 # The claim prompt's label for the agent (globals.ts's clientLabel), worked
 # out here because the agent's own variables stay outside. It's a display
@@ -225,7 +278,8 @@ fi
 # name any task by its id, so it adds no reach.
 exec /usr/bin/env -i HOME="$HOME" PATH=/usr/bin:/bin TMPDIR="$box" ZENIUS_OUTPUT_DIR="$out" \
   ZENIUS_HOME="$ZHOME" ZENIUS_INSTANCE="$instance" ZENIUS_SOCKET="$sock" ZENIUS_NODE_MAJOR="$NODE_MAJOR" \
-  NODE_DISABLE_COMPILE_CACHE=1 ${client:+"ZENIUS_CLIENT=$client"} \
+  NODE_DISABLE_COMPILE_CACHE=1 ${client:+"ZENIUS_CLIENT=$client"} ${reads:+"ZENIUS_READ_DIR=$READ_DIR"} \
+  ${terminal:+"HC_TERMINAL_ID=$terminal"} ${folder:+"ZENIUS_FOLDER=$folder"} ${sidebar:+"ZENIUS_SIDEBAR_TASK=$sidebar"} \
   ${LANG+"LANG=$LANG"} ${LC_ALL+"LC_ALL=$LC_ALL"} ${LC_CTYPE+"LC_CTYPE=$LC_CTYPE"} \
   ${TERM+"TERM=$TERM"} ${TZ+"TZ=$TZ"} ${COLUMNS+"COLUMNS=$COLUMNS"} \
   ${NO_COLOR+"NO_COLOR=$NO_COLOR"} ${FORCE_COLOR+"FORCE_COLOR=$FORCE_COLOR"} \

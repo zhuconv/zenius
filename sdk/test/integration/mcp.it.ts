@@ -105,6 +105,15 @@ const takeOver = (space: number) =>
   );
 /** The user's Resume agent (tests/core/ownership.test.mjs gives a task back this way). */
 const resumeAgent = (space: number) => chrome(`ctx.spaces.setOwnership(ctx.spaces.get(arg), "agent", { source: "user" }); return true;`, space);
+/** The user's Resume agent as zen-ux's panel presses it: beforeHandBack first, where a secret step's tab is blanked (tests/core/handoff.test.mjs). */
+const resumeByUser = (space: number) =>
+  chrome(
+    `const s = ctx.spaces.get(arg);
+     await ctx.service.beforeHandBack(s);
+     ctx.spaces.setOwnership(s, "agent", { source: "user" });
+     return true;`,
+    space,
+  );
 /** The panel's Stop. */
 const stopTask = (space: number) => chrome(`ctx.spaces.setOwnership(ctx.spaces.get(arg), "user", { source: "user" }); return true;`, space);
 const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -118,7 +127,7 @@ after(() => client?.close());
 test("mcp: the tools are the browser's steps, each told in one sentence, and nothing else", async () => {
   const { result } = await client.request("tools/list");
   const names = result.tools.map((tool: { name: string }) => tool.name);
-  assert.deepEqual(names, ["open", "goto", "read_page", "click", "fill", "press", "scroll", "select", "wait", "hand_off", "finish", "evaluate"]);
+  assert.deepEqual(names, ["open", "goto", "read_page", "click", "fill", "press", "scroll", "select", "wait", "hand_off", "flag_page", "finish", "evaluate"]);
   for (const tool of result.tools) {
     assert.match(tool.description, /^[A-Z][^.]*\.$/, `${tool.name}: one sentence`);
     assert.equal(tool.inputSchema.type, "object");
@@ -220,7 +229,7 @@ test("mcp: after the user's Take over the agent waits for Resume agent, and afte
   assert.ok(ended.isError);
   assert.equal(
     ended.content[0]!.text,
-    "Read the page failed.\nZEN_TASK_SPACE_INACTIVE: The task has ended (it was finished, or the user stopped it), and its tabs are the user's now. Don't retry. If the user asks for more, open starts a new task.",
+    "Read the page failed.\nZEN_TASK_SPACE_INACTIVE: The user stopped the task in Zen, and its tabs are theirs now. Don't retry. If the user asks for more, open starts a new task.",
   );
   assert.match((await client.call("click", { element: "two", target: "#next" })).content[0]!.text, /there is no task yet/);
   await client.ok("open", { url: `${context.base}/`, task: unique("it mcp after stop") });
@@ -252,6 +261,74 @@ test("mcp: a failure comes back readable, from the error guide, and the server g
     await client.ok("wait", { user: true, seconds: 1 }),
     "Wait for the user to resume the agent\nNot yet: the user hasn't resumed the agent in 1 second. Call wait with user: true again to go on waiting.",
   );
+});
+
+test("mcp: hand_off with secret: true says zenius clears the tab at Resume, and wait says it did", async () => {
+  const name = unique("it mcp secret");
+  const agent = await started();
+  try {
+    await agent.ok("open", { url: `${context.base}/form`, task: name });
+    assert.equal(
+      await agent.ok("hand_off", { message: "Copy your new API token", secret: true }),
+      'Ask the user: "Copy your new API token"\nZen shows the user your message, and the task is theirs until they press Resume agent. Call wait with user: true to wait for that. When they resume, zenius clears that tab first: ask the user for anything you need from what it showed.',
+    );
+    const space = await spaceNamed(name);
+    await resumeByUser(space.id);
+    assert.equal(
+      await agent.ok("wait", { user: true, seconds: 5 }),
+      "Wait for the user to resume the agent\nThe user resumed the agent.\nzenius cleared p1, which showed the user a secret: it shows about:blank now. Don't go back to that page; ask the user for anything you need from it.",
+    );
+    assert.equal(await chrome(`const s = ctx.spaces.get(arg); return ctx.pages.tabFor(ctx.pages.get(s, "p1")).linkedBrowser.currentURI.spec;`, space.id), "about:blank");
+    await agent.ok("finish", { keep: "none" });
+  } finally {
+    await agent.close();
+  }
+});
+
+test("mcp: flag_page flags the page with the agent's reason, which the runtime holds to one line", async () => {
+  const agent = await started();
+  try {
+    const task = unique("it mcp flag");
+    await agent.ok("open", { url: `${context.base}/form`, task });
+    const reason = "Asks for a bank password the task doesn't need";
+    const flagged = await agent.ok("flag_page", { reason });
+    assert.equal(flagged.split("\n")[0], `Flag the page: "${reason}"`);
+    assert.match(flagged, /Zen warns the user on p1 with your reason/);
+    const { id } = await spaceNamed(task);
+    const evidence = await chrome(
+      `const s = ctx.spaces.get(arg);
+       const b = ctx.pages.tabFor(ctx.pages.get(s, "p1")).linkedBrowser;
+       return ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/evidence.sys.mjs").evidenceOf(b);`,
+      id,
+    );
+    assert.deepEqual(evidence, { flagged: reason });
+    const refused = await agent.call("flag_page", { reason: "two\nlines" });
+    assert.equal(refused.isError, true);
+    assert.match(refused.content[0]!.text, /one line of 1 to 200 characters/);
+    await agent.ok("finish", { keep: "none" });
+  } finally {
+    await agent.close();
+  }
+});
+
+test("mcp: a task the MCP opens says who drives it: Claude Code, its hc terminal and the working folder's name, as spaces.list lists it", async () => {
+  // ZENIUS_CLIENT blank: the client's own name at initialize decides, whatever runs the suite.
+  const agent = await started({ HC_TERMINAL_ID: "t-mcp", ZENIUS_CLIENT: "" });
+  try {
+    const task = unique("it mcp source");
+    await agent.ok("open", { url: `${context.base}/`, task });
+    const listed = (await context.rpc.call<{ taskSpaces: Array<Listed & { source?: Record<string, string> }> }>("spaces.list")).taskSpaces.find((entry) => entry.name === task);
+    assert.ok(listed, `no space named ${task}`);
+    const { folder: shown, ...rest } = listed.source ?? {};
+    assert.deepEqual(rest, { terminal: "t-mcp", agent: "Claude Code" });
+    // The folder's base name, never a path; one outside the label set shows as something close to itself.
+    const folder = path.basename(process.cwd());
+    if (/^[A-Za-z0-9 _.\/:@#-]{1,80}$/.test(folder)) assert.equal(shown, folder);
+    else assert.ok(shown === undefined || !shown.includes("/"), String(shown));
+    await agent.ok("finish", { keep: "none" });
+  } finally {
+    await agent.close();
+  }
 });
 
 // A task is its chat's, not its name's: the agent sidebar found two work

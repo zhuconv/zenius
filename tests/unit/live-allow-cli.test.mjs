@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { decide, runsOnlyCli, toolResultsRoot } from "../live/allow-cli.mjs";
+import { decide, readAllowed, recentImage, runsOnlyCli, toolResultsRoot } from "../live/allow-cli.mjs";
 
 test("Bash: only the CLI, plain or with a literal heredoc", () => {
   const allowed = [
@@ -229,6 +229,105 @@ test("the hook, as Claude Code runs it: updatedInput for an allowed command, a p
         { tool: "Bash", allow: false, detail: "zenius --instance default --version" },
       ],
     );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("decide: Ego's CLI runs only skill, help, --version and nodejs; import, upgrade and another browser service never run", () => {
+  const o = { cli: "ego-browser", skill: "ego-browser", workdir: "/nonexistent-run/work", shape: "ego-browser" };
+  const bash = (command) => decide({ tool_name: "Bash", tool_input: { command } }, o).allow;
+  for (const command of [
+    "ego-browser skill",
+    "ego-browser --version",
+    "ego-browser -v",
+    "ego-browser --help",
+    "ego-browser help",
+    "ego-browser help nodejs",
+    "ego-browser nodejs <<'EOF'\nconst task = await taskSpace(\"t\");\nawait task.finish({ keep: [] });\nEOF",
+    "ego-browser nodejs -e 'console.log(1)'",
+    'ego-browser nodejs --eval "console.log(1)"',
+  ]) {
+    assert.equal(bash(command), true, command);
+  }
+  for (const command of [
+    "ego-browser upgrade",
+    "ego-browser import list",
+    "ego-browser import --browser chrome --profile Default",
+    "ego-browser --ego-server-name=app-a nodejs -e 'console.log(1)'",
+    "ego-browser nodejs --ego-server-name=app-a <<'EOF'\nconsole.log(1)\nEOF",
+    "ego-browser skill extra",
+    "ego-browser nodejs -e 'a' 'b'",
+    "ego-browser help '../x'",
+    "ego-browser",
+    "ego-browser skill > /tmp/guide.md",
+  ]) {
+    assert.equal(bash(command), false, command);
+  }
+  // Without the shape, the same CLI name passes as zenius's does.
+  assert.equal(decide({ tool_name: "Bash", tool_input: { command: "ego-browser upgrade" } }, { ...o, shape: null }).allow, true);
+});
+
+test("the hook keeps each allowed command whole, its script included, and nothing it denied", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const { readdirSync, readFileSync } = await import("node:fs");
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "allow-cli-")));
+  mkdirSync(join(root, "work"));
+  const hook = new URL("../live/allow-cli.mjs", import.meta.url).pathname;
+  const scripts = join(root, "T1.scripts");
+  const env = { PATH: process.env.PATH, ALLOW_CLI_WORKDIR: join(root, "work"), ALLOW_CLI_SHAPE: "ego-browser", ALLOW_CLI_SCRIPTS: scripts };
+  const run = (command) =>
+    JSON.parse(execFileSync(process.execPath, [hook, "ego-browser", "ego-browser"], { env, input: JSON.stringify({ hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command } }), encoding: "utf8" }))
+      .hookSpecificOutput.permissionDecision;
+  try {
+    const script = "ego-browser nodejs <<'EOF'\nconst task = await taskSpace(\"keep me\");\nconsole.log(await task.page(\"p1\").title());\nEOF";
+    assert.equal(run("ego-browser skill"), "allow");
+    assert.equal(run("ego-browser upgrade"), "deny");
+    assert.equal(run(script), "allow");
+    assert.deepEqual(readdirSync(scripts).sort(), ["001.sh", "002.sh"]);
+    assert.equal(readFileSync(join(scripts, "001.sh"), "utf8"), "ego-browser skill\n");
+    assert.equal(readFileSync(join(scripts, "002.sh"), "utf8"), script + "\n");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("readAllowed: with image roots, only an image made since the run began, by its bytes, under a root", async () => {
+  const { utimesSync } = await import("node:fs");
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "allow-cli-")));
+  const temp = join(root, "temp");
+  const elsewhere = join(root, "elsewhere");
+  const work = join(root, "work");
+  for (const d of [temp, elsewhere, work]) mkdirSync(d);
+  const png = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
+  const jpeg = Buffer.from("ffd8ffe000104a4649460001", "hex");
+  const webp = Buffer.concat([Buffer.from("RIFF"), Buffer.alloc(4), Buffer.from("WEBPVP8 ")]);
+  writeFileSync(join(temp, "shot.png"), png);
+  writeFileSync(join(temp, "shot.jpg"), jpeg);
+  writeFileSync(join(temp, "shot.webp"), webp);
+  writeFileSync(join(temp, "notes.png"), "a text file named like an image");
+  writeFileSync(join(temp, "old.png"), png);
+  writeFileSync(join(elsewhere, "shot.png"), png);
+  symlinkSync(join(elsewhere, "shot.png"), join(temp, "link.png"));
+  const since = Date.now() - 60_000;
+  utimesSync(join(temp, "old.png"), new Date(since - 120_000), new Date(since - 120_000));
+  const images = { roots: [temp], since };
+  const allowed = (name, o = images) => readAllowed(join(temp, name), work, root, null, o);
+  try {
+    assert.equal(allowed("shot.png"), true);
+    assert.equal(allowed("shot.jpg"), true);
+    assert.equal(allowed("shot.webp"), true);
+    assert.equal(allowed("notes.png"), false, "not an image by its bytes");
+    assert.equal(allowed("old.png"), false, "made before the run");
+    assert.equal(allowed("link.png"), false, "a link out of the roots");
+    assert.equal(allowed("missing.png"), false);
+    assert.equal(readAllowed(join(elsewhere, "shot.png"), work, root, null, images), false, "outside every root");
+    assert.equal(allowed("shot.png", null), false, "no image roots, no image reads");
+    assert.equal(recentImage(join(temp, "shot.png"), since), true);
+    assert.equal(recentImage(temp, since), false, "a folder");
+    const o = { cli: "ego-browser", skill: "ego-browser", workdir: work, shape: "ego-browser", images };
+    assert.equal(decide({ tool_name: "Read", tool_input: { file_path: join(temp, "shot.png") } }, o).allow, true);
+    assert.equal(decide({ tool_name: "Read", tool_input: { file_path: join(temp, "notes.png") } }, o).allow, false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

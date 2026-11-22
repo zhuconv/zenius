@@ -758,16 +758,17 @@ export function addBackgroundTab(win, workspaceUuid, { userContextId = 0, addTab
 // handle to a new window. The parent refuses the opener-linked open; zen-ux's
 // pill tells the user when nothing opened in its place.
 
-/** @type {Set<(info: {browser: Element, url: string, reopened: boolean}) => void>} */
+/** @type {Set<(info: {browser: Element, url: string, reopened: boolean, evident?: true, evidence?: Record<string, string>}) => void>} */
 const openRefusedListeners = new Set();
 
 /**
  * Call `fn` for each opener-linked open the parent refuses. `browser` is
  * the opener's top <browser>, `url` the spec Gecko passed ("" for an empty
  * or about:blank open), and `reopened` whether a plain tab with no opener
- * opened the URL in its place. Returns a remover.
+ * opened the URL in its place; `evident` and `evidence` as withEvidence
+ * says. Returns a remover.
  *
- * @param {(info: {browser: Element, url: string, reopened: boolean}) => void} fn
+ * @param {(info: {browser: Element, url: string, reopened: boolean, evident?: true, evidence?: Record<string, string>}) => void} fn
  * @returns {() => void}
  */
 export function onOpenRefused(fn) {
@@ -782,7 +783,7 @@ export function onOpenRefused(fn) {
  * @param {{browser: Element, url: string, reopened: boolean}} info
  */
 export function noteOpenRefused(info) {
-  info = withWritten(info);
+  info = withEvidence(info);
   for (const fn of [...openRefusedListeners]) {
     try {
       fn(info);
@@ -793,21 +794,22 @@ export function noteOpenRefused(info) {
 }
 
 /**
- * The events add `written: true` when the page holds what the agent's world
- * wrote (ZeniusService.isWritten, landing (2)). Otherwise they leave it out:
- * zen-ux takes a boolean as the answer, and its own rule also counts marks
- * of the agent's page-world code until the world tracks writes. A caller's
- * own value stands.
+ * The events add `evident: true` and the page's `evidence` ({reason:
+ * detail}, zen-observe's) when the page has evidence a clean copy clears:
+ * hooked or made, the defenses' trigger since the user's call
+ * (2026-11-21). Otherwise they leave both out, and zen-ux reads the page.
+ * A caller's own value stands.
  */
-function withWritten(info) {
-  if (!info?.browser || "written" in info) {
+function withEvidence(info) {
+  if (!info?.browser || "evident" in info) {
     return info;
   }
   try {
-    return lazy.ZeniusService.isWritten(info.browser) ? { ...info, written: true } : info;
+    const evidence = lazy.ZeniusService.evidenceOf(info.browser);
+    return evidence.hooked !== undefined || evidence.made !== undefined ? { ...info, evident: true, evidence } : info;
   } catch (e) {
-    console.error("zenius: isWritten failed for a refusal event, so it counts as written", e);
-    return { ...info, written: true };
+    console.error("zenius: reading a page's evidence failed for a refusal event, so it counts as evident", e);
+    return { ...info, evident: true, evidence: {} };
   }
 }
 
@@ -837,7 +839,7 @@ export const KEPT_REFUSAL_KINDS = new Set([
 /** api and asked are cut to this many characters. */
 export const KEPT_TEXT_MAX = 80;
 
-/** @type {Set<(info: {browser: Element, kind: string, api: string, asked: string}) => void>} */
+/** @type {Set<(info: {browser: Element, kind: string, api: string, asked: string, evident?: true, evidence?: Record<string, string>}) => void>} */
 const keptRefusedListeners = new Set();
 
 /**
@@ -862,7 +864,7 @@ export function onKeptRefused(fn) {
  * @param {{browser: Element, kind: string, api: string, asked: string}} info
  */
 export function noteKeptRefused(info) {
-  info = withWritten(info);
+  info = withEvidence(info);
   for (const fn of [...keptRefusedListeners]) {
     try {
       fn(info);

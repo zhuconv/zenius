@@ -18,7 +18,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlink
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { after, before, test } from "node:test";
-import { setup } from "./lib.mjs";
+import { removeScratch, setup } from "./lib.mjs";
 import { startFakeAnthropic } from "./sidebar/fake-anthropic.mjs";
 
 const repo = resolve(dirname(new URL(import.meta.url).pathname), "../..");
@@ -89,8 +89,22 @@ const userMcp = () => ({
 // previous step's tool result.
 function steps(kind) {
   const finish = { tool: { name: "mcp__zenius__finish", input: { keep: 7 } } };
+  // The hook refuses it before the CLI looks the host up or connects.
+  const local = { tool: { name: "WebFetch", input: { url: "https://10.0.0.7/", prompt: "the title" } } };
+  const fetch = url => ({ tool: { name: "WebFetch", input: { url, prompt: "the title" } } });
   if (kind === "chat") {
-    return [{ tool: { name: "Bash", input: { command: `touch ${q(canary("bash-chat"))}`, description: "x" } } }, finish];
+    // Chat fetches only URLs from its sources (the user's call). Every
+    // address here is a private one, so a fetch the list lets through meets
+    // the local-network rule, and nothing leaves the machine.
+    return [
+      { tool: { name: "Bash", input: { command: `touch ${q(canary("bash-chat"))}`, description: "x" } } },
+      { tool: { name: "WebSearch", input: { query: `zen browser ${CHAT_URLS.query}` } } },
+      fetch(CHAT_URLS.hit),
+      fetch(CHAT_URLS.text),
+      fetch(CHAT_URLS.user),
+      fetch(CHAT_URLS.query),
+      finish,
+    ];
   }
   return [
     { tool: { name: "Bash", input: { command: `touch ${q(canary("bash-work"))}`, description: "x" } } },
@@ -98,11 +112,41 @@ function steps(kind) {
     { tool: { name: "Read", input: { file_path: join(s, "claude-config", "CLAUDE.md") } } },
     // Claude Code 2.1 defers MCP tools behind ToolSearch: what can it load?
     { tool: { name: "ToolSearch", input: { query: "select:Bash,Read,Write,WebFetch,Skill,mcp__zenius__finish", max_results: 10 } } },
+    local,
     finish,
   ];
 }
 
+// Chat's URLs: the user's (in the question), a search hit, one the search
+// model's text names, and one the model built into its query.
+const CHAT_URLS = {
+  user: "https://10.0.0.7/from-the-user",
+  hit: "https://10.0.0.10/search-hit",
+  text: "https://10.0.0.11/search-text",
+  query: "https://10.0.0.9/?d=built-by-the-model",
+};
+
+// WebSearch's own request, with the API's web_search tool: the answer a
+// search has (a search, its hits, a summary).
+function searchReply(request) {
+  const query = /Perform a web search for the query: (.*)/.exec(request.last)?.[1] ?? "";
+  return {
+    blocks: [
+      { type: "server_tool_use", id: "srvtoolu_fake_1", name: "web_search", input: { query } },
+      {
+        type: "web_search_tool_result",
+        tool_use_id: "srvtoolu_fake_1",
+        content: [{ type: "web_search_result", title: "Zen Browser", url: CHAT_URLS.hit, encrypted_content: "fake", page_age: null }],
+      },
+      { type: "text", text: `Searched for ${query}. See also ${CHAT_URLS.text}.` },
+    ],
+  };
+}
+
 function reply(request) {
+  if (request.tools.includes("web_search")) {
+    return searchReply(request);
+  }
   const all = request.messages.map(m => m.text).join("\n");
   const kind = /ZENIUS-CLI-(CHAT|WORK)/.exec(all)?.[1]?.toLowerCase();
   if (!kind) {
@@ -215,9 +259,12 @@ after(async () => {
   for (const [path] of planted) {
     rmSync(path, { force: true });
   }
-  await api.close();
-  rmSync(s, { recursive: true, force: true });
-  await env.close();
+  try {
+    await api.close();
+    await removeScratch(s);
+  } finally {
+    await env.close();
+  }
 });
 
 /** Ask the sidebar's agent in a session of `kind`; resolve with what the chat shows. */
@@ -231,18 +278,46 @@ function ask(kind, question) {
   );
 }
 
-test("Chat with the real CLI: no tool at all is offered or runs, and nothing of the user's ~/.claude loads", { skip: SKIP }, async () => {
+test("Chat with the real CLI: only web search and fetch are offered; Bash and zenius's tools are refused, so is a fetch of the local network, and nothing of the user's ~/.claude loads", { skip: SKIP }, async () => {
   const userBefore = snapshot(join(s, "claude-config"));
-  const shown = await ask("chat", "ZENIUS-CLI-CHAT what does the page say?");
+  const shown = await ask("chat", `ZENIUS-CLI-CHAT what does the page say? It links ${CHAT_URLS.user}`);
   const errors = shown.filter(m => m.role === "error");
   assert.deepEqual(errors, [], "the session ran");
   const mine = api.requests.filter(r => r.messages.some(m => m.text.includes("ZENIUS-CLI-CHAT")));
   assert.ok(mine.length >= 3, `the model was asked ${mine.length} times`);
-  for (const r of mine) {
-    assert.deepEqual(r.tools, [], "Chat is offered no tools");
+  // The session's requests offer web search and fetch (the CLI's own side
+  // requests none). Chat has no ToolSearch, so they come whole, to be
+  // called; Claude Code 2.1.330 adds its deferred placeholder, only a
+  // reference, as in Work.
+  const each = mine.map(r => r.tools.join("+") || "none").join(" | ");
+  const offered = [...new Set(mine.flatMap(r => r.tools))].filter(name => name !== "DeferredToolPlaceholder").sort();
+  assert.deepEqual(offered, ["WebFetch", "WebSearch"], `Chat is offered web search and fetch only (D1): ${each}`);
+  for (const def of mine.flatMap(r => r.toolDefs)) {
+    assert.equal(def.defer === true, def.name === "DeferredToolPlaceholder", `${def.name} is ${def.defer === true ? "deferred" : "whole"}: ${each}`);
   }
-  const [bash, finish] = results("ZENIUS-CLI-CHAT");
+  const [bash, search, hit, text, user, built, finish] = results("ZENIUS-CLI-CHAT");
   assert.match(bash, /^\[tool_result error\]/);
+  // Chat's fetch rule. The search ran, and its hit was listed before the
+  // model's next call: the list let that fetch through to the
+  // local-network rule, and the user's URL too. The URL that only the search
+  // model's text named, and the one the model built, weren't listed.
+  assert.match(search, new RegExp(CHAT_URLS.hit.replace(/[./?]/g, "\\$&")), `the search's result: ${search}`);
+  const notListed = /WebFetch opens only URLs that came from the page, the user's messages or your web search results/;
+  for (const [what, result] of [["the search hit", hit], ["the user's URL", user]]) {
+    assert.match(result, /^\[tool_result error\]/, what);
+    assert.match(result, /WebFetch doesn't reach the local network/, `${what} was listed: ${result}`);
+  }
+  for (const [what, result] of [["the search text's URL", text], ["the model's URL", built]]) {
+    assert.match(result, /^\[tool_result error\]/, what);
+    assert.match(result, notListed, `${what} wasn't listed: ${result}`);
+  }
+  const { session, profile } = await chrome(
+    `const conv = [...A.conversations.values()].filter(c => c.kind === "chat").at(-1);
+     return { session: conv.sessionId, profile: PathUtils.profileDir };`
+  );
+  const list = readFileSync(join(profile, "agent-sidebar-allow", `${session}.txt`), "utf8").split("\n");
+  assert.ok(list.includes(CHAT_URLS.user) && list.includes(CHAT_URLS.hit), `the list: ${list.join(" ")}`);
+  assert.ok(!list.includes(CHAT_URLS.text) && !list.includes(CHAT_URLS.query), `the list: ${list.join(" ")}`);
   assert.match(finish, /^\[tool_result error\]/);
   assert.doesNotMatch(finish, /keep must be/, "zenius's server isn't there");
   assert.ok(!existsSync(canary("bash-chat")), "Bash didn't run");
@@ -251,7 +326,7 @@ test("Chat with the real CLI: no tool at all is offered or runs, and nothing of 
   assertNothingOfTheUsers(userBefore);
 });
 
-test("Work with the real CLI: only zenius's tools run; Bash, Write and Read are refused, nothing of the user's ~/.claude loads, and nothing is written there", { skip: SKIP }, async () => {
+test("Work with the real CLI: only zenius's tools, web search and fetch run; Bash, Write and Read are refused, so is a fetch of the local network, nothing of the user's ~/.claude loads, and nothing is written there", { skip: SKIP }, async () => {
   const userBefore = snapshot(join(s, "claude-config"));
   const shown = await ask("work", "ZENIUS-CLI-WORK find the cheapest flight");
   assert.deepEqual(shown.filter(m => m.role === "error"), [], "the session ran");
@@ -260,7 +335,7 @@ test("Work with the real CLI: only zenius's tools run; Bash, Write and Read are 
   // placeholder for what it can load (defer_loading), not the tools.
   const offered = [...new Set(mine.flatMap(r => r.tools))];
   assert.deepEqual(
-    offered.filter(name => !/^mcp__zenius__[a-z_]+$/.test(name) && !["TodoWrite", "ToolSearch", "DeferredToolPlaceholder"].includes(name)),
+    offered.filter(name => !/^mcp__zenius__[a-z_]+$/.test(name) && !["TodoWrite", "ToolSearch", "AskUserQuestion", "WebSearch", "WebFetch", "DeferredToolPlaceholder"].includes(name)),
     [],
     `offered: ${offered.join(", ")}`
   );
@@ -269,15 +344,18 @@ test("Work with the real CLI: only zenius's tools run; Bash, Write and Read are 
       assert.equal(def.defer, true, "the placeholder is only a reference");
     }
   }
-  const [bash, write, read, search, finish] = results("ZENIUS-CLI-WORK");
+  const [bash, write, read, search, local, finish] = results("ZENIUS-CLI-WORK");
   for (const refused of [bash, write, read]) {
     assert.match(refused, /^\[tool_result error\] <tool_use_error>Error: No such tool available/);
   }
-  // ToolSearch loads zenius's tool and none of the others.
+  // ToolSearch loads zenius's tool and WebFetch, and none of the others.
   assert.match(search, /\[tool_reference mcp__zenius__finish\]/);
-  for (const other of ["Bash", "Read", "Write", "WebFetch", "Skill"]) {
+  assert.match(search, /\[tool_reference WebFetch\]/);
+  for (const other of ["Bash", "Read", "Write", "Skill"]) {
     assert.doesNotMatch(search, new RegExp(`\\[tool_reference ${other}\\]`), `ToolSearch can't load ${other}`);
   }
+  assert.match(local, /^\[tool_result error\]/);
+  assert.match(local, /WebFetch doesn't reach the local network/, "the zenius-only hook refused it");
   assert.ok(!existsSync(canary("bash-work")), "Bash didn't run");
   // zenius's own answer to a bad argument: the call reached its server.
   assert.match(finish, /keep must be a list of labels/);

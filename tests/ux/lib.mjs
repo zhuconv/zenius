@@ -1,11 +1,37 @@
-// Shared setup for zen-ux runtime tests. tests/ux/run.sh starts a fresh
-// headless dev Zen and sets ZENIUS_INSTANCE; the tests drive it over RPC and
-// run chrome-side checks through dev.evalChrome.
+// Shared setup for zen-ux runtime tests. tests/ux/run.sh starts a headless
+// dev Zen (a fresh profile on Linux, a kept one on the Mac) and sets
+// ZENIUS_INSTANCE; the tests drive it over RPC and run chrome-side checks
+// through dev.evalChrome.
 import { connect } from "../../scripts/lib/rpc.mjs";
 import { closeFixtureServer, startFixtureServer } from "../fixtures/server.mjs";
 
 /** A name as zenius shows it: in a first-strong isolate (ui/text.sys.mjs). */
 export const iso = s => `\u2068${s}\u2069`;
+
+/**
+ * Chrome code that puts the window in the user's own Space, if it isn't
+ * there: the first Space that's neither the Agents Space nor held by an
+ * agent. Zen's empty tab follows the Space. Returns where it was, or null.
+ */
+const TO_USER_SPACE = `
+  const zw = gZenWorkspaces;
+  ctx.spaces.refresh?.();
+  const name = uuid => zw.getWorkspaces().find(w => w.uuid === uuid)?.name ?? String(uuid);
+  const theirs = ws => !ctx.service.spaces.isAgentsSpace?.(ws.uuid) && (ctx.spaces.peekUuid?.(ws.uuid)?.ownership ?? "user") === "user";
+  const user = zw.getWorkspaces().find(theirs);
+  if (!user) {
+    throw new Error("tests/ux: this profile has no Space of the user's own to start in");
+  }
+  const from = zw.activeWorkspace;
+  if (from === user.uuid) {
+    return { from: null };
+  }
+  await zw.changeWorkspaceWithID(user.uuid);
+  if (zw.activeWorkspace !== user.uuid) {
+    throw new Error("tests/ux: the window stays in the Space " + name(zw.activeWorkspace) + ", not the user's " + user.name);
+  }
+  return { from: name(from), to: user.name };
+`;
 
 export async function setup() {
   const instance = process.env.ZENIUS_INSTANCE;
@@ -14,6 +40,17 @@ export async function setup() {
   }
   const client = await connect(instance);
   const fixture = await startFixtureServer("zen-ux");
+  // Each file starts in the user's own Space. A kept profile (the Mac's)
+  // comes back in the Space Zen showed when it last quit: after a quit in
+  // the Agents Space it starts there, with the user's Space empty (zen-eval's
+  // 79 failures on the Mac, 2026-11-21, reproduced on the Linux server). The tests take
+  // the view they find as the user's (dev.viewState), and Zen's switch to a
+  // Space that's already active selects nothing, so every landOn-then-switch
+  // would wait for a tab that never comes.
+  const start = await client.call("dev.evalChrome", { code: TO_USER_SPACE });
+  if (start?.from) {
+    process.stderr.write(`tests/ux: the window started in the Space "${start.from}"; moved to the user's "${start.to}"\n`);
+  }
   /** @type {number[]} */
   const created = [];
   const h = {
@@ -110,6 +147,12 @@ export async function setup() {
           `)
           .catch(() => {});
       }
+      // The Mac keeps its profile, and the run's end kills Zen (zen-dev.sh's
+      // stop) before Firefox saves its prefs on its own. A pref a suite's
+      // after() set back would be lost, and the next run would start with
+      // the test's value: panel.test.mjs's systemNotification, on zen-eval's
+      // kept profile (2026-11-22).
+      await h.chrome("Services.prefs.savePrefFile(null); return true;").catch(() => {});
       client.close();
       await closeFixtureServer(fixture.server);
     },

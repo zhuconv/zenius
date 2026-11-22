@@ -31,7 +31,19 @@ const { statSync } = process.getBuiltinModule("node:fs");
 process.getBuiltinModule("node:module").enableCompileCache?.();
 
 const bundle = new URL("../dist/zenius.mjs", import.meta.url);
-const { main } = await import(entry().href);
+const source = entry();
+const { main } = await import(source.href);
+// The bundle holds the commands src/extensions/ adds; the sources load them here.
+if (source !== bundle) {
+  const { readdirSync } = process.getBuiltinModule("node:fs");
+  let extensions = [];
+  try {
+    extensions = readdirSync(new URL("../src/extensions/", import.meta.url)).filter((file) => file.endsWith(".ts")).sort();
+  } catch {
+    // a build without them
+  }
+  for (const file of extensions) await import(new URL(`../src/extensions/${file}`, import.meta.url).href);
+}
 const code = await main(process.argv.slice(2), { launcherAt, loadedAt: performance.now() });
 // Everything was written synchronously; leftover timers or waiters the script
 // never awaited must not keep the agent's shell waiting.
@@ -63,7 +75,7 @@ function bundleIsCurrent() {
   } catch {
     return false;
   }
-  for (const path of ["../src/", "../src/learning/", "../../skill/guide.md"]) {
+  for (const path of ["../src/", "../src/learning/", "../src/extensions/", "../../skill/guide.md"]) {
     const changed = statSync(new URL(path, import.meta.url), { throwIfNoEntry: false })?.mtimeMs ?? 0;
     if (changed > built) return false;
   }

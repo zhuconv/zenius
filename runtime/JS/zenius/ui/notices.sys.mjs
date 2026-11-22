@@ -56,9 +56,10 @@ const DESC_FOCUSED_MS = 30_000;
  *
  * @typedef {object} NoticeOptions
  * @property {string} title  short, e.g. "Agent paused"
- * @property {string} [detail]  muted text; "{s}" becomes the countdown's
- *   whole seconds left, and "{t}" its time left in minutes from a minute
- *   up ("10 min"), else in seconds
+ * @property {string} [detail]  muted text; with `until`, "{s}" becomes the
+ *   countdown's whole seconds left, and "{t}" its time left in minutes from
+ *   a minute up ("10 min"), else in seconds. Without it the text shows as
+ *   it is: a detail holding someone else's words stays inert
  * @property {string} [site]  the site the user is on, after the detail and
  *   never cut (the hold cards: Zen's compact mode may hide the URL bar)
  * @property {number} [until]  epoch ms the countdown runs to
@@ -621,7 +622,7 @@ function renderKey(opts) {
 /** @param {NoticeOptions} opts */
 function detailText(opts) {
   const detail = opts.detail ?? "";
-  if (!/\{[st]\}/.test(detail)) {
+  if (typeof opts.until !== "number" || !/\{[st]\}/.test(detail)) {
     return detail;
   }
   const s = Math.max(0, Math.ceil(((opts.until ?? Date.now()) - Date.now()) / 1000));

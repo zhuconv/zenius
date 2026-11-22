@@ -42,6 +42,7 @@ import {
 } from "chrome://userscripts/content/zenius/observe/swbypass.sys.mjs";
 import { pushEvent, sweepEvents, cdpTime } from "chrome://userscripts/content/zenius/observe/events.sys.mjs";
 import { trackerFor } from "chrome://userscripts/content/zenius/observe/navtracker.sys.mjs";
+import { stopCapture } from "chrome://userscripts/content/zenius/observe/capture.sys.mjs";
 import {
   sweepAgentCode,
   agentCodeDocument,
@@ -408,11 +409,25 @@ export function setupObserve() {
 // zen-core publishes which tabs the agent drives (content/guards.sys.mjs).
 // Joining or leaving decides the tab's sound. A tab that joins with its page
 // already loaded gets the content guards (the refusals among them) from
-// zen-core's installGuards, in every frame.
+// zen-core's installGuards, in every frame. A tab that joins stops any
+// stream in it, the user's from their hold among them: the agent never uses
+// the user's devices. Resume, a claim and an adoption all come here, once
+// each (zen-core's set changes with the Space's ownership).
 function watchAgentTabs() {
+  let agentIds = new Set(Services.cpmm.sharedData.get(AGENT_BROWSERS_KEY) ?? []);
   Services.cpmm.sharedData.addEventListener("change", event => {
     if (event.changedKeys.includes(AGENT_BROWSERS_KEY)) {
       syncAll();
+      const now = new Set(Services.cpmm.sharedData.get(AGENT_BROWSERS_KEY) ?? []);
+      for (const id of now) {
+        if (!agentIds.has(id)) {
+          const browser = BrowsingContext.getCurrentTopByBrowserId(id)?.embedderElement;
+          if (browser) {
+            stopCapture(browser);
+          }
+        }
+      }
+      agentIds = now;
     }
   });
   syncAll();

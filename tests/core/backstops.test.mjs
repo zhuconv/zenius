@@ -1,8 +1,13 @@
 // The parent backstops (modules/backstops.sys.mjs; zen-snapshot's
-// docs/research/parent-backstops.md, the manager's list of 2026-11-20). Each
-// request comes from a sandbox with the page's principal and Xrays, made by
-// privileged code in the tab: it reaches the native API past zen-observe's
-// page refusals, as the agent's world would if its mirror of them failed.
+// docs/research/parent-backstops.md, and A8 of the user's pass on
+// docs/briefs/defenses-evidence.md). A task page's device and peer requests
+// are refused while the agent drives it, or when it shows evidence; its
+// permission prompts only on evidence. During the user's hold the page asks
+// the user, as any site does, and a stream started then stops when the agent
+// has the page again. Each request comes from a sandbox with the page's
+// principal and Xrays, made by privileged code in the tab: it reaches the
+// native API past zen-observe's page refusals, as the agent's world would if
+// its mirror of them failed.
 import assert from "node:assert/strict";
 import http from "node:http";
 import { after, before, test } from "node:test";
@@ -33,6 +38,8 @@ const other = path => `http://localhost:${port}${path}`;
 /** Chrome-side helpers for each h.chrome call. */
 const C = `
   const B = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/backstops.sys.mjs");
+  const E = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/evidence.sys.mjs");
+  const { webrtcUI } = ChromeUtils.importESModule("resource:///modules/webrtcUI.sys.mjs");
   const W = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/windows.sys.mjs");
   const { WebRTCParent } = ChromeUtils.importESModule("resource:///actors/WebRTCParent.sys.mjs");
   const P = WebRTCParent.prototype;
@@ -135,6 +142,62 @@ async function userTab(prefix, url) {
   );
 }
 
+/** Every prompt type the override may see, Gecko's later ones included. */
+const PROMPT_TYPES = ["desktop-notification", "geolocation", "persistent-storage", "midi", "serial", "xr", "speech-recognition-model-download", "storage-access", "local-network", "loopback-network", "a-type-gecko-adds-later"];
+
+/** Mark the tab's page with evidence, as zen-core's flag tool does. */
+const flag = (id, detail) => h.chrome(`${C} return E.markEvident(tabById(arg.id).linkedBrowser, "flagged", arg.detail);`, { id, detail });
+
+/** The user's Resume: the agent has the task again. */
+const resume = space =>
+  h.chrome(`const rec = ctx.spaces.get(arg); if (rec.ownership !== "agent") ctx.spaces.setOwnership(rec, "agent", { source: "user" }); return true;`, space);
+
+/**
+ * The page starts the camera and microphone, as the user's call on a site
+ * does, and keeps the stream (window.__zoStream). Firefox's prompt is off for
+ * the call: a stored grant applies only when the doorhanger shows, which it
+ * doesn't in a tab in the background. MediaManager reports a fake device as
+ * capturing only with media.navigator.permission.fake, so that one stays on
+ * while the stream lives (stopStream clears it).
+ */
+const startStream = id =>
+  h.chrome(
+    `${C}
+     Services.prefs.setBoolPref("media.navigator.permission.disabled", true);
+     Services.prefs.setBoolPref("media.navigator.permission.fake", true);
+     try {
+       return await ctx.content(tabById(arg).linkedBrowser.browsingContext, "dev#evalContent", { privileged: true, code: \`
+         const S = Components.utils.Sandbox(window, { sandboxPrototype: window, wantXrays: true, sameZoneAs: window, sandboxName: "zenius backstops test" });
+         const stream = await Components.utils.evalInSandbox("navigator.mediaDevices.getUserMedia({ video: true, audio: true })", S);
+         window.wrappedJSObject.__zoStream = Components.utils.waiveXrays(stream);
+         return stream.getTracks().map(t => t.readyState).join(" ");\` });
+     } finally {
+       Services.prefs.clearUserPref("media.navigator.permission.disabled");
+     }`,
+    id
+  );
+/** The kept stream's tracks ("live live", "ended ended"), and whether WebRTC still lists a stream in the tab. */
+const streamState = id =>
+  h.chrome(
+    `${C}
+     const b = tabById(arg).linkedBrowser;
+     const tracks = await ctx.content(b.browsingContext, "dev#evalContent", { privileged: true, code: "return window.wrappedJSObject.__zoStream?.getTracks().map(t => t.readyState).join(' ') ?? null;" });
+     return { tracks, listed: webrtcUI.browserHasStreams(b) };`,
+    id
+  );
+const stopStream = id =>
+  h.chrome(
+    `${C}
+     try {
+       const t = tabById(arg);
+       if (t) await ctx.content(t.linkedBrowser.browsingContext, "dev#evalContent", { privileged: true, code: "window.wrappedJSObject.__zoStream?.getTracks().forEach(t => t.stop()); return true;" });
+     } finally {
+       Services.prefs.clearUserPref("media.navigator.permission.fake");
+     }
+     return true;`,
+    id
+  );
+
 const refusedEvents = async (space, label, kind) =>
   (await h.call("page.events", { space, page: label })).filter(e => e.method === "Zenius.refused" && e.params.kind === kind).map(e => e.params);
 const finish = space => h.call("spaces.finish", { space, keep: [] }).catch(() => {});
@@ -151,7 +214,7 @@ before(async () => {
   await h.restart(FAKE_DEVICES);
 });
 after(async () => {
-  await h?.chrome(`for (const name of arg) Services.prefs.clearUserPref(name); return true;`, Object.keys(FAKE_DEVICES)).catch(() => {});
+  await h?.chrome(`for (const name of arg) Services.prefs.clearUserPref(name); return true;`, [...Object.keys(FAKE_DEVICES), "media.navigator.permission.fake"]).catch(() => {});
   await grant([site(""), other("")], ["camera", "microphone", "screen", "speaker", "geo", "desktop-notification"], false).catch(() => {});
   await h?.close();
   http1.close();
@@ -181,7 +244,7 @@ test("the backstops are in only while a task has pages, and Gecko's own code is 
   assert.deepEqual(await h.chrome(counts), before, "the blocker and the override are gone");
 });
 
-test("devices: a task's page and its frame are refused before any prompt or OS check, a stored grant or not; the user's tab still gets Firefox's prompt", async () => {
+test("devices: while the agent drives, a task's page and its frame are refused before any prompt or OS check, a stored grant or not; the user's tab still gets Firefox's prompt", async () => {
   await grant([site(""), other("")], ["camera", "microphone", "screen", "speaker"]);
   const { space, label, id } = await task("backstops devices", site("/framed"));
   try {
@@ -251,7 +314,7 @@ test("devices: a task's page and its frame are refused before any prompt or OS c
   }
 });
 
-test("peer connections: a task's page and its frame are refused before ICE; the user's tab makes its offer", async () => {
+test("peer connections: while the agent drives, a task's page and its frame are refused before ICE; the user's tab makes its offer", async () => {
   const { space, label, id } = await task("backstops peers", site("/framed"));
   try {
     const mine = await userTab("backstops peers user", site("/mine-peer"));
@@ -269,55 +332,37 @@ test("peer connections: a task's page and its frame are refused before ICE; the 
   }
 });
 
-test("prompts: a task's page's are cancelled before PermissionUI shows them, but the local-network ones and storage access go on to Firefox's own; the user's tab is untouched", async () => {
-  await grant([site("")], ["geo"]);
+test("prompts: a task's page's go on to Firefox's own, while the agent drives (zen-ux hands the task to the user) and during the hold; the user's tab is untouched", async () => {
   const { space, label, id } = await task("backstops prompts", site("/prompts"));
   try {
     const mine = await userTab("backstops prompts user", site("/mine-prompt"));
-    const before = await state();
-    const out = await h.chrome(
+    const rules = await h.chrome(
       `${C}
-       const out = {};
-       for (const [name, call] of Object.entries(arg.calls)) out[name] = (await ask(arg.id, call, { activate: true })).page;
-       out.doorhangers = ["web-notifications", "geolocation", "persistent-storage"].filter(w => doorhanger(arg.id, w));
        const browser = tabById(arg.id).linkedBrowser;
        const user = tabById(arg.mine).linkedBrowser;
-       out.rules = {};
-       for (const type of ["desktop-notification", "geolocation", "persistent-storage", "midi", "serial", "xr", "speech-recognition-model-download", "storage-access", "local-network", "loopback-network", "a-type-gecko-adds-later"]) {
-         out.rules[type] = B.promptRule(type, browser) + "/" + B.promptRule(type, user);
-       }
-       // The user's tab gets Firefox's own prompt.
-       const L = ask(arg.mine, arg.calls.notify, { activate: true });
-       const n = await until(() => doorhanger(arg.mine, "web-notifications"), 3000);
-       out.userDoorhanger = !!n;
-       if (n) n.owner.remove(n);
-       await L;
+       const out = {};
+       for (const type of arg.types) out[type] = B.promptRule(type, browser) + "/" + B.promptRule(type, user);
        return out;`,
-      { id, mine, calls: { notify: CALLS.notify, geo: CALLS.geo, persist: CALLS.persist } }
+      { id, mine, types: PROMPT_TYPES }
     );
-    assert.deepEqual([out.notify, out.geo, out.persist], ["default", "error 1", "persist false"], JSON.stringify(out));
-    assert.deepEqual(out.doorhangers, [], "nothing showed in the task's tab");
-    assert.equal(out.userDoorhanger, true, "the user's tab got Firefox's prompt");
-    const cancel = "cancel/pass";
-    assert.deepEqual(out.rules, {
-      "desktop-notification": cancel,
-      geolocation: cancel,
-      "persistent-storage": cancel,
-      midi: cancel,
-      serial: cancel,
-      xr: cancel,
-      "speech-recognition-model-download": cancel,
-      "storage-access": "pass/pass",
-      "local-network": "pass/pass",
-      "loopback-network": "pass/pass",
-      "a-type-gecko-adds-later": cancel,
-    });
-    assert.equal((await state()).refused.prompts, before.refused.prompts + 3);
-    const told = await refusedEvents(space, label, "promptDenied");
-    assert.deepEqual(told.map(e => e.asked).sort(), ["location", "notifications", "persistent storage"]);
-    assert.match(told.find(e => e.asked === "location").message, /^http:\/\/127\.0\.0\.1:\d+ asked for your location, which a task's pages never get, so the prompt was cancelled without asking the user\. If the task needs a place, type it/);
-    // A kept type for real: a page Gecko takes for public reaches loopback,
-    // and Firefox's own local-network prompt shows in the task's tab.
+    assert.deepEqual(rules, Object.fromEntries(PROMPT_TYPES.map(type => [type, "pass/pass"])));
+    // During the hold, a real one reaches PermissionUI, where the user answers it.
+    await h.call("spaces.handOff", { space });
+    const held = await h.chrome(
+      `${C}
+       const s = B.backstopState();
+       const asked = ask(arg.id, arg.notify, { activate: true });
+       await until(() => B.backstopState().kept > s.kept, 3000);
+       const n = doorhanger(arg.id, "web-notifications");
+       if (n) n.owner.remove(n);
+       await asked;
+       return { kept: B.backstopState().kept - s.kept, cancelled: B.backstopState().refused.prompts - s.refused.prompts };`,
+      { id, notify: CALLS.notify }
+    );
+    assert.deepEqual(held, { kept: 1, cancelled: 0 });
+    await resume(space);
+    // For real: a page Gecko takes for public reaches loopback, and
+    // Firefox's own local-network prompt shows in the task's tab.
     // A document's address space is fixed when it loads: the override, then a load.
     await h.chrome(`Services.prefs.setStringPref("network.lna.address_space.public.override", "127.0.0.1:" + arg); return true;`, port);
     let lna;
@@ -344,6 +389,58 @@ test("prompts: a task's page's are cancelled before PermissionUI shows them, but
     }
     assert.deepEqual(lna, { shown: true, kept: 1 });
   } finally {
+    await finish(space);
+  }
+});
+
+test("prompts on evidence: every type is cancelled before PermissionUI shows it, while the agent drives and during the hold, a stored grant or not; the user's tab is untouched", async () => {
+  await grant([site("")], ["geo"]);
+  const { space, label, id } = await task("backstops prompts evidence", site("/prompts-evident"));
+  try {
+    const mine = await userTab("backstops prompts evidence user", site("/mine-evident"));
+    assert.equal(await flag(id, "a test's flag"), true);
+    const before = await state();
+    const out = await h.chrome(
+      `${C}
+       const out = {};
+       for (const [name, call] of Object.entries(arg.calls)) out[name] = (await ask(arg.id, call, { activate: true })).page;
+       out.doorhangers = ["web-notifications", "geolocation", "persistent-storage"].filter(w => doorhanger(arg.id, w));
+       const browser = tabById(arg.id).linkedBrowser;
+       const user = tabById(arg.mine).linkedBrowser;
+       out.rules = {};
+       for (const type of arg.types) out.rules[type] = B.promptRule(type, browser) + "/" + B.promptRule(type, user);
+       // The user's tab gets Firefox's own prompt.
+       const asked = ask(arg.mine, arg.calls.notify, { activate: true });
+       const n = await until(() => doorhanger(arg.mine, "web-notifications"), 3000);
+       out.userDoorhanger = !!n;
+       if (n) n.owner.remove(n);
+       await asked;
+       return out;`,
+      { id, mine, types: PROMPT_TYPES, calls: { notify: CALLS.notify, geo: CALLS.geo, persist: CALLS.persist } }
+    );
+    assert.deepEqual([out.notify, out.geo, out.persist], ["default", "error 1", "persist false"], JSON.stringify(out));
+    assert.deepEqual(out.doorhangers, [], "nothing showed in the task's tab");
+    assert.equal(out.userDoorhanger, true, "the user's tab got Firefox's prompt");
+    assert.deepEqual(out.rules, Object.fromEntries(PROMPT_TYPES.map(type => [type, "cancel/pass"])));
+    assert.equal((await state()).refused.prompts, before.refused.prompts + 3);
+    const told = await refusedEvents(space, label, "promptDenied");
+    assert.deepEqual(told.map(e => e.asked).sort(), ["location", "notifications", "persistent storage"]);
+    assert.match(
+      told.find(e => e.asked === "location").message,
+      /^http:\/\/127\.0\.0\.1:\d+ asked for your location\. The page shows evidence of danger \(flagged: a test's flag\), so zenius cancelled the prompt without asking the user\. If the task needs a place, type it/
+    );
+    // The user's hold changes nothing on evidence.
+    await h.call("spaces.handOff", { space });
+    const held = await h.chrome(
+      `${C}
+       const s = B.backstopState().refused.prompts;
+       const page = (await ask(arg.id, arg.notify, { activate: true })).page;
+       return { page, cancelled: B.backstopState().refused.prompts - s };`,
+      { id, notify: CALLS.notify }
+    );
+    assert.deepEqual(held, { page: "default", cancelled: 1 });
+  } finally {
+    await resume(space).catch(() => {});
     await finish(space);
     await grant([site("")], ["geo"], false);
   }
@@ -412,16 +509,39 @@ test("fail closed: with the WebRTCParent patch refused at its startup check, a t
   }
 });
 
-test("a held page: devices stay refused, and the user's own passkey still works (a virtual authenticator)", async () => {
+test("a held page: the camera goes to the user's own prompt, the page makes its peer connection, and the user's own passkey still works (a virtual authenticator)", async () => {
   await grant([other("")], ["camera"]);
-  const { space, label, id } = await task("backstops held", other("/held"));
+  const { space, id } = await task("backstops held", other("/held"));
   const view = await h.call("dev.viewState");
   try {
     await h.call("spaces.handOff", { space });
     const out = await h.chrome(
       `${C}
        const out = { held: ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/hold.sys.mjs").holdOf(tabById(arg.id).linkedBrowser) !== undefined };
-       out.camera = (await ask(arg.id, arg.camera)).page;
+       // The request goes on to Firefox's own prompt (its show()), where the
+       // user answers: zen-ux's watcher decides what a prompt in a task's
+       // page does from there. The tab is in the background, so the stored
+       // grant applies only once the doorhanger shows.
+       const devices = B.backstopState().refused.devices;
+       const PN = tabById(arg.id).ownerDocument.defaultView.PopupNotifications;
+       const show = PN.show;
+       const own = Object.hasOwn(PN, "show");
+       const shown = [];
+       PN.show = function (browser, id, ...rest) {
+         if (browser === tabById(arg.id).linkedBrowser) shown.push(id);
+         return show.call(this, browser, id, ...rest);
+       };
+       let camera;
+       try {
+         camera = await ask(arg.id, arg.camera);
+       } finally {
+         if (own) PN.show = show;
+         else delete PN.show;
+       }
+       const n = doorhanger(arg.id, "webRTC-shareDevices");
+       if (n) n.owner.remove(n);
+       out.camera = { os: camera.os, shown, refused: B.backstopState().refused.devices - devices };
+       out.peer = await ask(arg.id, arg.peer);
        const ws = Cc["@mozilla.org/webauthn/service;1"].getService(Ci.nsIWebAuthnService);
        Services.prefs.setBoolPref("security.webauth.webauthn_enable_softtoken", true);
        Services.prefs.setBoolPref("security.webauth.webauthn_enable_usbtoken", false);
@@ -465,15 +585,78 @@ test("a held page: devices stay refused, and the user's own passkey still works 
         id,
         space,
         camera: CALLS.camera,
+        peer: CALLS.peer,
         create: `navigator.credentials.create({ publicKey: { rp: { id: "localhost", name: "zenius test" }, user: { id: new Uint8Array([1, 2, 3]), name: "user", displayName: "User" }, challenge: new Uint8Array(32), pubKeyCredParams: [{ type: "public-key", alg: -7 }], authenticatorSelection: { residentKey: "required", userVerification: "required" }, timeout: 8000 } }).then(c => { window.__passkey = "created " + c.type; }, e => { window.__passkey = "create rejected " + e.name; });`,
         get: `navigator.credentials.get({ publicKey: { challenge: new Uint8Array(32), rpId: "localhost", userVerification: "required", timeout: 8000 } }).then(c => { window.__passkey = "signed in " + (c.response.signature.byteLength > 0); }, e => { window.__passkey = "get rejected " + e.name; });`,
       }
     );
-    assert.deepEqual(out, { held: true, camera: DENIED, create: "created public-key", get: "signed in true", on: true, promptsRefused: 0 });
+    assert.deepEqual(out, {
+      held: true,
+      camera: { os: 0, shown: ["webRTC-shareDevices"], refused: 0 },
+      peer: { os: 0, sent: ["rtcpeer:Allow"], page: "offer" },
+      create: "created public-key",
+      get: "signed in true",
+      on: true,
+      promptsRefused: 0,
+    });
     assert.deepEqual(await h.call("dev.viewState"), view, "the user's view is as it was");
   } finally {
-    await h.chrome(`const rec = ctx.spaces.get(arg); if (rec.ownership !== "agent") ctx.spaces.setOwnership(rec, "agent", { source: "user" }); return true;`, space).catch(() => {});
+    await resume(space).catch(() => {});
     await finish(space);
     await grant([other("")], ["camera"], false);
+  }
+});
+
+test("a stream the user starts in a held page stops when the agent has the page again, the agent hears of it, and the site's stored grants stay", async () => {
+  await grant([other("")], ["camera", "microphone"]);
+  const { space, label, id } = await task("backstops stream", other("/stream"));
+  try {
+    await h.call("spaces.handOff", { space });
+    assert.equal(await startStream(id), "live live");
+    assert.deepEqual(await streamState(id), { tracks: "live live", listed: true });
+    await resume(space);
+    // The tracks end in content, and webrtcUI drops the stream when content
+    // reports it: a read between the two sees one done and not the other
+    // (zen-core's flake on 727d0da), so wait for both.
+    const end = Date.now() + 5000;
+    let now;
+    while (!((now = await streamState(id)).tracks === "ended ended" && !now.listed) && Date.now() < end) {
+      await new Promise(r => setTimeout(r, 50));
+    }
+    assert.deepEqual(now, { tracks: "ended ended", listed: false }, "the stream stopped");
+    const told = await refusedEvents(space, label, "deviceAccess");
+    assert.equal(told.length, 1, JSON.stringify(told));
+    assert.match(told[0].message, /^zenius stopped the camera and microphone the page used while the user held it: the agent never uses the user's devices\./);
+    assert.equal(told[0].asked, "camera microphone");
+    const stored = await h.chrome(
+      `const pr = Services.scriptSecurityManager.createContentPrincipalFromOrigin(arg);
+       return ["camera", "microphone"].map(p => Services.perms.testExactPermissionFromPrincipal(pr, p) === Services.perms.ALLOW_ACTION);`,
+      other("")
+    );
+    assert.deepEqual(stored, [true, true], "the site's grants stay");
+    // The agent drives: a new request is refused before any prompt again.
+    const again = await h.chrome(`${C} return ask(arg.id, arg.call);`, { id, call: CALLS.camera });
+    assert.deepEqual(again, { os: 0, sent: ["webrtc:Deny"], page: DENIED });
+  } finally {
+    await stopStream(id).catch(() => {});
+    await resume(space).catch(() => {});
+    await finish(space);
+    await grant([other("")], ["camera", "microphone"], false);
+  }
+});
+
+test("a stream the user starts during the hold goes on when the task ends: the tab they keep is theirs", async () => {
+  const { space, id } = await task("backstops stream kept", other("/stream-kept"));
+  try {
+    await h.call("spaces.handOff", { space });
+    assert.equal(await startStream(id), "live live");
+    // The user's Stop in the panel.
+    await h.chrome(`const rec = ctx.spaces.get(arg); ctx.spaces.setOwnership(rec, "user", { source: "user" }); return true;`, space);
+    await new Promise(r => setTimeout(r, 1000));
+    assert.deepEqual(await streamState(id), { tracks: "live live", listed: true });
+  } finally {
+    await stopStream(id).catch(() => {});
+    await h.chrome(`${C} const t = tabById(arg); if (t) win.gBrowser.removeTab(t); return true;`, id).catch(() => {});
+    await finish(space);
   }
 });

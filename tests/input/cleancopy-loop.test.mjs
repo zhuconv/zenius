@@ -1,14 +1,16 @@
-// zen-core's clean copy on demand beside a written window of its group
-// (zen-snapshot's Take over probes on 99cdc39). A popup on the page's site
-// that the agent's code opened shares the page's group. While it holds the
-// agent's writes, each new document of the page comes in written too
-// (content/agentworld.sys.mjs, flagIfExposed). On 99cdc39 the clean copy's
-// replay typed the user's keys into that written copy, the guard took them
-// for the user's next trigger, and the page loaded afresh again and again,
-// without end. Now a clean copy that comes in written fails: the user's
-// typing there stays held, nothing is replayed, and the page isn't loaded
-// again. zen-core's test, here in zen-input's suite for its harness: the
-// user's click and keys in a watched agent tab.
+// zen-core's clean copy on demand beside a hooked window of its group
+// (zen-snapshot's Take over probes on 99cdc39), on evidence since the
+// user's call of 2026-11-21. A popup on the page's site that the agent's
+// code opened shares the page's group. On 99cdc39 each new document of the
+// page came in marked for being beside such a popup, the clean copy's
+// replay typed the user's keys into that copy, the guard took them for the
+// user's next trigger, and the page loaded afresh again and again, without
+// end. Since the rubric's rule 3 (docs/safety-rubric.md), only what the
+// agent's code left in a document marks it: the copy comes in clean, the
+// user's keys come back into it once, and the page isn't loaded again. A
+// copy that does come in with evidence fails (stillEvident). zen-core's
+// test, here in zen-input's suite for its harness: the user's click and
+// keys in a watched agent tab.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { after, before, test } from "node:test";
@@ -43,7 +45,7 @@ const chrome = (code, arg) => h.call("dev.evalChrome", { code, arg });
 const SERVICE = `const { ZeniusService } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/service.sys.mjs");`;
 const UI = `const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;`;
 const TYPING = `const T = ChromeUtils.importESModule("chrome://userscripts/content/zenius/input/typing.sys.mjs");`;
-const WORLD = `const AW = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/agentworld.sys.mjs");`;
+const EVIDENCE = `const EV = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/evidence.sys.mjs");`;
 const where = page => ({ space: page.spaceId, page: page.label });
 
 const PAGE = n => `<!doctype html><meta charset="utf-8"><title>loop</title>
@@ -84,16 +86,19 @@ const BY_URL = `const b = [...Services.wm.getEnumerator("navigator:browser")].fl
 /** Every tab's URL, for a failure's message. */
 const allUrls = () => chrome(`return [...Services.wm.getEnumerator("navigator:browser")].flatMap(w => w.gBrowser?.browsers ?? []).map(x => x.currentURI?.spec);`);
 
-/** Flag the current document of the tab at `url` written, as a write of the agent's world would. */
+/** Mark the current document of the tab at `url` hooked, as the agent's world marks what its code left. */
 const flagByUrl = url =>
   chrome(
-    `${WORLD} ${BY_URL}
+    `${EVIDENCE} ${BY_URL}
      const wg = b?.browsingContext?.currentWindowGlobal;
      if (!wg || wg.documentURI?.spec !== arg.url) return false;
-     AW.noteWritten(b.browsingContext, [wg.innerWindowId]);
+     EV.markEvident(wg, "hooked", "a script element");
      return true;`,
     { url }
   );
+
+/** The evidence of the tab at `url`, its top document and frames. */
+const evidenceByUrl = url => chrome(`${EVIDENCE} ${BY_URL} return b ? EV.evidenceOf(b) : null;`, { url });
 
 const fields = page =>
   h.asUser(
@@ -116,7 +121,7 @@ const COUNT = `${SERVICE}
 const UNCOUNT = `${SERVICE} if (Object.hasOwn(ZeniusService, "cleanOnDemand")) delete ZeniusService.cleanOnDemand; return true;`;
 const cleanCalls = () => chrome(`return win.__loopCleanCalls ?? 0;`);
 
-test("beside a popup of its site that holds the agent's writes, a written page's clean copy comes in written: it fails once, the user's typing stays held, nothing is typed again, and the page isn't loaded again", () =>
+test("beside a popup of its site with what the agent's code left hooked in it, a hooked page's clean copy comes in clean: it loads once, the user's keys come back into it, and the page isn't loaded again", () =>
   withSite(async (url, loadsOf) => {
     const stamp = Date.now();
     const mainPath = `/form?loop-${stamp}`;
@@ -127,19 +132,19 @@ test("beside a popup of its site that holds the agent's writes, a written page's
       // The agent's code opens a popup on the page's site: the two share a group.
       await h.call("page.evaluate", { ...where(page), isFunction: false, fn: `(window.__p = window.open(${JSON.stringify(url(popupPath))}), 1)` });
       const opened = await h.call("page.evaluate", { ...where(page), isFunction: false, fn: "String(!!window.__p)" });
-      await h.until(() => flagByUrl(url(popupPath)), "the popup, written").catch(async e => {
+      await h.until(() => flagByUrl(url(popupPath)), "the popup, hooked").catch(async e => {
         throw new Error(`${e.message}; the agent's open gave ${JSON.stringify(opened)}; tabs: ${JSON.stringify(await allUrls())}`);
       });
-      assert.equal(await flagByUrl(url(mainPath)), true, "the page, written");
+      assert.equal(await flagByUrl(url(mainPath)), true, "the page, hooked");
       await h.until(
         () =>
           h.call("dev.evalChrome", {
             code: `${SERVICE} const { browser } = ZeniusService.resolvePage(arg);
               return ZeniusService.content(browser.browsingContext, "dev#evalContent", { privileged: true,
-                code: "return ChromeUtils.importESModule('chrome://userscripts/content/zenius/content/agentworld.sys.mjs').pageFlag(actor.contentWindow);" });`,
+                code: "return ChromeUtils.importESModule('chrome://userscripts/content/zenius/content/evidence.sys.mjs').evidenceFlag(actor.contentWindow);" });`,
             arg: where(page),
           }).then(flag => flag === "clean"),
-        "the page's process to see it written"
+        "the page's process to see its evidence"
       );
       assert.equal(await chrome(COUNT), 0);
 
@@ -155,20 +160,21 @@ test("beside a popup of its site that holds the agent's writes, a written page's
       const loads = loadsOf(mainPath);
       assert.equal(calls, 1, `the clean copy on demand ran ${calls} times, and the page loaded ${loads} times`);
       const after = await fields(page);
-      assert.deepEqual({ user: after.user, typed: after.typed }, { user: "", typed: null }, "nothing typed again into the written copy");
+      assert.deepEqual({ user: after.user, typed: after.typed }, { user: "ab", typed: "ab" }, "the user's keys came back once, into the copy");
+      assert.deepEqual(await evidenceByUrl(url(mainPath)), {}, "the copy came in clean beside the hooked popup");
       const held = await chrome(
         `${SERVICE} ${TYPING} const { browser } = ZeniusService.resolvePage(arg);
          return T.typingHolds().docs.includes(browser.browsingContext.currentWindowGlobal.innerWindowId);`,
         where(page)
       );
-      assert.equal(held, true, "the written copy's typing is held");
+      assert.equal(held, false, "nothing holds the copy's typing");
 
-      // The user's next key goes nowhere, and sets nothing off.
+      // The user's next key goes into the page, and sets nothing off.
       await h.userPress(page, "c");
       await h.sleep(1500);
-      assert.equal(await cleanCalls(), 1, "no clean copy for the held copy");
+      assert.equal(await cleanCalls(), 1, "no clean copy of the clean copy");
       assert.equal(loadsOf(mainPath), loads, "the page didn't load again");
-      assert.equal((await fields(page)).user, "", "the key didn't reach the page");
+      assert.equal((await fields(page)).user, "abc", "the key reached the page");
     } finally {
       await chrome(UNCOUNT).catch(() => {});
       await chrome(`${BY_URL} if (b) b.ownerGlobal.gBrowser.removeTab(b.ownerGlobal.gBrowser.getTabForBrowser(b)); return true;`, { url: url(popupPath) }).catch(() => {});

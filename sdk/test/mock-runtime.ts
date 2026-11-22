@@ -33,6 +33,7 @@ export type MockSpace = {
   /** Sent as is, like the runtime's flag, so tests can send other values too. */
   handBackOpenerCut?: unknown;
   handBackReloaded?: unknown;
+  handBackBlanked?: unknown;
   /** The user hands the space back when the script waits for control. */
   resumeOnWait?: boolean;
   /** The space's state text (spaces.setState), which the hold card shows. */
@@ -369,9 +370,10 @@ export class MockRuntime {
         space.ownership = "agent";
         const active = space.pages.find((page) => page.tab === space.activeTab);
         // The runtime reports a hand back's openerCut and reloaded once (PROTOCOL).
-        const { handBackOpenerCut: openerCut, handBackReloaded: reloaded } = space;
+        const { handBackOpenerCut: openerCut, handBackReloaded: reloaded, handBackBlanked: blanked } = space;
         delete space.handBackOpenerCut;
         delete space.handBackReloaded;
+        delete space.handBackBlanked;
         return {
           id: space.id,
           ownership: "agent",
@@ -379,6 +381,7 @@ export class MockRuntime {
           pages: mock.pageEntries(space),
           ...(openerCut !== undefined ? { openerCut } : {}),
           ...(reloaded !== undefined ? { reloaded } : {}),
+          ...(blanked !== undefined ? { blanked } : {}),
         };
       },
       "spaces.handOff": (params) => {
@@ -391,13 +394,15 @@ export class MockRuntime {
       "spaces.waitForControl": (params) => {
         const space = mock.space(params);
         if (space.resumeOnWait) space.ownership = "agent";
-        const { handBackOpenerCut: openerCut, handBackReloaded: reloaded } = space;
+        const { handBackOpenerCut: openerCut, handBackReloaded: reloaded, handBackBlanked: blanked } = space;
         delete space.handBackOpenerCut;
         delete space.handBackReloaded;
+        delete space.handBackBlanked;
         return {
           ownership: space.ownership,
           ...(openerCut !== undefined ? { openerCut } : {}),
           ...(reloaded !== undefined ? { reloaded } : {}),
+          ...(blanked !== undefined ? { blanked } : {}),
         };
       },
       "spaces.setState": (params) => {

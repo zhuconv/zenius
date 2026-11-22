@@ -1,6 +1,7 @@
 // The parent's backstops for a task's pages (zen-observe; built by zen-core,
 // from zen-snapshot's docs/research/parent-backstops.md and the manager's
-// order of 2026-11-20).
+// order of 2026-11-20; the rules are A8 of the user's pass on
+// docs/briefs/defenses-evidence.md, 2026-11-21).
 //
 // zen-observe's page refusals (content/refusals.sys.mjs) and the agent
 // world's mirror of them refuse in the page. These refuse the same requests
@@ -15,35 +16,31 @@
 //   gathers. Gecko lets an offer through when a blocker throws, so ours
 //   catches everything and denies.
 // - Content permission prompts: an Integration.contentPermission override
-//   cancels every type but KEPT before PermissionUI shows anything, so zen-ux's
-//   hand-off, which starts when a doorhanger shows, never opens for them.
-// They hold for every page of a live task, whoever holds it, a hold and a
-// Take over included: a stream or a grant the user starts there would carry
-// on under the agent after Resume. Frames count as their tab, and a stored
-// grant changes nothing. They're in only while a task has pages (I4), and
-// an error in them refuses. docs/SPI.md ("Parent backstops") lists what has
-// no parent hook.
+//   cancels a prompt before PermissionUI shows anything.
+// Devices and peer connections are refused while the agent drives the page,
+// since the agent never uses the user's devices, and when the page shows
+// evidence of danger (observe/evidence.sys.mjs); prompts only on evidence.
+// Otherwise a prompt goes on to Firefox's own: to zen-ux's hand-off while the
+// agent drives (ui/permissions.sys.mjs), to the user during their hold or
+// Take over, when the devices ask the user too. A stream started then stops
+// when the agent has the page again (observe/capture.sys.mjs). Frames count
+// as their tab, and a stored grant changes nothing. They're in only while a
+// task has pages (I4), and an error in them refuses. docs/SPI.md ("Parent
+// backstops") lists what has no parent hook.
 
 import { log } from "chrome://userscripts/content/zenius/modules/util.sys.mjs";
+import { AGENT_BROWSERS_KEY } from "chrome://userscripts/content/zenius/content/taskset.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  EVIDENCE_REASONS: "chrome://userscripts/content/zenius/observe/evidence.sys.mjs",
+  evidenceOf: "chrome://userscripts/content/zenius/observe/evidence.sys.mjs",
+  isEvident: "chrome://userscripts/content/zenius/observe/evidence.sys.mjs",
   Integration: "resource://gre/modules/Integration.sys.mjs",
   reportRefused: "chrome://userscripts/content/zenius/observe/refusals.sys.mjs",
   WebRTCParent: "resource:///actors/WebRTCParent.sys.mjs",
   webrtcUI: "resource:///modules/webrtcUI.sys.mjs",
 });
-
-/**
- * The prompt types a task's page may still show (zen-ux's list, the
- * manager's decision of 2026-11-20). Each one only reaches zen-ux's hand-off
- * (ui/permissions.sys.mjs), where the user answers Firefox's own prompt.
- * PermissionUI grants none of them by itself:
- * - storage access never reads a stored grant there;
- * - Gecko answers a stored local-network grant itself, without asking for a
- *   prompt (measured, docs/SPI.md).
- */
-export const KEPT_PROMPTS = new Set(["local-network", "loopback-network", "storage-access"]);
 
 /** A cancelled prompt's API and what it asked for, in the agent's words. */
 const PROMPTS = {
@@ -70,7 +67,7 @@ const state = {
   peers: "off",
   prompts: false,
   refused: { devices: 0, peers: 0, prompts: 0 },
-  /** Prompts of a task's page that went on to Firefox's own. */
+  /** Prompts of a task's page that went on to Firefox's own (PermissionUI). */
   kept: 0,
   /** Checks that threw (each one refused). */
   errors: 0,
@@ -100,15 +97,59 @@ function inTask(bc) {
   return isTaskBrowserId(id);
 }
 
-/** Run a check; if it throws, the answer is "refuse". */
-function refuses(what, check) {
+/** The agent drives the tab right now: not the user, in a hold or after Take over. */
+function agentDriven(bc) {
+  return !!Services.ppmm.sharedData.get(AGENT_BROWSERS_KEY)?.has(bc.top.browserId);
+}
+
+/**
+ * Why a request of a task's page for a device or a peer connection is
+ * refused: "evidence" when the page shows evidence of danger, the user's hold
+ * included; "agent" while the agent drives it; else null, as for a tab that
+ * isn't a live task's page.
+ */
+function deviceRule(bc) {
+  if (!inTask(bc)) {
+    return null;
+  }
+  if (lazy.isEvident(bc)) {
+    return "evidence";
+  }
+  return agentDriven(bc) ? "agent" : null;
+}
+
+/** Run a check; if it throws, the answer is "error": a refusal. */
+function refusalOf(what, check) {
   try {
     return check();
   } catch (e) {
     state.errors++;
     log(`backstops: checking ${what} failed, so it is refused:`, e.message);
-    return true;
+    return "error";
   }
+}
+
+/** The page's evidence in a few words for the agent: its first reason, with that reason's detail. */
+function evidenceWords(target) {
+  try {
+    const ev = lazy.evidenceOf(target);
+    const reason = lazy.EVIDENCE_REASONS.find(r => r in ev);
+    if (reason) {
+      return ev[reason] ? `${reason}: ${ev[reason]}` : reason;
+    }
+  } catch {}
+  return "evidence";
+}
+
+/** What the agent hears of a refused request: `head` says what the page asked; `outcome`, what it got. */
+function refusalText(why, head, outcome, target) {
+  if (why === "evidence") {
+    return `${head} The page shows evidence of danger (${evidenceWords(target)}), so zenius refused it ${outcome}, during the user's hold too.`;
+  }
+  if (why === "agent") {
+    return `${head} The agent never uses the user's devices, so zenius refused it ${outcome}. If the task needs it, hand the task to the user: while they hold the page, it can ask them.`;
+  }
+  return `${head} zenius couldn't check who has the page, so it refused it ${outcome}.`;
 }
 
 /** Tell the agent once per document and API: pages retry. */
@@ -133,7 +174,7 @@ function tell(browser, windowGlobal, key, kind, message, url, what) {
 
 const DEVICE_WORDS = { Camera: "camera", Microphone: "microphone", Screen: "screen", AudioCapture: "screen audio", Speaker: "speakers" };
 
-function tellDevices(actor, data) {
+function tellDevices(actor, data, why) {
   const types = Array.isArray(data?.requestTypes) ? data.requestTypes : [];
   const words = types.map(t => DEVICE_WORDS[t] ?? String(t).toLowerCase()).join(" ") || "a device";
   const api = types.includes("Screen") ? "getDisplayMedia" : types.includes("Speaker") && types.length === 1 ? "selectAudioOutput" : "getUserMedia";
@@ -143,21 +184,41 @@ function tellDevices(actor, data) {
     wg,
     `devices:${api}`,
     "deviceAccess",
-    `The page asked for ${words} (${api}). A task's pages never use the user's devices, so zenius refused it before any prompt (NotAllowedError). If the task needs it, tell the user: it works in their own tab.`,
+    refusalText(why, `The page asked for ${words} (${api}).`, "before any prompt (NotAllowedError)", actor.browsingContext),
     wg?.documentURI?.spec,
     { api, asked: words }
   );
 }
 
+function tellPeers(wg, why, url) {
+  try {
+    tell(
+      wg?.browsingContext?.top?.embedderElement,
+      wg,
+      "peers",
+      "localNetwork",
+      refusalText(
+        why,
+        "The page tried to open a WebRTC connection (RTCPeerConnection).",
+        "before it gathered any network address (NotAllowedError)",
+        wg?.browsingContext
+      ),
+      url ?? wg?.documentURI?.spec,
+      { api: "RTCPeerConnection" }
+    );
+  } catch {}
+}
+
 /**
  * WebRTCParent.prototype.receiveMessage, gated: a task page's device request
- * is denied there, before prompt(). Peer requests too when webrtcUI has no
- * blocker API (state.peers "parent").
+ * is denied there, before prompt(), while the agent drives it or on evidence.
+ * Peer requests too when webrtcUI has no blocker API (state.peers "parent").
  */
 function makeGate(original) {
   return function receiveMessage(message) {
     if (state.on && message?.name === "webrtc:Request") {
-      if (refuses("a device request", () => inTask(this.browsingContext))) {
+      const why = refusalOf("a device request", () => deviceRule(this.browsingContext));
+      if (why) {
         state.refused.devices++;
         try {
           this.denyRequest(message.data);
@@ -166,12 +227,13 @@ function makeGate(original) {
           state.errors++;
           log("backstops: denying a device request failed; it stays unanswered", e.message);
         }
-        tellDevices(this, message.data);
+        tellDevices(this, message.data, why);
         return undefined;
       }
     }
     if (state.on && state.peers === "parent" && message?.name === "rtcpeer:Request") {
-      if (refuses("a peer connection", () => inTask(this.browsingContext))) {
+      const why = refusalOf("a peer connection", () => deviceRule(this.browsingContext));
+      if (why) {
         state.refused.peers++;
         try {
           this.sendAsyncMessage("rtcpeer:Deny", { callID: message.data?.callID, windowID: message.data?.windowID });
@@ -179,6 +241,7 @@ function makeGate(original) {
           state.errors++;
           log("backstops: denying a peer connection failed; it stays unanswered", e.message);
         }
+        tellPeers(this.manager, why);
         return undefined;
       }
     }
@@ -279,29 +342,19 @@ function peersOn() {
     return;
   }
   peerBlocker = params => {
-    const deny = refuses("a peer connection", () => {
-      const wg = WindowGlobalParent.getByInnerWindowId(params?.innerWindowID);
+    let wg = null;
+    const why = refusalOf("a peer connection", () => {
+      wg = WindowGlobalParent.getByInnerWindowId(params?.innerWindowID);
       if (!wg) {
         throw new Error(`no window ${params?.innerWindowID}`);
       }
-      return inTask(wg.browsingContext);
+      return deviceRule(wg.browsingContext);
     });
-    if (deny) {
+    if (why) {
       state.refused.peers++;
-      try {
-        const wg = WindowGlobalParent.getByInnerWindowId(params?.innerWindowID);
-        tell(
-          wg?.browsingContext?.top?.embedderElement,
-          wg,
-          "peers",
-          "localNetwork",
-          "The page tried to open a WebRTC connection (RTCPeerConnection). A task's pages can't, so zenius refused it before it gathered any network address (NotAllowedError). If the task needs a call, tell the user: it works in their own tab.",
-          params?.documentURI,
-          { api: "RTCPeerConnection" }
-        );
-      } catch {}
+      tellPeers(wg, why, params?.documentURI);
     }
-    return deny ? "deny" : "allow";
+    return why ? "deny" : "allow";
   };
   ui.addPeerConnectionBlocker(peerBlocker);
   state.peers = "blocker";
@@ -320,37 +373,54 @@ function peersOff() {
 }
 
 /** The page's words for what a cancelled prompt asked, and a hint. */
-function promptMessage(type, origin) {
+function promptMessage(type, origin, why, browser) {
   const asked = PROMPTS[type]?.[1] ?? `the "${type}" permission`;
   const who = origin || "The page";
   const hint =
     type === "geolocation"
       ? " If the task needs a place, type it into the site (a city, an address or a postcode) instead."
       : "";
-  return `${who} asked for ${asked === "location" ? "your location" : asked}, which a task's pages never get, so the prompt was cancelled without asking the user.${hint}`;
+  const what = `${who} asked for ${asked === "location" ? "your location" : asked}.`;
+  if (why === "evidence") {
+    return `${what} The page shows evidence of danger (${evidenceWords(browser)}), so zenius cancelled the prompt without asking the user.${hint}`;
+  }
+  return `${what} zenius couldn't check the page, so it cancelled the prompt without asking the user.${hint}`;
+}
+
+/** Why a prompt from this tab is cancelled: "evidence" in a live task's page with evidence, "error" when the check fails, else null. */
+function promptWhy(browser) {
+  // A request with no tab isn't a page's (PermissionUI couldn't show it).
+  if (!browser) {
+    return null;
+  }
+  return refusalOf("a permission prompt", () => (inTask(browser.browsingContext) && lazy.isEvident(browser) ? "evidence" : null));
 }
 
 /**
- * What the override does with a prompt of this type from this tab: "cancel"
- * it, or "pass" it on to Firefox's own. Exported for tests.
+ * What the override does with a prompt from this tab: "cancel" it, on
+ * evidence of danger in a live task's page, or "pass" it on to Firefox's
+ * own. Every type alike: while the agent drives, zen-ux hands the task to
+ * the user with the prompt; during the hold, the user answers it. Exported
+ * for tests.
  *
  * @param {string} type
  * @param {Element|null} browser  the request's element, its tab's <browser>
  */
 export function promptRule(type, browser) {
-  // A request with no tab isn't a page's (PermissionUI couldn't show it).
-  const task = !!browser && refuses("a permission prompt", () => inTask(browser.browsingContext));
-  return task && !KEPT_PROMPTS.has(type) ? "cancel" : "pass";
+  return promptWhy(browser) ? "cancel" : "pass";
 }
 
 function promptsOn() {
   promptOverride = base => ({
     createPermissionPrompt(type, request) {
       const browser = request?.element;
-      if (promptRule(type, browser) === "pass") {
-        if (KEPT_PROMPTS.has(type) && browser && isTaskBrowserId(browser.browserId)) {
-          state.kept++;
-        }
+      const why = promptWhy(browser);
+      if (!why) {
+        try {
+          if (browser && isTaskBrowserId(browser.browserId)) {
+            state.kept++;
+          }
+        } catch {}
         return base.createPermissionPrompt(type, request);
       }
       state.refused.prompts++;
@@ -358,13 +428,13 @@ function promptsOn() {
       try {
         origin = request.principal?.originNoSuffix ?? "";
       } catch {}
-      log(`backstops: cancelled a ${type} prompt of a task's page (${origin})`);
+      log(`backstops: cancelled a ${type} prompt of a task's page (${origin}): ${why}`);
       tell(
         browser,
         browser.browsingContext?.currentWindowGlobal,
         `prompt:${type}`,
         "promptDenied",
-        promptMessage(type, origin),
+        promptMessage(type, origin, why, browser),
         browser.currentURI?.spec,
         { api: PROMPTS[type]?.[0] ?? type, asked: PROMPTS[type]?.[1] ?? type }
       );

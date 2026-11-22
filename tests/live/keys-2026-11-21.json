@@ -1,0 +1,64 @@
+{
+  "recorded": "2026-11-21 between 15:25 and 15:35 UTC, by zen-eval's own scripts (not an agent) on a fresh headless dev profile (zen-eval-keys) at main bd3207f, before the round's runs",
+  "T1": {
+    "en_length": "1230",
+    "de_length": "1232.7",
+    "countries": ["Switzerland", "Liechtenstein", "Austria", "Germany", "France", ["Netherlands", "Holland"]],
+    "not_countries": ["Luxembourg", "Belgium", "Italy"],
+    "source": "en.wikipedia.org/wiki/Rhine's infobox: 'Length 1,230 km (760 mi)[note 1]' and 'Countries Switzerland Liechtenstein Austria Germany France Netherlands'. Its 'Rhine Basin' row adds Luxembourg, Belgium and Italy (Val di Lei), which aren't in 'Countries', so an answer naming them fails 'no extra ones'. de.wikipedia.org/wiki/Rhein's infobox: 'Länge 1.232,7 km'. The pilot's prompt draft had 1,233 for the English length; the article now says 1,230."
+  },
+  "T2": {
+    "chrome": "97",
+    "firefox": "104",
+    "safari": "15.4",
+    "source": "MDN's compat data for javascript.builtins.Array.findLast (bcd.developer.mozilla.org, the endpoint the findLast() page loads), read again today: version_added chrome 97, firefox 104, safari 15.4, as on 2026-11-20"
+  },
+  "T3": {
+    "note": "New in version 3.9.",
+    "url": "docs.python.org/3.9/library/stdtypes.html",
+    "source": "docs.python.org/3.9/library/stdtypes.html#str.removeprefix: the method's versionadded note reads 'New in version 3.9.'"
+  },
+  "T4": {
+    "count": "50",
+    "first_title": "SPEED: Speculative Pipelined Execution for Efficient Decoding",
+    "source": "arxiv.org/search/advanced with the form's defaults and: title 'speculative decoding', Computer Science, date range 2024-01-01 to 2024-12-31 (date type 'submitted_date', the form's default, most recent version), order submitted_date (oldest first): 'Showing 1–50 of 50 results' at both 50 and 100 per page. The first is arXiv:2310.12072, 'Submitted 2 January, 2024; v1 submitted 18 October, 2023'. An answer that filtered by original submission date would differ on both items; the report notes such a run by hand."
+  },
+  "T5": {
+    "oldest": "0.0.1",
+    "oldest_date": "2011-02-13",
+    "source": "pypi.org/project/requests/#history: 163 releases; the last is 0.0.1, <time datetime='2011-02-13T18:51:23+0000'> shown as 'Feb 13, 2011' (the same day in the Mac's time zone)"
+  },
+  "T6": {
+    "type": "way",
+    "id": "5013364",
+    "height": "330",
+    "wikidata": "Q243",
+    "source": "openstreetmap.org/search?query=Eiffel Tower: the first result is /way/5013364. That way's page: 'Way: Eiffel Tower (5013364)', name 'Tour Eiffel', man_made tower, tourism attraction, height 330, wikidata Q243"
+  },
+  "T7": {
+    "firefox": "121",
+    "source": "caniuse.com/css-has's support table (in its shadow DOM): Firefox '2 - 102 : Not supported', '103 - 120 : Not supported See notes: 2' (behind a flag), '121 - 159 : Supported'"
+  },
+  "T8": {
+    "days": 309,
+    "weekdays": 221,
+    "source": "carried over from keys-2026-11-20.json: timeanddate.com durationresult.html for 2026-01-15 to 2026-11-20 gave 'Result: 309 days', end date not included, and weekends alone give 309 - 88 = 221. The dates are fixed, so the counts don't change."
+  },
+  "T9": {
+    "pending": "gutenberg.org answered 'Temporarily Down for Maintenance' at 15:33 UTC; the key is read when it's back, before T9 runs, or T9 gives way to a spare"
+  },
+  "T10": {
+    "bleu": "28.4",
+    "source": "arxiv.org/abs/1706.03762's abstract: 'Our model achieves 28.4 BLEU on the WMT 2014 English-to-German translation task', the big model's score, which Table 2 lists for 'Transformer (big)' EN-DE"
+  },
+  "T11": {
+    "title": "Dialog",
+    "body": "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+    "source": "shoelace.style/components/dialog: the first example's <sl-dialog label='Dialog' class='dialog-overview'> holds 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' and a footer button 'Close'. The page also opens a dialog of its own on load, 'Shoelace is now Web Awesome!', which isn't the example's and has to be dismissed first."
+  },
+  "T12": {
+    "before": "Volvo",
+    "options": ["Zen", "Saab", "Opel", "Audi"],
+    "source": "w3schools.com/tags/tag_select.asp's first 'Try it Yourself' is tryit.asp?filename=tryhtml_select; its result frame's <select> has Volvo, Saab, Opel, Audi with Volvo selected. Renaming Volvo to Zen gives Zen, Saab, Opel, Audi."
+  }
+}

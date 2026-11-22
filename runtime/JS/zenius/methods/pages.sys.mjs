@@ -9,6 +9,16 @@ import { displayURL } from "chrome://userscripts/content/zenius/observe/navtrack
 import { noteAdopted } from "chrome://userscripts/content/zenius/observe/agentcode.sys.mjs";
 import { hostWindow, sameTab } from "chrome://userscripts/content/zenius/modules/windows.sys.mjs";
 
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  markEvident: "chrome://userscripts/content/zenius/observe/evidence.sys.mjs",
+});
+
+/** zen-observe's limit on an evidence detail, which zen-ux's notice shows the user. */
+const FLAG_REASON_MAX = 200;
+/** One line the user reads: no C0 or C1 control character, and no bidi formatting character to reorder it. */
+const FLAG_REASON_BAD = /[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/;
+
 function tabInfo(tab, current) {
   return {
     title: tab.label ?? "",
@@ -29,6 +39,7 @@ export const access = {
   "pages.release": "mutate",
   "pages.close": "mutate",
   "pages.userPage": "read",
+  "page.flag": "mutate",
 };
 
 export const i5 = {
@@ -39,6 +50,7 @@ export const i5 = {
   "pages.release": "none",
   "pages.close": "none",
   "pages.userPage": "none",
+  "page.flag": "document",
 };
 
 export const methods = {
@@ -169,4 +181,27 @@ export const methods = {
   },
 
   "pages.userPage": async (ctx, params) => ctx.pages.userPage(ctx.resolveSpace(params)),
+
+  // The agent's own evidence (the user's pass on the defenses, 2026-11-21):
+  // the page looks like phishing or wants what the task doesn't need. Its
+  // document then gets every defense that reads evidence, and zen-ux's
+  // notice tells the user the reason. Per document, as all evidence is: a
+  // reload or a new load starts clean.
+  "page.flag": async (ctx, params) => {
+    const space = ctx.resolveSpace(params);
+    const page = ctx.pages.get(space, params.page);
+    const reason = typeof params.reason === "string" ? params.reason.trim() : "";
+    if (!reason || reason.length > FLAG_REASON_MAX || FLAG_REASON_BAD.test(reason)) {
+      throw new ZenError(
+        "ZEN_INVALID_ARGUMENT",
+        `reason must be one line of 1 to ${FLAG_REASON_MAX} characters saying why the page looks like phishing or dangerous`
+      );
+    }
+    const browser = ctx.pages.tabFor(page)?.linkedBrowser;
+    if (!browser?.browsingContext?.currentWindowGlobal) {
+      throw new ZenError("ZEN_PAGE_NOT_FOUND", `${page.label} has no document yet: flag it once it has loaded`);
+    }
+    lazy.markEvident(browser, "flagged", reason);
+    return { ok: true };
+  },
 };

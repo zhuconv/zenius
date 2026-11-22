@@ -40,10 +40,18 @@ export const PANEL = {
   /** Inside #to-work, hidden at 0. */
   needs: "#needs",
   needsColor: "--needs-color",
-  /** #model folds the agent in: optgroup[data-harness], value "<harness>/<model>". */
+  /** The label ("Opus 5.5 · Low") is #pick, which opens #picker: its family
+   * bar (#pick-fam, role=tab buttons with data-harness), its rows
+   * (.pick-row[data-value], aria-selected on the chat's model) and the
+   * efforts' flyout (#pick-fly, .pick-eff[data-value]). */
   pickers: "#pickers",
-  model: "#model",
-  effort: "#effort",
+  pick: "#pick",
+  picker: "#picker",
+  pickFamilies: "#pick-fam",
+  /** Another family's note in a chat with messages: picking there starts a new chat. */
+  pickNote: "#pick-note",
+  pickRow: "#pick-list .pick-row",
+  pickEfforts: "#pick-fly",
   stop: "#stop",
   send: "#send",
   /** data-status = done | running | failed | waiting | stopped */

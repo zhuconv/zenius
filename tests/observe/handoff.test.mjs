@@ -1,7 +1,9 @@
-// The hand-off (the manager's rule, 2026-11-20): handOffCheck
-// (observe/agentcode.sys.mjs) tells zen-core where the agent's code may be
-// that could reach what the user types in the page H, and the hold
-// (observe/hold.sys.mjs) keeps everything else away while the user holds H.
+// The hold (observe/hold.sys.mjs; the manager's hand-off rule, 2026-11-20)
+// keeps everything of the agent's away from the page H while the user holds
+// it. agentSitesNear (observe/agentcode.sys.mjs) names the sites of the
+// windows near H that may hold the agent's code, for the hold's frame and
+// COOP rule. What a hand-off loads afresh is zen-core's call, from the
+// evidence flag (tests/core/handoff.test.mjs).
 // 127.0.0.1 (env.base, vectors.base) and localhost (vectors.crossBase) are
 // the fixture's two sites.
 import { after, before, test } from "node:test";
@@ -50,15 +52,17 @@ const FIND = `const W = ChromeUtils.importESModule("chrome://userscripts/content
   const find = url => { const b = [...W.allTabs()].map(t => t.linkedBrowser).find(b => b.currentURI?.spec === url); if (!b) throw new Error("no tab shows " + url); return b; };
   const HOLD = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/hold.sys.mjs");`;
 
-/** handOffCheck for the tab showing `url`, with `P`'s task while it lives; reaching windows by their URL. */
-const check = (P, url, live = true) =>
+/** agentSitesNear for the tab showing `url`, with `P`'s task while it lives: the sites near it, sorted. */
+const near = (P, url, live = true) =>
   env.chrome(
     `${FIND}
-     const { handOffCheck } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/agentcode.sys.mjs");
-     const c = handOffCheck(arg.live ? ctx.resolvePage(arg.P).space : null, find(arg.url));
-     return { ...c, reaching: c.reaching.map(r => ({ url: r.browser?.currentURI?.spec ?? null, opener: r.opener })) };`,
+     const { agentSitesNear } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/agentcode.sys.mjs");
+     return [...agentSitesNear(arg.live ? ctx.resolvePage(arg.P).space : null, find(arg.url))].sort();`,
     { P, url, live }
   );
+/** The site agentSitesNear names a page at `url` by. */
+const siteOf = url =>
+  env.chrome(`return Services.scriptSecurityManager.createContentPrincipal(Services.io.newURI(arg), {}).siteOriginNoSuffix;`, url);
 const hold = url => env.chrome(`${FIND} return HOLD.holdPage(find(arg));`, url);
 const release = url => env.chrome(`${FIND} HOLD.releasePage(find(arg)); return HOLD.holdingAny();`, url);
 const holdOf = url => env.chrome(`${FIND} return HOLD.holdOf(find(arg)) ?? null;`, url);
@@ -116,129 +120,57 @@ const historyIndex = url => env.chrome(`${FIND} return find(arg).browsingContext
 // the page's own doesn't, so that's the way to an agent-made entry.
 const goes = (url, how) => asPage(url, `history.${how === "goBack" ? "back" : "forward"}(); window.__out = 1;`);
 
-test("handOffCheck: H's own documents, the windows of its group that share a site with any of H's documents, and its opener", () =>
-  env.inSpace("handoff check", async page => {
+test("agentSitesNear: the sites, frames' too, of the other windows of a page's group where the agent's code may be; with no live task, only marks count", () =>
+  env.inSpace("sites near", async page => {
     const tag = Date.now();
     const T = `${vectors.crossBase}/plain?opener=${tag}`;
     const P = `${env.base}/nav-target?idp=${tag}`;
+    const U = `${vectors.crossBase}/plain?by-site=${tag}`;
     const S = `${vectors.crossBase}/plain?same-site=${tag}`;
+    const [A, B] = [await siteOf(T), await siteOf(P)];
     try {
       await page.goto(T);
-      assert.deepEqual(await check(page.P, T), { page: false, agentPage: false, reaching: [], opener: "none" });
-
       // The agent's code runs in T, which opens P on the other site.
       await page.evaluate(`window.__p = window.open(${js(P)}); 1`);
       await until("P", () => docOf(P));
-      assert.deepEqual(await check(page.P, T), { page: true, agentPage: false, reaching: [], opener: "none" });
-      assert.deepEqual(await check(page.P, P), { page: false, agentPage: false, reaching: [], opener: "other" }, "T can't read P: it's left alone");
+      assert.deepEqual(await near(page.P, P), [A], "T, where the agent's code ran");
+      assert.deepEqual(await near(page.P, T), [], "P: the agent's code ran nowhere on its site");
 
-      // A frame of P's site in T can walk to P through top, opener and frames.
+      // T's own script opens U on T's site: U counts by site while the task
+      // lives, and not without it, since nothing marked it.
+      await asPage(T, `window.open(${js(U)}); window.__out = 1;`);
+      await until("U", () => docOf(U));
+      assert.deepEqual(await near(page.P, T), [A], "U, by site");
+      assert.deepEqual(await near(page.P, T, false), [], "U, with no live task");
+
+      // A frame of P's site in T: through top, opener and frames, it can
+      // walk to P.
       await page.evaluate(`const f = document.createElement("iframe"); f.src = ${js(`${env.base}/nav-target?frame=${tag}`)}; document.body.append(f); 1`);
       await until("T's frame", () =>
         env.chrome(`${FIND} return find(arg).browsingContext.children.some(c => c.currentWindowGlobal?.documentURI?.spec?.includes("frame="));`, T)
       );
-      assert.deepEqual(await check(page.P, P), { page: false, agentPage: false, reaching: [{ url: T, opener: true }], opener: "reaching" });
+      assert.deepEqual(await near(page.P, P), [A, B].sort());
 
-      // A popup of T's own site counts: by site, and, opened once T was
-      // written (its frame), it's flagged written as it comes in
-      // (flagIfExposed). T reaches it.
+      // A popup of T's site that comes in once T was written (its frame) is
+      // flagged written itself (flagIfExposed), which marks it.
       await page.evaluate(`window.__s = window.open(${js(S)}); 1`);
       await until("S", () => docOf(S));
-      assert.deepEqual(await check(page.P, S), { page: true, agentPage: false, reaching: [{ url: T, opener: true }], opener: "reaching" });
+      assert.deepEqual(await near(page.P, T, false), [A], "S, marked");
 
-      // After the task, only marks count: T's stays, and S shares no site
-      // with P's documents.
-      assert.deepEqual((await check(page.P, P, false)).reaching, [{ url: T, opener: true }]);
-
-      // The agent's own page.
-      await page.goto("data:text/html,<title>the agent's</title>");
-      assert.equal((await check(page.P, "data:text/html,<title>the agent's</title>")).agentPage, true);
+      // With no live task, T's marks still count, and so does its frame's site.
+      assert.deepEqual(await near(page.P, P, false), [A, B].sort());
     } finally {
-      await closeTabs([P, S]);
+      await closeTabs([P, U, S]);
     }
   }));
 
-test("handOffCheck: a task's untouched about:blank holds nothing and isn't the agent's page; one the agent's code wrote into is both", () =>
-  env.inSpace("handoff blank", async page => {
-    const checkPage = () =>
-      env.chrome(
-        `const { handOffCheck } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/agentcode.sys.mjs");
-         const p = ctx.resolvePage(arg);
-         const c = handOffCheck(p.space, p.browser);
-         return { page: c.page, agentPage: c.agentPage, url: p.browser.currentURI.spec };`,
-        page.P
-      );
-    // The agent hands the user an empty tab to go to their bank themselves.
-    assert.deepEqual(await checkPage(), { page: false, agentPage: false, url: "about:blank" });
-    // The agent's code draws a sign-in form into it: the agent's page.
-    await page.evaluate(`document.body.innerHTML = "<form><input type=password name=pw></form>"; 1`);
-    assert.deepEqual(await checkPage(), { page: true, agentPage: true, url: "about:blank" });
-  }));
-
-test("a written H with a written page of its site beside it, the group switch off (the default): the hand-off loads both afresh, and H's fresh document leaves the group, so code planted in the other page can't reach what the user types (zen-core's in-place case)", () =>
-  env.inSpace("handoff written pair", async page => {
-    const tag = Date.now();
-    const H = `${vectors.crossBase}/plain?held=${tag}`;
-    const W = `${vectors.crossBase}/plain?beside=${tag}`;
-    const front = () => env.chrome(`ctx.pages.noteFront(ctx.resolvePage(arg).tab); return true;`, page.P);
-    const tabs = () =>
-      env.chrome(
-        `${FIND}
-         const d = b => ({ group: b.browsingContext.group.id, opener: b.browsingContext.opener?.id ?? null });
-         return { H: d(find(arg.H)), W: d(find(arg.W)) };`,
-        { H, W }
-      );
-    const reachedH = () => asPage(H, "window.__out = document.documentElement.dataset.reached ?? null;");
-    try {
-      await page.goto(H);
-      // What a malicious agent could plant through markup: page code that
-      // opens W on H's site and puts a script into each new document W gets,
-      // which marks its opener's document. Both poll through message
-      // events, which background tabs don't throttle.
-      const inner =
-        "const c = new MessageChannel(); c.port1.onmessage = () => { try { const d = opener.document; if (d.documentElement && d.documentElement.dataset.reached !== d.URL) d.documentElement.dataset.reached = d.URL; } catch (e) {} c.port2.postMessage(0); }; c.port2.postMessage(0);";
-      const planted = `window.__pw = window.open(${js(W)}); const c = new MessageChannel(); c.port1.onmessage = () => { try { const d = window.__pw.document; if (d && d.documentElement && !d.documentElement.dataset.planted && d.URL.includes("beside")) { d.documentElement.dataset.planted = "1"; const s = d.createElement("script"); s.textContent = ${js(inner)}; d.documentElement.append(s); } } catch (e) {} c.port2.postMessage(0); }; c.port2.postMessage(0);`;
-      await page.evaluate(`const i = document.createElement("img"); i.setAttribute("onerror", ${js(planted)}); i.src = "/no-such-image-" + Date.now(); document.body.append(i); 1`);
-      await until("W", () => docOf(W));
-      await until("the planted code reaching H through W", async () => (await reachedH()) === H);
-      const w = await until("W in the task", async () => (await env.call("pages.list", { space: page.space })).find(p => p.url === W)?.label ?? null);
-      const c = await check(page.P, H);
-      assert.equal(c.page, true, "H holds the agent's writes");
-      assert.deepEqual(
-        c.reaching.map(r => r.url),
-        [W],
-        "W, written as it came in beside H, shares its site and group"
-      );
-      const before = await tabs();
-      assert.equal(before.W.opener !== null && before.H.group === before.W.group, true, JSON.stringify(before));
-
-      await front();
-      const reply = await page.call("spaces.handOff", {});
-      assert.equal(reply.ownership, "agentDelegatedToUser");
-      assert.deepEqual(reply.reloaded, [w, page.label], "W first, then H, each afresh");
-      // H's code reached W's fresh document before H's own was replaced, so
-      // W is written again (flagIfExposed). H's fresh document therefore
-      // loaded out of the group (zen-core's COOP for a load beside a written
-      // window): W's opener is cut, and nothing planted in W reaches H.
-      assert.equal(await asPage(W, "window.__out = document.documentElement.dataset.planted ?? null;"), "1", "the planted code reached W's fresh document");
-      const after = await tabs();
-      assert.notEqual(after.H.group, after.W.group, JSON.stringify(after));
-      assert.equal(after.W.opener, null);
-      await sleep(1500);
-      assert.equal(await reachedH(), null, "W's planted script never reached the page the user holds");
-      assert.equal((await check(page.P, H)).page, false, "H's fresh document holds nothing of the agent's");
-      assert.ok(await holdOf(H), "the user holds H");
-    } finally {
-      await env.chrome(`ctx.spaces.setOwnership(ctx.spaces.get(arg), "agent", { source: "user" }); return true;`, page.space).catch(() => {});
-      await closeTabs([W]);
-    }
-  }));
-
-test("a clean copy zenius loaded holds nothing of the agent's: Take over doesn't reload it again (zen-sdk's rehearsal on 424962d), until the agent's code runs in its group again", () =>
+test("a clean copy zenius loaded isn't near the agent's code by site (zen-sdk's rehearsal on 424962d), until the agent's code runs in its group again", () =>
   env.inSpace("handoff clean copy", async page => {
     const tag = Date.now();
     const X = `${vectors.crossBase}/plain?written=${tag}`;
+    const Y = `${env.base}/nav-target?beside=${tag}`;
     const Q = `${vectors.crossBase}/plain?popup=${tag}`;
+    const A = await siteOf(X);
     const fresh = async what => {
       const first = await docOf(X);
       return async () =>
@@ -249,21 +181,25 @@ test("a clean copy zenius loaded holds nothing of the agent's: Take over doesn't
     };
     try {
       await page.goto(X);
+      // X's own popup on the other site, where the agent's code never runs:
+      // the window the sites near X are read from.
+      await asPage(X, `window.open(${js(Y)}); window.__out = 1;`);
+      await until("Y", () => docOf(Y));
       await page.evaluate(`document.documentElement.dataset.zo = "1"; 1`);
-      assert.equal((await check(page.P, X)).page, true, "the page the agent's world wrote into");
+      assert.deepEqual(await near(page.P, Y), [A], "the page the agent's world wrote into");
       // A reload that isn't zenius's: the fresh document still counts by site.
       let loaded = await fresh("the reload");
       await env.chrome(`${FIND} find(arg).reload(); return true;`, X);
       await loaded();
-      assert.equal((await check(page.P, X)).page, true, "a reload of the page's or the user's, by site");
+      assert.deepEqual(await near(page.P, Y), [A], "a reload of the page's or the user's, by site");
       // zenius's clean load (zen-input's clean copy on demand goes through it).
       loaded = await fresh("the clean copy");
       await env.chrome(`${FIND} await ctx.service.cleanLoad(find(arg), { sameSite: true }); return true;`, X);
       await loaded();
-      assert.equal((await check(page.P, X)).page, false, "the clean copy, though the agent's code ran on its site");
+      assert.deepEqual(await near(page.P, Y), [], "the clean copy, though the agent's code ran on its site");
       try {
         assert.equal(await hold(X), true);
-        assert.equal((await check(page.P, X)).page, false, "at Take over");
+        assert.deepEqual(await near(page.P, Y), [], "the clean copy, while the user holds it");
       } finally {
         await release(X);
       }
@@ -271,6 +207,7 @@ test("a clean copy zenius loaded holds nothing of the agent's: Take over doesn't
       // a world in the group again, so the clean copy counts by site again.
       await asPage(X, `window.open(${js(Q)}); window.__out = 1;`);
       await until("the popup", () => docOf(Q));
+      assert.deepEqual(await near(page.P, Q), [], "before the agent's code runs in the group again");
       let popup = null;
       for (let i = 0; i < 100 && !popup; i++) {
         popup = (await env.call("pages.list", { space: page.P.space })).find(p => p.url === Q)?.label ?? null;
@@ -280,35 +217,25 @@ test("a clean copy zenius loaded holds nothing of the agent's: Take over doesn't
       }
       assert.ok(popup, "the popup joined the task");
       await env.call("page.evaluate", { space: page.P.space, page: popup, fn: "1", isFunction: false });
-      assert.equal((await check(page.P, X)).page, true, "the clean copy, once the agent's code ran in its group again");
+      assert.deepEqual(await near(page.P, Q), [A], "the clean copy, once the agent's code ran in its group again");
     } finally {
-      await closeTabs([Q]);
+      await closeTabs([Y, Q]);
     }
   }));
 
-test("the hold: H's documents from before it count by site; the fresh ones zenius loads don't", () =>
+test("the hold: a window zen-core reloads for it isn't near the agent's code by site, until the hold ends", () =>
   env.inSpace("handoff fresh", async page => {
     const tag = Date.now();
     const T = `${vectors.crossBase}/plain?opener=${tag}`;
     const H = `${vectors.crossBase}/plain?held=${tag}`;
+    const A = await siteOf(T);
     try {
       await page.goto(T);
       await page.evaluate(`window.__h = window.open(${js(H)}); 1`);
       await until("H", () => docOf(H));
-      const first = await docOf(H);
       assert.equal(await hold(H), true);
-      assert.equal((await check(page.P, H)).page, true, "H's document from before the hold, by site");
-      // zen-core's quiet reload: H's fresh document doesn't count by site.
-      await env.chrome(`${FIND} find(arg).reload(); return true;`, H);
-      await until("H's fresh document", async () => {
-        const d = await docOf(H);
-        return d && d !== first;
-      });
-      assert.equal((await check(page.P, H)).page, false, "H's fresh document");
-      // T still reaches it: a reload in place leaves T's handle, which is
-      // why zen-core moves H to a new group here, or reloads T.
-      assert.deepEqual((await check(page.P, H)).reaching, [{ url: T, opener: true }]);
-      // zen-core reloads T for the hold: T's fresh document doesn't count by site either.
+      assert.deepEqual(await near(page.P, H), [A], "T, where the agent's code ran");
+      // zen-core reloads T for the hold: T's fresh document doesn't count by site.
       const t1 = await docOf(T);
       assert.equal(await env.chrome(`${FIND} return HOLD.holdReload(find(arg.T), find(arg.H));`, { T, H }), true);
       await env.chrome(`${FIND} find(arg).reload(); return true;`, T);
@@ -316,11 +243,51 @@ test("the hold: H's documents from before it count by site; the fresh ones zeniu
         const d = await docOf(T);
         return d && d !== t1;
       });
-      assert.deepEqual((await check(page.P, H)).reaching, [], "T's fresh document");
+      assert.deepEqual(await near(page.P, H), [], "T's fresh document");
       assert.equal(await release(H), false);
-      assert.deepEqual((await check(page.P, H)).reaching, [{ url: T, opener: true }], "after the hold, T counts by site again");
+      assert.deepEqual(await near(page.P, H), [A], "after the hold, T counts by site again");
     } finally {
       await closeTabs([H]);
+    }
+  }));
+
+test("the hold: a task may hold several pages (zen-core's holdFor); for one, a tab of another hold in its group counts by site only with its documents from before that hold", () =>
+  env.inSpace("two holds", async page => {
+    const tag = Date.now();
+    const T = `${vectors.crossBase}/plain?opener=${tag}`;
+    const H1 = `${vectors.crossBase}/plain?held-one=${tag}`;
+    const H2 = `${vectors.crossBase}/plain?held-two=${tag}`;
+    const A = await siteOf(T);
+    try {
+      await page.goto(T);
+      await page.evaluate(`window.__h1 = window.open(${js(H1)}); window.__h2 = window.open(${js(H2)}); 1`);
+      await until("H1", () => docOf(H1));
+      await until("H2", () => docOf(H2));
+      assert.equal(await hold(H1), true);
+      assert.equal(await hold(H2), true);
+      assert.notEqual(await holdOf(H1), await holdOf(H2), "two holds");
+      // zen-core reloads T for H1's hold, so only H2 is left to count.
+      const t1 = await docOf(T);
+      assert.equal(await env.chrome(`${FIND} return HOLD.holdReload(find(arg.T), find(arg.H));`, { T, H: H1 }), true);
+      await env.chrome(`${FIND} find(arg).reload(); return true;`, T);
+      await until("T's fresh document", async () => {
+        const d = await docOf(T);
+        return d && d !== t1;
+      });
+      assert.deepEqual(await near(page.P, H1), [A], "H2's document from before its hold, by site");
+      // A reload of H2 during its hold, such as the user's: the agent's code
+      // is refused in a held group, so the fresh document doesn't count by site.
+      const h2 = await docOf(H2);
+      await env.chrome(`${FIND} find(arg).reload(); return true;`, H2);
+      await until("H2's fresh document", async () => {
+        const d = await docOf(H2);
+        return d && d !== h2;
+      });
+      assert.deepEqual(await near(page.P, H1), [], "H2's document from its hold");
+    } finally {
+      await release(H1).catch(() => {});
+      await release(H2).catch(() => {});
+      await closeTabs([H1, H2]);
     }
   }));
 

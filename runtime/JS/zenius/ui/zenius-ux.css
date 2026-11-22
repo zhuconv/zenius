@@ -763,6 +763,121 @@ zen-workspace > .zenius-space-status {
 
 /* ---- Agent status strip and tasks panel (ui/panel.sys.mjs) ------------- */
 
+/* A remote task's arrival while the agent sidebar is closed: a card right
+   over the strip (ui/panel.sys.mjs's showArrival), in zen-sidebar's look and
+   the colors of the agent sidebar's own (its panel.css #arrival). Zen's
+   sidebar can be narrower than the agent sidebar ever is (a 166 px card in a
+   new profile), so the text also takes the room over Stop, and three lines,
+   not two: the one-row card cut it to "Task from h…" there. */
+#zenius-arrival {
+  --zenius-arrival-fg: light-dark(#1d1d1f, #ececf1);
+  --zenius-arrival-line: light-dark(#e3e3e8, #34343b);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto 20px;
+  grid-template-areas:
+    "dot text text text close"
+    ". . watch stop stop";
+  align-items: center;
+  gap: 6px;
+  margin: 2px var(--zen-toolbox-padding, 6px);
+  padding: 8px 8px 8px 10px;
+  border: 1px solid var(--zenius-arrival-line);
+  border-radius: 12px;
+  background: light-dark(#ffffff, #26262b);
+  box-shadow: 0 6px 16px -8px light-dark(rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.6));
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--zenius-arrival-fg);
+  -moz-window-dragging: no-drag;
+  animation: zenius-arrival-in 180ms ease-out;
+}
+
+@keyframes zenius-arrival-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+#zenius-arrival::before {
+  content: "";
+  grid-area: dot;
+  align-self: start;
+  width: 7px;
+  height: 7px;
+  margin-top: 5.5px;
+  border-radius: 50%;
+  background: light-dark(#7c5cff, #a48bff);
+}
+
+.zenius-arrival-text {
+  grid-area: text;
+  align-self: start;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+/* The address (devbox/t5), as the agent sidebar sets it apart (.addr). */
+.zenius-arrival-addr {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--zenius-arrival-fg) 8%, transparent);
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.92em;
+  white-space: nowrap;
+}
+
+.zenius-arrival-button {
+  margin: 0;
+  padding: 2px 8px;
+  border: 1px solid var(--zenius-arrival-line);
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 18px;
+  white-space: nowrap;
+
+  &:hover {
+    filter: brightness(0.95);
+  }
+}
+
+/* Watch filled, as on the live card; Stop outlined. */
+.zenius-arrival-watch {
+  grid-area: watch;
+  border-color: var(--zenius-arrival-fg);
+  background: var(--zenius-arrival-fg);
+  color: light-dark(#fbfbfc, #1f1f23);
+}
+
+.zenius-arrival-stop {
+  grid-area: stop;
+}
+
+.zenius-arrival-button.zenius-arrival-close {
+  grid-area: close;
+  align-self: start;
+  justify-self: end;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  color: light-dark(#6b6b76, #9a9aa6);
+  font-size: 10px;
+  line-height: 20px;
+
+  &:hover {
+    filter: none;
+    background: light-dark(#f0f0f3, #2b2b31);
+    color: var(--zenius-arrival-fg);
+  }
+}
+
 #zenius-agents-strip {
   display: flex;
   align-items: center;
@@ -975,6 +1090,19 @@ zen-workspace > .zenius-space-status {
   opacity: 0.7;
 }
 
+/* The agent sidebar's tasks that need the user before a zenius task says so. */
+.zenius-tasks-waiting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+}
+
+.zenius-tasks-waiting-text {
+  flex: 1;
+  min-width: 0;
+}
+
 .zenius-task {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -1122,7 +1250,8 @@ zen-workspace > .zenius-space-status {
 @media (prefers-reduced-motion: reduce) {
   .zenius-space-badge,
   .zenius-space-status-dot,
-  .zenius-strip-dot {
+  .zenius-strip-dot,
+  #zenius-arrival {
     animation: none !important;
   }
 

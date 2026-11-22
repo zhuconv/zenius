@@ -14,7 +14,7 @@ import { createSocket } from "node:dgram";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { connect, createServer } from "node:net";
 import { homedir, tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { after, before, test } from "node:test";
 
 import { CANARY, INSTANCE, REPORT, plant, startFixtures } from "./lib.mjs";
@@ -43,7 +43,7 @@ const SOCKET = join(realpathSync(join(ZHOME, "run")), `${INSTANCE}.sock`);
 const PASSED = new Set([
   "HOME", "PATH", "PWD", "TMPDIR", "ZENIUS_HOME", "ZENIUS_INSTANCE", "ZENIUS_SOCKET", "ZENIUS_NODE_MAJOR", "ZENIUS_OUTPUT_DIR", "ZENIUS_CLIENT", "NODE_DISABLE_COMPILE_CACHE",
   "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TZ", "COLUMNS", "NO_COLOR", "FORCE_COLOR", "ZENIUS_TIMING",
-  "EGO_BROWSER_PAGE_BUDGET", "EGO_BROWSER_RESPONSE_TIMEOUT_MS", "ZENIUS_TASK_SPACE",
+  "EGO_BROWSER_PAGE_BUDGET", "EGO_BROWSER_RESPONSE_TIMEOUT_MS", "ZENIUS_TASK_SPACE", "ZENIUS_READ_DIR", "HC_TERMINAL_ID", "ZENIUS_FOLDER", "ZENIUS_SIDEBAR_TASK",
 ]);
 // On macOS, CoreFoundation sets this one inside node itself when it's missing
 // (the uid and the text encoding): `env -i node` has it, `env -i env` doesn't.
@@ -99,11 +99,11 @@ before(async () => {
   const known = {
     docker: ["/var/run/docker.sock", "/run/docker.sock"],
     "ssh-agent": [process.env.SSH_AUTH_SOCK],
-    hc: [join(process.env.XDG_RUNTIME_DIR || `/run/user/${uid}`, "herdr-core", "default.sock")],
     "gpg-agent": [`/run/user/${uid}/gnupg/S.gpg-agent`],
     "the session bus": [`/run/user/${uid}/bus`],
   };
-  // ZENIUS_SECURITY_SOCKETS adds a machine's own, such as the Mac's hc and ssh-agent.
+  // ZENIUS_SECURITY_SOCKETS adds a machine's own sockets, by path: run.sh
+  // fills it from a list kept outside the repo (~/.zenius-dev/security-sockets).
   for (const extra of (process.env.ZENIUS_SECURITY_SOCKETS ?? "").split(":").filter(Boolean)) known[extra] = [extra];
   for (const [name, paths] of Object.entries(known)) {
     for (const path of paths) {
@@ -150,9 +150,9 @@ function reachable(path) {
  * things that must not get in: the canary as tokens, NODE_OPTIONS, and
  * ZENIUS_SOCKET and ZENIUS_HOME pointing elsewhere.
  */
-function launch(args, { cwd = task, env = {}, stdin = "", timeoutMs = 180_000 } = {}) {
+function launch(args, { cwd = task, env = {}, stdin = "", timeoutMs = 180_000, launcher = LAUNCHER } = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(LAUNCHER, args, {
+    const child = spawn(launcher, args, {
       cwd,
       env: {
         ...process.env,
@@ -569,6 +569,70 @@ console.log(JSON.stringify(out));
   assert.deepEqual(got, []);
 });
 
+// install-cli.sh --sandbox --read-dir, the user's ~/Downloads (D4 in
+// docs/briefs/defenses-evidence.md); run.sh installs with a folder of its own.
+test("a script reads and uploads from the install's read folder, writes nothing there, and can't upload a link in it to a file outside", async () => {
+  const reads = launcherValue("READ_DIR");
+  assert.ok(reads, "run.sh installs the launcher with --read-dir");
+  writeFileSync(join(reads, "report.txt"), "from the read folder\n");
+  mkdirSync(join(reads, "sub"), { recursive: true });
+  writeFileSync(join(reads, "sub", "deep.txt"), "deep\n");
+  rmSync(join(reads, "hosts.txt"), { force: true });
+  symlinkSync("/etc/hosts", join(reads, "hosts.txt"));
+  const { out, leaks } = await script(`${PRELUDE}
+const C = ${JSON.stringify({ reads, base: fixtures.base })};
+out.readDir = process.env.ZENIUS_READ_DIR ?? null;
+await attempt("read", () => fs.readFileSync(C.reads + "/report.txt", "utf8"));
+await attempt("read a subfolder", () => fs.readFileSync(C.reads + "/sub/deep.txt", "utf8"));
+await attempt("add", () => { fs.writeFileSync(C.reads + "/added.txt", "x"); return "wrote"; });
+await attempt("change", () => { fs.writeFileSync(C.reads + "/report.txt", "changed"); return "wrote"; });
+let task;
+try {
+  task = await taskSpace("it security read folder " + process.pid + " " + Date.now());
+  const page = task.page("p1");
+  await page.goto(C.base + "/upload");
+  await attempt("upload", async () => {
+    await page.setInputFiles("#files", C.reads + "/report.txt");
+    await page.waitForFunction(() => JSON.parse(document.documentElement.dataset.uploaded ?? "null") !== null);
+    return page.evaluate(() => JSON.parse(document.documentElement.dataset.uploaded ?? "null").map(({ name, text }) => ({ name, text })));
+  });
+  await attempt("upload a link out", () => page.setInputFiles("#files", C.reads + "/hosts.txt").then(() => "uploaded"));
+} finally {
+  await task?.finish({ keep: [] });
+}
+console.log(JSON.stringify(out));
+`);
+  const got = [...leaks.map((name) => `the canary showed in ${name}`)];
+  if (out.readDir !== reads) got.push(`ZENIUS_READ_DIR was ${out.readDir}, not ${reads}`);
+  if (out.read?.value !== "from the read folder\n") got.push(`read: ${JSON.stringify(out.read)}`);
+  if (out["read a subfolder"]?.value !== "deep\n") got.push(`read a subfolder: ${JSON.stringify(out["read a subfolder"])}`);
+  if (out.add?.ok !== false || existsSync(join(reads, "added.txt"))) got.push("a script added a file to the read folder");
+  if (out.change?.ok !== false || readFileSync(join(reads, "report.txt"), "utf8") !== "from the read folder\n") got.push("a script changed a file in the read folder");
+  if (JSON.stringify(out.upload?.value) !== JSON.stringify([{ name: "report.txt", text: "from the read folder\n" }])) got.push(`upload: ${JSON.stringify(out.upload)}`);
+  const viaLink = out["upload a link out"];
+  if (viaLink?.code !== "ZEN_PATH_NOT_ALLOWED" || !viaLink.message.includes(`and ${reads}, and `)) got.push(`upload a link out: ${JSON.stringify(viaLink)}`);
+  assert.deepEqual(got, []);
+});
+
+test("a read folder wider than a task's stops the launcher with the reason, and one that has gone is just not granted", async () => {
+  const text = readFileSync(LAUNCHER, "utf8");
+  let made = 0;
+  const doctored = (dir) => {
+    const file = join(work, `launcher-${(made += 1)}`);
+    writeFileSync(file, text.replace(/^READ_DIR='.*'$/m, `READ_DIR='${dir.replaceAll("'", "'\\''")}'`), { mode: 0o755 });
+    return file;
+  };
+  const got = [];
+  for (const dir of [HOME, ZHOME, "/tmp", "/"]) {
+    const result = await launch(["--version"], { launcher: doctored(dir) });
+    const said = /^zenius \(sandboxed\): the folder this install lets scripts read, (.*), holds more than a task's files/.exec(result.stderr);
+    if (result.code !== 70 || !said) got.push(`${dir}: exit ${result.code}, ${result.stderr.trim().slice(0, 300)}`);
+  }
+  const gone = await launch(["--version"], { launcher: doctored(join(work, "gone")) });
+  if (gone.code !== 0 || !/\(protocol 1, sandboxed\)/.test(gone.stdout)) got.push(`a folder that has gone: exit ${gone.code}, ${gone.stderr.trim().slice(0, 300)}`);
+  assert.deepEqual(got, []);
+});
+
 test("inside a Codex sandbox it can't work in, the launcher says why and stops before any step", async () => {
   // Linux: Codex sets CODEX_SANDBOX_NETWORK_DISABLED=1 while its seccomp
   // refuses every socket, Zen's and bubblewrap's loopback. macOS: Codex's
@@ -627,6 +691,32 @@ test("the launcher passes the claim prompt's label for the agent, and none of th
     const want = { client, claude: null, codex: null };
     if (JSON.stringify(out) !== JSON.stringify(want)) got.push(`${JSON.stringify(env)}: ${JSON.stringify(out)}`);
   }
+  assert.deepEqual(got, []);
+});
+
+// The task's source for the sidebar (docs/briefs/external-tasks.md): display
+// text the runtime keeps only within its label set, and the sidebar's own
+// conversation id (ZENIUS_SIDEBAR_TASK, which the sidebar's zenius mcp gets),
+// passed exactly or not at all.
+test("the launcher passes the task's source: a plain HC_TERMINAL_ID, a plain ZENIUS_SIDEBAR_TASK, and the working folder's name even when it isn't granted", async () => {
+  const probe = `console.log(JSON.stringify({ terminal: process.env.HC_TERMINAL_ID ?? null, sidebar: process.env.ZENIUS_SIDEBAR_TASK ?? null, folder: process.env.ZENIUS_FOLDER ?? null, cwd: process.cwd() }));`;
+  const uid = "3f2c9a10-7b4e-4c1d-9a2f-0e5d6c7b8a91";
+  const got = [];
+  for (const [env, terminal, sidebar] of [
+    [{ HC_TERMINAL_ID: "t5x", ZENIUS_SIDEBAR_TASK: uid }, "t5x", uid],
+    [{ HC_TERMINAL_ID: "t5x; touch /tmp/x", ZENIUS_SIDEBAR_TASK: `${uid}; touch /tmp/x` }, null, null],
+    [{ HC_TERMINAL_ID: undefined, ZENIUS_SIDEBAR_TASK: "a".repeat(64) }, null, "a".repeat(64)],
+    [{ HC_TERMINAL_ID: undefined, ZENIUS_SIDEBAR_TASK: "a".repeat(65) }, null, null],
+    [{ HC_TERMINAL_ID: undefined, ZENIUS_SIDEBAR_TASK: "3f2c_9a10" }, null, null],
+    [{ HC_TERMINAL_ID: undefined, ZENIUS_SIDEBAR_TASK: undefined }, null, null],
+  ]) {
+    const { out } = await script(probe, { env });
+    if (out.terminal !== terminal || out.sidebar !== sidebar || out.folder !== "task") got.push(`${JSON.stringify(env)}: ${JSON.stringify(out)}`);
+  }
+  // The home folder isn't granted, so the script starts in its temporary
+  // folder; the source still names the folder, by its name only.
+  const home = (await script(probe, { cwd: HOME, env: { HC_TERMINAL_ID: "t5x" } })).out;
+  if (home.folder !== basename(realpathSync(HOME)) || home.cwd === realpathSync(HOME)) got.push(`the home folder: ${JSON.stringify(home)}`);
   assert.deepEqual(got, []);
 });
 

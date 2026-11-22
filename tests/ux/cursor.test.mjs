@@ -29,7 +29,7 @@ after(async () => {
   await h?.close();
 });
 
-test("on a hidden tab, a move records the point and returns at once", async () => {
+test("on a hidden tab, a move records the point and returns at once", async t => {
   const r = await h.call("ui.cursor", { space, page: "p1", x: 120, y: 80, label: "Open the menu", kind: "click" });
   assert.deepEqual(r, { ok: true, visible: false, animated: false });
 
@@ -40,6 +40,7 @@ test("on a hidden tab, a move records the point and returns at once", async () =
     for (let i = 0; i < N; i++) await C.moveCursor(tab, { x: i % 300, y: 90 }, { label: "Scan", kind: "move" });
     return {
       perCallMs: (ChromeUtils.now() - t0) / N,
+      inMoveMs: C.stats.hiddenMs / C.stats.hidden,
       stats: { moves: C.stats.moves, hidden: C.stats.hidden, animated: C.stats.animated },
       state: C.cursorState(tab),
       layers: browser.parentElement.querySelectorAll(".zenius-cursor-layer").length,
@@ -47,7 +48,12 @@ test("on a hidden tab, a move records the point and returns at once", async () =
   `);
   assert.equal(out.stats.hidden, 1000);
   assert.equal(out.stats.animated, 0);
-  assert.ok(out.perCallMs < 0.1, `hidden move costs ${out.perCallMs} ms`);
+  // Returning at once means no frame, no animation and no overlay: far under
+  // a millisecond. The bound leaves room for a busy machine (zen-eval measured
+  // 0.23 ms a move on a Mac during a Zoom call); a wait for a frame or an
+  // animation would still cost several times it.
+  t.diagnostic(`a hidden move: ${out.perCallMs.toFixed(4)} ms a call, ${out.inMoveMs.toFixed(4)} ms of it in moveCursor`);
+  assert.ok(out.perCallMs < 1, `a hidden move costs ${out.perCallMs} ms (${out.inMoveMs} ms in moveCursor)`);
   assert.equal(out.layers, 0, "no overlay DOM for a tab nobody has seen");
   assert.equal(out.state.x, 999 % 300);
   assert.equal(out.state.label, "Scan");
@@ -106,6 +112,54 @@ test("the cursor lands on the same page point at 150% zoom", async () => {
   assert.equal(out.r.visible, true);
   assert.equal(out.transform, "translate(150px, 90px)");
   assert.equal(out.after, "translate(100px, 60px)", "a zoom change re-renders at the new scale");
+});
+
+test("the arrow's visible tip, its fill's farthest point the way it points, sits on the click point within half a pixel, at 100% and 150% zoom, however round its corners", async () => {
+  const out = await h.chrome(`${P}
+    // The way the arrow points: back along the bisector of its two long
+    // edges, which leave the tip toward (19.3, 11.3) and (6.2, 20.5) in the
+    // path's 24-unit box. Rounding moves no edge's direction.
+    const unit = (x, y) => { const l = Math.hypot(x, y); return [x / l, y / l]; };
+    const [ax, ay] = unit(19.3 - 3, 11.3 - 2);
+    const [bx, by] = unit(6.2 - 3, 20.5 - 2);
+    const [dx, dy] = unit(-(ax + bx), -(ay + by));
+    if (gBrowser.selectedTab !== tab) {
+      await ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI.openSpace(rec);
+      await until(() => gBrowser.selectedTab === tab);
+    }
+    const res = [];
+    try {
+      for (const zoom of [1, 1.5]) {
+        browser.fullZoom = zoom;
+        await sleep(300);
+        await C.moveCursor(tab, { x: 100, y: 60 }, { kind: "move" });
+        const el = browser.parentElement.querySelector(".zenius-cursor");
+        const svg = el.querySelector(".zenius-cursor-arrow");
+        const path = svg.querySelector("path");
+        const len = path.getTotalLength();
+        let best = null;
+        for (let i = 0; i <= 4000; i++) {
+          const p = path.getPointAtLength((len * i) / 4000);
+          const reach = p.x * dx + p.y * dy;
+          if (!best || reach > best.reach) best = { reach, x: p.x, y: p.y };
+        }
+        const box = svg.getBoundingClientRect();
+        const tip = { x: box.left + (best.x * box.width) / 24, y: box.top + (best.y * box.height) / 24 };
+        const [, tx, ty] = el.style.transform.match(/translate\\(([-\\d.]+)px, ([-\\d.]+)px\\)/).map(Number);
+        const layer = el.parentElement.getBoundingClientRect();
+        const click = { x: layer.left + tx, y: layer.top + ty };
+        res.push({ zoom, off: Math.hypot(tip.x - click.x, tip.y - click.y), click: [tx, ty] });
+      }
+    } finally {
+      browser.fullZoom = 1;
+      await sleep(300);
+    }
+    return res;
+  `);
+  for (const r of out) {
+    assert.ok(r.off < 0.5, `at ${r.zoom * 100}% the tip is ${r.off.toFixed(2)} px off the click point`);
+  }
+  assert.deepEqual(out.map(r => r.click), [[100, 60], [150, 90]]);
 });
 
 test("content screenshots never include the cursor", async () => {

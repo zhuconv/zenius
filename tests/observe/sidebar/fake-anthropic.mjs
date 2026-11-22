@@ -4,7 +4,11 @@
 // the system prompt, the tools it offers, and the results of tool calls.
 //
 //   const api = await startFakeAnthropic(reply);
-//   reply(request) -> { text } | { tool: { name, input } }
+//   reply(request) -> { text } | { tool: { name, input } } | { blocks: [...] }
+//
+// `blocks` are whole content blocks, as a server tool's turn has them: the
+// answer to WebSearch's own request (server_tool_use, web_search_tool_result,
+// text). zen-sidebar added them for Chat's fetch rule.
 //   api.url, api.requests (each { system, tools, messages, last }), api.close()
 //
 // `last` is the newest user turn as plain text, tool results included
@@ -55,27 +59,46 @@ function sse(res, events) {
 
 let nextId = 1;
 
+/** A block's stream events, as the API sends them: text and tool input in
+ * deltas, anything else (a server tool's result) whole at its start. */
+function streamed(block, index) {
+  if (block.type === "text") {
+    return [
+      ["content_block_start", { index, content_block: { type: "text", text: "" } }],
+      ["content_block_delta", { index, delta: { type: "text_delta", text: block.text } }],
+      ["content_block_stop", { index }],
+    ];
+  }
+  if (block.type === "tool_use" || block.type === "server_tool_use") {
+    return [
+      ["content_block_start", { index, content_block: { ...block, input: {} } }],
+      ["content_block_delta", { index, delta: { type: "input_json_delta", partial_json: JSON.stringify(block.input ?? {}) } }],
+      ["content_block_stop", { index }],
+    ];
+  }
+  return [
+    ["content_block_start", { index, content_block: block }],
+    ["content_block_stop", { index }],
+  ];
+}
+
 function answer(res, body, spec) {
   const id = `msg_fake_${nextId++}`;
-  const block = spec.tool
-    ? { type: "tool_use", id: `toolu_fake_${nextId++}`, name: spec.tool.name, input: spec.tool.input ?? {} }
-    : { type: "text", text: spec.text ?? "ok" };
+  const blocks = spec.blocks ?? [
+    spec.tool
+      ? { type: "tool_use", id: `toolu_fake_${nextId++}`, name: spec.tool.name, input: spec.tool.input ?? {} }
+      : { type: "text", text: spec.text ?? "ok" },
+  ];
   const stop = spec.tool ? "tool_use" : "end_turn";
   const usage = { input_tokens: 10, output_tokens: 5, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 };
   if (!body.stream) {
     res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ id, type: "message", role: "assistant", model: body.model, content: [block], stop_reason: stop, stop_sequence: null, usage }));
+    res.end(JSON.stringify({ id, type: "message", role: "assistant", model: body.model, content: blocks, stop_reason: stop, stop_sequence: null, usage }));
     return;
   }
-  const start = spec.tool ? { ...block, input: {} } : { type: "text", text: "" };
-  const delta = spec.tool
-    ? { type: "input_json_delta", partial_json: JSON.stringify(block.input) }
-    : { type: "text_delta", text: block.text };
   sse(res, [
     ["message_start", { message: { id, type: "message", role: "assistant", model: body.model, content: [], stop_reason: null, stop_sequence: null, usage: { ...usage, output_tokens: 1 } } }],
-    ["content_block_start", { index: 0, content_block: start }],
-    ["content_block_delta", { index: 0, delta }],
-    ["content_block_stop", { index: 0 }],
+    ...blocks.flatMap(streamed),
     ["message_delta", { delta: { stop_reason: stop, stop_sequence: null }, usage: { output_tokens: 5 } }],
     ["message_stop", {}],
   ]);

@@ -69,6 +69,13 @@ async function until(what, fn, ms = 5000) {
     }
   }
 }
+/** The page's hooked evidence, as the parent has it (observe/evidence.sys.mjs), or null. */
+const hookedOf = P =>
+  env.chrome(
+    `const EV = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/evidence.sys.mjs");
+     return EV.evidenceOf(ctx.resolvePage(arg.P).browser).hooked ?? null;`,
+    { P }
+  );
 /** Run `code` (a function body) in the page's own JavaScript, as the page's scripts would. */
 const pageWorld = (P, code) =>
   env.chrome(
@@ -136,13 +143,12 @@ test("through the Xray, the agent's code reads an open shadow root, live form va
     assert.ok((await page.evaluate(`document.getElementById("bottom").scrollIntoView(); window.scrollY`)) > 0);
   }));
 
-test("string timers are refused in the world; function timers run there", () =>
+test("a string timer runs in the page itself and marks it hooked (the user's pass on the defenses brief, A9); function timers run in the world", () =>
   env.inSpace("world timers", async page => {
     await page.goto(`${env.base}/nav-target?timers`);
-    for (const code of [`setTimeout("document.title = 'x'", 0); 1`, `window.setInterval("1", 10); 1`]) {
-      const e = await failsWith(page.evaluate(code), "ZEN_AGENT_CODE_REFUSED", { method: "page.evaluate", reason: "pageWorld", route: "string timer" });
-      assert.match(e.message, /used a string timer \(setTimeout and setInterval take only a function here\), which would run code in the page itself/);
-    }
+    assert.equal(await page.evaluate(`setTimeout("document.title = 'string'", 0); 1`), 1);
+    await until("the page's own title", async () => (await pageWorld(page.P, "return document.title;")) === "string");
+    await until("the mark", async () => (await hookedOf(page.P)) === "a string timer");
     assert.equal(await page.evaluate("new Promise(r => setTimeout(() => r(7), 10))"), 7);
   }));
 
@@ -245,7 +251,7 @@ const SYSTEM_CLIPBOARD = `const flavor = "text/plain";
   const setSystem = text => { const t = transferable(); const s = Cc["@mozilla.org/supports-string;1"].createInstance(Ci.nsISupportsString); s.data = text; t.setTransferData(flavor, s); Services.clipboard.setData(t, null, Ci.nsIClipboard.kGlobalClipboard); };
   const getSystem = () => { const t = transferable(); try { Services.clipboard.getData(t, Ci.nsIClipboard.kGlobalClipboard, null); const out = {}; t.getTransferData(flavor, out); return out.value.QueryInterface(Ci.nsISupportsString).data; } catch { return null; } };`;
 
-test("the world gets the guards other modules put on the page's prototypes: zen-ux's clipboard wrappers, a no to passkeys, and a geolocation refusal it can read", { skip: process.platform !== "linux" && "the system clipboard is the user's here" }, () =>
+test("the world gets the guards other modules put on the page's prototypes: zen-ux's clipboard wrappers, a no to passkeys, and, on evidence, a geolocation refusal it can read", { skip: process.platform !== "linux" && "the system clipboard is the user's here" }, () =>
   env.inSpace("world prototype guards", async page => {
     await page.goto(`${env.base}/nav-target?prototype-guards`);
     const sentinel = `zo-user-clipboard-${Date.now()}`;
@@ -289,6 +295,11 @@ test("the world gets the guards other modules put on the page's prototypes: zen-
     });
     assert.deepEqual(passkeys, ["get NotAllowedError", "create NotAllowedError"]);
 
+    // Location is refused only on evidence (A8): the code leaves a style sheet first.
+    await page.evaluate(() => {
+      document.head.append(Object.assign(document.createElement("style"), { textContent: "#zo-hooked {}" }));
+      return true;
+    });
     const geo = await page.evaluate(
       () =>
         new Promise(resolve =>
@@ -355,29 +366,33 @@ test("the hook: reads, JavaScript's own built-ins and the agent's actions don't 
     assert.equal(await pageWorld(page.P, "return document.body.getAttribute('data-hx-on');"), "x");
   }));
 
-test("the hook refuses the routes into the page's own JavaScript: another window's timer, a location set past window.location, javascript: URLs, the page's eval and Function, script elements", () =>
+test("the routes into the page's own JavaScript run there and mark the page hooked (A9): another window's timer, a location set past window.location, javascript: URLs, the page's eval and Function, script elements", () =>
   env.inSpace("world routes", async page => {
     await page.goto(`${env.base}/nav-target?routes`);
     await page.evaluate(`(() => { const f = document.createElement("iframe"); f.id = "zo-frame"; document.body.append(f); return 1; })()`);
+    // Each one runs the page's own JavaScript, which leaves its name in data-ran.
     const routes = [
-      ["timer", "() => { document.getElementById('zo-frame').contentWindow.setTimeout(() => {}, 0); }"],
-      ["location", "() => { document.location = 'javascript:document.documentElement.dataset.ran = \"location\"'; }"],
-      ["javascript: URL", "() => { location.href = 'javascript:document.documentElement.dataset.ran = \"href\"'; }"],
-      ["javascript: URL", "() => { location.assign('javascript:document.documentElement.dataset.ran = \"assign\"'); }"],
-      ["javascript: URL", "() => { window.location = 'javascript:document.documentElement.dataset.ran = \"set\"'; }"],
-      ["javascript: URL", "() => { window.open('javascript:opener.document.documentElement.dataset.ran = \"open\"'); }"],
+      ["location", "() => { document.location = 'javascript:void(document.documentElement.dataset.ran = \"location\")'; }"],
+      ["href", "() => { location.href = 'javascript:void(document.documentElement.dataset.ran = \"href\")'; }"],
+      ["assign", "() => { location.assign('javascript:void(document.documentElement.dataset.ran = \"assign\")'); }"],
+      ["set", "() => { window.location = 'javascript:void(document.documentElement.dataset.ran = \"set\")'; }"],
+      ["open", "() => { window.open('javascript:void(opener.document.documentElement.dataset.ran = \"open\")'); }"],
       ["eval", "() => { top.eval('document.documentElement.dataset.ran = \"eval\"'); }"],
       ["Function", "() => { new top.Function('document.documentElement.dataset.ran = \"Function\"')(); }"],
-      ["script element", "() => { const s = document.createElement('script'); s.textContent = 'document.documentElement.dataset.ran = \"script\"'; document.head.append(s); }"],
-      ["script element", "() => { document.getElementById('zo-frame').contentDocument.write('<script>parent.document.documentElement.dataset.ran = \"write\"<\\/script>'); }"],
-      ["string timer", "() => { setTimeout('document.documentElement.dataset.ran = \"string\"', 0); }"],
+      ["script", "() => { const s = document.createElement('script'); s.textContent = 'document.documentElement.dataset.ran = \"script\"'; document.head.append(s); }"],
+      ["write", "() => { document.getElementById('zo-frame').contentDocument.write('<script>parent.document.documentElement.dataset.ran = \"write\"<\\/script>'); }"],
+      ["string", "() => { setTimeout('document.documentElement.dataset.ran = \"string\"', 0); }"],
+      ["timer", "() => { document.getElementById('zo-frame').contentWindow.setTimeout(() => { document.documentElement.dataset.ran = 'timer'; }, 0); }"],
     ];
-    for (const [route, fn] of routes) {
-      const e = await failsWith(evaluateFn(page.P, fn), "ZEN_AGENT_CODE_REFUSED", { method: "page.evaluate", reason: "pageWorld", route });
-      assert.doesNotMatch(e.message, /zenius:\/\//, "the message names no internal URL");
+    for (const [ran, fn] of routes) {
+      await evaluateFn(page.P, fn);
+      // window.open's javascript: page runs in the popup, which zenius may
+      // leave without an opener: the call only has to go through.
+      if (ran !== "open") {
+        await until(`the page's ${ran}`, async () => (await ranInPage(page.P)) === ran);
+      }
     }
-    await sleep(300);
-    assert.equal(await ranInPage(page.P), null, "a route ran the page's own JavaScript");
+    assert.notEqual(await hookedOf(page.P), null, "the page is hooked");
     // What the world may do: its own timers, window.location to an address, the hash.
     assert.equal(await evaluateFn(page.P, "() => new Promise(r => setTimeout(() => r('timer'), 5))"), "timer");
     await evaluateFn(page.P, "() => { location.hash = 'here'; return 1; }");
@@ -391,23 +406,11 @@ const siteScript = (P, code) =>
     `const s = document.createElement("script"); s.textContent = ${JSON.stringify(code)}; document.documentElement.append(s); s.remove(); return document.documentElement.dataset.site ?? null;`
   );
 
-test("the page's eval kinds: the world's call through a built-in is refused too (self-hosted, native, a promise job); the site's own eval and Function run beside the world, also in a listener the agent's click fires", () =>
+test("the page's eval kinds: the world's call through a built-in runs and marks the page too (self-hosted, native, a promise job); the site's own eval and Function mark nothing, also in a listener the agent's click fires", () =>
   env.inSpace("world eval kinds", async page => {
     await page.goto(`${env.base}/nav-target?eval-kinds`);
     assert.equal(await evaluateFn(page.P, "() => 1"), 1, "the world is made");
-    const routes = [
-      ["eval", "() => { ['document.documentElement.dataset.ran = \"map\"'].map(top.eval); }"],
-      ["eval", "() => { Reflect.apply(top.eval, null, ['document.documentElement.dataset.ran = \"apply\"']); }"],
-      ["Function", "() => { Reflect.construct(top.Function, ['document.documentElement.dataset.ran = \"construct\"'])(); }"],
-    ];
-    for (const [route, fn] of routes) {
-      await failsWith(evaluateFn(page.P, fn), "ZEN_AGENT_CODE_REFUSED", { method: "page.evaluate", reason: "pageWorld", route });
-    }
-    // A job the world queues runs the page's eval with no frame of the world's on the stack.
-    await evaluateFn(page.P, "() => { Promise.resolve('document.documentElement.dataset.ran = \"job\"').then(top.eval); return 1; }").catch(() => {});
-    await sleep(300);
-    assert.equal(await ranInPage(page.P), null, "a route ran the page's own JavaScript");
-    // The site's own eval and Function, beside the world.
+    // The site's own eval and Function, beside the world, mark nothing.
     assert.equal(await siteScript(page.P, "document.documentElement.dataset.site = String(eval('6 * 7') + new Function('return 1')());"), "43");
     await siteScript(
       page.P,
@@ -415,6 +418,20 @@ test("the page's eval kinds: the world's call through a built-in is refused too 
     );
     await page.call("page.click", { target: "#zo-ev" });
     assert.equal(await pageWorld(page.P, "return document.documentElement.dataset.site ?? null;"), "4", "the site's listener ran its eval");
+    assert.equal(await hookedOf(page.P), null, "the site's own eval marked the page");
+    const routes = [
+      ["map", "eval in the page", "() => { ['document.documentElement.dataset.ran = \"map\"'].map(top.eval); }"],
+      ["apply", "eval in the page", "() => { Reflect.apply(top.eval, null, ['document.documentElement.dataset.ran = \"apply\"']); }"],
+      ["construct", "Function in the page", "() => { Reflect.construct(top.Function, ['document.documentElement.dataset.ran = \"construct\"'])(); }"],
+      // A job the world queues runs the page's eval with no frame of the world's on the stack.
+      ["job", "eval in the page", "() => { Promise.resolve('document.documentElement.dataset.ran = \"job\"').then(top.eval); return 1; }"],
+    ];
+    for (const [ran, detail, fn] of routes) {
+      await page.goto(`${env.base}/nav-target?eval-kinds-${ran}`);
+      await evaluateFn(page.P, fn);
+      await until(`the page's ${ran}`, async () => (await ranInPage(page.P)) === ran);
+      await until(`${ran}'s mark`, async () => (await hookedOf(page.P)) === detail);
+    }
   }));
 
 test("the deadline stops the agent's code that runs past it: a loop that calls no built-in, a callback the call left, and one left after the call; later callbacks still run", () =>

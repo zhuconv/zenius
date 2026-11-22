@@ -439,80 +439,11 @@ function sitesIn(top) {
 }
 
 /**
- * At a hand-off, before the user's card shows: where the agent's code may
- * be that could reach what the user types in the page H (the manager's
- * rule, 2026-11-20). zen-core picks the remedy from the answer; zen-ux
- * refuses the hand-off on the agent's own page. Call holdPage() first.
- *
- * - `page`: H's own documents (top or frames) may hold the agent's code,
- *   or what its code left there (a form value of its world's is no write):
- *   the top document is marked (the code ran in it or in one of its frames,
- *   or it's written), or, while the task lives, a document of H from before
- *   the hold shows a site where the task's agent ran code. Documents a hold
- *   or a zenius clean load brought don't count by site (holdReload,
- *   noteCleanLoad): a clean copy of a written page holds nothing, so Take
- *   over doesn't reload it again (zen-sdk's rehearsal on 424962d), until
- *   the agent's code runs in its group again. A document that comes in
- *   beside a written one is flagged itself (content/agentworld.sys.mjs,
- *   flagIfExposed). A reload in place replaces them.
- * - `agentPage`: H is the agent's own page (agentMadePage: data:, blob:, a
- *   written about:blank).
- * - `reaching`: the other windows of H's browsing context group (opener,
- *   popups and theirs) that may hold the agent's code, by the same test,
- *   and
- *   show a site that one of H's documents shows, top or frame on either
- *   side. Through top, opener and frames, which work across origins, such a
- *   window can walk to H's document of that site and script it. Site, not
- *   origin: Gecko 160's agent clusters are site-keyed by default, so two
- *   documents of a site that both set document.domain script each other.
- *   Windows of another site can't read H; the navigation guard stops them
- *   moving it. `browser` is the window's <browser>, `opener` whether it is
- *   H's opener. A popup that joined H's hold isn't counted.
- * - `opener`: H's opener: "none", "reaching" (one of `reaching`), or
- *   "other" (an opener that can't reach H, whose flow a group switch would
- *   break).
- *
- * @param {{id: number}|null} rec  the task's space record while the task
- *   lives; null after it, when only the marks count
- * @param {Element} browser  H's <browser>
- * @returns {{page: boolean, agentPage: boolean, reaching: Array<{browser: Element|null, opener: boolean}>, opener: "none"|"reaching"|"other"}}
- */
-export function handOffCheck(rec, browser) {
-  const check = { page: false, agentPage: false, reaching: [], opener: "none" };
-  const top = topOf(browser);
-  if (!top) {
-    return check;
-  }
-  const live = rec?.id !== undefined && rec?.id !== null;
-  check.page = mayHoldCode(rec, live, top);
-  check.agentPage = live ? agentMadePage(rec, browser) : check.page && madeAddress(top);
-  const sitesOfH = sitesIn(top);
-  let opener = null;
-  try {
-    opener = top.opener?.top ?? null;
-  } catch {}
-  if (opener && !opener.isDiscarded) {
-    check.opener = "other";
-  }
-  for (const other of othersOutsideHold(top)) {
-    try {
-      if (!mayHoldCode(rec, live, other) || ![...sitesIn(other)].some(site => sitesOfH.has(site))) {
-        continue;
-      }
-      const isOpener = !!opener && other.id === opener.id;
-      check.reaching.push({ browser: other.embedderElement ?? null, opener: isOpener });
-      if (isOpener) {
-        check.opener = "reaching";
-      }
-    } catch {}
-  }
-  return check;
-}
-
-/**
  * May the agent's code be in this tab's documents? Its top document is
- * marked, or, while the task lives, one of its documents from before a hold
- * shows a site where the task's agent ran code.
+ * marked, or, while the task lives, one of its documents shows a site where
+ * the task's agent ran code, other than the fresh ones: a held tab's made
+ * since its hold began, a window's that zen-core reloaded for a hold
+ * (holdReload), and a clean copy's (noteCleanLoad).
  */
 function mayHoldCode(rec, live, tab) {
   return (
@@ -527,11 +458,10 @@ function mayHoldCode(rec, live, tab) {
  * at the user's press, Resume's reload, the hand-off's own loads):
  * browserId → the tab's documents (innerWindowId) just before the load. The
  * documents the load brought hold nothing of the agent's, so the site rule
- * skips them, as a hold skips its fresh ones (zen-sdk's rehearsal on
- * 424962d: Take over reloaded a clean copy again). Once the agent's code
- * runs anywhere in the tab's group again, a world could leave code or form
- * values in them (a form value is no write), so they count by site again
- * (noteAgentCode).
+ * skips them, as it skips a hold's fresh ones (fromBeforeHold). Once the
+ * agent's code runs anywhere in the tab's group again, a world could leave
+ * code or form values in them (a form value is no write), so they count by
+ * site again (noteAgentCode).
  */
 const cleanLoaded = new Map();
 
@@ -641,16 +571,6 @@ export function agentSitesNear(rec, browser) {
     } catch {}
   }
   return found;
-}
-
-/** Is the top document at an address only script or the agent makes, and not the user's own from an adoption? */
-function madeAddress(top) {
-  try {
-    const windowGlobal = top.currentWindowGlobal;
-    return !!windowGlobal && !adoptedDocs.has(windowGlobal.innerWindowId) && MADE_URL.test(windowGlobal.documentURI?.spec ?? "");
-  } catch {
-    return false;
-  }
 }
 
 /** A finished task's record goes: its pages are the user's, or closed. */

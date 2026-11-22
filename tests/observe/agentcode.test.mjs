@@ -202,6 +202,16 @@ const marked = page =>
     page.P
   );
 
+test("a task's untouched about:blank holds nothing and isn't the agent's page; one the agent's code wrote into is both", () =>
+  env.inSpace("agent blank page", async page => {
+    // The agent hands the user an empty tab to go to their bank themselves.
+    assert.equal(await page.call("page.url"), "about:blank");
+    assert.deepEqual({ marked: await marked(page), made: await madePage(page) }, { marked: false, made: false });
+    // The agent's code draws a sign-in form into it: the agent's page.
+    await page.evaluate(`document.body.innerHTML = "<form><input type=password name=pw></form>"; 1`);
+    assert.deepEqual({ marked: await marked(page), made: await madePage(page) }, { marked: true, made: true });
+  }));
+
 test("a data: or blob: page that page.goto or pages.new loads is marked as the agent's code, and so is its reload; a website's page isn't", () =>
   env.inSpace("agent code loads", async page => {
     await page.goto(`${vectors.base}/plain?loads`);

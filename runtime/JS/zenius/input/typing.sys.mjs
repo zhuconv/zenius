@@ -1,7 +1,8 @@
 // The typing guard's parent half (zen-input; the manager's owners note,
-// 2026-11-20). content/typing.sys.mjs stops the user's first press or key
-// into a field of a page the agent's world wrote into, and tells this
-// module, which:
+// 2026-11-20; on evidence only since the user's call of 2026-11-21).
+// content/typing.sys.mjs stops the user's first press or key anywhere in a
+// page the agent's code left something hooked in (zen-observe's evidence),
+// and tells this module, which:
 // - holds the tab's typing in every process of the tab, through sharedData,
 //   until its top document is replaced;
 // - asks zen-core for a clean copy (ZeniusService.cleanOnDemand): the page
@@ -240,14 +241,17 @@ export function dropUserTyping(browser) {
 }
 
 /**
- * zen-ux: `fn({browser, trigger, reloaded})` when the typing guard stopped
- * the user's first press or key into a field of a page the agent's world
- * wrote into, once per document. `trigger` is "press", "key", "paste",
- * "drop" or "composition". `reloaded` is zen-core's cleanOnDemand promise:
- * it resolves once the clean document is in with the form and focus back,
- * and rejects if none came; the user's keys there stay dropped then.
+ * zen-ux: `fn({browser, trigger, field, reloaded})` when the typing guard
+ * stopped the user's first press or key in a hooked page
+ * (anywhere in the tab, a button too), once per document. `trigger`
+ * is "press", "key", "paste", "drop" or "composition". `field`: the trigger
+ * went for a field, so the clean copy gets its focus and the user's keys
+ * back (the replay); else their press went nowhere. `reloaded` is zen-core's
+ * cleanOnDemand promise: it resolves once the clean document is in with the
+ * form and focus back, and rejects if none came; the user's keys there stay
+ * dropped then.
  *
- * @param {(e: {browser: Element, trigger: string, reloaded: Promise}) => void} fn
+ * @param {(e: {browser: Element, trigger: string, field: boolean, reloaded: Promise}) => void} fn
  * @returns {() => void} unsubscribe
  */
 export function onUserTyping(fn) {
@@ -298,7 +302,7 @@ export function noteUserTyping(browser, { trigger, doc, field } = {}) {
   reloaded.then(forget, forget);
   for (const fn of [...hooks]) {
     try {
-      fn({ browser, trigger, reloaded });
+      fn({ browser, trigger, field: field === true, reloaded });
     } catch (e) {
       console.error("[zenius] an onUserTyping hook failed", e);
     }

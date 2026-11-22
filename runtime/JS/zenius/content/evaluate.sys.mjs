@@ -76,7 +76,7 @@ function loopCounterOff() {
  * Run the agent's `fn` for the document in `win`: in the agent's world for
  * it (content/agentworld.sys.mjs), never in the page's own JavaScript. The
  * outcome carries the world's report of the call: the page globals its code
- * couldn't see, and the routes into the page itself it was refused.
+ * couldn't see.
  */
 export async function runInWorld(win, args) {
   if (pageWorldForTests()) {
@@ -140,14 +140,10 @@ function runIn(win, target, url, { fn, isFunction, hasArg, arg }, rewrite = null
 }
 
 /**
- * The call fails when its code was refused a route into the page itself, or
- * read a page global it couldn't see, even when the code caught the throw:
- * a difference never passes silently.
+ * The call fails when its code read a page global it couldn't see, even when
+ * the code caught the throw: a difference never passes silently.
  */
 function worldRefusal(report) {
-  if (report?.refused?.length) {
-    return { worldRefused: { reason: "pageWorld", route: report.refused[0] } };
-  }
   if (report?.missed?.length) {
     return { worldRefused: { reason: "pageGlobal", name: report.missed[0] } };
   }
@@ -397,10 +393,13 @@ export async function evaluate(actor, args) {
 /**
  * Ego's waitForFunction poll: Boolean(await predicate) every `polling` ms
  * until it holds or `timeoutMs` passes. A predicate that throws ends the
- * wait at once. Returns {ok} | {timedOut, url, title} | {exception} |
+ * wait at once, but not while the document is still loading: a page with
+ * no body yet throws on what it hasn't parsed (zen-eval's round 2), so that
+ * counts as not yet. `delayMs` holds the first poll, as Ego's does after a
+ * navigation. Returns {ok} | {timedOut, url, title} | {exception} |
  * {terminated}.
  */
-export async function waitForFunction(actor, { id, polling = 100, timeoutMs = 10000, ...args }) {
+export async function waitForFunction(actor, { id, polling = 100, timeoutMs = 10000, delayMs = 0, ...args }) {
   const win = actor.contentWindow;
   if (isStale(actor)) {
     return { navigated: true };
@@ -415,6 +414,19 @@ export async function waitForFunction(actor, { id, polling = 100, timeoutMs = 10
     waits.set(id, cancel);
   }
   try {
+    if (delayMs > 0) {
+      const slept = await Promise.race([
+        new Promise(resolve => setTimeout(resolve, Math.min(delayMs, timeoutMs))),
+        hidden.promise,
+        cancelled,
+      ]);
+      if (slept?.cancelled) {
+        return { cancelled: true };
+      }
+      if (slept?.hidden) {
+        return { navigated: true };
+      }
+    }
     for (;;) {
       // A predicate that runs past the wait's end is stopped there.
       const budgetMs = Math.max(1, deadline - ChromeUtils.now());
@@ -433,9 +445,10 @@ export async function waitForFunction(actor, { id, polling = 100, timeoutMs = 10
         return refused;
       }
       if (outcome.threw) {
-        return { exception: describeError(outcome.error, outcome.at, outcome.edits) };
-      }
-      if (outcome.value) {
+        if (win.document.readyState !== "loading") {
+          return { exception: describeError(outcome.error, outcome.at, outcome.edits) };
+        }
+      } else if (outcome.value) {
         return { ok: true };
       }
       const left = deadline - ChromeUtils.now();

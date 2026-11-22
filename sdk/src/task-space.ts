@@ -46,7 +46,7 @@ export async function clearHandOffMessage(space: number, op: string): Promise<vo
  * How the user handed control back, as spaces.takeOver and
  * spaces.waitForControl report it (PROTOCOL), once per hand back.
  */
-export type HandBack = { openerCut?: true; reloaded?: readonly string[] };
+export type HandBack = { openerCut?: true; reloaded?: readonly string[]; blanked?: readonly string[] };
 
 export type TabInventoryItem = {
   targetId: string;
@@ -107,6 +107,9 @@ export class TaskSpace {
    *   to the agent's Page never arrived.
    * - `reloaded`: the labels of the Pages zenius loaded afresh since the agent
    *   last had control, the hand-off's own reloads included.
+   * - `blanked`: the labels of the Pages zenius emptied (about:blank, with no
+   *   history) at the hand back of a handOff({ secret: true }), so the secret
+   *   the user's step showed can't be read.
    * The own tab, and its `via: "ownTab"`, went with zen-ux's safe holds.
    */
   get handBack(): Readonly<HandBack> | undefined {
@@ -116,14 +119,15 @@ export class TaskSpace {
   #noteHandBack(report: Readonly<Record<string, unknown>> | null | undefined): void {
     // Only true is the flag: the runtime sends it present and true, or not at all.
     const openerCut = report?.openerCut === true;
-    const reloaded =
-      Array.isArray(report?.reloaded) && report.reloaded.length > 0 && report.reloaded.every((label) => typeof label === "string")
-        ? Object.freeze([...(report.reloaded as string[])])
-        : undefined;
-    if (!openerCut && !reloaded) return;
+    const labels = (value: unknown) =>
+      Array.isArray(value) && value.length > 0 && value.every((label) => typeof label === "string") ? Object.freeze([...(value as string[])]) : undefined;
+    const reloaded = labels(report?.reloaded);
+    const blanked = labels(report?.blanked);
+    if (!openerCut && !reloaded && !blanked) return;
     this.#handBack = Object.freeze({
       ...(openerCut ? { openerCut: true as const } : {}),
       ...(reloaded ? { reloaded } : {}),
+      ...(blanked ? { blanked } : {}),
     });
   }
 
@@ -171,7 +175,7 @@ export class TaskSpace {
     await clearHandOffMessage(this.id, "task.waitForControl");
   }
 
-  async handOff(options: { message?: string } = {}): Promise<void> {
+  async handOff(options: { message?: string; secret?: boolean } = {}): Promise<void> {
     validateOptions("TaskSpace.handOff", options);
     const message = options.message?.trim();
     if (options.message !== undefined && !message) {
@@ -181,7 +185,8 @@ export class TaskSpace {
     // agent's words (zen-ux), so the message goes there before the hand-off.
     if (message) await this.#call("spaces.setState", "task.handOff", { text: message });
     try {
-      await this.#call("spaces.handOff", "task.handOff", {});
+      // secret: zenius blanks the held tab at the hand back (zen-core).
+      await this.#call("spaces.handOff", "task.handOff", options.secret ? { secret: true } : {});
     } catch (error) {
       // Refused, the task stays the agent's: the message mustn't linger as
       // its progress text in the panel.

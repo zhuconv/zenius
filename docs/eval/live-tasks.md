@@ -143,10 +143,16 @@ anchored page.
 
 ### T4. arXiv: advanced search form (fixed)
 
-Prompt: "Use arXiv's Advanced Search to find papers whose title contains
-'speculative decoding', in Computer Science, submitted from 2024-01-01 to
-2024-12-31. Sort the results oldest first. Report the number of results and
-the title of the first one."
+Prompt: "Use arXiv's Advanced Search to find papers with the exact phrase
+'speculative decoding' in the title, in Computer Science, submitted from
+2024-01-01 to 2024-12-31. Sort the results oldest first. Report the number of
+results and the title of the first one."
+
+Round 1's prompt said "whose title contains 'speculative decoding'", which
+reads two ways: the two words anywhere in the title, arXiv's default (50
+results), or the phrase (47). Its key had only the words. Since round 2 the
+prompt names the phrase, and the key is the phrase's
+(`docs/eval/live-round1.md`).
 
 Exercises: a multi-field form, field selects, a subject checkbox, date
 fields, a sort select, reading a result count.

@@ -412,7 +412,9 @@ async function navigate(ctx, params, method) {
   };
   try {
     resetQuiet(browser.browserId);
-    nav.markPending(uri.spec);
+    // A data: page's reload below is a load of its URL, which stays in the
+    // document when the URL has a fragment, as a goto's may.
+    nav.markPending(uri.spec, { reload: !isGoto && uri.scheme !== "data" });
     if (isGoto) {
       // Never the system principal: Firefox's own load checks apply, as for
       // a page's links (observe/webcontent.sys.mjs).

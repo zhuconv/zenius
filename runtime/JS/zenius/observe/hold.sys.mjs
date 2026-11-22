@@ -11,8 +11,12 @@
 //   scoped to H alone (content/refusals.sys.mjs, channelScope), so the
 //   site's own cross-tab sync can't carry what the user types to the task's
 //   other pages;
-// - agentcode.sys.mjs's handOffCheck counts by site only H's documents from
-//   before the hold: those made since are zenius's fresh ones.
+// - for the frame and COOP rule below, agentcode.sys.mjs's agentSitesNear
+//   counts by site only documents from before a hold: a held tab's
+//   documents made since its hold began (a task may hold several pages,
+//   zen-core's holdFor) and those of a window zen-core reloaded for a hold
+//   (holdReload) are fresh, since the agent's code is refused in a held
+//   group.
 // - a Back or Forward into a data: or blob: entry, the agent's kind of page,
 //   is refused, and the user's history stays as it was;
 // - a frame in H of a site that a window near H, which may hold the agent's
@@ -26,7 +30,11 @@ import { HELD_PAGES_KEY } from "chrome://userscripts/content/zenius/content/refu
 
 /** Held tabs (browserId) → the hold they're in (H's browserId). */
 const held = new Map();
-/** Held tabs (browserId) → their documents (innerWindowId) from before the hold. */
+/**
+ * Held tabs (browserId) → their documents (innerWindowId) from before the
+ * hold. For another hold in the same group, agentSitesNear doesn't count the
+ * ones made since by site.
+ */
 const before = new Map();
 /** Tabs zen-core reloads for a hold (browserId) → the hold and their documents from before the reload. */
 const reloaded = new Map();
@@ -110,8 +118,7 @@ function watchPopups(want) {
 
 /**
  * The user holds this page (H): an agent's hand-off, or the user's own Take
- * over. Call it before handOffCheck and the quiet reload. Whether the page
- * is held now.
+ * over. Call it before the quiet reload. Whether the page is held now.
  *
  * @param {Element} browser  H's <browser>
  * @returns {boolean}

@@ -155,3 +155,126 @@ in front. At the same point of the same probe, Ego's main window came on
 screen (previous section). The one front change came from launching a headed
 dev instance. In real use zenius runs inside the user's Zen, which is
 already running, so that change doesn't occur there.
+
+## 2026-11-22: zenius on 9abcd8e, cases E and D3 headed: a middle click brought Zen to the front
+
+The same probe, at 9abcd8e (round 2's build), with every case but E and D3
+skipped, ran through `sdk/bin/zenius nodejs` against a fresh headed dev
+instance on the Mac. The user was at the Mac, with their terminal in front.
+
+**How it was watched:** as on 11-20, with two changes for the second run.
+
+- The watcher logged its times to the millisecond.
+- The probe's steps ran 2.5 s apart, each with a wall-clock mark.
+
+Two runs:
+
+- the first, 01:37:47–01:37:54 UTC, ran the probe as on 11-20;
+- the second, 01:41:31–01:41:50, was the timed one.
+
+The second run's samples:
+
+- **01:41:30.5:** the dev window came on screen at launch and took the
+  front. The watcher gave the front back to the user's terminal at once.
+- **01:41:37.48 to 37.55:** case E. Nothing came forward.
+- **01:41:40.07:** D3's middle click. It resolved at 40.47, with the link
+  open as a new page of the task.
+- **01:41:40.58:** the dev Zen came to the front. The watcher gave the front
+  back at 40.95. The probe was only waiting at that point.
+- **01:41:42.98 to 43.00:** the probe closed the new page. Nothing came
+  forward.
+- **01:41:48.01 to 48.05:** `finish()`. Nothing came forward.
+- **01:41:50.5:** the window closed as the instance stopped.
+- No other dev-Zen window came on screen. The system's alert windows stayed
+  off screen, the `changeCount` didn't change, and the user's own Zen ran
+  throughout.
+
+The first run shows the same activation during D3, at 01:37:53.
+
+**The results:**
+
+- **E:** as on 11-20.
+  - `click`, `hover`, `fill`, `mouse.click` and `keyboard.press` were
+    refused with `ZEN_PAGE_DIALOG_OPENED` within 3 ms.
+  - `mouse.move` and `keyboard.type` returned.
+  - No dialog box appeared.
+- **D3:** the middle click now opens the link as a new page of the task, as
+  on Ego (57352b0).
+  - The click resolved in 400 ms (562 ms in the first run), and its receipt
+    listed the new page.
+  - The task went from two pages to three.
+  - The page saw `mousedown`, `mouseup` and `auxclick`.
+
+**So on 9abcd8e, a middle click on a link brought Zen to the front, which
+requirement 3 rules out (I1).**
+
+- 57352b0 opens the link with Zen's `openLinkIn`.
+- In Zen 1.24.3b, `openLinkIn` raises the window it loads into before
+  loading ("Raise the target window before loading the URI"), background
+  tabs included.
+- Inside the browser the user's view stays as it was, and 57352b0's own
+  test checks that. The activation is outside the browser: it takes the
+  front from whatever app the user is in.
+- Nothing else in the probe brought Zen forward. The launch's activation
+  doesn't occur in real use (previous section).
+- The fix opens the link with `gBrowser.addTab`, which doesn't raise the
+  window (06e76e9). Its run follows.
+
+## 2026-11-22: zenius on 5ca03b1, cases E, D3 and F headed: nothing came forward
+
+The same probe at 5ca03b1, the release candidate, which has the middle-click
+fix. Every case but E, D3 and F was skipped. It ran through
+`sdk/bin/zenius nodejs` against a fresh headed dev instance on the Mac,
+with the user at the Mac and working.
+
+Case F is new. 06e76e9's note asks for it, since no headless test can see
+it. An agent clicks a button whose handler calls
+`window.open("/blank", "zenEvalF", "width=420,height=320")`. A popup with
+a size gets a window of its own in Firefox, not a tab, before zenius moves
+its tab into the task.
+
+**How it was watched:** as on 9abcd8e.
+
+- The window sampler ran every half second.
+- The focus guard read the app in front every 0.1 s.
+- The probe's steps ran 2.5 s apart, each with a wall-clock mark.
+- `changeCount` was read every 4 s.
+
+**The run, 03:56:00 to 03:56:30 UTC:**
+
+- **03:56:00.5:** the dev window (1280x812) came on screen at launch. It
+  didn't take the front: the user's own Zen was in front from 03:55:55, and
+  the focus guard never saw the dev Zen as the app in front.
+- **03:56:10.29 to 10.38:** case E. Nothing came forward.
+- **03:56:12.91:** D3's middle click. It resolved at 13.07. Nothing came
+  forward.
+- **03:56:20.79:** F's click. It resolved at 20.87. No new window came on
+  screen, and nothing came forward.
+- **03:56:27.62:** `finish()`. Nothing came forward.
+- **03:56:30:** the window closed as the instance stopped.
+- `changeCount` changed once, between 03:56:26 and 03:56:30. The user
+  confirmed that was their own copy; the probe uses no clipboard. The
+  system's alert windows stayed off screen.
+
+**The results:**
+
+- **E:** as before.
+  - `click`, `hover`, `fill`, `mouse.click` and `keyboard.press` were
+    refused with `ZEN_PAGE_DIALOG_OPENED` within 2 ms.
+  - `mouse.move` and `keyboard.type` returned.
+  - No dialog box appeared.
+- **D3:** the click resolved in 154 ms, and its receipt listed the new page
+  as a popup.
+  - The task went from two pages to three.
+  - The page saw `mousedown`, `mouseup` and `auxclick`.
+- **F:** the click resolved in 75 ms, and its receipt listed the popup.
+  - `window.open` returned a window.
+  - The task went from two pages to three, the third the popup's page.
+
+**So on 5ca03b1, nothing an agent did in E, D3 or F brought Zen to the
+front or put a window on screen.** The middle-click fix holds on the Mac,
+and so does the popup path F added.
+
+- The window sampler reads every half second, so it can't rule out a
+  window that lasted less than that.
+- The focus guard's 0.1 s reads would still have seen any activation.

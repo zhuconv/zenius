@@ -20,6 +20,7 @@ const nameB = `zen-ux agents B ${run}`;
 const Q = () => `
   const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;
   const C = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/cursor.sys.mjs");
+  const Pages = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/pages.sys.mjs");
   const A = ctx.resolvePage({ space: ${a}, page: "p1" });
   const B = ctx.resolvePage({ space: ${b}, page: "p1" });
   const uuid = A.space.uuid;
@@ -175,6 +176,28 @@ test("the panel's Open lands on the task's page, which the user asked for", asyn
     }
   `);
   assert.deepEqual(out, { active: true, selected: true });
+});
+
+test("from inside the Agents Space, on one task's page, Open on the other task lands on its page: Zen's switch to the Space already shown selects nothing, so the watch selects the page itself", async () => {
+  const out = await h.chrome(`${Q()}
+    const userWs = ${JSON.stringify(userView.windows[0].activeWorkspace)};
+    try {
+      await UI.openSpace(A.space);
+      const first = { active: gZenWorkspaces.activeWorkspace === uuid, selected: gBrowser.selectedTab === A.tab };
+      // Zen's own switch, as the premise: it leaves the selection alone.
+      Pages.landOn(B.tab);
+      await gZenWorkspaces.changeWorkspaceWithID(uuid);
+      const zens = gBrowser.selectedTab === B.tab;
+      gBrowser.selectedTab = A.tab;
+      await UI.openSpace(B.space);
+      return { first, zens, active: gZenWorkspaces.activeWorkspace === uuid, selected: gBrowser.selectedTab === B.tab, watching: UI.watching(win) === B.space.id };
+    } finally {
+      await gZenWorkspaces.changeWorkspaceWithID(userWs);
+    }
+  `);
+  assert.deepEqual(out.first, { active: true, selected: true });
+  assert.equal(out.zens, false, "the premise: Zen's switch to the Space it shows selects nothing");
+  assert.deepEqual({ ...out, first: undefined, zens: undefined }, { first: undefined, zens: undefined, active: true, selected: true, watching: true });
 });
 
 test("with nothing needing the user, Open lands on the task's front tab: the agent's newest page, then the user's pick", async () => {
