@@ -73,7 +73,7 @@ export const ZENIUS_ADAPTATIONS = {
   },
   "Page load states": {
     reason:
-      "Three changes. The case turns on console events in Ego's CDP session (egoAutomated.disable, Runtime.enable), which zenius captures without being asked, so those calls go. It finds the slow cross-process iframe with CDP's Target.getTargets; on zenius the dev runtime finds it (__zenFrame), and js() reads its readyState.",
+      "Four changes. The case turns on console events in Ego's CDP session (egoAutomated.disable, Runtime.enable), which zenius captures without being asked, so those calls go. It finds the slow cross-process iframe with CDP's Target.getTargets; on zenius the dev runtime finds it (__zenFrame), and js() reads its readyState. And the goto that times out after its document committed waits 1000 ms instead of 300: a busy machine can take longer than 300 ms to start the new page's process, and the streamed page still ends 500 ms after that.",
     patches: [
       [
         "await page.cdp(\"egoAutomated.disable\");\n    await page.cdp(\"Runtime.enable\");",
@@ -82,6 +82,10 @@ export const ZENIUS_ADAPTATIONS = {
       [
         "await busyPage.cdp(\"egoAutomated.disable\");\n    await busyPage.cdp(\"Runtime.enable\");\n    await quietPage.cdp(\"Runtime.enable\");",
         "// zenius captures console messages without being asked.",
+      ],
+      [
+        "await page.goto(baseUrl + \"/streamed-page?ms=1500\", { timeout: 300 });",
+        "await page.goto(baseUrl + \"/streamed-page?ms=1500\", { timeout: 1000 });",
       ],
       [
         "const slowFrameTarget = (await task.cdp(\"Target.getTargets\")).targetInfos.find(\n      (target) =>\n        target.type === \"iframe\" && target.url.includes(\"/slow-frame?ms=800\")\n    )?.targetId;",
