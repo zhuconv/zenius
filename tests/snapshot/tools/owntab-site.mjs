@@ -1,5 +1,5 @@
-// The fixture site for zen-snapshot's probes, first written for the own tab
-// (docs/research/own-tab.md), which zen-ux removed in f740de1. Loopback
+// The fixture site for zen-snapshot's probes, first written for the own
+// tab, which zen-ux removed. Loopback
 // only: 127.0.0.1 is the site, 127.0.0.2 a second site.
 import http from "node:http";
 
@@ -34,7 +34,7 @@ const netUserPage = `<!doctype html><meta charset=utf-8><title>Site home</title>
 <button id=pop onclick="window.__pop = window.open('/net', 'zsPop')">Open the tool</button>
 <script>window.name = "zsUserTab"; window.__out = {};</script>`;
 
-// reach-probe.mjs's page (docs/research/user-tab-reach.md), one per role:
+// reach-probe.mjs's page, one per role:
 // the user's windows (W, U, Q, R, frames F1 and F2), the task's (P, T) and
 // tabs opened from a task page (H1-H5). ?a= and ?b= are the two sites. Each
 // page notes the probe's tags posted to it (__got) and, as a site that syncs
@@ -215,7 +215,7 @@ try {
 } catch (e) { report("geo", "threw: " + e.name); }
 </script>`;
 
-// The input lab for process-input-probe.mjs (docs/research/process-input-state.md):
+// The input lab for process-input-probe.mjs:
 // controls at fixed places, and a log of every input event the page sees.
 // __log.splice(0) reads and clears it; __state() reads focus, selection and
 // the :active, :hover and pointer-capture states.

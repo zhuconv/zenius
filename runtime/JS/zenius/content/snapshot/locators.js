@@ -13,7 +13,7 @@
   const aria = globalThis.__zsAria;
   // Page reads go through dom.js: the sandbox's own Element and Document
   // members, and page values only as strings or real nodes, so page script
-  // never gets an object of ours (content-boundary.md, finding 1).
+  // never gets an object of ours.
   const dom = globalThis.__zsDom;
   const querySelectorAll = dom.method("querySelectorAll", ["Element", "Document"], "nodes");
   const shadowRootOf = dom.find(Element.prototype, "shadowRoot").get;

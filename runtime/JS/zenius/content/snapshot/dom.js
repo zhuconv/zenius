@@ -4,8 +4,8 @@
 //
 // The sandbox shares the page's principal and compartment, so page script
 // can use any object of ours it gets hold of: from a RegExp, a function or an
-// array, x.constructor.constructor("return this")() is the sandbox's global
-// (docs/research/content-boundary.md, finding 1). And a page can replace any
+// array, x.constructor.constructor("return this")() is the sandbox's global.
+// And a page can replace any
 // method or getter on its own prototypes, so calling one runs page code. The
 // rules for these scripts:
 //   - Node, Element, Document and Range members: the sandbox's own copies

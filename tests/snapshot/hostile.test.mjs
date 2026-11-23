@@ -1,5 +1,5 @@
-// What a page in an agent tab can reach through zen-snapshot's sandbox
-// (docs/research/content-boundary.md, finding 1). The sandbox shares the
+// What a page in an agent tab can reach through zen-snapshot's sandbox.
+// The sandbox shares the
 // page's compartment, so any object of ours a page function receives leads
 // it to the sandbox's global. Checked here:
 //   - a page that traps every method and getter of its realm (hostile-page.js)

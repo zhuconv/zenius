@@ -1,5 +1,5 @@
-// Bypass probes for zen-observe's local network refusal (c755f57,
-// runtime/JS/zenius/observe/localnet.sys.mjs; docs/research/localnet-bypass.md).
+// Bypass probes for zen-observe's local network refusal
+// (runtime/JS/zenius/observe/localnet.sys.mjs).
 // The parent cancels a task page's requests to private and link-local
 // addresses and .local names. It finds a request's tab from its load info,
 // and for a popup not yet routed, through the popup's openers. These vectors
@@ -261,7 +261,7 @@ const clickOn = (s, target, page = "p1") => call("page.click", { space: s, page,
 /**
  * expect: what the refusal's design says. "refused", or why a request may
  * go out: "residual" (zen-observe lists it) or "pending" (the per-document
- * refusal the manager decided, not built yet).
+ * refusal we may add, not built yet).
  */
 const VECTORS = {
   // Controls: a task page's fetch is refused; the user's own tab's isn't.
@@ -367,7 +367,7 @@ const VECTORS = {
         clearInterval(iv); w.addEventListener("pagehide", () => w.navigator.sendBeacon(${js(T(tag))}, "x")); w.close(); } } catch {} }, 50);`,
   },
   // Agent code that runs after the task ends, in a page the user keeps. Its
-  // document keeps the refusal until it is replaced (bc8f3c4), judged by the
+  // document keeps the refusal until it is replaced, judged by the
   // tab's current top document.
   keptTimer: { expect: "refused", wait: 4500, custom: (s, tag) => kept(s, `setTimeout(() => fetch(${js(T(tag))}).catch(() => {}), 2500);`) },
   keptNavigate: { expect: "refused", wait: 3000, custom: (s, tag) => kept(s, `setTimeout(() => { location.href = ${js(T(tag))}; }, 1500);`) },

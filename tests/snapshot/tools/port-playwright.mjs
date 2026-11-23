@@ -14,7 +14,7 @@
 //     script runs in (content/snapshot/sandbox.sys.mjs), never the page;
 //   - every DOM access goes through content/snapshot/dom.js, found with the
 //     type checker (realmSafe below), so page script never sees an object
-//     of ours (docs/research/content-boundary.md, finding 1);
+//     of ours;
 //   - PATCHES below: a secret field's value (a password field's, or one
 //     masked with -webkit-text-security) never goes into a name, and two
 //     spots the checker can't place are made plain.
@@ -43,7 +43,7 @@ const exported = [];
 const SECRET = "isSecretField(element) ? '' : ";
 const PATCHES = [
   // An embedded control's value goes into a label's or labelledby's name
-  // (accname 2C); a password's never does (snapshot.md section 1.2).
+  // (accname 2C); a password's never does.
   ["roleUtils.ts",
     "return compositeString((element as HTMLInputElement | HTMLTextAreaElement).value, element",
     `return compositeString(${SECRET}(element as HTMLInputElement | HTMLTextAreaElement).value, element`],

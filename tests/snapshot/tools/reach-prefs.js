@@ -1,4 +1,4 @@
-// Prefs for reach-probe.mjs's dev profile (docs/research/user-tab-reach.md).
+// Prefs for reach-probe.mjs's dev profile.
 // A camera request that gets through gets Gecko's fake stream, never a
 // device; the probe checks this pref before it grants the fixture site.
 user_pref("media.navigator.streams.fake", true);

@@ -1,6 +1,6 @@
-// The hold map (docs/research/user-tab-reach.md, "The hold"). The manager's
-// rule (2026-11-20): while the user types in the page H they hold after a
-// hand-off, nothing of the agent's reaches it. This maps, headless on the Linux server
+// The hold map. The rule: while the user types in the page H they hold after
+// a hand-off, nothing of the agent's reaches it. This maps, headless on the
+// Linux server
 // with loopback fixtures only, where H sits (PATHS) against what the agent
 // could do during the hold (RUNS).
 // - Paths. The agent's page T (site A) always runs the agent's code, planted
@@ -25,7 +25,7 @@
 //     click, and H's own popup;
 //   - loads: loads into H and its frame that T's code starts;
 //   - backData, backBlob: Back into an entry the agent made before the hold.
-// spaces.handOff holds the task's front page (zen-core's ab3e065), so the
+// spaces.handOff holds the task's front page (zen-core), so the
 // probe shows H's tab first. The probe holds nothing itself: each result
 // lists what the hand-off held (handOff.held), and a hand-off that holds
 // nothing says so there. A refused hand-off skips the run.

@@ -1,7 +1,6 @@
 // page.snapshot (zen-snapshot): Ego's semantic snapshot of a page. The walk
 // runs in content (content/snapshot/); this side checks options, numbers the
 // refs through the tab's registry and adds Ego's header and viewport footer.
-// Design: docs/research/snapshot.md.
 //
 // Portions adapted from citrolabs/ego-lite (MIT License).
 // The header, footer and option messages follow
@@ -266,7 +265,7 @@ function stitch(captures, children, bases, index = 0, out = [], pad = "") {
   return out;
 }
 
-// Gate classes (docs/research/method-boundary.md): access for the control
+// Gate classes: access for the control
 // gate (I3), i5 for the web-content gate (I5).
 export const access = {
   "page.snapshot": "read",

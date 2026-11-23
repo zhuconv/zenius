@@ -39,7 +39,7 @@
 // hidden" when the user opens the tab after the handoff (userOpens). The
 // probe never starts WebRTC ICE gathering, whose mDNS would reach the LAN.
 //
-// Results and the bypass this found: docs/research/device-bypass.md.
+// The results and the bypass this found are in the probe's output.
 import { openKit } from "./owntab-kit.mjs";
 import { geoHits, hubHits } from "./owntab-site.mjs";
 
@@ -419,7 +419,7 @@ const VECTORS = {
  * In an adopted tab: the devices, a service worker and a Cache write, at
  * once in the page it shows, then in the page history.back() brings from
  * the bfcache. The storage writes show whether item 3's refusals are there
- * too (own-tab.md); cleanTabs clears both sites' data after.
+ * too; cleanTabs clears both sites' data after.
  */
 async function nowAndBack(space, label) {
   const ask = `async () => { ${H}

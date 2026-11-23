@@ -1,10 +1,10 @@
-// Reach probes (docs/research/user-tab-reach.md). A task's document holds a
+// Reach probes. A task's document holds a
 // handle to a window of the user's when the two share a browsing context
 // group. This maps, headless on the Linux server, with loopback fixtures only:
 // 1. the paths that put a task document in a group with a user's window:
 //    adopting a popup, claiming a tab that has an opener or popups, tabs the
-//    user opens from a task page while they hold it (Use your own tab, gone
-//    since zen-ux's f740de1, was one too);
+//    user opens from a task page while they hold it (Use your own tab,
+//    gone since zen-ux removed it, was one too);
 // 2. the handles the task document's code gets: opener, a named lookup
 //    (window.open('', name)), a message's source, the site's own variables,
 //    and frames, parent, top and opener through each;

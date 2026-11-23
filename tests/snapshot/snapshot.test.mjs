@@ -1,5 +1,5 @@
 // page.snapshot in a real headless Zen, after Ego's snapshot and ref e2e
-// cases (refs/ego-lite) and the rules in docs/research/snapshot.md §1:
+// cases (refs/ego-lite), covering:
 // header and viewport footer, scopes, ref identity and staleness, subtree
 // roots (iframe roots included), same- and cross-process frames, shadow DOM,
 // locators that resolve to exactly their node, option errors, and I1.
@@ -95,7 +95,7 @@ test("a node keeps its ref across snapshots; full_page retires refs it didn't pr
 
 test("refs from a page the tab left for the bfcache are stale", async t => {
   // A same-site goto can swap the tab's top browsing context and keep the
-  // old one, with its document, in the bfcache (zen-input's report). Whether
+  // old one, with its document, in the bfcache. Whether
   // Gecko keeps it isn't zenius's to decide: a frame still loading keeps the
   // page out, and memory pressure (the Linux server under a parallel test-all) evicts it.
   // So try a few times, and skip, saying what Gecko did, if it never kept one.
@@ -194,8 +194,8 @@ test("refs follow the page's browserId, not its <browser>: Zen's window copies e
 test("refs the agent read before its page moved into the page's copy in a second window still click, and the next snapshot keeps them", async () => {
   // The user views the agent's page from a second window. Zen moves the live
   // docShell, and its browserId, into that window's copy of the tab
-  // (zen-core's docs/research/two-windows.md). resolvePage then returns the
-  // copy, another <browser> (6e47de8). The window comes first, so the page
+  // (zen-core's design). resolvePage then returns the copy, another
+  // <browser>. The window comes first, so the page
   // opens with a copy in it.
   // Helpers after zen-core's tests/core/windows.test.mjs.
   const W = `

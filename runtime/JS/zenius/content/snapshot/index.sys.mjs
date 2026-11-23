@@ -4,8 +4,7 @@
 // their parents and splices them in, leaves placeholders for out-of-process
 // ones (design §4.4), and counts locator candidates across this process's
 // documents (§6). No document's walk ever holds another document's text: a
-// page that reached its sandbox would find only its own
-// (docs/research/content-boundary.md, finding 1).
+// page that reached its sandbox would find only its own.
 
 import { load, precompile, sandboxFor, uaLocalId } from "chrome://userscripts/content/zenius/content/snapshot/sandbox.sys.mjs";
 import { forgetRoots, generatedBoxes, rootGenerates } from "chrome://userscripts/content/zenius/content/snapshot/generated.sys.mjs";

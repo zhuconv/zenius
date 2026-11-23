@@ -1,5 +1,5 @@
 // The user closes a popup the task adopted: does the opener's world survive?
-// For zen-observe's tabClosing fix (the manager, 2026-11-20 night).
+// For zen-observe's tabClosing fix.
 //
 // discardLeftTab (observe/agentworld.sys.mjs) waits a main-thread turn after
 // a page leaves its task, then skips a tab that's closing: a closing tab

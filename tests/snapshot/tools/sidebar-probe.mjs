@@ -15,7 +15,7 @@
 // Cases: xss, spoof, perm, fs, echo, fakepdf, stallpdf, realpdf, slowpdf, drop, typed,
 // i1work, i1chat; step 6's live (the live card's content, when it draws and
 // its cost), watch (Watch and Ctrl+Tab by the user, a page and the agent),
-// pill (the watch chip: since zen-ux's 843a989 a hint where zenius's strip
+// pill (the watch chip: a hint where zenius's strip
 // can't be read, and Ctrl+Tab the only way back), refused (a Take over
 // zen-core refuses, for real: the page's fresh load would leave its site),
 // cost (one picture alone, the parent stall around it) and namelink (the
@@ -324,11 +324,11 @@ const PRE = `
     tip.keyup(tab); tip.keyup(ctrl);
   };
   const clean = s => s == null ? null : s.replace(/[\\u2066-\\u2069]/g, "").replace(/\\s+/g, " ").trim();
-  // Since zen-ux's 843a989 the watch is zenius's (ZeniusUI.watch): zenius's
+  // The watch is zenius's (ZeniusUI.watch): zenius's
   // strip says "Watching <task> [Ctrl+Tab]" while the window watches, and the
   // chip (#zenius-watch-pill) says the same only where the strip can't be
   // read (a collapsed sidebar, compact mode). Neither has a Back control.
-  // Since af4bc5b a watched task's end keeps the way back: the strip
+  // A watched task's end keeps the way back: the strip
   // ([watching="done"]) says "Task done, [Ctrl+Tab] back to your tabs", and
   // ZeniusUI.watchingDone gives the ended task's id, until Ctrl+Tab or the
   // user's own pick.
@@ -380,7 +380,7 @@ const PRE = `
     return {
       hidden: live.hidden, live: live.dataset.live ?? null,
       text: doc.getElementById("live-text").textContent,
-      // Since zen-sidebar's 68b8d7b: Watch only starts a watch, and while
+      // Watch only starts a watch, and while
       // this window watches, #watch hides and #watch-hint shows instead.
       watch: watchBtn.hidden ? null : watchBtn.textContent,
       watching: live.dataset.watching ?? null,
@@ -393,7 +393,7 @@ const PRE = `
   // When each of the card's pictures started and resolved: every drawSnapshot
   // that agent-sidebar code calls (a wrapper on the WindowGlobalParent
   // prototype: one reflector per object in the shared system compartment, so
-  // the panel's calls go through it), and since d9c7646 every sendQuery of
+  // the panel's calls go through it), and every sendQuery of
   // the picture actor's parent (one a picture; zen-sidebar's suggestion).
   // unhookPictures() puts both back.
   const hookPictures = () => {
@@ -432,15 +432,15 @@ const PRE = `
       delete win.__zsPictures;
     }
   };
-  // The card's pictures drawn so far, as its #live[data-drawn] says (since
-  // zen-sidebar's d9c7646; null in a build without it, or with no panel).
+  // The card's pictures drawn so far, as its #live[data-drawn] says (null
+  // in a build without it, or with no panel).
   const drawnCount = () => {
     const v = panelDoc()?.getElementById("live")?.dataset.drawn;
     return v === undefined ? null : Number(v);
   };
   // A stretch of time: the card's pictures (the change in #live[data-drawn];
   // in a build without it, the drawSnapshot calls of agent-sidebar code), the
-  // parent's main-thread stalls (a 20 ms timer's lateness; the manager's bar:
+  // parent's main-thread stalls (a 20 ms timer's lateness; the bar:
   // none over 50 ms on the costly page), split, when picture spans are known,
   // into those that overlap a picture and the rest, and the CPU of the parent
   // and of the page's process.
@@ -477,7 +477,7 @@ const PRE = `
       pageCpuMs: pid != null && c0[pid] != null && c1[pid] != null ? Math.round((c1[pid] - c0[pid]) / 1e6) : null,
     };
   };
-  // The picture actor's parent module (d9c7646), else null.
+  // The picture actor's parent module, else null.
   const pictureModule = () => {
     try {
       return ChromeUtils.importESModule(panelBase() + "AgentSidebarPictureParent.sys.mjs");
@@ -490,10 +490,10 @@ const PRE = `
     return url ? url.slice(0, url.lastIndexOf("/") + 1) : "chrome://userscripts/content/agent-sidebar/";
   };
   // One picture from the actor's drawPicture, whichever its signature:
-  // (browser, size) at d9c7646, (conv, tab, size) since zen-ux's guard
-  // (10edb02), which checks the tab against the chat's task. bytes: the
-  // JPEG's data URL, or the raw pixels since 3430b87; ms: the child's own
-  // time (d9c7646 only).
+  // (browser, size) first, (conv, tab, size) since zen-ux's guard,
+  // which checks the tab against the chat's task. bytes: the
+  // JPEG's data URL, or the raw pixels now; ms: the child's own
+  // time (the first signature only).
   const pictureOf = async (conv, tab, size = { width: 375, height: 120 }) => {
     const mod = pictureModule();
     if (!mod?.drawPicture) return null;
@@ -553,8 +553,8 @@ const suffix = () => Date.now().toString(36).slice(-5);
  * The user, on their own page, starts a work chat (step 6). Returns once the
  * sidebar has seen its agent's zenius open call, which the scripted agent
  * keeps running (LINK's WAIT, 4 s) while this probe makes the task, as
- * zenius makes it during the agent's own open: since zen-sidebar's 7c72787
- * the sidebar links a chat only to a task made while its open ran. With
+ * zenius makes it during the agent's own open: the sidebar links a chat
+ * only to a task made while its open ran. With
  * arg.open false (no open call coming) it waits a second instead.
  */
 const START_CHAT = `
@@ -916,7 +916,7 @@ const CASES = {
     `, { url: `${A}/plain` });
   },
 
-  // Step 6, the live card (the manager's condition 2): what it shows, and
+  // Step 6, the live card: what it shows, and
   // whether it draws only while the sidebar is open and the card visible.
   // This probe's own zenius client stands in for the agent's zenius calls;
   // the scripted agent names the task, so the chat links to it, and stays busy.
@@ -985,12 +985,12 @@ const CASES = {
     return out;
   },
 
-  // Step 6, Watch and Ctrl+Tab (the manager's condition 3, I1): only the
+  // Step 6, Watch and Ctrl+Tab (I1): only the
   // user's click starts a watch and only the user's Ctrl+Tab goes back; the
-  // page's own Ctrl+Tab and the agent's change nothing. Since 843a989 the
+  // page's own Ctrl+Tab and the agent's change nothing. The
   // watch is zenius's: with Zen's sidebar expanded, its strip says
   // "Watching <task> [Ctrl+Tab]" and the chip stays away (pill has the chip).
-  // Since af4bc5b the task's end keeps Ctrl+Tab's way back: nothing moves by
+  // The task's end keeps Ctrl+Tab's way back: nothing moves by
   // itself, the page's own Ctrl+Tab doesn't take it, the user's does, and
   // the page they watched closes once they leave it.
   async watch() {
@@ -1029,7 +1029,7 @@ const CASES = {
       // of that press (the held key's next keydown) goes no further. A
       // second later a new press is Zen's. Zen's own Ctrl+Tab listens in the
       // system group on the document, after zenius's window listener: what
-      // reaches a listener there is Zen's. (Since 843a989 the key's keyup
+      // reaches a listener there is Zen's. (The key's keyup
       // ends that press, so a new press at once is Zen's too.)
       out.userCtrlTab = await chrome(`
         const reached = [];
@@ -1059,7 +1059,7 @@ const CASES = {
       out.agentClose = out.watch2.label ? await client.call("pages.close", { space, page: out.watch2.label }).then(() => "ok", e => ({ error: e.message })) : "no label";
       out.afterAgentClose = await chrome(`await sleep(1500); return where();`);
       // The user watches again, on the agent's other page, now one that keeps
-      // sending itself Ctrl+Tab; the agent ends its task. Since af4bc5b the
+      // sending itself Ctrl+Tab; the agent ends its task. The
       // window stays and keeps Ctrl+Tab's way back ("Task done"), which the
       // page's own Ctrl+Tab must not take. Then the user's Ctrl+Tab goes back,
       // and the page they left closes a tick later (zen-core's closeLeft).
@@ -1092,7 +1092,7 @@ const CASES = {
         // Whether Zen then moves a tab depends on the Space's tabs.
         laterIsZens: (out.userCtrlTab?.reachedZen ?? []).includes("later"),
         hintGoneAfter: out.userCtrlTab?.back?.strip === null && out.userCtrlTab?.back?.chip === null,
-        // After the task's end (zen-ux's suggested check, af4bc5b).
+        // After the task's end (zen-ux's suggested check).
         doneHint: f.watching === null && f.zenius === null && f.attr === null && f.done === space && f.stripState === "done" && f.strip === "Task done, Ctrl+Tab back to your tabs" && f.chip === null,
         doneNothingMoved: out.agentGotoDone === "ok" && !!f.tab && f.tab === out.watch3?.tab,
         doneBack: out.doneBack?.tab === out.home?.tab && out.doneBack?.done === null && out.doneBack?.strip === null,
@@ -1107,11 +1107,11 @@ const CASES = {
     return out;
   },
 
-  // Step 6's chip while the user watches (Take over watches too). At 10edb02
+  // Step 6's chip while the user watches (Take over watches too). Earlier
   // the pill sat over the page's top middle and grew with the task's name (up
-  // to 80% of the window); the manager's bar for the fix: with a
+  // to 80% of the window); the bar for the fix: with a
   // 200-character name, a click at the page's top center reaches the page,
-  // while watching and after Take over. Since zen-ux's 843a989 zenius's
+  // while watching and after Take over. Now zenius's
   // strip says "Watching <task> [Ctrl+Tab]", and the chip says the same only
   // where the strip can't be read, as a hint with no Back: every click goes
   // through it, and only the user's Ctrl+Tab goes back. Each name is watched
@@ -1121,7 +1121,7 @@ const CASES = {
   async pill() {
     const out = {};
     const long = n => `zs-pill-${"x".repeat(n - 14)}-${suffix()}`;
-    // A name over 80 characters links only by id (zen-sidebar's 7c72787):
+    // A name over 80 characters links only by id (zen-sidebar's change):
     // before it, the chat looked its task up by its title, cut at 80.
     for (const [label, name, how] of [["short", `zs-pill-${suffix()}`, "watch"], ["long75", long(75), "watch"], ["long200", long(200), "watch"], ["long200TakeOver", long(200), "takeOver"]]) {
       const opened = await chrome(START_CHAT, { url: `${A}/plain`, question: `LINK ${name} HOLD 60` });
@@ -1273,8 +1273,8 @@ const CASES = {
   // page afresh, and that load would leave the site (the page redirects to
   // the other site once loaded), so zenius stops it. What the user meets:
   // the card on the page, the sidebar's directory ("Can't take over this
-  // page" under Needs you, zen-sidebar's 68b8d7b), whether the window
-  // watches the refused task (Take over is a watch since 843a989) and
+  // page" under Needs you), whether the window
+  // watches the refused task (Take over is a watch) and
   // Ctrl+Tab goes back, and whether the agent stays paused until the user
   // picks (its call waits, and runs after Resume agent).
   async refused() {
@@ -1358,7 +1358,7 @@ const CASES = {
         noTryAgain: !!p.refusal && !p.refusal.buttons.includes("Try again"),
         staysAgentsPaused: p.ownership === "agent" && p.paused === true,
         needsUser: p.badge === "needs-user",
-        // Since zen-sidebar's 91b7548 the live card hides Take over while
+        // The live card hides Take over while
         // zenius reports a refusal (it would fail the same way).
         noTakeOverOnCard: p.card?.takeOverShown === false,
         directoryNeedsYou: out.directory?.group === "needs" && /Can't take over this page/.test(out.directory?.text ?? ""),
@@ -1409,8 +1409,8 @@ const CASES = {
             const sorted = [...times].sort((a, b) => a - b);
             return { pictures: times.length, median: sorted[sorted.length >> 1] ?? null, max: sorted.at(-1) ?? null, maxStallMs: Math.round(maxLag) };
           };
-          // The picture actor's drawPicture, as the card calls it (d9c7646 on;
-          // since zen-ux's guard, for a stand-in chat of this task): the round
+          // The picture actor's drawPicture, as the card calls it (since
+          // zen-ux's guard, for a stand-in chat of this task): the round
           // trip, the page process's own time when it says, the reply's size,
           // and the parent's stall around it.
           const actorSpan = async () => {
@@ -1442,12 +1442,12 @@ const CASES = {
     return out;
   },
 
-  // Step 6's picture actor (d9c7646), against the manager's four conditions:
+  // Step 6's picture actor, against four conditions:
   // asked only for an agent tab of the chat's task (never a user's tab), its
   // pictures only to the panel, no events or observers (I4), and a costly
   // page costs only itself. The agent's page is /trap; the user's own page is
-  // on the other site, so in another process. Since zen-ux's guard
-  // (10edb02), drawPicture(conv, tab, size) must refuse any tab but an agent
+  // on the other site, so in another process. Since zen-ux's guard,
+  // drawPicture(conv, tab, size) must refuse any tab but an agent
   // page of the chat's live task, before it makes an actor in the tab.
   async actor() {
     const name = `zs-actor-${suffix()}`;
@@ -1622,7 +1622,7 @@ const CASES = {
   // client's task (this probe's), and what does the card show then? Named
   // in zenius's open result ("open"), or in any shell command the agent
   // reports ("command": an echo of taskSpace("<name>")), for a task made
-  // before the chat. Since zen-sidebar's 7c72787 a chat links only to a task
+  // before the chat. A chat links only to a task
   // made while its own open ran, so "openDuring" makes the probe's task
   // then: the agent's own report of its open is all the sidebar has to go on.
   async namelink() {
@@ -1664,7 +1664,7 @@ try {
   // The user's tabs belong in their own Space. A profile whose last run
   // ended in the Agents Space starts there, and zenius then takes the user's
   // tab for no place of theirs: a watch from it goes back to their Space,
-  // not to that tab (843a989's placeOf).
+  // not to that tab (placeOf).
   const space0 = await chrome(`
     const S = ctx.service.spaces;
     const recs = S.records?.() ?? [];

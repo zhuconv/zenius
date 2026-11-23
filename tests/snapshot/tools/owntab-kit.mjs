@@ -1,5 +1,5 @@
-// The shared kit for the own-tab probes (owntab-probe.mjs, bypass-probe.mjs;
-// docs/research/own-tab.md). It provides:
+// The shared kit for the own-tab probes (owntab-probe.mjs,
+// bypass-probe.mjs). It provides:
 // - an RPC client to a dev Zen;
 // - the loopback fixture sites (owntab-site.mjs);
 // - the user's side of a handoff (the pill, the own tab, Hand back), played
@@ -119,8 +119,8 @@ export async function openKit() {
   }
 
   /**
-   * The user resumes the agent: Resume agent on the pill since zen-ux's
-   * f740de1, Hand back before it (on the own tab's notice, while there was one).
+   * The user resumes the agent: Resume agent on the pill (zen-ux's change;
+   * Hand back before it, on the own tab's notice, while there was one).
    */
   async function handBack(space) {
     return chrome(

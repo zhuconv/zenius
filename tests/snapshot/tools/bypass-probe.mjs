@@ -1,7 +1,7 @@
-// Bypass probes for two own-tab defences (docs/research/own-tab.md), written
+// Bypass probes for two own-tab defences, written
 // before the defences landed:
-// - record: zen-observe's record, by site, of where the agent ran its code
-//   (5b23395), and zen-ux's pill, which asks it about every frame. Can the
+// - record: zen-observe's record, by site, of where the agent ran its
+//   code, and zen-ux's pill, which asks it about every frame. Can the
 //   agent's code reach a document whose site the record lacks, and read
 //   what the user types there? Each probe prints, for the page the user
 //   types in:
@@ -23,8 +23,8 @@
 //     storageWorkers storageMore storageSiteWorkers storageWhileUserHolds
 //   node tests/snapshot/tools/bypass-probe.mjs residualSiteSw residualStoredCode
 //
-// The first round's record bypasses, from the own tab's probe (removed with
-// the own tab in f740de1):
+// The first round's record bypasses, from the own tab's probe (removed
+// with the own tab):
 // popupEvasion, blobEvasion and ssoNavigation.
 import { openKit, runProbes } from "./owntab-kit.mjs";
 
@@ -71,7 +71,7 @@ async function userTypes(s, probe, { act = "" } = {}) {
   const got = caught.filter(c => c.probe === probe).map(c => c.v);
   await handBack(s).catch(e => step(probe, "hand back failed:", e.message));
   const at = seen.atTyping;
-  // The site warning, or the agent-made page's line (zen-ux's 3e66737).
+  // The site warning, or the agent-made page's line (zen-ux).
   const warned = /ran its own code|The agent made this page/.test(at?.pill?.note ?? "");
   let verdict = "nothing caught";
   if (got.length) {

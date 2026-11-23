@@ -6,11 +6,11 @@
 // - navigator.serviceWorker.ready and .controller read from the agent's
 //   world agree with the page;
 // - a task's shared worker isn't the one the user's tabs share;
-// - with the worker guard (107f93c), a task page's workers find no
+// - with the worker guard, a task page's workers find no
 //   registration and no controller, and nothing they send reaches the
 //   site's worker: blob, site script, shared, nested, module, a same-site
 //   frame's, and one that first deletes the members the guard replaced.
-// - with e333c7c, a worker the task's shared worker starts from a URL skips
+// - a worker the task's shared worker starts from a URL skips
 //   the site's worker, before and after the claim; a blob one started after
 //   the claim is zen-observe's documented bound (reported, not judged).
 // Then the offer, apart from those: the site's worker posts a port to every
@@ -186,7 +186,7 @@ const SHARED = `
   const tag = () => ([...whose].some(s => s.includes("agent")) ? "agent" : "user");
   const viaSw = () => fetch("/sw-marked?from=shared-" + tag()).then(r => r.text(), () => "error");
   // Workers it starts, one from the site's script and one from a blob, each
-  // fetching once: e333c7c marks the first; the second, after a claim, is
+  // fetching once: the first is marked; the second, after a claim, is
   // zen-observe's documented bound.
   const nested = src => new Promise(resolve => {
     try {
@@ -375,7 +375,7 @@ const AGENT_OFFER_LISTEN = `async () => {
 const AGENT_OFFER_READ = `() => ({ world: window.__zsOffers || null, worker: window.__zsWorkerOffers || null })`;
 const outcome = p => p.then(r => r?.result ?? r?.value ?? r, e => ({ error: `${e.code ?? ""} ${String(e.message).slice(0, 200)}` }));
 // The worker a report names: "... a worker the page started (<url>) ...".
-// zen-observe resolves it to an absolute URL after e333c7c (the debugger's
+// zen-observe resolves it to an absolute URL (the debugger's
 // url was the string passed to new Worker()).
 const reportUrl = e => (/started \(([^)]*)\)/.exec(e.message ?? "") ?? [])[1] ?? null;
 const absolute = u => /^(https?:|blob:)/.test(u ?? "");
@@ -421,7 +421,7 @@ try {
   out.agentWorldReach = await outcome(client.call("page.evaluate", { space, page: "p1", fn: AGENT_REACH }));
   out.agentWorkers = await outcome(client.call("page.evaluate", { space, page: "p1", fn: AGENT_WORKERS }));
   // The user's tab asks the worker to claim every client again: does it take
-  // the task's page, or its shared worker (90cc19f's residual)?
+  // the task's page, or its shared worker (a residual)?
   out.claimAgain = await chrome(`
     const t = tabOf(arg + "/sw-page?register&u1");
     return ctx.content(t.linkedBrowser.browsingContext, "dev#evalContent", { privileged: false, code: "navigator.serviceWorker.controller.postMessage('claim'); return true" });
@@ -473,7 +473,7 @@ try {
     agentSharedFromNetwork: out.agentPage?.shared?.viaSw === "FROM_NETWORK",
     agentPageUncontrolledAfterClaim: out.agentPageAfterClaim?.state ? !out.agentPageAfterClaim.state.controller && out.agentPageAfterClaim.state.viaSw === "FROM_NETWORK" : null,
     agentSharedFromNetworkAfterClaim: out.agentPageAfterClaim?.shared?.viaSw === "FROM_NETWORK",
-    // e333c7c: a worker the task's shared worker starts from a URL skips the
+    // A worker the task's shared worker starts from a URL skips the
     // site's worker, before and after the claim; a blob one before it.
     sharedNestUrlFromNetwork: out.agentPage?.shared?.nest?.url === "FROM_NETWORK" && out.agentPageAfterClaim?.shared?.nest?.url === "FROM_NETWORK",
     sharedNestBlobFromNetworkBeforeClaim: out.agentPage?.shared?.nest?.blob === "FROM_NETWORK",

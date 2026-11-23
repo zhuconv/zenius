@@ -1,6 +1,6 @@
 // Gecko's generated boxes (CSS ::before and ::after) of one element, for the
-// walker to print where Chromium's layout tree has them (walker.js;
-// docs/research/snapshot.md §3.5). The sandbox can't see them: they are
+// walker to print where Chromium's layout tree has them (walker.js). The
+// sandbox can't see them: they are
 // native anonymous content, which only chrome reaches.
 //
 // The walker asks about each element it visits, in a full-page walk as in a
@@ -10,8 +10,8 @@
 // document's style rules instead costs in proportion to its CSS, which a
 // site's first snapshot pays (GitHub's 17,581 rules: 35-100 ms, against a
 // 60 ms target for a whole viewport snapshot), and on full pages it saved
-// under half of the asking, on some pages none (docs/reports/zen-snapshot.md,
-// 2026-11-20). A shadow root's sheets are small, so reading them is cheap.
+// under half of the asking, on some pages none (measured 2026-11-20). A
+// shadow root's sheets are small, so reading them is cheap.
 
 /** What a scroll container lists after its children, before ::after (Gecko 160). */
 const SCROLL_PARTS = new Set(["scrollbar", "scrollcorner", "resizer"]);

@@ -1,11 +1,11 @@
-// Per-process input state between tabs (docs/research/process-input-state.md).
+// Per-process input state between tabs.
 //
 // Gecko keeps some input state once per content process, not per tab:
 // - mouse capture;
 // - pointer capture and the active pointers;
 // - the element held :active;
 // - the last pointer position, from which movementX/Y is computed;
-// - the wheel transaction, which zen-input found (docs/research/load-clicks.md).
+// - the wheel transaction, which zen-input found.
 // Can zenius's input in one tab change how another tab of the same process
 // handles input, or reach it?
 //
@@ -298,8 +298,7 @@ async function oneUserDrag(procs, agentDoes, gesture) {
 }
 
 /**
- * zen-eval's two press-without-release sequences (docs/reports/zen-eval.md,
- * Mac hands stretch, finding A):
+ * zen-eval's two press-without-release sequences (Mac hands stretch):
  * - holdAfterDrop: the user's HTML5 drag, then a long selection hold with
  *   moves; the agent's click starts mid-hold (20:15:12). holdNoDrop is the
  *   same without the drag.
@@ -428,7 +427,7 @@ const FRAMES = {
 };
 
 /**
- * One wheel case (input-gaps.md F7; zen-input's d193b07):
+ * One wheel case (from zen-input):
  * - together: the user wheels 12 notches 15 ms into an agent's 900 px motion;
  * - waits: the agent's wheel while the user scrolls for 1.5 s, then for 4 s
  *   (past page.mouse's 3 s deadline);
@@ -439,7 +438,7 @@ const FRAMES = {
  * - sameSiteFrame: the same over a frame of its own site, in one process
  *   with the user's tab;
  * - latchFrame: the agent's motion scrolls its page until a same-site frame
- *   comes under the pointer (zen-input's 697dda3: each step after that
+ *   comes under the pointer (zen-input found: each step after that
  *   stalled 1.6 s, and the motion stopped halfway).
  */
 async function oneWheel(procs, kind) {
@@ -925,7 +924,7 @@ const experiments = {
    * Keys from both sides at once, in one process. The user types in their
    * tab from a loop in the parent while the agent fills, types and presses
    * a chord in its own. Tasks, and so the user's keys, can come between the
-   * agent's keys only during a delay (b1fa2f2). Then each side holds Shift
+   * agent's keys only during a delay. Then each side holds Shift
    * while the other types. The user types a to m and the agent n to z, so a
    * letter in the wrong page shows whose it was.
    */

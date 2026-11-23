@@ -1,6 +1,6 @@
-// The isolated-world plan (docs/research/isolated-world.md), modeled, to try
-// escapes before zen-observe's code lands: zen-snapshot's red team,
-// 2026-11-20. The body of a privileged dev.evalContent call in the fixture's
+// The isolated-world plan, modeled, to try
+// escapes before zen-observe's code lands. The body of a privileged
+// dev.evalContent call in the fixture's
 // /sb page (sandbox-probe.mjs's "model" group runs it). It builds:
 // - the world: zen-observe's sandbox, with window and self as its global, and
 //   setTimeout and setInterval that refuse a string (typeof);

@@ -1,10 +1,10 @@
-// One sandbox per document for zen-snapshot's content scripts (design §2.1
-// in docs/research/snapshot.md). Each sandbox has the page's principal, so
+// One sandbox per document for zen-snapshot's content scripts. Each
+// sandbox has the page's principal, so
 // it reads the DOM without Xrays, and its own copies of the core DOM
 // prototypes, which the walker calls as primordials. Page script can't see
 // the sandbox's globals, and the scripts never hand it an object of theirs
 // (dom.js): the sandbox shares the page's compartment, so one such object
-// would give a page the sandbox's global (content-boundary.md, finding 1).
+// would give a page the sandbox's global.
 // The global holds no chrome function either: the walker gets its helpers
 // per capture (index.sys.mjs), aria.js its password check while it loads.
 //
@@ -76,7 +76,7 @@ function observeWindowDestruction() {
  * Whether an input is or was a password field (a show-password toggle makes
  * it type=text; hasBeenTypePassword is chrome-only). Read through Xrays, so
  * page script can't change the answer. aria.js's isSecretField keeps such a
- * field's value out of snapshots and names (snapshot.md §1.2).
+ * field's value out of snapshots and names.
  */
 function passwordInput(el) {
   try {
@@ -101,7 +101,7 @@ export function sandboxFor(win) {
       sameZoneAs: win,
       wantXrays: false,
       // Never "Window": reading Window.prototype members crashes Gecko 160's
-      // content process (docs/research/gecko-160.md).
+      // content process.
       wantGlobalProperties: ["Element", "Node", "Document", "NodeFilter", "Range", "CSS", "URL"],
       sandboxName: "zenius snapshot",
     });

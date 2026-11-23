@@ -1,5 +1,5 @@
 // CSS generated content and text-transform in page.snapshot, as Ego prints
-// them (docs/research/snapshot.md §3.5): ::before and ::after text around
+// them: ::before and ::after text around
 // the element's content, with counters, quotes and attr() resolved and
 // table-cell boxes in their rows; text-transform on the page's text and on
 // generated text. Left out, unlike Ego: an icon font's glyphs and a

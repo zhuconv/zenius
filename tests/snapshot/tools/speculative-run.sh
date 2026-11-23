@@ -1,5 +1,5 @@
 #!/bin/bash
-# Runs speculative-probe.mjs (docs/research/speculative-connect.md) against a
+# Runs speculative-probe.mjs against a
 # dev Zen with Gecko's own network defaults, in namespaces that keep every
 # packet and lookup on this machine:
 # - network: lo only, with 192.168.77.1 (the private target) and 203.0.113.10

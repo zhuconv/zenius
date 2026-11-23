@@ -1,6 +1,6 @@
 // Same-origin channels that need no window handle, between the agent's page
-// and the user's tab on the same site (docs/research/user-tab-reach.md,
-// "Channels without a window handle"): BroadcastChannel, storage events and
+// and the user's tab on the same site, channels without a window handle:
+// BroadcastChannel, storage events and
 // a SharedWorker, and the state behind them (localStorage, cookies).
 // - a: a task page (spaces.create, the agent's container) and the user's
 //   tab;
@@ -16,8 +16,8 @@
 // what it heard. The agent speaks with page.evaluate; the user's tab is read
 // and driven with dev#evalContent, which marks nothing.
 //
-// Since zen-observe's a018702 a task's BroadcastChannels are its own (a
-// constructor wrapper in its documents and workers). In a and b the agent's
+// A task's BroadcastChannels are its own (zen-observe's: a constructor
+// wrapper in its documents and workers). In a and b the agent's
 // code then also tries other ways to a channel (bypassRun): the prototype's
 // constructor, a frame's constructor (a fresh about:blank one, srcdoc, a
 // same-site URL), a fresh popup's, and workers (classic, module, nested,

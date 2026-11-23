@@ -4,7 +4,7 @@
 // trap. Each call checks what it was handed (this, arguments, a setter's
 // value) for an object of another realm: zen-snapshot's sandbox shares the
 // page's compartment, so any object of ours a page function receives leads
-// it to the sandbox's global (docs/research/content-boundary.md, finding 1).
+// it to the sandbox's global.
 //
 // MODE "spy": the traps then return the real result, so snapshots run as on
 // any page. MODE "hostile": a string the page returns comes back as a

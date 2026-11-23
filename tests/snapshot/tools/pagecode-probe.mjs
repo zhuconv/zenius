@@ -1,5 +1,5 @@
 // Red-teaming the user's setting for agents' page code (zen-observe's
-// observe/pagecode.sys.mjs, on main since 39f1940): zenius.agentTabs.pageCode
+// observe/pagecode.sys.mjs): zenius.agentTabs.pageCode
 // is "always" (the default), "ask" (only sites the user allowed, in
 // zenius.agentTabs.pageCodeSites) or "never". Does each refusal hold where it
 // should (page.evaluate, page.waitForFunction, the agent's own data: pages),
@@ -147,7 +147,7 @@ try {
   }
   out.self.typed = await outcome(client.call("page.keyboard", { space, page: "p1", action: "type", text: "about:config", options: {} })).then(r => r.ok || r.code);
   out.self.enter = await outcome(client.call("page.keyboard", { space, page: "p1", action: "press", key: "Enter", options: {} })).then(r => r.ok || r.code);
-  // With the card asking (since zen-input's 27b5bc5): the agent tabs through
+  // With the card asking (zen-input's change): the agent tabs through
   // the page and past its end, then presses Enter and Space. Does the
   // focus ever reach the card's Allow, and is anything written?
   await setting("ask", null);

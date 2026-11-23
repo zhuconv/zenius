@@ -1,6 +1,6 @@
-// The parent half of the ref registry (docs/SPI.md, "Refs and locators";
-// design in docs/research/snapshot.md §5.2): one table per tab, keyed by the
-// browser's browserId. The id moves with the page's docShell, so the table
+// The parent half of the ref registry (docs/SPI.md, "Refs and locators"):
+// one table per tab, keyed by the browser's browserId. The id moves with the
+// page's docShell, so the table
 // follows the page across process switches and across Zen's window copies
 // of its tab, which each keep their own permanentKey (SPI.md, "Windows: a
 // page is its sync id").

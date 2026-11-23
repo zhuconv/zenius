@@ -1,4 +1,4 @@
-// Speculative-connect probes (docs/research/speculative-connect.md): paths
+// Speculative-connect probes: paths
 // from a task page that reach the network with no HTTP channel, so without
 // http-on-opening-request, where zen-observe's local network refusal runs:
 // - <link rel=preconnect>, the agent's and the page's own;

@@ -55,7 +55,7 @@ const outcome = p => p.then(
   e => ({ error: brief(e) })
 );
 // Bound one case: a held page whose clean copy never renders headless sends
-// the runtime's clean-copy-on-demand into a reload storm (zen-core, 99cdc39),
+// the runtime's clean-copy-on-demand into a reload storm (zen-core),
 // so a hung case records a timeout and the group goes on, naming the culprit,
 // instead of stalling the whole run.
 const CASE_MS = 30000;
@@ -97,7 +97,7 @@ const C = `
       { identifier: 0, button: 0, buttons, clickCount: 1, modifiers: 0, inputSource: 1 },
       { isDOMEventSynthesized: false, isWidgetEventSynthesized: false, isAsyncEnabled: false });
     // What in the window is under the click: the page's browser, or chrome
-    // over it. Since zen-ux's 843a989 zenius's watch chip, in the page area's
+    // over it. Zenius's watch chip, in the page area's
     // corner, lets every click through, so "watch pill" here is a regression.
     const hit = w.document.elementFromPoint(r.left + at[0], r.top + at[1]);
     win.__sbClickHit = hit === t.linkedBrowser ? "page" : hit?.closest?.("#zenius-watch-pill") ? "watch pill" : (hit?.id || hit?.localName || null);
@@ -132,10 +132,10 @@ const C = `
       return "threw " + e.message;
     }
   };
-  // The evidence flag (zen-observe's 15e12df A, 95c15a4 B): the page's reasons
+  // The evidence flag (from zen-observe): the page's reasons
   // {hooked|made|listed|flagged: detail}, over the tab's top document and its
   // frames. It replaces written as the defenses' trigger; a page-world route
-  // now runs and marks hooked (A9) instead of being refused.
+  // now runs and marks hooked instead of being refused.
   let EVID = null;
   try {
     EVID = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/evidence.sys.mjs");
@@ -234,7 +234,7 @@ const ROUTES = {
   nativeKeyAttr: { code: `() => { setTimeout(Reflect.apply, 0, document.body.setAttribute, document.body, ["onkeydown", PAYLOAD]); return "scheduled"; }`, press: "a" },
   // The page's own eval, bound by the page's own bind: nothing of the agent's world in the timer.
   pageBoundEval: { code: `() => { window.setTimeout(window.Function.prototype.bind.call(window.eval, null, PAYLOAD), 0); return "scheduled"; }` },
-  // The red team's three with the page's eval (top.eval): in the world,
+  // The three with the page's eval (top.eval): in the world,
   // window.eval is the world's own.
   worldTimerTopEval: { code: `() => { setTimeout(top.eval, 0, PAYLOAD); return "scheduled"; }` },
   // A control, not a route: the logger runs in the agent's world itself, so
@@ -308,7 +308,7 @@ const ROUTES = {
   // the URL from before the agent's last change still picks it.
   siteRouterRedirect: { reload: true, code: `() => { document.getElementById("user").value = "/redirect?to=" + encodeURIComponent(BBASE + "/hold?role=phish"); document.getElementById("siteGo").click(); return location.href; }` },
   // The same through a redirect the site's page makes with its own script
-  // (zen-core's c43e20b stops a redirect response that leaves the site, and
+  // (zen-core stops a redirect response that leaves the site, and
   // names this as not covered): at once, and 1.5 s after the page's load.
   siteRouterJsRedirect: { reload: true, code: `() => { document.getElementById("user").value = "/jsnext?to=" + encodeURIComponent(BBASE + "/hold?role=phish"); document.getElementById("siteGo").click(); return location.href; }` },
   siteRouterJsRedirectLate: { reload: true, code: `() => { document.getElementById("user").value = "/jsnext?delay=1500&to=" + encodeURIComponent(BBASE + "/hold?role=phish"); document.getElementById("siteGo").click(); return location.href; }` },
@@ -350,7 +350,7 @@ const TAKE_OVER = `
     const AS = g.AgentService;
     conv = AS.createTask({ source: "new" });
     AS.addTask(conv, "sandbox-probe Take over");
-    // By the record since zen-sidebar's 7c72787 (the link by id), by name before.
+    // By the record now (the link by id), by name before.
     AS.linkZen(conv, typeof AS.startedRecord === "function" ? rec : rec.name);
     if (AS.zenRecord(conv) !== rec) throw new Error("the chat didn't link to the task");
     if (!(win.SidebarController.isOpen && win.SidebarController.currentID === "viewAgentSidebar")) await win.SidebarController.show("viewAgentSidebar");
@@ -369,7 +369,7 @@ const TAKE_OVER = `
     ownership: rec.ownership,
     held: conv ? g.AgentService.isHeld(conv) : null,
     watching: g?.watching ?? null,
-    // Since 843a989 both Take overs are zenius's watch.
+    // Both Take overs are zenius's watch.
     zeniusWatching: ZeniusUI.watching ? ZeniusUI.watching(win) === rec.id : null,
     shownIsTaskTab: ZeniusUI.lookup(win.gBrowser.selectedTab)?.rec === rec,
   };
@@ -611,7 +611,7 @@ const groups = {
         r.reloadedAtHandOff = (await chrome(C + `return docOf(tabById(arg));`, before.id)) !== before.doc;
         r.urlAfter = await chrome(C + `return tabById(arg)?.linkedBrowser.currentURI.spec.replace(${JSON.stringify(A.base)}, "A").replace(${JSON.stringify(B.base)}, "B") ?? null;`, before.id);
         r.writtenAtHandOff = await chrome(C + `return written(tabById(arg));`, before.id);
-        // The hold card names the site the user is on (zen-ux's b4fdcb1).
+        // The hold card names the site the user is on (zen-ux).
         r.cardAtHandOff = await chrome(C + CARD, { space, was: null });
         const seen = await chrome(
           C +

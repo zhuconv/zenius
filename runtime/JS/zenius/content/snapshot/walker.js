@@ -1,13 +1,13 @@
 // zen-snapshot's page walker, run inside a document's sandbox
 // (content/snapshot/sandbox.sys.mjs) after aria.js and locators.js. It turns
-// one document into Ego's snapshot tree (docs/research/snapshot.md §1, §3):
+// one document into Ego's snapshot tree:
 // roles, names, text, hidden content, compaction, viewport clipping, refs and
 // their locators.
 //
 // Hot paths call the sandbox's own copies of the DOM prototypes
 // ("primordials"), which is several times faster than the page's and immune
 // to page patches. Every other read of the page goes through dom.js, so page
-// script never gets an object of ours (content-boundary.md, finding 1). The
+// script never gets an object of ours. The
 // chrome side (index.sys.mjs) passes the few privileged reads a sandbox
 // can't do with each capture; they're never on the sandbox's global.
 "use strict";
@@ -483,7 +483,7 @@
   }
 
   // `detached`: also a node the page took out of the document and may put
-  // back, as Ego's refs reach (zen-input's actions, input-gaps.md 11). Only
+  // back, as Ego's refs reach (zen-input's actions). Only
   // while it's this document's node: one the page moved into another
   // document (a frame's, another window's, a windowless one) still counts as
   // connected there, and an action would act outside the ref's page.

@@ -16,7 +16,7 @@ into, and it logs, as JSON lines, what it got and what came back:
          while the probe makes the task <name> as zenius would, then ends
          with zenius's own result ("Open <host>/live", then "Started the task
          "<name>". Opened p1: ..."); the sidebar links the chat to that task
-         (since zen-sidebar's 7c72787, only to a task made while the call
+         (only to a task made while the call
          ran). Then it keeps the turn busy for HOLD seconds (20), a chunk
          every 0.5 s and a step every 2 s; LONG first streams a long answer,
          so the thread scrolls
