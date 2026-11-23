@@ -484,9 +484,10 @@ Questions, bugs and ideas: [GitHub Issues](https://github.com/zhuconv/zenius/iss
 
 ## Logo
 
-The zen(ius) mark is an A that is also a pointer: its apex is the tip,
-and its crossbar is an arch. Aqua and navy is the main mark; red and blue
-is an alternate. Each comes light and dark, as SVG and PNG.
+The zen(ius) mark stands for the agent's cursor. Its design draws on the Arc
+browser's icon: an A whose crossbar is an arch, with the A's apex as the
+cursor's tip. Aqua and navy is the main mark; red and blue is an alternate.
+Each comes light and dark, as SVG and PNG.
 
 | | Light | Dark | Files |
 |---|---|---|---|
