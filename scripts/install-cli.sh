@@ -49,7 +49,8 @@ BUNDLE=$ROOT/sdk/dist/zenius.mjs
 SANDBOX_NODE_MAJOR=24
 
 skill=0 uninstall=0 dry=0 sandbox=0 no_sandbox=0 output_dir= take_output=0 read_dir= read_set=0 take_read=0
-for arg in "$@"; do
+# ${1+"$@"}: with no arguments, macOS's bash 3.2 under set -u calls "$@" unbound.
+for arg in ${1+"$@"}; do
   if ((take_output)); then output_dir=$arg take_output=0; continue; fi
   if ((take_read)); then read_dir=$arg read_set=1 take_read=0; continue; fi
   case $arg in

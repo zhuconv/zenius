@@ -160,6 +160,16 @@ export async function setup() {
   return h;
 }
 
+/**
+ * The longest wait between frames (ms) at which the cursor's move animation
+ * still ends within the move's grace (cursor.sys.mjs: its duration plus
+ * 120 ms; a start and an end can each wait a frame). A throttled Mac (zen-eval's
+ * background-priority run with the screen locked) paints far more seldom, so a
+ * move there may resolve before its animation ends: `animated` is false by
+ * design.
+ */
+export const SMOOTH_FRAME_MS = 50;
+
 /** Chrome-side helpers prepended to dev.evalChrome code. */
 export function prelude(space, page = "p1") {
   return `
@@ -172,6 +182,28 @@ export function prelude(space, page = "p1") {
       while (!fn()) {
         if (Date.now() > end) throw new Error("timed out waiting for " + fn);
         await sleep(25);
+      }
+    };
+    // fn's value, and the longest wait between this window's frames while it
+    // ran, its end included: how smoothly the window painted meanwhile.
+    const withFrames = async fn => {
+      const start = win.performance.now();
+      let last = null;
+      let gap = 0;
+      let on = true;
+      const tick = t => {
+        if (on) {
+          gap = Math.max(gap, t - (last ?? start));
+          last = t;
+          win.requestAnimationFrame(tick);
+        }
+      };
+      win.requestAnimationFrame(tick);
+      try {
+        const value = await fn();
+        return { value, gap: Math.round(Math.max(gap, win.performance.now() - (last ?? start))) };
+      } finally {
+        on = false;
       }
     };
   `;

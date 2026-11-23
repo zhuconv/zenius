@@ -39,27 +39,30 @@ function plain(text, max = 200) {
 const isolate = text => `\u2068${text}\u2069`;
 
 /**
- * Where an external task is driven from (zen-core's source): "laptop/t5x ·
- * Claude Code" when its caller runs in an hc terminal, else "Claude
- * Code · zenius-eval" (its agent and its folder's name). Each part is a
- * first-strong isolate, as remoteSource's. `terminal` says whether the
- * first part is the terminal, which the look sets apart as a chip. Null
- * without a source it can name.
+ * Where an external task is driven from (zen-core's source), one phrase (the
+ * user's text pass, 2026-11-23): "Claude Code on laptop/t5x" when its caller
+ * runs in an hc terminal, else "Claude Code in zenius-eval" (its agent and
+ * its folder's name). Each part is a first-strong isolate, as
+ * remoteSource's. `terminal` says whether the last part is the terminal,
+ * which the look sets apart as a chip. Null without a source it can name.
  *
  * @param {{terminal?: string, agent?: string, folder?: string}|null} source
  * @returns {{text: string, terminal: boolean}|null}
  */
 export function sourceParts(source) {
   const part = key => plain(source?.[key], 64);
-  const terminal = part("terminal");
-  const parts = (terminal ? [terminal, part("agent")] : [part("agent"), part("folder")]).filter(Boolean);
-  return parts.length ? { text: parts.map(isolate).join(" · "), terminal: !!terminal } : null;
+  const [terminal, agent, folder] = [part("terminal"), part("agent"), part("folder")];
+  if (terminal) {
+    return { text: agent ? `${isolate(agent)} on ${isolate(terminal)}` : isolate(terminal), terminal: true };
+  }
+  const text = agent && folder ? `${isolate(agent)} in ${isolate(folder)}` : agent || folder ? isolate(agent || folder) : "";
+  return text ? { text, terminal: false } : null;
 }
 
 /**
- * The row's and the tooltip's source line: "From laptop/t5x · Claude
- * Code", or "Codex · zenius-eval" without a terminal; "Driven from
- * elsewhere" when the caller said nothing.
+ * The row's and the tooltip's source line: "From Claude Code on laptop/t5x",
+ * or "Codex in zenius-eval" without a terminal; "Driven from elsewhere" when
+ * the caller said nothing.
  *
  * @param {object} conv  an ExternalTask
  * @returns {string}
@@ -101,6 +104,13 @@ export class ExternalTask {
     this.uid = `${EXTERNAL_PREFIX}${space}`;
     this.zen = { id: space, name: "", heldBy: null };
     this.title = "";
+    // When the user archived it (AgentService.archiveTask), from the hooks' archived().
+    this.archivedAt = null;
+    // When the user pinned it in All tasks, and the name they gave it there
+    // (pins.sys.mjs), from the hooks' pinned() and label(). Its program's
+    // name stays the title, its zenius task's.
+    this.pinnedAt = null;
+    this.userTitle = null;
     this.createdAt = Date.now();
     this.task = { state: "working", since: Date.now(), text: "" };
   }
@@ -130,14 +140,18 @@ export class ExternalTask {
  * zen-input's ring (its onStep). `hooks`:
  * - service(): zenius's service, or null;
  * - ui(): zen-ux's ZeniusUI, or null;
- * - own(space, source): whether the sidebar drives that task;
+ * - own(space, source, entry): whether the sidebar drives that task, or
+ *   the user removed it from the list as the feed entry has it
+ *   (AgentService.wasRemoved);
+ * - archived(space, entry): when the user archived that task, else null
+ *   (AgentService.archivedAtOf);
+ * - pinned(task), label(task): when the user pinned it, and the name they
+ *   gave it in the sidebar, else null (AgentService.marks);
  * - changed(task): a task's row changed, or (null) the list did.
  */
 export class ExternalTasks {
   /** @type {Map<string, ExternalTask>} uid → task, in the feed's order */
   byUid = new Map();
-  /** Ended tasks the user removed from the list, by space. */
-  dismissed = new Set();
   /** zen-input's steps module ({stepsOf, onStep}), null without it; tests set a stand-in. */
   #steps = undefined;
   #offSteps = null;
@@ -218,10 +232,12 @@ export class ExternalTasks {
     }
   }
 
-  /** Remove an ended task from the list (the ⋯ menu's Remove); the feed keeps it. */
+  /**
+   * Remove an ended task from the list (the ⋯ menu's Remove); the feed keeps
+   * it, and own() leaves it out from then on (AgentService.removeTask).
+   */
   dismiss(task) {
     if (task?.external && task.task.state === "done") {
-      this.dismissed.add(task.space);
       this.byUid.delete(task.uid);
       this.hooks.changed(null);
     }
@@ -247,7 +263,7 @@ export class ExternalTasks {
     let listChanged = false;
     for (const entry of Array.isArray(entries) ? entries : []) {
       const space = entry?.space;
-      if (entry?.kind !== "task" || !Number.isSafeInteger(space) || this.dismissed.has(space) || this.hooks.own(space, entry.source ?? null)) {
+      if (entry?.kind !== "task" || !Number.isSafeInteger(space) || this.hooks.own(space, entry.source ?? null, entry)) {
         continue;
       }
       const uid = `${EXTERNAL_PREFIX}${space}`;
@@ -260,6 +276,23 @@ export class ExternalTasks {
       }
       if (this.#update(task, entry, rows.get(space) ?? null)) {
         this.hooks.changed(task);
+      }
+      const archivedAt = this.hooks.archived?.(space, entry) ?? null;
+      if (task.archivedAt !== archivedAt) {
+        // Into Archived or out of it: another group of the directory.
+        task.archivedAt = archivedAt;
+        task.emit({ type: "task", stateChanged: false });
+        listChanged = true;
+      }
+      // An archived task is never pinned (Archive unpins).
+      const pinnedAt = archivedAt ? null : (this.hooks.pinned?.(task) ?? null);
+      const userTitle = this.hooks.label?.(task) ?? null;
+      if (task.pinnedAt !== pinnedAt || task.userTitle !== userTitle) {
+        // Into Pinned or out of it, or another name.
+        task.pinnedAt = pinnedAt;
+        task.userTitle = userTitle;
+        task.emit({ type: "task", stateChanged: false });
+        listChanged = true;
       }
     }
     for (const uid of [...this.byUid.keys()]) {

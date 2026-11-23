@@ -58,6 +58,8 @@ export type RpcClientOptions = {
   instance: string;
   /** Called after every response, for timing logs; `heldMs` is time the runtime's gate held the call. */
   onTiming?: (method: string, ms: number, ok: boolean, heldMs: number) => void;
+  /** Called when the runtime starts or stops holding a call ({held, reason} frames), such as the self-check's wait for Zen to be in the background. */
+  onHeld?: (method: string, held: boolean, reason: string | undefined) => void;
 };
 
 export class RpcClient {
@@ -75,6 +77,7 @@ export class RpcClient {
   #failure: ZeniusError | undefined;
   #listeners = new Set<EventListener>();
   #onTiming: RpcClientOptions["onTiming"];
+  #onHeld: RpcClientOptions["onHeld"];
   #closed = false;
   #heldBySpace = new Map<number, number>();
 
@@ -82,6 +85,7 @@ export class RpcClient {
     this.socketPath = options.socketPath;
     this.instance = options.instance;
     this.#onTiming = options.onTiming;
+    this.#onHeld = options.onHeld;
   }
 
   /** Open the socket early so the handshake overlaps script compilation. */
@@ -217,9 +221,11 @@ export class RpcClient {
         if (pending.timer) clearTimeout(pending.timer);
         pending.timer = undefined;
         pending.heldSince = performance.now();
+        this.#onHeld?.(pending.method, true, typeof frame.reason === "string" ? frame.reason : undefined);
       } else if (frame.held === false && pending.heldSince !== undefined) {
         this.#release(pending);
         this.#arm(frame.id, pending);
+        this.#onHeld?.(pending.method, false, undefined);
       }
       return;
     }

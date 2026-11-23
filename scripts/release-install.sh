@@ -4,9 +4,22 @@
 # publishes the result as install.sh:
 #
 #   curl -fsSL https://github.com/zhuconv/zenius/releases/latest/download/install.sh | bash
-#   bash install.sh [--profile <dir>]   install zen(ius), or update it to this release
+#   ... | bash -s -- [<choices>]        the same, with choices
+#   bash install.sh [--profile <dir>] [<choices>]
+#                                       install zen(ius), or update it to this release
 #   bash install.sh --uninstall [--profile <dir>]
 #                                       take zen(ius) out again
+#
+# The choices, made once at the first install: an update keeps them, with no
+# flag again.
+#   --sandbox            the zenius command runs in a sandbox, the launcher's
+#                        (install-cli.sh --sandbox); it needs Node 24 first on PATH
+#   --read-dir <dir>     with --sandbox: scripts may also read <dir>, such as
+#                        ~/Downloads, for uploads, and never write it
+#   --output-dir <dir>   with --sandbox: runs' output folders go in <dir>
+#   --disable-ipv6       Zen makes no IPv6 lookups (scripts/install.sh
+#                        --disable-ipv6, a line in the profile's user.js), for a
+#                        network that has only IPv4
 #
 # It downloads the package, checks its SHA-256, unpacks it into
 # ~/.zenius/release, and runs the package's own installers:
@@ -15,13 +28,19 @@
 #   It backs up each file it replaces under ~/.zenius/backups/.
 # - scripts/install-cli.sh installs the zenius command in ~/.local/bin, and
 #   links the zen(ius) skill where Claude Code and Codex look for skills
-#   (leaving a copy that `npx skills` put there).
+#   (leaving a copy that `npx skills` put there). A sandboxed launcher there
+#   (install-cli.sh --sandbox, with its folders) stays as it is, and needs
+#   its Node first on PATH: without it, this stops before it changes
+#   anything.
 # - Zen's sidebar gets its agents: the ACP adapters for Claude Code and Codex,
 #   at the versions in runtime/agents/package-lock.json, go in
 #   ~/.zenius/agents (npm ci, with no install scripts and none of the
 #   adapters' optional CLI binaries: the sidebar runs the user's own CLIs),
 #   and ~/.zenius/agents/node links to the node found here, which the sidebar
-#   runs them with.
+#   runs them with. The user's own config.json for the sidebar
+#   (~/Library/Application Support/zenius-agent-sidebar/config.json) names the
+#   agents it runs instead, so then no adapters are added; ones an earlier
+#   install put there are kept up to date.
 # It never quits, starts or restarts Zen, and never changes Zen's app: when
 # the app lacks fx-autoconfig's two files, it ends by printing the commands
 # that copy them (exit status 3).
@@ -37,6 +56,13 @@
 
 set -euo pipefail
 
+# The whole installer is main(), run from the last line: `curl … | bash`
+# runs a script while bash still reads it from the pipe, so bash must have
+# read all of it before any of it runs. A download cut short then runs
+# nothing, and a stop before the end leaves curl no closed pipe to write
+# into. The body keeps its indentation, as it was before main() held it.
+main() {
+
 VERSION='@VERSION@'
 URL=${ZENIUS_RELEASE_URL:-'@URL@'}
 SHA256='@SHA256@'
@@ -48,17 +74,30 @@ AGENTS=$ZHOME/agents
 say() { printf 'zen(ius): %s\n' "$*"; }
 die() { printf 'zen(ius): %s\n' "$*" >&2; exit 1; }
 
-mode=install profile=''
+# The choices go to the installers as given, and those check them. Under
+# set -u, bash 3.2 (macOS's /bin/bash) treats an empty array, and an empty
+# "$@", as unset, so they expand as ${a[@]+"${a[@]}"} and ${1+"$@"}.
+mode=install profile='' choices=0 cli_args=() install_args=()
 while (($#)); do
   case $1 in
     --uninstall) mode=uninstall; shift ;;
     --profile)
       [[ $# -ge 2 && -n $2 ]] || { echo "zen(ius): --profile takes a folder" >&2; exit 2; }
       profile=$2; shift 2 ;;
+    --sandbox) cli_args+=(--sandbox); choices=1; shift ;;
+    --read-dir | --output-dir)
+      [[ $# -ge 2 && -n $2 ]] || { echo "zen(ius): $1 takes a folder" >&2; exit 2; }
+      cli_args+=("$1" "$2"); choices=1; shift 2 ;;
+    --disable-ipv6) install_args+=(--disable-ipv6); choices=1; shift ;;
     -h | --help) sed -n '2,/^$/{s/^# \{0,1\}//;p;}' "$0" 2>/dev/null || echo "See https://github.com/zhuconv/zenius"; exit 0 ;;
     *) echo "zen(ius): unknown argument: $1 (try --help)" >&2; exit 2 ;;
   esac
 done
+
+if [[ $mode == uninstall ]] && ((choices)); then
+  echo "zen(ius): --sandbox, --read-dir, --output-dir and --disable-ipv6 go with an install, not --uninstall" >&2
+  exit 2
+fi
 
 case $(uname) in
   Darwin | Linux) ;;
@@ -149,6 +188,53 @@ src=$work/unpacked/zenius-$VERSION
 [[ -f $src/RELEASE && -x $src/scripts/install.sh && -x $src/scripts/install-cli.sh ]] ||
   die "the package doesn't hold zen(ius) $VERSION"
 
+# install-cli.sh keeps a sandboxed launcher on an update, and the sandbox runs
+# only on its own Node major. Check that before anything changes: otherwise
+# the runtime would be updated and the CLI not.
+bin_dir=${ZENIUS_BIN_DIR:-$HOME/.local/bin}
+if [[ -f $bin_dir/zenius && ! -L $bin_dir/zenius ]] && sed -n 2p "$bin_dir/zenius" | grep -q '(zenius-sandbox-launcher '; then
+  want=$(sed -n 's/^SANDBOX_NODE_MAJOR=\([0-9][0-9]*\)$/\1/p' "$src/scripts/install-cli.sh")
+  have=$(node -p process.versions.node)
+  if [[ -n $want && ${have%%.*} != "$want" ]]; then
+    die "$bin_dir/zenius is the sandboxed launcher, which this release keeps, and it needs Node $want first on PATH; node is $have ($(command -v node)). Put Node $want first (on a Mac, Homebrew's is in /opt/homebrew/opt/node@$want/bin), then run this again: nothing has changed"
+  fi
+fi
+
+# The skill goes where Claude Code and Codex look, except where a copy that
+# isn't install-cli.sh's link already is (npx skills puts one there).
+skill_dirs=''
+for dir in ${ZENIUS_SKILL_DIRS:-$HOME/.claude/skills $HOME/.agents/skills}; do
+  if [[ -e $dir/zenius && ! -L $dir/zenius ]]; then
+    say "keeping $dir/zenius, a copy of the skill installed another way"
+  else
+    skill_dirs="$skill_dirs $dir"
+  fi
+done
+
+# install-cli.sh from the release at $1, with the skill and the choices, plus
+# any more arguments (--dry-run).
+cli() {
+  local root=$1
+  shift
+  if [[ -n $skill_dirs ]]; then
+    ZENIUS_SKILL_DIRS=${skill_dirs# } "$root/scripts/install-cli.sh" --skill ${1+"$@"} ${cli_args[@]+"${cli_args[@]}"}
+  else
+    "$root/scripts/install-cli.sh" ${1+"$@"} ${cli_args[@]+"${cli_args[@]}"}
+  fi
+}
+
+# install-cli.sh's own checks, before anything changes: its dry run with the
+# same arguments fails where the install would (a sandbox without its Node or
+# bubblewrap, a folder it won't take, a file in its way), and changes nothing.
+rc=0
+checked=$(cli "$src" --dry-run 2>&1) || rc=$?
+if ((rc)); then
+  reasons=$(printf '%s\n' "$checked" | grep -E '^(error|skip|install-cli\.sh:) ' || true)
+  printf '%s\n' "${reasons:-$checked}" >&2
+  ((rc != 2)) || { echo "zen(ius): a wrong argument (above): nothing has changed" >&2; exit 2; }
+  die "the zenius command can't be installed with these choices (above): nothing has changed"
+fi
+
 # The release stays in ~/.zenius/release: it's what --uninstall and doctor's
 # fixes run, and swapped in whole, so no file of an earlier one lingers.
 mkdir -p "$ZHOME"
@@ -161,27 +247,19 @@ say "unpacked into $RELEASE"
 
 # --loader puts fx-autoconfig's loader into a profile that has none, and
 # leaves one that's there as it is.
-run_install --loader || { app_note; die "scripts/install.sh failed (above)"; }
+run_install --loader ${install_args[@]+"${install_args[@]}"} || { app_note; die "scripts/install.sh failed (above)"; }
 
-# The skill goes where Claude Code and Codex look, except where a copy that
-# isn't install-cli.sh's link already is (npx skills puts one there).
-skill_dirs=''
-for dir in ${ZENIUS_SKILL_DIRS:-$HOME/.claude/skills $HOME/.agents/skills}; do
-  if [[ -e $dir/zenius && ! -L $dir/zenius ]]; then
-    say "keeping $dir/zenius, a copy of the skill installed another way"
-  else
-    skill_dirs="$skill_dirs $dir"
-  fi
-done
-if [[ -n $skill_dirs ]]; then
-  ZENIUS_SKILL_DIRS=${skill_dirs# } "$RELEASE/scripts/install-cli.sh" --skill || die "scripts/install-cli.sh failed (above)"
-else
-  "$RELEASE/scripts/install-cli.sh" || die "scripts/install-cli.sh failed (above)"
-fi
+cli "$RELEASE" || die "scripts/install-cli.sh failed (above)"
 
 # The sidebar's agents, when the release has them (zen-ux's runtime/agents):
-# npm checks each package against the lock's integrity hashes.
-if [[ -f $RELEASE/runtime/agents/package.json && -f $RELEASE/runtime/agents/package-lock.json ]]; then
+# npm checks each package against the lock's integrity hashes. The sidebar
+# reads the user's own config.json first, and its agents win over the
+# built-in ones, whose adapters would then never run: an install that has
+# none adds none. Adapters already there are kept up to date.
+sidebar_config="$HOME/Library/Application Support/zenius-agent-sidebar/config.json"
+if [[ -f $RELEASE/runtime/agents/package.json && -f $sidebar_config && ! -d $AGENTS ]]; then
+  say "not installing the sidebar's built-in agents: $sidebar_config names its agents, and they win over the built-in ones (without that file, run this again to get them)"
+elif [[ -f $RELEASE/runtime/agents/package.json && -f $RELEASE/runtime/agents/package-lock.json ]]; then
   command -v npm >/dev/null ||
     die "zen(ius) is installed, but not the sidebar's agents: npm is missing (it comes with Node.js). Install it, then run this again"
   say "installing the sidebar's agents (the ACP adapters for Claude Code and Codex) into $AGENTS"
@@ -203,3 +281,7 @@ fi
 
 echo
 say "zen(ius) $VERSION is installed. Open Zen (quit and reopen it if it's running), then run: zenius doctor"
+}
+
+# ${1+"$@"}: with no arguments, macOS's bash 3.2 under set -u calls "$@" unbound.
+main ${1+"$@"}

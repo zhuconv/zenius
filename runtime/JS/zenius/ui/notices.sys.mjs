@@ -229,7 +229,9 @@ function returnFocus(tab, from) {
 }
 
 /**
- * The notice's text as shown ("Agent paused · resumes in 8 s"), or null.
+ * The notice's text as shown, or null: its title and its detail, which the
+ * card sets apart, then the site as the card writes it ("Agent paused ·
+ * resumes in 8 s", "Agent needs you · <task> on <site>").
  *
  * @param {Element} tab
  * @param {string} value
@@ -239,7 +241,8 @@ export function noticeText(tab, value) {
   if (!entry?.el.isConnected) {
     return null;
   }
-  return [entry.opts.title, detailText(entry.opts), entry.opts.site].filter(Boolean).join(" · ");
+  const text = [entry.opts.title, detailText(entry.opts)].filter(Boolean).join(" · ");
+  return entry.opts.site ? `${text} on ${entry.opts.site}` : text;
 }
 
 /**
@@ -288,7 +291,7 @@ function fill(entry, tab, value) {
   detail.textContent = detailText(opts);
   // One text alone (a state text, a host) takes its own direction, so a
   // clipped right-to-left one keeps its start. A line with zenius's words in
-  // it ("<name> · closes when you leave this tab") stays left to right.
+  // it ("<name>, closes when you leave this tab") stays left to right.
   if (isOneIsolate(detail.textContent)) {
     detail.dir = "auto";
   }
@@ -563,7 +566,8 @@ function watchSite(entry) {
     }
     const cs = win.getComputedStyle(el);
     const gap = px(cs.columnGap) || 8;
-    // The dot, the title, the task's name and the site: three gaps.
+    // The dot, the title and the task's name: two gaps. The site follows the
+    // name after a word's space of its own (" on ", zenius-ux.css).
     const row =
       px(cs.paddingInlineStart) +
       px(cs.paddingInlineEnd) +
@@ -572,7 +576,7 @@ function watchSite(entry) {
       width(el.querySelector(":scope > .zenius-card-dot")) +
       (el.querySelector(":scope > .zenius-card-title")?.scrollWidth ?? 0) +
       oneLine +
-      3 * gap;
+      2 * gap;
     const buttons = box
       ? gap + BUTTONS_MARGIN + [...box.children].reduce((sum, b) => sum + width(b), 0) + BUTTONS_GAP * Math.max(0, box.children.length - 1)
       : 0;

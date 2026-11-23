@@ -5,7 +5,7 @@
 // unless the test itself plays the user.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { prelude, setup } from "./lib.mjs";
+import { prelude, setup, SMOOTH_FRAME_MS } from "./lib.mjs";
 
 let h;
 let space;
@@ -85,16 +85,22 @@ test("opening the agent Space shows the agent's page with the cursor at its last
   assert.equal(out.layerMatchesBrowser, true, "the overlay covers exactly the <browser>");
 });
 
-test("a visible move animates and resolves when the animation ends", async () => {
+test("a visible move animates and resolves when the animation ends (or, in a window that paints too seldom for that, within the move's grace)", async () => {
   const out = await h.chrome(`${P}
-    const r = await C.moveCursor(tab, { x: 500, y: 300 }, { label: "Click the big button", kind: "click" });
+    const { value: r, gap } = await withFrames(() => C.moveCursor(tab, { x: 500, y: 300 }, { label: "Click the big button", kind: "click" }));
     const cur = browser.parentElement.querySelector(".zenius-cursor");
-    return { r, transform: cur.style.transform, running: cur.getAnimations().filter(a => a.playState === "running").length };
+    return { r, gap, transform: cur.style.transform, running: cur.getAnimations().filter(a => a.playState === "running").length };
   `);
   assert.equal(out.r.visible, true);
-  assert.equal(out.r.animated, true);
   assert.ok(out.r.ms >= 100 && out.r.ms < 1000, `move took ${out.r.ms} ms`);
   assert.equal(out.transform, "translate(500px, 300px)");
+  // zen-eval's throttled Mac (background priority, the screen locked)
+  // painted too seldom for the animation to end within the grace.
+  if (out.gap > SMOOTH_FRAME_MS) {
+    console.log(`# frames up to ${out.gap} ms apart: the move may resolve before its animation ends (animated ${out.r.animated}); not checked here`);
+    return;
+  }
+  assert.equal(out.r.animated, true, `frames at most ${out.gap} ms apart`);
   assert.equal(out.running, 0, "the move animation has ended when the promise resolves");
 });
 

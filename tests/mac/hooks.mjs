@@ -65,7 +65,7 @@ export const PANEL = {
   live: "#live",
   /** A canvas. */
   liveShot: "#live-shot",
-  /** "Live · <host>", "Waiting for you · <host>", "You have control · <host>", or the host. */
+  /** "Live on <host>", "Waiting for you on <host>", "You have control on <host>", or the host. */
   liveText: "#live-text",
   /** Reads "Watch", with no aria-pressed; hidden while this window watches the task. A click only starts a watch. */
   watch: "#watch",
@@ -125,7 +125,7 @@ export const WATCH = {
   /** On #main-window: the uid of the task the window watches. */
   attr: "data-zenius-watching",
   /**
-   * zenius's watching chip, a div and a pure hint, "Watching <task> · ⌃Tab":
+   * zenius's watching chip, a div and a pure hint, "Watching <task> [⌃Tab]":
    * in the page area's top left corner, at most 280 px or 40% of the page's
    * width. It shows only while the window watches and the strip can't be read
    * (a collapsed sidebar, compact mode). No buttons, and every click passes
@@ -134,26 +134,26 @@ export const WATCH = {
   pill: "#zenius-watch-pill",
   /** The chip's "Watching <b>task</b>", the name cut by an ellipsis. */
   name: ".zenius-watch-name",
-  /** The chip's "· <kbd>⌃Tab</kbd>", never cut. */
+  /** The chip's "<kbd>⌃Tab</kbd>", never cut. */
   key: ".zenius-watch-key",
   /** zenius's agents strip: [watching="true"], with the same hint, while the window watches. */
   strip: "#zenius-agents-strip",
   /** The strip's task name while watching, cut by an ellipsis where the strip is narrow. */
   stripName: ".zenius-strip-name",
-  /** The strip's " · ⌃Tab" while watching, never cut. */
+  /** The strip's " <kbd>⌃Tab</kbd>" while watching, never cut. */
   stripKey: ".zenius-strip-key",
   /**
    * Once the watched task ends, ⌃Tab still goes back (zen-ux's af4bc5b): the
-   * strip is [watching="done"] and says "Task done · ⌃Tab back to your
+   * strip is [watching="done"] and says "Task done, [⌃Tab] back to your
    * tabs", or the chip, where the strip can't be read, is [done] and says the
    * same. "back to your tabs" is cut first, never "Task done" or the key.
    */
   stripText: ".zenius-strip-text",
-  /** The strip's "Watching " or, once the task is done, "Task done". */
+  /** The strip's "Watching " or, once the task is done, "Task done,". */
   stripLead: ".zenius-strip-lead",
   /** The strip's " back to your tabs" once the task is done. */
   stripRest: ".zenius-strip-rest",
-  /** The chip's "back to your tabs" once the task is done; its name then reads "Task done". */
+  /** The chip's "back to your tabs" once the task is done; its name then reads "Task done,". */
   rest: ".zenius-watch-rest",
   /** ZeniusUI.watchingDone(win): the ended task's space id while its way back stays, else null. */
   ui: "chrome://userscripts/content/zenius/ui/index.sys.mjs",

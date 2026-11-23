@@ -153,7 +153,7 @@ test("at no sidebar width does the Space's status show a stub of its rest: the r
     // A stub is a clipped rest with some room, but less than five letters'.
     const ok = s.short ? s.room === 0 : s.room === 0 || s.room >= s.min || !s.clipped;
     assert.ok(ok && s.words, `${s.width}px: ${JSON.stringify(s)}`);
-    assert.ok(s.title.startsWith("Agent needs you · ") && s.title.includes("Italian place on Main Street"), `${s.width}px: the title keeps the whole text`);
+    assert.ok(s.title.startsWith("Agent needs you ") && s.title.includes("Italian place on Main Street"), `${s.width}px: the title keeps the whole text`);
   }
   assert.ok(out.some(s => s.short), "some width hides the rest");
   assert.ok(out.some(s => !s.short && s.clipped), "some width shows part of it, with an ellipsis");

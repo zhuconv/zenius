@@ -27,6 +27,9 @@ let h;
 let server;
 let dir;
 let config;
+// How long the suite's server holds /article.html, in ms: a page still
+// loading when the user acts (zen-observe's mid-open probe of Archive).
+let holdArticle = 0;
 const slow = new Set();
 const run = Date.now().toString(36).slice(-5);
 
@@ -43,6 +46,32 @@ const MARKED = ["SRINLINE", "OFFSCREEN", "INDENT", "WHITE", "NEARWHITE", "TRANSP
 const LEFT_OUT = ["NAV", "DISPNONE", "VISHIDDEN", "DETAILS"];
 const page = (title, body, head = "") => `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>${head}</head><body>${body}</body></html>`;
 const PAGES = {
+  // A field the user typed in: it keeps the page's focus, and its title tells
+  // what reached it: "F[<value>] <event>,…". With ?select, its words are
+  // selected, as text the user just selected for the sidebar.
+  "/ime/field.html": page(
+    "F[]",
+    `<input id="f">
+     <script>
+       const f = document.getElementById("f");
+       const log = [];
+       const show = () => (document.title = "F[" + f.value + "] " + log.join(","));
+       for (const type of ["compositionstart", "compositionend", "input", "focus", "blur"]) {
+         f.addEventListener(type, e => { log.push(type + (e.data ? ":" + e.data : "")); show(); });
+       }
+       window.addEventListener("focus", () => {
+         if (document.activeElement !== f) {
+           f.focus();
+           if (location.search.includes("select") && !f.value) {
+             f.value = "Kyoto station";
+             f.select();
+             show();
+           }
+         }
+       });
+       show();
+     </script>`
+  ),
   "/zen-ux/hidden.html": page(
     "zen-ux hidden text",
     `<nav>NAV_MARK</nav>
@@ -134,6 +163,9 @@ before(async () => {
   const types = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml" };
   server = createServer(async (req, res) => {
     const path = normalize(decodeURIComponent(new URL(req.url, "http://x").pathname)).replace(/^(\.\.[/\\])+/, "");
+    if (holdArticle && path === "/article.html") {
+      await new Promise(resolve => setTimeout(resolve, holdArticle));
+    }
     if (PAGES[path]) {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(PAGES[path]);
       return;
@@ -168,7 +200,8 @@ before(async () => {
   await chrome(`
     const A = win.ucAgentSidebar.AgentService;
     await A.tasksReady;
-    for (const conv of A.taskList()) A.removeTask(conv);
+    for (const conv of [...A.tasks.values()]) A.removeTask(conv);
+    A.archivedSpaces = [];
     return true;
   `);
 });
@@ -194,15 +227,13 @@ after(async () => {
 });
 
 const www = () => `http://127.0.0.1:${server.address().port}`;
-// A directory row's group: the .asb-dir-group heading before it.
-const GROUP_OF = `const groupOf = row => {
-  for (let el = row?.previousElementSibling; el; el = el.previousElementSibling) {
-    if (el.classList.contains("asb-dir-group")) return el.dataset.group;
-  }
-  return null;
-};`;
-/** Chrome JS with zen-sidebar's scene helpers (`S`) first; `arg` is bound to `arg`. */
-const chrome = (code, arg) => h.call("dev.evalChrome", { code: `${SCENE}\n${GROUP_OF}\n${code}`, arg });
+// The panel and All tasks as a script reads and drives them, by the module
+// the self-check's scenarios use too (agent-sidebar/sidebarview.sys.mjs).
+// Its frames are the panel's own however long they take: a test reads what
+// they drew.
+const VIEW = `const V = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/sidebarview.sys.mjs").sidebarView(win, { frameMs: null });`;
+/** Chrome JS with zen-sidebar's scene helpers (`S`) and the sidebar's view (`V`) first; `arg` is bound to `arg`. */
+const chrome = (code, arg) => h.call("dev.evalChrome", { code: `${SCENE}\n${VIEW}\n${code}`, arg });
 /** The prompt the mock agents got with `question` in it: its text, and the
  * text of each resource (the page) that came with it. */
 function promptWith(question) {
@@ -262,11 +293,14 @@ const useMock = () =>
     return true;
   `);
 
+/** ui.sidebarStatus's windows in this suite's Zen: its one window, where the sidebar started, with no kind (sidebarstart.test.mjs has more). */
+const ONE_WINDOW = { loaded: true, windows: 1, open: 1, failed: 0, perWindow: [{ sidebar: "started" }] };
+
 test("the file carries doctor's marker among its first 20 lines, and a dev profile's sidebar reports itself with no agents", async () => {
   const head = readFileSync(SCRIPT, "utf8").split("\n").slice(0, 20).map(line => line.trim());
   assert.ok(head.includes("// zenius: agent-sidebar"), "the marker line");
   const status = await h.call("ui.sidebarStatus", {});
-  assert.deepEqual(status, { loaded: true, windows: 1, config: "none", configPath: "none" });
+  assert.deepEqual(status, { ...ONE_WINDOW, config: "none", configPath: "none" });
 });
 
 test("ui.sidebarStatus names the config it reads, and says when it's missing; what the built-in agents found comes only where the sidebar would use them ('builtin' here), never for a path a test or a dev Zen set", async () => {
@@ -274,7 +308,7 @@ test("ui.sidebarStatus names the config it reads, and says when it's missing; wh
   const empty = builtinMachine("status-empty", { node: null, adapters: [], clis: [] });
   try {
     await useMock();
-    assert.deepEqual(await h.call("ui.sidebarStatus", {}), { loaded: true, windows: 1, config: "found", configPath: config });
+    assert.deepEqual(await h.call("ui.sidebarStatus", {}), { ...ONE_WINDOW, config: "found", configPath: config });
     const gone = join(dir, "nowhere.json");
     await chrome(`
       Services.prefs.setStringPref(${JSON.stringify(PREF_BUILTIN_ROOT)}, arg.root);
@@ -282,11 +316,10 @@ test("ui.sidebarStatus names the config it reads, and says when it's missing; wh
       Services.prefs.setStringPref(${JSON.stringify(PREF)}, arg.gone);
       return true;
     `, { ...empty, gone });
-    assert.deepEqual(await h.call("ui.sidebarStatus", {}), { loaded: true, windows: 1, config: "missing", configPath: gone });
+    assert.deepEqual(await h.call("ui.sidebarStatus", {}), { ...ONE_WINDOW, config: "missing", configPath: gone });
     await chrome(`Services.prefs.setStringPref(${JSON.stringify(PREF)}, "builtin"); return true;`);
     assert.deepEqual(await h.call("ui.sidebarStatus", {}), {
-      loaded: true,
-      windows: 1,
+      ...ONE_WINDOW,
       config: "missing",
       configPath: "builtin",
       builtin: {
@@ -459,7 +492,8 @@ test("without a config.json, what's missing is one line: no CLI, no adapters, No
   }
 });
 
-// The user's own config.json, where the sidebar reads it while the pref is unset.
+// The agents' config.json, where the sidebar reads it while the pref is unset:
+// zenius's own folder.
 const USER_CONFIG = join(homedir(), "Library", "Application Support", "zenius-agent-sidebar", "config.json");
 
 test("with the pref unset and no config.json of the user's own, the sidebar offers the built-in agents, says so to doctor, and writes nothing where that file would be", { skip: existsSync(USER_CONFIG) && "this machine has the user's own config.json" }, async () => {
@@ -522,16 +556,16 @@ test("startWorkChat starts a task in Work mode: it resolves to the task's uid, t
     const conv = win.ucAgentSidebar.AgentService.tasks.get(uid);
     await S.until(() => conv && !conv.busy && conv.messages.length > 1, 60000);
     win.ucAgentSidebar.toggleDirectory();
-    const drawer = win.document.getElementById("zenius-sidebar-directory");
+    const drawer = V.drawer();
     await S.until(() => drawer && !drawer.hidden);
-    const row = drawer.querySelector('.asb-dir-row[data-task="' + uid + '"]');
+    const row = V.row(uid);
     const res = {
       uid: typeof uid,
       mode: doc.documentElement.dataset.mode,
       title: doc.getElementById("title")?.textContent ?? null,
       name: conv.title,
       steps: [...doc.querySelectorAll(".steps > .step")].map(s => ({ status: s.dataset.status, label: s.querySelector(".label")?.textContent ?? "" })),
-      group: groupOf(row),
+      group: V.groupOf(row),
       current: row?.dataset.current ?? null,
     };
     win.ucAgentSidebar.closeDirectory();
@@ -544,6 +578,1563 @@ test("startWorkChat starts a task in Work mode: it resolves to the task's uid, t
   assert.match(out.steps[0].label, /^Open /);
   assert.equal(out.group, "done");
   assert.equal(out.current, "true");
+});
+
+// Renaming a task (the user's ask, 2026-11-22): the header's name turns
+// into a field, and the user's name shows wherever the task's does.
+const RENAME = `
+  const g = win.ucAgentSidebar;
+  const A = g.AgentService;
+  const doc = S.panelDoc();
+  const $ = id => doc.getElementById(id);
+  const header = () => $("title").textContent;
+  const field = () => $("title").querySelector("input");
+  const items = () => [...$("menu").querySelectorAll("button:not([hidden])")].map(b => b.id);
+  const key = k => field().dispatchEvent(new doc.defaultView.KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
+  const dblclick = () => $("title").dispatchEvent(new doc.defaultView.MouseEvent("dblclick", { bubbles: true }));
+  const menuRename = () => {
+    if ($("menu").hidden) $("more").click();
+    $("rename-task").click();
+  };
+  const endTask = rec => {
+    if (!rec) return;
+    try { if (!rec.gone && rec.ownership !== "user") A.zeniusUI()?.stopByUser(rec); } catch {}
+    for (const t of A.zenius().pages.tabsOf(rec)) win.gBrowser.removeTab(t, { animate: false });
+  };
+`;
+
+test("renaming a task (the user's ask, 2026-11-22): More's Rename task, or a double-click on the header's name, makes the name a field; Enter or a click outside keeps it, Esc leaves it as it was, and an empty one goes back to the task's own title; the name shows at once in the header, the directory and its search, and on the task's zenius task: its tabs' tags and Watch's hint; it's saved with the task", async () => {
+  await useMock();
+  const name = `Pick a flight ${run}`;
+  const out = await chrome(
+    `
+    await S.openPanel();
+    ${RENAME}
+    const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
+    const uid = await startWorkChat(win, { text: "OPENSTAY:" + arg.name, source: "new" });
+    const conv = A.tasks.get(uid);
+    let rec = null;
+    let back = null;
+    try {
+      await S.until(() => conv && !conv.busy && A.zenRecord(conv), 60000);
+      rec = A.zenRecord(conv);
+      const tag = () => A.zenius().pages.tabsOf(rec)[0]?.querySelector(".tab-content")?.getAttribute("zenius-task-name") ?? null;
+      const shown = () => ({ header: header(), field: !!field(), user: conv.userTitle ?? null, own: conv.title, zen: rec.name, tag: tag() });
+      await S.until(() => header() === arg.name && tag() === arg.name, 5000);
+      const res = { start: shown() };
+      // More's Rename task.
+      $("more").click();
+      res.menu = items();
+      $("rename-task").click();
+      const f = field();
+      res.field = {
+        value: f?.value ?? null,
+        focused: !!f && doc.activeElement === f,
+        selected: !!f && f.selectionStart === 0 && f.selectionEnd === f.value.length,
+        label: f?.getAttribute("aria-label") ?? null,
+        placeholder: f?.placeholder ?? null,
+        menu: $("menu").hidden,
+      };
+      f.value = "  Trip to   Kyoto ";
+      key("Enter");
+      await S.until(() => rec.name === "Trip to Kyoto" && tag() === "Trip to Kyoto", 5000);
+      res.renamed = { ...shown(), focus: doc.activeElement === $("input") };
+      // The directory, and its search.
+      g.toggleDirectory();
+      const drawer = V.drawer();
+      await S.until(() => drawer && !drawer.hidden);
+      const row = () => V.row(uid);
+      const search = drawer.querySelector(".asb-dir-search input");
+      const find = async (q, want) => {
+        search.value = q;
+        search.dispatchEvent(new win.Event("input", { bubbles: true }));
+        await S.until(() => !!row() === want, 3000);
+        return !!row();
+      };
+      await S.until(() => row());
+      res.directory = { name: row()?.querySelector(".asb-dir-rt b")?.textContent ?? null, tip: row()?.title.split("\\n")[0] ?? null, found: await find("kyoto", true) };
+      await find("", true);
+      g.closeDirectory();
+      // A double-click; Esc leaves the name as it was.
+      dblclick();
+      res.dblclick = { field: !!field(), value: field()?.value ?? null };
+      field().value = "Something else";
+      key("Escape");
+      res.escaped = shown();
+      // Watched, the task's hint follows its name.
+      const strip = win.document.getElementById("zenius-agents-strip");
+      const hint = () => strip?.querySelector(".zenius-strip-name")?.textContent ?? null;
+      await g.watch(conv);
+      await S.until(() => hint(), 5000);
+      res.watched = hint();
+      // An empty name, kept by a click outside, goes back to the task's own title.
+      dblclick();
+      field().value = "";
+      $("input").focus();
+      await S.until(() => rec.name === arg.name && hint()?.includes(arg.name), 5000);
+      res.emptied = { ...shown(), hint: hint() };
+      await g.stopWatching();
+      // Saved with the task, and back with it.
+      menuRename();
+      field().value = "Trip to Kyoto";
+      key("Enter");
+      await A.saveTasks();
+      const data = await IOUtils.readJSON(A.tasksPath());
+      const saved = data.tasks.find(t => t.uid === uid);
+      res.saved = { user: saved.userTitle ?? null, own: saved.title };
+      back = A.restoreTask(JSON.parse(JSON.stringify({ ...saved, uid: "restored-" + uid, zen: null })));
+      g.showTask(back);
+      await S.until(() => header() === "Trip to Kyoto", 5000);
+      res.restored = { header: header(), user: back.userTitle ?? null, own: back.title };
+      return res;
+    } finally {
+      g.closeDirectory();
+      await g.stopWatching().catch(() => {});
+      if (back) A.forget(back);
+      endTask(rec);
+      A.removeTask(conv);
+      g.setMode("chat");
+    }
+  `,
+    { name }
+  );
+  assert.deepEqual(out.start, { header: name, field: false, user: null, own: name, zen: name, tag: name });
+  assert.deepEqual(out.menu, ["new-task", "rename-task", "archive-task", "close"], "More has Rename");
+  assert.deepEqual(out.field, { value: name, focused: true, selected: true, label: "Task name", placeholder: name, menu: true }, "the name, selected, in a field where it was; its placeholder is the task's own title");
+  const KYOTO = "Trip to Kyoto";
+  assert.deepEqual(out.renamed, { header: KYOTO, field: false, user: KYOTO, own: name, zen: KYOTO, tag: KYOTO, focus: true }, "Enter keeps it, in one line, and the zenius task and its tabs' tags take it");
+  assert.deepEqual(out.directory, { name: KYOTO, tip: KYOTO, found: true }, "the directory's row, its tooltip and its search");
+  assert.deepEqual(out.dblclick, { field: true, value: KYOTO });
+  assert.deepEqual(out.escaped, { header: KYOTO, field: false, user: KYOTO, own: name, zen: KYOTO, tag: KYOTO }, "Esc leaves it as it was");
+  assert.equal(out.watched, iso(KYOTO), "Watch's hint names the task by its new name");
+  assert.deepEqual(out.emptied, { header: name, field: false, user: null, own: name, zen: name, tag: name, hint: iso(name) }, "an empty name, kept by a click outside, goes back to the task's own title, there too");
+  assert.deepEqual(out.saved, { user: KYOTO, own: name }, "saved with the task");
+  assert.deepEqual(out.restored, { header: KYOTO, user: KYOTO, own: name }, "and back with it");
+});
+
+test("the user's name for a task wins: its first question, the agent's name for the zenius task its open starts, and a name the agent gives that task later (as a claim does) leave it, and the zenius task takes the user's; a task a script or a terminal agent drives, and a Chat chat, have no Rename", async () => {
+  await useMock();
+  const name = `Book a table ${run}`;
+  const ext = `zen-sidebar rename external ${run}`;
+  const { id } = await h.createSpace({ name: ext, source: { terminal: "laptop/t5x", agent: "Claude Code" } });
+  try {
+    const out = await chrome(
+      `
+      await S.openPanel();
+      ${RENAME}
+      const conv = await g.newTask();
+      let rec = null;
+      try {
+        await S.until(() => g.currentTask === conv && header() === "New task", 5000);
+        const res = {};
+        $("more").click();
+        res.menu = items();
+        $("rename-task").click();
+        field().value = "My errand";
+        key("Enter");
+        res.named = { header: header(), user: conv.userTitle ?? null };
+        // The first question, whose open starts a zenius task the agent names.
+        await A.send(conv, { question: "OPENSTAY:" + arg.name });
+        await S.until(() => A.zenRecord(conv), 30000);
+        rec = A.zenRecord(conv);
+        await S.until(() => rec.name === "My errand", 5000);
+        res.asked = { header: header(), user: conv.userTitle ?? null, own: conv.title, zen: rec.name, listed: A.tasks.has(conv.uid) };
+        // A later name from the agent, as spaces.claim gives one.
+        await A.zenius().spaces.rename(rec, "The agent's new name");
+        await S.until(() => rec.name === "My errand", 5000);
+        res.claimed = { header: header(), zen: rec.name };
+        // A task a script or a terminal agent drives.
+        A.syncExternalSoon();
+        await S.until(() => A.taskByUid("ext-" + arg.id), 10000);
+        const other = A.taskByUid("ext-" + arg.id);
+        await g.openTask("ext-" + arg.id);
+        await S.until(() => header() === arg.ext, 5000);
+        $("more").click();
+        res.external = { menu: items() };
+        $("more").click();
+        dblclick();
+        res.external.field = !!field();
+        A.renameTask(other, "Not this one");
+        res.external.header = header();
+        res.external.user = other.userTitle ?? null;
+        // A Chat chat.
+        g.setMode("chat");
+        await S.until(() => doc.documentElement.dataset.mode === "chat");
+        $("more").click();
+        res.chat = { menu: items() };
+        $("more").click();
+        dblclick();
+        res.chat.field = !!field();
+        return res;
+      } finally {
+        endTask(rec);
+        A.removeTask(conv);
+        g.setMode("chat");
+      }
+    `,
+      { name, id, ext }
+    );
+    assert.deepEqual(out.menu, ["new-task", "rename-task", "close"], "a new task can be named before its first question");
+    assert.deepEqual(out.named, { header: "My errand", user: "My errand" });
+    assert.deepEqual(out.asked, { header: "My errand", user: "My errand", own: name, zen: "My errand", listed: true }, "the first question and the agent's name for its zenius task leave the user's name, which the zenius task takes");
+    assert.deepEqual(out.claimed, { header: "My errand", zen: "My errand" }, "a later name from the agent gives way to the user's");
+    assert.deepEqual(out.external, { menu: ["new-task", "close"], field: false, header: ext, user: null }, "a task another program drives has no Rename");
+    assert.deepEqual(out.chat, { menu: ["new-chat", "close"], field: false }, "nor has a Chat chat");
+  } finally {
+    await h.call("spaces.finish", { space: id, keep: [] }).catch(() => {});
+  }
+});
+
+test("a name another live task has already (zen-observe's review of the rename): the sidebar shows it as the user typed it, and the zenius task takes it with a number, as a new task's name gets one ('<name> 2'), so a script's taskSpace(name) still finds the script's own task; the number stays when the agent names the task again, and an empty name gives the zenius task the agent's name back, numbered too while another live task has it", async () => {
+  await useMock();
+  const name = `Plan a route ${run}`;
+  const taken = `zen-sidebar script task ${run}`;
+  const { id } = await h.createSpace({ name: taken, source: { agent: "script", folder: "zenius-eval" } });
+  try {
+    const out = await chrome(
+      `
+      await S.openPanel();
+      ${RENAME}
+      const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
+      const uid = await startWorkChat(win, { text: "OPENSTAY:" + arg.name, source: "new" });
+      const conv = A.tasks.get(uid);
+      let rec = null;
+      let other = null;
+      try {
+        await S.until(() => conv && !conv.busy && A.zenRecord(conv) && header() === arg.name, 60000);
+        rec = A.zenRecord(conv);
+        if (!rec) throw new Error("the open linked no zenius task");
+        const spaces = A.zenius().spaces;
+        // What a script's taskSpace(name) finds: spaces.list's first live task of that name.
+        const found = n => spaces.live().find(r => r.name === n)?.id ?? null;
+        const res = {};
+        menuRename();
+        field().value = arg.taken;
+        key("Enter");
+        await S.until(() => rec.name !== arg.name, 5000);
+        res.renamed = { header: header(), user: conv.userTitle ?? null, zen: rec.name, found: found(arg.taken) === arg.id, alike: spaces.findByName(arg.taken).length };
+        // The agent names its task again, as a claim does.
+        await spaces.rename(rec, "The agent's new name");
+        await S.until(() => rec.name !== "The agent's new name", 5000);
+        res.claimed = rec.name;
+        // The script's task goes: the number stays, so zenius's name doesn't flip.
+        const script = spaces.peek(arg.id);
+        endTask(script);
+        if (!script.gone) spaces.remove(script);
+        A.noteZen(conv);
+        await S.sleep(200);
+        res.kept = { zen: rec.name, free: spaces.findByName(arg.taken).length === 0 };
+        // The agent's own name is another live task's now.
+        other = await spaces.create({ name: arg.name, source: { agent: "script", folder: "zenius-eval" } });
+        menuRename();
+        field().value = "";
+        key("Enter");
+        await S.until(() => rec.name !== arg.taken + " 2", 5000);
+        res.cleared = { header: header(), user: conv.userTitle ?? null, zen: rec.name, found: found(arg.name) === other.id };
+        return res;
+      } finally {
+        if (other) A.zenius().spaces.remove(other);
+        endTask(rec);
+        A.removeTask(conv);
+        g.setMode("chat");
+      }
+    `,
+      { name, taken, id }
+    );
+    assert.deepEqual(out.renamed, { header: taken, user: taken, zen: `${taken} 2`, found: true, alike: 1 }, "the script's task keeps its name to itself");
+    assert.equal(out.claimed, `${taken} 2`, "a later name from the agent gives way to the numbered one");
+    assert.deepEqual(out.kept, { zen: `${taken} 2`, free: true }, "the number stays once the other task is gone");
+    assert.deepEqual(out.cleared, { header: name, user: null, zen: `${name} 2`, found: true });
+  } finally {
+    await h.call("spaces.finish", { space: id, keep: [] }).catch(() => {});
+  }
+});
+
+test("removing a task (removeTask, for programs and tests; the menu archives since the user's ask of 2026-11-22): it takes the task out of the list and out of the panel, its live card too, though its tab is still open and its agent is answering; the agent stops, its zenius task ends as the strip's Stop ends one, and its tabs stay open; the directory doesn't list that zenius task as another program's, after a restart either; '+ New task' then gives a new task (the user's bug in 664f66a)", async () => {
+  await useMock();
+  const name = `Find a hotel ${run}`;
+  const out = await chrome(
+    `
+    await S.openPanel();
+    ${RENAME}
+    const card = () => !$("live").hidden;
+    // The user's steps: '+ New task', then a question whose page stays open.
+    const conv = await g.newTask();
+    let rec = null;
+    try {
+      await A.send(conv, { question: "OPENSTAY:" + arg.name });
+      await S.until(() => A.zenRecord(conv) && card() && header() === arg.name, 30000);
+      rec = A.zenRecord(conv);
+      const tabs = A.zenius().pages.tabsOf(rec);
+      const res = { before: { header: header(), card: card(), listed: A.tasks.has(conv.uid), tabs: tabs.length } };
+      // The agent answers again, and the task is removed meanwhile.
+      const turn = A.send(conv, { question: "HOLDTURN" });
+      await S.until(() => conv.busy, 10000);
+      A.removeTask(conv);
+      g.setMode("work");
+      // The card, if one shows, is the task the panel shows now: an earlier
+      // test's task may be the newest one, with its own page.
+      const cardFollows = () => card() === !!A.zenFrontTab(g.currentTask) && !tabs.includes(A.zenFrontTab(g.currentTask));
+      await S.until(() => g.currentTask !== conv && cardFollows(), 5000);
+      await turn.catch(() => {});
+      const newest = A.taskList()[0];
+      const want = newest ? newest.userTitle || newest.title : "New task";
+      await S.until(() => header() === want, 5000);
+      res.after = {
+        shown: g.currentTask === conv,
+        cardFollows: cardFollows(),
+        listed: A.tasks.has(conv.uid),
+        busy: !!conv.busy,
+        ownership: rec.ownership,
+        ended: rec.endedHow ?? null,
+        tabsOpen: tabs.every(t => t.isConnected && !t.closing),
+      };
+      res.header = { shown: header(), want };
+      // Neither the sidebar's task nor another program's in the directory.
+      const listed = () => A.directoryList().some(t => t.uid === conv.uid || t.uid === "ext-" + rec.id);
+      A.externalTasks().sync();
+      res.directory = listed();
+      // After a restart: the tasks file keeps the removal.
+      await A.saveTasks();
+      const file = await IOUtils.readJSON(A.tasksPath());
+      res.saved = (file.removed ?? []).filter(r => r.uid === conv.uid).map(r => ({ space: r.space === rec.id, at: typeof r.at }));
+      A.removedTasks = [];
+      A.restoreRemoved(file.removed);
+      A.externalTasks().sync();
+      res.restarted = listed();
+      // Another program claims the ended task again, as spaces.claim does once
+      // the user says yes (zen-manager's follow-up): a task like any other,
+      // listed while it runs and once it ends.
+      const spaces = A.zenius().spaces;
+      const row = () => A.taskByUid("ext-" + rec.id)?.task.state ?? null;
+      spaces.setSource(rec, { agent: "script", folder: "zenius-eval" });
+      spaces.setOwnership(rec, "agent", { source: "agent" });
+      A.externalTasks().sync();
+      res.claimed = row();
+      await S.sleep(5);
+      A.zeniusUI().stopByUser(rec);
+      A.externalTasks().sync();
+      res.endedAgain = row();
+      // '+ New task': a new task, not the removed one again.
+      const fresh = await g.newTask();
+      await S.until(() => g.currentTask === fresh && header() === "New task", 5000);
+      res.fresh = { same: fresh === conv, uid: fresh.uid === conv.uid, zen: !!fresh.zen, header: header(), card: card() };
+      return res;
+    } finally {
+      endTask(rec);
+      A.removeTask(conv);
+      g.setMode("chat");
+    }
+  `,
+    { name }
+  );
+  assert.deepEqual(out.before, { header: name, card: true, listed: true, tabs: 1 });
+  assert.deepEqual(out.after, { shown: false, cardFollows: true, listed: false, busy: false, ownership: "user", ended: "stopped", tabsOpen: true }, "the card goes with the task; its agent stops; its zenius task ends, its tab kept");
+  assert.equal(out.header.shown, out.header.want, "the panel shows the newest task, else a new one");
+  assert.equal(out.directory, false, "its zenius task isn't listed as another program's");
+  assert.deepEqual(out.saved, [{ space: true, at: "number" }]);
+  assert.equal(out.restarted, false, "nor after a restart");
+  assert.equal(out.claimed, "working", "claimed again, it's another program's task, listed");
+  assert.equal(out.endedAgain, "done", "and still listed once that run ends");
+  assert.deepEqual(out.fresh, { same: false, uid: false, zen: false, header: "New task", card: false });
+});
+
+test("archiving a task (the user's ask, 2026-11-22): the ⋯ menu says New, Rename, Archive and Close (⌘⇧A), each with a tooltip that says what it does; Archive moves the task to a collapsed Archived group at the bottom of All tasks, with a count, though its tab is still open and its agent is answering: the agent stops, its zenius task ends as the strip's Stop ends one, its tabs stay open, and the panel moves on; a search finds it there; opened, the task reads as it was, without a box, and Unarchive brings it back to the list; it stays archived after a restart", async () => {
+  await useMock();
+  const name = `Plan a trip ${run}`;
+  const out = await chrome(
+    `
+    await S.openPanel();
+    ${RENAME}
+    const card = () => !$("live").hidden;
+    const shown = el => !!el && !el.hidden && doc.defaultView.getComputedStyle(el).display !== "none";
+    // An item's words, its key hint and its tooltip.
+    const label = id => ({
+      label: [...$(id).childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join("").trim(),
+      kbd: $(id).querySelector(".kbd")?.textContent ?? null,
+      tip: $(id).title,
+    });
+    const menu = () => {
+      $("more").click();
+      const all = Object.fromEntries(items().map(id => [id, label(id)]));
+      $("more").click();
+      return all;
+    };
+    const conv = await g.newTask();
+    let rec = null;
+    let back = null;
+    try {
+      await A.send(conv, { question: "OPENSTAY:" + arg.name });
+      await S.until(() => A.zenRecord(conv) && card() && header() === arg.name, 30000);
+      rec = A.zenRecord(conv);
+      const tabs = A.zenius().pages.tabsOf(rec);
+      const res = { mac: Services.appinfo.OS === "Darwin", menu: menu() };
+      // The agent answers again, and the user archives the task meanwhile.
+      const turn = A.send(conv, { question: "HOLDTURN" });
+      await S.until(() => conv.busy, 10000);
+      res.busy = menu()["archive-task"];
+      $("more").click();
+      $("archive-task").click();
+      const cardFollows = () => card() === !!A.zenFrontTab(g.currentTask) && !tabs.includes(A.zenFrontTab(g.currentTask));
+      await S.until(() => g.currentTask !== conv && cardFollows(), 5000);
+      await turn.catch(() => {});
+      A.externalTasks().sync();
+      res.after = {
+        shown: g.currentTask === conv,
+        cardFollows: cardFollows(),
+        archived: typeof conv.archivedAt,
+        inList: A.taskList().includes(conv),
+        inArchive: A.archivedTasks().includes(conv),
+        kept: conv.messages.some(m => m.role === "user" && m.text === "OPENSTAY:" + arg.name),
+        busy: !!conv.busy,
+        ownership: rec.ownership,
+        ended: rec.endedHow ?? null,
+        tabsOpen: tabs.every(t => t.isConnected && !t.closing),
+        external: [...A.directoryList(), ...A.archivedTasks()].some(t => t.uid === "ext-" + rec.id),
+      };
+      // All tasks: Archived at the bottom, collapsed, with a count.
+      g.toggleDirectory();
+      const drawer = V.drawer();
+      await S.until(() => drawer && !drawer.hidden && drawer.querySelector(".asb-dir-archived"), 5000);
+      const head = () => drawer.querySelector(".asb-dir-archived");
+      const row = () => V.row(conv.uid);
+      res.dir = {
+        last: [...drawer.querySelectorAll(".asb-dir-group")].at(-1)?.dataset.group ?? null,
+        text: head().querySelector(".asb-dir-label")?.textContent ?? null,
+        count: head().querySelector(".asb-dir-count")?.textContent ?? null,
+        expanded: head().getAttribute("aria-expanded"),
+        row: !!row(),
+      };
+      head().click();
+      await S.until(() => row(), 3000);
+      res.expanded = { expanded: head().getAttribute("aria-expanded"), archived: row()?.dataset.archived ?? null, below: !!(head().compareDocumentPosition(row()) & 4) };
+      head().click();
+      await S.until(() => !row(), 3000);
+      res.collapsed = !row();
+      // A search finds it, Archived or not.
+      const search = drawer.querySelector(".asb-dir-search input");
+      search.value = arg.name.split(" ").at(-1);
+      search.dispatchEvent(new win.Event("input", { bubbles: true }));
+      await S.until(() => row(), 3000);
+      res.search = !!row();
+      // Opened, it reads as it was, without a box.
+      row().click();
+      await S.until(() => g.currentTask === conv && header() === arg.name, 5000);
+      await S.until(() => doc.documentElement.dataset.archived === "true", 3000);
+      res.opened = {
+        archived: doc.documentElement.dataset.archived,
+        bar: shown($("archived-bar")) ? $("archived-text").textContent : null,
+        unarchive: shown($("unarchive")),
+        input: shown($("input")),
+        send: shown($("send")),
+        thread: $("messages").textContent.includes("OPENSTAY:" + arg.name),
+      };
+      res.archivedMenu = menu();
+      // All tasks while the panel shows it: Archived is open, on it.
+      search.value = "";
+      g.toggleDirectory();
+      await S.until(() => g.directoryOpen && row(), 3000).catch(() => {});
+      res.openOnIt = { expanded: head()?.getAttribute("aria-expanded") ?? null, current: row()?.dataset.current ?? null };
+      g.closeDirectory();
+      // Unarchive: back in the list, and the box is back.
+      $("unarchive").click();
+      await S.until(() => !conv.archivedAt && shown($("input")), 5000);
+      res.unarchived = { archived: doc.documentElement.dataset.archived, input: shown($("input")), inList: A.taskList().includes(conv), inArchive: A.archivedTasks().includes(conv), shown: g.currentTask === conv };
+      // Chat's menu: New, for a new chat in this tab, and Close.
+      g.setMode("chat");
+      await S.until(() => doc.documentElement.dataset.mode === "chat");
+      res.chat = menu();
+      // After a restart, an archived task is still archived.
+      A.archiveTask(conv);
+      await A.saveTasks();
+      const file = await IOUtils.readJSON(A.tasksPath());
+      const saved = file.tasks.find(t => t.uid === conv.uid);
+      res.saved = typeof saved?.archivedAt;
+      back = A.restoreTask(JSON.parse(JSON.stringify({ ...saved, uid: "restored-" + conv.uid, zen: null })));
+      res.restored = typeof back.archivedAt;
+      // A new turn brings it back: nothing runs in Archived.
+      await A.send(conv, { question: "One more thing" });
+      res.resent = { archived: conv.archivedAt, inList: A.taskList().includes(conv) };
+      return res;
+    } finally {
+      // The window's drawer keeps its search: the next test's list is whole.
+      const field = win.document.querySelector("#zenius-sidebar-directory .asb-dir-search input");
+      if (field) field.value = "";
+      g.closeDirectory();
+      if (back) A.forget(back);
+      endTask(rec);
+      A.removeTask(conv);
+      g.setMode("chat");
+    }
+  `,
+    { name }
+  );
+  // The sidebar's key, in the platform's form.
+  const KEY = out.mac ? "⌘⇧A" : "Ctrl+Shift+A";
+  assert.deepEqual(out.menu, {
+    "new-task": { label: "New", kbd: null, tip: "New task" },
+    "rename-task": { label: "Rename", kbd: null, tip: "Rename the task" },
+    "archive-task": { label: "Archive", kbd: null, tip: "Moves the task to Archived, at the bottom of All tasks. Its tabs stay open." },
+    close: { label: "Close", kbd: KEY, tip: "Close the sidebar" },
+  });
+  assert.deepEqual(out.busy, { label: "Archive", kbd: null, tip: "Moves the task to Archived, at the bottom of All tasks, and stops its agent. Its tabs stay open." });
+  assert.deepEqual(out.after, { shown: false, cardFollows: true, archived: "number", inList: false, inArchive: true, kept: true, busy: false, ownership: "user", ended: "stopped", tabsOpen: true, external: false }, "the task keeps its thread, its agent stops, its zenius task ends with its tab kept, and the panel moves on");
+  assert.deepEqual(out.dir, { last: "archived", text: "Archived", count: "1", expanded: "false", row: false }, "Archived is the last group, collapsed, with a count");
+  assert.deepEqual(out.expanded, { expanded: "true", archived: "true", below: true });
+  assert.equal(out.collapsed, true);
+  assert.equal(out.search, true, "a search finds an archived task");
+  assert.deepEqual(out.opened, { archived: "true", bar: "Archived", unarchive: true, input: false, send: false, thread: true });
+  assert.deepEqual(out.archivedMenu, {
+    "new-task": { label: "New", kbd: null, tip: "New task" },
+    "rename-task": { label: "Rename", kbd: null, tip: "Rename the task" },
+    "archive-task": { label: "Unarchive", kbd: null, tip: "Brings the task back to the list." },
+    close: { label: "Close", kbd: KEY, tip: "Close the sidebar" },
+  });
+  assert.deepEqual(out.openOnIt, { expanded: "true", current: "true" }, "All tasks opens Archived on the task the panel shows from there");
+  assert.deepEqual(out.unarchived, { archived: "false", input: true, inList: true, inArchive: false, shown: true });
+  assert.deepEqual(out.chat, {
+    "new-chat": { label: "New", kbd: null, tip: "New chat for this tab" },
+    close: { label: "Close", kbd: KEY, tip: "Close the sidebar" },
+  });
+  assert.equal(out.saved, "number");
+  assert.equal(out.restored, "number", "a restart keeps it archived");
+  assert.deepEqual(out.resent, { archived: null, inList: true }, "a new turn brings it back to the list");
+});
+
+test("an archived task that was waiting on the user reads as archived in All tasks, not as needing them: no Needs you tint and no orange dot, where a listed one has both (zen-sidebar's look check of Archive)", async () => {
+  await useMock();
+  const out = await chrome(`
+    await S.openPanel();
+    const g = win.ucAgentSidebar, A = g.AgentService;
+    // Two tasks whose answers end with a question: both wait on the user.
+    const ask = async () => {
+      const conv = A.createTask({ source: "new" });
+      await A.send(conv, { question: "QUESTION" });
+      await S.until(() => !conv.busy && conv.task.state === "needs", 10000);
+      return conv;
+    };
+    const waiting = await ask();
+    const archived = await ask();
+    A.archiveTask(archived);
+    // Neither is the one the panel shows, whose row has its own tint.
+    await g.newTask();
+    const { drawer } = V;
+    try {
+      g.toggleDirectory();
+      await S.until(() => g.directoryOpen && drawer()?.querySelector(".asb-dir-archived"), 5000);
+      drawer().querySelector(".asb-dir-archived").click();
+      const row = conv => V.row(conv.uid);
+      await S.until(() => row(archived), 3000);
+      const look = el => ({ background: win.getComputedStyle(el).backgroundColor, dot: win.getComputedStyle(el.querySelector(".asb-dot")).backgroundColor });
+      return { state: archived.task.state, needs: A.needsCount(), waiting: look(row(waiting)), archived: look(row(archived)) };
+    } finally {
+      g.closeDirectory();
+      A.removeTask(waiting);
+      A.removeTask(archived);
+      g.setMode("chat");
+    }
+  `);
+  assert.equal(out.state, "needs", "archived as it waited on the user");
+  assert.equal(out.needs, 1, "only the listed one counts");
+  assert.equal(out.waiting.dot, "rgb(240, 124, 27)", "a listed one has the orange dot");
+  assert.notEqual(out.waiting.background, "rgba(0, 0, 0, 0)", "and the Needs you tint");
+  assert.deepEqual(out.archived.background, "rgba(0, 0, 0, 0)", "an archived one has no tint");
+  assert.notEqual(out.archived.dot, out.waiting.dot, "nor the orange dot");
+});
+
+test("Archive and Remove while the agent's first open is still loading its page end the zenius task that open started, though the chat hasn't linked it yet: it's the user's, its tab kept, and All tasks doesn't list it; one zenius creates for an archived or removed chat after the click ends as it starts (zen-observe's review of Archive)", async () => {
+  // The mock dressed as codex-acp (CODEX_PATH): its zenius server gets the
+  // chat's uid (ZENIUS_SIDEBAR_TASK), as both real adapters' servers do.
+  const file = join(dir, "config-codex-midopen.json");
+  const cfg = JSON.parse(readFileSync(config, "utf8"));
+  const mock = cfg.agents.mock;
+  cfg.agents.mockcodex = { ...mock, name: "Mock Codex", args: [...mock.args.slice(0, 2), join(dir, "logs", "mock-codex-midopen.log")], env: { ...mock.env, CODEX_PATH: "codex" } };
+  cfg.default = "mockcodex";
+  writeFileSync(file, JSON.stringify(cfg, null, 2));
+  const name = `Mid-open ${run}`;
+  holdArticle = 4000;
+  let out;
+  try {
+    out = await chrome(
+      `
+      const PICK = "uc.agent-sidebar.harness";
+      const picked = Services.prefs.prefHasUserValue(PICK) ? Services.prefs.getStringPref(PICK) : null;
+      Services.prefs.setStringPref(${JSON.stringify(PREF)}, arg.file);
+      Services.prefs.setStringPref("uc.agent-sidebar.zenius-cli", arg.cli);
+      Services.prefs.setStringPref(PICK, "mockcodex");
+      try {
+        await win.ucAgentSidebar.AgentService.loadConfig();
+        await S.openPanel();
+        ${RENAME}
+        const recs = [];
+        const opened = [];
+        const late = [];
+        let archivedConv = null;
+        try {
+          const spaces = A.zenius().spaces;
+          const listed = rec => [...A.directoryList(), ...A.archivedTasks()].some(t => t.uid === "ext-" + rec.id);
+          // The agent's first open, its page held, and the user's click while it loads.
+          const midOpen = async (how, taskName) => {
+            const conv = await g.newTask();
+            conv.harness = "mockcodex";
+            A.send(conv, { question: "OPENSTAY:" + taskName }).catch(() => {});
+            await S.until(() => spaces.findByName(taskName).length > 0, 20000);
+            const rec = spaces.findByName(taskName)[0];
+            recs.push(rec);
+            const tabs = A.zenius().pages.tabsOf(rec);
+            opened.push(...tabs);
+            const at = { linked: !!A.zenRecord(conv), busy: !!conv.busy, tabs: tabs.length, ownership: rec.ownership };
+            if (how === "archive") {
+              $("more").click();
+              $("archive-task").click();
+            } else {
+              A.removeTask(conv);
+              g.setMode("work");
+            }
+            await S.until(() => !conv.busy, 15000);
+            await S.until(() => rec.ownership === "user", 8000);
+            // The held page loads meanwhile: nothing takes the task back.
+            await S.sleep(4500);
+            A.externalTasks()?.sync();
+            const entry = spaces.feedEntry(rec);
+            return {
+              conv,
+              at,
+              after: { ownership: rec.ownership, ended: rec.endedHow ?? null, tabs: tabs.every(t => t.isConnected && !t.closing), feed: entry.state, byChat: entry.source?.sidebar === conv.uid, listed: listed(rec) },
+            };
+          };
+          const archived = await midOpen("archive", arg.name + " archived");
+          archivedConv = archived.conv;
+          const removed = await midOpen("remove", arg.name + " removed");
+          // zenius creates a task for each after the click, as a cut call can.
+          for (const [which, conv] of [["archived", archived.conv], ["removed", removed.conv]]) {
+            late.push([which, await spaces.create({ name: arg.name + " late " + which, source: { sidebar: conv.uid } })]);
+          }
+          await S.until(() => late.every(([, rec]) => rec.ownership === "user"), 5000);
+          A.externalTasks()?.sync();
+          return {
+            archive: { at: archived.at, after: archived.after },
+            remove: { at: removed.at, after: removed.after },
+            late: Object.fromEntries(late.map(([which, rec]) => [which, { ownership: rec.ownership, ended: rec.endedHow ?? null, listed: listed(rec) }])),
+          };
+        } finally {
+          if (archivedConv) A.removeTask(archivedConv);
+          for (const rec of recs) endTask(rec);
+          for (const tab of opened) {
+            if (tab.isConnected && !tab.closing) win.gBrowser.removeTab(tab, { animate: false });
+          }
+          for (const [, rec] of late) {
+            try { if (!rec.gone) A.zenius().spaces.remove(rec); } catch {}
+          }
+          g.setMode("chat");
+        }
+      } finally {
+        Services.prefs.clearUserPref("uc.agent-sidebar.zenius-cli");
+        if (picked === null) Services.prefs.clearUserPref(PICK);
+        else Services.prefs.setStringPref(PICK, picked);
+      }
+    `,
+      { file, cli: CLI, name }
+    );
+  } finally {
+    holdArticle = 0;
+    await useMock();
+  }
+  const at = { linked: false, busy: true, tabs: 1, ownership: "agent" };
+  const ended = { ownership: "user", ended: "stopped", tabs: true, feed: "done", byChat: true, listed: false };
+  assert.deepEqual(out.archive.at, at, "clicked while the open's page loads: zenius has the task and its tab, the chat hasn't linked it");
+  assert.deepEqual(out.archive.after, ended, "Archive ends it as the strip's Stop does, its tab kept, and All tasks doesn't list it");
+  assert.deepEqual(out.remove.at, at);
+  assert.deepEqual(out.remove.after, ended, "so does Remove");
+  assert.deepEqual(out.late, { archived: { ownership: "user", ended: "stopped", listed: false }, removed: { ownership: "user", ended: "stopped", listed: false } }, "one zenius creates after the click ends as it starts");
+});
+
+test("an archived or removed chat's late pass ends only the zenius tasks whose source names the chat: the task it followed, ended at the click and claimed since by a program the user let have it, goes on, both as the turn the click cut ends and as zenius creates a task for the chat afterwards (zen-observe's nit on Archive)", async () => {
+  await useMock();
+  const name = `Claimed ${run}`;
+  const out = await chrome(
+    `
+    await S.openPanel();
+    ${RENAME}
+    const spaces = A.zenius().spaces;
+    const made = [];
+    const convs = [];
+    // A program claims the task, as spaces.claim does once the user says
+    // yes: the source is its own now, without the chat's uid.
+    const claim = rec => {
+      spaces.setSource(rec, { agent: "script", folder: "zenius-eval" });
+      spaces.setOwnership(rec, "agent", { source: "agent" });
+    };
+    const trial = async how => {
+      const conv = await g.newTask();
+      convs.push(conv);
+      // The task the chat's agent opened, which the chat follows.
+      const followed = await spaces.create({ name: arg.name + " " + how, source: { sidebar: conv.uid } });
+      made.push(followed);
+      A.linkZen(conv, followed);
+      A.send(conv, { question: "SLOW " + how }).catch(() => {});
+      await S.until(() => conv.busy && conv.messages.findLast(m => m.role === "assistant")?.text.startsWith("word"), 10000);
+      if (how === "archive") {
+        A.archiveTask(conv);
+      } else {
+        A.removeTask(conv);
+      }
+      const res = { click: followed.ownership };
+      // Claimed before the turn the click cut has ended (send()'s finally).
+      claim(followed);
+      await S.until(() => !conv.busy, 10000);
+      await S.sleep(200);
+      res.turnEnd = followed.ownership;
+      if (followed.ownership !== "agent") {
+        claim(followed);
+      }
+      // zenius creates a task for the chat after the click, as a cut call can (spaceCreated).
+      const late = await spaces.create({ name: arg.name + " " + how + " late", source: { sidebar: conv.uid } });
+      made.push(late);
+      await S.until(() => late.ownership === "user", 5000);
+      await S.sleep(200);
+      res.created = { late: late.ownership, followed: followed.ownership };
+      return res;
+    };
+    try {
+      return { archive: await trial("archive"), remove: await trial("remove") };
+    } finally {
+      for (const conv of convs) A.removeTask(conv);
+      for (const rec of made) {
+        endTask(rec);
+        try { if (!rec.gone) spaces.remove(rec); } catch {}
+      }
+      g.setMode("chat");
+    }
+  `,
+    { name }
+  );
+  const goesOn = { click: "user", turnEnd: "agent", created: { late: "user", followed: "agent" } };
+  assert.deepEqual(out.archive, goesOn, "Archive: the click ends the task the chat follows; once claimed, it goes on as the cut turn ends and as a late task of the chat's ends");
+  assert.deepEqual(out.remove, goesOn, "Remove: the same");
+});
+
+test("a question being edited when its task is archived, in another window say, closes its editor: its Send can't run the edit and bring the task back (zen-observe's review of Archive)", async () => {
+  await useMock();
+  const out = await chrome(`
+    await S.openPanel();
+    ${RENAME}
+    const conv = await g.newTask();
+    try {
+      await A.send(conv, { question: "First question" });
+      await S.until(() => !conv.busy, 10000);
+      const question = () => doc.querySelector(".msg.user");
+      await S.until(() => question()?.querySelector('[data-action="edit"]'), 3000);
+      question().querySelector('[data-action="edit"]').click();
+      await S.until(() => doc.querySelector(".editor textarea"), 3000);
+      doc.querySelector(".editor textarea").value = "An edited question";
+      const res = { editing: !!doc.querySelector(".editor") };
+      // Archived elsewhere: this panel still shows the task.
+      A.archiveTask(conv);
+      await S.until(() => doc.documentElement.dataset.archived === "true", 3000);
+      await S.sleep(100);
+      res.after = { editor: !!doc.querySelector(".editor"), archived: !!conv.archivedAt, questions: conv.messages.filter(m => m.role === "user").map(m => m.text), busy: !!conv.busy };
+      return res;
+    } finally {
+      A.removeTask(conv);
+      g.setMode("chat");
+    }
+  `);
+  assert.equal(out.editing, true);
+  assert.deepEqual(out.after, { editor: false, archived: true, questions: ["First question"], busy: false });
+});
+
+test("the sidebar's key in the panel's hints, Close's and the empty chat's, is the one the window bound, in the platform's form: ⌘⇧A on the Mac, Ctrl+Shift+A on Linux and Windows, and another key the same way (zen-observe's review of Archive)", async () => {
+  const out = await chrome(`
+    await S.openPanel();
+    const g = win.ucAgentSidebar;
+    const doc = S.panelDoc();
+    return {
+      mac: Services.appinfo.OS === "Darwin",
+      pref: Services.prefs.prefHasUserValue("uc.agent-sidebar.shortcut"),
+      bound: g.shortcut,
+      close: doc.querySelector("#close .kbd").textContent,
+      empty: doc.querySelector("#empty .chat-only kbd")?.textContent ?? null,
+      other: g.shortcutLabel({ modifiers: "accel,alt", key: "k" }),
+      plain: g.shortcutLabel({ modifiers: "control,shift", key: "VK_F2" }),
+    };
+  `);
+  assert.equal(out.pref, false, "the default key, accel,shift+A");
+  const want = out.mac ? "⌘⇧A" : "Ctrl+Shift+A";
+  assert.equal(out.bound, want);
+  assert.equal(out.close, want, "Close's hint");
+  assert.equal(out.empty, want, "the empty chat's");
+  assert.equal(out.other, out.mac ? "⌘⌥K" : "Ctrl+Alt+K");
+  assert.equal(out.plain, out.mac ? "⌃⇧F2" : "Ctrl+Shift+F2");
+});
+
+test("an archived task goes as if done once there are more than 60 tasks, even one left in Needs you: it never counts as needing the user; a listed one in Needs you stays (zen-observe's review of Archive)", async () => {
+  const out = await chrome(`
+    const A = win.ucAgentSidebar.AgentService;
+    for (const conv of [...A.tasks.values()]) A.removeTask(conv);
+    // A task whose answer ends with a question: it waits on the user.
+    const waiting = text => {
+      const conv = A.createTask({ source: "new" });
+      conv.push({ role: "user", text, selection: "", files: [], attachments: [] });
+      conv.push({ role: "assistant", text: "Do you want the morning one or the evening one?", state: "done" });
+      A.addTask(conv, text);
+      A.refreshTask(conv);
+      return conv;
+    };
+    const archived = waiting("Archived while it waited");
+    A.archiveTask(archived);
+    const listed = waiting("Listed and waiting");
+    const more = [];
+    try {
+      const res = { archived: archived.task.state, listed: listed.task.state };
+      // MAX_TASKS is 60: up to it, then one more.
+      while (A.tasks.size < 60) {
+        const conv = A.createTask({ source: "new" });
+        A.addTask(conv, "Another task " + more.length);
+        more.push(conv);
+      }
+      res.at60 = A.tasks.has(archived.uid);
+      const one = A.createTask({ source: "new" });
+      A.addTask(one, "One more");
+      more.push(one);
+      res.after = { archived: A.tasks.has(archived.uid), listed: A.tasks.has(listed.uid), size: A.tasks.size };
+      return res;
+    } finally {
+      for (const conv of [archived, listed, ...more]) {
+        if (A.tasks.delete(conv.uid)) A.forget(conv);
+      }
+      A.tasksChanged(null, { now: true });
+    }
+  `);
+  assert.deepEqual([out.archived, out.listed], ["needs", "needs"], "both wait on the user");
+  assert.equal(out.at60, true, "nothing goes at 60");
+  assert.deepEqual(out.after, { archived: false, listed: true, size: 60 }, "past it, the archived one goes; the listed one in Needs you stays");
+});
+
+// --- All tasks' right-click menu (the user's ask, 2026-11-22: "你这应该有右键功能
+// … 至少有右键给某个会话pin or rename应该有"): Pin or Unpin, Rename, then Archive or
+// Unarchive, on each row; Pinned at the top of All tasks.
+
+/** What the menu's items say: the ⋯ menu's words, and Pin's own. */
+const PIN_TIP = "Keeps the task in Pinned, at the top of All tasks.";
+const UNPIN_TIP = "Takes the task out of Pinned.";
+const PIN_FULL_TIP = "Pinned holds 20 tasks at most. Unpin one first.";
+const RENAME_TIP = "Rename the task";
+const RENAME_EXTERNAL_TIP = "Rename the task in the sidebar. The program that runs it keeps its own name.";
+const UNARCHIVE_TIP = "Brings the task back to the list.";
+
+/**
+ * Chrome JS for All tasks' rows and their menu. Keys go to the focused
+ * element as the user's do (nsITextInputProcessor), so the menu's own key
+ * handling (Esc) runs as it does for them.
+ */
+const ROW_MENU = `
+  // A is the test's own (EXTERNAL declares it too).
+  const g = win.ucAgentSidebar;
+  const { drawer, row } = V;
+  const menu = () => win.document.getElementById("zenius-sidebar-directory-menu");
+  const shown = () => menu()?.state === "open";
+  const openDir = async () => {
+    if (!g.directoryOpen) g.toggleDirectory();
+    await S.until(() => g.directoryOpen && !drawer().hidden, 3000);
+  };
+  // A task of the user's in the list: its first question and the agent's answer.
+  const task = (text, answer = "Done.") => {
+    const conv = g.AgentService.createTask({ source: "new" });
+    conv.push({ role: "user", text, selection: "", files: [], attachments: [] });
+    conv.push({ role: "assistant", text: answer, state: "done" });
+    g.AgentService.addTask(conv, text);
+    g.AgentService.refreshTask(conv);
+    return conv;
+  };
+  // The menu's items as the user sees them; "-" for a separator.
+  const items = () =>
+    [...menu().children]
+      .filter(el => !el.hidden)
+      .map(el =>
+        el.localName === "menuseparator"
+          ? "-"
+          : { id: el.id.replace("zenius-sidebar-directory-", ""), label: el.getAttribute("label"), disabled: el.getAttribute("disabled") === "true", tip: el.getAttribute("tooltiptext") ?? "" }
+      );
+  // The menu's state as the directory reads it: it opens a menu only once the
+  // last one is "closed", not while it's still "hiding". S.until doesn't
+  // throw, so a wait that runs out says so here, where it happened.
+  const settle = async (fn, what) => {
+    if (!(await S.until(fn, 3000))) throw new Error("the row menu: " + what + " (" + (menu()?.state ?? "none") + ")");
+  };
+  // A right-click on a row: the menu opens where the pointer is.
+  const rightClick = async uid => {
+    await settle(() => menu().state === "closed", "the last menu never closed");
+    const r = row(uid);
+    const box = r.getBoundingClientRect();
+    const x = box.left + 24, y = box.top + box.height / 2;
+    r.dispatchEvent(new win.MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2, clientX: x, clientY: y, screenX: win.mozInnerScreenX + x, screenY: win.mozInnerScreenY + y }));
+    await settle(shown, "it didn't open");
+  };
+  const hide = async () => {
+    menu().hidePopup();
+    await settle(() => menu().state === "closed", "it didn't close");
+  };
+  const choose = async id => {
+    menu().activateItem(win.document.getElementById("zenius-sidebar-directory-" + id));
+    await settle(() => menu().state === "closed", "it didn't close after a choice");
+  };
+  // Its own names: tests that compose (IME) bring that helper's too.
+  const menuKeys = Cc["@mozilla.org/text-input-processor;1"].createInstance(Ci.nsITextInputProcessor);
+  if (!menuKeys.beginInputTransactionForTests(win)) throw new Error("no input transaction");
+  const KEY_CODES = { ArrowDown: 40, Enter: 13, Escape: 27, ContextMenu: 93, F10: 121, Shift: 16 };
+  const menuKey = key => new win.KeyboardEvent("", { key, code: key === "Shift" ? "ShiftLeft" : key, keyCode: KEY_CODES[key] });
+  const press = (key, { shift = false } = {}) => {
+    if (shift) menuKeys.keydown(menuKey("Shift"));
+    menuKeys.keydown(menuKey(key));
+    menuKeys.keyup(menuKey(key));
+    if (shift) menuKeys.keyup(menuKey("Shift"));
+  };
+  const focused = () => Services.focus.getFocusedElementForWindow(win, true, {});
+  const search = () => drawer().querySelector(".asb-dir-search input");
+  // The row's name field (Rename), and its name once it's a name again.
+  const field = uid => row(uid)?.querySelector(".asb-dir-rename");
+  const nameOf = uid => row(uid)?.querySelector(".asb-dir-rt > b")?.textContent ?? null;
+`;
+
+test("All tasks' rows have a right-click menu (the user's ask, 2026-11-22): Pin, Rename, then Archive, in the ⋯ menu's words; Unpin on a pinned task, and Unarchive without Pin on an archived one; the context-menu key and Shift+F10 open it under the row the arrow keys are on, and nothing opens without one; Esc closes the menu and leaves All tasks open, the search keeping the focus", async () => {
+  const out = await chrome(
+    `
+    ${ROW_MENU}
+    const A = g.AgentService;
+    await S.openPanel();
+    const plain = task("Plan a picnic " + arg.run);
+    const pinned = task("A pinned plan " + arg.run);
+    const archived = task("An old plan " + arg.run);
+    const res = {};
+    try {
+      A.pinTask(pinned);
+      A.archiveTask(archived);
+      await openDir();
+      drawer().querySelector(".asb-dir-archived").click();
+      await S.until(() => row(archived.uid), 3000);
+      for (const [name, conv] of Object.entries({ plain, pinned, archived })) {
+        await rightClick(conv.uid);
+        res[name] = items();
+        await hide();
+      }
+      res.dirOpen = g.directoryOpen;
+      // The ⋯ menu's Archive says the same of the same task.
+      g.showTask(plain);
+      const doc = S.panelDoc();
+      await S.until(() => g.currentTask === plain && doc.getElementById("title").textContent.includes("Plan a picnic"), 3000);
+      doc.getElementById("more").click();
+      res.moreTip = doc.getElementById("archive-task").title;
+      doc.getElementById("more").click();
+      // The keys, from the search field, which has the focus.
+      await openDir();
+      search().focus();
+      press("ContextMenu");
+      await S.sleep(300);
+      res.noRow = shown();
+      press("ArrowDown");
+      await S.until(() => drawer().querySelector(".asb-dir-row.active"), 3000);
+      const active = drawer().querySelector(".asb-dir-row.active").dataset.task;
+      res.active = active === pinned.uid;
+      press("ContextMenu");
+      await settle(shown, "the context-menu key didn't open it");
+      res.key = { under: menu().anchorNode?.dataset?.task === active, first: items()[0]?.label ?? null };
+      press("Escape");
+      await settle(() => menu().state === "closed", "Esc didn't close it");
+      res.esc = { dirOpen: g.directoryOpen, focus: focused() === search() };
+      press("F10", { shift: true });
+      await settle(shown, "Shift+F10 didn't open it");
+      res.shiftF10 = menu().anchorNode?.dataset?.task === active;
+      press("Escape");
+      await settle(() => menu().state === "closed", "Esc didn't close it");
+      return res;
+    } finally {
+      if (shown()) menu().hidePopup();
+      g.closeDirectory();
+      for (const conv of [plain, pinned, archived]) A.removeTask(conv);
+      g.setMode("chat");
+    }
+  `,
+    { run }
+  );
+  assert.deepEqual(out.plain, [
+    { id: "pin", label: "Pin", disabled: false, tip: PIN_TIP },
+    { id: "rename", label: "Rename", disabled: false, tip: RENAME_TIP },
+    "-",
+    { id: "archive", label: "Archive", disabled: false, tip: "Moves the task to Archived, at the bottom of All tasks." },
+  ]);
+  assert.deepEqual(out.pinned[0], { id: "pin", label: "Unpin", disabled: false, tip: UNPIN_TIP });
+  assert.deepEqual(out.archived, [{ id: "rename", label: "Rename", disabled: false, tip: RENAME_TIP }, "-", { id: "archive", label: "Unarchive", disabled: false, tip: UNARCHIVE_TIP }]);
+  assert.equal(out.dirOpen, true, "All tasks stays open around the menu");
+  assert.equal(out.moreTip, out.plain[3].tip, "the ⋯ menu's Archive says the same");
+  assert.equal(out.noRow, false, "with no row on the arrows, the key opens nothing");
+  assert.equal(out.active, true, "the arrows start at the top, in Pinned");
+  assert.deepEqual(out.key, { under: true, first: "Unpin" }, "the context-menu key opens the menu under the row the arrows are on");
+  assert.deepEqual(out.esc, { dirOpen: true, focus: true }, "Esc closes the menu only");
+  assert.equal(out.shiftF10, true, "Shift+F10 too");
+});
+
+test("Pin puts a task in Pinned, at the top of All tasks above Needs you, the last pinned first; one that needs the user keeps its tint and orange dot there; Unpin puts it back in its group; Archive unpins, and Unarchive doesn't pin again; a pin outlives a restart, and a tasks file from before pins loads as it was", async () => {
+  const out = await chrome(
+    `
+    ${ROW_MENU}
+    const A = g.AgentService;
+    await S.openPanel();
+    const waiting = task("Pick a date " + arg.run, "Do you want the morning one or the evening one?");
+    const listed = task("Pick a room " + arg.run, "Do you want the big one or the small one?");
+    const done = task("Book the hall " + arg.run);
+    const ours = new Set([waiting.uid, listed.uid, done.uid]);
+    // The groups as All tasks shows them, with this test's rows only.
+    const groups = () => {
+      const out = [];
+      for (const el of drawer().querySelectorAll(".asb-dir-group, .asb-dir-row")) {
+        if (el.classList.contains("asb-dir-group")) out.push({ group: el.dataset.group, tasks: [] });
+        else if (ours.has(el.dataset.task)) out.at(-1).tasks.push(el.dataset.task === waiting.uid ? "waiting" : el.dataset.task === listed.uid ? "listed" : "done");
+      }
+      return out.filter(gr => gr.tasks.length);
+    };
+    const look = el => ({ background: win.getComputedStyle(el).backgroundColor, dot: win.getComputedStyle(el.querySelector(".asb-dot")).backgroundColor });
+    const res = { states: [waiting.task.state, listed.task.state, done.task.state] };
+    let back = null, old = null;
+    try {
+      await g.newTask();
+      await openDir();
+      await rightClick(waiting.uid);
+      await choose("pin");
+      await rightClick(done.uid);
+      await choose("pin");
+      await S.until(() => V.groupOf(row(done.uid)) === "pinned", 3000);
+      res.pinned = groups();
+      res.firstGroup = drawer().querySelector(".asb-dir-group")?.dataset.group ?? null;
+      res.heading = drawer().querySelector('.asb-dir-group[data-group="pinned"]')?.textContent ?? null;
+      res.look = { pinned: look(row(waiting.uid)), listed: look(row(listed.uid)) };
+      await rightClick(done.uid);
+      await choose("pin");
+      await S.until(() => V.groupOf(row(done.uid)) === "done", 3000);
+      res.unpinned = groups();
+      // Archive a pinned task: it leaves Pinned for Archived, unpinned.
+      await rightClick(waiting.uid);
+      await choose("archive");
+      await S.until(() => !!waiting.archivedAt, 3000);
+      res.archived = { pinned: waiting.pinnedAt ?? null, inList: A.taskList().includes(waiting) };
+      A.unarchiveTask(waiting);
+      await S.until(() => row(waiting.uid) && V.groupOf(row(waiting.uid)) === "needs", 3000);
+      res.unarchived = { pinned: waiting.pinnedAt ?? null, group: V.groupOf(row(waiting.uid)) };
+      // A restart: the pin is in the tasks file, and comes back with it.
+      A.pinTask(done);
+      await A.saveTasks();
+      const file = await IOUtils.readJSON(A.tasksPath());
+      const saved = file.tasks.find(t => t.uid === done.uid);
+      res.file = { version: file.version, pinnedAt: saved?.pinnedAt === done.pinnedAt };
+      back = A.restoreTask(JSON.parse(JSON.stringify({ ...saved, uid: "restored-" + done.uid, zen: null })));
+      res.restored = back.pinnedAt === done.pinnedAt;
+      // A file from before pins has no pinnedAt: its task loads as it was.
+      const { pinnedAt, ...before } = saved;
+      old = A.restoreTask(JSON.parse(JSON.stringify({ ...before, uid: "older-" + done.uid, zen: null })));
+      res.older = { pinned: old.pinnedAt ?? null, title: old.title === done.title, messages: old.messages.length, state: old.task.state };
+      return res;
+    } finally {
+      if (shown()) menu().hidePopup();
+      g.closeDirectory();
+      for (const conv of [back, old]) if (conv) A.forget(conv);
+      for (const conv of [waiting, listed, done]) A.removeTask(conv);
+      g.setMode("chat");
+    }
+  `,
+    { run }
+  );
+  assert.deepEqual(out.states, ["needs", "needs", "done"]);
+  assert.equal(out.firstGroup, "pinned", "Pinned is the first group");
+  assert.equal(out.heading, "Pinned");
+  assert.deepEqual(out.pinned, [{ group: "pinned", tasks: ["done", "waiting"] }, { group: "needs", tasks: ["listed"] }], "the last pinned first, above Needs you");
+  assert.deepEqual(out.look.pinned, out.look.listed, "a pinned task that needs the user keeps the tint and the orange dot");
+  assert.deepEqual(out.unpinned, [{ group: "pinned", tasks: ["waiting"] }, { group: "needs", tasks: ["listed"] }, { group: "done", tasks: ["done"] }], "Unpin puts it back in its group");
+  assert.deepEqual(out.archived, { pinned: null, inList: false }, "Archive unpins");
+  assert.deepEqual(out.unarchived, { pinned: null, group: "needs" }, "Unarchive doesn't pin again");
+  assert.deepEqual(out.file, { version: 1, pinnedAt: true }, "the pin is in the tasks file, whose version stays");
+  assert.equal(out.restored, true, "and comes back after a restart");
+  assert.deepEqual(out.older, { pinned: null, title: true, messages: 2, state: "done" }, "a task from a file before pins loads as it was");
+});
+
+test("Pinned holds 20 tasks: at 20, Pin is shown disabled, with a tooltip that says to unpin one first, and Unpin frees a place; pinned tasks never go with the 60-task cap, which takes the oldest unpinned done ones", async () => {
+  const out = await chrome(
+    `
+    ${ROW_MENU}
+    const A = g.AgentService;
+    await S.openPanel();
+    for (const conv of [...A.tasks.values()]) A.removeTask(conv);
+    const pins = [];
+    const more = [];
+    const res = {};
+    try {
+      for (let i = 0; i < 20; i++) {
+        const conv = task("Pinned " + i + " " + arg.run);
+        A.pinTask(conv);
+        pins.push(conv);
+      }
+      const extra = task("One more " + arg.run);
+      more.push(extra);
+      await g.newTask();
+      await openDir();
+      await rightClick(extra.uid);
+      res.full = items()[0];
+      await hide();
+      A.pinTask(extra);
+      res.refused = extra.pinnedAt ?? null;
+      await rightClick(pins[0].uid);
+      await choose("pin");
+      await rightClick(extra.uid);
+      res.freed = items()[0];
+      await hide();
+      A.pinTask(pins[0]);
+      // The cap: 60 unpinned tasks at most, the oldest finished ones going
+      // first; the pinned ones, older than all, stay.
+      while ([...A.tasks.values()].filter(c => !c.pinnedAt).length < 60) more.push(task("Another " + more.length));
+      res.at60 = A.tasks.has(extra.uid);
+      more.push(task("The last one"));
+      res.after = {
+        pinned: pins.filter(c => A.tasks.has(c.uid)).length,
+        extra: A.tasks.has(extra.uid),
+        unpinned: [...A.tasks.values()].filter(c => !c.pinnedAt).length,
+      };
+      return res;
+    } finally {
+      if (shown()) menu().hidePopup();
+      g.closeDirectory();
+      for (const conv of [...pins, ...more]) {
+        if (A.tasks.delete(conv.uid)) A.forget(conv);
+      }
+      A.tasksChanged(null, { now: true });
+      g.setMode("chat");
+    }
+  `,
+    { run }
+  );
+  assert.deepEqual(out.full, { id: "pin", label: "Pin", disabled: true, tip: PIN_FULL_TIP }, "at 20, Pin is disabled and says why");
+  assert.equal(out.refused, null, "and AgentService pins no 21st");
+  assert.deepEqual(out.freed, { id: "pin", label: "Pin", disabled: false, tip: PIN_TIP }, "Unpin frees a place");
+  assert.equal(out.at60, true, "nothing goes at 60 unpinned");
+  assert.deepEqual(out.after, { pinned: 20, extra: false, unpinned: 60 }, "past it, the oldest unpinned done task goes, and every pinned one stays");
+});
+
+// IME_KEYS's two kinds of keys: that list is defined further down, after this loop runs.
+for (const [label, realKeys] of [
+  ["keys marked as the IME's", false],
+  ["the keys themselves, composing", true],
+]) {
+  test(`Rename in All tasks' menu edits the row's name in place (the user's ask, 2026-11-22), as the ⋯ menu's Rename does, with ${label}: the name is selected in a field; an IME composition's Enter and Esc only compose; Enter keeps the new name and Esc the old one; a click outside keeps it; an empty one gives the task its own title back; the list changing meanwhile keeps the field; the name shows in the row, the header and the search`, async () => {
+    const out = await chrome(
+      `
+      ${ROW_MENU}
+      ${IME}
+      const A = g.AgentService;
+      await S.openPanel();
+      const conv = task("Plan a trip " + arg.run);
+      const other = task("Something else " + arg.run);
+      const doc = S.panelDoc();
+      const header = () => doc.getElementById("title").textContent;
+      const calls = [];
+      const rename = A.renameTask;
+      A.renameTask = function (c, name) {
+        calls.push(name);
+        return rename.call(this, c, name);
+      };
+      const res = {};
+      const start = async () => {
+        await openDir();
+        await rightClick(conv.uid);
+        await choose("rename");
+        await S.until(() => field(conv.uid), 3000);
+      };
+      try {
+        g.showTask(conv);
+        await start();
+        const f = field(conv.uid);
+        res.field = { value: f.value, selected: f.selectionStart === 0 && f.selectionEnd === f.value.length, focused: focused() === f, placeholder: f.placeholder, label: f.getAttribute("aria-label") };
+        // The list changes meanwhile: the field stays, with what it holds.
+        f.value = "Trip to";
+        other.task = { ...other.task, since: Date.now() };
+        A.tasksChanged(null, { now: true });
+        await S.sleep(200);
+        res.kept = { same: field(conv.uid) === f, value: f.value, focused: focused() === f };
+        // A composition: its Enter commits the words, and its Esc cancels them.
+        f.setSelectionRange(f.value.length, f.value.length);
+        compose(" 京都");
+        commitWith(" 京都");
+        await S.sleep(100);
+        res.composed = { open: !!field(conv.uid), value: f.value, calls: calls.length };
+        compose("x");
+        cancelWithEscape();
+        await S.sleep(100);
+        res.cancelled = { open: !!field(conv.uid), value: f.value, calls: calls.length };
+        // Enter keeps it: the row, the header and a search show it.
+        pressKey("Enter");
+        await S.until(() => !field(conv.uid), 3000);
+        // The header renders its name in its next frame.
+        await S.until(() => header() === nameOf(conv.uid), 3000).catch(() => {});
+        res.enter = { name: nameOf(conv.uid), header: header(), calls: [...calls], dirOpen: g.directoryOpen, focus: focused() === search() };
+        const input = search();
+        input.value = "京都";
+        input.dispatchEvent(new win.Event("input", { bubbles: true }));
+        await S.until(() => !row(other.uid), 3000);
+        res.found = !!row(conv.uid);
+        input.value = "";
+        input.dispatchEvent(new win.Event("input", { bubbles: true }));
+        await S.until(() => row(other.uid), 3000);
+        // Esc leaves it as it was, and All tasks open.
+        await start();
+        field(conv.uid).value = "Not this one";
+        pressKey("Escape");
+        await S.until(() => !field(conv.uid), 3000);
+        res.esc = { name: nameOf(conv.uid), calls: calls.length, dirOpen: g.directoryOpen };
+        // A click outside keeps it.
+        await start();
+        field(conv.uid).value = "Kept by a click";
+        search().focus();
+        await S.until(() => !field(conv.uid), 3000);
+        await S.until(() => header() === nameOf(conv.uid), 3000).catch(() => {});
+        res.blur = { name: nameOf(conv.uid), header: header() };
+        // An empty one gives the task its own title back.
+        await start();
+        field(conv.uid).value = "";
+        pressKey("Enter");
+        await S.until(() => !field(conv.uid), 3000);
+        res.empty = { name: nameOf(conv.uid), own: conv.title, userTitle: conv.userTitle };
+        return res;
+      } finally {
+        A.renameTask = rename;
+        if (shown()) menu().hidePopup();
+        g.closeDirectory();
+        A.removeTask(conv);
+        A.removeTask(other);
+        g.setMode("chat");
+      }
+    `,
+      { run, realKeys }
+    );
+    assert.deepEqual(out.field, { value: `Plan a trip ${run}`, selected: true, focused: true, placeholder: `Plan a trip ${run}`, label: "Task name" });
+    assert.deepEqual(out.kept, { same: true, value: "Trip to", focused: true }, "the list's changes keep the field");
+    assert.deepEqual(out.composed, { open: true, value: "Trip to 京都", calls: 0 }, "a composition's Enter only commits it");
+    assert.deepEqual(out.cancelled, { open: true, value: "Trip to 京都", calls: 0 }, "and its Esc only cancels it");
+    assert.deepEqual(out.enter, { name: "Trip to 京都", header: "Trip to 京都", calls: ["Trip to 京都"], dirOpen: true, focus: true }, "Enter keeps the name, through AgentService.renameTask");
+    assert.equal(out.found, true, "a search finds the new name");
+    assert.deepEqual(out.esc, { name: "Trip to 京都", calls: 1, dirOpen: true }, "Esc leaves the name as it was, and All tasks open");
+    assert.deepEqual(out.blur, { name: "Kept by a click", header: "Kept by a click" }, "a click outside keeps it");
+    assert.deepEqual(out.empty, { name: `Plan a trip ${run}`, own: `Plan a trip ${run}`, userTitle: null }, "an empty name gives the task its own title back");
+  });
+}
+
+test("a task another program drives has Pin and Rename in All tasks' menu, and Archive once it ended, as the ⋯ menu has it; its Rename names it in the sidebar only, its zenius task keeping its program's name; pinned, it stays in Pinned while zenius's feed keeps it, through a restart as an archive does, and a new task given its id later is neither pinned nor renamed", async () => {
+  const name = `zen-ux row menu external ${run}`;
+  const { id } = await h.createSpace({ name });
+  const out = await chrome(
+    `
+    ${EXTERNAL}
+    ${ROW_MENU}
+    await S.openPanel();
+    const uid = "ext-" + arg.id;
+    const created = Date.now() - 60000;
+    const entry = { space: arg.id, name: arg.name, kind: "task", source: { terminal: "laptop/t5x", agent: "Claude Code" }, state: "working", createdAt: created, updatedAt: created };
+    entries.set(arg.id, entry);
+    // The feed can also drop it, as zen-core's does a task it forgot.
+    const gone = new Set();
+    const withEntries = spaces.feed;
+    spaces.feed = () => withEntries().filter(e => !gone.has(e.space));
+    ext.sync();
+    const res = {};
+    try {
+      await g.newTask();
+      await openDir();
+      await S.until(() => row(uid), 3000);
+      await rightClick(uid);
+      res.running = items();
+      await hide();
+      // Rename: the sidebar's own name for it.
+      await rightClick(uid);
+      await choose("rename");
+      await S.until(() => field(uid), 3000);
+      field(uid).value = "My label";
+      press("Enter");
+      await S.until(() => !field(uid), 3000);
+      const t = A.taskByUid(uid);
+      res.renamed = { row: nameOf(uid), title: t.title, zen: spaces.peek(arg.id)?.name ?? null };
+      ext.sync();
+      res.afterSync = nameOf(uid);
+      // Pin: in Pinned while the feed keeps it.
+      await rightClick(uid);
+      await choose("pin");
+      await S.until(() => V.groupOf(row(uid)) === "pinned", 3000);
+      ext.sync();
+      res.pinned = V.groupOf(row(uid));
+      // Ended: Archive is there, as in the ⋯ menu.
+      entries.set(arg.id, { ...entry, state: "done", ended: "finished", endedAt: Date.now(), updatedAt: Date.now() });
+      ext.sync();
+      await S.until(() => A.taskByUid(uid)?.task.state === "done", 3000);
+      await rightClick(uid);
+      res.ended = items();
+      await hide();
+      // A restart: the pin and the name are in the tasks file, by the task's
+      // id and start, and come back from it; a new task with the same id
+      // doesn't take them.
+      await A.saveTasks();
+      const file = await IOUtils.readJSON(A.tasksPath());
+      res.file = {
+        pinned: (file.pinned ?? []).filter(p => p.space === arg.id).map(p => ({ createdAt: p.createdAt === created, at: typeof p.at })),
+        labels: (file.labels ?? []).filter(l => l.space === arg.id).map(l => ({ createdAt: l.createdAt === created, label: l.label })),
+      };
+      const marks = new A.marks.constructor();
+      marks.restore(file);
+      res.restart = { pinned: typeof marks.pinnedAtOf(arg.id, created), label: marks.labelOf(arg.id, created) };
+      const reused = Date.now();
+      res.reused = { pinned: marks.pinnedAtOf(arg.id, reused), label: marks.labelOf(arg.id, reused) };
+      // The feed drops it: it leaves All tasks, and Pinned counts it no more.
+      gone.add(arg.id);
+      ext.sync();
+      await S.until(() => !row(uid), 3000);
+      res.dropped = A.directoryList().filter(c => c.pinnedAt).some(c => c.uid === uid);
+      return res;
+    } finally {
+      if (shown()) menu().hidePopup();
+      g.closeDirectory();
+      spaces.feed = withEntries;
+      restoreFeed();
+      g.setMode("chat");
+    }
+  `,
+    { id, name, run }
+  );
+  assert.deepEqual(out.running, [
+    { id: "pin", label: "Pin", disabled: false, tip: PIN_TIP },
+    { id: "rename", label: "Rename", disabled: false, tip: RENAME_EXTERNAL_TIP },
+  ], "while its program runs it: Pin and Rename, no Archive");
+  assert.deepEqual(out.renamed, { row: "My label", title: name, zen: name }, "Rename names it in the sidebar; the zenius task keeps its program's name");
+  assert.equal(out.afterSync, "My label", "and the feed's next word keeps the sidebar's name");
+  assert.equal(out.pinned, "pinned", "pinned, it stays in Pinned while the feed keeps it");
+  assert.deepEqual(out.ended.map(i => (i === "-" ? i : i.label)), ["Unpin", "Rename", "-", "Archive"], "once it ended, Archive");
+  assert.deepEqual(out.file, { pinned: [{ createdAt: true, at: "number" }], labels: [{ createdAt: true, label: "My label" }] }, "the tasks file keeps the pin and the name, by the task's id and start");
+  assert.deepEqual(out.restart, { pinned: "number", label: "My label" }, "they come back after a restart");
+  assert.deepEqual(out.reused, { pinned: null, label: null }, "a new task given the same id takes neither");
+  assert.equal(out.dropped, false, "once the feed drops it, Pinned counts it no more");
+});
+
+// A task another program drives, in the feed the test controls (EXTERNAL),
+// and what a test of its Rename needs.
+const EXTERNAL_ROW = `
+  const uid = "ext-" + arg.id;
+  const created = Date.now() - 60000;
+  const entry = { space: arg.id, name: arg.name, kind: "task", source: { terminal: "laptop/t5x", agent: "Claude Code" }, state: "working", createdAt: created, updatedAt: created };
+  entries.set(arg.id, entry);
+  ext.sync();
+  // Its program renames it: the feed's next word has the new name.
+  const programNames = name => {
+    entries.set(arg.id, { ...entry, name, updatedAt: Date.now() });
+    ext.sync();
+  };
+  // The list after the feed's word: All tasks renders afresh as it opens.
+  const settled = async () => {
+    await S.until(() => A.taskByUid(uid)?.title === entries.get(arg.id).name, 3000);
+    g.closeDirectory();
+    await openDir();
+    await S.until(() => row(uid), 3000);
+  };
+  // Rename from the row's menu; Enter, or a click outside (the search takes the focus).
+  const rename = async (id, how, value = null) => {
+    await rightClick(id);
+    await choose("rename");
+    await S.until(() => field(id), 3000);
+    if (value !== null) field(id).value = value;
+    if (how === "enter") press("Enter");
+    else search().focus();
+    await S.until(() => !field(id), 3000);
+  };
+`;
+
+test("a sidebar name with emoji is kept whole (zen-observe's review of the row menu): a name of 54 characters, 94 UTF-16 units, and one cut at 80 characters, 159 units, stay through the feed's next word, in the tasks file, and after a restart", async () => {
+  const name = `zen-ux row menu emoji ${run}`;
+  const { id } = await h.createSpace({ name });
+  try {
+    const out = await chrome(
+      `
+      ${EXTERNAL}
+      ${ROW_MENU}
+      ${EXTERNAL_ROW}
+      await S.openPanel();
+      const res = [];
+      try {
+        await g.newTask();
+        await openDir();
+        await S.until(() => row(uid), 3000);
+        for (const typed of ["Weekly report " + "🔥".repeat(40), "🔥".repeat(100)]) {
+          await rename(uid, "enter", typed);
+          const label = nameOf(uid);
+          ext.sync();
+          await settled();
+          await A.saveTasks();
+          const marks = new A.marks.constructor();
+          marks.restore(await IOUtils.readJSON(A.tasksPath()));
+          res.push({
+            chars: Array.from(label).length,
+            units: label.length,
+            cut: label.endsWith("…"),
+            afterSync: nameOf(uid) === label,
+            kept: A.marks.labelOf(arg.id, created) === label,
+            restart: marks.labelOf(arg.id, created) === label,
+          });
+        }
+        return res;
+      } finally {
+        if (shown()) menu().hidePopup();
+        g.closeDirectory();
+        A.marks.label(arg.id, created, null);
+        restoreFeed();
+        g.setMode("chat");
+      }
+    `,
+      { id, name, run }
+    );
+    assert.deepEqual(out, [
+      { chars: 54, units: 94, cut: false, afterSync: true, kept: true, restart: true },
+      { chars: 80, units: 159, cut: true, afterSync: true, kept: true, restart: true },
+    ], "the sidebar's name is kept as Rename showed it");
+  } finally {
+    await h.call("spaces.finish", { space: id, keep: [] }).catch(() => {});
+  }
+});
+
+test("a Rename left as it was names nothing (zen-observe's review of the row menu): Enter or a click outside on a program's task's name keeps no name of the sidebar's, so its program's later names show; its program's own name typed in clears the sidebar's; a task of the user's left as it was isn't renamed at all", async () => {
+  const name = `zen-ux row menu as it was ${run}`;
+  const { id } = await h.createSpace({ name });
+  try {
+    const out = await chrome(
+      `
+      ${EXTERNAL}
+      ${ROW_MENU}
+      ${EXTERNAL_ROW}
+      await S.openPanel();
+      const own = task("Plan a picnic " + arg.run);
+      const marked = () => ({ label: A.marks.labelOf(arg.id, created), row: nameOf(uid) });
+      const res = {};
+      const renameTask = A.renameTask;
+      const calls = [];
+      try {
+        await g.newTask();
+        await openDir();
+        await S.until(() => row(uid) && row(own.uid), 3000);
+        await rename(uid, "enter");
+        res.enter = marked();
+        await rename(uid, "blur");
+        res.blur = marked();
+        programNames(arg.name + " v2");
+        await settled();
+        res.followed = marked();
+        await rename(uid, "enter", "Mine");
+        programNames(arg.name + " v3");
+        await settled();
+        res.mine = marked();
+        await rename(uid, "enter", arg.name + " v3");
+        res.cleared = marked();
+        programNames(arg.name + " v4");
+        await settled();
+        res.followsAgain = marked();
+        // The user's own task: nothing to rename, and nothing done.
+        A.renameTask = function (conv, value) {
+          calls.push(value);
+          return renameTask.call(this, conv, value);
+        };
+        await rename(own.uid, "enter");
+        await rename(own.uid, "blur");
+        res.own = { calls, user: own.userTitle ?? null, row: nameOf(own.uid) };
+        return res;
+      } finally {
+        A.renameTask = renameTask;
+        if (shown()) menu().hidePopup();
+        g.closeDirectory();
+        A.marks.label(arg.id, created, null);
+        A.removeTask(own);
+        restoreFeed();
+        g.setMode("chat");
+      }
+    `,
+      { id, name, run }
+    );
+    assert.deepEqual(out.enter, { label: null, row: name }, "Enter on the program's name keeps no name of the sidebar's");
+    assert.deepEqual(out.blur, { label: null, row: name }, "nor does a click outside");
+    assert.deepEqual(out.followed, { label: null, row: `${name} v2` }, "so the program's later name shows");
+    assert.deepEqual(out.mine, { label: "Mine", row: "Mine" }, "a name of the user's stays over the program's");
+    assert.deepEqual(out.cleared, { label: null, row: `${name} v3` }, "the program's own name typed in clears the sidebar's");
+    assert.deepEqual(out.followsAgain, { label: null, row: `${name} v4` }, "and the program's names show again");
+    assert.deepEqual(out.own, { calls: [], user: null, row: `Plan a picnic ${run}` }, "a task of the user's left as it was isn't renamed");
+  } finally {
+    await h.call("spaces.finish", { space: id, keep: [] }).catch(() => {});
+  }
+});
+
+test("the self-check's window has no row menu (zen-observe's cross-point with the self-check): a right-click on a row of its All tasks, or the context-menu key or Shift+F10 on the row the arrows are on, opens nothing; AgentService pins, unpins and names none of its tasks; the user's tasks file stays as it was, byte for byte, and their All tasks has no pin", async () => {
+  const out = await chrome(`
+    const g = win.ucAgentSidebar;
+    const A = g.AgentService;
+    const SC = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/selfcheck.sys.mjs");
+    const WINDOW_URL = "chrome://userscripts/content/zenius/selfcheck/window.xhtml";
+    await S.openPanel();
+    const pins = () => A.directoryList().filter(c => c.pinnedAt).map(c => c.uid);
+    const res = { pinsBefore: pins() };
+    // The user's tasks file as it stands, to compare byte for byte.
+    await A.saveTasks();
+    const before = await IOUtils.read(A.tasksPath());
+    // The runner's window, filled as the runner has it (zen-sidebar's prepare).
+    const w = Services.ww.openWindow(null, WINDOW_URL, "_blank", "chrome,dialog=no,resizable", null);
+    try {
+      await S.until(() => w.document?.documentURI === WINDOW_URL && w.document.readyState === "complete", 10000);
+      const scope = await SC.prepare(w);
+      const wg = w.ucAgentSidebar;
+      w.document.getElementById("sidebar").contentDocument.getElementById("dir").click();
+      await S.until(() => wg.directoryOpen && wg.directory?.drawer.querySelector(".asb-dir-row[data-task]"), 10000);
+      const drawer = wg.directory.drawer;
+      const row = drawer.querySelector(".asb-dir-row[data-task]");
+      const uid = row.dataset.task;
+      const menus = () => [...w.document.querySelectorAll("menupopup")].filter(m => m.state !== "closed").length;
+      // A right-click on the row.
+      const box = row.getBoundingClientRect();
+      const x = box.left + 24, y = box.top + box.height / 2;
+      const click = new w.MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2, clientX: x, clientY: y, screenX: w.mozInnerScreenX + x, screenY: w.mozInnerScreenY + y });
+      row.dispatchEvent(click);
+      // The keys, on the row the arrows are on.
+      const key = (k, shiftKey = false) => drawer.querySelector(".asb-dir-search input").dispatchEvent(new w.KeyboardEvent("keydown", { key: k, shiftKey, bubbles: true, cancelable: true }));
+      key("ArrowDown");
+      await S.until(() => drawer.querySelector(".asb-dir-row.active"), 3000);
+      key("ContextMenu");
+      key("F10", true);
+      await S.sleep(300);
+      res.window = {
+        rows: drawer.querySelectorAll(".asb-dir-row[data-task]").length,
+        active: drawer.querySelector(".asb-dir-row.active")?.dataset.task === uid,
+        menu: !!w.document.getElementById("zenius-sidebar-directory-menu"),
+        open: menus(),
+        taken: click.defaultPrevented,
+      };
+      // Nor does AgentService pin, unpin or name one of its tasks.
+      const conv = A.taskByUid(uid, scope);
+      A.pinTask(conv);
+      A.unpinTask(conv);
+      A.labelTask(conv, "Not the user's");
+      res.store = { scoped: conv.scope === scope, pinned: conv.pinnedAt ?? null, name: conv.userTitle ?? null, canPin: A.canPin(scope) };
+    } finally {
+      SC.cleanup();
+      w.close();
+    }
+    // The save comes 1 s after a change: wait past it.
+    await S.sleep(1500);
+    const after = await IOUtils.read(A.tasksPath());
+    res.file = before.length === after.length && before.every((b, i) => b === after[i]);
+    res.pinsAfter = pins();
+    res.userMenu = win.document.getElementById("zenius-sidebar-directory-menu")?.state ?? "closed";
+    return res;
+  `);
+  assert.deepEqual(out.window, { rows: 1, active: true, menu: false, open: 0, taken: false }, "the self-check's All tasks has no row menu: neither the right-click nor the keys open one");
+  assert.deepEqual(out.store, { scoped: true, pinned: null, name: null, canPin: false }, "AgentService pins, unpins and names none of its tasks");
+  assert.equal(out.file, true, "the user's tasks file stays as it was, byte for byte");
+  assert.deepEqual(out.pinsAfter, out.pinsBefore, "their All tasks has the pins it had");
+  assert.equal(out.userMenu, "closed", "and their own window opens no menu either");
 });
 
 // How a step reads once it has failed: the panel shows one cut short by the
@@ -603,7 +2194,7 @@ test("the mock's held step ends on Stop as claude-agent-acp ends a call a cancel
   assert.deepEqual(out, { result: "The turn was cancelled before this tool call returned a result.", cut: true, stopped: true, mark: "stopped" });
 });
 
-test("a remote task says which of the user's agents sent it: 'From <address> · <label>' over its question, on its live card and on its directory row, whose search finds it by the address", async () => {
+test("a remote task says which of the user's agents sent it: 'From <label> on <address>' over its question, on its live card and on its directory row, whose search finds it by the address", async () => {
   await useMock();
   const out = await chrome(`
     await S.openPanel();
@@ -620,9 +2211,9 @@ test("a remote task says which of the user's agents sent it: 'From <address> · 
     const src = doc.getElementById("live-src");
     await S.until(() => !live.hidden);
     win.ucAgentSidebar.toggleDirectory();
-    const drawer = win.document.getElementById("zenius-sidebar-directory");
+    const drawer = V.drawer();
     await S.until(() => drawer && !drawer.hidden);
-    const row = () => drawer.querySelector('.asb-dir-row[data-task="' + conv.uid + '"]');
+    const row = () => V.row(conv.uid);
     const input = drawer.querySelector(".asb-dir-search input");
     const find = async q => {
       input.value = q;
@@ -650,7 +2241,7 @@ test("a remote task says which of the user's agents sent it: 'From <address> · 
       A.removeTask(conv);
     }
   `);
-  const from = `From ${iso("devbox/t5")} · ${iso("nightly check")}`;
+  const from = `From ${iso("nightly check")} on ${iso("devbox/t5")}`;
   assert.deepEqual(out, { question: from, card: from, row: from, tip: from, found: true, foundLabel: true, missed: false });
 });
 
@@ -758,6 +2349,8 @@ test("an agent's own ask (Claude Code's AskUserQuestion, as claude-agent-acp sen
   assert.equal(out.after, "done");
   const init = mockLog().find(m => m.method === "initialize");
   assert.deepEqual(init.params.clientCapabilities.elicitation, { form: {} }, "form mode only: an agent can't have the sidebar open a link");
+  const version = await chrome(`return ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/util.sys.mjs").RUNTIME_VERSION;`);
+  assert.deepEqual(init.params.clientInfo, { name: "zenius", title: "zenius", version }, "the sidebar names itself to its agents as zenius, at the runtime's version");
 });
 
 test("an ask of several questions takes a pick and words together, a several-pick's picks as a list, and words alone as the Other answer; Skip declines", async () => {
@@ -805,10 +2398,72 @@ test("an ask of several questions takes a pick and words together, a several-pic
     answer: null,
   });
   const content = { question_0_custom: "Kobe", question_1: ["Temples", "Food"], question_1_custom: "a tea house" };
-  assert.deepEqual(out.answered, { action: "accept", content, summary: "Kobe · Temples, Food, a tea house" });
+  assert.deepEqual(out.answered, { action: "accept", content, summary: "Kobe; Temples, Food, a tea house" }, "a question's several picks: semicolons between the questions");
   assert.deepEqual(out.first, { action: "accept", content });
   assert.deepEqual(out.skipped, { action: "decline", content: null, summary: "" });
   assert.deepEqual(out.second, { action: "decline" });
+});
+
+test("a question's page line and an answered ask read as one phrase each (the user's text pass): 'Page “<title>” attached', then 'updated', a PDF's ', truncated', and 'Page attached' with no title; an answered ask's questions one after another, each with its own mark or else a comma, then '→' and its answer, its questions' answers after commas, or after semicolons once one holds a comma (several picks)", async () => {
+  await useMock();
+  const out = await chrome(`
+    await S.openPanel();
+    ${ASKS}
+    const g = win.ucAgentSidebar;
+    const doc = S.panelDoc();
+    const mode = g.mode;
+    const page = (url, title, text, kind = "page", more = {}) => ({ url, title, kind, getText: async () => ({ kind, text, truncated: false, links: [], ...more }) });
+    const metas = () => [...doc.querySelectorAll("#messages .msg.user")].map(m => m.querySelector(".meta")?.textContent ?? null);
+    const answered = () => [...doc.querySelectorAll("#messages .msg.ask.answered")].map(c => [c.querySelector(".ask-text")?.textContent, c.querySelector(".ask-answer")?.textContent]);
+    const res = {};
+    // A Chat's questions take their tab's page; a Work task's never do.
+    const tab = await S.openTab(arg.url);
+    g.setMode("chat");
+    await S.until(() => doc.documentElement.dataset.mode === "chat");
+    const chat = g.conversationFor(tab);
+    const conv = A.createTask({ source: "new" });
+    try {
+      const tokyo = "https://example.com/tokyo";
+      await A.send(chat, { question: "one", page: page(tokyo, "Flights to Tokyo", "Flights from SFO\\nNonstop, 11 h") });
+      // A line more on the same page: it goes as an update.
+      await A.send(chat, { question: "two", page: page(tokyo, "Flights to Tokyo", "Flights from SFO\\nNonstop, 11 h\\nOne stop, 14 h") });
+      await A.send(chat, { question: "three", page: page("https://example.com/q3.pdf", "Q3 report", "Revenue", "pdf", { truncated: true, pages: 40, pagesRead: 20 }) });
+      await A.send(chat, { question: "four", page: page("https://example.com/plain", "", "Plain text") });
+      await S.until(() => metas().length === 4, 5000);
+      res.metas = metas();
+      res.titleDir = doc.querySelector("#messages .msg.user .meta .meta-title")?.dir ?? null;
+      // The asks, in a Work task.
+      g.showTask(conv);
+      let turn = A.send(conv, { question: "ASKMULTI" });
+      const several = await asked(conv);
+      A.answerAsk(conv, several, { question_0: { picks: [], text: "Kobe" }, question_1: { picks: ["Temples", "Food"], text: "a tea house" } });
+      await turn;
+      // One pick each: the answers after commas.
+      turn = A.send(conv, { question: "ASKMULTI" });
+      const one = await asked(conv, 2);
+      A.answerAsk(conv, one, { question_0: { picks: ["Uji"], text: "" }, question_1: { picks: ["Temples"], text: "" } });
+      await turn;
+      // An ask whose first question has no mark of its own, as a saved task keeps it.
+      const question = (key, text) => ({ key, text, header: null, multi: false, options: [], other: null, secret: false });
+      conv.push({ role: "ask", from: null, title: null, questions: [question("q0", "Pick a day"), question("q1", "Which seat?")], answer: { action: "accept", summary: "Tuesday, Window seat" } });
+      await S.until(() => answered().length === 3, 5000);
+      res.answered = answered();
+      return res;
+    } finally {
+      A.removeTask(conv);
+      A.clearChat(chat);
+      win.gBrowser.removeTab(tab, { animate: false });
+      await A.saveChats();
+      g.setMode(mode);
+    }
+  `, { url: `${www()}/article.html?textpass` });
+  assert.deepEqual(out.metas, ["Page “Flights to Tokyo” attached", "Page “Flights to Tokyo” updated", "PDF “Q3 report” attached, truncated", "Page attached"]);
+  assert.equal(out.titleDir, "auto", "the page's title takes its own direction, inside its quotes");
+  assert.deepEqual(out.answered, [
+    ["Which day trip do you want? What should the day include?", "→ Kobe; Temples, Food, a tea house"],
+    ["Which day trip do you want? What should the day include?", "→ Uji, Temples"],
+    ["Pick a day, Which seat?", "→ Tuesday, Window seat"],
+  ]);
 });
 
 test("Codex's request_user_input, as codex-acp sends it: words alone answer with its 'None of the above' and go in the note field; with a secret among its questions it's an ask for a password or a code, so its whole answer reaches the agent but is masked in the summary and kept nowhere (the safety rubric's row); an ask saved while open comes back not answered", async () => {
@@ -841,8 +2496,8 @@ test("Codex's request_user_input, as codex-acp sends it: words alone answer with
   assert.deepEqual(out.open, { from: null, title: null, questions, answer: null, task: { state: "needs", why: "question", text: "Which day trip do you want?" } });
   assert.deepEqual(out.savedOpen, { role: "ask", from: null, title: null, questions, answer: { action: "cancel", summary: "" } });
   assert.deepEqual(out.outcome, { action: "accept", content: { trip: "None of the above", trip_note: "Kobe", code: "XY-1234" } });
-  assert.deepEqual(out.answered, { action: "accept", content: {}, summary: "•••• · ••••" });
-  assert.deepEqual(out.savedAnswered, { role: "ask", from: null, title: null, questions, answer: { action: "accept", summary: "•••• · ••••" } });
+  assert.deepEqual(out.answered, { action: "accept", content: {}, summary: "••••, ••••" });
+  assert.deepEqual(out.savedAnswered, { role: "ask", from: null, title: null, questions, answer: { action: "accept", summary: "••••, ••••" } });
 });
 
 test("an MCP server's own form shows as an ask from that server: a number answered in words goes back as a number, a yes or no as a boolean, an enum by its names; a url-mode request and a form with a field the card can't show are declined, unseen", async () => {
@@ -882,7 +2537,7 @@ test("an MCP server's own form shows as an ask from that server: a number answer
     task: { state: "needs", why: "question", text: "Confirm the booking details." },
   });
   const content = { seats: 2, window: true, cabin: "business", note: "Vegetarian meal" };
-  assert.deepEqual(out.answered, { action: "accept", content, summary: "2 · Yes · Business · Vegetarian meal" });
+  assert.deepEqual(out.answered, { action: "accept", content, summary: "2, Yes, Business, Vegetarian meal" });
   assert.deepEqual(out.first, { action: "accept", content });
   assert.deepEqual(out.unseen, { ASKODD: { action: "decline" }, ASKURL: { action: "decline" } });
   assert.equal(out.asks, 1);
@@ -943,7 +2598,7 @@ const THOUGHTS = `
   const roles = conv => conv.messages.map(m => m.role);
 `;
 
-test("while the agent thinks before its first words, the chat says so from the moment the question goes out: 'Thinking · <its latest reasoning title> · N s', then 'Thought for N s', which opens to its titles; in Chat too, and saved and restored with the task", async () => {
+test("while the agent thinks before its first words, the chat says so from the moment the question goes out: 'Thinking for N s, <its latest reasoning title>' (the user's text pass), then 'Thought for N s', which opens to its titles; in Chat too, and saved and restored with the task", async () => {
   await useMock();
   const out = await chrome(`
     await S.openPanel();
@@ -989,9 +2644,9 @@ test("while the agent thinks before its first words, the chat says so from the m
       A.forget(chat);
     }
   `);
-  assert.match(out.first.label, /^Thinking( · Reading the paper)?$/, "from the moment the question goes out");
+  assert.match(out.first.label, /^Thinking(, Reading the paper)?$/, "from the moment the question goes out");
   assert.equal(out.first.live, true);
-  assert.match(out.second.label, /^Thinking · Weighing the sections · [12] s$/, "its latest title, and the seconds so far");
+  assert.match(out.second.label, /^Thinking for [12] s, Weighing the sections$/, "its latest title, and the seconds so far");
   assert.equal(out.second.live, true);
   const text = "**Reading the paper**\n\n**Weighing the sections**";
   assert.match(out.ended.label, /^Thought for [23] s$/);
@@ -1005,7 +2660,7 @@ test("while the agent thinks before its first words, the chat says so from the m
   assert.deepEqual(out.chat, { roles: ["user", "thought", "assistant"], thoughts: [{ text, title: "Weighing the sections", open: false }] });
 });
 
-test("a wait with nothing to show (Claude Code's thinking) says 'Thinking · N s' until the answer comes, then goes, and so does a thought of under a second (the mock's echo); a step the sidebar hides doesn't end it; Stop keeps one with titles, before its 'Stopped.'", async () => {
+test("a wait with nothing to show (Claude Code's thinking) says 'Thinking for N s' until the answer comes, then goes, and so does a thought of under a second (the mock's echo); a step the sidebar hides doesn't end it; Stop keeps one with titles, before its 'Stopped.'", async () => {
   await useMock();
   const out = await chrome(`
     await S.openPanel();
@@ -1014,7 +2669,7 @@ test("a wait with nothing to show (Claude Code's thinking) says 'Thinking · N s
     win.ucAgentSidebar.showTask(conv);
     try {
       let turn = A.send(conv, { question: "THINKMUTE" });
-      await S.until(() => / · 1 s$/.test(label() ?? ""), 5000);
+      await S.until(() => /^Thinking for 1 s$/.test(label() ?? ""), 5000);
       const mute = { label: label(), live: live(), details: !!row().querySelector("details"), thoughts: thoughts(conv) };
       await turn;
       await S.sleep(300);
@@ -1025,7 +2680,7 @@ test("a wait with nothing to show (Claude Code's thinking) says 'Thinking · N s
       await A.send(conv, { question: "THINKSEARCH" });
       const search = { roles: roles(conv).slice(-4), thoughts: thoughts(conv), ms: conv.messages.findLast(m => m.role === "thought")?.ms };
       turn = A.send(conv, { question: "THINKSTOP" });
-      await S.until(() => /^Thinking · Reading the paper · 1 s$/.test(label() ?? ""), 5000);
+      await S.until(() => /^Thinking for 1 s, Reading the paper$/.test(label() ?? ""), 5000);
       const thinking = label();
       A.cancel(conv);
       await turn;
@@ -1035,13 +2690,13 @@ test("a wait with nothing to show (Claude Code's thinking) says 'Thinking · N s
       A.removeTask(conv);
     }
   `);
-  assert.deepEqual(out.mute, { label: "Thinking · 1 s", live: true, details: false, thoughts: [{ text: "", title: "", open: true }] });
+  assert.deepEqual(out.mute, { label: "Thinking for 1 s", live: true, details: false, thoughts: [{ text: "", title: "", open: true }] });
   assert.deepEqual(out.muteAfter, { row: false, roles: ["user", "assistant"] });
   assert.deepEqual(out.echo, { row: false, roles: ["user", "assistant", "user", "assistant"] });
   assert.deepEqual(out.search.roles, ["user", "thought", "tool", "assistant"], "the hidden ToolSearch step comes after the thought");
   assert.deepEqual(out.search.thoughts, [{ text: "**Finding the right tool**", title: "Finding the right tool", open: false }]);
   assert.ok(out.search.ms >= 1100, `the wait went on past the hidden step: ${out.search.ms} ms`);
-  assert.equal(out.thinking, "Thinking · Reading the paper · 1 s", "the seconds go on with no word from the agent");
+  assert.equal(out.thinking, "Thinking for 1 s, Reading the paper", "the seconds go on with no word from the agent");
   assert.match(out.stopped.label, /^Thought for [12] s$/);
   assert.deepEqual(out.stopped.roles, ["user", "thought", "note"]);
   assert.equal(out.stopped.last, "Stopped.");
@@ -1086,8 +2741,8 @@ test("back on a task after another: a wait that ended meanwhile with nothing to 
     }
   `);
   assert.deepEqual(out.ended, { row: false, roles: ["user", "assistant"] });
-  assert.match(out.going.before, /^Thinking · Reading the paper · [1-4] s$/, "counting again once shown");
-  assert.match(out.going.after, /^Thinking · Reading the paper · [2-6] s$/);
+  assert.match(out.going.before, /^Thinking for [1-4] s, Reading the paper$/, "counting again once shown");
+  assert.match(out.going.after, /^Thinking for [2-6] s, Reading the paper$/);
   assert.notEqual(out.going.after, out.going.before, "its seconds go on");
   assert.equal(out.going.live, true);
 });
@@ -1101,9 +2756,9 @@ test("a live row's 'Thinking' keeps its element as the seconds go on, so its pul
     win.ucAgentSidebar.showTask(conv);
     try {
       const turn = A.send(conv, { question: "THINKSTOP" });
-      await S.until(() => / · 1 s$/.test(label() ?? ""), 5000);
+      await S.until(() => / for 1 s(,|$)/.test(label() ?? ""), 5000);
       const first = row().querySelector(".label");
-      await S.until(() => / · 2 s$/.test(label() ?? ""), 5000);
+      await S.until(() => / for 2 s(,|$)/.test(label() ?? ""), 5000);
       const second = row().querySelector(".label");
       // The pulse's own clock: one that started over at the tick has run under a second.
       const pulse = second.getAnimations()[0];
@@ -1118,14 +2773,14 @@ test("a live row's 'Thinking' keeps its element as the seconds go on, so its pul
       A.removeTask(conv);
     }
   `);
-  assert.equal(out.label, "Thinking · Reading the paper · 2 s");
+  assert.equal(out.label, "Thinking for 2 s, Reading the paper");
   assert.deepEqual([out.same, out.connected], [true, true], "the label's element survives the tick");
   if (out.pulseMs !== null) {
     assert.ok(out.pulseMs >= 1000, `the pulse ran on across the tick: ${out.pulseMs} ms`);
   }
 });
 
-test("while a live thought row shows, the box's placeholder leaves out the status the row already says ('Enter queues, ⌘Enter steers'), a later stretch of thinking's row too; once words come, it reads 'Working… · Enter queues, ⌘Enter steers'", async () => {
+test("while the agent works, the box's placeholder says only what Enter and Steer do ('Enter queues, ⌘Enter steers'): under a live thought row, a later stretch of thinking's too, and once words come (the user's text pass dropped 'Working… ·' before it)", async () => {
   await useMock();
   const out = await chrome(`
     await S.openPanel();
@@ -1140,7 +2795,7 @@ test("while a live thought row shows, the box's placeholder leaves out the statu
       const during = { label: label(), box: box() };
       await S.until(() => live() && label()?.includes("Checking again"), 5000);
       const again = { label: label(), box: box(), rows: doc.querySelectorAll(".msg.thought").length };
-      await S.until(() => !live() && box().startsWith("Working…"), 5000);
+      await S.until(() => !live() && conv.messages.some(m => m.role === "assistant"), 5000);
       const after = { label: label(), box: box(), status: conv.status };
       A.cancel(conv);
       await turn;
@@ -1153,13 +2808,13 @@ test("while a live thought row shows, the box's placeholder leaves out the statu
     }
   `);
   const steer = process.platform === "darwin" ? "⌘Enter" : "Ctrl+Enter";
-  assert.match(out.during.label, /^Thinking · Reading the paper/);
+  assert.match(out.during.label, /^Thinking( for \d+ s)?, Reading the paper/);
   assert.equal(out.during.box, `Enter queues, ${steer} steers`, "the live row says it's thinking, so the box doesn't");
-  assert.match(out.again.label, /^Thinking · Checking again/, "thinking again after the first words is a thought of its own");
+  assert.match(out.again.label, /^Thinking( for \d+ s)?, Checking again/, "thinking again after the first words is a thought of its own");
   assert.equal(out.again.box, `Enter queues, ${steer} steers`, "that row is live too");
   assert.equal(out.again.rows, 2);
   assert.match(out.after.label, /^Thought for [12] s$/);
-  assert.deepEqual([out.after.box, out.after.status], [`Working… · Enter queues, ${steer} steers`, ""], "once words come, the box says the agent is at work, as before");
+  assert.deepEqual([out.after.box, out.after.status], [`Enter queues, ${steer} steers`, ""], "once words come, the box still says only what Enter and Steer do");
 });
 
 test("an agent that thinks in words between parts of its answer shows each stretch as a thought of its own, and one after a step as a line in the steps' box; Claude Code's prose summaries title it with the first sentence of their latest complete paragraph", async () => {
@@ -1172,15 +2827,20 @@ test("an agent that thinks in words between parts of its answer shows each stret
     const classes = () => [...S.panelDoc().querySelectorAll(".list > *")].map(el => el.className.replace(/ live$/, ""));
     try {
       const turn = A.send(conv, { question: "THINKCLAUDE" });
-      await S.until(() => label()?.startsWith("Thinking · I'm checking"), 5000);
-      const first = { label: label().replace(/ · \\d+ s$/, ""), bubble: conv.messages.find(m => m.role === "assistant")?.state };
+      // The words without the seconds so far (" for N s"), which go on.
+      const words = () => label().replace(/ for \\d+ s(?=, )/, "");
+      await S.until(() => /^Thinking( for \\d+ s)?, I'm checking/.test(label() ?? ""), 5000);
+      const first = { label: words(), bubble: conv.messages.find(m => m.role === "assistant")?.state };
       const firstLabel = row().querySelector(".label");
-      await S.until(() => label()?.startsWith("Thinking · I'm testing"), 5000);
-      const second = label().replace(/ · \\d+ s$/, "");
+      await S.until(() => /^Thinking( for \\d+ s)?, I'm testing/.test(label() ?? ""), 5000);
+      const second = words();
       // A new title changes only its own words: the label, and its pulse, run on.
       const sameLabel = row().querySelector(".label") === firstLabel && firstLabel.isConnected;
       await turn;
       await S.until(() => !live(), 5000);
+      // The answer's last part is drawn on the panel's next render, which a
+      // loaded machine can leave until after the turn's end (the Linux server at load 67).
+      await S.until(() => classes().at(-1) === "msg assistant", 5000);
       const claude = {
         label: label(),
         roles: roles(conv),
@@ -1191,10 +2851,11 @@ test("an agent that thinks in words between parts of its answer shows each stret
       const box = () => [...S.panelDoc().querySelectorAll(".list > .steps")].at(-1) ?? null;
       const kinds = el => [...(el?.children ?? [])].map(c => (c.classList.contains("step") ? "step" : c.classList.contains("thought") ? "thought" : c.className));
       const stepsTurn = A.send(conv, { question: "THINKSTEPS" });
-      await S.until(() => live() && label()?.startsWith("Thinking · Comparing the results"), 5000);
-      const thinking = { label: label().replace(/ · \\d+ s$/, ""), inBox: row().parentElement === box(), box: kinds(box()) };
+      await S.until(() => live() && /^Thinking( for \\d+ s)?, Comparing the results/.test(label() ?? ""), 5000);
+      const thinking = { label: words(), inBox: row().parentElement === box(), box: kinds(box()) };
       await stepsTurn;
       await S.until(() => !live(), 5000);
+      await S.until(() => classes().at(-1) === "msg assistant", 5000);
       const after = {
         roles: roles(conv).slice(-5),
         thought: thoughts(conv).at(-1),
@@ -1209,10 +2870,10 @@ test("an agent that thinks in words between parts of its answer shows each stret
     }
   `);
   assert.deepEqual(out.first, {
-    label: "Thinking · I'm checking the roots for 41 and 43 now.",
+    label: "Thinking, I'm checking the roots for 41 and 43 now.",
     bubble: "done",
   }, "the paragraph still coming has no full sentence yet; the part of the answer before the thought is complete");
-  assert.equal(out.second, "Thinking · I'm testing 167 by hand, since it splits.");
+  assert.equal(out.second, "Thinking, I'm testing 167 by hand, since it splits.");
   assert.equal(out.sameLabel, true, "a new title keeps the label's element, and so its pulse");
   assert.match(out.claude.label, /^Thought for [2-4] s$/);
   assert.deepEqual(out.claude.roles, ["user", "assistant", "thought", "assistant"], "the short summary before the first part went, under a second");
@@ -1223,7 +2884,7 @@ test("an agent that thinks in words between parts of its answer shows each stret
   });
   assert.deepEqual(out.claude.answers, ["Here's the first part.", "And here's the rest."]);
   assert.deepEqual(out.claude.classes, ["msg user", "msg assistant", "msg thought", "msg assistant"]);
-  assert.deepEqual(out.steps.thinking, { label: "Thinking · Comparing the results", inBox: true, box: ["step", "thought"] }, "a thought after a step is a line in the steps' box, live at its end");
+  assert.deepEqual(out.steps.thinking, { label: "Thinking, Comparing the results", inBox: true, box: ["step", "thought"] }, "a thought after a step is a line in the steps' box, live at its end");
   assert.deepEqual(out.steps.after.roles, ["user", "tool", "thought", "tool", "assistant"]);
   assert.deepEqual(out.steps.after.thought, { text: "**Comparing the results**", title: "Comparing the results", open: false });
   assert.match(out.steps.after.label, /^Thought for [12] s$/);
@@ -1296,7 +2957,7 @@ test("an answer in parts, with thoughts between them, gets one copy and save row
   assert.deepEqual(out.saved, { name: "Part two.md", text: `${answer}\n` }, "named after the answer's first heading, in its second part");
 });
 
-test("a long live title, as Claude Code's summaries have, clamps to two lines with an ellipsis, the seconds kept on its first line; the row's tooltip has the whole sentence", async () => {
+test("a long live title, as Claude Code's summaries have, clamps to two lines with an ellipsis, the seconds right after 'Thinking' on its first line (the user's text pass); the row's tooltip has the whole sentence", async () => {
   await useMock();
   const out = await chrome(`
     await S.openPanel();
@@ -1305,11 +2966,12 @@ test("a long live title, as Claude Code's summaries have, clamps to two lines wi
     win.ucAgentSidebar.showTask(conv);
     try {
       const turn = A.send(conv, { question: "THINKLONG" });
-      await S.until(() => live() && / · [1-9] s$/.test(label() ?? ""), 5000);
+      await S.until(() => live() && /^Thinking for [1-9] s, /.test(label() ?? ""), 5000);
       // Narrower than any sidebar: the sentence needs more than two lines.
       row().style.width = "220px";
       const line = row().querySelector("summary, .line");
       const head = line.querySelector(".head");
+      const word = line.querySelector(".label");
       const time = line.querySelector(".time");
       const box = el => el.getBoundingClientRect();
       const out = {
@@ -1318,7 +2980,7 @@ test("a long live title, as Claude Code's summaries have, clamps to two lines wi
         clipped: head.scrollHeight > head.clientHeight + 1,
         lines: Math.round(box(head).height / box(time).height),
         timeOnFirstLine: Math.abs(box(time).top - box(head).top) < box(time).height / 2,
-        timeRight: box(time).left >= box(head).right - 1,
+        timeAfterThinking: head.contains(time) && box(time).left >= box(word).right - 1,
         time: time.textContent,
       };
       A.cancel(conv);
@@ -1334,8 +2996,8 @@ test("a long live title, as Claude Code's summaries have, clamps to two lines wi
   const sentence = "I'm checking the roots for 41, 43, 47, 53 and 61 now, listing the n values in range that each prime divides, and skipping n=1 for 43 since f(1) is itself prime.";
   assert.equal(out.tooltip, sentence);
   assert.deepEqual([out.clamp, out.clipped, out.lines], ["2", true, 2], "two lines, the rest cut");
-  assert.deepEqual([out.timeOnFirstLine, out.timeRight], [true, true], "the seconds stay on the first line, after the words");
-  assert.match(out.time, /^ · [1-9] s$/);
+  assert.deepEqual([out.timeOnFirstLine, out.timeAfterThinking], [true, true], "the seconds stay on the first line, right after 'Thinking'");
+  assert.match(out.time, /^ for [1-9] s$/);
 });
 
 // Every zenius task in the sidebar (the user's ask, docs/briefs/external-tasks.md):
@@ -1365,10 +3027,9 @@ const EXTERNAL = `
     ext.stepsModule = null;
     ext.sync();
   };
-  const drawerRow = uid => win.document.getElementById("zenius-sidebar-directory")?.querySelector('.asb-dir-row[data-task="' + uid + '"]');
 `;
 
-test("a task another agent drives (a terminal's Claude Code) shows in the directory under its state, with where it's driven from, and a search finds it; opened, it's read-only: the source line, its steps as text with each quoted name in its own isolate, a failed step's code, the live card, Needs you with the agent's words, and Stop, which ends it; done, it says how it ended and can leave the list; a claim to be the sidebar's own counts only for a chat the sidebar has", async () => {
+test("a task another agent drives (a terminal's Claude Code) shows in the directory under its state, with where it's driven from, and a search finds it; opened, it's read-only: the source line, its steps as text with each quoted name in its own isolate, a failed step's code, the live card, Needs you with the agent's words, and Stop, which ends it; done, it says how it ended and can go to Archived and back; a claim to be the sidebar's own counts only for a chat the sidebar has", async () => {
   const name = `zen-ux external ${run}`;
   const { id } = await h.createSpace({ name });
   await h.call("page.goto", { space: id, page: "p1", url: `${www()}/zen-ux/hidden.html?external` });
@@ -1395,8 +3056,8 @@ test("a task another agent drives (a terminal's Claude Code) shows in the direct
     const g = win.ucAgentSidebar;
     try {
       g.toggleDirectory();
-      const drawer = win.document.getElementById("zenius-sidebar-directory");
-      await S.until(() => drawer && !drawer.hidden && drawerRow(uid));
+      const drawer = V.drawer();
+      await S.until(() => drawer && !drawer.hidden && V.row(uid));
       // Picking a row closes the drawer: each later look opens it again.
       const openDir = async () => {
         if (!g.directoryOpen) {
@@ -1405,21 +3066,21 @@ test("a task another agent drives (a terminal's Claude Code) shows in the direct
         }
       };
       const rowOf = u => {
-        const r = drawerRow(u);
-        return r ? { group: groupOf(r), src: r.querySelector(".asb-dir-src")?.textContent ?? null, chip: r.querySelector(".asb-dir-addr")?.textContent ?? null, status: r.querySelector(".asb-dir-rd")?.textContent ?? null } : null;
+        const r = V.row(u);
+        return r ? { group: V.groupOf(r), src: r.querySelector(".asb-dir-src")?.textContent ?? null, chip: r.querySelector(".asb-dir-addr")?.textContent ?? null, status: r.querySelector(".asb-dir-rd")?.textContent ?? null } : null;
       };
       res.row = rowOf(uid);
-      res.claimedByChat = !!drawerRow("ext-999001");
-      res.claimsNoChat = !!drawerRow("ext-999002");
+      res.claimedByChat = !!V.row("ext-999001");
+      res.claimsNoChat = !!V.row("ext-999002");
       const input = drawer.querySelector(".asb-dir-search input");
       input.value = "laptop/t5x";
       input.dispatchEvent(new win.Event("input", { bubbles: true }));
-      await S.until(() => !drawerRow("ext-999002"));
-      res.found = !!drawerRow(uid);
+      await S.until(() => !V.row("ext-999002"));
+      res.found = !!V.row(uid);
       input.value = "";
       input.dispatchEvent(new win.Event("input", { bubbles: true }));
-      await S.until(() => drawerRow("ext-999002"));
-      drawerRow(uid).click();
+      await S.until(() => V.row("ext-999002"));
+      V.row(uid).click();
       await S.until(() => doc.getElementById("ext-src") && !doc.getElementById("live").hidden, 10000);
       const view = () => ({
         title: doc.getElementById("title").textContent,
@@ -1472,19 +3133,49 @@ test("a task another agent drives (a terminal's Claude Code) shows in the direct
       await openDir();
       await S.until(() => rowOf(uid)?.group === "done", 5000);
       res.done = { row: rowOf(uid), bar: view().bar, stop: view().stop };
-      // Done, it can leave the list; the feed keeps it.
+      // Done, it can go to Archived; the feed keeps it.
+      const conv = A.taskByUid(uid);
+      const where = () => (A.directoryList().some(c => c.uid === uid) ? "list" : A.archivedTasks().some(c => c.uid === uid) ? "archived" : null);
+      const shown = el => !!el && !el.hidden && doc.defaultView.getComputedStyle(el).display !== "none";
       doc.getElementById("more").click();
-      res.removable = !doc.getElementById("remove-task").hidden;
-      doc.getElementById("remove-task").click();
-      await S.until(() => !drawerRow(uid), 5000);
-      res.removed = !drawerRow(uid) && !A.directoryList().some(c => c.uid === uid);
+      res.archivable = !doc.getElementById("archive-task").hidden;
+      res.item = { label: doc.getElementById("archive-task").textContent, tip: doc.getElementById("archive-task").title };
+      doc.getElementById("archive-task").click();
+      await S.until(() => g.currentTask !== conv && doc.getElementById("live").hidden, 5000);
+      res.panel = { shown: g.currentTask === conv, live: !doc.getElementById("live").hidden, external: doc.documentElement.dataset.external ?? null };
       ext.sync();
-      res.staysOut = !A.directoryList().some(c => c.uid === uid);
+      res.archived = where();
+      // After a restart: the tasks file keeps the archive.
+      await A.saveTasks();
+      const file = await IOUtils.readJSON(A.tasksPath());
+      A.archivedSpaces = [];
+      A.restoreArchived(file.archived);
+      ext.sync();
+      res.restarted = where();
+      // Opened from Archived: read-only, with Unarchive, which brings it back.
+      await g.openTask(uid);
+      await S.until(() => g.currentTask === conv && doc.documentElement.dataset.archived === "true", 5000);
+      res.opened = { bar: shown(doc.getElementById("archived-bar")) ? doc.getElementById("archived-text").textContent : null, extBar: shown(doc.getElementById("ext-bar")), src: !!doc.getElementById("ext-src") };
+      doc.getElementById("unarchive").click();
+      await S.until(() => where() === "list", 5000);
+      res.unarchived = where();
+      // Archived again, then the agent claims it again (the user said yes):
+      // listed while it runs and once it ends.
+      A.archiveTask(conv);
+      ext.sync();
+      res.again = where();
+      entries.set(arg.id, { ...entries.get(arg.id), state: "working", ended: null, endedAt: null });
+      ext.sync();
+      res.claimed = { where: where(), state: A.taskByUid(uid)?.task.state ?? null };
+      await S.sleep(5);
+      entries.set(arg.id, { ...entries.get(arg.id), state: "done", ended: "finished", endedAt: Date.now() });
+      ext.sync();
+      res.endedAgain = { where: where(), state: A.taskByUid(uid)?.task.state ?? null };
       return res;
     } finally {
       g.closeDirectory();
       A.tasks.delete(own.uid);
-      ext.dismissed.delete(arg.id);
+      A.archivedSpaces = A.archivedSpaces.filter(a => a.space !== arg.id);
       entries.clear();
       restoreFeed();
       try { if (rec && !rec.gone && rec.ownership !== "user") A.zeniusUI()?.stopByUser(rec); } catch {}
@@ -1493,14 +3184,14 @@ test("a task another agent drives (a terminal's Claude Code) shows in the direct
   `,
     { id, name }
   );
-  const from = `${iso("laptop/t5x")} · ${iso("Claude Code")}`;
+  const from = `${iso("Claude Code")} on ${iso("laptop/t5x")}`;
   assert.deepEqual(out.row, { group: "working", src: `From ${from}`, chip: "laptop/t5x", status: 'Drag "Card" to "Done"' });
   assert.equal(out.claimedByChat, false, "a chat the sidebar has drives it");
   assert.equal(out.claimsNoChat, true, "a claim for no chat of the sidebar's is someone else's");
   assert.equal(out.found, true);
   assert.deepEqual(out.view, {
     title: name,
-    src: `Driven from ${from} · read-only`,
+    src: `Read-only, driven from ${from}`,
     chip: "laptop/t5x",
     steps: [
       { outcome: "ok", text: "Open https://example.com", names: [], code: "", page: null },
@@ -1521,13 +3212,20 @@ test("a task another agent drives (a terminal's Claude Code) shows in the direct
   assert.deepEqual(out.needs.card, ["Needs you", "Log in to continue", "Watch"]);
   assert.equal(out.needs.count, out.needs.ui, "Work's count is zenius's");
   assert.equal(out.stopped, "user");
-  assert.deepEqual(out.done, { row: { group: "done", src: `From ${from}`, chip: "laptop/t5x", status: "Stopped by you" }, bar: "Stopped by you · now", stop: false });
-  assert.equal(out.removable, true);
-  assert.equal(out.removed, true);
-  assert.equal(out.staysOut, true, "a removed task stays out though the feed keeps it");
+  assert.deepEqual(out.done, { row: { group: "done", src: `From ${from}`, chip: "laptop/t5x", status: "Stopped by you" }, bar: "Stopped by you just now", stop: false });
+  assert.equal(out.archivable, true);
+  assert.deepEqual(out.item, { label: "Archive", tip: "Moves the task to Archived, at the bottom of All tasks. Its tabs stay open." });
+  assert.deepEqual(out.panel, { shown: false, live: false, external: "false" }, "the panel leaves it, card and all");
+  assert.equal(out.archived, "archived", "it moves to Archived though the feed keeps it");
+  assert.equal(out.restarted, "archived", "and stays there after a restart");
+  assert.deepEqual(out.opened, { bar: "Archived", extBar: false, src: true }, "opened, it's read-only, with Unarchive");
+  assert.equal(out.unarchived, "list", "Unarchive brings it back to the list");
+  assert.equal(out.again, "archived");
+  assert.deepEqual(out.claimed, { where: "list", state: "working" }, "claimed again, it's listed");
+  assert.deepEqual(out.endedAgain, { where: "list", state: "done" }, "and still listed once that run ends");
 });
 
-test("leaving a task another agent drives, for '+ New task', a Work chat of the sidebar's or Chat, leaves none of its read-only view behind: its bar ('Finished · now'), source line, steps and live card go, and the question box and Send come back (the user's bug in 5ca03b1)", async () => {
+test("leaving a task another agent drives, for '+ New task', a Work chat of the sidebar's or Chat, leaves none of its read-only view behind: its bar ('Finished just now'), source line, steps and live card go, and the question box and Send come back (the user's bug in 5ca03b1)", async () => {
   const name = `zen-ux external switch ${run}`;
   const { id } = await h.createSpace({ name });
   await h.call("page.goto", { space: id, page: "p1", url: `${www()}/zen-ux/hidden.html?switch` });
@@ -1569,7 +3267,7 @@ test("leaving a task another agent drives, for '+ New task', a Work chat of the 
       res.external = await openExternal();
       // '+ New task' in the directory, as the user did.
       g.toggleDirectory();
-      const drawer = win.document.getElementById("zenius-sidebar-directory");
+      const drawer = V.drawer();
       await S.until(() => drawer && !drawer.hidden && drawer.querySelector(".asb-dir-new"));
       drawer.querySelector(".asb-dir-new").click();
       await S.until(() => doc.documentElement.dataset.external === "false" && doc.getElementById("title").textContent === "New task");
@@ -1597,7 +3295,7 @@ test("leaving a task another agent drives, for '+ New task', a Work chat of the 
   );
   // Whether a finished task's live card shows is its own rule.
   const { live: _live, ...external } = out.external;
-  assert.deepEqual(external, { external: "true", bar: "Finished · now", src: true, steps: true, input: false, send: false });
+  assert.deepEqual(external, { external: "true", bar: "Finished just now", src: true, steps: true, input: false, send: false });
   const back = { external: "false", bar: null, src: false, steps: false, live: false, input: true, send: true };
   assert.deepEqual(out.newTask, back, "after '+ New task'");
   assert.deepEqual(out.work, back, "on a Work chat of the sidebar's");
@@ -1616,10 +3314,10 @@ test("end to end, on zen-core's real feed and zen-input's real steps: a task mad
       const g = win.ucAgentSidebar;
       g.AgentService.syncExternalSoon();
       if (!g.directoryOpen) g.toggleDirectory();
-      const drawer = win.document.getElementById("zenius-sidebar-directory");
+      const drawer = V.drawer();
       const read = () => {
-        const r = drawer?.querySelector('.asb-dir-row[data-task="ext-' + arg.id + '"]');
-        return r ? { group: groupOf(r), src: r.querySelector(".asb-dir-src")?.textContent ?? null, status: r.querySelector(".asb-dir-rd")?.textContent ?? null } : null;
+        const r = V.row("ext-" + arg.id);
+        return r ? { group: V.groupOf(r), src: r.querySelector(".asb-dir-src")?.textContent ?? null, status: r.querySelector(".asb-dir-rd")?.textContent ?? null } : null;
       };
       await S.until(() => read()?.group === arg.want, 10000);
       const row = read();
@@ -1646,7 +3344,7 @@ test("end to end, on zen-core's real feed and zen-input's real steps: a task mad
     await chrome(`const s = win.ucAgentSidebar.AgentService.zenius().spaces; s.setOwnership(s.peek(arg.id), "agent", { source: "user" }); return true;`, { id });
     await h.call("spaces.finish", { space: id, keep: [] });
     const done = await look("done");
-    const from = `From ${iso("laptop/t5x")} · ${iso("Claude Code")}`;
+    const from = `From ${iso("Claude Code")} on ${iso("laptop/t5x")}`;
     // A navigation's step names the page's origin only (zen-input's ring).
     const open = `Open ${new URL(www()).origin}`;
     assert.deepEqual(working, { group: "working", src: from, status: open });
@@ -1671,12 +3369,12 @@ test("where an external task is driven from, without a terminal: its agent and f
       control: of({ agent: "Claude\\u0007 Code\\u202e", folder: "a\\nb" }),
     };
   `);
-  assert.equal(out.folder, `${iso("Codex")} · ${iso("zenius-eval")}`);
-  assert.deepEqual(out.parts, { text: `${iso("Codex")} · ${iso("zenius-eval")}`, terminal: false });
-  assert.equal(out.terminal, `From ${iso("devbox/t5")} · ${iso("Codex")}`);
+  assert.equal(out.folder, `${iso("Codex")} in ${iso("zenius-eval")}`);
+  assert.deepEqual(out.parts, { text: `${iso("Codex")} in ${iso("zenius-eval")}`, terminal: false });
+  assert.equal(out.terminal, `From ${iso("Codex")} on ${iso("devbox/t5")}`);
   assert.equal(out.none, "Driven from elsewhere");
   assert.equal(out.empty, "Driven from elsewhere");
-  assert.equal(out.control, `${iso("Claude Code")} · ${iso("a b")}`);
+  assert.equal(out.control, `${iso("Claude Code")} in ${iso("a b")}`);
 });
 
 test("the strip's count and Work's are one number: a task another agent drives that needs the user, and a sidebar chat's question before its agent opened a zenius task, count once in each; the tasks panel has a line for the chat's, whose Open shows it in the sidebar", async () => {
@@ -1741,7 +3439,7 @@ test("the strip's count and Work's are one number: a task another agent drives t
   assert.equal(out.shown, true, "Open shows the chat in the sidebar");
 });
 
-test("a remote task's source line: the address alone without a label, each part isolated so a right-to-left label keeps 'From' and the '·' in place; nothing for other chats or without an address", async () => {
+test("a remote task's source line: the address alone without a label, each part isolated so a right-to-left label keeps 'From' and 'on' in place, the address last for its chip (the user's text pass); nothing for other chats or without an address", async () => {
   const out = await chrome(`
     const { remoteSource } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentService.sys.mjs");
     return {
@@ -1754,7 +3452,7 @@ test("a remote task's source line: the address alone without a label, each part 
   `);
   assert.deepEqual(out, {
     bare: `From ${iso("desk/t2")}`,
-    rtl: `From ${iso("studio/t9")} · ${iso("בדיקה לילית")}`,
+    rtl: `From ${iso("בדיקה לילית")} on ${iso("studio/t9")}`,
     urlbar: null,
     blank: null,
     none: null,
@@ -1795,9 +3493,9 @@ test("a remote task through zenius's own sidebar.start: with the sidebar closed,
       const end = doc.getElementById("remote-end");
       await S.until(() => !end.hidden);
       g.toggleDirectory();
-      const drawer = win.document.getElementById("zenius-sidebar-directory");
+      const drawer = V.drawer();
       await S.until(() => drawer && !drawer.hidden);
-      const row = drawer.querySelector('.asb-dir-row[data-task="' + conv.uid + '"]');
+      const row = V.row(conv.uid);
       const res = {
         end: end.textContent,
         after: end.previousElementSibling?.id ?? null,
@@ -1809,7 +3507,7 @@ test("a remote task through zenius's own sidebar.start: with the sidebar closed,
       return res;
     `, { taskId });
     const stopped = `Stopped by ${iso("devbox/t5")}`;
-    assert.deepEqual(arrived, { text: `Task from ${iso("devbox/t5")} · ${iso("nightly check")}`, moved: false, open: false });
+    assert.deepEqual(arrived, { text: `Task from ${iso("nightly check")} on ${iso("devbox/t5")}`, moved: false, open: false });
     assert.equal(status.state, "stopped");
     assert.equal(status.stopReason, "caller");
     assert.deepEqual(ended, { end: stopped, after: "messages", row: stopped, title: true, state: "done" });
@@ -1904,7 +3602,7 @@ test("a remote task's end says why for each stop reason: its caller, its time li
   });
 });
 
-test("a remote task's start pops up a card in the open sidebar: 'Task from <address> · <label>', with Watch and Stop; it takes no focus and moves nothing, Stop stops that task, a plain task brings none, and it goes on its own", async () => {
+test("a remote task's start pops up a card in the open sidebar: 'Task from <label> on <address>', with Watch and Stop; it takes no focus and moves nothing, Stop stops that task, a plain task brings none, and it goes on its own", async () => {
   const out = await chrome(`
     await S.openPanel();
     const doc = S.panelDoc();
@@ -1958,7 +3656,7 @@ test("a remote task's start pops up a card in the open sidebar: 'Task from <addr
       cleanUp();
     }
   `);
-  const text = `Task from ${iso("devbox/t5")} · ${iso("nightly check")}`;
+  const text = `Task from ${iso("nightly check")} on ${iso("devbox/t5")}`;
   assert.deepEqual(out, {
     text,
     label: text,
@@ -2052,7 +3750,7 @@ test("with the agent sidebar closed, a remote task's start shows the same card o
       cleanUp();
     }
   `);
-  const text = `Task from ${iso("devbox/t5")} · ${iso("nightly check")}`;
+  const text = `Task from ${iso("nightly check")} on ${iso("devbox/t5")}`;
   assert.deepEqual(out, {
     text,
     label: text,
@@ -2115,8 +3813,8 @@ test("a remote task's look: its address is a chip, with the text unchanged, over
       res.live = chip(doc.getElementById("live-src"), "addr");
       // Its row in the directory.
       g.toggleDirectory();
-      const drawer = win.document.getElementById("zenius-sidebar-directory");
-      const row = () => drawer?.querySelector('.asb-dir-row[data-task="' + conv.uid + '"]');
+      const drawer = V.drawer();
+      const row = () => V.row(conv.uid);
       await S.until(() => drawer && !drawer.hidden && row(), 5000);
       res.row = chip(row().querySelector(".asb-dir-src"), "asb-dir-addr", win);
       g.closeDirectory();
@@ -2132,7 +3830,7 @@ test("a remote task's look: its address is a chip, with the text unchanged, over
       g.setMode("chat");
     }
   `);
-  const from = `From ${iso("devbox/t5")} · ${iso("nightly check")}`;
+  const from = `From ${iso("nightly check")} on ${iso("devbox/t5")}`;
   const set = line => ({ text: "devbox/t5", set: true, line });
   assert.deepEqual(out.arrival, set(`Task ${from.replace("From", "from")}`), "the arrival card");
   assert.deepEqual(out.card, { lined: true, top: true, right: true }, "the arrival card's layout");
@@ -2380,10 +4078,10 @@ test("a question the agent ends with puts its task under Needs you, and Work's s
     // The count follows the task's state a moment after the answer ends.
     await S.until(() => needs && !needs.hidden && Number(needs.textContent) >= 1, 5000);
     win.ucAgentSidebar.toggleDirectory();
-    const drawer = win.document.getElementById("zenius-sidebar-directory");
+    const drawer = V.drawer();
     await S.until(() => drawer && !drawer.hidden);
-    const row = await S.until(() => drawer.querySelector('.asb-dir-row[data-task="' + uid + '"]'), 5000);
-    const res = { group: groupOf(row), count: needs && !needs.hidden ? Number(needs.textContent) : 0, inWork: !!needs?.closest("#to-work") };
+    const row = await S.until(() => V.row(uid), 5000);
+    const res = { group: V.groupOf(row), count: needs && !needs.hidden ? Number(needs.textContent) : 0, inWork: !!needs?.closest("#to-work") };
     win.ucAgentSidebar.closeDirectory();
     return res;
   `);
@@ -2533,12 +4231,12 @@ test("an agent that asks, lists the choices, then says what it does once the use
       const needs = S.panelDoc().getElementById("needs");
       await S.until(() => needs && !needs.hidden && Number(needs.textContent) >= 1, 5000).catch(() => null);
       win.ucAgentSidebar.toggleDirectory();
-      const drawer = win.document.getElementById("zenius-sidebar-directory");
+      const drawer = V.drawer();
       await S.until(() => drawer && !drawer.hidden);
-      const row = await S.until(() => drawer.querySelector('.asb-dir-row[data-task="' + uid + '"]'), 5000);
+      const row = await S.until(() => V.row(uid), 5000);
       const res = {
         task: { state: conv.task.state, text: conv.task.text, why: conv.task.why },
-        group: groupOf(row),
+        group: V.groupOf(row),
         work: needs && !needs.hidden ? Number(needs.textContent) : 0,
         zenius: A.zeniusUI().needsCount() - before,
       };
@@ -3620,7 +5318,7 @@ test("step 6: the live card draws only while the user can see it; Watch moves th
       res.ctrlTabUnwatched = { notStopped: ctrlTab(), atUser: atUser() };
       // Watch, on its click: the task's Space; the card says ⌃Tab is the way
       // back where Watch was (the user's design), and zenius's strip says
-      // "Watching <task> · ⌃Tab" (the chip shows only where the strip can't be read).
+      // "Watching <task> [⌃Tab]" (the chip shows only where the strip can't be read).
       doc.getElementById("watch").click();
       await S.until(() => g.watching === uid, 10000);
       res.watch = { space: win.gZenWorkspaces.activeWorkspace === rec.uuid, watchShown: !doc.getElementById("watch").hidden, hint: doc.getElementById("watch-hint").hidden ? null : doc.getElementById("watch-hint").textContent, card: doc.getElementById("live").dataset.watching, chip: !(win.document.getElementById("zenius-watch-pill")?.hidden ?? true), strip: win.document.getElementById("zenius-agents-strip").getAttribute("watching"), attr: win.document.documentElement.getAttribute("data-zenius-watching") === uid };
@@ -3642,7 +5340,7 @@ test("step 6: the live card draws only while the user can see it; Watch moves th
       }
       await S.until(() => AS.isHeld(conv) === "takeover" && g.watching === uid, 10000);
       await S.until(() => /^You have control/.test(doc.getElementById("live-text").textContent), 5000);
-      res.takeover = { held: AS.isHeld(conv), ownership: rec.ownership, watching: g.watching === uid, text: doc.getElementById("live-text").textContent.split(" · ")[0], takeOverShown: !doc.getElementById("take-over").hidden };
+      res.takeover = { held: AS.isHeld(conv), ownership: rec.ownership, watching: g.watching === uid, text: doc.getElementById("live-text").textContent.split(" on ")[0], takeOverShown: !doc.getElementById("take-over").hidden };
       // While the user has the page, where they may type a password, the
       // card paints nothing: it keeps its last picture.
       mark = drawn();
@@ -3904,7 +5602,7 @@ test("step 6: the card shows only its own task's page: from a working task's car
   assert.equal(out.back, true, "back on the working task, its own picture comes again");
 });
 
-test("the sidebar's ways in are zenius's watch: a directory tab and the card's Watch, with Ctrl+Tab back from each. Where the strip can't be read, the chip says 'Watching <task> · Ctrl+Tab' in the page area's corner, capped, and every click on it reaches the page, while watching and after Take over", async () => {
+test("the sidebar's ways in are zenius's watch: a directory tab and the card's Watch, with Ctrl+Tab back from each. Where the strip can't be read, the chip says 'Watching <task> [Ctrl+Tab]' in the page area's corner, capped, and every click on it reaches the page, while watching and after Take over", async () => {
   await useMock();
   const out = await chrome(`
     const g = win.ucAgentSidebar;
@@ -3962,7 +5660,7 @@ test("the sidebar's ways in are zenius's watch: a directory tab and the card's W
       // The directory: one of the shown task's tabs.
       g.showTask(uid);
       g.toggleDirectory();
-      const chipTab = await S.until(() => win.document.querySelector('.asb-dir-row[data-task="' + uid + '"] .asb-dir-tab'), 5000);
+      const chipTab = await S.until(() => V.row(uid)?.querySelector(".asb-dir-tab"), 5000);
       chipTab.click();
       await S.until(() => UI.watching(win) === rec.id && g.watching === uid, 10000);
       res.directory = { attr: win.document.documentElement.getAttribute("data-zenius-watching") === uid, strip: win.document.getElementById("zenius-agents-strip").getAttribute("watching") };
@@ -4031,7 +5729,7 @@ test("the sidebar's ways in are zenius's watch: a directory tab and the card's W
   assert.equal(out.nameLength, 200);
   // The key as the platform shows it (watch.sys.mjs's BACK_KEY).
   const backKey = process.platform === "darwin" ? "⌃Tab" : "Ctrl+Tab";
-  const chip = { shown: true, topCenter: ["page", "page", "page"], onName: "page", onKey: "page", capped: true, corner: true, cut: true, key: `· ${backKey}`, buttons: 0 };
+  const chip = { shown: true, topCenter: ["page", "page", "page"], onName: "page", onKey: "page", capped: true, corner: true, cut: true, key: backKey, buttons: 0 };
   assert.deepEqual(out.watching, chip, "while watching");
   assert.deepEqual(out.takeover, chip, "after Take over");
   assert.deepEqual(out.click, { hits: ["browser"], watching: true }, "the user's click at the page's top center went to the page, and the watch went on");
@@ -4328,6 +6026,281 @@ const STEER_CHAT = `
   const until = (fn, ms) => S.until(fn, ms);
 `;
 const FILE = { name: "notes.txt", kind: "text", info: "1 KB", uri: "file:///tmp/notes.txt", text: "hello", truncated: false };
+
+test("a message the user sends takes the chat to its end, even from an earlier answer they scrolled up to, and the view follows the answer from there, while they type the next one too: Enter with the agent idle, and Enter that queues while it answers; scrolled up mid-answer, it stays put (the user's ask, 2026-11-22)", async () => {
+  await useMock();
+  const out = await chrome(`
+    await S.openPanel();
+    const g = win.ucAgentSidebar, A = g.AgentService;
+    const doc = S.panelDoc();
+    const pwin = doc.defaultView;
+    const $ = id => doc.getElementById(id);
+    const m = $("messages");
+    const { atEnd, frames, type } = V;
+    const enter = text => {
+      type(text);
+      $("input").dispatchEvent(new pwin.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    };
+    const conv = await g.newTask();
+    const words = () => conv.messages.findLast(msg => msg.role === "assistant")?.text ?? "";
+    // While the answer streams: at each change of the chat's height, is the view at its end?
+    const watch = async ms => {
+      const seen = [];
+      let height = m.scrollHeight;
+      for (const end = Date.now() + ms; Date.now() < end; ) {
+        await S.sleep(50);
+        if (m.scrollHeight !== height) {
+          height = m.scrollHeight;
+          seen.push(atEnd());
+        }
+      }
+      return seen;
+    };
+    const res = {};
+    try {
+      // Earlier answers, screens of them.
+      for (let i = 0; i < 20; i++) {
+        conv.push({ role: "user", text: "Earlier question " + i, selection: "", files: [], attachments: [] });
+        conv.push({ role: "assistant", text: ("An earlier answer, part " + i + ". ").repeat(16), state: "done" });
+      }
+      await S.until(() => m.scrollHeight > m.clientHeight * 4, 5000);
+      // Up to an earlier answer, then Enter with the agent idle.
+      m.scrollTop = 0;
+      await frames(3);
+      res.up = { top: m.scrollTop, atEnd: atEnd() };
+      enter("SLOW first");
+      await S.until(() => conv.busy && atEnd() && [...doc.querySelectorAll(".msg.user")].at(-1)?.textContent.includes("SLOW first"), 5000);
+      res.sent = atEnd();
+      await S.until(() => words().startsWith("word"), 10000);
+      res.streamed = await watch(1000);
+      // The next message, typed as the answer streams: the box grows.
+      type("Line 1\\nLine 2\\nLine 3\\nLine 4\\nLine 5\\nLine 6");
+      res.typing = await watch(1000);
+      // Scrolled up mid-answer: it stays where the user put it.
+      m.scrollTop = 0;
+      await frames(2);
+      const before = words().length;
+      await S.until(() => words().length > before + 5, 5000);
+      await frames(2);
+      res.stayed = { top: m.scrollTop, atEnd: atEnd() };
+      // Enter while it answers: the message waits in the queue, and the view goes to the end.
+      enter("And the second part?");
+      await S.until(() => conv.queue.length === 1, 3000);
+      await frames(2);
+      res.queued = { queue: conv.queue.length, row: !$("queue").hidden, atEnd: atEnd() };
+      res.queuedStream = await watch(1000);
+      res.busy = conv.busy;
+      return res;
+    } finally {
+      A.cancel(conv);
+      await S.until(() => !conv.busy, 10000);
+      A.removeTask(conv);
+      g.setMode("chat");
+    }
+  `);
+  assert.deepEqual(out.up, { top: 0, atEnd: false }, "scrolled up to an earlier answer");
+  assert.equal(out.sent, true, "Enter takes the chat to its end");
+  // The mock's SLOW grows its answer a line about every second.
+  assert.ok(out.streamed.length >= 1 && out.streamed.every(Boolean), `the answer streams in at the end: ${JSON.stringify(out.streamed)}`);
+  assert.ok(out.typing.length >= 1 && out.typing.every(Boolean), `and stays there as the box grows with the next message: ${JSON.stringify(out.typing)}`);
+  assert.deepEqual(out.stayed, { top: 0, atEnd: false }, "scrolled up mid-answer, it stays put");
+  assert.deepEqual(out.queued, { queue: 1, row: true, atEnd: true }, "Enter that queues takes it to the end too");
+  assert.ok(out.queuedStream.length >= 1 && out.queuedStream.every(Boolean), `and it follows the answer from there: ${JSON.stringify(out.queuedStream)}`);
+  assert.equal(out.busy, true, "all of it while the first answer ran");
+});
+
+// A task's chat with screens of earlier answers, on the mock (zen-observe's
+// review of the follow): whether the view is at the chat's end, and what it
+// is at each change of the chat's height as an answer streams.
+const FOLLOW = `
+  await S.openPanel();
+  const g = win.ucAgentSidebar, A = g.AgentService;
+  const doc = S.panelDoc();
+  const pwin = doc.defaultView;
+  const $ = id => doc.getElementById(id);
+  const m = $("messages");
+  const { atEnd, frames, type } = V;
+  const ACCEL = Services.appinfo.OS === "Darwin" ? { metaKey: true } : { ctrlKey: true };
+  const press = (keys = {}) => $("input").dispatchEvent(new pwin.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, ...keys }));
+  const enter = (text, keys = {}) => {
+    type(text);
+    press(keys);
+  };
+  const conv = await g.newTask();
+  const words = () => conv.messages.findLast(msg => msg.role === "assistant")?.text ?? "";
+  const watch = async ms => {
+    const seen = [];
+    let height = m.scrollHeight;
+    for (const end = Date.now() + ms; Date.now() < end; ) {
+      await S.sleep(50);
+      if (m.scrollHeight !== height) {
+        height = m.scrollHeight;
+        seen.push(atEnd());
+      }
+    }
+    return seen;
+  };
+  const earlier = async () => {
+    for (let i = 0; i < 20; i++) {
+      conv.push({ role: "user", text: "Earlier question " + i, selection: "", files: [], attachments: [] });
+      conv.push({ role: "assistant", text: ("An earlier answer, part " + i + ". ").repeat(16), state: "done" });
+    }
+    await S.until(() => m.scrollHeight > m.clientHeight * 4, 5000);
+  };
+  const stop = async () => {
+    A.cancel(conv);
+    await S.until(() => !conv.busy, 10000);
+    type("");
+  };
+`;
+
+test("the view's own moves up aren't the user's scroll (zen-observe's review of the follow): a message of several lines sent from the end, whose box empties as it goes, and an edited question, which cuts the chat short, keep the view on the answer as it streams, while the next message grows the box; the user's own scroll of 60 px up mid-answer stays put", async () => {
+  await useMock();
+  const out = await chrome(`${FOLLOW}
+    // The next message, typed as the answer streams: the box grows five lines.
+    const NEXT = "Next 1\\nNext 2\\nNext 3\\nNext 4\\nNext 5\\nNext 6";
+    const res = {};
+    try {
+      await earlier();
+      // Seven lines from the end: the box empties as the message goes, so the
+      // chat's area grows and the view moves up as far as its new end.
+      type("Line 1\\nLine 2\\nLine 3\\nLine 4\\nLine 5\\nLine 6\\nSLOW multi");
+      await frames(3);
+      m.scrollTop = m.scrollHeight;
+      await frames(3);
+      const box = $("input").clientHeight;
+      press();
+      await S.until(() => words().startsWith("word"), 10000);
+      res.box = box - $("input").clientHeight;
+      res.stream = await watch(1200);
+      type(NEXT);
+      res.typing = await watch(1500);
+      await stop();
+      // An earlier question, edited where the user scrolled up to it: the chat
+      // is cut short after it, so its end moves up.
+      const q = [...m.querySelectorAll(".msg.user")].find(el => el.textContent.includes("Earlier question 15"));
+      m.scrollTop += q.getBoundingClientRect().top - m.getBoundingClientRect().top;
+      await frames(3);
+      res.editFrom = atEnd();
+      q.querySelector('.actions button[data-action="edit"]').click();
+      const editor = await S.until(() => q.querySelector(".editor textarea"), 3000);
+      editor.value = "SLOW edited";
+      q.querySelector(".editor .send").click();
+      await S.until(() => conv.busy && words().startsWith("word"), 15000);
+      await frames(2);
+      res.edited = { questions: conv.messages.filter(msg => msg.role === "user").length, atEnd: atEnd() };
+      res.editStream = await watch(1200);
+      type(NEXT);
+      res.editTyping = await watch(1500);
+      await stop();
+      // A line from the end, then the user's own scroll of 60 px up as the answer streams.
+      type("SLOW again");
+      await frames(3);
+      m.scrollTop = m.scrollHeight;
+      await frames(3);
+      const answers = () => conv.messages.filter(msg => msg.role === "assistant").length;
+      const n = answers();
+      press();
+      await S.until(() => conv.busy && answers() > n && words().split(" ").length > 3, 10000);
+      await frames(2);
+      const top = m.scrollTop;
+      m.scrollTop = top - 60;
+      await frames(2);
+      const before = words().length;
+      await S.until(() => words().length > before + 10, 5000);
+      await frames(2);
+      res.modest = { moved: Math.round(top - m.scrollTop), atEnd: atEnd() };
+      return res;
+    } finally {
+      await stop();
+      A.removeTask(conv);
+      g.setMode("chat");
+    }
+  `);
+  assert.ok(out.box > 40, `the box empties as the message goes: ${out.box} px`);
+  assert.ok(out.stream.length >= 1 && out.stream.every(Boolean), `the answer streams in at the end: ${JSON.stringify(out.stream)}`);
+  assert.ok(out.typing.length >= 1 && out.typing.every(Boolean), `and stays there as the next message grows the box: ${JSON.stringify(out.typing)}`);
+  assert.equal(out.editFrom, false, "scrolled up to the question to edit");
+  assert.deepEqual(out.edited, { questions: 16, atEnd: true }, "the edit cuts the chat after its question, and the view goes to the end");
+  assert.ok(out.editStream.length >= 1 && out.editStream.every(Boolean), `the edit's answer streams in at the end: ${JSON.stringify(out.editStream)}`);
+  assert.ok(out.editTyping.length >= 1 && out.editTyping.every(Boolean), `and stays there as the next message grows the box: ${JSON.stringify(out.editTyping)}`);
+  assert.deepEqual(out.modest, { moved: 60, atEnd: false }, "the user's own scroll of 60 px up mid-answer stays where they put it");
+});
+
+test("each other way to send takes the chat to its end from an earlier answer the user scrolled up to, and the agent's words after it show there (zen-observe's review of the follow): Steer (Ctrl+Enter, ⌘Enter on a Mac) as the agent answers, a queued message's Steer, and an answer to the agent's ask, by a click on its card, or by words in the box, which may answer only its first question", async () => {
+  await useMock();
+  const out = await chrome(`${FOLLOW}
+    const card = () => [...m.querySelectorAll(".msg.ask")].at(-1);
+    const ask = () => conv.messages.findLast(msg => msg.role === "ask");
+    const outcomes = () => conv.messages.filter(msg => msg.role === "assistant" && msg.text.startsWith("ask outcome: ")).length;
+    // The user scrolls up to the chat's first answer, where the view then stays.
+    const up = async () => {
+      m.scrollTop = 0;
+      await frames(3);
+      return m.scrollTop === 0 && !atEnd();
+    };
+    const res = {};
+    try {
+      await earlier();
+      // Steer as the agent answers.
+      enter("SLOW first");
+      await S.until(() => conv.busy && words().startsWith("word"), 10000);
+      res.steer = { up: await up() };
+      enter("Look at the second part", ACCEL);
+      await frames(2);
+      res.steer.sent = atEnd();
+      await S.until(() => !conv.busy && words() === "Steered: Look at the second part", 15000);
+      await frames(2);
+      res.steer.after = atEnd();
+      // A queued message's Steer.
+      enter("SLOW second");
+      await S.until(() => conv.busy && words().startsWith("word"), 10000);
+      enter("And the third?");
+      await S.until(() => conv.queue.length === 1, 3000);
+      res.row = { up: await up() };
+      $("queue-list").firstElementChild.querySelector("button.pill").click();
+      await frames(2);
+      res.row.sent = atEnd();
+      await S.until(() => !conv.busy && words() === "Steered: And the third?", 15000);
+      await frames(2);
+      res.row.after = atEnd();
+      // The agent's ask, answered by a click on its card.
+      enter("ASKFORM");
+      await S.until(() => card()?.querySelector(".ask-opt"), 10000);
+      res.click = { up: await up() };
+      [...card().querySelectorAll(".ask-opt")].find(b => b.querySelector(".label").textContent === "Uji").click();
+      await frames(2);
+      res.click.sent = atEnd();
+      await S.until(() => !conv.busy && outcomes() === 1, 10000);
+      await frames(2);
+      res.click.after = atEnd();
+      // An ask of two questions, answered by words in the box: the first words
+      // fill its first question, and the next ones answer the second and send it.
+      enter("ASKMULTI");
+      await S.until(() => card()?.querySelectorAll(".ask-q").length === 2, 10000);
+      res.words = { up: await up() };
+      enter("Kobe");
+      await frames(2);
+      res.words.first = atEnd() && ask().answer === null;
+      res.words.up = res.words.up && (await up());
+      enter("Tea");
+      await frames(2);
+      res.words.sent = atEnd();
+      await S.until(() => !conv.busy && outcomes() === 2, 10000);
+      await frames(2);
+      res.words.after = atEnd();
+      return res;
+    } finally {
+      await stop();
+      A.removeTask(conv);
+      g.setMode("chat");
+    }
+  `);
+  assert.deepEqual(out.steer, { up: true, sent: true, after: true }, "Steer");
+  assert.deepEqual(out.row, { up: true, sent: true, after: true }, "a queued message's Steer");
+  assert.deepEqual(out.click, { up: true, sent: true, after: true }, "an answer by a click on the ask's card");
+  assert.deepEqual(out.words, { up: true, first: true, sent: true, after: true }, "an answer by words in the box: the first of its two questions, then the second");
+});
 
 test("while the agent works, a queued message goes out when the turn ends, in order, in the same session, with its tab's page as it is then (none once its tab is gone); one taken out never goes; with the agent idle, a queued one goes at once", async () => {
   const { file, log } = ownMock("queue");
@@ -4725,13 +6698,13 @@ test("the panel while the agent works: the box says Enter queues and Ctrl+Enter 
     }`, { file, id: "panelq", url: `${www()}/article.html?queue`, FILE });
   assert.deepEqual(out.idle, { send: true, steer: false, stop: false });
   assert.deepEqual(out.busy.bar, { send: false, steer: false, stop: true }, "Stop in Send's place; no Steer while the box is empty");
-  assert.ok(out.busy.placeholder.endsWith(` · Enter queues, ${STEER_KEY} steers`), out.busy.placeholder);
+  assert.equal(out.busy.placeholder, `Enter queues, ${STEER_KEY} steers`, "the busy box says only what Enter and Steer do");
   assert.equal(out.busy.box, "");
   assert.equal(out.file, true, "the file shows in the box");
   assert.deepEqual(out.typed, { bar: { send: false, steer: true, stop: true }, title: `Send it now, into the agent's turn (${STEER_KEY}). Enter queues it for when the turn ends.` });
   assert.deepEqual(out.queued, {
     rows: ["SLOW two · 1 file", "three", "SLOW four", "five"],
-    head: "Queued · sent when the agent's turn ends",
+    head: "Queued",
     box: "",
     file: false,
     bar: { send: false, steer: false, stop: true },
@@ -4813,7 +6786,7 @@ test("Stop in the panel: the queued rows go back into the box, in order, before 
   await useMock();
 });
 
-test("at the sidebar's narrowest width, the empty box keeps its two lines and its words fit them: a busy chat's ('<status> · Enter queues, Ctrl+Enter steers', ⌘Enter on a Mac) takes more there, so it says only what Enter and Steer do, and all of it again once the sidebar widens; that placeholder's size reaches neither its own box nor the next chat's (zen-eval's look run on 4f97629); words typed still grow the box, and it shrinks back once they go", async () => {
+test("at the sidebar's narrowest width, the empty box keeps its two lines and its words fit them: a busy chat's says only what Enter and Steer do ('Enter queues, Ctrl+Enter steers', ⌘Enter on a Mac), at every width and whatever its status (the user's text pass); that placeholder's size reaches neither its own box nor the next chat's (zen-eval's look run on 4f97629); words typed still grow the box, and it shrinks back once they go", async () => {
   const { file } = ownMock("panelnarrow");
   const keys = `Enter queues, ${STEER_KEY} steers`;
   // A status as long as a step's title.
@@ -4824,19 +6797,11 @@ test("at the sidebar's narrowest width, the empty box keeps its two lines and it
     const input = $("input");
     const px = name => parseFloat(view.getComputedStyle(input)[name]);
     const line = () => px("lineHeight") || px("fontSize") * 1.5;
-    // The box's lines as the user sees them, and the lines its content needs
-    // (Gecko counts an empty box's placeholder in scrollHeight).
+    // The box's lines as the user sees them (Gecko counts an empty box's
+    // placeholder in scrollHeight, so fits says the placeholder fits).
     const lines = () => Math.round((input.clientHeight - px("paddingTop") - px("paddingBottom")) / line() * 10) / 10;
-    const needs = () => Math.round((input.scrollHeight - px("paddingTop") - px("paddingBottom")) / line() * 10) / 10;
-    const box = () => ({ value: input.value, placeholder: input.placeholder, lines: lines(), fits: input.scrollHeight <= input.clientHeight + 1 });
-    // The lines a placeholder would take in the box now; the box's own goes back.
-    const wouldNeed = text => {
-      const shown = input.placeholder;
-      input.placeholder = text;
-      const n = needs();
-      input.placeholder = shown;
-      return n;
-    };
+    const width = () => Math.round(input.getBoundingClientRect().width);
+    const box = () => ({ value: input.value, placeholder: input.placeholder, lines: lines(), fits: input.scrollHeight <= input.clientHeight + 1, width: width() });
     // The hint fits again a frame after the box's width changes.
     const settle = async cond => {
       for (let i = 0; i < 40 && !cond(); i++) {
@@ -4844,7 +6809,6 @@ test("at the sidebar's narrowest width, the empty box keeps its two lines and it
       }
       await S.sleep(100);
     };
-    const whole = arg.status + " · " + arg.keys;
     const idle = await tabChat();
     const busy = await tabChat();
     const res = {};
@@ -4853,14 +6817,15 @@ test("at the sidebar's narrowest width, the empty box keeps its two lines and it
       type("HOLDTURN");
       enter();
       await running(busy.conv, "HOLDTURN");
+      // A status as the header shows it: the box doesn't say it again.
       busy.conv.setStatus(arg.status);
-      await settle(() => input.placeholder === whole);
+      await settle(() => input.placeholder === arg.keys);
       res.wide = box();
       // Zen's own floor for the sidebar, as the Mac look test sets it.
       const min = parseFloat(win.getComputedStyle(sidebar).minWidth) || 0;
       sidebar.style.width = (min >= 120 ? min : 200) + "px";
-      await settle(() => input.placeholder !== whole);
-      res.narrow = { ...box(), whole: wouldNeed(whole), width: Math.round(input.getBoundingClientRect().width) };
+      await settle(() => width() < res.wide.width);
+      res.narrow = box();
       // Words typed and taken back while the agent works.
       type("a");
       type("");
@@ -4876,7 +6841,7 @@ test("at the sidebar's narrowest width, the empty box keeps its two lines and it
       await settle(() => input.placeholder !== "Ask about this page…");
       res.back = box();
       sidebar.style.width = "420px";
-      await settle(() => input.placeholder === whole);
+      await settle(() => width() > res.narrow.width);
       res.widened = box();
       return res;
     } finally {
@@ -4886,15 +6851,13 @@ test("at the sidebar's narrowest width, the empty box keeps its two lines and it
     }`, { file, id: "panelnarrow", url: `${www()}/article.html?narrow`, keys, status });
   const all = JSON.stringify(out);
   const two = b => b.lines >= 1.8 && b.lines <= 2.5;
-  assert.deepEqual([out.wide.placeholder, out.wide.fits, two(out.wide)], [`${status} · ${keys}`, true, true], `at 420 px the busy box says all of it, in its two lines: ${all}`);
-  assert.ok(out.narrow.whole >= 2.8, `all of the busy placeholder fits in two lines at ${out.narrow.width} px, so the case can't tell: ${all}`);
-  for (const [name, b] of Object.entries({ narrow: out.narrow, retyped: out.retyped, back: out.back })) {
-    assert.deepEqual([b.value, b.placeholder, b.fits, two(b)], ["", keys, true, true], `${name}: at the narrowest width, the busy box says only what Enter and Steer do, in its two lines: ${all}`);
+  assert.ok(out.narrow.width < out.wide.width, `the sidebar didn't narrow: ${all}`);
+  for (const [name, b] of Object.entries({ wide: out.wide, narrow: out.narrow, retyped: out.retyped, back: out.back, widened: out.widened })) {
+    assert.deepEqual([b.value, b.placeholder, b.fits, two(b)], ["", keys, true, true], `${name}: the busy box says only what Enter and Steer do, with no status before it, in its two lines: ${all}`);
   }
   assert.deepEqual([out.idle.value, out.idle.fits, two(out.idle)], ["", true, true], `after the busy chat, the idle chat's empty box is ${out.idle.lines} lines, not 2: ${all}`);
   assert.ok(out.typed.lines >= 2.8, `words that need more lines don't grow the box: ${all}`);
   assert.deepEqual([out.cleared.placeholder, out.cleared.fits, two(out.cleared)], ["Ask about this page…", true, true], `the box doesn't shrink back once the words go: ${all}`);
-  assert.deepEqual([out.widened.placeholder, out.widened.fits, two(out.widened)], [`${status} · ${keys}`, true, true], `once the sidebar widens, the busy box says all of it again: ${all}`);
   await useMock();
 });
 
@@ -4978,7 +6941,7 @@ const ASK_STUB = `${ASK_LOOK}
   A.answerAsk = (c, message, answers) => {
     answered.push(answers);
     message.answer = answers
-      ? { action: "accept", content: answers, summary: message.questions.filter(q => answers[q.key]).map(q => (q.secret ? "••••" : [...answers[q.key].picks, answers[q.key].text].filter(Boolean).join(", "))).join(" · ") }
+      ? { action: "accept", content: answers, summary: message.questions.filter(q => answers[q.key]).map(q => (q.secret ? "••••" : [...answers[q.key].picks, answers[q.key].text].filter(Boolean).join(", "))).join(", ") }
       : { action: "decline", content: null, summary: "" };
     c.touch(message);
   };
@@ -5099,7 +7062,7 @@ test("the agent's own question shows as Needs you's card, naming the agent that 
   assert.equal(out.atOnce.send, null);
   assert.deepEqual([out.atOnce.title, out.atOnce.label], ["the trains server asks", "the trains server asks: Book the 9:10 train?"], "an MCP server's form names its server");
   assert.deepEqual(out.skipped, ["Book the 9:10 train?", "Skipped"]);
-  assert.ok(out.after.placeholder.endsWith(` · Enter queues, ${STEER_KEY} steers`), out.after.placeholder);
+  assert.equal(out.after.placeholder, `Enter queues, ${STEER_KEY} steers`, "the busy box's words once the question is answered");
   assert.deepEqual(out.after.bar, { send: false, steer: true, stop: true }, "Steer comes back once the question is answered");
   assert.deepEqual(out.answered, [
     { question_0: { picks: ["Uji"], text: "" } },
@@ -5112,8 +7075,8 @@ test("the agent's own question shows as Needs you's card, naming the agent that 
   assert.deepEqual(out.saids, [
     ["Which day trip would you like?", "→ Uji"],
     ["Codex needs your input to continue.", "→ Kyoto Station"],
-    ["When do you want to leave? · Anything to add?", "→ Morning · Lunch"],
-    ["Your name? · Your seat?", "→ Kenji · By the door"],
+    ["When do you want to leave? Anything to add?", "→ Morning, Lunch"],
+    ["Your name? Your seat?", "→ Kenji, By the door"],
     ["The confirmation code from your email?", "→ ••••"],
     ["Book the 9:10 train?", "Skipped"],
   ], "each answered card names its questions, and AgentService's summary keeps a secret masked");
@@ -5211,10 +7174,10 @@ test("end to end, the card answers the agent's real asks (elicitation/create thr
   ], "'None of the above' stands behind a field of words, not among the options, and every field of words is masked, with its question's options as pills after it");
   assert.deepEqual([out.codex.look.hint, out.codex.box], ["", "Answer the agent's question above, or Skip"], "the box takes none of its words");
   assert.equal(out.codexSend, false, "Send waits for the code");
-  assert.deepEqual(out.codexSaid, ["Which day trip do you want? · What's your booking code?", "→ •••• · ••••"]);
+  assert.deepEqual(out.codexSaid, ["Which day trip do you want? What's your booking code?", "→ ••••, ••••"]);
   assert.equal(out.codexKept, false, "its answer is kept nowhere in the chat");
   assert.equal(out.codexDraft, false);
-  assert.deepEqual(out.withdrawn, ["Which day trip do you want? · What's your booking code?", "Not answered"]);
+  assert.deepEqual(out.withdrawn, ["Which day trip do you want? What's your booking code?", "Not answered"]);
   assert.deepEqual(out.outcomes, [
     { action: "accept", content: { question_0: "Uji" } },
     { action: "accept", content: { code: "XY-1234", trip: "None of the above", trip_note: "Kobe" } },
@@ -5227,7 +7190,7 @@ test("end to end, the card answers the agent's real asks (elicitation/create thr
     ["Cabin", ["Economy", "Business"]],
     ["A note for the airline", []],
   ]);
-  assert.deepEqual(out.mcpSaid, ["Confirm the booking details.", "→ 2 · Yes · Business · Vegetarian meal"], JSON.stringify({ mcp: out.mcpAfter, outcome: out.mcpOutcome }));
+  assert.deepEqual(out.mcpSaid, ["Confirm the booking details.", "→ 2, Yes, Business, Vegetarian meal"], JSON.stringify({ mcp: out.mcpAfter, outcome: out.mcpOutcome }));
   assert.deepEqual(out.mcpOutcome, { action: "accept", content: { cabin: "business", note: "Vegetarian meal", seats: 2, window: true } }, "a number as a number, yes as true, the pick by its value");
   await useMock();
 });
@@ -5793,14 +7756,14 @@ for (const [keys, realKeys] of IME_KEYS) test(`IME (${keys}) in the directory's 
     const A = g.AgentService;
     const conv = A.createTask();
     A.addTask(conv, "京都 day trip");
-    const drawer = () => win.document.getElementById("zenius-sidebar-directory");
+    const { drawer } = V;
     try {
       if (!g.directoryOpen) {
         g.toggleDirectory();
       }
       await S.until(() => g.directoryOpen && drawer() && !drawer().hidden);
       const input = drawer().querySelector(".asb-dir-search input");
-      const row = () => drawer().querySelector('.asb-dir-row[data-task="' + conv.uid + '"]');
+      const row = () => V.row(conv.uid);
       input.focus();
       await S.until(() => focusedOn(input));
       compose("jing");
@@ -5832,6 +7795,325 @@ for (const [keys, realKeys] of IME_KEYS) test(`IME (${keys}) in the directory's 
   assert.equal(out.closed, true, "Enter with no composition opens the task found, which closes the drawer");
 });
 
+// A task's name as the user renames it (zen-sidebar's rename, the user's ask,
+// 2026-11-22): its field in the header takes the IME's keys as the boxes above
+// do (zen-observe, from the rename's review).
+for (const [keys, realKeys] of IME_KEYS) test(`IME (${keys}) in a task's name as the user renames it: an Enter that commits a composition only commits, the field staying open; Escape in a composition cancels only it, the field keeping its words and the focus; Enter with no composition keeps the name`, async () => {
+  const id = `imerename${realKeys ? "-real" : ""}`;
+  const { file } = ownMock(id);
+  const question = `Rename me ${id} ${run}`;
+  const out = await chrome(`${STEER_PANEL}${IME}
+    const chat = await tabChat();
+    const field = () => $("title").querySelector("input");
+    const header = () => $("title").textContent;
+    const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
+    let conv = null;
+    try {
+      // A task of its own: '+ New task' can hand back a draft an earlier
+      // test removed, with its name (zen-sidebar's Remove fix).
+      const uid = await startWorkChat(win, { text: arg.question, source: "new" });
+      conv = A.tasks.get(uid);
+      await S.until(() => conv && !conv.busy && header() === arg.question, 15000);
+      $("more").click();
+      $("rename-task").click();
+      await S.until(() => field() && focusedOn(field()), 3000);
+      const start = { value: field().value, selected: field().selectionStart === 0 && field().selectionEnd === field().value.length };
+      compose("lv");
+      commitWith("旅");
+      compose("xing");
+      commitWith("行");
+      await S.sleep(300);
+      const committed = { open: !!field(), text: field()?.value ?? null, name: conv.userTitle ?? null, focused: !!field() && focusedOn(field()) };
+      compose("ma");
+      cancelWithEscape();
+      await S.sleep(300);
+      const escaped = { open: !!field(), text: field()?.value ?? null, name: conv.userTitle ?? null, focused: !!field() && focusedOn(field()) };
+      pressKey("Enter");
+      const kept = { open: !!field(), header: header(), name: conv.userTitle ?? null };
+      return { start, committed, escaped, kept };
+    } finally {
+      field()?.dispatchEvent(new view.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+      if (conv) A.removeTask(conv);
+      g.setMode("chat");
+      await closeTab(chat);
+    }`, { file, id, question, url: `${www()}/article.html?ime-rename`, realKeys });
+  assert.deepEqual(out.start, { value: question, selected: true }, "the field holds the task's name, selected");
+  assert.deepEqual(out.committed, { open: true, text: "旅行", name: null, focused: true }, "the commits only put the words in the field");
+  assert.deepEqual(out.escaped, { open: true, text: "旅行", name: null, focused: true }, "Escape in a composition cancels only it: the field stays open");
+  assert.deepEqual(out.kept, { open: false, header: "旅行", name: "旅行" }, "Enter with no composition keeps the name");
+  await useMock();
+});
+
+// IME from an open address bar (zen-ux's report and zen-input's finding,
+// 2026-11-22). With its results open, Zen's address bar gives the page the
+// focus as it closes (UrlbarInputBase.mjs #closePopover). When our code put
+// the cursor in our UI from there, that ran inside our focus(): Gecko kept
+// the page's process as the one IME compositions go to, and the user's words
+// went into the page's field, not our box. A real IME is routed the same way
+// (IMEStateManager decides, below the widget). Keys go by the chrome focus
+// either way, so a plain key reached the box all along. The routing doesn't
+// depend on how the IME marks its keys, so one kind of keys is enough here.
+const URLBAR_IME = `
+  ${IME}
+  const fm = Services.focus;
+  const bar = win.gURLBar;
+  const SC = win.SidebarController;
+  const panelWasOpen = SC.isOpen && SC.currentID === "viewAgentSidebar";
+  const letter = ch => new win.KeyboardEvent("", { key: ch, code: "Key" + ch.toUpperCase(), keyCode: ch.toUpperCase().charCodeAt(0) });
+  // A key as the user presses it, modifiers held: shortcuts go through the window's keys.
+  const press = (ch, ...mods) => {
+    for (const mod of mods) {
+      tip.keydown(keyOf(mod));
+    }
+    try {
+      tip.keydown(letter(ch));
+      tip.keyup(letter(ch));
+    } finally {
+      for (const mod of [...mods].reverse()) {
+        tip.keyup(keyOf(mod));
+      }
+    }
+  };
+  // ⌘⇧A. On the Mac the real keys reach the sidebar's key from the address
+  // bar. On Linux the address bar takes Ctrl+Shift+A first, so it never
+  // gets there; the test runs the command the key runs instead, with the
+  // address bar still focused. zen-eval's Mac case presses the real keys.
+  const sidebarKey = () => {
+    if (Services.appinfo.OS === "Darwin") {
+      press("A", ACCEL_KEY, "Shift");
+    } else {
+      win.document.getElementById("cmd_agentSidebarToggle").doCommand();
+    }
+  };
+  // The page, its field having the focus, as after the user typed in it.
+  const openPage = async url => {
+    const tab = await S.openTab(url);
+    const title = () => tab.linkedBrowser.contentTitle ?? "";
+    await S.until(() => title().startsWith("F["), 10000);
+    tab.linkedBrowser.focus();
+    await S.until(() => title().includes("focus"), 5000);
+    // What reached its field: its value, and its compositions and input.
+    const field = () => {
+      const t = title();
+      const end = t.indexOf("]");
+      const events = t.slice(end + 1).trim().split(",").filter(e => e && e !== "focus" && e !== "blur");
+      return { value: t.slice(2, end), events };
+    };
+    return { tab, field };
+  };
+  // The address bar with its results open: after ⌘T or ⌘L, a letter typed.
+  const openAddressBar = async how => {
+    press(how === "⌘T" ? "t" : "l", ACCEL_KEY);
+    await S.until(() => bar.focused, 3000);
+    press("z");
+    await S.until(() => bar.view.isOpen && bar.matches(":popover-open"), 5000);
+    return { open: bar.view.isOpen, popover: bar.matches(":popover-open"), focused: bar.focused };
+  };
+  const box = () => S.panelDoc()?.getElementById("input");
+  const cursorInBox = async () => !!(await S.until(() => box() && fm.focusedElement === box(), 10000));
+  // A plain key, then an IME's 你: where each goes.
+  const typeBoth = async page => {
+    const res = {};
+    press("a");
+    await S.sleep(300);
+    res.key = { box: box()?.value ?? null, page: page.field() };
+    compose("ni");
+    commitWith("你");
+    await S.sleep(300);
+    res.ime = { box: box()?.value ?? null, page: page.field() };
+    return res;
+  };
+  const click = el => {
+    const r = el.getBoundingClientRect();
+    const w = el.ownerDocument.defaultView;
+    for (const type of ["mousedown", "mouseup"]) {
+      w.synthesizeMouseEvent(type, r.x + r.width / 2, r.y + r.height / 2, { button: 0, buttons: type === "mousedown" ? 1 : 0, clickCount: 1 }, { isDOMEventSynthesized: false });
+    }
+  };
+  const tidy = async page => {
+    try {
+      bar.view.close();
+      bar.handleRevert?.();
+    } catch {}
+    if (page) {
+      win.gBrowser.removeTab(page.tab, { animate: false });
+    }
+    if (!panelWasOpen && SC.isOpen) {
+      SC.hide();
+    }
+    await S.sleep(100);
+  };
+`;
+
+for (const how of ["⌘T", "⌘L"]) {
+  for (const panelOpen of [false, true]) {
+    const before = panelOpen ? "the panel open, with text newly selected on the page" : "the panel closed";
+    test(`IME from an open address bar (after ${how}), ${before}: ⌘⇧A puts the cursor in the panel's box, and a plain key and an IME's 你 go into the box; the page's field, which had the focus, gets no composition and no input (zen-ux's report; zen-input, 2026-11-22)`, async () => {
+      await useMock();
+      const out = await chrome(
+        `
+        ${URLBAR_IME}
+        let page = null;
+        try {
+          if (arg.panelOpen) {
+            await S.openPanel();
+          } else if (SC.isOpen) {
+            SC.hide();
+          }
+          page = await openPage(arg.url);
+          const res = { bar: await openAddressBar(arg.how) };
+          sidebarKey();
+          res.cursorInBox = await cursorInBox();
+          res.selection = win.ucAgentSidebar.conversationFor(page.tab).draft?.selection ?? "";
+          Object.assign(res, await typeBoth(page));
+          return res;
+        } finally {
+          await tidy(page);
+        }
+      `,
+        { url: `${www()}/ime/field.html${panelOpen ? "?select" : ""}`, how, panelOpen, realKeys: false }
+      );
+      const all = JSON.stringify(out);
+      const field = panelOpen ? "Kyoto station" : "";
+      assert.deepEqual(out.bar, { open: true, popover: true, focused: true }, `the address bar is open, its results showing: ${all}`);
+      assert.equal(out.cursorInBox, true, `⌘⇧A puts the cursor in the panel's box: ${all}`);
+      assert.equal(out.selection, field, `newly selected text goes to the composer: ${all}`);
+      assert.deepEqual(out.key, { box: "a", page: { value: field, events: [] } }, `a plain key goes into the box: ${all}`);
+      assert.deepEqual(out.ime, { box: "a你", page: { value: field, events: [] } }, `the IME's 你 goes into the box, and nothing into the page's field: ${all}`);
+    });
+  }
+}
+
+test("IME from an open address bar, the panel open and nothing newly selected: ⌘⇧A closes the panel as it always has, and the page, whose field has the focus again, takes a plain key and an IME's 你 (where the cursor visibly is)", async () => {
+  await useMock();
+  const out = await chrome(
+    `
+    ${URLBAR_IME}
+    let page = null;
+    try {
+      await S.openPanel();
+      page = await openPage(arg.url);
+      const res = { bar: await openAddressBar("⌘L") };
+      sidebarKey();
+      await S.until(() => !SC.isOpen, 5000);
+      res.panelOpen = SC.isOpen;
+      res.pageFocused = fm.focusedElement === page.tab.linkedBrowser;
+      press("a");
+      compose("ni");
+      commitWith("你");
+      await S.sleep(300);
+      res.page = page.field();
+      return res;
+    } finally {
+      await tidy(page);
+    }
+  `,
+    { url: `${www()}/ime/field.html`, realKeys: false }
+  );
+  const all = JSON.stringify(out);
+  assert.deepEqual(out.bar, { open: true, popover: true, focused: true }, all);
+  assert.deepEqual([out.panelOpen, out.pageFocused], [false, true], `the panel closes, and the page has the focus: ${all}`);
+  assert.equal(out.page.value, "a你", `the page's field takes the words: ${all}`);
+  assert.ok(out.page.events.includes("compositionend:你"), `as a composition: ${all}`);
+});
+
+test("IME from an open address bar, the cursor put in our UI by code: the panel's focus() (as All tasks gives it back) and All tasks' open (its search); in each, a plain key and an IME's 你 go there, and the page's field gets nothing", async () => {
+  await useMock();
+  const out = await chrome(
+    `
+    ${URLBAR_IME}
+    const g = win.ucAgentSidebar;
+    let page = null;
+    const res = {};
+    const search = () => win.document.querySelector("#zenius-sidebar-directory .asb-dir-search input");
+    try {
+      const panel = await S.openPanel();
+      page = await openPage(arg.url);
+      res.focusBar = await openAddressBar("⌘L");
+      panel.focus();
+      res.focus = { cursorInBox: await cursorInBox(), ...(await typeBoth(page)) };
+      await tidy(page);
+      await S.openPanel();
+      page = await openPage(arg.url);
+      res.dirBar = await openAddressBar("⌘L");
+      g.toggleDirectory();
+      res.dirFocused = !!(await S.until(() => search() && fm.focusedElement === search(), 5000));
+      // A search an earlier test left.
+      search().value = "";
+      search().dispatchEvent(new win.Event("input", { bubbles: true }));
+      press("a");
+      compose("ni");
+      commitWith("你");
+      await S.sleep(300);
+      res.dir = { search: search()?.value ?? null, page: page.field() };
+      return res;
+    } finally {
+      g.closeDirectory();
+      await tidy(page);
+    }
+  `,
+    { url: `${www()}/ime/field.html`, realKeys: false }
+  );
+  const all = JSON.stringify(out);
+  const open = { open: true, popover: true, focused: true };
+  assert.deepEqual(out.focusBar, open, all);
+  assert.deepEqual(out.focus, { cursorInBox: true, key: { box: "a", page: { value: "", events: [] } }, ime: { box: "a你", page: { value: "", events: [] } } }, `the panel's focus(): ${all}`);
+  assert.deepEqual(out.dirBar, open, all);
+  assert.equal(out.dirFocused, true, `All tasks' search has the cursor: ${all}`);
+  assert.deepEqual(out.dir, { search: "a你", page: { value: "", events: [] } }, `All tasks' search: ${all}`);
+});
+
+test("IME from an open address bar, the cases that were right already: a click into the panel's box, and the address bar's '>' row with no text (a new task, ready to type), each put the cursor in the box, and a plain key and an IME's 你 go there; the page's field gets nothing", async () => {
+  await useMock();
+  const out = await chrome(
+    `
+    ${URLBAR_IME}
+    const A = win.ucAgentSidebar.AgentService;
+    let page = null;
+    let task = null;
+    const res = {};
+    try {
+      // A click: its mousedown closes the address bar before the focus moves.
+      await S.openPanel();
+      page = await openPage(arg.url);
+      res.clickBar = await openAddressBar("⌘L");
+      click(box());
+      res.click = { cursorInBox: await cursorInBox(), ...(await typeBoth(page)) };
+      await tidy(page);
+      page = null;
+      // The '>' row: it closes the address bar before the sidebar takes the focus.
+      if (SC.isOpen) {
+        SC.hide();
+      }
+      page = await openPage(arg.url);
+      res.rowBar = await openAddressBar("⌘L");
+      bar.value = ">";
+      bar.inputField.setSelectionRange(1, 1);
+      bar.inputField.dispatchEvent(new win.InputEvent("input", { bubbles: true, inputType: "insertText", data: ">" }));
+      await S.until(() => bar.view.isOpen && bar.view.selectedResult?.providerName === "ZeniusAskAgent", 5000);
+      bar.handleCommand(new win.KeyboardEvent("keydown", { key: "Enter" }));
+      const cursor = await cursorInBox();
+      task = win.ucAgentSidebar.currentTask;
+      res.row = { cursorInBox: cursor, ...(await typeBoth(page)) };
+      return res;
+    } finally {
+      if (task) {
+        A.removeTask(task);
+      }
+      win.ucAgentSidebar.setMode("chat");
+      await tidy(page);
+    }
+  `,
+    { url: `${www()}/ime/field.html`, realKeys: false }
+  );
+  const all = JSON.stringify(out);
+  const clean = { cursorInBox: true, key: { box: "a", page: { value: "", events: [] } }, ime: { box: "a你", page: { value: "", events: [] } } };
+  assert.deepEqual(out.clickBar, { open: true, popover: true, focused: true }, all);
+  assert.deepEqual(out.click, clean, `a click into the box: ${all}`);
+  assert.deepEqual(out.rowBar, { open: true, popover: true, focused: true }, all);
+  assert.deepEqual(out.row, clean, `the '>' row: ${all}`);
+});
+
 test("with no agent, the sidebar starts cleanly and the address bar offers no 'Ask agent' row", async () => {
   const gone = join(dir, "no-config.json");
   try {
@@ -5858,4 +8140,224 @@ test("with no agent, the sidebar starts cleanly and the address bar offers no 'A
   } finally {
     await chrome(`Services.prefs.setStringPref(${JSON.stringify(PREF)}, "none"); return true;`);
   }
+});
+
+
+// The night cut's leak (zen-ux's memory runs, 2026-11-22): a kept message
+// held objects the panel it was sent from had made (its files, an ask's
+// answers), and so that panel's whole window, about 0.9 MB, for as long as
+// the chat or the task was kept. Each ⌘⇧A that closed a panel the user had
+// asked from left one more.
+test("closing the sidebar lets its panel go: ten panels, each asking a task and the tab's chat from its box and then closed with ⌘⇧A, leave no more panel documents after a minimize than before", async () => {
+  await useMock();
+  const out = await chrome(
+    `
+    await S.openPanel();
+    const g = win.ucAgentSidebar;
+    const A = g.AgentService;
+    const mgr = Cc["@mozilla.org/memory-reporter-manager;1"].getService(Ci.nsIMemoryReporterManager);
+    // The panel documents the parent holds after a minimize: each window
+    // reports its own DOM once.
+    const panels = async () => {
+      await new Promise(r => mgr.minimizeMemoryUsage(() => r()));
+      let n = 0, bytes = 0;
+      await new Promise(r => mgr.getReports((process, path, kind, units, amount) => {
+        if (process || !path.includes("agent-sidebar\\\\panel.html)")) return;
+        if (path.endsWith("/dom/other")) n++;
+        if (units === 0 && path.startsWith("explicit/")) bytes += amount;
+      }, null, () => r(), null, false));
+      return { n, mb: Math.round((bytes / 2 ** 20) * 10) / 10 };
+    };
+    const answers = conv => conv.messages.filter(m => m.role === "assistant").length;
+    // A wait that ran out fails at once, with the conversation as it stands.
+    const until = async (fn, what, conv = null, ms = 5000) => {
+      if (!(await S.until(fn, ms))) {
+        const said = conv?.messages.filter(m => m.role === "error" || m.role === "note").map(m => m.text);
+        throw new Error("timed out waiting for " + what + (conv ? ": " + JSON.stringify({ harness: conv.harness, busy: conv.busy, roles: conv.messages.map(m => m.role), said }) : ""));
+      }
+    };
+    // A tab of its own, so its chat starts empty, on the mock's agent: the
+    // tab the file leaves selected may hold any chat.
+    const tab = win.gBrowser.addTab(arg.url, { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+    win.gBrowser.selectedTab = tab;
+    await until(() => tab.linkedBrowser.currentURI.spec === arg.url && !tab.hasAttribute("busy"), "the page");
+    const task = await g.newTask();
+    const chat = g.conversationFor(tab);
+    try {
+      const before = await panels();
+      for (let i = 1; i <= 10; i++) {
+        g.showTask(task);
+        await until(() => V.conv() === task && V.$("input"), "the task in the panel");
+        V.send("A task's question, " + i + " " + arg.run);
+        await until(() => !task.busy && answers(task) >= i, "the task's answer " + i, task, 30000);
+        g.setMode("chat");
+        await until(() => V.conv() === chat, "the tab's chat in the panel");
+        V.send("A chat question, " + i + " " + arg.run);
+        await until(() => !chat.busy && answers(chat) >= i, "the chat's answer " + i, chat, 30000);
+        await g.toggle();
+        await until(() => !win.SidebarController.isOpen, "the sidebar to close");
+        await g.toggle();
+        await until(() => g.panel && V.$("input"), "the sidebar to open");
+      }
+      const after = await panels();
+      return { before, after, task: answers(task), chat: answers(chat), listed: !!A.taskByUid(task.uid) };
+    } finally {
+      // What the ten panels asked goes with the test (zen-sidebar's review):
+      // the task, and the tab with its chat, saved at once.
+      A.removeTask(task);
+      A.clearChat(chat);
+      win.gBrowser.removeTab(tab, { animate: false });
+      await A.saveChats();
+    }
+  `,
+    { run, url: `${www()}/zen-ux/links.html?leak` }
+  );
+  assert.deepEqual([out.task, out.chat, out.listed], [10, 10, true], `ten answers each, the task listed: ${JSON.stringify(out)}`);
+  assert.ok(
+    out.after.n <= out.before.n + 1,
+    `panel documents after a minimize: ${out.before.n} (${out.before.mb} MB) before ten panels asked and closed, ${out.after.n} (${out.after.mb} MB) after`
+  );
+});
+
+// The draft's pin (zen-ux's note on its leak fix, 2026-11-22): what's left in
+// the box, the chat's draft, was an object the panel made, with its files and
+// each file's read in the panel's realm, so it kept that panel's whole window
+// for as long as the chat or the task was kept. One more for each
+// conversation a closed panel had left words or a file in.
+const DRAFT_SCENE = `
+  const g = win.ucAgentSidebar;
+  const A = g.AgentService;
+  // A wait that ran out fails at once, with what it waited on.
+  const until = async (fn, what, ms = 5000) => {
+    if (!(await S.until(fn, ms))) throw new Error("timed out waiting for " + what);
+  };
+  // A Work task with one question and its answer written in: listed, on the
+  // mock, and its own (a new task with nothing asked may be reused).
+  const seeded = name => {
+    const task = A.createTask({ source: "new" });
+    task.push({ role: "user", text: name, selection: "", files: [], attachments: [], page: null, source: null, attached: null, after: null });
+    task.push({ role: "assistant", text: "Seeded.", state: "done" });
+    A.addTask(task, name);
+    return task;
+  };
+  // Where an object was made: AgentService's own realm, or a panel's window.
+  const where = o => {
+    try {
+      return Cu.getRealmLocation(o);
+    } catch {
+      const global = Cu.getGlobalForObject(o);
+      return String(global.location ?? global);
+    }
+  };
+`;
+
+test("a draft left in the box lets its panel go: ten tasks, each left with words and a read file in the box and the sidebar then closed with ⌘⇧A, leave no more panel documents after a minimize than before; each draft, its files and their read text are AgentService's own, and each comes back whole", async () => {
+  await useMock();
+  const out = await chrome(
+    `
+    ${DRAFT_SCENE}
+    await S.openPanel();
+    const mgr = Cc["@mozilla.org/memory-reporter-manager;1"].getService(Ci.nsIMemoryReporterManager);
+    // The panel documents the parent holds after a minimize (zen-ux's count).
+    const panels = async () => {
+      await new Promise(r => mgr.minimizeMemoryUsage(() => r()));
+      let n = 0, bytes = 0;
+      await new Promise(r => mgr.getReports((process, path, kind, units, amount) => {
+        if (process || !path.includes("agent-sidebar\\\\panel.html)")) return;
+        if (path.endsWith("/dom/other")) n++;
+        if (units === 0 && path.startsWith("explicit/")) bytes += amount;
+      }, null, () => r(), null, false));
+      return { n, mb: Math.round((bytes / 2 ** 20) * 10) / 10 };
+    };
+    const home = where(A);
+    const tasks = [];
+    try {
+      g.setMode("work");
+      const before = await panels();
+      for (let i = 1; i <= 10; i++) {
+        const task = seeded("Draft " + i + " " + arg.run);
+        tasks.push(task);
+        g.showTask(task);
+        await until(() => V.conv() === task && V.$("input"), "task " + i + " in the panel");
+        V.type("Words left in the box, " + i + " " + arg.run);
+        const pwin = V.pdoc().defaultView;
+        const input = V.$("file-input");
+        input.mozSetFileArray([new pwin.File(["notes " + i + " " + arg.run], "notes-" + i + ".txt", { type: "text/plain" })]);
+        input.dispatchEvent(new pwin.Event("change", { bubbles: true }));
+        await until(() => task.draft?.attachments?.[0]?.state === "ready", "file " + i + " read");
+        await g.toggle();
+        await until(() => !win.SidebarController.isOpen, "the sidebar to close");
+        await g.toggle();
+        await until(() => g.panel && V.$("input"), "the sidebar to open");
+      }
+      const after = await panels();
+      const drafts = tasks.map(t => ({
+        text: t.draft?.text ?? null,
+        files: (t.draft?.attachments ?? []).map(f => [f.name, f.state, f.text ?? null]),
+        own: [t.draft, t.draft?.attachments, ...(t.draft?.attachments ?? [])].map(o => (o ? where(o) === home : null)),
+      }));
+      // The first task's draft back in the box, words and file.
+      g.showTask(tasks[0]);
+      await until(() => V.conv() === tasks[0], "the first task again");
+      await S.sleep(200);
+      const back = {
+        text: V.$("input").value,
+        files: [...V.pdoc().querySelectorAll("#attachments .name")].map(e => e.textContent),
+      };
+      return { before, after, drafts, back, home };
+    } finally {
+      for (const t of tasks) A.removeTask(t);
+    }
+  `,
+    { run }
+  );
+  assert.ok(
+    out.after.n <= out.before.n + 1,
+    `panel documents after a minimize: ${out.before.n} (${out.before.mb} MB) before ten drafts were left and their panels closed, ${out.after.n} (${out.after.mb} MB) after`
+  );
+  out.drafts.forEach((d, i) => {
+    const n = i + 1;
+    assert.deepEqual(
+      { text: d.text, files: d.files },
+      { text: `Words left in the box, ${n} ${run}`, files: [[`notes-${n}.txt`, "ready", `notes ${n} ${run}`]] },
+      `draft ${n} as it was left`
+    );
+    assert.deepEqual(d.own, [true, true, true], `draft ${n}, its files' list and its file are AgentService's own (${out.home}), not a panel's`);
+  });
+  assert.deepEqual(out.back, { text: `Words left in the box, 1 ${run}`, files: ["notes-1.txt"] }, "the first draft back in the box, whole");
+});
+
+test("a file a closed sidebar was still reading doesn't hold up the next send: Enter sends the box's question without it", async () => {
+  await useMock();
+  const out = await chrome(
+    `
+    ${DRAFT_SCENE}
+    await S.openPanel();
+    g.setMode("work");
+    const task = seeded("Stuck file " + arg.run);
+    try {
+      // What a panel closed mid-read leaves in the box: a file still
+      // "reading", whose read will never end.
+      task.draft = { text: "", selection: "", attachments: [{ name: "notes.txt", kind: "text", state: "reading", info: "", error: "", ready: new Promise(() => {}) }] };
+      g.showTask(task);
+      await until(() => V.conv() === task && V.$("input"), "the task in the panel");
+      const question = "Summarize the notes " + arg.run;
+      V.send(question);
+      const sent = await S.until(() => task.messages.find(m => m.role === "user" && m.text === question), 5000);
+      return {
+        sent: !!sent,
+        files: sent ? sent.files.map(f => f.name) : null,
+        box: V.$("input").value,
+        hint: V.$("input").placeholder,
+      };
+    } finally {
+      A.removeTask(task);
+    }
+  `,
+    { run }
+  );
+  assert.equal(out.sent, true, `the question went out: ${JSON.stringify(out)}`);
+  assert.deepEqual(out.files, [], "without the file that was never read");
+  assert.equal(out.box, "", "the box emptied");
+  assert.notEqual(out.hint, "Reading the files…", "nothing left waiting on the file");
 });

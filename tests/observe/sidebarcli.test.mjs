@@ -1,5 +1,5 @@
 // The sidebar's limits against the real CLI. The adapter is
-// claude-agent-acp 0.107.0, the user's sidebar's version, pinned in ~/opt by
+// claude-agent-acp 0.107.0, pinned in ~/opt by
 // `npm install --ignore-scripts --omit=optional`. It runs the Linux server's Claude Code
 // (2.1.330, the user's version). The dev Zen's AgentService drives it the way
 // the sidebar does, with config.json in the user's shape (settingSources []).

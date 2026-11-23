@@ -6,6 +6,8 @@
 //   zenius status               list Zen instances and whether they answer
 //   zenius doctor               check Zen, the zenius install and the instance
 //   zenius sidebar <verb> …     remote tasks in the sidebar (sidebar.ts)
+//   zenius selfcheck            the post-install self-check, from the user's
+//                               own shell only (selfcheck.ts); not in --help
 //
 // A build may add commands of its own (commands.ts, src/extensions/).
 //
@@ -16,7 +18,7 @@ import { EXTRA_COMMANDS } from "./commands.ts";
 import { claimTaskSpace, listTaskSpaces, profiles, takeOverTaskSpace, taskSpace } from "./globals.ts";
 import { readGuide } from "./guide.ts";
 import { defaultEntries, formatEntry, helpText } from "./help.ts";
-import { instanceName, socketPath } from "./instance.ts";
+import { instanceName, instanceNameRule, isInstanceName, socketPath } from "./instance.ts";
 import { learnContext, runSiteBrowserTool, runSiteTool, siteSkills } from "./learning/index.ts";
 import { fs, inSandbox, tty, url } from "./node.ts";
 import { bufferOutput, flushOutput, hasHardStop, writeStderr, writeStdout } from "./output.ts";
@@ -89,9 +91,19 @@ export function parseArgs(argv: string[]): ParsedArgs {
 /** When the launcher started and finished loading this bundle, for --timing. */
 export type LaunchTimes = { launcherAt?: number; loadedAt?: number };
 
+/** The commands that reach an instance, and so take only a name the launcher would (instance.ts). */
+const INSTANCE_COMMANDS = new Set(["nodejs", "status", "doctor", "mcp", "sidebar", "selfcheck"]);
+
 export async function main(argv: string[], launch: LaunchTimes = {}): Promise<number> {
   const args = parseArgs(argv);
   if (args.error) return usageError(args.error);
+  if (args.command !== undefined && (INSTANCE_COMMANDS.has(args.command) || EXTRA_COMMANDS.has(args.command))) {
+    const instance = instanceName(args.instance);
+    if (!isInstanceName(instance)) {
+      writeStderr(`zenius ${args.command}: ${instanceNameRule(instance)}\n`);
+      return 2;
+    }
+  }
   switch (args.command) {
     case undefined:
     case "-h":
@@ -126,6 +138,12 @@ export async function main(argv: string[], launch: LaunchTimes = {}): Promise<nu
       // Loaded on demand, like doctor and mcp.
       const { sidebarCommand } = await import("./sidebar.ts");
       return sidebarCommand(args.rest, args.instance);
+    }
+    case "selfcheck": {
+      // Loaded on demand. Left out of usage(), which agents read: the
+      // self-check is the user's, and the sandbox can't reach it anyway.
+      const { selfcheckCommand } = await import("./selfcheck.ts");
+      return selfcheckCommand(args.rest, args.instance);
     }
     default: {
       const extra = EXTRA_COMMANDS.get(args.command!);

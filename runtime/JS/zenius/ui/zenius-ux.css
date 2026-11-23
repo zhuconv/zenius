@@ -45,12 +45,14 @@
   /* The '?' circle's fill, and its mark. */
   --zenius-card-more-bg: var(--zenius-card-muted);
   --zenius-card-more-ink: light-dark(#ffffff, #28282c);
+  /* Between the card's parts; the site takes it back (.zenius-card-site). */
+  --zenius-card-gap: 8px;
 
   pointer-events: auto;
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--zenius-card-gap);
   height: 44px;
   max-width: min(560px, 100%);
   padding-inline: 14px 6px;
@@ -109,13 +111,17 @@
 }
 
 /* The site the user is on, in the hold cards (the manager, 2026-11-20):
-   after the task, never cut; the task's name gives way first. */
+   after the task, never cut; the task's name gives way first. It reads as
+   one phrase with the task's name, "Book flights on united.com": a word's
+   space before "on", not the card's gap (the user's text pass, 2026-11-23). */
 .zenius-card-site {
   flex: none;
+  margin-inline-start: calc(-1 * var(--zenius-card-gap));
   color: var(--zenius-card-muted);
 
   &::before {
-    content: "· ";
+    content: " on ";
+    white-space: pre;
   }
 }
 
@@ -327,14 +333,16 @@
     grid-area: auto / 2 / auto / -1;
   }
 
+  /* A row of its own, which "on" starts. */
   & > .zenius-card-site {
     justify-self: start;
     min-width: 0;
+    margin-inline-start: 0;
     white-space: normal;
     overflow-wrap: anywhere;
 
     &::before {
-      content: none;
+      content: "on ";
     }
   }
 
@@ -751,8 +759,12 @@ zen-workspace > .zenius-space-status {
 .zenius-space-status-more {
   overflow: hidden;
   text-overflow: ellipsis;
-  /* A grid item drops the leading space of " · <names>" otherwise. */
+  /* A grid item drops the leading space of " <names>" otherwise. */
   white-space: pre;
+  /* The rest in gray, after the state's words in the pill's color: the
+     picker's look (the user's text pass, 2026-11-23). At least 5.3:1 on the
+     agent's and the user's tints, in both themes (AA for 10.5 px). */
+  color: light-dark(rgba(29, 29, 31, 0.68), rgba(245, 245, 247, 0.68));
 }
 
 /* Room for less than five letters of the rest: the words alone, not a stub
@@ -946,8 +958,8 @@ zen-workspace > .zenius-space-status {
   }
 }
 
-/* While its window watches a task (ui/watch.sys.mjs): "Watching <task> ·
- * ⌃Tab", and once the task is done, "Task done · ⌃Tab back to your tabs".
+/* While its window watches a task (ui/watch.sys.mjs): "Watching <task>
+ * [⌃Tab]", and once the task is done, "Task done, [⌃Tab] back to your tabs".
  * The name, or where ⌃Tab goes, is cut, never the key. A collapsed sidebar
  * still shows only the dot (above), and the chip says it instead. */
 #zenius-agents-strip[watching] > .zenius-strip-text {
@@ -970,12 +982,21 @@ zen-workspace > .zenius-space-status {
   & > .zenius-strip-name {
     white-space: nowrap;
   }
+
+  /* The key as a keycap, in the watch chip's shape and the sidebar's own
+     colors (the user's text pass, 2026-11-23). */
+  & kbd {
+    padding: 1px 6px;
+    border-radius: 5px;
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    font: 600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
 }
 
 /* ---- The watch chip (ui/watch.sys.mjs) ---------------------------------
  * Where the strip can't be read (compact mode, a collapsed sidebar), the
  * page area's top left corner says what the window shows: "Watching <task>
- * · ⌃Tab", or "Task done · ⌃Tab back to your tabs" once the task ended
+ * [⌃Tab]", or "Task done, [⌃Tab] back to your tabs" once the task ended
  * there. The script places it, at most 280 px or 40 % of the page area
  * wide: never over the page's top middle, where its search and sign-in
  * fields sit (zen-snapshot's red team). A hint, not a control: every click

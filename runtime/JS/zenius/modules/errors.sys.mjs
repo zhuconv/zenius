@@ -75,6 +75,10 @@ export const ErrorCodes = Object.freeze(
       "ZEN_REMOTE_TASK_BUSY",
       "ZEN_REMOTE_TASK_ENDED",
       "ZEN_SIDEBAR_UNAVAILABLE",
+      // The post-install self-check (zen-core), which Ego doesn't have: a
+      // run is already going, or this profile can't run one.
+      "ZEN_SELFCHECK_BUSY",
+      "ZEN_SELFCHECK_UNAVAILABLE",
     ].map(c => [c, c])
   )
 );

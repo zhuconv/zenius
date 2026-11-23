@@ -1,8 +1,8 @@
 # Installing zenius into a daily Zen
 
-Step by step, from a checkout of this repository: zenius's runtime goes into
-the profile of the Zen someone uses every day, and the `zenius` command and
-its Skill go where their agents find them. "The user" below is that person;
+Step by step, from a release's installer or a checkout of this repository:
+zenius's runtime goes into the profile of the Zen someone uses every day, and
+the `zenius` command and its Skill go where their agents find them. "The user" below is that person;
 you run the steps, for them or for yourself. Run the steps in order. Each
 gives the command, what you should see, and when to stop instead of going
 on. The commands are for macOS, with Zen in `/Applications/Zen.app`.
@@ -13,7 +13,8 @@ Rules that hold throughout:
   script.
 - Never change `/Applications/Zen.app`.
 - Nothing here sends anything of the user's to GitHub or any other
-  service. Step 1 only fetches the code, and the packages npm's cache lacks.
+  service. Step 1, or a release's installer, only fetches the code, and the
+  packages npm's cache lacks.
 - On any output these steps don't describe, stop.
 
 ## What changes for the user
@@ -212,16 +213,16 @@ zenius puts its agent sidebar in place of the profile's own, if it has one,
 and adds a '>' row to the address bar. `docs/agent-sidebar.md` has the
 details.
 
-- **The user's own sidebar is kept.** The install backs up the profile's
-  `agent-sidebar.uc.js` and `agent-sidebar/`, if it has them, and Undo puts
-  them back exactly. The sidebar's settings (`uc.agent-sidebar.*`), its
-  agents' config in `~/Library/Application Support/zenius-agent-sidebar/`
-  (only read) and the user's other scripts stay as they are. zenius writes
-  nothing into `~/.claude` or `~/.codex`.
+- **A sidebar the profile had is kept.** The install backs up the
+  profile's `agent-sidebar.uc.js` and `agent-sidebar/`, if it has them, and
+  Undo puts them back exactly. The sidebar's settings (`uc.agent-sidebar.*`)
+  and the user's other scripts stay as they are. zenius writes nothing into
+  `~/.claude` or `~/.codex`.
 - **Its agents** are the user's own Claude Code and Codex. A `config.json`
-  in that config folder names them, and wins. Without one, the sidebar uses
-  adapters in `~/.zenius/agents`, which only the one-command installer in
-  the README puts there: this guide installs none.
+  in `~/Library/Application Support/zenius-agent-sidebar/` names them, and
+  wins; the sidebar only reads it. Without one, the sidebar uses adapters in
+  `~/.zenius/agents`, which only the one-command installer in the README
+  puts there: this guide installs none.
 - **Chat and Work.** Chat is one conversation per tab, about its page. Work
   binds a chat to a zenius task instead of a tab. The agent works in a task
   of its own in the Agents Space, and the chat follows that task's tabs and
@@ -288,6 +289,133 @@ Stop if:
 
 Pick the commit to install, written `<commit>` below: a release's tag, such
 as `v0.1.0`, or a newer commit of `main`.
+
+## From a release, in place of steps 1 to 4
+
+Each zenius release on GitHub has its own installer, its `install.sh` asset.
+It does steps 1, 2 and 4 in one command, from the release's package instead
+of a checkout: nothing to clone or build. Take this path or steps 1 to 4, not
+both. Steps 5 to 7 are the same either way.
+
+What the installer does, in order:
+
+1. It checks what it needs: `curl`, `tar`, Node 22.3 or later on the PATH,
+   and Zen's app.
+2. It downloads the release's package, and stops unless the package's
+   SHA-256 is the one the installer carries.
+3. It runs the package's `install-cli.sh --dry-run` with the choices below.
+   A choice that can't work (the sandbox without Node 24, a folder it won't
+   take, a file in the way) stops it there, with the reason and `nothing has
+   changed`.
+4. It unpacks the package into `~/.zenius/release`, which Undo and doctor's
+   fixes run from.
+5. `scripts/install.sh --loader` puts the runtime into the profile Zen opens,
+   as step 4 does. `--loader` adds fx-autoconfig's loader to a profile that
+   lacks it, and leaves one that's there as it is. `--profile <folder>`, given
+   to the installer, picks another profile.
+6. `scripts/install-cli.sh --skill` installs the `zenius` command and its
+   Skill, as step 2 does.
+7. npm adds the sidebar's built-in agents to `~/.zenius/agents`: the ACP
+   adapters for Claude Code and Codex, at the versions in the release's lock,
+   with no install scripts. A first install skips them when a `config.json`
+   in `~/Library/Application Support/zenius-agent-sidebar/` names the
+   sidebar's agents, since those win. Adapters already there are kept up to
+   date.
+
+It never quits, starts or restarts Zen, and never changes Zen's app.
+
+The choices are made at the first install, and an update keeps them:
+
+- `--sandbox`: the sandboxed CLI ("The sandboxed CLI", in step 2). It runs on
+  Node 24, so the line below puts Homebrew's first on the PATH.
+- `--read-dir <folder>`, with `--sandbox`: one more folder scripts may read,
+  such as `~/Downloads` for uploads.
+- `--output-dir <folder>`, with `--sandbox`: where runs' output folders go.
+- `--disable-ipv6`: Zen makes no IPv6 lookups ("The one pref", in step 4).
+
+A first install, with three of the choices. `<install.sh URL>` is the
+address of the release's `install.sh` asset, on the release's page; the
+README's install line has the latest release's.
+
+```bash
+curl -fsSL <install.sh URL> | PATH=/opt/homebrew/opt/node@24/bin:$PATH bash -s -- --sandbox --read-dir ~/Downloads --disable-ipv6
+```
+
+Expect, with `<version>` the release's version and `<commit>` its commit:
+
+```
+zen(ius): downloading zen(ius) <version>
+zen(ius): SHA-256 matches: <the release's SHA-256>
+zen(ius): unpacked into /Users/<user>/.zenius/release
+Installing zenius <version> (protocol 1, commit <commit>) into /Users/<user>/Library/Application Support/zen/Profiles/<profile>
+  profile chosen by: /Users/<user>/Library/Application Support/zen/profiles.ini, the Default= of its [Install…] section (the profile Zen opens)
+  no running Zen has this profile open
+  no zenius files to back up: the profile has none yet
+  the profile has fx-autoconfig's loader already: --loader leaves it as it is
+  wrote <n> files in the profile (listed in /Users/<user>/.zenius/install.json)
+  set network.dns.disableIPv6 to true in user.js (no IPv6 lookups in Zen); uninstall restores its previous value
+Done. The next time Zen starts, it will load zenius <version>.
+installed /Users/<user>/.zenius/cli: zenius <version>, commit <commit>
+wrote    /Users/<user>/.local/bin/zenius: the sandboxed launcher
+linked   /Users/<user>/.claude/skills/zenius -> /Users/<user>/.zenius/cli/skill/zenius
+linked   /Users/<user>/.agents/skills/zenius -> /Users/<user>/.zenius/cli/skill/zenius
+check    zenius <version> (protocol 1, sandboxed)
+zen(ius): installing the sidebar's agents (the ACP adapters for Claude Code and Codex) into /Users/<user>/.zenius/agents
+
+added <n> packages in <n>s
+
+zen(ius): zen(ius) <version> is installed. Open Zen (quit and reopen it if it's running), then run: zenius doctor
+```
+
+Step 4 explains the profile's lines, and step 2 the CLI's. With Zen open,
+the profile's `Done.` line says so: a first install goes ahead, and Zen
+loads zenius when it next starts (step 5).
+
+How it ends:
+
+- **Exit 0:** installed.
+- **Exit 1:** stopped, with the reason. After `nothing has changed`, fix the
+  reason and run it again. A later stop says what's left, and running it
+  again is safe.
+- **Exit 2:** a wrong argument. Nothing has changed.
+- **Exit 3:** installed, but Zen's app lacks fx-autoconfig's two files, as
+  after a Zen update. It prints the commands that copy them. They change
+  Zen's app, so only the user runs them, before step 5.
+
+No output at all means the download failed.
+
+With `--sandbox`, also write the Codex rule ("Codex: a rule for the sandboxed
+CLI", in step 2) if the user's agents include Codex. Then go on with step 5.
+
+**Updating** to a newer release: stop every other Zen and ask the user to
+quit Zen, as in "Updating later" step 3. With zenius installed,
+`install.sh` won't run while Zen has the profile open. Then run the newer
+release's line without the choices:
+
+```bash
+curl -fsSL <the newer release's install.sh URL> | PATH=/opt/homebrew/opt/node@24/bin:$PATH bash -s
+```
+
+Expect the lines above, with these changes:
+
+- `backed up the zenius files it replaces to …` replaces `no zenius files to
+  back up`.
+- The IPv6 line reads `network.dns.disableIPv6 stays true in user.js, from an
+  earlier install with --disable-ipv6; …`.
+- With the sandboxed CLI, `note     … is the sandboxed launcher, and this
+  install keeps it …` comes first, and `ok` replaces `wrote` and `linked`.
+
+Then steps 5 and 6.
+
+**Undo**, with the user's Zen closed:
+
+```bash
+curl -fsSL <install.sh URL> | bash -s -- --uninstall
+```
+
+It runs "Undo"'s steps 2 and 3 from `~/.zenius/release`, then removes
+`~/.zenius/agents` and `~/.zenius/release`. The rest of "Undo" holds as it
+is: the Codex rule, Ego Lite's Skill, and what stays behind.
 
 ## 1. Get the code
 
@@ -736,6 +864,91 @@ of its sandbox, or a loop in it that calls no built-in isn't stopped. zenius
 never writes them outside tests. Ask the user whether they did, then reset it
 in `about:config`, and remove it from `user.js` if it's there.
 
+### The self-check
+
+Once doctor passes, run the self-check. It goes through the runtime's own
+checks of what an update brings, in a window of its own with a mock agent,
+and keeps a shot of each step. On a Mac, the window opens see-through, in
+a corner of the screen, and clicks pass through it, so the user sees
+nothing of it; elsewhere, it opens offscreen. If making it see-through
+fails, it shows in that corner for the run instead: the run's
+`summary.json` then says `"window": "corner"`, and Zen's log line
+`self-check: the invisible window: …` says why. If the window ever gets
+the focus, it hands it back to the user's most recent window. Its tasks
+and chats are synthetic: none shows in the user's lists, and it writes
+nothing of theirs, preferences included.
+
+It runs only outside zenius's sandbox, and outside any other sandbox
+around the shell: a sandbox can't reach its socket. With the sandboxed
+CLI, `zenius selfcheck` exits 2 with `zenius selfcheck: this process can't
+reach the self-check (EPERM). …`. So run the installed CLI directly, with
+Node 24 in front, as for doctor's full check:
+
+```bash
+PATH=/opt/homebrew/opt/node@24/bin:$PATH node ~/.zenius/cli/sdk/bin/zenius selfcheck
+```
+
+First ask the user to switch to another app, the terminal for example,
+and to stay out of Zen until the command ends. Brought to the front
+mid-run, Zen can still make the see-through window its key window for
+about 250 ms, and keys typed then would go to it, unseen. The window opens
+only while Zen isn't the app in front: while Zen is in front, the run
+waits, up to 60 s, and stderr shows `zenius selfcheck: waiting for Zen to
+be in the background (up to 60 s)`. Once it starts, it takes about 10 s.
+
+An agent that runs the command needs a command timeout over 240 s, such as
+300 s: the CLI waits up to 90 s for a held run to start, then up to 150 s
+for the run. A command cut off earlier stops the run, and the runtime
+cleans up after it.
+
+Expect exit status 0 and these lines, with the version and commit doctor
+shows. The `ok` lines name the runtime's checks, so another version may
+list others:
+
+```
+zenius selfcheck, instance "default": runtime <version> at <commit>, Zen <Zen's version>
+
+ok    The ⋯ menu
+ok    Archive, Archived and Unarchive
+ok    Sending follows the answer
+
+All 3 checks passed in <n> s.
+The shots and summary.json are in ~/.zenius/selfcheck/default/<UTC time>
+```
+
+After a wait, one more line comes before `All 3 checks passed`: `It
+waited <n> s for Zen to be in the background.` Otherwise:
+
+- **Exit 1:** a `FAIL` line names its check, the step it stopped at and
+  the error, or the summary says what failed. Stop, and keep the run's
+  folder: its shots show where it stopped.
+- **Exit 2** with `The self-check ran no check: the run failed (Zen stayed
+  in front for 60 s, …)`: ask the user to switch to another app, and run
+  it again.
+- **Exit 2** with `zenius selfcheck: nothing answers on …`: Zen isn't
+  running, has only just started, or runs a runtime without the
+  self-check. Doctor's `zenius runtime` line shows which commit it runs.
+  Once Zen runs the one step 4 installed, run it again.
+- **Any other exit 2** says why it couldn't run. Stop there.
+
+A CLI from before the self-check, such as one that "Going back to the
+previous version" puts back, has no `zenius selfcheck`: skip it then.
+
+The last line names the run's folder. It holds `summary.json`, the run's
+result with each check's shots by name, and a PNG per step,
+`<NN>-<check>-<step>.png`, numbered in order. Show the user the summary,
+then the shots in their order: each is the self-check's window at the
+step its name says. Once they've looked, delete the folder by the path the
+line printed:
+
+```bash
+rm -r ~/.zenius/selfcheck/default/<UTC time>
+```
+
+Never remove `~/.zenius/selfcheck` itself: it holds the self-check's
+socket. As each run starts, it removes earlier runs' folders over 7 days
+old, and all but the 10 newest.
+
 ## 7. A first task, in the Agents Space
 
 The agent builds its page in the task's blank tab, so nothing loads from
@@ -992,16 +1205,15 @@ listed.
    profile's own agent-sidebar from <that backup>` and `  removed
    agent-urlbar (the profile had none before zenius)`. If the sidebar made
    its workspace, it adds `  removed the sidebar's agent workspace,
-   <profile>/agent-sidebar-workspace (kept in <backup>)`. The user's own
-   sidebar comes back exactly as it was before zenius's replaced it: from
+   <profile>/agent-sidebar-workspace (kept in <backup>)`. A sidebar the
+   profile had comes back exactly as it was before zenius's replaced it: from
    the backup made by the first update that brought the sidebar or, after a
-   reinstall over a copy their installer put back, from that reinstall's
-   backup. If their installer put their sidebar back after zenius's last
+   reinstall over a copy another installer put back, from that reinstall's
+   backup. If another installer put a sidebar back after zenius's last
    install, Undo leaves it as it is and says `  left agent-sidebar in place:
-   it changed since zenius installed it, so it's the user's own`. Their
-   other scripts, the sidebar's settings
-   (`uc.agent-sidebar.*`) and `~/Library/Application Support/zenius-agent-sidebar/`
-   stay as they are.
+   it changed since zenius installed it, so it's the user's own`. The user's
+   other scripts, the sidebar's settings (`uc.agent-sidebar.*`) and
+   `~/Library/Application Support/zenius-agent-sidebar/` stay as they are.
 3. Remove the CLI and the Skill links, and the sandboxed launcher if step 2
    installed it:
 
@@ -1022,13 +1234,14 @@ These stay behind:
 - `~/.zenius/`: backups, zenius's task records (`state/default/`), the
   instance registry, and, with the sandboxed CLI, runs' output folders
   (`out/`). Delete it by hand once nobody needs the backups.
-- `<profile>/agent-sidebar-tasks.json`: the list of Work chats from
-  zenius's sidebar, with their messages. The user's own sidebar has no
-  Work mode and doesn't use the file. Delete it by hand if the user
-  doesn't want those chats kept. Undo's `left in place:`
-  line names it: `~/.zenius (backups, zenius's task records, the CLI if
-  installed), the sidebar's chats (<profile>/agent-sidebar-tasks.json), and
-  the Agents Space …`.
+- `<profile>/agent-sidebar-tasks.json` and
+  `<profile>/agent-sidebar-chats.json`: the chats from zenius's sidebar,
+  with their messages: its Work tasks in the first, each tab's Chat in the
+  second. Delete them by hand if the user doesn't want those chats kept.
+  Undo's `left in place:` line names those it finds: `~/.zenius
+  (backups, zenius's task records, the CLI if installed), the sidebar's
+  chats (<profile>/agent-sidebar-tasks.json,
+  <profile>/agent-sidebar-chats.json), and the Agents Space …`.
 - In the temporary folder (`$TMPDIR`): Node's `node-compile-cache/`, which
   the CLI turns on, and, with the sandboxed CLI, `zenius-sandbox-<uid>/`,
   which holds each run's temporary folder. Both can go.
@@ -1158,8 +1371,8 @@ backups, and the Agents Space's tasks, which come back after the restart.
    ```
 
    The count in `wrote <n> files` includes the agent's scripts: the sidebar
-   and the address bar's '>' dispatch. If the user's own installer put their
-   sidebar back over zenius's since the last install, the line reads `backed
+   and the address bar's '>' dispatch. If another installer put a sidebar
+   back over zenius's since the last install, the line reads `backed
    up the profile's own agent-sidebar (changed since zenius installed it) to
    …`: that copy is now the one Undo puts back.
 
@@ -1195,6 +1408,8 @@ backups, and the Agents Space's tasks, which come back after the restart.
    check: `always (the default); no allowed sites listed` until the user
    chooses `ask` or `never` (see "Later, if needed").
 
+   Then run the self-check, as in the install's step 6.
+
 ### Going back to the previous version
 
 `scripts/install.sh --uninstall` removes zenius; it doesn't bring back the
@@ -1227,11 +1442,12 @@ takes `--read-dir` again. The CLI has no
 backup, so only the checkout can put back its earlier version.
 
 To go back to a version from before zenius's sidebar, run "Undo" with the
-current checkout first, which puts the user's own sidebar back. Then run
+current checkout first, which takes zenius's sidebar out and puts back the
+one the profile had, if any. Then run
 "Updating later" with that commit. Its step 2 may say `updated` on the
 launcher's line, since an older launcher's text differs. That commit's
 `install.sh` alone would leave
 zenius's sidebar and '>' dispatch in place, since it doesn't know them.
 While zenius is installed, keep `~/.zenius/components.prior` and the backup
-folder it names: Undo gives the user's sidebar back from them, even after
-later updates.
+folder it names: Undo puts the profile's earlier sidebar back from them,
+even after later updates.

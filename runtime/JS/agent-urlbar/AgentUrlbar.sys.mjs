@@ -1,4 +1,4 @@
-/* The address bar's '>' dispatch to the user's agent sidebar (zen-eval's,
+/* The address bar's '>' dispatch to the agent sidebar (zen-eval's,
  * 2026-11-21; zen-sidebar's since the two modes, until zen-ux builds the
  * official one from it).
  *
@@ -239,9 +239,16 @@ class AgentAskBase extends UrlbarProvider {
     // before it tells the row's provider. It would stay open, the URL
     // selected in it, until the sidebar took focus a few frames on (zen-eval's
     // take-6 captures). Closed in this same task, no frame shows that; Zen's
-    // floating box closes with the view and gives the page focus.
+    // floating box closes with the view and gives the page focus. The
+    // sidebar's releaseAddressBar does it: the rule for every focus our code
+    // moves out of the address bar, which an IME needs (zen-input, 2026-11-22).
     try {
-      (controller?.input ?? controller?.browserWindow?.gURLBar)?.view?.close();
+      const sidebar = controller?.browserWindow?.ucAgentSidebar;
+      if (sidebar?.releaseAddressBar) {
+        sidebar.releaseAddressBar();
+      } else {
+        (controller?.input ?? controller?.browserWindow?.gURLBar)?.view?.close();
+      }
     } catch (e) {
       console.error(LOG, "closing the address bar", e);
     }

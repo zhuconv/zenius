@@ -182,7 +182,7 @@ test("a passkey request waits for the user: the Space is theirs, and the request
   `);
   assert.equal(held.owner, "agentDelegatedToUser");
   assert.equal(held.reason, "permission_prompt");
-  assert.equal(held.pill, `Agent paused · page asks for a passkey · ${site()}`);
+  assert.equal(held.pill, `Agent paused · page asks for a passkey on ${site()}`);
   assert.equal(held.stats.passkeyHeld, before.passkeyHeld + 1);
   const call = await h.call("page.click", { space, page: "p1", target: "#passkey" }).then(
     () => "ok",

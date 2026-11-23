@@ -91,11 +91,19 @@ export async function setup() {
      * The dev profile's browser.startup.page is 0: no tab comes back, so
      * neither does a task in the Agents Space. Pass 3 to keep them.
      * `beforeConnect` runs once Zen is ready, before the new connection
-     * (whose opening loads the method modules).
+     * (whose opening loads the method modules). `env` adds to zen-dev.sh's
+     * environment for this quit and start only.
+     *
+     * A start that fails fails this restart, and then starts the instance
+     * again without this restart's prefs: zen-dev.sh stops a Zen that
+     * never got ready, and every test after this one would fail on the
+     * missing socket otherwise (22 of them in the Mac's run of 2026-11-22).
      */
-    async restart(prefs = {}, { beforeConnect } = {}) {
+    async restart(prefs = {}, { beforeConnect, env: extraEnv = {} } = {}) {
       const { execFileSync } = await import("node:child_process");
-      const env = { ...process.env };
+      const plainEnv = { ...process.env };
+      delete plainEnv.ZENIUS_DEV_PREFS;
+      const env = { ...process.env, ...extraEnv };
       let dir = null;
       if (Object.keys(prefs).length) {
         const { mkdtempSync, writeFileSync } = await import("node:fs");
@@ -108,9 +116,9 @@ export async function setup() {
       }
       // zen-dev.sh says why a quit or start failed (a crash, a timeout, a
       // pid it won't touch) on its stdout and stderr: the error carries both.
-      const zenDev = cmd => {
+      const zenDev = (cmd, cmdEnv = env) => {
         try {
-          execFileSync(process.env.ZENIUS_DEV, [instance, cmd], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env });
+          execFileSync(process.env.ZENIUS_DEV, [instance, cmd], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env: cmdEnv });
         } catch (e) {
           throw new Error(
             `zen-dev.sh ${instance} ${cmd} failed (${e.status ?? e.signal ?? e.code}).\n` +
@@ -123,6 +131,16 @@ export async function setup() {
         h.client.close();
         zenDev("quit");
         zenDev("start");
+      } catch (e) {
+        try {
+          zenDev("start", plainEnv);
+          h.client = await connect(instance, { callTimeout: 30000 });
+          h.restarted = true;
+          e.message += "\nThe instance was started again, without this restart's prefs, for the tests after this one.";
+        } catch (again) {
+          e.message += `\nStarting the instance again failed too: ${again.message}`;
+        }
+        throw e;
       } finally {
         if (dir) {
           const { rmSync } = await import("node:fs");

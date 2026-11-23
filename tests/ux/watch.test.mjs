@@ -1,8 +1,8 @@
 // zenius's watch (runtime/JS/zenius/ui/watch.sys.mjs): every way to an agent's
 // task is a watch. The window shows the task and remembers where the user was.
-// The strip, or a chip where the strip can't be read, says "Watching <task> ·
-// Ctrl+Tab", and Ctrl+Tab goes back; once the task ends there, "Task done ·
-// Ctrl+Tab back to your tabs", until the user goes elsewhere themselves. The
+// The strip, or a chip where the strip can't be read, says "Watching <task>
+// [Ctrl+Tab]", and Ctrl+Tab goes back; once the task ends there, "Task done,
+// [Ctrl+Tab] back to your tabs", until the user goes elsewhere themselves. The
 // agent sidebar's ways in (its live card and its directory) are in
 // sidebar.test.mjs.
 import assert from "node:assert/strict";
@@ -147,7 +147,7 @@ after(async () => {
   await h?.close();
 });
 
-test("the tasks panel's Open is a watch: the strip says 'Watching <task> · Ctrl+Tab', a screen reader hears the way back, and Ctrl+Tab goes back to the user's tab, then is Zen's again", async () => {
+test("the tasks panel's Open is a watch: the strip says 'Watching <task> [Ctrl+Tab]', a screen reader hears the way back, and Ctrl+Tab goes back to the user's tab, then is Zen's again", async () => {
   const out = await h.chrome(`${P}
     await backToUser();
     Services.prefs.setBoolPref("zen.view.sidebar-expanded", true);
@@ -182,7 +182,7 @@ test("the tasks panel's Open is a watch: the strip says 'Watching <task> · Ctrl
     return res;
   `);
   assert.deepEqual(out.unwatched, { stopped: false, atUser: true }, "Ctrl+Tab while not watching is Zen's");
-  assert.deepEqual(out.watch, { onPage: true, watching: "true", name: iso(A), key: ` · ${KEY}`, chip: false });
+  assert.deepEqual(out.watch, { onPage: true, watching: "true", name: iso(A), key: ` ${KEY}`, chip: false });
   assert.equal(out.title, `Watching ${iso(A)}. ${KEY} goes back to your tabs.`);
   assert.equal(out.label, `Watching ${iso(A)}. Control Tab goes back to your tabs`);
   assert.deepEqual(out.said, [`Watching ${iso(A)}. Control Tab goes back to your tabs.`]);
@@ -315,7 +315,7 @@ test("where the strip can't be read (a collapsed sidebar, compact mode), the chi
     }
     return res;
   `);
-  const shown = { shown: true, text: `Watching ${iso(A)}· ${KEY}`, corner: true, onChip: "page", topCenter: "page" };
+  const shown = { shown: true, text: `Watching ${iso(A)}${KEY}`, corner: true, onChip: "page", topCenter: "page" };
   assert.deepEqual(out.collapsed, shown, "a collapsed sidebar shows only the strip's dot");
   assert.deepEqual(out.expanded, { shown: false }, "the strip says it again");
   assert.deepEqual(out.compact, shown, "compact mode keeps the sidebar out of the window");
@@ -323,7 +323,7 @@ test("where the strip can't be read (a collapsed sidebar, compact mode), the chi
   assert.deepEqual(out.back, { shown: false });
 });
 
-test("a watched task's end keeps the way back: the window stays on its page, the strip says 'Task done · Ctrl+Tab back to your tabs', a screen reader hears it, and Ctrl+Tab goes back, which closes the page", async () => {
+test("a watched task's end keeps the way back: the window stays on its page, the strip says 'Task done, [Ctrl+Tab] back to your tabs', a screen reader hears it, and Ctrl+Tab goes back, which closes the page", async () => {
   const C = "zen-ux watch C";
   const c = await newTask(C);
   await h.chrome(`${P}
@@ -364,8 +364,8 @@ test("a watched task's end keeps the way back: the window stays on its page, the
     stayed: true,
     waits: true,
     watching: "done",
-    text: `Task done · ${KEY} back to your tabs`,
-    key: ` · ${KEY}`,
+    text: `Task done, ${KEY} back to your tabs`,
+    key: ` ${KEY}`,
     chip: false,
   }, "nothing moved, and the page waits for the user to leave it");
   assert.equal(out.title, `Task done: ${iso(C)}. ${KEY} goes back to your tabs.`);
@@ -463,7 +463,7 @@ test("after a watched task's end, the user's own pick of another tab ends the wa
   assert.equal(picked.closed, true, "and the page they left closed");
   assert.deepEqual(picked.after, { stopped: false, onA: true }, "Ctrl+Tab is Zen's again");
   assert.deepEqual(kept.stripCuts, { ".zenius-strip-lead": false, ".zenius-strip-key": false, ".zenius-strip-rest": true });
-  assert.deepEqual(kept.chip, { shown: true, done: true, parts: ["Task done", `· ${KEY}`, "back to your tabs"] });
+  assert.deepEqual(kept.chip, { shown: true, done: true, parts: ["Task done,", KEY, "back to your tabs"] });
   assert.deepEqual(kept.chipCuts, { ".zenius-watch-name": false, ".zenius-watch-key": false, ".zenius-watch-rest": true });
   assert.deepEqual(kept.expanded, { chip: false, watching: "done" });
   assert.deepEqual(kept.closed, { done: e, watching: "done", atUser: false }, "the tab Zen picked after the page's Close isn't the user's pick");

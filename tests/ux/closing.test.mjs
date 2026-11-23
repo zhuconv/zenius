@@ -109,7 +109,7 @@ test("the agent closing the page the user is looking at: it waits, with a pill; 
       await backToUser();
     }
   `);
-  assert.equal(out.pill, `Agent closed this page · ${iso(name)} · closes when you leave this tab`);
+  assert.equal(out.pill, `Agent closed this page · ${iso(name)}, closes when you leave this tab`);
   assert.equal(out.heard, null, "an agent's close of one page is routine: not announced");
   assert.equal(out.cursor, null, "the page ended for the agent: no cursor");
   assert.equal(out.tag, null, "no task tag");
@@ -138,7 +138,7 @@ test("finish() while the user looks at the task's page: 'Task finished', and Clo
     }
   `);
   assert.deepEqual(out, {
-    text: `Task finished · ${iso(name)} · closes when you leave this tab`,
+    text: `Task finished · ${iso(name)}, closes when you leave this tab`,
     heard: `Task finished: ${iso(name)}. This tab closes when you leave it.`,
     closed: true,
   });

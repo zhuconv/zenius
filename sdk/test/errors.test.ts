@@ -93,13 +93,24 @@ describe("help(\"errors\")", () => {
     }
   });
 
-  it("lists every code and refused kind, each with what to do next, and prints one code alone", () => {
+  it("lists every code and refused kind, each with what to do next, and prints one code alone; the self-check's codes stay out", () => {
     const text = helpText("errors");
     for (const [code, guide] of Object.entries(CODE_GUIDE)) {
+      assert.ok(guide.what.length > 0 && guide.next.length > 0);
+      if (guide.unlisted) {
+        // Only `zenius selfcheck` meets these, and agents never run it (docs/research/selfcheck.md).
+        assert.doesNotMatch(text, new RegExp(`^${code}\\b`, "m"), code);
+        assert.equal(codeHelp(code), undefined, code);
+        continue;
+      }
       const entry = new RegExp(`^${code}(?: \\(.*\\))?\\n  .+\\n  Next: .+$`, "m");
       assert.match(text, entry, code);
-      assert.ok(guide.what.length > 0 && guide.next.length > 0);
     }
+    assert.deepEqual(
+      Object.entries(CODE_GUIDE).filter(([, guide]) => guide.unlisted).map(([code]) => code),
+      ["ZEN_SELFCHECK_BUSY", "ZEN_SELFCHECK_UNAVAILABLE"],
+    );
+    assert.doesNotMatch(text, /self-?check/i);
     for (const kind of Object.keys(REFUSAL_GUIDE)) assert.match(text, new RegExp(`^${kind}\\n  .+\\n  Next: .+$`, "m"), kind);
     assert.equal(
       helpText("ZEN_REF_STALE"),

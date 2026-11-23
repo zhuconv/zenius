@@ -325,6 +325,35 @@ test("uninstall takes zenius's own preferences out of prefs.js and user.js, and 
   assert.ok(fs.readFileSync(path.join(backupFrom(un.out), "prefs.js"), "utf8").includes(ALLOW));
 });
 
+test("uninstall's rewrites of prefs.js and user.js keep each file's mode: Zen keeps prefs.js 0600, and keeps whatever mode it finds", () => {
+  const s = sandbox("pref-modes");
+  const p = s.profile();
+  const prefs = path.join(p, "prefs.js");
+  const user = path.join(p, "user.js");
+  const mode = file => fs.statSync(file).mode & 0o777;
+  // The user's own user.js, which uninstall rewrites rather than removes,
+  // with a mode of its own, so each file's is seen to stay as it was.
+  fs.writeFileSync(user, 'user_pref("browser.tabs.warnOnClose", false);\n', { mode: 0o640 });
+  fs.chmodSync(user, 0o640);
+  fs.writeFileSync(prefs, '// Mozilla User Preferences\nuser_pref("browser.startup.page", 3);\n', { mode: 0o600 });
+  fs.chmodSync(prefs, 0o600);
+  s.install(p, "--disable-ipv6");
+  zenKeeps(p);
+  // A zenius pref in each, so drop_zenius_prefs rewrites both, before the
+  // DNS restore rewrites them again.
+  fs.appendFileSync(prefs, 'user_pref("zenius.agentTabs.allowPrivateNetworks", "printer.local");\n');
+  fs.appendFileSync(user, 'user_pref("zenius.handoff.quietReload", false);\n');
+  assert.equal(mode(prefs), 0o600);
+  assert.equal(mode(user), 0o640);
+  const un = s.run(["--uninstall", "--profile", p]);
+  assert.equal(un.status, 0, un.err);
+  assert.match(un.out, /removed zenius's 1 preference from prefs\.js/);
+  assert.match(un.out, /took zenius's network\.dns\.disableIPv6 lines out of user\.js/);
+  assert.equal(mode(prefs).toString(8), "600", "prefs.js stays 0600");
+  assert.equal(mode(user).toString(8), "640", "user.js keeps its mode");
+  assert.deepEqual(fs.readdirSync(p).filter(name => name.includes(".tmp-")), [], "no temporary file is left");
+});
+
 test("uninstall removes this profile's upload and download folders, in the profile and in the temp folder, and no other profile's", () => {
   const s = sandbox("staging");
   const p = s.profile();
@@ -656,22 +685,26 @@ test("Undo takes out the sidebar's agent workspace after a backup, and install n
   const ws = path.join(p, "agent-sidebar-workspace");
   writeTree(ws, { claude: { ".claude": { "settings.json": "{}\n" } }, codex: { "notes.txt": "left by Codex\n" } });
   const written = snap(ws);
-  // And the user's chats with it, which stay theirs.
+  // And the user's chats with it, which stay theirs: its Work tasks, and
+  // each tab's Chat (zen-sidebar's chat persistence).
   const chats = path.join(p, "agent-sidebar-tasks.json");
+  const tabChats = path.join(p, "agent-sidebar-chats.json");
   fs.writeFileSync(chats, '{"tasks":[{"title":"a chat"}]}\n');
+  fs.writeFileSync(tabChats, '{"chats":[{"title":"a tab\'s chat"}]}\n');
   s.install(p);
   assert.deepEqual(snap(ws), written);
   const dry = s.run(["--uninstall", "--profile", p, "--dry-run"]);
   assert.equal(dry.status, 0, dry.err);
   assert.ok(dry.out.includes(`would remove the sidebar's agent workspace, ${ws}, keeping it in the backup`), dry.out);
-  assert.ok(dry.out.includes(`the sidebar's chats (${chats})`), dry.out);
+  assert.ok(dry.out.includes(`the sidebar's chats (${chats}, ${tabChats})`), dry.out);
   assert.deepEqual(snap(ws), written);
   const un = s.run(["--uninstall", "--profile", p]);
   assert.equal(un.status, 0, un.err);
   assert.ok(!fs.existsSync(ws));
   const left = un.out.split("\n").find(line => line.includes("left in place: "));
-  assert.ok(left?.includes(`, the sidebar's chats (${chats}), and the Agents Space`), un.out);
+  assert.ok(left?.includes(`, the sidebar's chats (${chats}, ${tabChats}), and the Agents Space`), un.out);
   assert.equal(fs.readFileSync(chats, "utf8"), '{"tasks":[{"title":"a chat"}]}\n');
+  assert.equal(fs.readFileSync(tabChats, "utf8"), '{"chats":[{"title":"a tab\'s chat"}]}\n');
   const kept = un.out.match(/removed the sidebar's agent workspace, .* \(kept in (\S+)\)$/m)?.[1];
   assert.ok(kept, un.out);
   assert.deepEqual(snap(path.join(kept, "agent-sidebar-workspace")), written);
@@ -682,10 +715,18 @@ test("Undo takes out the sidebar's agent workspace after a backup, and install n
   assert.match(again.out, /zenius isn't in .* any more; removing the sidebar's agent workspace it left/);
   assert.ok(!fs.existsSync(ws));
   assert.equal(s.run(["--uninstall", "--profile", p]).status, 1);
+  // With only the tabs' chats, the line names that file alone.
+  fs.rmSync(chats);
+  s.install(p);
+  const only = s.run(["--uninstall", "--profile", p]);
+  assert.equal(only.status, 0, only.err);
+  const onlyLeft = only.out.split("\n").find(line => line.includes("left in place: "));
+  assert.ok(onlyLeft?.includes(`, the sidebar's chats (${tabChats}), and the Agents Space`), only.out);
+  assert.ok(fs.existsSync(tabChats));
 });
 
 // The agent's scripts beside the runtime (install.sh's COMPONENTS), as a
-// checkout ships them, and the user's own sidebar as their profile holds it
+// checkout ships them, and an earlier sidebar as the profile holds it
 // before zenius, with a link that must come back as a link.
 const ZENIUS_AGENT = {
   "agent-sidebar.uc.js": "// zenius's agent sidebar\n",
@@ -694,11 +735,11 @@ const ZENIUS_AGENT = {
   "agent-urlbar": { "dispatch.mjs": "// zenius's dispatch\n" },
 };
 const USERS_SIDEBAR = {
-  "agent-sidebar.uc.js": "// the user's own agent sidebar\n",
+  "agent-sidebar.uc.js": "// an earlier agent sidebar\n",
   "agent-sidebar": {
-    "panel.mjs": "// the user's panel\n",
-    "old.css": "/* the user's */\n",
-    lib: { "util.mjs": "// the user's util\n" },
+    "panel.mjs": "// its panel\n",
+    "old.css": "/* its */\n",
+    lib: { "util.mjs": "// its util\n" },
   },
 };
 const OWN_SIDEBAR = /backed up the profile's own agent-sidebar to (.+); zenius's takes its place, and uninstall puts it back$/m;
@@ -755,20 +796,20 @@ function installedVersion() {
 }
 
 /**
- * A profile with the user's own sidebar and another script of theirs, and
+ * A profile with an earlier sidebar and a script of the user's own, and
  * the sidebar's own data under the fake HOME. `others()` is what no run may
- * change; `users()` the user's sidebar as it is now.
+ * change; `users()` that earlier sidebar as it is now.
  */
 function usersProfile(s) {
   const p = s.profile();
   const js = path.join(p, "chrome/JS");
   writeTree(js, USERS_SIDEBAR);
   fs.symlinkSync("panel.mjs", path.join(js, "agent-sidebar/alias.mjs"));
-  fs.writeFileSync(path.join(js, "my-script.uc.js"), "// the user's own script\n");
+  fs.writeFileSync(path.join(js, "own-script.uc.js"), "// a script of the user's own\n");
   const data = path.join(s.home, "Library/Application Support/zenius-agent-sidebar");
   writeTree(data, { "config.json": "{}\n", adapters: { "claude.json": "{}\n" } });
   const others = () => ({
-    autofill: snap(path.join(js, "my-script.uc.js")),
+    autofill: snap(path.join(js, "own-script.uc.js")),
     user: snap(path.join(js, "user.uc.js")),
     data: snap(data),
   });
@@ -776,7 +817,7 @@ function usersProfile(s) {
   return { p, js, others, users, prior: path.join(s.zhome, "components.prior") };
 }
 
-test("install puts zenius's agent scripts in place of the user's own sidebar and keeps theirs; Undo gives it back as it was", () => {
+test("install puts zenius's agent scripts in place of an earlier sidebar and keeps it; Undo gives it back as it was", () => {
   const s = sandbox("agent");
   const { p, js, others, users, prior } = usersProfile(s);
   const script = checkoutWith("agent", ZENIUS_AGENT);
@@ -788,7 +829,7 @@ test("install puts zenius's agent scripts in place of the user's own sidebar and
   assert.equal(r.status, 0, r.err);
   const kept = r.out.match(OWN_SIDEBAR)?.[1];
   assert.ok(kept, r.out);
-  // zenius's copies, whole: nothing of the user's lingers in the folder.
+  // zenius's copies, whole: nothing of the earlier sidebar lingers in the folder.
   for (const name of ["agent-sidebar.uc.js", "agent-sidebar", "agent-urlbar.uc.js", "agent-urlbar"]) {
     assert.deepEqual(snap(path.join(js, name), false), snap(path.join(shipped, name), false), name);
   }
@@ -818,7 +859,7 @@ test("install puts zenius's agent scripts in place of the user's own sidebar and
     "runtimeVersion",
   ]);
 
-  // A reinstall replaces zenius's copy, and the note still names the user's.
+  // A reinstall replaces zenius's copy, and the note still names the earlier one.
   const again = s.run(["--profile", p], { script });
   assert.equal(again.status, 0, again.err);
   assert.doesNotMatch(again.out, /the profile's own/);
@@ -835,7 +876,7 @@ test("install puts zenius's agent scripts in place of the user's own sidebar and
   assert.ok(un.out.includes(`put back the profile's own agent-sidebar from ${kept}`), un.out);
   assert.match(un.out, /removed agent-urlbar \(the profile had none before zenius\)/);
   assert.deepEqual(users(), theirs);
-  assert.deepEqual(fs.readdirSync(js).sort(), ["agent-sidebar", "agent-sidebar.uc.js", "my-script.uc.js", "user.uc.js"]);
+  assert.deepEqual(fs.readdirSync(js).sort(), ["agent-sidebar", "agent-sidebar.uc.js", "own-script.uc.js", "user.uc.js"]);
   assert.deepEqual(others(), before);
   assert.ok(!fs.existsSync(prior));
   const removed = backupFrom(un.out);
@@ -843,7 +884,7 @@ test("install puts zenius's agent scripts in place of the user's own sidebar and
   assert.ok(fs.existsSync(path.join(removed, "chrome/JS/agent-urlbar/dispatch.mjs")));
 });
 
-test("a dry run with the agent's scripts changes nothing, and says it would replace the user's sidebar", () => {
+test("a dry run with the agent's scripts changes nothing, and says it would replace the earlier sidebar", () => {
   const s = sandbox("agent-dry");
   const { p } = usersProfile(s);
   const script = checkoutWith("agent", ZENIUS_AGENT);
@@ -866,7 +907,7 @@ test("a dry run with the agent's scripts changes nothing, and says it would repl
   assert.deepEqual(snap(s.dir), before);
 });
 
-test("if the backup of the user's own sidebar is gone, Undo leaves zenius's in place", () => {
+test("if the backup of the earlier sidebar is gone, Undo leaves zenius's in place", () => {
   const s = sandbox("agent-lost");
   const { p, js, prior } = usersProfile(s);
   const script = checkoutWith("agent", ZENIUS_AGENT);
@@ -881,7 +922,7 @@ test("if the backup of the user's own sidebar is gone, Undo leaves zenius's in p
   assert.ok(!fs.existsSync(prior));
 });
 
-test("an install from a checkout without one of the agent's scripts gives back the user's copy of it", () => {
+test("an install from a checkout without one of the agent's scripts gives back the earlier copy of it", () => {
   const s = sandbox("agent-gone");
   const { p, js, users, prior } = usersProfile(s);
   const theirs = users();
@@ -903,7 +944,7 @@ test("an install from a checkout without one of the agent's scripts gives back t
   assert.ok(!fs.existsSync(prior));
 });
 
-test("while Zen runs the user's own sidebar, a first install replaces it only with --while-running", () => {
+test("while Zen runs an earlier sidebar, a first install replaces it only with --while-running", () => {
   const s = sandbox("agent-running");
   const { p, js, users, prior } = usersProfile(s);
   const script = checkoutWith("agent", ZENIUS_AGENT);
@@ -921,15 +962,15 @@ test("while Zen runs the user's own sidebar, a first install replaces it only wi
   assert.deepEqual(users(), theirs);
 });
 
-test("a reinstall after the user's own installer put their sidebar back keeps that copy for Undo, as the user's", () => {
+test("a reinstall after another installer put its sidebar back keeps that copy for Undo", () => {
   const s = sandbox("agent-put-back");
   const { p, js, prior } = usersProfile(s);
   const script = checkoutWith("agent", ZENIUS_AGENT);
   const first = s.run(["--profile", p], { script }).out.match(OWN_SIDEBAR)?.[1];
   assert.ok(first);
-  // The user's installer links their working copy back in, over zenius's.
+  // Another installer links its working copy back in, over zenius's.
   const dev = path.join(s.dir, "dev");
-  writeTree(dev, { "agent-sidebar.uc.js": "// the user's newer sidebar\n", "agent-sidebar": { "panel.mjs": "// newer\n" } });
+  writeTree(dev, { "agent-sidebar.uc.js": "// a newer sidebar\n", "agent-sidebar": { "panel.mjs": "// newer\n" } });
   const devBefore = snap(dev);
   fs.rmSync(path.join(js, "agent-sidebar.uc.js"));
   fs.rmSync(path.join(js, "agent-sidebar"), { recursive: true });
@@ -943,7 +984,7 @@ test("a reinstall after the user's own installer put their sidebar back keeps th
     /backed up the profile's own agent-sidebar \(changed since zenius installed it\) to (.+); zenius's takes its place, and uninstall puts it back$/m
   )?.[1];
   assert.ok(kept, r.out);
-  // The backup holds the user's links as links, not what they lead to.
+  // The backup holds the links as links, not what they lead to.
   assert.deepEqual(
     { script: snap(path.join(kept, "chrome/JS/agent-sidebar.uc.js")), folder: snap(path.join(kept, "chrome/JS/agent-sidebar")) },
     { script: { link: path.join(dev, "agent-sidebar.uc.js") }, folder: { link: path.join(dev, "agent-sidebar") } }
@@ -954,7 +995,7 @@ test("a reinstall after the user's own installer put their sidebar back keeps th
   ]);
   assert.equal(fs.readFileSync(path.join(js, "agent-sidebar.uc.js"), "utf8"), ZENIUS_AGENT["agent-sidebar.uc.js"]);
   assert.ok(!fs.lstatSync(path.join(js, "agent-sidebar")).isSymbolicLink());
-  // zenius never wrote through the user's links.
+  // zenius never wrote through those links.
   assert.deepEqual(snap(dev), devBefore);
 
   const un = s.run(["--uninstall", "--profile", p], { script });
@@ -970,7 +1011,7 @@ test("Undo leaves a sidebar the user put there after zenius's", () => {
   const { p, js, prior } = usersProfile(s);
   const script = checkoutWith("agent", ZENIUS_AGENT);
   assert.equal(s.run(["--profile", p], { script }).status, 0);
-  fs.writeFileSync(path.join(js, "agent-sidebar.uc.js"), "// the user's newer sidebar\n");
+  fs.writeFileSync(path.join(js, "agent-sidebar.uc.js"), "// a newer sidebar\n");
   const theirs = { script: snap(path.join(js, "agent-sidebar.uc.js")), folder: snap(path.join(js, "agent-sidebar")) };
   const dry = s.run(["--uninstall", "--profile", p, "--dry-run"], { script });
   assert.equal(dry.status, 0, dry.err);
@@ -983,7 +1024,7 @@ test("Undo leaves a sidebar the user put there after zenius's", () => {
   assert.ok(!fs.existsSync(prior));
 });
 
-test("going back to the installed version (cbac1ef): Undo with this checkout, then that version's install, leaves the user's sidebar as before the update", t => {
+test("going back to the installed version (cbac1ef): Undo with this checkout, then that version's install, leaves the earlier sidebar as before the update", t => {
   const older = installedVersion();
   if (!older) {
     t.skip("this clone hasn't cbac1ef");
@@ -1010,7 +1051,7 @@ test("going back to the installed version (cbac1ef): Undo with this checkout, th
   assert.ok(!fs.existsSync(prior));
 });
 
-test("going back with cbac1ef's install.sh alone keeps zenius's agent scripts and their note, so this checkout's update and Undo still know the user's sidebar", t => {
+test("going back with cbac1ef's install.sh alone keeps zenius's agent scripts and their note, so this checkout's update and Undo still know the earlier sidebar", t => {
   const older = installedVersion();
   if (!older) {
     t.skip("this clone hasn't cbac1ef");
@@ -1034,11 +1075,11 @@ test("going back with cbac1ef's install.sh alone keeps zenius's agent scripts an
   run(["--profile", p], older);
   assert.equal(fs.readFileSync(path.join(js, "agent-sidebar.uc.js"), "utf8"), ZENIUS_AGENT["agent-sidebar.uc.js"]);
   assert.equal(fs.readFileSync(prior, "utf8"), note);
-  // Updating again keeps the note on the user's copy.
+  // Updating again keeps the note on the earlier copy.
   assert.doesNotMatch(run(["--profile", p], script).out, /the profile's own/);
   assert.equal(fs.readFileSync(prior, "utf8"), note);
   // The older Undo leaves the scripts and the sidebar's workspace; this
-  // checkout's Undo then puts the user's sidebar back and takes the rest out.
+  // checkout's Undo then puts the earlier sidebar back and takes the rest out.
   const ws = path.join(p, "agent-sidebar-workspace");
   writeTree(ws, { claude: { ".claude": { "settings.json": "{}\n" } } });
   run(["--uninstall", "--profile", p], older);

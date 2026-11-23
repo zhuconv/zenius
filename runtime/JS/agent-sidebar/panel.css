@@ -97,6 +97,20 @@ button.icon {
   text-overflow: ellipsis;
 }
 
+/* Renaming a task: its name, in place, as a field. */
+#title > input {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 3px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--box-bg);
+  color: var(--fg);
+  font: inherit;
+  outline: none;
+}
+
 /* Plain icons, Zen's own. */
 #dir,
 #more {
@@ -220,6 +234,61 @@ button.icon {
 :root[data-mode="chat"] #empty .work-only,
 :root[data-mode="work"] #empty .chat-only {
   display: none;
+}
+
+/* An earlier chat about this page, offered back above the hints
+   (docs/research/chat-way-back.md, part 2; the user's pick, (a)): a quiet
+   pill. The empty view lets clicks through; the pill takes them. */
+#empty #earlier {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 16px;
+  padding: 5px 6px 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--box-bg);
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+#empty #earlier[hidden] {
+  display: none;
+}
+
+#earlier-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#earlier-text .earlier-what {
+  color: var(--fg);
+}
+
+#earlier-open {
+  flex: none;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  padding: 2px 6px;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#earlier-open:hover {
+  text-decoration: underline;
+}
+
+#earlier-open:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 kbd {
@@ -921,12 +990,12 @@ body.busy .msg.user > .actions {
   }
 }
 
-/* --- A stretch of the agent's thinking (fillThought): "Thinking · <what
- * it's on> · 12 s" while it lasts, then "Thought for 23 s", which opens to
- * what it thought, quiet as the steps are. "Thinking · <what it's on>"
- * wraps to two lines at most, Claude Code's being whole sentences in a
- * narrow sidebar, and the seconds stay beside its first line (zen-ux's
- * call). After a step, it's a line of the steps' box. */
+/* --- A stretch of the agent's thinking (fillThought): "Thinking for 12 s,
+ * <what it's on>" while it lasts, then "Thought for 23 s", which opens to
+ * what it thought, quiet as the steps are. The row wraps to two lines at
+ * most, Claude Code's titles being whole sentences in a narrow sidebar, and
+ * the seconds come first, so they always show (the user's text pass). After
+ * a step, it's a line of the steps' box. */
 .msg.thought {
   font-size: 12px;
   color: var(--muted);
@@ -982,8 +1051,8 @@ body.busy .msg.user > .actions {
   transform: rotate(180deg);
 }
 
+/* " for 12 s" keeps its space, and stays on one line. */
 .msg.thought .time {
-  flex: none;
   white-space: pre;
 }
 
@@ -1550,12 +1619,6 @@ body.dragging::after {
   color: var(--muted);
 }
 
-#pick-dot {
-  flex: none;
-  color: var(--faint);
-  font-size: 12px;
-}
-
 /* --- The model picker: an opaque card over the chat, opening upward from
  * the composer, with room on its right for the efforts' flyout. panel.js
  * places both. */
@@ -1948,6 +2011,21 @@ body.dragging::after {
   display: none !important;
 }
 
+/* An archived task (AgentService.archiveTask) reads as it was, without a
+   box: the archived bar, with Unarchive, takes the question's place. */
+:root[data-archived="true"] #input,
+:root[data-archived="true"] #attach,
+:root[data-archived="true"] #pickers,
+:root[data-archived="true"] #send,
+:root[data-archived="true"] #stop,
+:root[data-archived="true"] #steer,
+:root[data-archived="true"] #chip,
+:root[data-archived="true"] #attachments,
+:root[data-archived="true"] #queue,
+:root[data-archived="true"] .actions [data-action="edit"] {
+  display: none !important;
+}
+
 /* Where it's driven from, over its steps. */
 .ext-src {
   margin: 2px 2px 8px;
@@ -2143,7 +2221,8 @@ body.dragging::after {
 }
 
 .ext-needs .ghost,
-#ext-stop {
+#ext-stop,
+#unarchive {
   flex: none;
   padding: 2px 8px;
   border: 1px solid var(--line);
@@ -2157,13 +2236,16 @@ body.dragging::after {
 }
 
 .ext-needs .ghost:hover,
-#ext-stop:hover {
+#ext-stop:hover,
+#unarchive:hover {
   filter: brightness(0.95);
 }
 
 /* In the question's place: that the sidebar can't chat with it, and its
-   Stop; once it ended, how (data-ended), with a step's mark. */
-#ext-bar {
+   Stop; once it ended, how (data-ended), with a step's mark. An archived
+   task's bar looks the same, with Unarchive. */
+#ext-bar,
+#archived-bar {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2174,11 +2256,13 @@ body.dragging::after {
 }
 
 #ext-bar[hidden],
-#ext-stop[hidden] {
+#ext-stop[hidden],
+#archived-bar[hidden] {
   display: none;
 }
 
-#ext-bar-text {
+#ext-bar-text,
+#archived-text {
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;

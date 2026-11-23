@@ -23,6 +23,14 @@
 # check still isn't applied by a dev Zen.
 # ZENIUS_START_WAIT_S=<s> start: how long to wait for the runtime before
 #   stopping Zen (default 90 s, 40 s headed).
+# ZENIUS_START_RETRIES=<n> start: how many times to start again after Zen dies
+#   of a signal before the runtime is ready (default 3), or once after a start
+#   that stalls before the runtime's first line. Both go in
+#   ~/.zenius-dev/logs/startup-crashes.log; a stall also keeps its threads'
+#   state beside it, in <name>-stall-<time>.txt.
+#   Every dev profile but an installed one also gets
+#   scripts/dev/startup-watch.uc.js, whose one line in the log says where a
+#   window's startup stopped if it hasn't finished 30 s after the window's load.
 # ZENIUS_DEV_METHODS=0 starts the profile without the dev.* methods (rubric C's live
 # runs, tests/live/run.mjs: agent-written scripts reach the socket).
 #
@@ -62,6 +70,8 @@ WATCHDOG=$DEV/run/$NAME.watchdog
 LOG=$DEV/logs/$NAME.log
 CRASH_LOG=$DEV/logs/startup-crashes.log
 CRASH_SIGNAL=
+CRASH_WHAT=
+STALL_FILE=
 if [[ $(uname) == Darwin ]]; then
   ZEN=${ZEN_BIN:-/Applications/Zen.app/Contents/MacOS/zen}
 else
@@ -305,6 +315,12 @@ ensure_profile() {
       rm -rf "$PROFILE/chrome/JS/$c.uc.js" "$PROFILE/chrome/JS/$c"
     done
   fi
+  # Dev profiles only: a line in the log saying where a window's startup
+  # stopped, if it never finished (scripts/dev/startup-watch.uc.js). An
+  # installed runtime's profile stays as install.sh wrote it.
+  if [[ -z ${ZENIUS_INSTALLED:-} ]]; then
+    cp "$ROOT/scripts/dev/startup-watch.uc.js" "$PROFILE/chrome/JS/zen-dev-startup-watch.uc.js"
+  fi
   # Zen's build id, so it doesn't greet a new dev profile as freshly updated.
   local appdir build_id
   appdir=$(dirname "$ZEN")
@@ -394,7 +410,8 @@ EOF
 }
 
 # One launch. Returns 0 once the runtime is ready, 2 if Zen died of a signal
-# before that (CRASH_SIGNAL holds it), 1 otherwise.
+# before that (CRASH_SIGNAL holds it), 3 if its start stalled before the
+# runtime's first line (STALL_FILE names its threads' state), 1 otherwise.
 launch() {
   # Again before each try: an update can arrive while a retry waits.
   refuse_waiting_update
@@ -432,6 +449,7 @@ launch() {
         wait "$launched" 2>/dev/null || status=$?
         if ((status > 128)); then
           CRASH_SIGNAL=$((status - 128))
+          CRASH_WHAT="signal=$CRASH_SIGNAL"
           return 2
         fi
         echo "$NAME exited during startup (status $status); tail of $LOG:" >&2
@@ -445,8 +463,35 @@ launch() {
   # hold a visible window on the user's Mac until someone noticed.
   echo "$NAME: no '$READY_MARK' in $LOG after $wait_s s; stopping it. Tail of the log:" >&2
   tail -30 "$LOG" >&2
+  # Not one line of the runtime's: the browser's own startup stalled before
+  # zenius's service starts, which waits for the window's delayed startup.
+  # The Mac's core run of 2026-11-22 had one: Zen restored its session and
+  # never got to its own Zen Mods line. start retries that once, as a crash,
+  # with the threads' state kept to say where it stopped.
+  if ! grep -qF "[zenius] " "$LOG" 2>/dev/null; then
+    STALL_FILE=$(record_stall "$(cat "$PIDFILE")")
+    CRASH_WHAT="stalled=${wait_s}s threads=${STALL_FILE:-none}"
+    stop >/dev/null
+    return 3
+  fi
   stop >/dev/null
   return 1
+}
+
+# Where the threads of a Zen whose start stalled are: macOS's sample of them,
+# or Linux's name, state and kernel wait of each. Prints the file, if any.
+record_stall() {
+  local pid=$1 file t
+  file=$DEV/logs/$NAME-stall-$(date -u +%Y%m%dT%H%M%SZ).txt
+  if [[ $(uname) == Darwin ]]; then
+    command -v sample >/dev/null && sample "$pid" 2 -mayDie -file "$file" >/dev/null 2>&1 || true
+  elif [[ -d /proc/$pid/task ]]; then
+    for t in /proc/"$pid"/task/*; do
+      printf '%s %s %s %s\n' "${t##*/}" "$(cat "$t/comm" 2>/dev/null)" \
+        "$(sed 's/^.*) //' "$t/stat" 2>/dev/null | cut -d' ' -f1)" "$(cat "$t/wchan" 2>/dev/null)"
+    done >"$file" 2>/dev/null || true
+  fi
+  if [[ -s $file ]]; then echo "$file"; fi
 }
 
 # A visible dev window must not outlive the run that opened it, even when that
@@ -474,9 +519,10 @@ expire() {
 
 # Headless starts on the Linux server sometimes die of a signal before the runtime loads,
 # and work on retry. Count them here (the manager's request) and retry once.
+# A start that stalls before the runtime loads is counted here too.
 record_crash() {
   {
-    printf '%s %s profile=%s signal=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$NAME" "$1" "$CRASH_SIGNAL"
+    printf '%s %s profile=%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$NAME" "$1" "$CRASH_WHAT"
     tail -5 "$LOG" | sed 's/^/    /'
   } >>"$CRASH_LOG"
 }
@@ -493,17 +539,27 @@ start() {
   ensure_profile
   # A crash comes in bursts under load: twice on 2026-11-20 (the Linux server, load 30+)
   # the retry died in the same second as the first try. So retry up to
-  # ZENIUS_START_RETRIES times, waiting 2 s, then 4, then 6 before each.
-  local status=0 try=1 retries=${ZENIUS_START_RETRIES:-3}
+  # ZENIUS_START_RETRIES times, waiting 2 s, then 4, then 6 before each. A
+  # stall costs a whole wait, so it gets one retry of those at most.
+  local status=0 try=1 retries=${ZENIUS_START_RETRIES:-3} stalled=0
   launch "$@" || status=$?
-  while ((status == 2)); do
+  while ((status == 2 || status == 3)); do
     if ((try == 1)); then record_crash "$profile_state"; else record_crash "$profile_state, retry $((try - 1))"; fi
-    if ((try > retries)); then
-      echo "$NAME: died of signal $CRASH_SIGNAL on each of $try tries; tail of $LOG:" >&2
-      tail -30 "$LOG" >&2
+    if ((try > retries || (status == 3 && stalled))); then
+      if ((status == 3)); then
+        echo "$NAME: its start stalled before the runtime loaded on $try tries (logged in $CRASH_LOG)" >&2
+      else
+        echo "$NAME: died of signal $CRASH_SIGNAL on each of $try tries; tail of $LOG:" >&2
+        tail -30 "$LOG" >&2
+      fi
       break
     fi
-    echo "$NAME: Zen died of signal $CRASH_SIGNAL before the runtime was ready (logged in $CRASH_LOG); retrying in $((2 * try)) s" >&2
+    if ((status == 3)); then
+      stalled=1
+      echo "$NAME: its start stalled before the runtime loaded (logged in $CRASH_LOG, its threads in ${STALL_FILE:-no file}); retrying in $((2 * try)) s" >&2
+    else
+      echo "$NAME: Zen died of signal $CRASH_SIGNAL before the runtime was ready (logged in $CRASH_LOG); retrying in $((2 * try)) s" >&2
+    fi
     sleep $((2 * try))
     status=0
     launch "$@" || status=$?

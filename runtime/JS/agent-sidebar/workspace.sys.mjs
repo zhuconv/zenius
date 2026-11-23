@@ -436,7 +436,7 @@ export function agentEnvironment(agent, overrides = {}) {
 
 /**
  * Claude Code's process: its thinking comes as summaries, which the chat's
- * thinking row shows ("Thinking · <title> · 12 s"). claude-agent-acp 0.107.0
+ * thinking row shows ("Thinking for 12 s, <title>"). claude-agent-acp 0.107.0
  * reads CLAUDE_CODE_THINKING_DISPLAY (session-env.js, resolveThinkingConfig)
  * into the SDK's thinking option, {type: adaptive, display}, which SDK
  * 0.3.323 passes the CLI as --thinking=adaptive --thinking-display

@@ -108,6 +108,9 @@ Prompts are answered according to a keyword in the prompt text:
   ASKOTP      (zen-sidebar) the same for a verification code, with the two
               options Claude offers beside its box (AskUserQuestion takes 2
               to 4): "I'll type it" and "No code yet"
+              With QUIET too, any ask's outcome isn't said back: the answer
+              is "Thanks, I have your answer." (zen-sidebar, for Chat's
+              saved threads)
   ASKCODEX    (zen-sidebar) Codex's request_user_input as codex-acp sends it:
               its generic message, a question with "None of the above" and
               its note field, and a secret question
@@ -509,8 +512,10 @@ ASKS = {
 }
 
 
-def ask(session, keyword):
-    """Ask the client as an adapter does, then say what came back."""
+def ask(session, keyword, quiet=False):
+    """Ask the client as an adapter does, then say what came back, or with
+    `quiet` only that something did: an agent that keeps the answer to
+    itself, as one does with a code."""
     spec = ASKS[keyword]
     next_id[0] += 1
     rid = next_id[0]
@@ -533,7 +538,10 @@ def ask(session, keyword):
     result = waiting.pop(rid).get("result")
     if spec.get("tool"):
         update(session, {"sessionUpdate": "tool_call_update", "toolCallId": call, "status": "completed"})
-    say(session, "ask outcome: " + json.dumps(result, sort_keys=True), size=400)
+    if quiet:
+        say(session, "Thanks, I have your answer." if (result or {}).get("action") == "accept" else "No answer, then.")
+    else:
+        say(session, "ask outcome: " + json.dumps(result, sort_keys=True), size=400)
     return "cancelled" if session in cancelled else "end_turn"
 
 
@@ -721,7 +729,7 @@ def prompt(request):
         waiting[rid]["event"].wait(30)
         say(session, "permission outcome: " + json.dumps(waiting.pop(rid).get("result")))
     elif any(keyword in text for keyword in ASKS):
-        stop = ask(session, next(keyword for keyword in ASKS if keyword in text))
+        stop = ask(session, next(keyword for keyword in ASKS if keyword in text), quiet="QUIET" in text)
     elif "MARKDOWN" in text:
         say(session, (
             "## Heading\n\n- item **bold**\n\n`inline`\n\n```py\nprint(1)\n```\n\n"

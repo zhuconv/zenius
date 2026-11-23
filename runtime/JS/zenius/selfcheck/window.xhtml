@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The post-install self-check's window (zen-core; docs/research/selfcheck.md).
+
+     It isn't a browser window, so Zen's window sync, Spaces and tabs never
+     come into it, SessionStore never records it, and no zenius lookup
+     (navigator:browser, BrowserWindowTracker) ever picks it. Its root has no
+     id and nothing has persist attributes, so xulstore keeps nothing of it.
+     The agent sidebar's prepare(win) fills the host box with the panel and
+     the directory. -->
+<window xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+        windowtype="zenius:selfcheck"
+        title="zenius self-check"
+        width="720"
+        height="760">
+  <vbox id="zenius-selfcheck-host" flex="1"/>
+</window>

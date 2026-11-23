@@ -6,12 +6,15 @@
 // a screenshot and a download to the run's output folder. run.sh
 // installs the launcher from a copy of this checkout into its own folder
 // (never ~/.local/bin or ~/.zenius/cli) and names it in
-// ZENIUS_SECURITY_LAUNCHER.
+// ZENIUS_SECURITY_LAUNCHER. The post-install self-check's socket is one of
+// the sockets out of reach: neither a script nor `zenius selfcheck` through
+// the launcher reaches it, and `zenius mcp` offers no tool for it
+// (docs/research/selfcheck.md).
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createSocket } from "node:dgram";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { connect, createServer } from "node:net";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
@@ -57,6 +60,8 @@ let udpHits = 0;
 const cleanups = [];
 /** Sockets outside the sandbox that the harness itself reached, by name. */
 const sockets = {};
+/** Connections that reached the self-check socket's stand-in, while it stands in. */
+let selfcheckHits = 0;
 
 before(async () => {
   fixtures = await startFixtures();
@@ -93,6 +98,31 @@ before(async () => {
   rmSync(sibling, { force: true });
   await listen("a socket beside the instance's", sibling);
   cleanups.push(() => rmSync(sibling, { force: true }));
+  // The self-check's socket, beside run/ (docs/research/selfcheck.md): only a
+  // caller outside the sandbox may reach it. The runtime serves it once it has
+  // the self-check; until then, or until it opens it, a stand-in listens at
+  // its place. The stand-in binds under a name of its own and is renamed into
+  // place, since closing a server unlinks the path it bound, whoever's file is
+  // there by then, and the runtime replaces a file it finds at start.
+  const selfcheck = join(ZHOME, "selfcheck", `${INSTANCE}.sock`);
+  if (!(await reachable(selfcheck))) {
+    mkdirSync(dirname(selfcheck), { recursive: true, mode: 0o700 });
+    const bound = join(dirname(selfcheck), `.${INSTANCE}-${process.pid}.sock`);
+    rmSync(bound, { force: true });
+    const server = createServer((socket) => {
+      selfcheckHits += 1;
+      socket.destroy();
+    });
+    await new Promise((resolve, reject) => server.once("error", reject).listen(bound, resolve));
+    cleanups.push(() => new Promise((resolve) => server.close(() => resolve())));
+    renameSync(bound, selfcheck);
+    const { ino } = statSync(selfcheck);
+    cleanups.push(() => {
+      if (statSync(selfcheck, { throwIfNoEntry: false })?.ino === ino) rmSync(selfcheck);
+    });
+    assert.ok(await reachable(selfcheck), "the self-check socket's stand-in doesn't answer out here");
+  }
+  sockets["the self-check socket"] = selfcheck;
   // Abstract sockets have no file, so no mount can hide them: only a network namespace does.
   if (LINUX) await listen("an abstract socket", `\0zenius-canary-${process.pid}`);
   const uid = process.getuid?.() ?? 0;
@@ -739,4 +769,40 @@ console.log(JSON.stringify(out));
   }
   // The file stays where the agent, outside the sandbox, can read it.
   assert.equal(readFileSync(file, "utf8"), "left by the first run");
+});
+
+/** A path as the CLI shows it: under the home folder, with ~. */
+const shown = (path) => (path.startsWith(`${HOME}/`) ? `~${path.slice(HOME.length)}` : path);
+
+test("zenius selfcheck through the launcher can't reach the self-check, says it runs only from the user's own shell, and names no command and no path", async () => {
+  const socket = sockets["the self-check socket"];
+  const hits = selfcheckHits;
+  const result = await launch(["selfcheck", "--instance", INSTANCE]);
+  assert.equal(result.code, 2, `${result.stdout}\n${result.stderr}`);
+  assert.equal(result.stdout, "");
+  // The code is the sandbox's refusal. No path: it would show an agent whose
+  // harness reaches Unix sockets what to try (zen-observe's review).
+  assert.match(
+    result.stderr,
+    /^zenius selfcheck: this process can't reach the self-check \([A-Z_]+\)\. The self-check runs only from the user's own shell, outside zenius's sandbox \(install-daily\.md, step 6\)\.\n$/,
+  );
+  assert.doesNotMatch(result.stderr, /`|\bnode\b|PATH=|bin\/zenius|zenius\/cli|install-cli/);
+  assert.ok(!result.stderr.includes(socket) && !result.stderr.includes(shown(socket)), result.stderr);
+  assert.equal(selfcheckHits, hits, "the launcher's zenius selfcheck reached the stand-in");
+  assert.ok(await reachable(socket), "the self-check socket stopped answering out here, so the probe proves nothing");
+});
+
+test("zenius mcp through the launcher offers no tool for the self-check", async () => {
+  const messages = [
+    { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "security-canary", version: "0" } } },
+    { jsonrpc: "2.0", method: "notifications/initialized" },
+    { jsonrpc: "2.0", id: 2, method: "tools/list" },
+  ];
+  const result = await launch(["mcp", "--instance", INSTANCE], { stdin: messages.map((message) => `${JSON.stringify(message)}\n`).join("") });
+  assert.equal(result.code, 0, result.stderr);
+  const replies = result.stdout.trim().split("\n").map((line) => JSON.parse(line));
+  const init = replies.find((reply) => reply.id === 1)?.result;
+  const tools = replies.find((reply) => reply.id === 2)?.result?.tools;
+  assert.ok(init && Array.isArray(tools) && tools.length > 0, result.stdout);
+  assert.doesNotMatch(JSON.stringify({ init, tools }), /self.?check/i);
 });

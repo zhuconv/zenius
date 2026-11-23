@@ -19,7 +19,7 @@ Each frame is one JSON object followed by `\n`, over the Unix socket
 
 ```jsonc
 // server → client, first frame after connect
-{"event": "hello", "params": {"protocol": 1, "instance": "default", "runtimeVersion": "0.1.0", "zenVersion": "1.24.2b"}}
+{"event": "hello", "params": {"protocol": 1, "instance": "default", "runtimeVersion": "0.1.1", "zenVersion": "1.24.2b"}}
 // request
 {"id": 7, "method": "page.click", "params": {"space": 3, "page": "p1", "target": "@21", "options": {"label": "submit form"}}}
 // success
@@ -973,7 +973,7 @@ goes away or the element is garbage-collected.
 |---|---|---|
 | `ui.cursor` | `{space, page, x, y, label?, kind?}` | `{ok, visible, animated}` |
 | `ui.state` | `{space}` | `{space, ownership, paused, pausedByUser, reason, badge, prompt, controlNotice, controlNote, controlMore, controlButtons}`: what the user sees of the Space, for tests and tools (`controlNote` is the hold card's small text as shown, `controlMore` what waits behind its '?') |
-| `ui.sidebarStatus` | `{}` | `{loaded, windows, config, configPath, builtin?, error?}`: zenius's agent sidebar, for doctor |
+| `ui.sidebarStatus` | `{}` | `{loaded, windows, open, failed, perWindow, config, configPath, builtin?, error?}`: zenius's agent sidebar, for doctor |
 
 `ui.cursor` moves the page's agent cursor to `x`, `y` (viewport CSS px of the
 page's top document) with `label` beside it. `kind` is one of `move`,
@@ -986,14 +986,25 @@ hooks"); the method is for tests and tools.
 
 `ui.sidebarStatus` says whether zenius's agent sidebar (`docs/agent-sidebar.md`)
 runs, for zen-sdk's doctor:
-- `loaded`: it started in at least one open window; `windows`: how many.
-  The user's own copy of the sidebar never counts, as only zenius's reports
-  its start.
+- `perWindow`: each open browser window, oldest first, as
+  `{sidebar, kind?, error?}`. `sidebar` is `"started"`, `"failed"` (with the
+  start's exception message as `error`), `"skipped"` in a popup (a window
+  whose toolbar isn't visible, such as a site's sign-in window), where the
+  sidebar doesn't start, or `"none"` when no start is recorded: the window is
+  still opening, or its sidebar file isn't zenius's. Only `"failed"` and
+  `"none"` carry `kind`, `"browser"`, `"private"` or `"popup"`, for doctor
+  to name the window: any socket client may call this method, and other
+  windows' kinds would tell it whether a private window is open. A sidebar
+  script that isn't zenius's never counts, as only zenius's reports its start.
+- `open`: how many windows the sidebar starts in, every one but popups.
+  `windows`: in how many of them it started, and `failed`: in how many its
+  start threw, with the first one's message as `error`. Popups count in none
+  of them. `loaded`: it started in at least one open window.
 - `config`: whether its agents' config is there: `"found"`, `"missing"`, or
   `"none"` when the pref `uc.agent-sidebar.config` is `"none"` (no agents,
-  as in every dev profile). `configPath` names it: the pref, else the
-  user's `~/Library/Application Support/zenius-agent-sidebar/config.json`.
-  Without that file of the user's, while the pref is unset, the sidebar
+  as in every dev profile). `configPath` names it: the pref, else
+  `~/Library/Application Support/zenius-agent-sidebar/config.json`, in the
+  sidebar's own folder. Without that file, while the pref is unset, the sidebar
   offers its built-in agents (`docs/agent-sidebar.md`), and `config` is
   `"builtin"` when one of them can run. So does the pref `"builtin"` (the
   tests'). A path the pref names never falls back to them: when it's
@@ -1005,7 +1016,6 @@ runs, for zen-sdk's doctor:
   and `adapters` whether each adapter is installed. `missing` is the one
   line the sidebar shows when none can run, else null. If finding them
   failed: `{agents: [], error}`.
-- `error`: the exception message of a window's start that threw.
 
 **Clipboard in agent tabs (zen-ux).** A page's own clipboard calls in an
 agent tab use the Space's clipboard, like the agent's chords: a "Copy"
@@ -1121,7 +1131,8 @@ updatedAt, endsAt, endedAt?}`, with times in ms since the epoch.
       this page over).
   - `stopped`: final. `stopReason` is one of:
     - `caller`: `sidebar.stop`;
-    - `user`: the user pressed Stop, or removed the task;
+    - `user`: the user pressed Stop or archived the task, or it was taken
+      off the sidebar's list;
     - `limit`: the 60-minute limit;
     - `zen_quit`: Zen quit during a turn;
     - `off`: the user turned remote tasks off.
@@ -1153,9 +1164,11 @@ Limits, which are zenius's and not the user's to set:
   once `retryAfterMs` has passed for the hourly limit, or once a running
   task has ended.
 
-An ended task stays in `list` and `status` for at least 24 hours, unless
-the user removes it. A removed task reads `stopped`/`user` until Zen quits,
-and `ZEN_REMOTE_TASK_NOT_FOUND` after that.
+An ended task stays in `list` and `status` for at least 24 hours, archived
+or not. Unarchive leaves it stopped: `send` still fails with
+`ZEN_REMOTE_TASK_ENDED`. A task taken off the sidebar's list reads
+`stopped`/`user` until Zen quits, and `ZEN_REMOTE_TASK_NOT_FOUND` after
+that.
 
 `zenius.agentSidebar.allowRemoteTasks` defaults to true, and about:config
 lists it. Setting it to false turns remote tasks off:
@@ -1216,6 +1229,42 @@ reasons: `hooked`, `made`, `listed`, `flagged`); or `paused`, or
 `spaceFinished {space, closedSpace}`, `pageClosed {space, page, tab}`,
 `popup {space, page, tab, opener}`.
 
+### Self-check (zen-core)
+
+The post-install self-check (`docs/research/selfcheck.md`) has a socket of its
+own: `~/.zenius/selfcheck/<instance>.sock`, mode 0600 in a 0700 folder, which
+the runtime opens at idle after the agents' socket. It takes the same frames
+and sends the same hello, and it serves one method. Anything else there gets
+`ZEN_UNSUPPORTED`, `dev.*` included. The agents' socket doesn't have the
+method, and the sandboxed CLI can't reach this socket
+(`docs/research/method-boundary.md`, finding 12).
+
+| Method | Params | Result |
+|---|---|---|
+| `selfcheck.run` | none (`{}`) | `{ok, timedOut, callerLeft, ms, waitedMs, window, dir, runtimeVersion, commit, zenVersion, error, checks: [{id, title, ok, failedStep, error, shots}]}`, once the run has ended and cleaned up; `window` is the mode its window opened in: `invisible` on a Mac's display (`corner` if its see-through step failed, and the log says why), `offscreen` on another display, `floating` on a headless Zen, unless a dev Zen's test chose another (`docs/research/selfcheck.md`, "The window") |
+
+- One run goes at a time. The call answers when the run ends, within its
+  120 s limit plus 10 s, after any wait.
+- While Zen is the app in front, the run waits before its window opens, for
+  up to 60 s: a window opened then would take Zen's focus from the user's
+  window for a moment. It opens once Zen is in the background, right after a
+  check that it is. Meanwhile the call is held (as in "Held calls" above): a
+  request with `"progress": true` gets `{id, held: true, reason:
+  "zen-in-front"}`, then `{id, held: false}` when the wait ends. The run's
+  limit starts after it. `waitedMs` is how long it waited (0 if it didn't).
+  If Zen stays in front for the whole wait, nothing opens or runs, and
+  `error` says Zen stayed in front. A headless Zen has no front app, so
+  there a run doesn't wait.
+- Only the connection that started a run can stop it, by closing. The result
+  then has `callerLeft: true`.
+- `dir` is the run's folder, `~/.zenius/selfcheck/<instance>/<time>/`. It
+  holds `summary.json` (the result without `dir`) and a PNG per step. At each
+  start, retention there keeps the runs of the last 7 days, at most the 10
+  newest.
+- `commit` is `""` on a profile that `install.sh` didn't fill. The top-level
+  `error` is a failure outside the checks, such as a window that didn't open,
+  and null otherwise.
+
 ## Errors
 
 `error.code` takes one of the values below. They mirror Ego's codes one for
@@ -1261,6 +1310,8 @@ ZEN_DIALOG_NOT_FOUND        ZEN_DOWNLOAD_FAILED
 - `ZEN_REMOTE_TASK_BUSY` (zen-observe): `sidebar.send` while the task's turn runs or waits for the user (`data.state`).
 - `ZEN_REMOTE_TASK_ENDED` (zen-observe): `sidebar.send` to a stopped or failed task (`data.state`, `data.stopReason`).
 - `ZEN_SIDEBAR_UNAVAILABLE` (zen-observe): the sidebar can't run a remote task; `data.reason` is `no_sidebar`, `no_agents` or `agent_unavailable` (with `data.harness`).
+- `ZEN_SELFCHECK_BUSY` (zen-core): `selfcheck.run` while a run is going; one runs at a time.
+- `ZEN_SELFCHECK_UNAVAILABLE` (zen-core): this profile's agent sidebar has no self-check, or the instance's name isn't a plain one.
 
 `ZEN_TASK_SPACE_USER_IN_CONTROL` uses Ego's reason keys in `data.reason`:
 `manual_takeover` (the user's Take over), and from a task's pages

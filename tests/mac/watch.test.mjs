@@ -6,7 +6,7 @@
 // - Watch shows the task's Space and tab. The card then hides Watch and shows
 //   its hint in its place, "⌃Tab back to your tabs", which isn't a button
 //   (#live[data-watching="true"], whoever began the watch, Take over too).
-//   zenius says "Watching <task> · ⌃Tab" in its agents strip; where the strip
+//   zenius says "Watching <task> [⌃Tab]" in its agents strip; where the strip
 //   can't be read (a collapsed sidebar, compact mode), a chip in the page
 //   area's top left corner says it instead, with no buttons, and every click
 //   goes through it. ⌃Tab is the only way back: it returns to the user's own
@@ -155,7 +155,7 @@ const W = {
       box.style.maxWidth = was;
     }
   },
-  // The strip once the watched task is done: "Task done · ⌃Tab back to your tabs".
+  // The strip once the watched task is done: "Task done, [⌃Tab] back to your tabs".
   doneStrip(narrow = 0) {
     const strip = win.document.querySelector(H.WATCH.strip), label = strip?.querySelector(H.WATCH.stripText);
     if (!strip || !label) return null;
@@ -267,7 +267,7 @@ function assertLongHint(look, where) {
   assert.equal(s?.watching, "true", `the strip doesn't say Watching ${where}: ${all}`);
   assert.ok(s.name?.includes(LONG), `the strip doesn't hold the long name ${where}: ${all}`);
   assert.ok(s.nameCut, `the strip doesn't cut the long name with an ellipsis ${where}: ${all}`);
-  assert.equal(s.key, " · ⌃Tab", `the strip's key ${where}: ${all}`);
+  assert.equal(s.key, " ⌃Tab", `the strip's key ${where}: ${all}`);
   assert.ok(s.keyShown && s.keyWhole, `the strip cuts its key ${where}: ${all}`);
   assert.equal(look.stripChip, null, `the chip shows where the strip can be read ${where}: ${all}`);
   // Where it can't, the chip says the same, small, in the page area's top
@@ -278,7 +278,7 @@ function assertLongHint(look, where) {
     assert.ok(c.left >= -1 && c.left <= 40 && c.top >= -1 && c.top <= 40, `the chip isn't in the page area's top left corner ${at}: ${all}`);
     assert.ok(c.width <= Math.min(280, 0.4 * c.pageWidth) + 1, `the chip is wider than 280 px or 40% of the page ${at}: ${all}`);
     assert.ok(c.name?.includes(LONG) && c.nameCut, `the chip doesn't cut the long name with an ellipsis ${at}: ${all}`);
-    assert.equal(c.key, "· ⌃Tab", `the chip's key ${at}: ${all}`);
+    assert.equal(c.key, "⌃Tab", `the chip's key ${at}: ${all}`);
     assert.equal(c.kbd, "⌃Tab", `the chip's key isn't in a <kbd> ${at}: ${all}`);
     assert.ok(c.keyWhole, `the chip cuts its key ${at}: ${all}`);
     assert.equal(c.buttons, 0, `the chip has a button, but ⌃Tab is the only way back ${at}: ${all}`);
@@ -383,7 +383,7 @@ test("A working task's live card shows its page, with Watch and Take over", { sk
   console.log(`# shot: ${r.shot}`);
   assert.ok(r.card.shown, `the live card isn't shown: ${all}`);
   assert.equal(r.card.live, "true", `the card doesn't say the agent is on the page: ${all}`);
-  assert.match(r.card.text ?? "", /^Live · \S/, `the card's line: ${all}`);
+  assert.match(r.card.text ?? "", /^Live on \S/, `the card's line: ${all}`);
   assert.ok(r.card.shot && r.card.shot[0] > 0 && r.card.shot[1] > 0, `the card has no picture: ${all}`);
   assert.equal(r.card.dataWatching, "false", `#live[data-watching] isn't "false" before any watch: ${all}`);
   assert.ok(r.card.watchHidden === false && r.card.watch === "Watch", `the card's Watch doesn't show, reading "Watch", before any watch: ${all}`);
@@ -466,7 +466,7 @@ test("Watch shows the task's Space and tab; ⌃Tab returns to the user's own", {
   assert.equal(r.strip?.watching, "true", `the strip doesn't say Watching while watching: ${all}`);
   assert.ok(r.strip.shown && r.strip.keyShown, `the strip's hint can't be seen: ${all}`);
   assert.ok(r.taskName && r.strip.name?.includes(r.taskName), `the strip doesn't name the watched task: ${all}`);
-  assert.equal(r.strip.key, " · ⌃Tab", `the strip's key: ${all}`);
+  assert.equal(r.strip.key, " ⌃Tab", `the strip's key: ${all}`);
   assert.equal(r.chip, null, `the chip shows where the strip can be read: ${all}`);
   assert.equal(r.shown, true, `watch() says the window doesn't show the task: ${all}`);
   assert.equal(r.during.attr, uid, `#main-window doesn't name the watched task: ${all}`);
@@ -566,7 +566,7 @@ test("Take over hands the page to the user, and watches it", { skip }, async () 
   assert.equal(r.took, true, `takeOver() says the user doesn't have the task: ${all}`);
   assert.equal(r.during.held, "takeover", `the task isn't held by a Take over: ${all}`);
   assert.equal(r.during.watching, uid, `Take over doesn't watch the task: ${all}`);
-  assert.match(r.during.card.text ?? "", /^You have control · \S/, `the card's line: ${all}`);
+  assert.match(r.during.card.text ?? "", /^You have control on \S/, `the card's line: ${all}`);
   assert.equal(r.during.card.takeOver, false, `Take over still shows after the user took the page: ${all}`);
   assert.equal(r.during.card.dataWatching, "true", `#live[data-watching] isn't "true" while Take over watches: ${all}`);
   assert.ok(r.during.card.watchHidden === true && r.during.card.hintHidden === false, `the card doesn't show its hint in Watch's place after Take over: ${all}`);
@@ -589,7 +589,7 @@ test("After Take over, the hint with a 200-character name is the same, in Light 
 // holds a step), since finishing ends it, and the agent finishes it through
 // zenius, keeping nothing, as task.finish({ keep: [] }) does. The window then
 // stays on the task's page, which waits until the user leaves it, and says
-// "Task done · ⌃Tab back to your tabs": in the strip, whole at the profile's
+// "Task done, [⌃Tab] back to your tabs": in the strip, whole at the profile's
 // sidebar width, and where it's narrower only "back to your tabs" is cut; in
 // Light and Dark. With the sidebar collapsed the chip says the same and cuts
 // the same way. ⌃Tab goes back to the user's tab and Space, and the page closes.
@@ -606,9 +606,9 @@ function assertDoneHint(look, where) {
   const s = look.strip, lead = s?.parts?.[".zenius-strip-lead"], key = s?.parts?.[".zenius-strip-key"], rest = s?.parts?.[".zenius-strip-rest"];
   assert.equal(s?.watching, "done", `the strip isn't [watching="done"] ${where}: ${all}`);
   assert.ok(s.shown, `the strip can't be seen ${where}: ${all}`);
-  assert.equal(s.text, "Task done · ⌃Tab back to your tabs", `the strip's words ${where}: ${all}`);
-  assert.ok(lead?.text === "Task done" && !lead.cut && lead.inside, `the strip cuts "Task done" ${where}: ${all}`);
-  assert.ok(key?.text === " · ⌃Tab" && !key.cut && key.inside, `the strip cuts its key ${where}: ${all}`);
+  assert.equal(s.text, "Task done, ⌃Tab back to your tabs", `the strip's words ${where}: ${all}`);
+  assert.ok(lead?.text === "Task done," && !lead.cut && lead.inside, `the strip cuts "Task done" ${where}: ${all}`);
+  assert.ok(key?.text === " ⌃Tab" && !key.cut && key.inside, `the strip cuts its key ${where}: ${all}`);
   assert.equal(rest?.text, " back to your tabs", `the strip doesn't say where ⌃Tab goes ${where}: ${all}`);
   assert.equal(look.stripChip, null, `the chip shows where the strip can be read ${where}: ${all}`);
   const n = look.stripNarrow?.parts ?? {};
@@ -620,8 +620,8 @@ function assertDoneHint(look, where) {
     assert.ok(c, `no chip ${at}: ${all}`);
     const p = c.parts;
     assert.equal(c.done, true, `the chip isn't [done] ${at}: ${all}`);
-    assert.ok(p[".zenius-watch-name"]?.text === "Task done" && !p[".zenius-watch-name"].cut && p[".zenius-watch-name"].inside, `the chip cuts "Task done" ${at}: ${all}`);
-    assert.ok(p[".zenius-watch-key"]?.text === "· ⌃Tab" && !p[".zenius-watch-key"].cut && p[".zenius-watch-key"].inside, `the chip cuts its key ${at}: ${all}`);
+    assert.ok(p[".zenius-watch-name"]?.text === "Task done," && !p[".zenius-watch-name"].cut && p[".zenius-watch-name"].inside, `the chip cuts "Task done" ${at}: ${all}`);
+    assert.ok(p[".zenius-watch-key"]?.text === "⌃Tab" && !p[".zenius-watch-key"].cut && p[".zenius-watch-key"].inside, `the chip cuts its key ${at}: ${all}`);
     assert.equal(c.kbd, "⌃Tab", `the chip's key isn't in a <kbd> ${at}: ${all}`);
     assert.ok(p[".zenius-watch-rest"]?.text === "back to your tabs" && !p[".zenius-watch-rest"].hidden, `the chip doesn't say where ⌃Tab goes ${at}: ${all}`);
     assert.ok(c.left >= -1 && c.left <= 40 && c.top >= -1 && c.top <= 40, `the chip isn't in the page area's top left corner ${at}: ${all}`);
@@ -637,7 +637,7 @@ function assertDoneHint(look, where) {
   }
 }
 
-test("A watched task's end: 'Task done · ⌃Tab' stays whole in the strip, in Light and Dark, and in the chip with the sidebar collapsed; ⌃Tab goes back, and the page closes", { skip: skipDone }, async () => {
+test("A watched task's end: 'Task done, [⌃Tab]' stays whole in the strip, in Light and Dark, and in the chip with the sidebar collapsed; ⌃Tab goes back, and the page closes", { skip: skipDone }, async () => {
   const started = await watchCall(`
     const { startWorkChat } = ChromeUtils.importESModule(H.MODULE);
     const g = T.glue(), gb = win.gBrowser;

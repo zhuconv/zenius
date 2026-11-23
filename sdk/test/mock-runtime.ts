@@ -102,9 +102,10 @@ export class MockRuntime {
   #waiters: Array<{ space: number; page: string; event: string; resolve: (value: unknown) => void }> = [];
   #sockets = new Set<Socket>();
 
-  constructor() {
+  /** `socketPath`: where to listen instead of the mock's own folder, such as a self-check socket's place. */
+  constructor(options: { socketPath?: string } = {}) {
     this.dir = mkdtempSync(join(tmpdir(), "zenius-mock-"));
-    this.socketPath = join(this.dir, "mock.sock");
+    this.socketPath = options.socketPath ?? join(this.dir, "mock.sock");
   }
 
   async start(): Promise<this> {

@@ -2,8 +2,10 @@
 // (ui.sidebarStatus). At the end of each window's start, agent-sidebar.uc.js
 // sets window.zeniusSidebarStart = {error}: a property, so the sidebar's start
 // loads no zenius module (I4), and this module loads with the method modules
-// at the first connection. The user's own sidebar never sets it, so a profile
-// where it is the one that ran never reads as loaded.
+// at the first connection. A sidebar script that isn't zenius's never sets
+// it, so a profile where such a script ran never reads as loaded.
+
+import { PrivateBrowsingUtils } from "resource://gre/modules/PrivateBrowsingUtils.sys.mjs";
 
 const PREF_CONFIG = "uc.agent-sidebar.config";
 const DEFAULT_CONFIG = ["Library", "Application Support", "zenius-agent-sidebar", "config.json"];
@@ -22,8 +24,43 @@ function startOf(win) {
 }
 
 /**
- * Where the sidebar reads its agents: the pref, else the user's own
- * zenius-agent-sidebar config, which it only reads.
+ * What doctor calls `win`: "popup" when its toolbar isn't visible, as a
+ * site's sign-in window's (the sidebar's own test: it doesn't start there),
+ * "private" for a private window, else "browser".
+ *
+ * @returns {"browser"|"private"|"popup"}
+ */
+function kindOf(win) {
+  if (!win.toolbar?.visible) {
+    return "popup";
+  }
+  return PrivateBrowsingUtils.isWindowPrivate(win) ? "private" : "browser";
+}
+
+/**
+ * A window as perWindow lists it, from its kind and start (startOf): the
+ * sidebar there is "started"; "failed", with its start's error; "skipped" in
+ * a popup; "none" in another window with no start recorded, one still
+ * opening or a profile whose sidebar file isn't zenius's. A popup's start,
+ * which only a sidebar file from before 2026-11-22 made, shows as it was.
+ *
+ * Only a failed window and one with no start carry their kind, the ones
+ * doctor names. Any socket client may call the method, and the other
+ * windows' kinds would tell it whether the user has a private window open
+ * (zen-observe's review, 2026-11-23).
+ *
+ * @returns {{sidebar: "started"|"failed"|"skipped"|"none", kind?: "browser"|"private"|"popup", error?: string}}
+ */
+function listed({ kind, start }) {
+  if (!start) {
+    return kind === "popup" ? { sidebar: "skipped" } : { kind, sidebar: "none" };
+  }
+  return start.error ? { kind, sidebar: "failed", error: start.error } : { sidebar: "started" };
+}
+
+/**
+ * Where the sidebar reads its agents: the pref, else config.json in
+ * zenius's own zenius-agent-sidebar folder, which it only reads.
  *
  * @returns {string}
  */
@@ -32,8 +69,13 @@ export function configPath() {
 }
 
 /**
+ * - perWindow: each open browser window, oldest first, popups too (listed);
+ * - open: those the sidebar starts in, all but popups; windows: in how many
+ *   it started; failed: in how many its start threw; error: the first of
+ *   those starts' message. A popup counts in none of them: in the user's
+ *   daily, a site's popup's error hid that the main window had loaded
+ *   (2026-11-22). open - windows - failed have no start recorded;
  * - loaded: zenius's sidebar started in at least one open window;
- * - windows: how many;
  * - config: whether its agents' config is there ("none": no agents, as in a
  *   dev profile), and configPath, so doctor can name it. Without the user's
  *   own file while the pref is unset, or with the pref "builtin", "builtin"
@@ -41,24 +83,20 @@ export function configPath() {
  * - builtin, where the sidebar would use them: what it found of its built-in
  *   agents (builtinStatus). Never for a path the pref names: the sidebar
  *   doesn't fall back to them there (AgentService.loadConfig);
- * - error: the startup's exception message from a window where it threw.
  *
- * @returns {Promise<{loaded: boolean, windows: number, config: "found"|"missing"|"builtin"|"none", configPath: string, builtin?: object, error?: string}>}
+ * @returns {Promise<{loaded: boolean, windows: number, open: number, failed: number, perWindow: object[], config: "found"|"missing"|"builtin"|"none", configPath: string, builtin?: object, error?: string}>}
  */
 export async function sidebarStatus() {
-  let windows = 0;
-  let error = null;
+  const all = [];
   for (const win of Services.wm.getEnumerator("navigator:browser")) {
-    const s = !win.closed && startOf(win);
-    if (!s) {
-      continue;
-    }
-    if (s.error) {
-      error ??= s.error;
-    } else {
-      windows++;
+    if (!win.closed) {
+      all.push({ kind: kindOf(win), start: startOf(win) });
     }
   }
+  // Counted by each window's kind, which perWindow mostly leaves out.
+  const counted = all.filter(w => w.kind !== "popup");
+  const windows = counted.filter(w => w.start && !w.start.error).length;
+  const failures = counted.filter(w => w.start?.error);
   const set = Services.prefs.getStringPref(PREF_CONFIG, "");
   const path = configPath();
   let config = "none";
@@ -72,7 +110,17 @@ export async function sidebarStatus() {
       }
     }
   }
-  return { loaded: windows > 0, windows, config, configPath: path, ...(builtin ? { builtin } : {}), ...(error ? { error } : {}) };
+  return {
+    loaded: windows > 0,
+    windows,
+    open: counted.length,
+    failed: failures.length,
+    perWindow: all.map(listed),
+    config,
+    configPath: path,
+    ...(builtin ? { builtin } : {}),
+    ...(failures.length ? { error: failures[0].start.error } : {}),
+  };
 }
 
 /**

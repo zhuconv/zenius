@@ -21,6 +21,12 @@ export type CodeGuide = {
   ego?: string;
   /** The SDK's own wording replaces the message (the hard stops), so nothing is added. */
   owned?: boolean;
+  /**
+   * Left out of help("errors") and help("<code>"), which agents read: only
+   * `zenius selfcheck` meets the code, and agents never run it
+   * (docs/research/selfcheck.md).
+   */
+  unlisted?: boolean;
   /** Sent as a plain Error without a code, as Ego throws it: scripts see only the message. */
   plain?: boolean;
 };
@@ -274,6 +280,20 @@ export const CODE_GUIDE: Record<string, CodeGuide> = {
     what: "The sidebar can't run the task: it isn't in this Zen (error.reason no_sidebar), has no agents (no_agents), or the agent asked for can't run (agent_unavailable).",
     next: "Run `zenius doctor`: its sidebar line says what's missing. Don't retry until it's fixed.",
   },
+  // Only `zenius selfcheck` calls selfcheck.run, and it words these itself,
+  // so they're owned; and unlisted, so no help an agent reads names them.
+  ZEN_SELFCHECK_BUSY: {
+    what: "A self-check is already running in this Zen; one runs at a time.",
+    next: "Wait for it to end, about two minutes at most.",
+    owned: true,
+    unlisted: true,
+  },
+  ZEN_SELFCHECK_UNAVAILABLE: {
+    what: "This Zen can't run the self-check: its agent sidebar has none, or its instance name isn't a plain one.",
+    next: "Run `zenius doctor`: its sidebar line says what's missing.",
+    owned: true,
+    unlisted: true,
+  },
 };
 
 /** After a certificate warning, only the user can decide (navigation's data.certificateWarning). */
@@ -505,7 +525,9 @@ function helpFor(message: string): string {
 
 /** help("errors"): every code, then every refused kind. */
 export function errorsHelp(): string {
-  const codes = Object.entries(CODE_GUIDE).map(([code, guide]) => formatCode(code, guide));
+  const codes = Object.entries(CODE_GUIDE)
+    .filter(([, guide]) => !guide.unlisted)
+    .map(([code, guide]) => formatCode(code, guide));
   const kinds = Object.entries(REFUSAL_GUIDE).map(([kind, guide]) => `${kind}\n  ${guide.what}\n  Next: ${guide.next}`);
   return [
     "Error codes",
@@ -525,7 +547,7 @@ export function errorsHelp(): string {
 /** help("ZEN_REF_STALE"), or undefined for a name that isn't a code. */
 export function codeHelp(name: string): string | undefined {
   const guide = Object.hasOwn(CODE_GUIDE, name) ? CODE_GUIDE[name] : undefined;
-  return guide ? formatCode(name, guide) : undefined;
+  return guide && !guide.unlisted ? formatCode(name, guide) : undefined;
 }
 
 function formatCode(code: string, guide: CodeGuide): string {

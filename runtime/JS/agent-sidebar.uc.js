@@ -28,17 +28,47 @@
   if (window.ucAgentSidebar) {
     return;
   }
+  // No sidebar in a window whose toolbar isn't visible: a site's popup (a
+  // sign-in window) or another window opened as one. fx-autoconfig takes such
+  // a window for a dialog and runs this script at its first DOMContentLoaded
+  // (boot.sys.mjs, isDialoglike: this same test), before the browser makes
+  // gBrowser, so the start threw there every time (the user's daily,
+  // 2026-11-22). A popup has no room for the panel anyway. Nothing is
+  // registered for it, and it has no zeniusSidebarStart: doctor counts the
+  // windows that have a sidebar.
+  if (!window.toolbar?.visible) {
+    return;
+  }
+  // The start pushes a cleanup for each thing it sets up, as it sets it up,
+  // so a cleanup refers only to what exists by then. They all run, last
+  // first, on every way out: the window's unload, uninit, and a start that
+  // throws midway. What the start gave a service that outlives the window
+  // (AgentService's task listeners: the arrival card's, the directory's)
+  // held every closed window before, a ghost window, and a popup's failed
+  // start left all of it.
+  const cleanups = [];
+  /** @param {"unload"|"uninit"|"failed"} why */
+  function end(why) {
+    for (const cleanup of cleanups.splice(0).reverse()) {
+      try {
+        cleanup(why);
+      } catch (e) {
+        console.error("[agent-sidebar]", e);
+      }
+    }
+  }
   // zenius's doctor learns how each window's sidebar started (zen-ux's
   // ui.sidebarStatus, agreed with zen-sdk): its error, if the start threw.
   // A property of the window, not a call into zenius: the sidebar loads no
-  // zenius module at its start, which I4 counts. The user's own copy of the
-  // sidebar never sets it.
+  // zenius module at its start, which I4 counts. A sidebar script that isn't
+  // zenius's never sets it.
   let error = null;
   try {
     startSidebar();
   } catch (e) {
     error = String(e?.message ?? e);
     console.error("[agent-sidebar]", e);
+    end("failed");
   }
   window.zeniusSidebarStart = Object.freeze({ error });
 
@@ -49,6 +79,9 @@
     AgentService.init(BASE);
     const { Directory } = ChromeUtils.importESModule(BASE + "directory.sys.mjs");
     const { registerSidebar, unregisterSidebar } = ChromeUtils.importESModule(BASE + "AgentSidebar.sys.mjs");
+    // Before anything is registered: whatever the start sets up goes when
+    // the window does.
+    listen(window, "unload", onUnload);
 
     const PANEL = "viewAgentSidebar";
     const ACTOR = "AgentSidebar";
@@ -102,7 +135,15 @@
     )}`;
 
     const conversations = new WeakMap(); // tab -> Conversation
-    const cleanups = [];
+    const keeping = new WeakMap(); // conv -> stops keeping its id on its tab
+    // A tab's chat is saved under an opaque id (AgentService.chatForTab),
+    // which the tab keeps as a SessionStore value, so the chat comes back
+    // with the tab after a restart or an update, and after Undo Close Tab
+    // (the user's bug, 2026-11-22). The value holds the id and nothing else.
+    // A private window's chats are never saved, and none comes back there.
+    const CHAT_VALUE = "zenius-chat";
+    const { PrivateBrowsingUtils } = ChromeUtils.importESModule("resource://gre/modules/PrivateBrowsingUtils.sys.mjs");
+    const keepChats = !PrivateBrowsingUtils.isWindowPrivate(window);
     let panel = null; // the open panel's API, set by panel.js
     let panelWaiters = [];
     // What the panel shows in this window: "chat", the selected tab's chat, or
@@ -111,14 +152,189 @@
     let currentTask = null;
     let draft = null; // '+ New task' before its first question: in no directory yet
     let directory = null;
+    cleanups.push(() => {
+      directory?.destroy();
+      directory = null;
+    });
 
     function conversationFor(tab) {
       let conv = conversations.get(tab);
       if (!conv) {
-        conv = AgentService.createConversation();
+        if (!keepChats) {
+          conv = AgentService.createConversation();
+          conversations.set(tab, conv);
+          return conv;
+        }
+        conv = AgentService.chatForTab(savedChatOf(tab));
         conversations.set(tab, conv);
+        // A copy (a duplicated tab's) gets an id of its own. An empty chat
+        // leaves the tab's id alone: the saved chats may not be read yet
+        // (rebind brings that chat in when they are).
+        if (conv.messages.length) {
+          keepOnTab(tab, conv);
+        }
+        keeping.set(
+          conv,
+          conv.subscribe(change => {
+            if (["add", "truncate", "reset"].includes(change.type)) {
+              keepOnTab(tab, conv);
+            }
+          })
+        );
       }
       return conv;
+    }
+
+    /**
+     * The tab lets go of its chat (it closes, its window does, or a saved chat
+     * takes its place). Its id stays on the tab, for Undo Close Tab and the
+     * next start: forget() empties the chat, which mustn't reach keepOnTab.
+     */
+    function letGo(tab) {
+      const conv = conversations.get(tab);
+      if (!conv) {
+        return;
+      }
+      conversations.delete(tab);
+      keeping.get(conv)?.();
+      keeping.delete(conv);
+      AgentService.forget(conv);
+    }
+
+    /** The id of the saved chat `tab` keeps, or "". */
+    function savedChatOf(tab) {
+      try {
+        return SessionStore.getCustomTabValue(tab, CHAT_VALUE) || "";
+      } catch {
+        return "";
+      }
+    }
+
+    /** The tab keeps its chat's id once the chat has something to keep, and none for an empty one. */
+    function keepOnTab(tab, conv) {
+      const id = conv.messages.length ? conv.uid : "";
+      if (savedChatOf(tab) === id) {
+        return;
+      }
+      try {
+        if (id) {
+          SessionStore.setCustomTabValue(tab, CHAT_VALUE, id);
+        } else {
+          SessionStore.deleteCustomTabValue(tab, CHAT_VALUE);
+        }
+      } catch (e) {
+        console.error("[agent-sidebar] could not keep the chat with its tab", e);
+      }
+    }
+
+    /**
+     * A tab that got its saved state after its chat was made (a tab restored
+     * at the start, a duplicate, Undo Close Tab), or before the saved chats
+     * were read: an empty chat makes way for the one the tab keeps.
+     */
+    function rebind(tab) {
+      const conv = conversations.get(tab);
+      const id = savedChatOf(tab);
+      if (!conv || !id || id === conv.uid || conv.messages.length || conv.busy) {
+        return;
+      }
+      letGo(tab);
+      if (mode === "chat" && tab === gBrowser.selectedTab) {
+        panel?.show(conversationFor(tab));
+      }
+    }
+
+    /**
+     * The earlier chat the selected tab's page offers back, for the panel's
+     * empty Chat view (docs/research/chat-way-back.md, part 2), or null: only
+     * in Chat mode, in a window whose chats are kept, while the tab's chat
+     * is empty.
+     */
+    function earlierChat() {
+      if (!keepChats || mode !== "chat") {
+        return null;
+      }
+      const tab = gBrowser.selectedTab;
+      const conv = conversations.get(tab);
+      if (conv?.messages.length || conv?.busy) {
+        return null;
+      }
+      return AgentService.earlierChatFor(tab.linkedBrowser?.currentURI?.spec ?? "", heldChats());
+    }
+
+    /** The earlier chats All tasks' search finds for `query` (part 3); none in a window whose chats aren't kept. */
+    function earlierChats(query) {
+      return keepChats ? AgentService.earlierChats(query, heldChats()) : [];
+    }
+
+    /**
+     * The chats tabs keep by their value, in every window. A tab restored at
+     * the start and not shown since has no conversation yet, but its chat
+     * is its own: offered elsewhere, it would come back there and leave the
+     * tab a copy.
+     */
+    function heldChats() {
+      const held = new Set();
+      for (const win of Services.wm.getEnumerator("navigator:browser")) {
+        for (const tab of win.gBrowser?.tabs ?? []) {
+          const id = savedChatOf(tab);
+          if (id) {
+            held.add(id);
+          }
+        }
+      }
+      return held;
+    }
+
+    /**
+     * An earlier chat comes back (part 2's Open, part 3's row): in place when
+     * the selected tab is on a page it asked about and the tab's chat is
+     * empty, as part 1's rebind brings a restored tab's chat back, else on a
+     * new tab on its newest question's page. The tab keeps its id. False when
+     * it's no earlier chat (gone, or a tab shows it now), and in a window
+     * whose chats aren't kept.
+     *
+     * @param {string} uid
+     */
+    function openEarlierChat(uid) {
+      if (!keepChats) {
+        return false;
+      }
+      let tab = gBrowser.selectedTab;
+      const place = AgentService.earlierChatPlace(uid, tab.linkedBrowser?.currentURI?.spec ?? "", heldChats());
+      if (!place) {
+        return false;
+      }
+      const conv = conversations.get(tab);
+      // A tab that keeps another chat by its value isn't empty either, though
+      // it has no conversation yet (restored at the start and not shown
+      // since): the pick doesn't take it over (zen-observe's review).
+      const kept = savedChatOf(tab);
+      if (!place.here || conv?.messages.length || conv?.busy || (kept && kept !== conv?.uid)) {
+        // A chat of questions on no web page comes back on an empty tab.
+        tab = gBrowser.addWebTab(place.url || "about:blank", { relatedToCurrent: true });
+      }
+      try {
+        SessionStore.setCustomTabValue(tab, CHAT_VALUE, uid);
+      } catch (e) {
+        console.error("[agent-sidebar] could not bring the chat back", e);
+        return false;
+      }
+      rebind(tab);
+      gBrowser.selectedTab = tab;
+      setMode("chat");
+      return conversationFor(tab).uid === uid;
+    }
+
+    // Clearing history takes earlier chats with it: the way back's line and
+    // All tasks' rows go at once, not at their next render.
+    if (keepChats) {
+      cleanups.push(
+        AgentService.subscribeChats(() => {
+          panel?.pageChanged();
+          directory?.scheduleRender();
+        })
+      );
     }
 
     function tabOf(conv) {
@@ -127,9 +343,13 @@
 
     // --- Tasks (Work mode) --------------------------------------------------------
 
-    /** A new task to type into; an empty one that's waiting is used again. */
+    /**
+     * A new task to type into; an empty one that's waiting is used again,
+     * but not one the user removed (forgotten), which still has its uid,
+     * title and zenius task.
+     */
     function newDraft() {
-      if (!draft || AgentService.tasks.has(draft.uid) || draft.messages.length || draft.busy) {
+      if (!draft || draft.forgotten || AgentService.tasks.has(draft.uid) || draft.messages.length || draft.busy) {
         draft = AgentService.createTask({ source: "new" });
       }
       return draft;
@@ -138,7 +358,7 @@
     /** The task Work mode shows: the one picked last, else the newest, else a new one. */
     function workConversation() {
       const listed = AgentService.isListed(currentTask);
-      if (!listed && currentTask !== draft) {
+      if (!listed && (currentTask !== draft || currentTask?.forgotten)) {
         currentTask = AgentService.taskList()[0] ?? null;
       }
       currentTask ??= newDraft();
@@ -147,6 +367,18 @@
 
     function shownConversation() {
       return mode === "work" ? workConversation() : conversationFor(gBrowser.selectedTab);
+    }
+
+    /**
+     * The user archived a task (the panel's Archive): Work mode moves on to
+     * the newest listed task, else a new one. Opened again from Archived, it
+     * shows as any task.
+     */
+    function leaveTask(conv) {
+      if (currentTask === conv) {
+        currentTask = AgentService.taskList()[0] ?? null;
+      }
+      setMode("work");
     }
 
     /** @param {"chat"|"work"} next */
@@ -223,7 +455,7 @@
     //
     // Another of the user's agents started a task (remote tasks; the user's
     // call "可以弹一个卡片但是不需要同意": a card pops up, with no approval). A
-    // small card says "Task from <address> · <label>", with Watch and Stop:
+    // small card says "Task from <label> on <address>", with Watch and Stop:
     // in the agent sidebar if it's open in this window, else over zenius's
     // strip in Zen's own sidebar, where zenius tells the user a task needs
     // them. It takes no focus, opens nothing and selects nothing (I1), and
@@ -285,6 +517,11 @@
 
     /** The uid of the chat whose task this window watches, else null. */
     let watchingUid = null;
+    cleanups.push(() => {
+      // The watch is zenius's, and goes on: only the sidebar's mark of it goes.
+      document.documentElement.removeAttribute("data-zenius-watching");
+      watchingUid = null;
+    });
 
     function taskOf(task) {
       return typeof task === "string" ? AgentService.taskByUid(task) : (task ?? null);
@@ -396,6 +633,14 @@
           )
         );
       }
+      cleanups.push(why => {
+        // Not as the window closes: it goes with its panel, and hiding it
+        // would change the sidebar state the browser keeps.
+        if (why !== "unload" && panelIsOpen()) {
+          SidebarController.hide();
+        }
+        SidebarController.sidebars.delete(PANEL);
+      });
       // Reading panels belong on the right, away from Zen's tab sidebar. Only
       // once, so a later change back to the left sticks.
       if (!Services.prefs.getBoolPref(PREF_PLACED, false)) {
@@ -537,11 +782,40 @@
     }
 
     /**
+     * Before our code puts the cursor in the sidebar or All tasks: close an
+     * open address bar, as a click would before the focus moves (zen-ux's
+     * report; zen-input, 2026-11-22). With its results open, Zen's address
+     * bar gives the page the focus as it closes (UrlbarInputBase.mjs
+     * #closePopover). Done from its blur, inside our focus(), that focus is
+     * never undone: Gecko keeps the page's process as the one an IME
+     * composes into, and the user's words (Chinese, for this user) went into
+     * the page's field instead of our box. Closed first, the page takes the
+     * focus and our focus() takes it back, in order. The '>' row calls this
+     * too.
+     */
+    function releaseAddressBar() {
+      try {
+        if (gURLBar.view.isOpen) {
+          gURLBar.view.close();
+        }
+        // Zen's box can stay up with its view closed: the page takes the
+        // focus from it here, then, not inside our focus().
+        if (gURLBar.matches(":popover-open") && gURLBar.focused) {
+          gBrowser.selectedBrowser.focus();
+        }
+      } catch (e) {
+        console.error("[agent-sidebar] closing the address bar", e);
+      }
+    }
+
+    /**
      * The shortcut opens and closes the panel. With the panel open, newly
      * selected text on the page goes into the composer instead of closing it,
      * so "select, press, ask" works the same whether the panel is open or not.
      */
     async function toggle() {
+      // The key may come while the address bar is open (after ⌘T or ⌘L).
+      releaseAddressBar();
       const tab = gBrowser.selectedTab;
       const conv = conversationFor(tab);
       if (panel && panelIsOpen()) {
@@ -614,6 +888,27 @@
       return { modifiers: plus > 0 ? spec.slice(0, plus) : "", key: spec.slice(plus + 1) };
     }
 
+    /**
+     * A key as the panel's hints show it (Close, the empty chat): ⌘⇧A on
+     * the Mac, Ctrl+Shift+A elsewhere, as the panel shows ⌘Enter and
+     * Ctrl+Enter (zen-observe's review of Archive: the hints were the Mac's
+     * default alone). The Mac's marks keep ⌘ first, as the sidebar always
+     * wrote its key.
+     */
+    function shortcutLabel({ modifiers, key }) {
+      const isMac = AppConstants.platform === "macosx";
+      const held = new Set(normalizeModifiers(modifiers).split(",").filter(Boolean));
+      const name = key.length === 1 ? key.toUpperCase() : key.replace(/^VK_/, "");
+      if (isMac) {
+        const marks = [["meta", "⌘"], ["control", "⌃"], ["alt", "⌥"], ["shift", "⇧"]];
+        return marks.filter(([m]) => held.has(m)).map(([, mark]) => mark).join("") + name;
+      }
+      const words = [["control", "Ctrl"], ["alt", "Alt"], ["shift", "Shift"], ["meta", "Meta"]];
+      return [...words.filter(([m]) => held.has(m)).map(([, word]) => word), name].join("+");
+    }
+    // The key this window bound (installShortcut, at its start).
+    let shortcut = "";
+
     /** Switch off whatever else has the same keys (Cmd+Shift+A is Zen's
      * "search tabs"); uninit gives it back. Zen adds some keys late in
      * startup, so this runs again then. */
@@ -643,6 +938,7 @@
 
     function installShortcut() {
       const { modifiers, key } = shortcutSpec();
+      shortcut = shortcutLabel({ modifiers, key });
       disableConflictingKeys();
 
       const commandset = document.createXULElement("commandset");
@@ -697,28 +993,29 @@
     };
 
     function onTabClose(event) {
-      const conv = conversations.get(event.target);
-      if (conv) {
-        conversations.delete(event.target);
-        AgentService.forget(conv);
+      letGo(event.target);
+    }
+
+    function onTabRestoring(event) {
+      if (keepChats) {
+        rebind(event.target);
       }
     }
 
+    /**
+     * The window closes: its tabs' chats end as a closed tab's do, their
+     * threads saved, and nothing of the sidebar's is left to hold the window.
+     */
+    function onUnload() {
+      for (const tab of gBrowser.tabs) {
+        letGo(tab);
+      }
+      end("unload");
+    }
+
+    /** Takes the sidebar out of the window: everything its start set up. */
     function uninit() {
-      // The watch is zenius's, and goes on: only the sidebar's mark of it goes.
-      document.documentElement.removeAttribute("data-zenius-watching");
-      watchingUid = null;
-      unregisterSidebar(window);
-      directory?.destroy();
-      directory = null;
-      if (panelIsOpen()) {
-        SidebarController.hide();
-      }
-      SidebarController.sidebars.delete(PANEL);
-      for (const cleanup of cleanups.splice(0)) {
-        cleanup();
-      }
-      delete window.ucAgentSidebar;
+      end("uninit");
     }
 
     window.ucAgentSidebar = {
@@ -732,6 +1029,13 @@
         return mode;
       },
       setMode,
+      leaveTask,
+      /** The sidebar's key as this window bound it, for the panel's hints ("⌘⇧A", "Ctrl+Shift+A"). */
+      get shortcut() {
+        // Before the window binds it, the pref's.
+        return shortcut || shortcutLabel(shortcutSpec());
+      },
+      shortcutLabel,
       get currentTask() {
         return mode === "work" ? workConversation() : currentTask;
       },
@@ -781,6 +1085,7 @@
       focusPage() {
         gBrowser.selectedBrowser.focus();
       },
+      releaseAddressBar,
       openLink(url) {
         if (/^https?:/.test(url)) {
           openWebLinkIn(url, "tab");
@@ -793,16 +1098,37 @@
         return panel;
       },
       conversationFor,
+      /** Whether this window's chats are kept: not a private window's. All tasks lists earlier chats only where they are. */
+      get keepsChats() {
+        return keepChats;
+      },
+      earlierChat,
+      earlierChats,
+      openEarlierChat,
     };
+    cleanups.push(() => delete window.ucAgentSidebar);
 
     registerSidebar(window, window.ucAgentSidebar);
+    cleanups.push(() => unregisterSidebar(window));
     registerPanel();
     installShortcut();
-    window.delayedStartupPromise?.then(() => setTimeout(disableConflictingKeys, 1000));
+    // Not in a window the sidebar has left: Zen's keys stay on there.
+    window.delayedStartupPromise?.then(() => setTimeout(() => window.ucAgentSidebar && disableConflictingKeys(), 1000));
     windowUtils.loadSheetUsingURIString(STYLE, windowUtils.AUTHOR_SHEET);
     cleanups.push(() => windowUtils.removeSheetUsingURIString(STYLE, windowUtils.AUTHOR_SHEET));
     listen(gBrowser.tabContainer, "TabSelect", onTabSelect);
     listen(gBrowser.tabContainer, "TabClose", onTabClose);
+    listen(gBrowser.tabContainer, "SSTabRestoring", onTabRestoring);
+    // A chat made before the saved ones were read gives way to its tab's,
+    // and the empty Chat view may now offer an earlier chat back.
+    AgentService.chatsReady?.then(() => {
+      if (keepChats && window.ucAgentSidebar) {
+        for (const tab of gBrowser.tabs) {
+          rebind(tab);
+        }
+        panel?.pageChanged();
+      }
+    });
     listen(gBrowser.tabContainer, "TabAttrModified", onTabAttrModified);
     // zenius's watch begins and ends here (ZeniusUI.watch).
     listen(window, "zenius-watch", onWatchChanged);

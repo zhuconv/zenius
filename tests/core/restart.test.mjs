@@ -668,3 +668,15 @@ test("with a task to come back, the method modules load at the start, before the
   assert.deepEqual(await guarded(e.space, e.labels[0]), [true]);
   await h.remove(e.space);
 });
+
+test("a start that fails fails only its restart: the instance is started again for the tests after it", async () => {
+  // A ZEN_BIN with no Zen at it fails zen-dev.sh's start at once, as a start
+  // that never gets ready fails it after its wait.
+  await assert.rejects(h.restart({}, { env: { ZEN_BIN: join(dir, "no-zen-here") } }), e => {
+    assert.match(e.message, /zen-dev\.sh \S+ start failed/);
+    assert.match(e.message, /Zen not found at /);
+    assert.match(e.message, /The instance was started again, without this restart's prefs, for the tests after this one\./);
+    return true;
+  });
+  assert.equal(typeof (await h.call("browser.version")).runtimeVersion, "string");
+});

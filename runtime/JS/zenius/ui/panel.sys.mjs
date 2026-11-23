@@ -132,9 +132,10 @@ const watchHints = new WeakMap();
 
 /**
  * While `win` watches a task, its strip says so, and how to go back:
- * "Watching <task> · ⌃Tab" (the user's design, 2026-11-21). Once the task
- * ended there, while ⌃Tab still goes back: "Task done · ⌃Tab back to your
- * tabs". A hint, not a Back button: a click still opens the tasks panel.
+ * "Watching <task> [⌃Tab]" (the user's design, 2026-11-21; the key a keycap
+ * since the text pass). Once the task ended there, while ⌃Tab still goes
+ * back: "Task done, [⌃Tab] back to your tabs". A hint, not a Back button: a
+ * click still opens the tasks panel.
  *
  * @param {Window} win
  * @param {WatchHint|null} hint  `words`: the key as a screen reader should
@@ -200,8 +201,10 @@ function renderStrip(win, w) {
 }
 
 /**
- * "Watching <task> · ⌃Tab", or "Task done · ⌃Tab back to your tabs": where
- * the strip is narrow the name, or where ⌃Tab goes, is cut, never the key.
+ * "Watching <task> [⌃Tab]", or "Task done, [⌃Tab] back to your tabs", the
+ * key a keycap as the watch chip draws it (the user's text pass, 2026-11-23):
+ * where the strip is narrow the name, or where ⌃Tab goes, is cut, never the
+ * key.
  * The tooltip and the accessible name say what the key does, and keep the
  * strip's own news.
  */
@@ -218,11 +221,17 @@ function renderWatching(strip, label, { name, done = false, key, words }, text) 
     };
     label.replaceChildren(
       ...(done
-        ? [span("zenius-strip-lead", "Task done"), span("zenius-strip-key", ""), span("zenius-strip-rest", " back to your tabs")]
+        ? [span("zenius-strip-lead", "Task done,"), span("zenius-strip-key", ""), span("zenius-strip-rest", " back to your tabs")]
         : [span("zenius-strip-lead", "Watching "), span("zenius-strip-name", ""), span("zenius-strip-key", "")])
     );
   }
-  setText(label.querySelector(".zenius-strip-key"), ` · ${key}`);
+  const keyEl = label.querySelector(".zenius-strip-key");
+  let kbd = keyEl.querySelector("kbd");
+  if (!kbd) {
+    kbd = strip.ownerDocument.createElementNS(XHTML_NS, "kbd");
+    keyEl.replaceChildren(" ", kbd);
+  }
+  setText(kbd, key);
   const news = text ? [text] : [];
   if (done) {
     const task = isolate(name);
@@ -594,14 +603,14 @@ export function showArrival(win, { text, watch, stop, ms }) {
     });
     return el;
   };
-  // The address, the text's first isolate ("Task from <address> · <label>"),
+  // The address, the text's last isolate ("Task from <label> on <address>"),
   // is a chip; the text stays the same. The isolate's marks stay outside the
   // chip: Gecko breaks a line after a leading one even in a nowrap span,
   // which left a sliver of the chip on the line before.
   const line = make("span", "zenius-arrival-text");
-  const start = text.indexOf("\u2068");
-  const end = start < 0 ? -1 : text.indexOf("\u2069", start);
-  if (end < 0) {
+  const end = text.lastIndexOf("\u2069");
+  const start = end < 0 ? -1 : text.lastIndexOf("\u2068", end);
+  if (start < 0) {
     line.textContent = text;
   } else {
     line.append(text.slice(0, start + 1), make("span", "zenius-arrival-addr", text.slice(start + 1, end)), text.slice(end));

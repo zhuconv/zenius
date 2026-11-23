@@ -9,7 +9,7 @@
 // it hides the strip and the badge there is known (docs/reports/zen-ux.md).
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { prelude, setup } from "./lib.mjs";
+import { prelude, setup, SMOOTH_FRAME_MS } from "./lib.mjs";
 
 const LAYOUT_PREFS = ["zen.tabs.vertical.right-side", "zen.view.sidebar-expanded", "zen.view.use-single-toolbar"];
 let h;
@@ -497,14 +497,37 @@ test("the hold card's site stays whole at any page width: the task's name gives 
       const detail = el.querySelector(".zenius-card-detail");
       if (!el.hasAttribute("site-alone")) {
         if (!oneLine(site)) out.push("the site wraps in the title row");
-        // Right after the task's name, which gives way to it.
-        if (detail?.getClientRects().length && Math.abs(site.getBoundingClientRect().left - detail.getBoundingClientRect().right - 8) > 1) out.push("the site isn't right after the task");
+        // Right after the task's name, which gives way to it: the site's box
+        // starts with its own " on " (the user's text pass), not the card's gap.
+        if (detail?.getClientRects().length && Math.abs(site.getBoundingClientRect().left - detail.getBoundingClientRect().right) > 1) out.push("the site isn't right after the task");
       }
       return out;
     };
     const mode = el => (el.hasAttribute("site-alone") ? "alone" : el.hasAttribute("site-stacked") ? "stacked" : "beside");
     const misfits = {};
     const modes = {};
+    // The pill's ResizeObservers settle it in a frame or two, which a
+    // throttled Mac (zen-eval's background-priority run, the screen locked)
+    // stretches past a fixed wait: measure once the card's mode and its
+    // parts' boxes stay the same from one frame to the next.
+    const twoFrames = () => Promise.race([new Promise(r => win.requestAnimationFrame(() => win.requestAnimationFrame(r))), sleep(500)]);
+    const shape = el => mode(el) + JSON.stringify([...el.querySelectorAll("*")].map(e => {
+      const b = e.getBoundingClientRect();
+      return [b.x, b.y, b.width, b.height].map(Math.round);
+    }));
+    const steady = async () => {
+      let last = null;
+      const end = Date.now() + 3000;
+      while (Date.now() < end) {
+        await twoFrames();
+        await sleep(30);
+        const now = N.noticeElement(tab, ID) ? shape(N.noticeElement(tab, ID)) : null;
+        if (now !== null && now === last) {
+          return;
+        }
+        last = now;
+      }
+    };
     let layer = null;
     await show();
     try {
@@ -516,8 +539,7 @@ test("the hold card's site stays whole at any page width: the task's name gives 
             await until(() => N.noticeElement(tab, ID));
             layer = N.noticeElement(tab, ID).parentElement;
             layer.style.width = w + "px";
-            // The pill's ResizeObservers, a frame or two.
-            await sleep(150);
+            await steady();
             const el = N.noticeElement(tab, ID);
             const bad = misfit(el);
             if (bad.length) misfits[kind + " / " + length + " / " + w] = bad;
@@ -560,11 +582,12 @@ test("split view: the agent's half shows its pill and its cursor, and the user's
       await until(() => gBrowser.selectedTab === mine);
       await sleep(200);
       const visible = V.isTabVisible(tab);
-      const move = await C.moveCursor(tab, { x: 50, y: 50 }, { label: "Click Save", kind: "click" });
+      const { value: move, gap } = await withFrames(() => C.moveCursor(tab, { x: 50, y: 50 }, { label: "Click Save", kind: "click" }));
       await handOff();
       return {
         visible,
         animated: move.animated,
+        gap,
         pill: pillOn(tab),
         userTabStays: gBrowser.selectedTab === mine,
       };
@@ -575,7 +598,15 @@ test("split view: the agent's half shows its pill and its cursor, and the user's
       await back();
     }
   `);
-  assert.deepEqual(out, { visible: true, animated: true, pill: "on its page", userTabStays: true });
+  const { animated, gap, ...rest } = out;
+  assert.deepEqual(rest, { visible: true, pill: "on its page", userTabStays: true });
+  // As in cursor.test.mjs: a window that paints too seldom (zen-eval's
+  // throttled Mac) may end the move before its animation does.
+  if (gap > SMOOTH_FRAME_MS) {
+    console.log(`# frames up to ${gap} ms apart: the cursor's move may resolve before its animation ends (animated ${animated}); not checked here`);
+  } else {
+    assert.equal(animated, true, `the cursor's move animates in the agent's half (frames at most ${gap} ms apart)`);
+  }
 });
 
 test("the user's view ends as it started", async () => {

@@ -237,7 +237,7 @@ test("handOff shows the agent's request in its page and badge, and no OS notific
   const s = await state();
   assert.equal(s.taskBadge.state, "needs-user");
   assert.equal(s.taskBadge.text, "Log in to continue");
-  assert.equal(s.controlNotice, `Agent needs you · ${iso(NAME)} · ${site()}`);
+  assert.equal(s.controlNotice, `Agent needs you · ${iso(NAME)} on ${site()}`);
   assert.ok([s.controlNote, s.controlMore].includes(`The agent says: “${iso("Log in to continue")}”.`), JSON.stringify(s));
   assert.deepEqual(await h.call("dev.viewState"), view, "nothing moved the user's view");
   await h.chrome(`${P} ctx.spaces.setOwnership(rec, "agent", { source: "user" });`);

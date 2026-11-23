@@ -968,7 +968,7 @@ const CODEX_LIMITS = [
 ];
 
 describe("zenius doctor's sidebar check", () => {
-  it("leaves out an install without zenius's sidebar, such as the user's own sidebar before the update", async () => {
+  it("leaves out an install without zenius's sidebar, such as one from before zenius's sidebar", async () => {
     const fixture = install();
     writeFileSync(join(fixture.profile, "chrome", "JS", "agent-sidebar.uc.js"), "// ==UserScript==\n// @name Agent Sidebar\n// ==/UserScript==\n");
     await run(fixture, { sidebar: SIDEBAR_OK });
@@ -1029,7 +1029,7 @@ describe("zenius doctor's sidebar check", () => {
     assert.equal(sidebar.summary, `zenius's on disk; the running runtime doesn't report the sidebar${CODEX_ON}`);
   });
 
-  it("warns when another install put its own sidebar back, and says how to restore zenius's", async () => {
+  it("warns when another install put its sidebar there, and says how to restore zenius's", async () => {
     const fixture = install();
     installSidebar(fixture, { marked: false });
     await run(fixture, { sidebar: SIDEBAR_OK });
@@ -1038,7 +1038,7 @@ describe("zenius doctor's sidebar check", () => {
     assert.equal(sidebar.summary, `1 problem${CODEX_ON}`);
     assert.match(
       sidebar.details[0]!,
-      /^chrome\/JS\/agent-sidebar\.uc\.js isn't zenius's sidebar: another install, such as the user's own install\.sh, put its copy back, and Zen loads that one at its next start\. With the user's OK, reinstall with scripts\/install\.sh, which keeps the copy it replaces as the user's own for Undo; then the user quits and reopens Zen\.$/,
+      /^chrome\/JS\/agent-sidebar\.uc\.js isn't zenius's sidebar: another install put its copy there, and Zen loads that one at its next start\. With the user's OK, reinstall with scripts\/install\.sh, which keeps the copy it replaces for Undo; then the user quits and reopens Zen\.$/,
     );
     // The marker counts only among the first 20 lines.
     const file = installSidebar(fixture);
@@ -1176,7 +1176,134 @@ describe("zenius doctor's sidebar check", () => {
     assert.equal(sidebar.summary, "2 problems");
     assert.deepEqual(sidebar.details, [
       "zenius's sidebar failed to start in the running Zen: TypeError: x is undefined",
-      "The sidebar has no config at /home/u/cfg.json, so it offers no agent. The user's own sidebar setup made that file; the pref uc.agent-sidebar.config can name another.",
+      "The sidebar has no config at /home/u/cfg.json, so it offers no agent. Put the agents' config.json there, or name another file in the pref uc.agent-sidebar.config.",
     ]);
+  });
+
+  describe("with the runtime's count of every window (zen-input's ui.sidebarStatus)", () => {
+    type Win = { kind: "browser" | "private" | "popup"; sidebar: "started" | "failed" | "skipped" | "none"; error?: string };
+    /** The status zen-input's runtime answers for these windows: popups count in none of windows, open, failed or error. */
+    const counted = (perWindow: Win[]) => {
+      const kept = perWindow.filter((w) => w.kind !== "popup");
+      const windows = kept.filter((w) => w.sidebar === "started").length;
+      const error = kept.find((w) => w.sidebar === "failed")?.error;
+      return {
+        ...SIDEBAR_OK,
+        loaded: windows > 0,
+        windows,
+        open: kept.length,
+        failed: kept.filter((w) => w.sidebar === "failed").length,
+        perWindow,
+        ...(error ? { error } : {}),
+      };
+    };
+    const NOT_LOADED = "The running Zen hasn't loaded zenius's sidebar, which is installed: the user quits and reopens Zen to load it.";
+    const GBROWSER = `can't access property "tabContainer", gBrowser is undefined`;
+
+    it("says it loaded in N of M windows, and leaves popups out of both", async () => {
+      const fixture = install();
+      installSidebar(fixture);
+      await run(fixture, {
+        sidebar: counted([
+          { kind: "browser", sidebar: "started" },
+          { kind: "popup", sidebar: "skipped" },
+          { kind: "private", sidebar: "started" },
+        ]),
+      });
+      const sidebar = byId(await doctor(fixture.options())).sidebar;
+      assert.equal(sidebar.status, "ok", sidebar.details.join("\n"));
+      assert.equal(sidebar.summary, `zenius's on disk; loaded in 2 of 2 windows, config ${SIDEBAR_OK.configPath}${CODEX_ON}`);
+      assert.deepEqual(sidebar.details, CODEX_LIMITS);
+    });
+
+    it("names each failed window's kind and its error (the manager's ask)", async () => {
+      const fixture = install();
+      installSidebar(fixture);
+      const mock = await run(fixture, { sidebar: SIDEBAR_OK });
+      const cases: [Win[], string][] = [
+        [
+          [{ kind: "browser", sidebar: "started" }, { kind: "private", sidebar: "failed", error: GBROWSER }],
+          `zenius's sidebar failed to start in 1 of 2 windows (a private window): ${GBROWSER}`,
+        ],
+        [
+          [
+            { kind: "browser", sidebar: "failed", error: GBROWSER },
+            { kind: "private", sidebar: "started" },
+            { kind: "browser", sidebar: "failed", error: GBROWSER },
+          ],
+          `zenius's sidebar failed to start in 2 of 3 windows (2 normal windows): ${GBROWSER}`,
+        ],
+        [
+          [{ kind: "browser", sidebar: "failed", error: "x is undefined" }, { kind: "private", sidebar: "failed", error: GBROWSER }],
+          `zenius's sidebar failed to start in 2 of 2 windows: in a normal window, x is undefined; in a private window, ${GBROWSER}`,
+        ],
+      ];
+      for (const [perWindow, line] of cases) {
+        mock.handle("ui.sidebarStatus", () => counted(perWindow));
+        const sidebar = byId(await doctor(fixture.options())).sidebar;
+        assert.equal(sidebar.status, "warn");
+        assert.equal(sidebar.summary, "1 problem; Codex can run, within the limits below");
+        assert.deepEqual(sidebar.details, [line, ...CODEX_LIMITS]);
+      }
+    });
+
+    it("counts a popup's failed start nowhere, as from a sidebar file before 6646a6c", async () => {
+      const fixture = install();
+      installSidebar(fixture);
+      await run(fixture, { sidebar: counted([{ kind: "browser", sidebar: "started" }, { kind: "popup", sidebar: "failed", error: GBROWSER }]) });
+      const sidebar = byId(await doctor(fixture.options())).sidebar;
+      assert.equal(sidebar.status, "ok", sidebar.details.join("\n"));
+      assert.equal(sidebar.summary, `zenius's on disk; loaded in 1 of 1 window, config ${SIDEBAR_OK.configPath}${CODEX_ON}`);
+    });
+
+    it("notes a window that hasn't started it yet, without a warning", async () => {
+      const fixture = install();
+      installSidebar(fixture);
+      await run(fixture, { sidebar: counted([{ kind: "browser", sidebar: "started" }, { kind: "private", sidebar: "none" }]) });
+      const sidebar = byId(await doctor(fixture.options())).sidebar;
+      assert.equal(sidebar.status, "ok", sidebar.details.join("\n"));
+      assert.equal(sidebar.summary, `zenius's on disk; loaded in 1 of 2 windows, config ${SIDEBAR_OK.configPath}${CODEX_ON}`);
+      assert.deepEqual(sidebar.details, [
+        "Not started yet in 1 of 2 windows (a private window): a window that's still opening starts it in a moment, so run doctor again.",
+        ...CODEX_LIMITS,
+      ]);
+    });
+
+    it("warns when no window has loaded it, and says when no window is open, without a warning", async () => {
+      const fixture = install();
+      installSidebar(fixture);
+      const mock = await run(fixture, { sidebar: counted([{ kind: "browser", sidebar: "none" }]) });
+      let sidebar = byId(await doctor(fixture.options())).sidebar;
+      assert.equal(sidebar.status, "warn");
+      assert.deepEqual(sidebar.details, [NOT_LOADED, ...CODEX_LIMITS]);
+      // On a Mac, Zen runs on with every window closed.
+      mock.handle("ui.sidebarStatus", () => counted([]));
+      sidebar = byId(await doctor(fixture.options())).sidebar;
+      assert.equal(sidebar.status, "ok", sidebar.details.join("\n"));
+      assert.equal(sidebar.summary, `zenius's on disk; no browser window open, config ${SIDEBAR_OK.configPath}${CODEX_ON}`);
+    });
+
+    it("reads the slimmer perWindow, with a kind only on failed and not-started windows, so a private window shows only there", async () => {
+      const fixture = install();
+      installSidebar(fixture);
+      const perWindow = [{ sidebar: "started" }, { sidebar: "skipped" }, { kind: "private", sidebar: "failed", error: GBROWSER }, { kind: "browser", sidebar: "none" }];
+      await run(fixture, { sidebar: { ...SIDEBAR_OK, loaded: true, windows: 1, open: 3, failed: 1, error: GBROWSER, perWindow } });
+      const sidebar = byId(await doctor(fixture.options())).sidebar;
+      assert.equal(sidebar.status, "warn");
+      assert.equal(sidebar.summary, "1 problem; Codex can run, within the limits below");
+      assert.deepEqual(sidebar.details, [
+        `zenius's sidebar failed to start in 1 of 3 windows (a private window): ${GBROWSER}`,
+        "Not started yet in 1 of 3 windows (a normal window): a window that's still opening starts it in a moment, so run doctor again.",
+        ...CODEX_LIMITS,
+      ]);
+    });
+
+    it("reads a runtime from before the count as before", async () => {
+      const fixture = install();
+      installSidebar(fixture);
+      await run(fixture, { sidebar: { ...SIDEBAR_OK, error: GBROWSER } });
+      const sidebar = byId(await doctor(fixture.options())).sidebar;
+      assert.deepEqual(sidebar.details, [`zenius's sidebar failed to start in the running Zen: ${GBROWSER}`, ...CODEX_LIMITS]);
+    });
   });
 });

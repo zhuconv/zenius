@@ -130,18 +130,21 @@ const STATE_WORDS = {
 };
 
 /**
+ * The status's words: the state's own (STATE_WORDS), then a space and the
+ * rest, its parts after a comma: "Agent working Finding a table for 2, Click
+ * Submit". The picker's look, the user's choice for the text pass
+ * (2026-11-23): the state's words in the pill's color, the rest in gray
+ * (zenius-ux.css). The Space's tooltip reads the same words.
+ *
  * @param {BadgeInfo} info
  */
 export function describe(info) {
-  const what = {
-    working: "Agent working",
-    idle: "Agent Space",
-    paused: "Agent paused: waiting for you",
-    "needs-user": "Agent needs you",
-    user: "You're in control",
-  }[info.state];
+  const words = STATE_WORDS[info.state] ?? "";
   // Each part isolated: a right-to-left name keeps its order and its place.
-  return [what, info.label ?? isolate(info.text), isolate(info.action)].filter(Boolean).join(" · ");
+  const rest = [info.state === "paused" ? "waiting for you" : "", info.label ?? isolate(info.text), isolate(info.action)]
+    .filter(Boolean)
+    .join(", ");
+  return [words, rest].filter(Boolean).join(" ");
 }
 
 /** @param {Window} win */

@@ -49,7 +49,9 @@ import {
   ensurePrivateDir,
   log,
   now,
+  plainInstance,
   readSettings,
+  selfCheckDir,
   writePrivateJSON,
   zenVersion,
   zeniusHome,
@@ -222,6 +224,21 @@ class Service {
       instancesDir: PathUtils.join(home, "instances"),
       registry: PathUtils.join(home, "instances", `${this.instance}.json`),
       stateDir: PathUtils.join(home, "state", this.instance),
+      selfCheckDir: selfCheckDir(home),
+      selfCheckSocket: PathUtils.join(selfCheckDir(home), `${this.instance}.sock`),
+    };
+  }
+
+  /** The first frame on a new connection, on either socket. */
+  #hello() {
+    return {
+      event: "hello",
+      params: {
+        protocol: PROTOCOL_VERSION,
+        instance: this.instance,
+        runtimeVersion: RUNTIME_VERSION,
+        zenVersion: zenVersion(),
+      },
     };
   }
 
@@ -262,15 +279,7 @@ class Service {
     await this.#checkStaleInstance(paths);
     this.server = new RpcServer({
       socketPath: paths.socket,
-      hello: () => ({
-        event: "hello",
-        params: {
-          protocol: PROTOCOL_VERSION,
-          instance: this.instance,
-          runtimeVersion: RUNTIME_VERSION,
-          zenVersion: zenVersion(),
-        },
-      }),
+      hello: () => this.#hello(),
       onOpen: () => {
         this.#ensureMethods("a connection");
         this.autoCloseIdleTasks();
@@ -291,6 +300,9 @@ class Service {
       startedAt: this.startedAt,
     });
     Services.obs.addObserver(this, "quit-application");
+    // The self-check's own socket (docs/research/selfcheck.md) waits for an
+    // idle moment: only step 6 of an install uses it.
+    Services.tm.idleDispatchToMainThread(() => this.#startSelfCheck(), 10000);
     const methods = this.#methodsLoaded ? `${this.#methods.size} methods` : "methods at the first connection";
     log(`listening on ${paths.socket} (${methods}, dev=${this.dev}) in ${(now() - t0).toFixed(1)}ms`);
   }
@@ -315,7 +327,102 @@ class Service {
     await this.#store?.flush();
   }
 
+  // --- The self-check's socket (docs/research/selfcheck.md) ---
+  //
+  // It serves selfcheck.run and nothing else, on a dev Zen too, and shares
+  // nothing with the agents' socket: its own connections, no method
+  // registry, no gates. The sandbox can't reach it (method-boundary.md,
+  // finding 12). Its module, modules/selfcheck.sys.mjs, loads at the first
+  // call, so the socket holds nothing else at startup (I4).
+
+  /** @type {RpcServer|null} */
+  selfCheckServer = null;
+  /** The run each of its connections started: only that connection's close stops it. */
+  #selfCheckRuns = new Map();
+
+  async #startSelfCheck() {
+    if (this.selfCheckServer || !this.server) {
+      return;
+    }
+    if (!plainInstance(this.instance)) {
+      log("self-check: no socket, since this instance's name isn't a plain one");
+      return;
+    }
+    const { selfCheckDir: dir, selfCheckSocket } = this.paths;
+    try {
+      await ensurePrivateDir(dir);
+      if (!this.server) {
+        return;
+      }
+      const server = new RpcServer({
+        socketPath: selfCheckSocket,
+        hello: () => this.#hello(),
+        onFrame: (conn, frame) => this.#onSelfCheckFrame(conn, frame),
+        onClose: conn => {
+          this.#selfCheckRuns.get(conn)?.abort("caller-left");
+          this.#selfCheckRuns.delete(conn);
+        },
+      });
+      server.listen();
+      this.selfCheckServer = server;
+      log("self-check: listening");
+    } catch (e) {
+      log("self-check: no socket:", e.message);
+    }
+  }
+
+  // The SDK's request frame, as on the agents' socket: {id, method, params},
+  // plus progress and pageBudget, which mean nothing here.
+  #onSelfCheckFrame(conn, frame) {
+    const { id, method } = frame;
+    if (typeof method !== "string") {
+      conn.send({ id: id ?? null, error: { code: "ZEN_INVALID_ARGUMENT", message: "frame has no method" } });
+      return;
+    }
+    const t0 = now();
+    let promise;
+    try {
+      if (method !== "selfcheck.run") {
+        throw new ZenError("ZEN_UNSUPPORTED", `unknown method ${method}`);
+      }
+      const { params } = frame;
+      if (params !== undefined && params !== null && (typeof params !== "object" || Array.isArray(params) || Object.keys(params).length)) {
+        throw new ZenError("ZEN_INVALID_ARGUMENT", "selfcheck.run takes no params");
+      }
+      const { SelfCheck } = ChromeUtils.importESModule(`${BASE_URL}modules/selfcheck.sys.mjs`);
+      // While the run waits for Zen to be in the background, a caller that
+      // asked for progress hears that its call is held (PROTOCOL "Held calls").
+      const onHeld = (held, reason) => {
+        try {
+          conn.send(held ? { id, held: true, reason } : { id, held: false });
+        } catch {}
+      };
+      const run = SelfCheck.start(frame.progress === true ? { onHeld } : {});
+      this.#selfCheckRuns.set(conn, run);
+      promise = run.done.finally(() => {
+        if (this.#selfCheckRuns.get(conn) === run) {
+          this.#selfCheckRuns.delete(conn);
+        }
+      });
+    } catch (e) {
+      promise = Promise.reject(e);
+    }
+    const timed = outcome => log(`rpc ${method} ${(now() - t0).toFixed(1)}ms ${outcome} (self-check socket)`);
+    promise.then(
+      result => {
+        timed("ok");
+        conn.send({ id, result });
+      },
+      e => {
+        timed(typeof e?.code === "string" && ErrorCodes[e.code] ? e.code : "ZEN_INTERNAL");
+        conn.send({ id, error: toWireError(e) });
+      }
+    );
+  }
+
   shutdown() {
+    this.selfCheckServer?.close();
+    this.selfCheckServer = null;
     this.server?.close();
     this.server = null;
     this.#store?.flush();

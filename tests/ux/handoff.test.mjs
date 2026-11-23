@@ -29,7 +29,7 @@ import { after, before, test } from "node:test";
 import { prelude, setup, iso } from "./lib.mjs";
 
 const CLEARS = "Resume agent clears password, card and code fields, so submit what you type there first.";
-const inControl = () => ({ notice: `You're in control · the agent waits until you resume it · ${site()}`, note: CLEARS, more: null, buttons: ["Resume agent"] });
+const inControl = () => ({ notice: `You're in control · the agent waits until you resume it on ${site()}`, note: CLEARS, more: null, buttons: ["Resume agent"] });
 // A page the agent made itself, which no website served.
 const MADE_NOTE = "The agent made this page. It might contain malicious code. Keep sensitive information out.";
 // A page that loaded afresh at the user's press (the manager's wording, 2026-11-21).
@@ -210,8 +210,8 @@ test("a hand-off with no reload: Agent needs you, with the task, Resume agent, t
       await cleanUp();
     }
   `);
-  assert.deepEqual(out.said, { notice: `Agent needs you · ${iso(name)} · ${site()}`, note: CLEARS, more: `The agent says: “${iso("Log in to continue")}”.`, buttons: ["Resume agent"] });
-  assert.deepEqual(out.silent, { notice: `Agent needs you · ${iso(name)} · ${site()}`, note: CLEARS, more: null, buttons: ["Resume agent"] });
+  assert.deepEqual(out.said, { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: CLEARS, more: `The agent says: “${iso("Log in to continue")}”.`, buttons: ["Resume agent"] });
+  assert.deepEqual(out.silent, { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: CLEARS, more: null, buttons: ["Resume agent"] });
   assert.equal(out.reloaded, null, "nothing of a reload");
 });
 
@@ -286,13 +286,13 @@ test("a hand-off whose step shows the user a secret (zen-core's secret flag, on 
   `);
   const words = text => `The agent says: “${iso(text)}”.`;
   assert.deepEqual(out.secret, {
-    card: { notice: `Agent needs you · ${iso(name)} · ${site()}`, note: SECRET_NOTE, more: words("Copy the new token"), buttons: ["Resume agent"] },
+    card: { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: SECRET_NOTE, more: words("Copy the new token"), buttons: ["Resume agent"] },
     heard: [`Agent needs you in ${iso(name)}, on ${site()}. ${SECRET_NOTE} ${words("Copy the new token")}`],
     row: "Resume agent clears the page the agent handed you, so copy what you need from it first.",
   });
-  assert.deepEqual(out.updated, { notice: `Agent needs you · ${iso(name)} · ${site()}`, note: SECRET_NOTE, more: words("Copy the new token, then resume me"), buttons: ["Resume agent"] });
+  assert.deepEqual(out.updated, { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: SECRET_NOTE, more: words("Copy the new token, then resume me"), buttons: ["Resume agent"] });
   assert.equal(out.back, null);
-  assert.deepEqual(out.plain, { card: { notice: `Agent needs you · ${iso(name)} · ${site()}`, note: CLEARS, more: words("Log in to continue"), buttons: ["Resume agent"] }, row: "Resume agent clears password, card and code fields, so submit what you type there first." });
+  assert.deepEqual(out.plain, { card: { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: CLEARS, more: words("Log in to continue"), buttons: ["Resume agent"] }, row: "Resume agent clears password, card and code fields, so submit what you type there first." });
   assert.equal(out.takeOver, CLEARS);
 });
 
@@ -326,12 +326,12 @@ test("the hold card names the site the user is on, after the task, and follows t
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/` });
   const at = iso(new URL(elsewhere).hostname);
   assert.deepEqual(out.first, {
-    notice: `Agent needs you · ${iso(name)} · ${site()}`,
+    notice: `Agent needs you · ${iso(name)} on ${site()}`,
     site: site(),
     label: `Agent needs you, ${iso(name)}, on ${site()}. Resume agent clears password, card and code fields, so submit what you type there first. The agent says: “${iso("Log in to continue")}”.`,
   });
   assert.deepEqual(out.moved, {
-    notice: `Agent needs you · ${iso(name)} · ${at}`,
+    notice: `Agent needs you · ${iso(name)} on ${at}`,
     site: at,
     label: `Agent needs you, ${iso(name)}, on ${at}. Resume agent clears password, card and code fields, so submit what you type there first. The agent says: “${iso("Log in to continue")}”.`,
   });
@@ -388,7 +388,7 @@ test("a hand-off zen-core reloaded first says so on the page, as Take over does,
       await cleanUp();
     }
   `);
-  assert.deepEqual(out.card, { notice: `Agent needs you · ${iso(name)} · ${site()}`, note: CLEARS, more: `The agent says: “${iso("Log in to continue")}”.`, buttons: ["Resume agent"] });
+  assert.deepEqual(out.card, { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: CLEARS, more: `The agent says: “${iso("Log in to continue")}”.`, buttons: ["Resume agent"] });
   assert.deepEqual(out.reloaded, { text: "This page reloaded", note: RELOADED_NOTE, more: RELOADED_MORE, buttons: ["Dismiss"] });
   assert.equal(out.heard, `Agent needs you in ${iso(name)}, on ${site()}. The agent says: “${iso("Log in to continue")}”. This page reloaded. ${RELOADED_NOTE} ${RELOADED_MORE}`);
 });
@@ -453,7 +453,7 @@ test("end to end, on zen-core's real hand-off: the agent's code left a field in 
     assert.deepEqual(out, {
       fresh: true,
       field: false,
-      pill: `Agent needs you · ${iso(`zen-ux hand-off reload ${run}`)} · ${site()}`,
+      pill: `Agent needs you · ${iso(`zen-ux hand-off reload ${run}`)} on ${site()}`,
       // zen-core's hold says why, by the page's label (spaceChanged's evidence).
       reloaded: { text: "This page reloaded · the agent's code had changed it", note: RELOADED_NOTE, more: `${RELOADED_MORE} What its code left: ${iso(before.hooked)}.` },
     });

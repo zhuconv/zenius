@@ -4,12 +4,13 @@
 // the tasks panel's Open, a notification, the agent sidebar's live card and
 // directory.
 //
-// While a window watches, its strip says so, with the key: "Watching <task>
-// · ⌃Tab". Where the strip can't be read (compact mode, a collapsed
-// sidebar), a chip in the page area's top left corner says the same. Both
-// are hints, not controls: the user rejected a Back button left in the
-// session, and one over the page sits where a site's links do (zen-snapshot's
-// finding 7), so every click goes through the chip to the page.
+// While a window watches, its strip says so, with the key as a keycap:
+// "Watching <task> [⌃Tab]". Where the strip can't be read (compact mode, a
+// collapsed sidebar), a chip in the page area's top left corner says the
+// same. Both are hints, not controls: the user rejected a Back button left
+// in the session, and one over the page sits where a site's links do
+// (zen-snapshot's finding 7), so every click goes through the chip to the
+// page.
 //
 // ⌃Tab means "back" only while the window watches; everywhere else it is
 // Zen's. Picking a tab outside the task, or another Space, ends the watch
@@ -18,7 +19,7 @@
 // The task's end doesn't end it (the manager's decision, 2026-11-21): the
 // user reaches for ⌃Tab right then. The window stays where it is, on the
 // task's page, which waits until the user leaves it (SPEC §3.5); the hints
-// say "Task done · ⌃Tab back to your tabs"; ⌃Tab goes back until the user
+// say "Task done, [⌃Tab] back to your tabs"; ⌃Tab goes back until the user
 // goes elsewhere themselves. Nothing moves by itself.
 
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
@@ -416,7 +417,7 @@ function active(w) {
 }
 
 /**
- * "Watching <task> · ⌃Tab", or "Task done · ⌃Tab back to your tabs", over
+ * "Watching <task> [⌃Tab]", or "Task done, [⌃Tab] back to your tabs", over
  * the page area; hidden until placed.
  */
 function makeChip(win) {
@@ -438,7 +439,7 @@ function makeChip(win) {
   const chip = make("div");
   chip.id = CHIP_ID;
   chip.hidden = true;
-  const key = make("span", "zenius-watch-key", "· ");
+  const key = make("span", "zenius-watch-key");
   key.append(make("kbd", "", BACK_KEY));
   // Once the task is done there's room for where ⌃Tab goes. That's cut
   // first, never the key.
@@ -449,7 +450,7 @@ function makeChip(win) {
   return chip;
 }
 
-/** "Watching <b>task</b>", or "Task done" and where ⌃Tab goes. */
+/** "Watching <b>task</b>", or "Task done," and where ⌃Tab goes. */
 function setChipText(chip, name, done) {
   const label = chip.querySelector(".zenius-watch-name");
   const rest = chip.querySelector(".zenius-watch-rest");
@@ -464,8 +465,8 @@ function setChipText(chip, name, done) {
     rest.textContent = where;
   }
   if (done) {
-    if (label.textContent !== "Task done" || label.firstElementChild) {
-      label.textContent = "Task done";
+    if (label.textContent !== "Task done," || label.firstElementChild) {
+      label.textContent = "Task done,";
     }
     return;
   }

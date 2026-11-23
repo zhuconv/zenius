@@ -16,7 +16,7 @@ import { scriptGlobals } from "../src/cli.ts";
 import { taskSpace } from "../src/globals.ts";
 import { renderGuide } from "../src/guide.ts";
 import { findEntry, helpText } from "../src/help.ts";
-import { RUNTIME_METHODS } from "../src/protocol-methods.ts";
+import { RUNTIME_METHODS, SELFCHECK_METHODS } from "../src/protocol-methods.ts";
 import { withMock } from "./helpers.ts";
 
 const SDK = fileURLToPath(new URL("../", import.meta.url));
@@ -189,11 +189,14 @@ describe("runtime methods", () => {
       [...sources.matchAll(/(?:\[REQUEST\]|\.call|#call)(?:<[^(]*>)?\(\s*"([a-zA-Z]+\.[A-Za-z]+)"/g)].map((match) => match[1]!),
     );
     assert.ok(called.size > 20, `found ${called.size} call sites`);
-    assert.deepEqual([...called].filter((method) => !(method in RUNTIME_METHODS)), [], "called but not listed");
+    const listed = { ...RUNTIME_METHODS, ...SELFCHECK_METHODS };
+    assert.deepEqual([...called].filter((method) => !(method in listed)), [], "called but not listed");
     assert.deepEqual(
-      Object.keys(RUNTIME_METHODS).filter((method) => !sources.includes(`"${method}"`)),
+      Object.keys(listed).filter((method) => !sources.includes(`"${method}"`)),
       [],
       "listed but never named in src/",
     );
+    // The self-check's socket serves its own methods; the agents' never lists them.
+    assert.deepEqual(Object.keys(SELFCHECK_METHODS).filter((method) => method in RUNTIME_METHODS), []);
   });
 });

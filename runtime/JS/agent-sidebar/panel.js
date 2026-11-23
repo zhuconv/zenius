@@ -13,11 +13,20 @@ import { marked } from "./vendor/marked.esm.js";
 import { imageFromClipboard, kindOf, readAttachment, Refused } from "./attachments.mjs";
 import { copyText, extensionFor, fileName, saveText } from "./saving.mjs";
 
-const { AgentService, isCredentialAsk, MODEL_OPTION, EFFORT_OPTIONS, optionValues, concreteModel, modelGeneration, newestModels, STATE_LABELS, age, remoteSource, remoteEnd } = ChromeUtils.importESModule(
+const { AgentService, isCredentialAsk, MODEL_OPTION, EFFORT_OPTIONS, optionValues, concreteModel, modelGeneration, newestModels, STATE_LABELS, age, ago, remoteSource, remoteEnd, taskName } = ChromeUtils.importESModule(
   new URL("AgentService.sys.mjs", import.meta.url).href
 );
 const { ENDED_TEXT, sourceParts } = ChromeUtils.importESModule(new URL("external.sys.mjs", import.meta.url).href);
+// What a task's menus offer and say, shared with All tasks' right-click menu.
+const TaskMenu = ChromeUtils.importESModule(new URL("taskmenu.sys.mjs", import.meta.url).href);
 const glue = window.browsingContext.topChromeWindow.ucAgentSidebar;
+// A window that let its glue go (unload, or the self-check window's cleanup)
+// gets no panel: without glue.scope, the panel would list and subscribe to
+// the user's own tasks (zen-observe's review). A browser window sets its
+// glue before it registers the panel, so a panel there always has one.
+if (!glue) {
+  throw new Error("agent-sidebar: the panel's window has no glue");
+}
 const parser = Cc["@mozilla.org/parserutils;1"].getService(Ci.nsIParserUtils);
 const BLANK = Services.io.newURI("about:blank");
 const PREF_MAX_CHARS = "uc.agent-sidebar.max-page-chars";
@@ -30,6 +39,12 @@ const DEFAULT_FAVICON = "chrome://global/skin/icons/defaultFavicon.svg";
 const CTRL_TAB = Services.appinfo.OS === "Darwin" ? "⌃Tab" : "Ctrl+Tab";
 // Steer's keys: Cmd+Enter on a Mac, Ctrl+Enter elsewhere.
 const STEER_KEY = Services.appinfo.OS === "Darwin" ? "⌘Enter" : "Ctrl+Enter";
+// The sidebar's own key, as this window bound it (the glue's shortcut, from
+// uc.agent-sidebar.shortcut): ⌘⇧A on the Mac by default, Ctrl+Shift+A
+// elsewhere. Close and the empty chat say it.
+for (const el of document.querySelectorAll("[data-shortcut]")) {
+  el.textContent = glue.shortcut || el.textContent;
+}
 const steerKey = event => (Services.appinfo.OS === "Darwin" ? event.metaKey : event.ctrlKey);
 // The live card's picture is drawn again this often while the agent works.
 const LIVE_EVERY_MS = 2000;
@@ -60,12 +75,15 @@ const els = {
   menu: $("menu"),
   newChat: $("new-chat"),
   newTask: $("new-task"),
-  removeTask: $("remove-task"),
+  renameTask: $("rename-task"),
+  archiveTask: $("archive-task"),
   messages: $("messages"),
   empty: $("empty"),
+  earlier: $("earlier"),
+  earlierText: $("earlier-text"),
+  earlierOpen: $("earlier-open"),
   pick: $("pick"),
   pickModel: $("pick-model"),
-  pickDot: $("pick-dot"),
   pickEffort: $("pick-effort"),
   picker: $("picker"),
   pickSearch: $("pick-search"),
@@ -88,13 +106,20 @@ const els = {
   extBar: $("ext-bar"),
   extBarText: $("ext-bar-text"),
   extStop: $("ext-stop"),
+  archivedBar: $("archived-bar"),
+  archivedText: $("archived-text"),
+  unarchive: $("unarchive"),
 };
 
 let conv = null;
 let unsubscribe = null;
 let editing = null; // the question being edited: { message, el }
+let renaming = null; // the task whose name the header edits: { conv, field } (startRename)
 let waitingFor = null; // the conversation whose files are still being read for a send
-let harnesses = AgentService.harnessList();
+// A self-check window's panel lists and counts its own tasks alone, and has
+// no agent to pick (glue.scope; selfcheck.sys.mjs). A browser window's has none.
+const scope = glue?.scope ?? null;
+let harnesses = AgentService.harnessList(scope);
 // Each conversation keeps its own list of message elements while the panel is
 // open, so switching tabs swaps lists instead of rendering every answer again.
 const lists = new WeakMap(); // conversation -> <div class="list">
@@ -175,21 +200,32 @@ function div(className, text) {
 }
 
 /**
- * Fill `el` with a remote task's source ("From <address> · <label>",
- * remoteSource), its address, the first isolate, set apart as a chip. The
- * text stays the same. The isolate's marks stay outside the chip: Gecko
- * breaks a line after a leading one even in a nowrap span, which leaves a
- * sliver of the chip on the line before (seen in Zen's narrow sidebar).
+ * Fill `el` with a task's source ("From <label> on <address>", remoteSource;
+ * "<agent> on <terminal>", sourceParts), its address or terminal, the last
+ * isolate, set apart as a chip. The text stays the same. The isolate's marks
+ * stay outside the chip: Gecko breaks a line after a leading one even in a
+ * nowrap span, which leaves a sliver of the chip on the line before (seen in
+ * Zen's narrow sidebar).
  */
 function fillSource(el, text) {
-  const start = text.indexOf("\u2068");
-  const end = start < 0 ? -1 : text.indexOf("\u2069", start);
-  if (end < 0) {
+  const end = text.lastIndexOf("\u2069");
+  const start = end < 0 ? -1 : text.lastIndexOf("\u2068", end);
+  if (start < 0) {
     el.textContent = text;
   } else {
     el.replaceChildren(text.slice(0, start + 1), span("addr", text.slice(start + 1, end)), text.slice(end));
   }
   return el;
+}
+
+/**
+ * An age as a phrase ends with it, short as the panel's ages are: "2 min
+ * ago", or "just now" ("Finished 2 min ago": the user's text pass).
+ * AgentService's ago() spells it out ("5 minutes ago") for the way back.
+ */
+function minAgo(since) {
+  const when = age(since);
+  return when === "now" ? "just now" : `${when} ago`;
 }
 
 function span(className, text) {
@@ -308,7 +344,7 @@ function renderExternal() {
   view.dataset.state = conv.task.state;
   const src = view.querySelector(".ext-src");
   const parts = sourceParts(conv.from);
-  const line = `Driven from ${parts ? parts.text : "elsewhere"} · read-only`;
+  const line = `Read-only, driven from ${parts ? parts.text : "elsewhere"}`;
   if (parts?.terminal) {
     fillSource(src, line);
   } else {
@@ -343,19 +379,36 @@ function renderExternal() {
 
 /** The composer's line for an external task: Stop while it runs, how it ended once done. */
 function renderExternalBar() {
-  const external = !!conv?.external;
+  // An archived one has the archived bar instead (renderArchivedBar).
+  const external = !!conv?.external && !conv.archivedAt;
   els.extBar.hidden = !external;
   if (!external) {
     return;
   }
   const done = conv.task.state === "done";
-  els.extBarText.textContent = done ? `${ENDED_TEXT[conv.ended] ?? "Ended"} · ${age(conv.endedAt || conv.task.since)}` : "The sidebar can't chat with this agent";
+  els.extBarText.textContent = done ? `${ENDED_TEXT[conv.ended] ?? "Ended"} ${minAgo(conv.endedAt || conv.task.since)}` : "The sidebar can't chat with this agent";
   els.extStop.hidden = done;
   // How it ended, for the look's mark.
   if (done && ENDED_TEXT[conv.ended]) {
     els.extBar.dataset.ended = conv.ended;
   } else {
     delete els.extBar.dataset.ended;
+  }
+}
+
+/**
+ * The composer's line for an archived task (AgentService.archiveTask), in
+ * the box's place: since when, and Unarchive, which brings it back to the
+ * list. Own and external alike.
+ */
+function renderArchivedBar() {
+  const archived = conv?.kind === "work" && !!conv.archivedAt;
+  els.archivedBar.hidden = !archived;
+  if (archived) {
+    // Since when is the tooltip's: the bar says only what the box's place
+    // shows already (the user's text pass).
+    els.archivedText.textContent = "Archived";
+    els.archivedText.title = `Archived ${minAgo(conv.archivedAt)}`;
   }
 }
 
@@ -420,10 +473,22 @@ function fillQuestion(el, message) {
   }
   parts.push(div("text", message.text));
   if (message.attached) {
+    // One phrase, the page's title quoted as the cards quote names (the
+    // user's text pass): 'Page “Flights to Tokyo” attached'. The title sits
+    // in its own isolate, as a step's quoted names do.
     const what = message.attached.kind === "pdf" ? "PDF" : "Page";
     const how = message.attached.update ? "updated" : "attached";
-    const cut = message.attached.truncated ? " (truncated)" : "";
-    parts.push(div("meta", `${what} ${how}${cut} · ${message.page?.title ?? ""}`));
+    const cut = message.attached.truncated ? ", truncated" : "";
+    const title = message.page?.title?.trim() ?? "";
+    const meta = div("meta");
+    if (title) {
+      const name = span("meta-title", title);
+      name.dir = "auto";
+      meta.append(`${what} “`, name, `” ${how}${cut}`);
+    } else {
+      meta.textContent = `${what} ${how}${cut}`;
+    }
+    parts.push(meta);
   }
   parts.push(actionRow([["edit", "Edit"]]));
   el.replaceChildren(...parts);
@@ -521,6 +586,7 @@ function askAnswers(message) {
 function sendAsk(message, answers) {
   if (message.answer === null && conv?.messages.includes(message)) {
     AgentService.answerAsk(conv, message, answers);
+    followUp(conv);
   }
 }
 
@@ -545,6 +611,12 @@ function askWords(message, words) {
   return true;
 }
 
+/** Questions as one line: "Which date? Which seat?", a comma after one without its own mark. */
+function questionsLine(texts) {
+  const asked = texts.map(text => String(text ?? "").trim()).filter(Boolean);
+  return asked.map((text, i) => (i < asked.length - 1 && !/[.!?。！？]$/.test(text) ? `${text},` : text)).join(" ");
+}
+
 /** The card of an ask: open, its question and options; answered, what the user said. */
 function fillAsk(el, message) {
   const first = message.questions[0];
@@ -554,8 +626,10 @@ function fillAsk(el, message) {
     el.classList.add("answered");
     const { action, summary } = message.answer;
     const said = action === "accept" ? `→ ${summary ?? ""}` : action === "decline" ? "Skipped" : "Not answered";
-    // The question it answers: the ask's own title, else its questions'.
-    const asked = message.title || message.questions.map(q => q.text).join(" · ");
+    // The question it answers: the ask's own title, else its questions', one
+    // after another, each ending in its own mark, else a comma (the user's
+    // text pass).
+    const asked = message.title || questionsLine(message.questions.map(q => q.text));
     el.replaceChildren(div("ask-text", asked), div("ask-answer", said));
     // What the user typed, a secret's too, lives no longer than the card's question.
     askState.delete(message);
@@ -735,8 +809,8 @@ function fillStep(el, message) {
 // --- The agent's wait for its first words --------------------------------------
 //
 // AgentService's thought, from the moment the question goes out until the
-// agent's first words, step or question for the user: "Thinking · <what it's
-// on> · 12 s" while it lasts (Codex's reasoning titles; Claude Code's
+// agent's first words, step or question for the user: "Thinking for 12 s,
+// <what it's on>" while it lasts (Codex's reasoning titles; Claude Code's
 // thinking shows no words), then "Thought for 23 s", which opens to what it
 // thought. Codex at a high effort can think for half a minute before its first
 // word, which looked like a stall (the user's report, 2026-11-22). A thought
@@ -749,33 +823,34 @@ function thoughtSeconds(s) {
 }
 
 /**
- * The row's words: "Thinking · <title> · 12 s" while it lasts, "Thought for
- * 23 s" after. "Thinking · <title>" clamps to two lines (zen-ux's call:
- * Claude Code's titles are whole sentences), the seconds stay beside it on
- * the first line, and the whole title is the row's tooltip.
+ * The row's words, one phrase (the user's text pass, 2026-11-23): "Thinking
+ * for 12 s, <title>" while it lasts, "Thought for 23 s" after. The row
+ * clamps to two lines (zen-ux's call: Claude Code's titles are whole
+ * sentences). The seconds come right after "Thinking", so a long title never
+ * hides them, and the whole title is the row's tooltip.
  */
 function fillThoughtLine(line, message) {
   const ended = message.ms !== null && message.ms !== undefined;
   const s = ended ? Math.max(1, Math.round(message.ms / 1000)) : Math.floor((Date.now() - message.started) / 1000);
   const label = ended ? `Thought for ${thoughtSeconds(s)}` : "Thinking";
   const title = ended ? "" : message.title || "";
-  const time = !ended && s >= 1 ? ` · ${thoughtSeconds(s)}` : "";
-  const key = `${label}\n${title}\n${time}`;
+  const time = !ended && s >= 1 ? ` for ${thoughtSeconds(s)}` : "";
+  const key = `${label}\n${time}\n${title}`;
   if (line.dataset.key === key) {
     return;
   }
   line.dataset.key = key;
   // The parts keep their elements, and only their words change: a new label
   // each second, or with each new title, would start its pulse over, a
-  // blink right where the user looks during the wait.
-  if (line.childElementCount !== 2) {
-    const head = span("head");
-    head.append(span("label"), span("sep"), span("title"));
-    line.replaceChildren(head, span("time"));
+  // blink right where the user looks during the wait. Only "Thinking" pulses.
+  const head = line.firstElementChild;
+  if (line.childElementCount !== 1 || head?.childElementCount !== 4) {
+    const parts = span("head");
+    parts.append(span("label"), span("time"), span("sep"), span("title"));
+    line.replaceChildren(parts);
   }
-  const [head, timeEl] = line.children;
-  const words = [label, title ? " · " : "", title, time];
-  for (const [i, el] of [...head.children, timeEl].entries()) {
+  const words = [label, time, title ? ", " : "", title];
+  for (const [i, el] of [...line.firstElementChild.children].entries()) {
     if (el.textContent !== words[i]) {
       el.textContent = words[i];
     }
@@ -948,6 +1023,39 @@ function nearBottom() {
   return m.scrollHeight - m.scrollTop - m.clientHeight < 40;
 }
 
+// --- Following the answer (the user's ask, 2026-11-22) -----------------------
+// A message the user sends takes the chat to its end, even from an earlier
+// answer they scrolled up to read: they want the answer. From there the view
+// follows it, as from the end before, through what moves the end meanwhile
+// (the queue's row, a box the next message grows), until the user scrolls up
+// themselves: then it stays where they put it.
+
+/** The chat whose view follows its end since a send, else null. */
+let following = null;
+let lastTop = 0;
+
+/** A send: `target`'s view goes to its end now, and keeps to it (renderMessages). */
+function followUp(target) {
+  following = target;
+  if (conv === target) {
+    els.messages.scrollTop = els.messages.scrollHeight;
+  }
+}
+
+els.messages.addEventListener(
+  "scroll",
+  () => {
+    const top = els.messages.scrollTop;
+    // Up, and away from the end: the user's own scroll. The view's own
+    // moves go down, or keep to the end as the list shrinks.
+    if (following && top < lastTop && !nearBottom()) {
+      following = null;
+    }
+    lastTop = top;
+  },
+  { passive: true }
+);
+
 function renderMessages() {
   clearTimeout(renderTimer);
   renderTimer = null;
@@ -955,7 +1063,7 @@ function renderMessages() {
   if (!conv) {
     return;
   }
-  const stick = nearBottom();
+  const stick = nearBottom() || following === conv;
   conv.messages.forEach((message, i) => renderMessage(message, i));
   renderAnswerActions();
   if (stick) {
@@ -1094,7 +1202,8 @@ function availability(harness) {
 }
 
 /**
- * The composer's label: the chat's model and its effort ("Opus 5.5 · Low"),
+ * The composer's label: the chat's model and its effort ("Opus 5.5 Low",
+ * the effort in gray, with no dot: the user's text pass),
  * or the agent's name until it reports its models. It opens the model
  * picker, which redraws with it.
  */
@@ -1108,7 +1217,7 @@ function renderOptions() {
   const effort = current.effort ? nameOf(current.effort, current.effortValue) : "";
   els.pickModel.textContent = model || agent;
   els.pickEffort.textContent = effort;
-  els.pickEffort.hidden = els.pickDot.hidden = !effort;
+  els.pickEffort.hidden = !effort;
   els.pick.title = `${agent}${model ? ` · ${model}` : ""}${effort ? ` · ${effort}` : ""}${harnessLocked() ? " (this task's agent)" : ""}`;
   els.pick.hidden = !harnesses.length;
   if (!els.picker.hidden) {
@@ -1569,6 +1678,12 @@ function renderBinding() {
   const work = conv?.kind === "work";
   document.documentElement.dataset.mode = work ? "work" : "chat";
   document.documentElement.dataset.external = String(!!conv?.external);
+  // An archived task reads as it was, without a box (renderArchivedBar),
+  // and without an editor left open on a question, in another window say.
+  document.documentElement.dataset.archived = String(work && !!conv.archivedAt);
+  if (work && conv.archivedAt && editing) {
+    stopEditing();
+  }
   els.toChat.setAttribute("aria-pressed", String(!work));
   els.toWork.setAttribute("aria-pressed", String(work));
   els.dir.hidden = !work;
@@ -1576,10 +1691,15 @@ function renderBinding() {
   if (work) {
     // The task's state is the directory's to show; hovering the title says it too.
     const { state, since, text } = conv.task;
-    const name = conv.title || "New task";
-    els.title.textContent = name;
-    els.title.title = state === "new" ? name : `${name}\n${STATE_LABELS[state]} · ${age(since)}${text ? `: ${text}` : ""}`;
+    const name = taskName(conv) || "New task";
+    if (renaming?.conv !== conv) {
+      // Another chat shows: what the field said stays, as after a click outside.
+      endRename({ keep: true, render: false });
+      els.title.textContent = name;
+      els.title.title = state === "new" ? name : `${name}\n${STATE_LABELS[state]} · ${age(since)}${text ? `: ${text}` : ""}`;
+    }
   } else {
+    endRename({ keep: true, render: false });
     const info = glue.pageInfo();
     els.title.textContent = info.title;
     els.title.title = info.url ? `${info.title}\n${info.url}` : info.title;
@@ -1592,12 +1712,39 @@ function renderBinding() {
   els.remoteEnd.textContent = ended ?? "";
   renderNeeds();
   renderMenu();
+  renderExternalBar();
+  renderArchivedBar();
   renderLive();
+  renderEarlier();
+}
+
+/**
+ * Chat's way back (docs/research/chat-way-back.md, part 2): the first line of
+ * the empty Chat view offers back the newest earlier chat about this page,
+ * as the glue finds it, with its age, and its first question as the tooltip.
+ */
+function renderEarlier() {
+  const offer = conv?.kind === "chat" && !conv.external && !conv.messages.length && !conv.busy ? (glue.earlierChat?.() ?? null) : null;
+  els.earlier.hidden = !offer;
+  if (!offer) {
+    delete els.earlier.dataset.chat;
+    els.earlier.removeAttribute("title");
+    return;
+  }
+  els.earlier.dataset.chat = offer.uid;
+  els.earlier.title = offer.question;
+  const what = document.createElement("span");
+  what.className = "earlier-what";
+  what.textContent = "Earlier chat about this page";
+  const when = document.createElement("span");
+  when.className = "earlier-when";
+  when.textContent = `, ${ago(offer.at)}`;
+  els.earlierText.replaceChildren(what, when);
 }
 
 /** The Work switch's orange count: the tasks that need the user. */
 function renderNeeds() {
-  const n = AgentService.needsCount();
+  const n = AgentService.needsCount(scope);
   els.needs.hidden = n === 0;
   els.needs.textContent = String(n);
   els.toWork.title = n
@@ -1630,6 +1777,16 @@ els.toWork.addEventListener("click", () => {
   els.input.focus();
 });
 els.dir.addEventListener("click", () => glue.toggleDirectory());
+// The way back's Open: the earlier chat comes back on this tab, ready for a
+// question. One a tab took meanwhile isn't offered any more.
+els.earlierOpen.addEventListener("click", () => {
+  const uid = els.earlier.dataset.chat;
+  if (uid && glue.openEarlierChat?.(uid)) {
+    els.input.focus();
+  } else {
+    renderEarlier();
+  }
+});
 
 // A click anywhere in the panel is outside the directory (but its button).
 document.addEventListener(
@@ -1652,9 +1809,23 @@ document.addEventListener(
 
 function renderMenu() {
   const work = conv?.kind === "work";
+  // One New, for what the mode shows: a chat for this tab, or a task.
   els.newChat.hidden = work;
-  // An external task leaves the list once it ended; the runtime's feed keeps it.
-  els.removeTask.hidden = !work || !AgentService.isListed(conv) || (!!conv.external && conv.task.state !== "done");
+  els.newTask.hidden = !work;
+  els.renameTask.hidden = !renamable();
+  els.archiveTask.hidden = !archivable();
+  els.archiveTask.textContent = conv?.archivedAt ? "Unarchive" : "Archive";
+  els.archiveTask.title = els.archiveTask.hidden ? "" : archiveTip();
+}
+
+/** Can the shown task go to Archived, or come back? (taskmenu.sys.mjs) */
+function archivable() {
+  return TaskMenu.archivable(conv);
+}
+
+/** What Archive does, as the user asked to be told (taskmenu.sys.mjs). */
+function archiveTip() {
+  return TaskMenu.archiveTip(conv);
 }
 
 function closeMenu() {
@@ -1698,13 +1869,96 @@ els.newTask.addEventListener("click", () => {
   closeMenu();
   glue.newTask();
 });
-els.removeTask.addEventListener("click", () => {
+els.archiveTask.addEventListener("click", () => {
   closeMenu();
-  if (conv?.kind === "work") {
-    AgentService.removeTask(conv);
-    glue.setMode("work");
+  if (!archivable()) {
+    return;
   }
+  if (conv.archivedAt) {
+    unarchive();
+    return;
+  }
+  // The panel moves on, as from a task the user is done with; Archived
+  // opens it again.
+  const archived = conv;
+  AgentService.archiveTask(archived);
+  glue.leaveTask(archived);
 });
+
+/** Back to the list, and to the box: the task stays shown. */
+function unarchive() {
+  if (conv?.archivedAt) {
+    AgentService.unarchiveTask(conv);
+    renderBinding();
+    renderStatus();
+    els.input.focus();
+  }
+}
+els.unarchive.addEventListener("click", unarchive);
+
+// --- Renaming a task (the user's ask, 2026-11-22) ----------------------------
+// More's Rename task, or a double-click on the header's name, turns the name
+// into a field. Enter, or a click outside, keeps what it says, and an empty
+// one gives the task its own title back (AgentService.renameTask); Esc
+// leaves the name as it was. A task another program drives keeps its name.
+
+function renamable() {
+  return conv?.kind === "work" && !conv.external;
+}
+
+function startRename() {
+  closeMenu();
+  if (!renamable() || renaming) {
+    return;
+  }
+  const field = document.createElement("input");
+  field.type = "text";
+  field.value = taskName(conv);
+  // The task's own title: what an empty name goes back to.
+  field.placeholder = conv.title || "New task";
+  field.setAttribute("aria-label", "Task name");
+  renaming = { conv, field };
+  els.title.title = "";
+  els.title.replaceChildren(field);
+  field.addEventListener("keydown", event => {
+    // As in the question box: the IME's own keys only compose.
+    if (event.isComposing) {
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      endRename({ keep: true });
+      els.input.focus();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      endRename();
+      els.input.focus();
+    }
+  });
+  // A click outside keeps it; the focus stays where the click put it.
+  field.addEventListener("blur", () => endRename({ keep: true }));
+  field.focus();
+  field.select();
+}
+
+/** The header's name again, the field's words kept if `keep`. */
+function endRename({ keep = false, render = true } = {}) {
+  const edit = renaming;
+  if (!edit) {
+    return;
+  }
+  renaming = null;
+  if (keep) {
+    AgentService.renameTask(edit.conv, edit.field.value);
+  }
+  if (render) {
+    renderBinding();
+  }
+}
+
+els.renameTask.addEventListener("click", startRename);
+els.title.addEventListener("dblclick", () => startRename());
 $("close").addEventListener("click", () => {
   closeMenu();
   glue.closePanel();
@@ -1726,9 +1980,9 @@ function placeholders() {
 
 /**
  * What the empty box says, longest first: it shows the first that fits its
- * two lines (fitHint). At Zen's narrowest sidebar a busy chat's
- * "<status> · Enter queues, ⌘Enter steers" takes three, so there it says
- * only what Enter and Steer do.
+ * two lines (fitHint). A busy chat's says only what Enter and Steer do: the
+ * thinking row, the steps and Stop show that the agent works (the user's
+ * text pass dropped "Working… ·" before it).
  */
 function hintsFor(busy) {
   if (!busy) {
@@ -1743,8 +1997,7 @@ function hintsFor(busy) {
   if (openPermission()) {
     return ["Reply to decline, and say what to do instead…", "Reply to decline…"];
   }
-  const keys = `Enter queues, ${STEER_KEY} steers`;
-  return thinkingRow() ? [keys] : [`${conv.status || "Working…"} · ${keys}`, keys];
+  return [`Enter queues, ${STEER_KEY} steers`];
 }
 
 /** The empty box's words, longest first (hintsFor). */
@@ -1803,6 +2056,7 @@ function renderStatus() {
   setHints(hintsFor(busy));
   document.body.classList.toggle("busy", busy);
   els.empty.hidden = !!conv?.messages.length;
+  renderEarlier();
   updateSend();
 }
 
@@ -1853,9 +2107,8 @@ function renderAttachments() {
       remove.title = "Remove";
       remove.textContent = "✕";
       remove.addEventListener("click", () => {
-        const list = conv?.draft?.attachments ?? [];
-        if (list.includes(item)) {
-          list.splice(list.indexOf(item), 1);
+        if (conv?.draft) {
+          AgentService.setDraft(conv, { ...conv.draft, attachments: conv.draft.attachments.filter(file => file !== item) });
         }
         renderAttachments();
         els.input.focus();
@@ -1936,54 +2189,66 @@ function autoGrow() {
   }
 }
 
+/** The box's words, selection and files go into the conversation's draft,
+ * which AgentService keeps in its own realm (setDraft): a draft this panel
+ * made, left in the box, kept the panel's whole window for as long as the
+ * chat or the task was kept (zen-ux's note on the night cut's leak). */
 function saveDraft() {
   if (conv) {
-    const text = els.input.value;
-    const selection = conv.draft?.selection ?? "";
-    const attachments = conv.draft?.attachments ?? [];
-    conv.draft = text || selection || attachments.length ? { text, selection, attachments } : null;
+    AgentService.setDraft(conv, { text: els.input.value, selection: conv.draft?.selection ?? "", attachments: conv.draft?.attachments ?? [] });
   }
 }
 
+// The files this panel is reading. One whose read hasn't ended when the
+// panel goes says it wasn't read, so nothing waits on it to send.
+const reading = new Set();
+
 /** Attach files to the shown conversation's next question. They are read
- * right away, while the user types. */
+ * right away, while the user types, into files of AgentService's own. */
 function addFiles(files) {
   if (!conv || conv.external || !files.length) {
     return;
   }
   const target = conv;
-  target.draft = { text: els.input.value, selection: "", ...target.draft };
-  target.draft.attachments ??= [];
   const maxChars = Services.prefs.getIntPref(PREF_MAX_CHARS, 120000);
+  const added = [];
   for (const file of files) {
-    const item = { name: file.name || "file", kind: kindOf(file), state: "reading", info: "", error: "" };
-    item.ready = readAttachment(file, { maxChars })
+    const item = AgentService.newDraftFile({ name: file.name || "file", kind: kindOf(file) });
+    reading.add(item);
+    readAttachment(file, { maxChars })
       .then(
-        read => Object.assign(item, read, { state: "ready" }),
+        read => AgentService.fileRead(item, read),
         e => {
           if (!(e instanceof Refused)) {
             console.error("[agent-sidebar] could not read", item.name, e);
           }
-          Object.assign(item, { state: "error", error: e instanceof Refused ? e.message : "could not read it" });
+          AgentService.fileFailed(item, e instanceof Refused ? e.message : "could not read it");
         }
       )
-      .then(() => conv === target && renderAttachments());
-    target.draft.attachments.push(item);
+      .then(() => {
+        reading.delete(item);
+        if (conv === target) {
+          renderAttachments();
+        }
+      });
+    added.push(item);
   }
+  const draft = target.draft;
+  AgentService.setDraft(target, { text: draft ? draft.text : els.input.value, selection: draft?.selection ?? "", attachments: [...(draft?.attachments ?? []), ...added] });
   renderAttachments();
 }
 
 /** The box's message for `target` once its files are read, and the box
  * emptied; null when there is nothing to send, or another tab is shown by
- * then (the files stay with this one). Files that Stop put back in the box
- * (AgentService's queue) are read already and have no state. */
+ * then (the files stay with this one). A file whose read didn't end (its
+ * panel closed first) isn't sent. */
 async function composed(target) {
-  const items = target.draft?.attachments ?? [];
-  if (items.some(item => item.state === "reading")) {
+  if ((target.draft?.attachments ?? []).some(item => item.state === "reading")) {
     waitingFor = target;
     renderStatus();
     try {
-      await Promise.all(items.map(item => item.ready));
+      // AgentService's word that each read ended, whichever panel reads it.
+      await Promise.all(target.draft.attachments.map(item => AgentService.fileSettled(item)));
     } finally {
       waitingFor = null;
     }
@@ -1992,17 +2257,18 @@ async function composed(target) {
     }
     renderStatus();
   }
+  const items = target.draft?.attachments ?? [];
   const selection = target.draft?.selection ?? "";
   const attachments = items
     .filter(item => (item.state ?? "ready") === "ready")
-    .map(({ state, error, ready, ...attachment }) => attachment);
+    .map(({ state, error, ...attachment }) => attachment);
   const question = els.input.value.trim() || (selection || attachments.length ? glue.defaultQuestion() : "");
   if (!question) {
     return null;
   }
   els.input.value = "";
   autoGrow();
-  target.draft = null;
+  AgentService.setDraft(target, null);
   renderChip();
   renderAttachments();
   return { question, selection, attachments };
@@ -2013,7 +2279,8 @@ async function composed(target) {
  * with a permission open, it goes at once and declines the request. Whether
  * the agent works is decided once the files are read. */
 async function submit({ steer = false } = {}) {
-  if (!conv || conv.external || waitingFor === conv) {
+  // An archived task is read-only until Unarchive.
+  if (!conv || conv.external || conv.archivedAt || waitingFor === conv) {
     return;
   }
   const target = conv;
@@ -2027,6 +2294,7 @@ async function submit({ steer = false } = {}) {
       autoGrow();
       saveDraft();
       updateSend();
+      followUp(target);
     }
     return;
   }
@@ -2034,12 +2302,19 @@ async function submit({ steer = false } = {}) {
   if (!message) {
     return;
   }
+  // Each goes to the chat's end once it's out (followUp): a queued one
+  // shows its row first, which moves the end.
   if (!target.busy) {
-    await glue.submit(target, message);
+    const sent = glue.submit(target, message);
+    followUp(target);
+    await sent;
   } else if (steer || openPermission(target)) {
-    await glue.steer(target, message);
+    const sent = glue.steer(target, message);
+    followUp(target);
+    await sent;
   } else {
     glue.enqueue(target, message);
+    followUp(target);
   }
 }
 
@@ -2074,6 +2349,7 @@ function renderQueue() {
         const target = conv;
         AgentService.dequeue(target, item.id);
         glue.steer(target, item);
+        followUp(target);
       });
       const remove = document.createElement("button");
       remove.className = "icon";
@@ -2139,7 +2415,7 @@ els.steer.addEventListener("click", () => submit({ steer: true }));
 els.stop.addEventListener("click", () => conv && AgentService.cancel(conv));
 $("chip-remove").addEventListener("click", () => {
   if (conv?.draft) {
-    conv.draft.selection = "";
+    AgentService.setDraft(conv, { ...conv.draft, selection: "" });
   }
   renderChip();
   els.input.focus();
@@ -2204,6 +2480,8 @@ document.addEventListener("drop", event => {
     event.preventDefault();
     endDrag();
     addFiles([...event.dataTransfer.files]);
+    // Files dragged in from another app: the address bar may still be open.
+    glue.releaseAddressBar?.();
     els.input.focus();
   }
 });
@@ -2255,7 +2533,7 @@ els.arrivalClose.addEventListener("click", hideArrival);
  * The passage and the files go with it as they were. */
 function startEditing(el) {
   const message = messageOf.get(el);
-  if (!conv || conv.busy || !message) {
+  if (!conv || conv.busy || conv.archivedAt || !message) {
     return;
   }
   stopEditing();
@@ -2322,7 +2600,7 @@ function stopEditing() {
 
 function sendEdit(text) {
   const message = editing?.message;
-  if (!message || !conv || conv.busy) {
+  if (!message || !conv || conv.busy || conv.archivedAt) {
     return;
   }
   const attachments = message.attachments ?? [];
@@ -2335,6 +2613,7 @@ function sendEdit(text) {
   // The edit is the user's own words, even of a question another of their
   // agents sent (a remote task's): it doesn't keep that source.
   glue.submit(conv, { question, selection: message.selection, attachments, replace: message, source: message.source === "remote" ? null : message.source });
+  followUp(conv);
 }
 
 // --- Copying and saving answers ---------------------------------------------
@@ -2392,7 +2671,7 @@ async function act(button) {
     } else {
       const page = pageBefore(message);
       const path = await saveText(window, {
-        name: fileName(text, extension, page?.title ?? (conv?.kind === "work" ? conv.title : undefined)),
+        name: fileName(text, extension, page?.title ?? (conv?.kind === "work" ? taskName(conv) : undefined)),
         text: `${text}\n`,
         source: page?.url,
       });
@@ -2542,7 +2821,7 @@ function renderLive() {
   els.liveSrc.hidden = !from;
   fillSource(els.liveSrc, from ?? "");
   els.liveText.textContent =
-    held === "takeover" ? `You have control · ${host}` : held ? `Waiting for you · ${host}` : live ? `Live · ${host}` : host;
+    held === "takeover" ? `You have control on ${host}` : held ? `Waiting for you on ${host}` : live ? `Live on ${host}` : host;
   els.liveText.title = [tab.label, tab.linkedBrowser?.currentURI?.spec].filter(Boolean).join("\n");
   els.watch.hidden = watching;
   els.watchHint.hidden = !watching;
@@ -2715,6 +2994,8 @@ const api = {
     closePicker({ focus: false });
     unsubscribe?.();
     conv = next;
+    // A chat shown starts at its end (renderAll), following nothing.
+    following = null;
     unsubscribe = conv.subscribe(onChange);
     els.input.value = conv.draft?.text ?? "";
     autoGrow();
@@ -2724,9 +3005,11 @@ const api = {
   compose(next, { selection }) {
     this.show(next);
     if (selection) {
-      conv.draft = { ...conv.draft, text: els.input.value, selection };
+      AgentService.setDraft(conv, { ...conv.draft, text: els.input.value, selection });
       renderChip();
     }
+    // From ⌘⇧A or the '>' row the address bar may be open: it closes first.
+    glue.releaseAddressBar?.();
     els.input.focus();
   },
   /** The selected tab changed or went to another page: the Page header follows. */
@@ -2740,8 +3023,9 @@ const api = {
     els.dir.classList.toggle("on", open);
     els.dir.setAttribute("aria-expanded", String(open));
   },
-  /** Put the cursor in the question box. */
+  /** Put the cursor in the question box (an open address bar closes first). */
   focus() {
+    glue.releaseAddressBar?.();
     els.input.focus();
   },
   /** The window started or stopped watching a task (the live card's Watch says Back). */
@@ -2754,18 +3038,23 @@ const api = {
   },
 };
 
-const unsubscribeTasks = AgentService.subscribeTasks(() => scheduleBinding());
+const unsubscribeTasks = AgentService.subscribeTasks(() => scheduleBinding(), scope);
 
 window.addEventListener("unload", () => {
   stopLive();
   liveObserver.disconnect();
   saveDraft();
+  // Reads this panel won't end: their files say so, and a send waits on none.
+  for (const item of reading) {
+    AgentService.fileFailed(item);
+  }
+  reading.clear();
   unsubscribe?.();
   unsubscribeTasks();
   glue?.detachPanel(api);
 });
 
-AgentService.harnesses()
+AgentService.harnesses(scope)
   .then(list => {
     harnesses = list;
     renderOptions();

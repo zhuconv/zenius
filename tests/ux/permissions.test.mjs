@@ -89,7 +89,7 @@ test("a storage access prompt in a background agent page hands the Space to the 
   assert.equal(s.ownership, "agentDelegatedToUser");
   assert.equal(s.reason, "storage_access");
   assert.equal(s.badge.state, "needs-user");
-  assert.equal(s.controlNotice, `Agent paused · page asks for storage access · ${site()}`);
+  assert.equal(s.controlNotice, `Agent paused · page asks for storage access on ${site()}`);
   const out = await h.chrome(`${P} return { pending: !!PN.getNotification("storage-access", browser), panelOpen: PN.isPanelOpen };`);
   assert.equal(out.pending, true, "Firefox keeps the prompt for when the user opens the Space");
   assert.equal(out.panelOpen, false, "nothing shows over the user's Space");
@@ -299,7 +299,7 @@ test("persist() from the page's own code: while the agent drives, its prompt han
     held: { ownership: "agentDelegatedToUser", reason: "manual_takeover", pending: true },
     evidentAgent: { answer: "resolved false", ownership: "agent", reason: null, pending: false },
     evidentHeld: { answer: "resolved false", ownership: "agentDelegatedToUser", reason: "manual_takeover", pending: false },
-    notice: `Agent paused · page asks for persistent storage · ${site()}`,
+    notice: `Agent paused · page asks for persistent storage on ${site()}`,
   });
 });
 

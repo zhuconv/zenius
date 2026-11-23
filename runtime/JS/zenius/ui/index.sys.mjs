@@ -3566,8 +3566,8 @@ class UiController {
       const { rec, badge } = waiting[0];
       info = {
         state: "needs-user",
-        text: [rec.name, badge.text].filter(Boolean).join(" · "),
-        label: [isolate(rec.name), isolate(badge.text)].filter(Boolean).join(" · "),
+        text: [rec.name, badge.text].filter(Boolean).join(", "),
+        label: [isolate(rec.name), isolate(badge.text)].filter(Boolean).join(", "),
         action: "",
         name: rec.name,
       };
@@ -4100,7 +4100,8 @@ export function reloadedCard({ clickLost = false, evidence = null } = {}, action
 export function closingCard(finished, name, actions = {}) {
   return {
     title: finished ? "Task finished" : "Agent closed this page",
-    detail: [isolate(name), "closes when you leave this tab"].filter(Boolean).join(" · "),
+    // One phrase after the task's name (the user's text pass, 2026-11-23).
+    detail: [isolate(name), "closes when you leave this tab"].filter(Boolean).join(", "),
     tone: "agent",
     buttons: [
       { label: "Keep tab", primary: true, onClick: actions.keep ?? (() => {}) },
@@ -4223,8 +4224,11 @@ function currentDoc(browser) {
 }
 
 /** Whether two badges look the same (state, text and action). */
+// A renamed task's badge isn't the same one either: the strip, Watch's hint
+// and the shared badge show its name (the sidebar's Rename task, glue from
+// zen-sidebar).
 function sameBadge(a, b) {
-  return (!a && !b) || (!!a && !!b && a.state === b.state && a.text === b.text && a.action === b.action);
+  return (!a && !b) || (!!a && !!b && a.state === b.state && a.text === b.text && a.action === b.action && a.name === b.name);
 }
 
 export const ZeniusUI = new UiController();

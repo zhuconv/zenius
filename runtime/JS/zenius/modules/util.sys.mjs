@@ -1,6 +1,6 @@
 // Small helpers shared by the parent-process modules.
 
-export const RUNTIME_VERSION = "0.1.0";
+export const RUNTIME_VERSION = "0.1.1";
 export const PROTOCOL_VERSION = 1;
 
 /** Base URL of the runtime inside the profile (fx-autoconfig maps chrome/JS here). */
@@ -44,6 +44,24 @@ export function zeniusHome() {
     return env;
   }
   return PathUtils.join(Services.dirsvc.get("Home", Ci.nsIFile).path, ".zenius");
+}
+
+/**
+ * The post-install self-check's folder, which holds its socket and its runs
+ * (docs/research/selfcheck.md). It's outside run/ on purpose: the sandboxed
+ * launcher allows run/<instance>.sock for any instance name a caller gives.
+ */
+export function selfCheckDir(home = zeniusHome()) {
+  return PathUtils.join(home, "selfcheck");
+}
+
+/**
+ * An instance name that may name the self-check's socket and runs' folder:
+ * letters, digits and . _ -, with no leading dot, so selfcheck/<instance>/
+ * stays inside selfcheck/.
+ */
+export function plainInstance(name) {
+  return typeof name === "string" && /^[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}$/.test(name);
 }
 
 /**

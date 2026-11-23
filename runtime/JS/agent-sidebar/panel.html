@@ -19,12 +19,15 @@
       <img id="favicon" alt="" />
       <div id="title"></div>
       <button id="more" class="icon" title="More" aria-label="More" aria-haspopup="menu" aria-expanded="false"></button>
+      <!-- Short, as the user asked (2026-11-22): New, Rename, Archive, Close;
+           each tooltip says what it does. -->
       <div id="menu" role="menu" hidden>
-        <button id="new-chat" role="menuitem">New chat for this tab</button>
-        <button id="new-task" role="menuitem">New task</button>
-        <button id="remove-task" role="menuitem">Remove this task from the list</button>
+        <button id="new-chat" role="menuitem" title="New chat for this tab">New</button>
+        <button id="new-task" role="menuitem" title="New task">New</button>
+        <button id="rename-task" role="menuitem" title="Rename the task">Rename</button>
+        <button id="archive-task" role="menuitem">Archive</button>
         <div class="separator"></div>
-        <button id="close" role="menuitem">Close the sidebar<span class="kbd">⌘⇧A</span></button>
+        <button id="close" role="menuitem" title="Close the sidebar">Close<span class="kbd" data-shortcut>⌘⇧A</span></button>
       </div>
     </header>
     <main id="messages"></main>
@@ -45,7 +48,9 @@
     </div>
     <div id="empty">
       <div class="chat-only">
-        <p>Select text on the page, press <kbd>⌘⇧A</kbd>, and ask.</p>
+        <!-- An earlier chat about this page, offered back (renderEarlier). -->
+        <p id="earlier" hidden><span id="earlier-text"></span> <button id="earlier-open" type="button">Open</button></p>
+        <p>Select text on the page, press <kbd data-shortcut>⌘⇧A</kbd>, and ask.</p>
         <p>Or just type a question about this page.</p>
         <p>Drop or paste images, PDFs and text files to attach them.</p>
       </div>
@@ -85,7 +90,7 @@
       <!-- What the user sent while the agent worked (Enter): each message goes
            out in order when a turn ends; Steer sends one now, ✕ drops it. -->
       <section id="queue" hidden aria-label="Queued messages">
-        <div id="queue-head">Queued · sent when the agent's turn ends</div>
+        <div id="queue-head" title="Sent when the agent's turn ends">Queued</div>
         <ol id="queue-list"></ol>
       </section>
       <div id="chip" hidden>
@@ -104,6 +109,12 @@
           <span id="ext-bar-text"></span>
           <button id="ext-stop" class="ghost">Stop task</button>
         </div>
+        <!-- An archived task (AgentService.archiveTask): read-only, with
+             Unarchive, which brings it back to the list. -->
+        <div id="archived-bar" hidden>
+          <span id="archived-text"></span>
+          <button id="unarchive" class="ghost">Unarchive</button>
+        </div>
         <!-- Two groups, so a narrow box wraps the second (the pickers with
              send or stop) under the first as a whole. -->
         <div id="bar">
@@ -116,11 +127,11 @@
             </div>
           </div>
           <div id="bar-end">
-            <!-- The chat's model and its effort ("Opus 5.5 · Low"): opens
-                 the model picker. -->
+            <!-- The chat's model and its effort ("Opus 5.5 Low", the
+                 effort in gray): opens the model picker. -->
             <div id="pickers">
               <button id="pick" aria-haspopup="listbox" aria-expanded="false" aria-controls="picker">
-                <span id="pick-model"></span><span id="pick-dot" aria-hidden="true">·</span><span id="pick-effort"></span>
+                <span id="pick-model"></span><span id="pick-effort"></span>
               </button>
             </div>
             <!-- While the agent works and the box has text: send it into the

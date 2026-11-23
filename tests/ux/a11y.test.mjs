@@ -81,8 +81,12 @@ before(async () => {
       tabKey();
       tip.keyup(shift);
     };
+    // The window's own focus: Services.focus.focusedElement is the active
+    // window's, and the OS can take the window's activation away (zen-eval's
+    // throttled run, the screen locked) without anything moving its focus.
+    const focused = () => Services.focus.getFocusedElementForWindow(win, true, {});
     const where = () => {
-      const el = Services.focus.focusedElement;
+      const el = focused();
       if (!el) return "nothing";
       if (el === browser) return "page";
       if (el.id === "urlbar-input") return "urlbar";
@@ -113,7 +117,7 @@ before(async () => {
         else Services.prefs.setBoolPref("zenius.ux.handoff.systemNotification", prior);
       };
     };
-    const view = () => ({ ws: gZenWorkspaces.activeWorkspace, tab: gBrowser.selectedTab, focus: Services.focus.focusedElement });
+    const view = () => ({ ws: gZenWorkspaces.activeWorkspace, tab: gBrowser.selectedTab, focus: focused() });
     const sameView = (a, b) => a.ws === b.ws && a.tab === b.tab && a.focus === b.focus;
   `;
 });
@@ -338,37 +342,42 @@ test("Tab from the page and Shift+Tab from the address bar reach every pill butt
 test("Enter and Space press a pill's button; the focus goes back where it came from, and an update keeps it", async () => {
   const out = await h.chrome(`${P}
     await show();
+    // Each step waits for what it needs (the focus where it went, the agent
+    // back) rather than a fixed pause, which a throttled Mac (zen-eval's
+    // background-priority run, the screen locked) outran; a wait that ends
+    // without it leaves the assertion to say what was there.
+    const waitFor = (fn, ms) => until(fn, ms).catch(() => {});
+    const pill = () => N.noticeElement(tab, "zenius-control");
     try {
-      // From the page: Enter on Resume agent.
+      // From the page: Enter on Resume agent. The card's buttons arm 400 ms
+      // after it shows.
       await handOff("Log in to continue");
       await sleep(450);
       browser.focus();
-      await sleep(100);
+      await waitFor(() => where() === "page", 5000);
       tabKey();
-      await sleep(60);
+      await waitFor(() => where() !== "page", 3000);
       const onButton = where();
       key("Enter", "Enter", 13);
-      await until(() => rec.ownership === "agent");
-      await sleep(60);
-      const afterEnter = { pill: !!N.noticeElement(tab, "zenius-control"), focus: where() };
+      await waitFor(() => rec.ownership === "agent" && !pill() && where() === "page", 10000);
+      const afterEnter = { pill: !!pill(), focus: where() };
       // An update under the focus keeps it on its button.
       await handOff("Log in to continue");
       await sleep(450);
       browser.focus();
-      await sleep(100);
+      await waitFor(() => where() === "page", 5000);
       tabKey();
-      await sleep(60);
+      await waitFor(() => where() !== "page", 3000);
       ctx.spaces.setStateText(rec, "Enter the code sent to your phone");
-      await until(() => N.noticeElement(tab, "zenius-control")?.querySelector(".zenius-card-note")?.textContent.includes("phone"));
+      await until(() => pill()?.querySelector(".zenius-card-note")?.textContent.includes("phone"), 10000);
       const afterUpdate = where();
       // From the address bar: Space on Resume agent.
       gURLBar.focus();
-      await sleep(100);
+      await waitFor(() => where() === "urlbar", 5000);
       shiftTab();
-      await sleep(60);
+      await waitFor(() => where() !== "urlbar", 3000);
       key(" ", "Space", 32);
-      await until(() => rec.ownership === "agent");
-      await sleep(60);
+      await waitFor(() => rec.ownership === "agent" && !pill() && where() === "urlbar", 10000);
       return { onButton, afterEnter, afterUpdate, afterSpace: where() };
     } finally {
       await back();
@@ -471,10 +480,10 @@ test("right-to-left names keep their own order and their place, in every text th
   await h.call("spaces.finish", { space: rtlSpace, keep: [] }).catch(() => {});
   assert.equal(out.bangLeftOfName, true, "the name's '!' is at its left end, as in a right-to-left paragraph");
   assert.equal(out.closesRightOfName, true, "zenius's words after the name stay after it");
-  assert.equal(out.control, `Agent needs you · ${iso(RTL)} · ${site()}`);
+  assert.equal(out.control, `Agent needs you · ${iso(RTL)} on ${site()}`);
   assert.equal(out.said, `The agent says: “${iso("שלב 2!")}”.`);
   assert.equal(out.claimNote, `An agent asks to work in your Space “${iso(RTL)}”. It calls itself “${iso("לקוח")}”.`);
-  assert.equal(out.status, `Agent needs you · ${iso(RTL)} · ${iso("שלב 2!")}`);
+  assert.equal(out.status, `Agent needs you ${iso(RTL)}, ${iso("שלב 2!")}`);
   assert.equal(out.tooltipLine, `Task: ${iso(RTL)} · Agent needs you`);
   assert.equal(out.chip.content, `"${RTL}"`);
   assert.equal(out.chip.bidi, "plaintext");

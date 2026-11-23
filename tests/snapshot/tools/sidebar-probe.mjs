@@ -325,11 +325,11 @@ const PRE = `
   };
   const clean = s => s == null ? null : s.replace(/[\\u2066-\\u2069]/g, "").replace(/\\s+/g, " ").trim();
   // Since zen-ux's 843a989 the watch is zenius's (ZeniusUI.watch): zenius's
-  // strip says "Watching <task> \u00b7 Ctrl+Tab" while the window watches, and the
+  // strip says "Watching <task> [Ctrl+Tab]" while the window watches, and the
   // chip (#zenius-watch-pill) says the same only where the strip can't be
   // read (a collapsed sidebar, compact mode). Neither has a Back control.
   // Since af4bc5b a watched task's end keeps the way back: the strip
-  // ([watching="done"]) says "Task done \u00b7 Ctrl+Tab back to your tabs", and
+  // ([watching="done"]) says "Task done, [Ctrl+Tab] back to your tabs", and
   // ZeniusUI.watchingDone gives the ended task's id, until Ctrl+Tab or the
   // user's own pick.
   const chipEl = () => { const c = win.document.getElementById("zenius-watch-pill"); return c && !c.hidden ? c : null; };
@@ -989,7 +989,7 @@ const CASES = {
   // user's click starts a watch and only the user's Ctrl+Tab goes back; the
   // page's own Ctrl+Tab and the agent's change nothing. Since 843a989 the
   // watch is zenius's: with Zen's sidebar expanded, its strip says
-  // "Watching <task> \u00b7 Ctrl+Tab" and the chip stays away (pill has the chip).
+  // "Watching <task> [Ctrl+Tab]" and the chip stays away (pill has the chip).
   // Since af4bc5b the task's end keeps Ctrl+Tab's way back: nothing moves by
   // itself, the page's own Ctrl+Tab doesn't take it, the user's does, and
   // the page they watched closes once they leave it.
@@ -1079,7 +1079,7 @@ const CASES = {
       // watching, no chip with the sidebar expanded, only the user's
       // Ctrl+Tab ending the watch, and after the task's end the way back
       // kept until the user's Ctrl+Tab.
-      const hintOk = w => w?.strip === `Watching ${name} \u00b7 Ctrl+Tab` && w?.chip === null;
+      const hintOk = w => w?.strip === `Watching ${name} Ctrl+Tab` && w?.chip === null;
       const f = out.afterFinish ?? {};
       out.verdict = {
         cardWhileWatching: out.watched?.card ? { watch: out.watched.card.watch, watching: out.watched.card.watching, hint: out.watched.card.hint } : null,
@@ -1093,7 +1093,7 @@ const CASES = {
         laterIsZens: (out.userCtrlTab?.reachedZen ?? []).includes("later"),
         hintGoneAfter: out.userCtrlTab?.back?.strip === null && out.userCtrlTab?.back?.chip === null,
         // After the task's end (zen-ux's suggested check, af4bc5b).
-        doneHint: f.watching === null && f.zenius === null && f.attr === null && f.done === space && f.stripState === "done" && f.strip === "Task done \u00b7 Ctrl+Tab back to your tabs" && f.chip === null,
+        doneHint: f.watching === null && f.zenius === null && f.attr === null && f.done === space && f.stripState === "done" && f.strip === "Task done, Ctrl+Tab back to your tabs" && f.chip === null,
         doneNothingMoved: out.agentGotoDone === "ok" && !!f.tab && f.tab === out.watch3?.tab,
         doneBack: out.doneBack?.tab === out.home?.tab && out.doneBack?.done === null && out.doneBack?.strip === null,
         leftPageClosed: out.doneBack?.leftPageOpen === false,
@@ -1112,7 +1112,7 @@ const CASES = {
   // to 80% of the window); the manager's bar for the fix: with a
   // 200-character name, a click at the page's top center reaches the page,
   // while watching and after Take over. Since zen-ux's 843a989 zenius's
-  // strip says "Watching <task> \u00b7 Ctrl+Tab", and the chip says the same only
+  // strip says "Watching <task> [Ctrl+Tab]", and the chip says the same only
   // where the strip can't be read, as a hint with no Back: every click goes
   // through it, and only the user's Ctrl+Tab goes back. Each name is watched
   // with Zen's sidebar expanded (the strip, no chip), then collapsed (the
@@ -1244,7 +1244,7 @@ const CASES = {
         // top reaching the page, the watch kept by clicks and ended by Ctrl+Tab.
         r.verdict = r.error ? null : {
           stripNotChip: !!r.expanded?.strip && r.expanded.chip === null,
-          chipCollapsed: !!r.chipText && /\u00b7 Ctrl\+Tab$/.test(r.chipText),
+          chipCollapsed: !!r.chipText && /Ctrl\+Tab$/.test(r.chipText),
           cornerCapped: r.corner && r.capped,
           keyWhole: r.keyWhole,
           noControls: r.controls === 0,

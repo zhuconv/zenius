@@ -48,8 +48,8 @@ test("a badge shows the state, the state text and the current action", async () 
   `);
   assert.equal(out.attr, "working");
   assert.equal(out.dots, 1);
-  assert.equal(out.tooltip, `${iso("zen-ux badge test")} — Agent working · ${iso("Finding a table for 2")} · ${iso("Click Submit")}`);
-  assert.equal(out.status, `Agent working · ${iso("Finding a table for 2")} · ${iso("Click Submit")}`);
+  assert.equal(out.tooltip, `${iso("zen-ux badge test")} — Agent working ${iso("Finding a table for 2")}, ${iso("Click Submit")}`);
+  assert.equal(out.status, `Agent working ${iso("Finding a table for 2")}, ${iso("Click Submit")}`);
   assert.equal(out.statusState, "working");
 });
 
@@ -78,7 +78,7 @@ test("state changes restyle the badge; the end of the task removes it", async ()
     return { needs, cleared };
   `);
   assert.equal(out.needs.attr, "needs-user");
-  assert.equal(out.needs.status, `Agent needs you · ${iso("Log in to continue")}`);
+  assert.equal(out.needs.status, `Agent needs you ${iso("Log in to continue")}`);
   assert.equal(out.cleared.attr, null);
   assert.equal(out.cleared.dots, 0);
   assert.equal(out.cleared.status, null);

@@ -1,7 +1,7 @@
 ---
 # The text `zenius skill` prints. Portions adapted from citrolabs/ego-lite
 # (MIT License): Ego Lite's skill guide v2.2.1.
-version: "0.1.0"
+version: "0.1.1"
 date: "2026-11-20"
 ---
 

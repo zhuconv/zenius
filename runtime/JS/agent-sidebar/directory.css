@@ -169,6 +169,100 @@
   padding: 8px 4px 2px;
 }
 
+/* Archived (AgentService.archivedTasks): the last group, under a line. Its
+   heading opens and closes it, with a chevron and the count; its rows read
+   quieter than the list's. Under .asb-dir, to outweigh its button rule. */
+.asb-dir .asb-dir-archived {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  border: none;
+  border-top: 1px solid var(--asb-line);
+  border-radius: 0;
+  padding: 9px 4px 3px;
+  background: none;
+  font: inherit;
+  font-size: 11px;
+  color: var(--asb-muted) !important;
+  text-align: start;
+  appearance: none;
+  cursor: pointer;
+}
+
+.asb-dir-archived:hover:not(:disabled) {
+  color: var(--asb-fg) !important;
+}
+
+.asb-dir .asb-dir-archived:disabled {
+  cursor: default;
+}
+
+.asb-dir-archived:focus-visible {
+  outline: 2px solid AccentColor;
+  outline-offset: -1px;
+  border-radius: 6px;
+}
+
+.asb-dir-chevron {
+  flex: none;
+  width: 0;
+  height: 0;
+  border-block: 4px solid transparent;
+  border-inline-start: 5px solid currentColor;
+  transition: transform 120ms;
+}
+
+.asb-dir-archived[aria-expanded="true"] .asb-dir-chevron {
+  transform: rotate(90deg);
+}
+
+.asb-dir-archived[aria-expanded="true"] .asb-dir-chevron:dir(rtl) {
+  transform: rotate(-90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .asb-dir-chevron {
+    transition: none;
+  }
+}
+
+.asb-dir-count {
+  flex: none;
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: var(--asb-hover);
+  font-size: 10.5px;
+  line-height: 15px;
+  text-align: center;
+}
+
+.asb-dir-row[data-archived="true"] .asb-dir-rt b {
+  font-weight: 500;
+  color: var(--asb-muted);
+}
+
+/* An archived task waits on nothing: archiveTask stopped it, and it never
+   counts as needing the user. Its row has no Needs you tint, and a quiet
+   dot, whatever state it ended in. */
+.asb-dir-row[data-archived="true"][data-state="needs"] {
+  background: none;
+}
+
+.asb-dir-row[data-archived="true"][data-state="needs"]:hover,
+.asb-dir-row[data-archived="true"][data-state="needs"].active {
+  background: var(--asb-hover);
+}
+
+.asb-dir-row[data-archived="true"][data-state="needs"].current {
+  background: var(--asb-current);
+}
+
+.asb-dir-row[data-archived="true"] > .asb-dir-rt > .asb-dot {
+  background: var(--asb-faint);
+}
+
 .asb-dir-empty {
   color: var(--asb-muted);
   padding: 14px 6px;
@@ -213,6 +307,32 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Rename (the row's menu): the name as a field, in its place and size. */
+.asb-dir-rename {
+  flex: 1;
+  min-width: 0;
+  margin: -2px 0;
+  padding: 1px 5px;
+  border: 1px solid var(--asb-line);
+  border-radius: 5px;
+  background: var(--asb-bg);
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  outline: none;
+  appearance: none;
+}
+
+.asb-dir-rename:focus-visible {
+  border-color: var(--asb-purple);
+}
+
+.asb-dir-rename::placeholder {
+  color: var(--asb-faint);
+  font-weight: 400;
 }
 
 .asb-dir-age {

@@ -99,9 +99,9 @@ test("the Agents Space's badge shows only while a task there needs the user", as
   `);
   assert.deepEqual(out.working, { attr: null, tooltip: out.working.tooltip, status: null }, "no badge while tasks just work");
   assert.equal(out.one.attr, "needs-user");
-  assert.equal(out.one.tooltip, `${iso(out.name)} — Agent needs you · ${iso(nameB)} · ${iso("Log in to continue")}`);
-  assert.equal(out.one.status, `Agent needs you · ${iso(nameB)} · ${iso("Log in to continue")}`);
-  assert.equal(out.two.status, `Agent needs you · 2 tasks: ${iso(nameA)}, ${iso(nameB)}`);
+  assert.equal(out.one.tooltip, `${iso(out.name)} — Agent needs you ${iso(nameB)}, ${iso("Log in to continue")}`);
+  assert.equal(out.one.status, `Agent needs you ${iso(nameB)}, ${iso("Log in to continue")}`);
+  assert.equal(out.two.status, `Agent needs you 2 tasks: ${iso(nameA)}, ${iso(nameB)}`);
   assert.equal(out.none.attr, null);
   assert.equal(out.none.status, null);
 });
@@ -146,7 +146,7 @@ test("the end of one task leaves the badge to another that still needs the user"
     return res;
   `);
   assert.equal(out.badge.attr, "needs-user");
-  assert.ok(out.badge.status.startsWith(`Agent needs you · ${iso(nameB)}`), out.badge.status);
+  assert.ok(out.badge.status.startsWith(`Agent needs you ${iso(nameB)}`), out.badge.status);
   assert.deepEqual(out.rows, [null, "needs-user"]);
   assert.equal(out.tagA, null);
 });

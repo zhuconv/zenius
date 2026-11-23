@@ -8,7 +8,7 @@
 # into <profile>/chrome/JS/, with the agent's scripts the checkout has beside
 # them (COMPONENTS), writes chrome/JS/zenius/install.json, and records the
 # install in ~/.zenius/install.json. Uninstall removes those files and the
-# record, and puts back the user's own copy of each script it replaced.
+# record, and puts back the earlier copy of each script it replaced.
 # Before either replaces or removes a file, it copies it to
 # ~/.zenius/backups/<UTC time>/, under its path in the profile; backups are
 # never deleted. With --disable-ipv6, install also sets one pref: see
@@ -40,23 +40,23 @@ ZHOME=${ZENIUS_HOME:-$HOME/.zenius}
 RECORD=$ZHOME/install.json
 # The agent's scripts installed beside the runtime (SPEC 8, zen-ux's): each
 # runtime/JS/<name>.uc.js, with its runtime/JS/<name>/ if it has one, when
-# the checkout has it. The profile may hold the user's own copy (their
-# agent-sidebar): the install that first replaces it keeps it in that run's
-# backup and notes the folder in COMP_PRIOR, and uninstall puts it back. A
-# script the profile didn't have is noted with no folder, and uninstall
-# removes it. A copy the user (or their own installer) put there after
-# zenius's is theirs too: a reinstall keeps it the same way, and uninstall
-# leaves it. Nothing else of the user's changes: their other scripts
+# the checkout has it. The profile may already hold a script of that name:
+# the install that first replaces it keeps it in that run's backup and notes
+# the folder in COMP_PRIOR, and uninstall puts it back. A script the profile
+# didn't have is noted with no folder, and uninstall removes it. A copy put
+# there after zenius's, by the user or another installer, is kept the same
+# way: a reinstall backs it up, and uninstall leaves it. Nothing else of the
+# user's changes: their other scripts
 # (my-script.uc.js) and the sidebar's own data
 # (~/Library/Application Support/zenius-agent-sidebar/) stay as they are.
 COMPONENTS=(agent-sidebar agent-urlbar)
 # One line per profile and script that an install put there: "<profile>\t
-# <name>\t<backup folder holding the user's own copy, or empty>\t<fingerprint
+# <name>\t<backup folder holding the copy it replaced, or empty>\t<fingerprint
 # of zenius's copy as installed>". It sits beside the backups, outside the
 # profile, so it outlasts going back to a version from before these
 # scripts: that version's install.sh rewrites chrome/JS/zenius/ but leaves
 # the scripts and this file, and the next uninstall by this one still puts
-# the user's copy back.
+# the earlier copy back.
 COMP_PRIOR=$ZHOME/components.prior
 # One line per profile and entry --loader added there: "<profile>\t<path in
 # the profile>", a folder's with a trailing slash. It sits beside the
@@ -274,6 +274,12 @@ keep_dns_pref() {
 # pref as it was before the first install. Zen writes prefs.js from memory when
 # it quits, so while Zen has the profile open that part waits, and DNS_PRIOR
 # stays for the next uninstall run.
+#
+# A rewrite of the user's prefs.js or user.js goes through a temporary file
+# that starts as a copy of it (cp -p). > then writes into that copy, which
+# keeps the file's mode: Zen keeps prefs.js 0600, and it keeps whatever
+# mode it finds. A new file would take the umask's mode, often 0644.
+tmp_copy() { cp -p "$1" "$1.tmp-$$"; }
 restore_dns_pref() {
   local user=$PROFILE/user.js prefs=$PROFILE/prefs.js had line body none="no value of its own (Zen's default)"
   if [[ -f $user ]] && grep -qxF -e "$DNS_LINE" -e "$DNS_NOTE" "$user"; then
@@ -281,6 +287,7 @@ restore_dns_pref() {
     if ((DRY)); then
       say "  would take zenius's $DNS_PREF lines out of user.js"
     else
+      tmp_copy "$user"
       grep -vxF -e "$DNS_LINE" -e "$DNS_NOTE" "$user" >"$user.tmp-$$" || (($? == 1))
       if [[ $(prior user.js) == absent && ! -s $user.tmp-$$ ]]; then
         rm -f "$user.tmp-$$" "$user"
@@ -310,6 +317,7 @@ restore_dns_pref() {
     had=$(pref_line "$prefs")
     if [[ $had != "$line" ]]; then
       backup_once "$prefs"
+      tmp_copy "$prefs"
       { grep -vF "user_pref(\"$DNS_PREF\"," "$prefs" || (($? == 1)); if [[ -n $line ]]; then printf '%s\n' "$line"; fi; } >"$prefs.tmp-$$"
       mv "$prefs.tmp-$$" "$prefs"
     fi
@@ -352,6 +360,7 @@ drop_zenius_prefs() {
     fi
     backup_once "$file"
     grep -E "$ZENIUS_PREF_RE" "$file" >>"$BACKUP/zenius-prefs.js"
+    tmp_copy "$file"
     { grep -vE "$ZENIUS_PREF_RE" "$file" || (($? == 1)); } >"$file.tmp-$$"
     mv "$file.tmp-$$" "$file"
     say "  removed zenius's $(plural "$n" preference) from $name (kept in $BACKUP/zenius-prefs.js)"
@@ -509,14 +518,14 @@ describe_target() {
 }
 
 # $@: the agent's scripts this run replaces or removes. A running Zen has
-# loaded the user's own copy too, and loads its folder's files as it goes.
+# loaded the profile's copy too, and loads its folder's files as it goes.
 guard_running() {
   if [[ -z $OWNER ]] || ((WHILE_RUNNING)); then return 0; fi
   if exists "$JSDIR/zenius.uc.js" || exists "$JSDIR/zenius"; then
     die "Zen (pid $OWNER) has this profile open, and zenius is installed in it. Quit Zen first, or pass --while-running (that Zen then runs a mix of versions until it's reopened)."
   fi
   local c
-  for c in "$@"; do
+  for c in ${1+"$@"}; do
     if exists "$JSDIR/$c.uc.js" || exists "$JSDIR/$c"; then
       die "Zen (pid $OWNER) has this profile open, and runs its $c, which this would change. Quit Zen first, or pass --while-running (that Zen then runs a mix of versions until it's reopened)."
     fi
@@ -533,7 +542,8 @@ is_noted() {
   [[ -f $COMP_PRIOR ]] || return 1
   P=$PROFILE C=$1 awk -F '\t' '$1 == ENVIRON["P"] && $2 == ENVIRON["C"] { found = 1; exit } END { exit !found }' "$COMP_PRIOR"
 }
-# The backup folder holding the user's own copy of script $1, or nothing.
+# The backup folder holding the copy of script $1 that zenius's replaced, or
+# nothing.
 noted_backup() {
   [[ -f $COMP_PRIOR ]] || return 0
   P=$PROFILE C=$1 awk -F '\t' '$1 == ENVIRON["P"] && $2 == ENVIRON["C"] { print $3; exit }' "$COMP_PRIOR"
@@ -544,7 +554,7 @@ noted_print() {
   [[ -f $COMP_PRIOR ]] || return 0
   P=$PROFILE C=$1 awk -F '\t' '$1 == ENVIRON["P"] && $2 == ENVIRON["C"] { print $4; exit }' "$COMP_PRIOR"
 }
-# Note script $1: the folder that keeps the user's own copy ($2, empty when
+# Note script $1: the folder that keeps the copy it replaced ($2, empty when
 # the profile had none) and the fingerprint of zenius's copy ($3, once it's
 # in place).
 note_component() {
@@ -572,7 +582,7 @@ fingerprint() {
   ) | LC_ALL=C sort | cksum | awk '{ print $1 "-" $2 }'
 }
 # Whether the profile's copy of script $1 is another than the one zenius
-# installed: the user, or their own installer, put it there since.
+# installed: the user, or another installer, put it there since.
 changed_since() {
   local was now
   was=$(noted_print "$1")
@@ -660,7 +670,7 @@ install() {
     if [[ -f $src/$c.uc.js ]]; then comps+=("$c"); fi
   done
   # Scripts an earlier install put here that this checkout doesn't have: the
-  # user's own copy goes back, as at uninstall.
+  # copy each replaced goes back, as at uninstall.
   for c in $(noted_components); do
     if [[ ! -f $src/$c.uc.js ]]; then gone+=("$c"); fi
   done
@@ -714,8 +724,8 @@ install() {
   fi
   if exists "$JSDIR/zenius.uc.js"; then backup "$JSDIR/zenius.uc.js"; fi
   if exists "$JSDIR/zenius"; then backup "$JSDIR/zenius"; fi
-  # A script an earlier install put here is zenius's file too, unless the
-  # user has put their own copy there since.
+  # A script an earlier install put here is zenius's file too, unless
+  # another copy has been put there since.
   local changed=" "
   for c in ${comps[@]+"${comps[@]}"}; do
     if ! is_noted "$c"; then continue; fi
@@ -854,7 +864,7 @@ install_component() {
   run cp "$src/$c.uc.js" "$JSDIR/$c.uc.js"
 }
 
-# Take zenius's copy of a script out, and put back the user's own copy from
+# Take zenius's copy of a script out, and put back the copy it replaced, from
 # the backup its first install made (`orig`, empty when the profile had
 # none). If that backup is gone, zenius's copy stays: the user keeps a
 # working script.
@@ -955,11 +965,14 @@ uninstall() {
   if ((DRY)); then say "  would back up what it removes to $BACKUP"; else say "  backed up what it removed to $BACKUP"; fi
   if ((mine)); then run rm -f "$RECORD"; fi
   local kept="$ZHOME (backups, zenius's task records, the CLI if installed)"
-  # The user's chats with zenius's sidebar: theirs, so Undo neither removes
-  # nor copies them (zen-sdk's runbook lists them as staying).
-  if exists "$PROFILE/agent-sidebar-tasks.json"; then
-    kept+=", the sidebar's chats ($PROFILE/agent-sidebar-tasks.json)"
-  fi
+  # The user's chats with zenius's sidebar, its Work tasks and each tab's
+  # Chat: theirs, so Undo neither removes nor copies them (zen-sdk's runbook
+  # lists them as staying).
+  local chats="" file
+  for file in agent-sidebar-tasks.json agent-sidebar-chats.json; do
+    if exists "$PROFILE/$file"; then chats+="${chats:+, }$PROFILE/$file"; fi
+  done
+  if [[ -n $chats ]]; then kept+=", the sidebar's chats ($chats)"; fi
   say "  left in place: $kept, and the Agents Space in Zen if there is one, which stays as an ordinary Space with its tabs"
   finish_message "run without zenius"
 }

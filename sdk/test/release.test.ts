@@ -45,6 +45,13 @@ const short = run("git", ["rev-parse", "--short", "HEAD"]).out.trim();
 // This repo's own commits have docs/MANAGER.md; the public export's clone, where test-all also runs, has none.
 const PRIVATE = existsSync(join(REPO, "docs/MANAGER.md"));
 
+/** Where the sidebar reads its agents: AgentService's DEFAULT_CONFIG under the home folder. The installer's check must look in the same place, so the tests put config.json there. */
+const sidebarConfig = (home: string) => {
+  const parts = readFileSync(join(REPO, "runtime/JS/agent-sidebar/AgentService.sys.mjs"), "utf8").match(/^const DEFAULT_CONFIG = (\[.*\]);$/m)?.[1];
+  assert.ok(parts, "AgentService.sys.mjs has no one-line DEFAULT_CONFIG");
+  return join(home, ...(JSON.parse(parts) as string[]));
+};
+
 // A movie as ffmpeg writes it with -map_metadata -1 -fflags +bitexact, which
 // scripts/media-check.pl passes: zero times and an empty udta/meta, built byte
 // by byte as in tests/core/media-check.test.mjs. `t` sets its creation and
@@ -132,7 +139,7 @@ function machine(options: { app?: boolean; loader?: boolean } = {}) {
   const env = { HOME: home, PATH: `${fakeBin}:${PATH}`, ZEN_APP: MAC ? app : undefined, ZEN_BIN: MAC ? undefined : bin, ZENIUS_APP_BIN: bin, ZENIUS_HOME: undefined, ZENIUS_CLI_DIR: undefined, ZENIUS_BIN_DIR: undefined, ZENIUS_SKILL_DIRS: undefined, ZENIUS_RELEASE_URL: undefined, ZENIUS_INSTALL_NO_BUILD: undefined, NPM_FAIL: undefined };
   const installer = (args: string[] = [], more: Record<string, string> = {}, script = join(assets, "install.sh")) =>
     run("bash", [script, ...args], { ...env, ...more }, home);
-  return { home, appdir, profile, npmLog, installer };
+  return { home, appdir, profile, npmLog, installer, env };
 }
 
 /**
@@ -435,6 +442,190 @@ describe("the release's install.sh", () => {
     assert.equal(result.code, 1, result.out);
     assert.match(result.out, /zen\(ius\) is installed, but not the sidebar's agents: npm ci failed in .*\.zenius\/agents \(above\)\. Run this again to retry/);
     assert.ok(existsSync(join(m.profile, "chrome/JS/zenius.uc.js")), "zen(ius) itself is installed");
+  });
+
+  // The launcher's line for the folder scripts may also read, as install-cli.sh
+  // writes it: the folder as given, quoted for sh. The launcher resolves it at
+  // each start and grants both forms, so on a Mac, where tmpdir() is under
+  // /var (a link to /private/var), the resolved path isn't in the text.
+  const readDirLine = (dir: string) => `READ_DIR='${dir.replace(/'/g, "'\\''")}'`;
+  // The sandbox's Node major, as install-cli.sh has it.
+  const sandboxNode = readFileSync(join(REPO, "scripts/install-cli.sh"), "utf8").match(/^SANDBOX_NODE_MAJOR=(\d+)$/m)?.[1];
+
+  it("an update keeps the sandboxed launcher and the folder it may read, with no flag", (t) => {
+    if (process.versions.node.split(".")[0] !== sandboxNode) return t.skip(`the sandbox runs on Node ${sandboxNode}, and this is ${process.versions.node}`);
+    if (!MAC && !existsSync("/usr/bin/bwrap")) return t.skip("no bubblewrap here for the sandbox");
+    const m = machine();
+    assert.equal(m.installer().code, 0);
+    // The user's choice, made once with the release's own install-cli.sh: the
+    // launcher holds it from then on.
+    const downloads = join(m.home, "Downloads");
+    mkdirSync(downloads);
+    const chosen = run(join(m.home, ".zenius/release/scripts/install-cli.sh"), ["--sandbox", "--read-dir", downloads], m.env, m.home);
+    assert.equal(chosen.code, 0, chosen.out);
+    const launcher = join(m.home, ".local/bin/zenius");
+    assert.match(readFileSync(launcher, "utf8").split("\n")[1], /\(zenius-sandbox-launcher /);
+
+    const update = m.installer();
+    assert.equal(update.code, 0, update.out);
+    assert.match(update.out, /is the sandboxed launcher, and this install keeps it/);
+    const kept = readFileSync(launcher, "utf8");
+    assert.match(kept.split("\n")[1], /\(zenius-sandbox-launcher /);
+    assert.ok(kept.split("\n").includes(readDirLine(downloads)), "the launcher still lets scripts read ~/Downloads");
+  });
+
+  it("with a sandboxed launcher, stops before it changes anything when the sandbox's Node isn't first on PATH", () => {
+    const m = machine();
+    const launcher = join(m.home, ".local/bin/zenius");
+    mkdirSync(dirname(launcher), { recursive: true });
+    const text = "#!/bin/sh -p\n# zenius, sandboxed (zenius-sandbox-launcher 1). scripts/install-cli.sh wrote it.\nexit 0\n";
+    writeFileSync(launcher, text, { mode: 0o755 });
+    // A node that says it's 22, as a Mac's PATH gives without Homebrew's
+    // node@24 in front; anything else goes to this test's own node.
+    writeFileSync(
+      join(m.home, "fake-bin/node"),
+      `#!/bin/sh\nif [ "$1" = -p ] && [ "$2" = process.versions.node ]; then echo 22.12.0; exit 0; fi\nexec ${JSON.stringify(process.execPath)} "$@"\n`,
+      { mode: 0o755 },
+    );
+    const result = m.installer();
+    assert.equal(result.code, 1, result.out);
+    assert.ok(
+      result.out.includes(`${launcher} is the sandboxed launcher, which this release keeps, and it needs Node ${sandboxNode} first on PATH; node is 22.12.0`),
+      result.out,
+    );
+    assert.match(result.out, /then run this again: nothing has changed/);
+    assert.ok(!existsSync(join(m.home, ".zenius/release")), "nothing unpacked into ~/.zenius");
+    assert.ok(!existsSync(join(m.profile, "chrome/JS/zenius.uc.js")), "the profile is untouched");
+    assert.equal(readFileSync(launcher, "utf8"), text, "the launcher is untouched");
+  });
+
+  it("with a plain linked CLI, Node 22 first stops nothing: the check is the sandbox's alone", () => {
+    const m = machine();
+    assert.equal(m.installer().code, 0);
+    assert.ok(lstatSync(join(m.home, ".local/bin/zenius")).isSymbolicLink(), "the plain CLI is a link");
+    writeFileSync(
+      join(m.home, "fake-bin/node"),
+      `#!/bin/sh\nif [ "$1" = -p ] && [ "$2" = process.versions.node ]; then echo 22.12.0; exit 0; fi\nexec ${JSON.stringify(process.execPath)} "$@"\n`,
+      { mode: 0o755 },
+    );
+    const update = m.installer();
+    assert.equal(update.code, 0, update.out);
+    assert.doesNotMatch(update.out, /is the sandboxed launcher/);
+    assert.ok(lstatSync(join(m.home, ".local/bin/zenius")).isSymbolicLink(), "still the plain CLI");
+  });
+
+  const IPV6_OFF = 'user_pref("network.dns.disableIPv6", true);';
+
+  it("a first install takes the user's three choices: --sandbox and --read-dir for the CLI, --disable-ipv6 for Zen, and an update keeps them", (t) => {
+    if (process.versions.node.split(".")[0] !== sandboxNode) return t.skip(`the sandbox runs on Node ${sandboxNode}, and this is ${process.versions.node}`);
+    if (!MAC && !existsSync("/usr/bin/bwrap")) return t.skip("no bubblewrap here for the sandbox");
+    const m = machine();
+    const downloads = join(m.home, "Downloads");
+    mkdirSync(downloads);
+    const result = m.installer(["--sandbox", "--read-dir", downloads, "--disable-ipv6"]);
+    assert.equal(result.code, 0, result.out);
+    const launcher = join(m.home, ".local/bin/zenius");
+    const text = readFileSync(launcher, "utf8");
+    assert.match(text.split("\n")[1], /\(zenius-sandbox-launcher /);
+    assert.ok(text.split("\n").includes(readDirLine(downloads)), "the launcher lets scripts read the folder");
+    assert.ok(readFileSync(join(m.profile, "user.js"), "utf8").split("\n").includes(IPV6_OFF), "user.js turns IPv6 lookups off");
+
+    const update = m.installer();
+    assert.equal(update.code, 0, update.out);
+    assert.equal(readFileSync(launcher, "utf8"), text, "the update keeps the launcher and its folder");
+    assert.ok(readFileSync(join(m.profile, "user.js"), "utf8").split("\n").includes(IPV6_OFF), "and the user.js line");
+  });
+
+  it("--disable-ipv6 reaches scripts/install.sh without the sandbox too", () => {
+    const m = machine();
+    const result = m.installer(["--disable-ipv6"]);
+    assert.equal(result.code, 0, result.out);
+    assert.ok(readFileSync(join(m.profile, "user.js"), "utf8").split("\n").includes(IPV6_OFF), "user.js turns IPv6 lookups off");
+    assert.ok(lstatSync(join(m.home, ".local/bin/zenius")).isSymbolicLink(), "the CLI is the plain link");
+  });
+
+  it("checks the CLI's choices with install-cli.sh before anything changes: --sandbox without the sandbox's Node stops it", () => {
+    const m = machine();
+    writeFileSync(
+      join(m.home, "fake-bin/node"),
+      `#!/bin/sh\nif [ "$1" = -p ] && [ "$2" = process.versions.node ]; then echo 22.12.0; exit 0; fi\nexec ${JSON.stringify(process.execPath)} "$@"\n`,
+      { mode: 0o755 },
+    );
+    const result = m.installer(["--sandbox", "--disable-ipv6"]);
+    assert.equal(result.code, 1, result.out);
+    assert.match(result.out, /error {4}--sandbox: /, "install-cli.sh's own reason");
+    assert.match(result.out, /nothing has changed/);
+    assert.doesNotMatch(result.out, /would /, "none of the dry run's plan");
+    assert.ok(!existsSync(join(m.home, ".zenius")), "nothing in ~/.zenius");
+    assert.ok(!existsSync(join(m.profile, "chrome/JS/zenius.uc.js")), "the profile is untouched");
+    assert.ok(!existsSync(join(m.profile, "user.js")), "no user.js");
+    assert.ok(!existsSync(join(m.home, ".local/bin/zenius")), "no CLI");
+  });
+
+  it("a wrong choice is a wrong argument (exit 2), and nothing changes", () => {
+    const m = machine();
+    const cases: [string[], RegExp][] = [
+      [["--uninstall", "--sandbox"], /go with an install, not --uninstall/],
+      [["--disable-ipv6", "--uninstall"], /go with an install, not --uninstall/],
+      [["--sandbox", "--read-dir"], /--read-dir takes a folder/],
+      [["--sandbox", "--read-dir", "Downloads"], /--read-dir takes an absolute path/],
+      [["--read-dir", join(m.home, "Downloads")], /--read-dir goes with --sandbox/],
+    ];
+    for (const [args, reason] of cases) {
+      const result = m.installer(args);
+      assert.equal(result.code, 2, `${args.join(" ")}: ${result.out}`);
+      assert.match(result.out, reason, args.join(" "));
+      assert.ok(!existsSync(join(m.home, ".zenius")), `${args.join(" ")}: nothing in ~/.zenius`);
+      assert.ok(!existsSync(join(m.profile, "chrome/JS/zenius.uc.js")), `${args.join(" ")}: the profile is untouched`);
+    }
+  });
+
+  // `curl … | bash` runs the script while bash is still reading it from the
+  // pipe. Run as it came, a download cut short ran the part that arrived, and
+  // a stop before the end left curl writing into a closed pipe ("curl: (23)
+  // Failed writing body", the rehearsal of v0.1.1's --uninstall on the Linux server).
+  it("piped into bash, runs nothing of a download cut short", () => {
+    const m = machine();
+    assert.equal(m.installer().code, 0);
+    const text = readFileSync(join(assets, "install.sh"));
+    for (const cut of [0.5, 0.75, 0.95]) {
+      const part = text.subarray(0, Math.floor(text.length * cut));
+      const result = spawnSync("bash", ["-s", "--", "--uninstall"], { cwd: m.home, input: part, encoding: "utf8", env: { ...process.env, ...m.env } });
+      const at = `cut at ${cut * 100}% of ${text.length} bytes`;
+      assert.doesNotMatch(`${result.stdout}${result.stderr}`, /^zen\(ius\): /m, `${at}: nothing ran`);
+      assert.ok(existsSync(join(m.home, ".zenius/release/scripts/install.sh")), `${at}: the release is still there`);
+      assert.ok(existsSync(join(m.profile, "chrome/JS/zenius.uc.js")), `${at}: zen(ius) is still in the profile`);
+    }
+  });
+
+  it("adds no adapters for the sidebar's built-in agents when the user's own config.json names its agents, which win over them", () => {
+    const m = machine();
+    const config = sidebarConfig(m.home);
+    mkdirSync(dirname(config), { recursive: true });
+    writeFileSync(config, '{ "default": "codex", "agents": { "codex": { "command": "codex-acp" } } }\n');
+    const release = withAgents();
+    const result = m.installer([], { ZENIUS_RELEASE_URL: release.url }, release.script);
+    assert.equal(result.code, 0, result.out);
+    assert.ok(
+      result.out.includes(`not installing the sidebar's built-in agents: ${config} names its agents, and they win over the built-in ones`),
+      result.out,
+    );
+    assert.ok(!existsSync(m.npmLog), "npm never ran");
+    assert.ok(!existsSync(join(m.home, ".zenius/agents")), "no adapters");
+    assert.ok(existsSync(join(m.profile, "chrome/JS/zenius.uc.js")), "zen(ius) itself is installed");
+  });
+
+  it("still updates the adapters an earlier install put there, with or without config.json", () => {
+    const m = machine();
+    const release = withAgents();
+    assert.equal(m.installer([], { ZENIUS_RELEASE_URL: release.url }, release.script).code, 0);
+    rmSync(m.npmLog);
+    const config = sidebarConfig(m.home);
+    mkdirSync(dirname(config), { recursive: true });
+    writeFileSync(config, '{ "default": "codex", "agents": { "codex": { "command": "codex-acp" } } }\n');
+    const result = m.installer([], { ZENIUS_RELEASE_URL: release.url }, release.script);
+    assert.equal(result.code, 0, result.out);
+    assert.ok(existsSync(m.npmLog), "npm ci ran again in ~/.zenius/agents");
   });
 
   it("adds fx-autoconfig's loader to a profile that has none, and --uninstall takes it out again", () => {

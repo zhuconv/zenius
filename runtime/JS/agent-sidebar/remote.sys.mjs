@@ -187,7 +187,8 @@ export function remoteStatus(conv, { answer = true } = {}) {
     ...(r.requestId ? { requestId: r.requestId } : {}),
     state: now.state,
     source: sourceOf(r),
-    title: conv.title || "Task",
+    // The user's name for the task, if they gave one (AgentService.taskName).
+    title: conv.userTitle || conv.title || "Task",
     harness: conv.harness,
     turn: now.turn ?? 0,
   };

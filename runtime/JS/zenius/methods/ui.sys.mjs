@@ -62,6 +62,7 @@ export const methods = {
   // {space} → what the user sees of the Space: badge, open prompt, control
   // notice. For tests and tools.
   "ui.state": async (ctx, params) => ZeniusUI.describe(ctx.resolveSpace(params)),
-  // For zen-sdk's doctor: whether zenius's agent sidebar is the one running.
+  // For zen-sdk's doctor: whether zenius's agent sidebar is the one running,
+  // and how it started in each window.
   "ui.sidebarStatus": async () => sidebarStatus(),
 };

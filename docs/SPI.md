@@ -1505,7 +1505,7 @@ deadline += await ctx.gate();
 
 **handOff.** When ownership becomes `agentDelegatedToUser` with source
 `agent`:
-- The agent's page shows "Agent needs you · <task name> · <site>" with
+- The agent's page shows "Agent needs you" and "<task name> on <site>" with
   [Resume agent]. Its small text is the agent's words, whole, as its own:
   "The agent says: “<state text>”." (the user's design, 2026-11-20; no cap,
   the '?' opens what one line doesn't show). The pill follows later
@@ -1612,9 +1612,9 @@ deadline += await ctx.gate();
   - The window remembers where the user was: their tab, or, from an
     agent's page or Space, their own Space (`#userWorkspace`). Watching
     another task keeps that.
-  - While it watches, the strip reads "Watching <task> · ⌃Tab" ("Ctrl+Tab"
-    off the Mac), the name cut, never the key. It's a hint: a click opens
-    the panel, as before. Its tooltip and accessible name add "⌃Tab goes
+  - While it watches, the strip reads "Watching <task> [⌃Tab]" ("Ctrl+Tab"
+    off the Mac), the key a keycap, the name cut, never the key. It's a
+    hint: a click opens the panel, as before. Its tooltip and accessible name add "⌃Tab goes
     back to your tabs" and the strip's own news.
   - Where the strip can't be read (`stripSeen`: a collapsed sidebar, which
     shows only its dot, or compact mode while the sidebar is away), a chip
@@ -1633,7 +1633,7 @@ deadline += await ctx.gate();
     user reaches for ⌃Tab right then). The window stays where it is: on
     the task's page, whose close waits until the user leaves it (SPEC
     §3.5), or on a page the task kept. The strip (`[watching="done"]`), or
-    the chip (`[done]`), says "Task done · ⌃Tab back to your tabs", where
+    the chip (`[done]`), says "Task done, [⌃Tab] back to your tabs", where
     "back to your tabs" is cut first, never the key. ⌃Tab still goes back
     until the user presses it or picks another tab or Space themselves.
     The tab Zen picks when that page closes (its pill's Close, ⌘W) isn't
@@ -1995,8 +1995,8 @@ zen-core's tab code imports.
   badge can't stand for the tasks that share it.
 - The Agents Space's switcher badge and header status show only while a
   task there needs the user (SPEC §3.8):
-  - one task: "Agent needs you · <task> · <its state text>";
-  - several: "Agent needs you · 2 tasks: <names>".
+  - one task: "Agent needs you <task>, <its state text>";
+  - several: "Agent needs you 2 tasks: <names>".
   The end of one task recomputes them for the others.
 - **The header status** is a line of its own under the Space's header
   (`zen-workspace > .zenius-space-status`, after the header), starting
@@ -2004,10 +2004,12 @@ zen-core's tab code imports.
   and in it the status had shared the width with the name and Zen's
   actions button: at the sidebar's default width it showed "Agent nee…"
   (B6).
-  - Its state words ("Agent needs you", "Agent paused") always show whole,
-    even at Zen's narrowest sidebar. Only what follows them clips, with an
-    ellipsis (`.zenius-space-status-words`, then `-more`, in a grid whose
-    second column has no minimum).
+  - Its state words ("Agent needs you", "Agent paused") show in the pill's
+    color, then a space and the rest in gray, with commas only between the
+    rest's own parts (the user's text pass, 2026-11-23). They always show
+    whole, even at Zen's narrowest sidebar. Only what follows them clips,
+    with an ellipsis (`.zenius-space-status-words`, then `-more`, in a grid
+    whose second column has no minimum).
   - The rest shows only with at least 5em of room, or whole. With less it
     hides (`[short]`), and the status's title keeps the whole text. On a
     Mac's narrower system font, Zen's narrowest sidebar left it a few
@@ -2036,9 +2038,9 @@ in-process `tabClosing {space, tab}`, ZeniusUI:
   takes the tag away;
 - once the call that closed it is over (`setTimeout 0`: a `finish()`
   drops its record in the same call), shows the pill `zenius-task-finished`:
-  - "Task finished · <task> · closes when you leave this tab" when the
+  - "Task finished" and "<task>, closes when you leave this tab" when the
     task ended (its record gone, or the user's);
-  - "Agent closed this page · <task> · closes when you leave this tab" for
+  - "Agent closed this page" and "<task>, closes when you leave this tab" for
     a `pages.close` while the task goes on, and without the task's name
     when the event names no task;
 - offers **Keep tab** (`service.keepDeferred(tab)`: the tab stays as the
@@ -3675,11 +3677,11 @@ Written by `install.sh`. It writes copies, never links:
   (`COMPONENTS` in `install.sh`: `agent-sidebar`, `agent-urlbar`, zen-ux's,
   SPEC §8): `<profile>/chrome/JS/<name>.uc.js` and, if the checkout has
   one, the tree `<profile>/chrome/JS/<name>/`, swapped in whole. The profile
-  may hold the user's own copy (their `agent-sidebar`). The install that
-  first replaces it backs it up, and `--uninstall` puts it back. A script
-  the profile didn't have, `--uninstall` removes. If the backup with the
-  user's copy is gone, `--uninstall` leaves zenius's copy, so the user keeps
-  a working script. It never touches the user's other scripts
+  may already hold a script of that name. The install that first replaces
+  it backs it up, and `--uninstall` puts it back. A script the profile
+  didn't have, `--uninstall` removes. If the backup with the earlier copy is
+  gone, `--uninstall` leaves zenius's copy, so the user keeps a working
+  script. It never touches the user's other scripts
   (`my-script.uc.js`) or the sidebar's own data
   (`~/Library/Application Support/zenius-agent-sidebar/`).
 - `<profile>/chrome/JS/zenius/install.json`: `{runtimeVersion, protocol,
@@ -3710,22 +3712,22 @@ Written by `install.sh`. It writes copies, never links:
   `browser.health`'s `dnsDisableIPv6` is the value Zen has.
 - `~/.zenius/components.prior` (mode 0600): one line for each profile and
   agent's script an install put there, split by tabs: `<profile>`,
-  `<name>`, the backup folder holding the user's own copy (empty if there
+  `<name>`, the backup folder holding the copy it replaced (empty if there
   was none), and a fingerprint of zenius's copy as installed (`cksum` over
   the names, link targets and contents of `<name>.uc.js` and `<name>/`).
   Each script's first install writes its line before the swap, later
-  installs keep it, and `--uninstall` drops it once the user's copy is back.
-  A copy that no longer matches the fingerprint was put there by the user,
-  or their own installer, after zenius's. A reinstall backs it up as the
-  user's own and points the line at that backup, and `--uninstall` leaves
-  it in place.
+  installs keep it, and `--uninstall` drops it once the earlier copy is
+  back. A copy that no longer matches the fingerprint was put there by the
+  user or another installer, after zenius's. A reinstall backs it up as the
+  copy to put back and points the line at that backup, and `--uninstall`
+  leaves it in place.
   It lives outside the profile on purpose. Going back to a version from
   before these scripts runs that version's `install.sh`, which rewrites
   `chrome/JS/zenius/` and leaves the scripts, since it doesn't know them.
   The line survives that, so the next install or `--uninstall` by a newer
-  `install.sh` still finds the user's copy. An install from a checkout
-  that lacks a noted script puts the user's copy back, as `--uninstall`
-  does. To go fully back to such a version, the user's sidebar included,
+  `install.sh` still finds the earlier copy. An install from a checkout
+  that lacks a noted script puts the earlier copy back, as `--uninstall`
+  does. To go fully back to such a version, its scripts included,
   uninstall with the newer checkout first, then install the older commit.
 - `~/.zenius/backups/<UTC time>/`: before an install replaces zenius's files
   or an uninstall removes them, they're copied here, under their paths in
@@ -3780,6 +3782,12 @@ daily profile):
 - `~/.zenius/instances/default.json`: `{instance, pid, socket, profileDir,
   zenVersion, runtimeVersion, install, startedAt}`, removed at quit.
 - `~/.zenius/state/default/spaces.json`.
+- `~/.zenius/selfcheck/default.sock` (mode 0600, in a 0700 directory): the
+  post-install self-check's own socket, which serves `selfcheck.run` alone
+  (PROTOCOL, "Self-check"). The runtime opens it at idle after the agents'
+  socket.
+- `~/.zenius/selfcheck/default/<time>/`: one self-check run's
+  `summary.json` and PNGs, made only when a run starts.
 - zenius follows no link below `~/.zenius`: a folder of its own that is a
   link stops the runtime from making it (no socket then, or no saved
   Spaces), and its records go to a fresh temporary file made exclusively,

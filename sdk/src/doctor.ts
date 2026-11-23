@@ -88,10 +88,21 @@ type Live = {
   };
   methods?: string[];
   /**
-   * zen-ux's ui.sidebarStatus: what the running Zen knows of zenius's sidebar; config is "found", "missing",
+   * ui.sidebarStatus: what the running Zen knows of zenius's sidebar; config is "found", "missing",
    * "none", or "builtin" when there's no config file and its built-in agents can run (builtin says which).
+   * zen-input's count of every window adds open, failed and perWindow (windowCounts).
    */
-  sidebar?: { loaded?: boolean; windows?: number; config?: string; configPath?: string; error?: string; builtin?: SidebarBuiltin };
+  sidebar?: {
+    loaded?: boolean;
+    windows?: number;
+    open?: number;
+    failed?: number;
+    perWindow?: unknown;
+    config?: string;
+    configPath?: string;
+    error?: string;
+    builtin?: SidebarBuiltin;
+  };
   error?: string;
   /** The connect's errno, such as EPERM when a sandbox around doctor blocks the socket. */
   errno?: string;
@@ -488,9 +499,9 @@ const SIDEBAR_MARKER = "// zenius: agent-sidebar";
 
 /**
  * zenius's sidebar, once scripts/install.sh has put it in the profile
- * (~/.zenius/install.json lists chrome/JS/agent-sidebar.uc.js). The user's
- * own install.sh can put their earlier sidebar back over it, which Zen then
- * loads at its next start, so the file must still carry zenius's marker line.
+ * (~/.zenius/install.json lists chrome/JS/agent-sidebar.uc.js). Another
+ * installer can put a different sidebar over it, which Zen then loads at its
+ * next start, so the file must still carry zenius's marker line.
  * While Zen runs, the runtime's ui.sidebarStatus (zen-ux) says whether
  * zenius's sidebar started and found its config.
  */
@@ -504,14 +515,14 @@ function sidebarCheck(o: Resolved, profileDir: string | undefined, live: Live, i
   // Information that goes with the check whatever its status: the built-in agents.
   const notes: string[] = [];
   // install.sh keeps a copy the user put back as theirs: Undo restores it (zen-core's f02a91c).
-  const restore = "With the user's OK, reinstall with scripts/install.sh, which keeps the copy it replaces as the user's own for Undo; then the user quits and reopens Zen.";
+  const restore = "With the user's OK, reinstall with scripts/install.sh, which keeps the copy it replaces for Undo; then the user quits and reopens Zen.";
   const present = isFile(file);
   const marked = present && hasSidebarMarker(file);
   if (!present) {
     problems.push(`chrome/JS/agent-sidebar.uc.js is missing, so Zen starts without zenius's sidebar. ${restore}`);
   } else if (!marked) {
     problems.push(
-      `chrome/JS/agent-sidebar.uc.js isn't zenius's sidebar: another install, such as the user's own install.sh, put its copy back, and Zen loads that one at its next start. ${restore}`,
+      `chrome/JS/agent-sidebar.uc.js isn't zenius's sidebar: another install put its copy there, and Zen loads that one at its next start. ${restore}`,
     );
   }
   const disabled = ["user.js", "prefs.js"].filter((name) => scriptsDisabled(path.join(profileDir, name)).includes("agent-sidebar.uc.js"));
@@ -527,10 +538,20 @@ function sidebarCheck(o: Resolved, profileDir: string | undefined, live: Live, i
     // A runtime from before ui.sidebarStatus: the runtime check already says to reopen Zen.
     running = "the running runtime doesn't report the sidebar";
   } else if (status) {
-    if (typeof status.error === "string" && status.error) {
+    const notLoaded = "The running Zen hasn't loaded zenius's sidebar, which is installed: the user quits and reopens Zen to load it.";
+    const counts = windowCounts(status);
+    if (counts) {
+      if (counts.failed > 0) {
+        problems.push(failedStart(counts, status.error));
+      } else if (counts.started === 0 && counts.open > 0 && marked && disabled.length === 0) {
+        problems.push(notLoaded);
+      }
+      // Only beside a window that started or failed: with neither, a line above says why.
+      if (counts.pending > 0 && counts.started + counts.failed > 0) notes.push(pendingNote(counts));
+    } else if (typeof status.error === "string" && status.error) {
       problems.push(`zenius's sidebar failed to start in the running Zen: ${status.error}`);
     } else if (status.loaded !== true && marked && disabled.length === 0) {
-      problems.push("The running Zen hasn't loaded zenius's sidebar, which is installed: the user quits and reopens Zen to load it.");
+      problems.push(notLoaded);
     }
     const at = typeof status.configPath === "string" && status.configPath ? ` at ${status.configPath}` : "";
     const builtin = status.builtin;
@@ -542,11 +563,15 @@ function sidebarCheck(o: Resolved, profileDir: string | undefined, live: Live, i
     } else if (status.config === "missing") {
       // A path the pref names that is missing (built-in agents run only without the pref), or a runtime from before them.
       const where = at ? at.slice(4) : "its config file";
-      problems.push(`The sidebar has no config at ${where}, so it offers no agent. The user's own sidebar setup made that file; the pref uc.agent-sidebar.config can name another.`);
+      problems.push(`The sidebar has no config at ${where}, so it offers no agent. Put the agents' config.json there, or name another file in the pref uc.agent-sidebar.config.`);
     } else if (status.config === "builtin" && builtin) {
       notes.push(...builtinLines(builtin, at ? at.slice(4) : undefined));
     }
-    const windows = typeof status.windows === "number" ? ` in ${plural(status.windows, "window")}` : "";
+    const windows = counts
+      ? ` in ${counts.started} of ${plural(counts.open, "window")}`
+      : typeof status.windows === "number"
+        ? ` in ${plural(status.windows, "window")}`
+        : "";
     // "none" is uc.agent-sidebar.config = none, as zen-dev.sh sets it in dev profiles: no agent, on purpose.
     const config =
       status.config === "none"
@@ -556,7 +581,9 @@ function sidebarCheck(o: Resolved, profileDir: string | undefined, live: Live, i
           : status.config === "builtin"
             ? `, built-in agents (${builtinAgents(status.builtin).map((id) => BUILTIN_AGENTS[id]).join(", ")})`
             : "";
-    running = status.loaded === true ? `loaded${windows}${config}` : "not loaded";
+    // On a Mac, Zen runs on with every window closed; the sidebar starts in the next one.
+    const loaded = counts ? counts.started > 0 : status.loaded === true;
+    running = counts?.open === 0 ? `no browser window open${config}` : loaded ? `loaded${windows}${config}` : "not loaded";
   }
   // Codex is on by default (the user's call, 2026-11-21), and off is the user's choice: information,
   // not a warning. The lines say what holds Codex and the one read path no Codex setting removes, which
@@ -571,6 +598,94 @@ function sidebarCheck(o: Resolved, profileDir: string | undefined, live: Live, i
   entry.summary = `zenius's on disk; ${running}${codex}`;
   entry.details.push(...notes, ...codexLines);
   return entry;
+}
+
+/** One window in ui.sidebarStatus's perWindow: its kind, and how zenius's sidebar started there. */
+type SidebarWindow = { kind?: unknown; sidebar?: unknown; error?: unknown };
+
+type WindowCounts = {
+  open: number;
+  started: number;
+  failed: number;
+  pending: number;
+  /** The failed and pending windows, each list only where it agrees with its count. */
+  failedWindows: SidebarWindow[];
+  pendingWindows: SidebarWindow[];
+};
+
+/**
+ * zen-input's count of every window (agreed with zen-sdk): open (M) is the
+ * browser windows whose toolbar shows, windows (N) those where zenius's
+ * sidebar started, failed those where its start threw, and the rest haven't
+ * recorded a start, as a window still opening. perWindow lists popups too,
+ * which no count includes: the sidebar leaves them alone. A runtime from
+ * before the count has no open, and doctor reads it as before.
+ */
+function windowCounts(status: NonNullable<Live["sidebar"]>): WindowCounts | undefined {
+  if (typeof status.open !== "number" || !Number.isInteger(status.open) || status.open < 0) return undefined;
+  const count = (n: unknown) => (typeof n === "number" && Number.isInteger(n) && n > 0 ? n : 0);
+  const list = Array.isArray(status.perWindow)
+    ? status.perWindow.filter((w): w is SidebarWindow => typeof w === "object" && w !== null && (w as SidebarWindow).kind !== "popup")
+    : [];
+  const failedList = list.filter((w) => w.sidebar === "failed");
+  const pendingList = list.filter((w) => w.sidebar === "none");
+  const started = count(status.windows);
+  const failed = status.failed === undefined ? failedList.length : count(status.failed);
+  const open = Math.max(status.open, started + failed);
+  const pending = open - started - failed;
+  return {
+    open,
+    started,
+    failed,
+    pending,
+    failedWindows: failedList.length === failed ? failedList : [],
+    pendingWindows: pendingList.length === pending ? pendingList : [],
+  };
+}
+
+/**
+ * "zenius's sidebar failed to start in 1 of 2 windows (a private window):
+ * <error>": each failed window by its kind, with its error (the manager's
+ * ask). Windows that threw different errors each get theirs.
+ */
+function failedStart(counts: WindowCounts, firstError: unknown): string {
+  const head = `zenius's sidebar failed to start in ${counts.failed} of ${plural(counts.open, "window")}`;
+  const first = typeof firstError === "string" ? firstError : "";
+  const byError = new Map<string, SidebarWindow[]>();
+  for (const w of counts.failedWindows) {
+    const error = typeof w.error === "string" && w.error ? w.error : first;
+    byError.set(error, [...(byError.get(error) ?? []), w]);
+  }
+  const groups = [...byError];
+  if (groups.length === 0) return first ? `${head}: ${first}` : `${head}.`;
+  if (groups.length === 1) {
+    const [error, windows] = groups[0]!;
+    return `${head} (${windowKinds(windows)})${error ? `: ${error}` : "."}`;
+  }
+  return `${head}: ${groups.map(([error, windows]) => `in ${windowKinds(windows)}, ${error || "with no message"}`).join("; ")}`;
+}
+
+/** Windows with no start recorded, beside ones that have it: a window still opening records it in a moment. */
+function pendingNote(counts: WindowCounts): string {
+  const kinds = counts.pendingWindows.length > 0 ? ` (${windowKinds(counts.pendingWindows)})` : "";
+  return `Not started yet in ${counts.pending} of ${plural(counts.open, "window")}${kinds}: a window that's still opening starts it in a moment, so run doctor again.`;
+}
+
+/** perWindow's kinds as doctor names them: "browser" is a normal window. */
+const WINDOW_KINDS = new Map<unknown, readonly [one: string, many: string]>([
+  ["browser", ["a normal window", "normal windows"]],
+  ["private", ["a private window", "private windows"]],
+]);
+const OTHER_WINDOW = ["a window", "windows"] as const;
+
+/** "a private window", "2 normal windows", "a normal window and a private window", in perWindow's order. */
+function windowKinds(windows: readonly SidebarWindow[]): string {
+  const counts = new Map<readonly [string, string], number>();
+  for (const w of windows) {
+    const names = WINDOW_KINDS.get(w.kind) ?? OTHER_WINDOW;
+    counts.set(names, (counts.get(names) ?? 0) + 1);
+  }
+  return listed([...counts].map(([[one, many], n]) => (n === 1 ? one : `${n} ${many}`)));
 }
 
 /** Whether scripts/install.sh put zenius's sidebar in this profile: ~/.zenius/install.json lists it. */

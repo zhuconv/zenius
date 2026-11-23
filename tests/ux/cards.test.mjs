@@ -310,8 +310,8 @@ test("the Agent needs you pill names the task, and its small text follows the ag
   `);
   assert.deepEqual(out, {
     name: out.name,
-    first: { notice: `Agent needs you · ${iso(out.name)} · ${site()}`, note: `The agent says: “${iso("Log in to continue")}”.` },
-    later: { notice: `Agent needs you · ${iso(out.name)} · ${site()}`, note: `The agent says: “${iso("Enter the code sent to your phone")}”.` },
+    first: { notice: `Agent needs you · ${iso(out.name)} on ${site()}`, note: `The agent says: “${iso("Log in to continue")}”.` },
+    later: { notice: `Agent needs you · ${iso(out.name)} on ${site()}`, note: `The agent says: “${iso("Enter the code sent to your phone")}”.` },
     after: null,
   });
 });
