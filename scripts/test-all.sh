@@ -18,7 +18,8 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 [[ -d $HOME/opt/node-v24.22.2-linux-x64/bin ]] && export PATH=$HOME/opt/node-v24.22.2-linux-x64/bin:$PATH
 suffix=$(basename "$ROOT" | sed 's/^zenius-\{0,1\}//' | tr 'A-Z' 'a-z' | tr -c 'a-z0-9_\n-' '-')
 LOGS=${TMPDIR:-/tmp}/zenius-test-all/${suffix:-main}
-mkdir -p "$LOGS"
+# Owner-only, both levels: on a shared machine, /tmp is open to every account.
+(umask 077; mkdir -p "$LOGS")
 cd "$ROOT"
 
 serial=${ZENIUS_SERIAL:-}
