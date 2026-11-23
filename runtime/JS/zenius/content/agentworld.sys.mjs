@@ -1,5 +1,5 @@
 // The agent's code in an isolated world, content side (zen-observe; the
-// user's decision (A), 2026-11-20; docs/research/isolated-world.md).
+// user's decision, 2026-11-20).
 //
 // The agent's page code runs in a sandbox per document, never in the page's
 // own JavaScript. This module keeps the worlds of this process, discards
@@ -10,8 +10,7 @@
 // The parent (observe/agentworld.sys.mjs) publishes both as sharedData sets
 // of innerWindowIds, so a reload or a new load clears a flag by itself.
 //
-// Two Debugger hooks watch each world (zen-snapshot's red team, 2026-11-20;
-// docs/reports/zen-observe.md):
+// Two Debugger hooks watch each world:
 // - onNativeCall on the world sees every built-in that runs in the world's
 //   realm, called by the agent's code or scheduled by it to run later. A
 //   built-in that isn't a known read or action counts as a write and flags
@@ -20,10 +19,10 @@
 // - onNewScript on the page's windows sees eval and Function compiled with
 //   no page frame on the stack, and a script element the world inserts.
 //
-// Hooked (docs/research/hooked.md; the user's pass on the defenses brief,
-// 2026-11-21): what the agent's code leaves that outlives the discard of its
-// world marks the page with evidence (content/evidence.sys.mjs). Listeners,
-// timers, observers and workers end with the world, so they don't count.
+// Hooked (the user's call on the defenses, 2026-11-21): what the agent's
+// code leaves that outlives the discard of its world marks the page with
+// evidence (content/evidence.sys.mjs). Listeners, timers, observers and
+// workers end with the world, so they don't count.
 // What does:
 // - code in the page's own realm, which now runs instead of being refused: a
 //   script element, the page's eval and Function, a string timer, another
@@ -406,8 +405,7 @@ const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL,
 // The observer is on only while this process holds something of the agent's
 // for some document: a world, shims, a URL record or a written flag. Each of
 // those puts it on, and it comes off with the last of them. A process that
-// hosted a task then watches nothing for the user's later documents there
-// (zen-core's nit).
+// hosted a task then watches nothing for the user's later documents there.
 let watchingDestroyed = false;
 
 function watchDestroyed() {
@@ -770,10 +768,10 @@ function flagWritten(world) {
  * Agent input put markup into this window's document outside the world: a
  * paste with html, the agent's own or the Space's clipboard through its
  * Ctrl/Cmd+V. A page's paste handler may insert it as live markup, so the
- * document counts as written, here at once and in the parent (zen-input's
- * point, the manager's gate of 2026-11-20). So does every other document of
- * its group in this process, as for a write of the world (flagWritten): the
- * markup's handlers run as the page's own code and reach them.
+ * document counts as written, here at once and in the parent. So does every
+ * other document of its group in this process, as for a write of the world
+ * (flagWritten): the markup's handlers run as the page's own code and reach
+ * them.
  *
  * @param {Window} win  the document's window
  */
@@ -804,7 +802,7 @@ export function noteWrittenWindow(win) {
  * written too. A write of the world flags the documents already there
  * (flagWritten); this flags those that come later, so the hand-off's check
  * of the held page can trust the flags alone, not the sites where the
- * agent's code ran (zen-sdk's rehearsal on 424962d). A tab's own earlier
+ * agent's code ran (as zen-sdk's rehearsal showed). A tab's own earlier
  * document never runs beside its next one: it's gone, or frozen in the
  * back-forward cache, so a clean copy of a written page starts clean.
  *
@@ -845,7 +843,7 @@ function tellParent(data) {
 // The URL a document had before the agent's code changed it in place
 // (pushState, replaceState, the hash, a location set to the same document),
 // so zen-core's clean load goes back there and not to an address the agent
-// chose (the manager's rule, 2026-11-20). innerWindowId → {before, agentSet}.
+// chose. innerWindowId → {before, agentSet}.
 const urls = new Map();
 let urlsPending = null;
 
@@ -943,14 +941,14 @@ function startTurn(world, now) {
 }
 
 /**
- * The deadlines (zen-eval's e2e case, 2026-11-20). The parent's cancel
- * doesn't reach a sandbox's script, so the hook ends it, as if by an
- * uncatchable error, at a built-in it calls; a loop that calls none runs on
- * until the slow-script watchdog (a residual). Like Chrome's
- * Runtime.evaluate timeout, a call's deadline ends the code that is running
- * when it falls, the call's own or a callback it left, and the call reports
- * it; a callback that starts after it still runs (Ego's late effects).
- * While no call runs, the world's code may run IDLE_LIMIT_MS at once.
+ * The deadlines. The parent's cancel doesn't reach a sandbox's script, so the
+ * hook ends it, as if by an uncatchable error, at a built-in it calls; a loop
+ * that calls none runs on until the slow-script watchdog (a residual). Like
+ * Chrome's Runtime.evaluate timeout, a call's deadline ends the code that is
+ * running when it falls, the call's own or a callback it left, and the call
+ * reports it; a callback that starts after it still runs (Ego's late
+ * effects). While no call runs, the world's code may run IDLE_LIMIT_MS at
+ * once.
  * Returns true when the running code must end.
  */
 function pastDeadline(world) {
@@ -1176,8 +1174,8 @@ function takeWatched(world) {
 
 /**
  * Each document a record that counts as hooked is in is marked: the agent's
- * code wrote there (rule 3 of docs/safety-rubric.md), the world's own page
- * or another of its group.
+ * code wrote there (the defenses act on evidence), the world's own page or
+ * another of its group.
  */
 function checkRecords(world, records) {
   const marked = new Set();
@@ -1257,7 +1255,7 @@ function onPageScript(group, script) {
     return;
   }
   // It runs, in the page's own realm, where it outlives the world: the page
-  // is hooked (A9 of the user's pass on the defenses brief).
+  // is hooked.
   const detail = !isEval ? "a script element" : type === "eval" ? "eval in the page" : "Function in the page";
   try {
     const group_ = [...worlds.values()].filter(w => w.group === group);

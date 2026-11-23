@@ -14,8 +14,9 @@
 // its mark too: the workers it starts from a URL carry it in the URL's
 // fragment, so their requests' loading principal shows whose they are, and
 // the parent keeps them from the site's worker (observe/swbypass.sys.mjs).
-// A blob: worker's principal is the origin's, which no mark reaches
-// (docs/research/observe.md has what that leaves).
+// A blob: worker's principal is the origin's, which no mark reaches: once
+// the site's service worker controls a task's page, a blob worker that page
+// starts inherits it.
 //
 // The worker's realm can't call into this global, so a breakpoint at the
 // start of the function every refusal calls tells of each one, by its kind.

@@ -10,9 +10,9 @@
 // "The user's ~/.claude" is a scratch CLAUDE_CONFIG_DIR, and HOME is scratch
 // too. Each holds what would widen the agent if it loaded: settings that
 // allow Bash and run hooks, a CLAUDE.md, a skill, a sub-agent, a command and
-// an MCP server. the Linux server's own ~/.claude is never used (the manager's
-// condition), and the scratch is removed at the end. Skipped where the
-// pinned adapter or the CLI isn't installed.
+// an MCP server. The machine's own ~/.claude is never used, and the scratch
+// is removed at the end. Skipped where the pinned adapter or the CLI isn't
+// installed.
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
@@ -375,7 +375,7 @@ function assertNothingOfTheUsers(userBefore) {
     assert.ok(!existsSync(canary(name)), `the user's ${name} didn't run`);
   }
   // zenius and the agent wrote no settings, skills, agents, commands, hooks,
-  // plugins or MCP servers there (the manager's rule). The CLI's own state
+  // plugins or MCP servers there. The CLI's own state
   // (transcripts, its plugin store's usage rows and such) may change.
   const now = snapshot(join(s, "claude-config"));
   const guarded = /^(settings[^/]*\.json|CLAUDE(\.local)?\.md|\.mcp\.json|(skills|agents|commands|hooks|output-styles|rules)\/|plugins\/(installed_plugins\.json|known_marketplaces\.json|marketplaces\/|cache\/|repos\/))/;

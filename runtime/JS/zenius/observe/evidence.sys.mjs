@@ -1,5 +1,5 @@
-// The evidence flag, parent side (zen-observe; docs/research/hooked.md and
-// docs/briefs/defenses-evidence.md, the user's pass of 2026-11-21).
+// The evidence flag, parent side (zen-observe; the user's call of
+// 2026-11-21).
 //
 // The defenses (the typing hold, the clean-copy reloads, the hold's COOP and
 // muting, the task-end reload, the permission prompts' denial) act only on
@@ -160,8 +160,7 @@ export function onEvident(fn) {
  * Content's hooked marks ({marks: [[innerWindowId, detail]]}): the sending
  * process's own documents only, and only as hooked, since the other reasons
  * are the parent's to give. A parent message manager's target has no childID
- * in Gecko 160, only osPid; without one, the message counts for nothing
- * (zen-core's review of the written flag).
+ * in Gecko 160, only osPid; without one, the message counts for nothing.
  */
 export function onEvidentMessage(msg) {
   const pid = msg.target?.osPid;

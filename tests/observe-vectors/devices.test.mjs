@@ -1,7 +1,6 @@
 // The user's devices and location in an agent task's pages
-// (content/refusals.sys.mjs; A8 of the user's pass on
-// docs/briefs/defenses-evidence.md, 2026-11-21). While the agent drives a
-// task's page, getUserMedia, mozGetUserMedia, getDisplayMedia,
+// (content/refusals.sys.mjs; the user's call, 2026-11-21). While the agent
+// drives a task's page, getUserMedia, mozGetUserMedia, getDisplayMedia,
 // selectAudioOutput and speech recognition get the answer a page gets when
 // the user says no, and enumerateDevices() lists none, in every document of
 // the page (fresh frames, cross-site frames, a popup from its first
@@ -767,7 +766,7 @@ test("page.goto refuses the local network before loading, and says so when a red
     assert.deepEqual(newHits(before), { "goto-allowed": 1 });
   }));
 
-test("the local network stays refused while the user holds the task; WebRTC is the user's then, as the devices are (A8)", () =>
+test("the local network stays refused while the user holds the task; WebRTC is the user's then, as the devices are", () =>
   env.inSpace("local network hold", async page => {
     await page.goto(`${vectors.base}/vectors-net`);
     const before = hits();
@@ -992,7 +991,7 @@ test("while a task's page shows a site, that site's blob shared workers never re
         worldPrivate: await page.evaluate(blobShared("http://172.31.254.1/")),
         main: await env.call("dev.evalContent", { ...page.P, code: blobShared(lan("main")) }),
         data: await page.evaluate(`(() => { try { new SharedWorker("data:text/javascript,onconnect=e=>e.ports[0].postMessage(1)"); return "made"; } catch (e) { return e.name; } })()`),
-        // The accepted cost (the manager's call): the user's own, on the site the task shows.
+        // The accepted cost: the user's own, on the site the task shows.
         userSame: await asUser("same", blobShared(lan("user-same"))),
         userOther: await asUser("other", blobShared(lan("user-other"))),
       };
@@ -1023,10 +1022,9 @@ test("while a task's page shows a site, that site's blob shared workers never re
 
 // ---------------------------------------------------------------------------
 // A page that holds the agent's code keeps the task's refusals until its
-// document is replaced (the manager's decision, 2026-11-20). In the world,
-// what the agent leaves in a page after the task can only be what its world
-// wrote there: markup such as an onclick attribute, which runs as the page's
-// own code at the user's click (isolated-world.md, residual 1). Code the
+// document is replaced. In the world, what the agent leaves in a page after
+// the task can only be what its world wrote there: markup such as an onclick
+// attribute, which runs as the page's own code at the user's click. Code the
 // world only ran goes with the world.
 
 /** Code an agent leaves in a page: at the user's first click, every kind refused for a task's whole life. */
@@ -1249,7 +1247,7 @@ test("a link the user clicks in a kept page the agent's code wrote: the press lo
       mark
     );
     // The page holds the agent's writes, so the user's press waits for a
-    // clean copy (zen-core's cleanOnDemand, landing (2)): the link the agent
+    // clean copy (zen-core's cleanOnDemand): the link the agent
     // added is gone before the press could follow it.
     await until("the clean copy", () =>
       env.chrome(
@@ -1273,7 +1271,7 @@ test("a link the user clicks in a kept page the agent's code wrote: the press lo
   }
 });
 
-test("a plain link the agent's code wrote in a kept page is no evidence (B), so the user's click follows it with no clean copy first; the local network stays refused there, since the agent wrote into the page, and zen-ux's notice hears of it (zen-input's case)", async () => {
+test("a plain link the agent's code wrote in a kept page is no evidence, so the user's click follows it with no clean copy first; the local network stays refused there, since the agent wrote into the page, and zen-ux's notice hears of it", async () => {
   const mark = `zo-kept-plain-link-${Date.now()}`;
   const port = new URL(vectors.base).port;
   const space = await env.call("spaces.create", { name: `kept plain link ${Date.now() % 100000}` });

@@ -1,10 +1,10 @@
 // Files in and out (zen-observe): page.fetch and the Download methods.
 // Portions adapted from citrolabs/ego-lite (MIT License).
 //
-// Semantics follow Ego (page-model.ts page.fetch, driver/downloads.ts);
-// docs/research/observe.md §6. I5 (SPEC §3.9): the runtime reads or writes
-// no file an agent names. Bodies and downloads leave as bytes, and the
-// client writes saveAs and path targets itself.
+// Semantics follow Ego (page-model.ts page.fetch, driver/downloads.ts). I5
+// (SPEC §3.9): the runtime reads or writes no file an agent names. Bodies
+// and downloads leave as bytes, and the client writes saveAs and path
+// targets itself.
 
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
 import { setupObserve } from "chrome://userscripts/content/zenius/observe/setup.sys.mjs";
@@ -152,11 +152,11 @@ function noPaths(method) {
 // ---------------------------------------------------------------------------
 // Methods
 
-// Gate classes (docs/research/method-boundary.md): access for the control
-// gate (I3), i5 for the web-content gate (I5). The Download methods touch
-// only the agent's own temporary files. Reading them changes nothing; cancel
-// and delete change them, so they run the control gate for the download's
-// task themselves (they name no space).
+// Gate classes: access for the control gate (I3), i5 for the web-content
+// gate (I5). The Download methods touch only the agent's own temporary
+// files. Reading them changes nothing; cancel and delete change them, so
+// they run the control gate for the download's task themselves (they name
+// no space).
 export const access = {
   "page.fetch": "mutate",
   "download.read": "read",

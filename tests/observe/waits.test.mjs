@@ -66,9 +66,8 @@ test("a networkidle timeout lists the requests still in flight", () =>
     await page.call("page.events");
     await page.evaluate(u => void fetch(u).catch(() => {}), url);
     // The wait counts what the parent has seen go out. Under test-all's
-    // load the fetch got there after the wait's idle window had passed
-    // (zen-input's flake, 2026-11-20), as it could in Chrome: start the
-    // wait once the request is out.
+    // load the fetch got there after the wait's idle window had passed, as
+    // it could in Chrome: start the wait once the request is out.
     for (const end = Date.now() + 5000; ; await sleep(50)) {
       const events = await page.call("page.events");
       if (events.some(ev => ev.method === "Network.requestWillBeSent" && ev.params?.request?.url === url)) break;
@@ -427,11 +426,11 @@ async function until(fn, ms = 4000) {
   }
 }
 
-test("waitForFunction: a throw while the page is still loading (no body yet) or while a navigation is under way counts as not yet, and the wait goes on; a loaded page's throw still ends it (zen-eval's round 2)", () =>
+test("waitForFunction: a throw while the page is still loading (no body yet) or while a navigation is under way counts as not yet, and the wait goes on; a loaded page's throw still ends it", () =>
   env.inSpace("wait function loading", async page => {
     const late = await lateServer();
     try {
-      // zen-eval's T3: the page has landed but has no body yet.
+      // The page has landed but has no body yet.
       await page.goto(`${late.base}/late-body?landed`, { waitUntil: "commit" });
       const landed = await timed(() =>
         page.call("page.waitForFunction", { fn: "() => document.body.dataset.ready === '1'", isFunction: true, options: { timeout: 5000 } })

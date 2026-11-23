@@ -182,8 +182,7 @@ test("ask: a site runs page code once the user allows it; one ask per task and s
       await page.goto(`${env.base.replace("127.0.0.1", "localhost")}/nav-target?pagecode-typo`);
       assert.equal((await env.fail("page.evaluate", { ...page.P, fn: "() => 1" })).code, "ZEN_PAGE_CODE_ASKED");
       // So does a pref of another type: a Boolean false the user made
-      // meaning off, or a number (zen-sdk's find: getStringPref would read
-      // "always").
+      // meaning off, or a number (getStringPref would read "always").
       for (const make of ["Services.prefs.setBoolPref(arg.MODE, false)", "Services.prefs.setIntPref(arg.MODE, 0)"]) {
         assert.equal(await env.chrome(`${PC} Services.prefs.clearUserPref(arg.MODE); ${make}; return PC.pageCodeMode();`, { MODE }), "ask", make);
       }

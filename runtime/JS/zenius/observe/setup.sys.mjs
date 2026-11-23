@@ -6,9 +6,8 @@
 //
 // The observers that see the user's own browsing too (every request, every
 // blocked download) run only while they have something of the agent's to
-// watch (I4; zen-core's report, 2026-11-20): from the first task page to the
-// last, and for the local network also while a page keeps the agent's code
-// after its task. See syncHooks.
+// watch (I4): from the first task page to the last, and for the local network
+// also while a page keeps the agent's code after its task. See syncHooks.
 
 import { ZeniusService } from "chrome://userscripts/content/zenius/modules/service.sys.mjs";
 import { log } from "chrome://userscripts/content/zenius/modules/util.sys.mjs";

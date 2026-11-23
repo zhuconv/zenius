@@ -4,10 +4,10 @@
 // outside the task. Left alone, it would control the task's pages too: its
 // fetch handler would see their requests and navigations, answer them, and
 // could fetch what the refusals stop (a worker's own requests have no tab,
-// so the local-network refusal can't place them). Measured in Gecko 160
-// (docs/research/observe.md): LOAD_BYPASS_SERVICE_WORKER on a request's
-// channel at http-on-opening-request keeps it from the worker, navigations
-// and frames included, even after the worker's clients.claim(). The page
+// so the local-network refusal can't place them). Measured in Gecko 160:
+// LOAD_BYPASS_SERVICE_WORKER on a request's channel at
+// http-on-opening-request keeps it from the worker, navigations and frames
+// included, even after the worker's clients.claim(). The page
 // can't reach the worker either (content/refusals.sys.mjs,
 // guardServiceWorkerAccess), nor can the workers it starts
 // (content/workerguard.js).
@@ -21,9 +21,8 @@
 // requestScope places them by the mark in the worker's URL (taskWorkerMark):
 // its script load's URL carries it, and its requests' loading principal,
 // which Gecko makes from that URL. So a task page's shared worker skips the
-// site's worker from its start, and still after the site's worker claims it
-// (docs/research/observe.md). The workers it starts carry the mark too
-// (content/workerguard.js).
+// site's worker from its start, and still after the site's worker claims
+// it. The workers it starts carry the mark too (content/workerguard.js).
 
 import { requestScope, typedTopLoad } from "chrome://userscripts/content/zenius/observe/localnet.sys.mjs";
 

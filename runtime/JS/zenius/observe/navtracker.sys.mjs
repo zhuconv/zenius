@@ -4,12 +4,12 @@
 // top-level navigation: goto and reload, link clicks, scripts, redirects.
 // A page is its browserId, not a <browser>: Zen's window sync moves a page's
 // docShell, with its browserId, BrowsingContext and web progress, between
-// the copies of its tab in each window (docs/research/two-windows.md).
+// the copies of its tab in each window.
 // It answers "is a navigation pending?" (started, not yet committed), which
 // the page gate needs before any content-bound call, and lets goto, reload
 // and the waits follow one navigation from start to commit to load.
 //
-// Web progress order for a cross-document navigation (docs/research/observe.md §3):
+// Web progress order for a cross-document navigation:
 //   STATE_START|IS_NETWORK  →  onLocationChange (new window global: commit)
 //   →  STATE_STOP|IS_NETWORK (load).
 // An aborted or download-type navigation ends with STOP and no commit. A

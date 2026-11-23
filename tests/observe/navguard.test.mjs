@@ -1,10 +1,9 @@
-// The closed-groups plan's second layer (observe/navguard.sys.mjs;
-// docs/research/user-tab-reach.md, "Fix: closed groups", item 4): a
-// document where the agent's code ran doesn't navigate a tab outside the
-// task, whatever the way or the scheme. Its own loads, its frames' and the
-// loads of documents the agent ran nothing in still go.
+// The closed groups' second layer (observe/navguard.sys.mjs): a document
+// where the agent's code ran doesn't navigate a tab outside the task,
+// whatever the way or the scheme. Its own loads, its frames' and the loads
+// of documents the agent ran nothing in still go.
 //
-// Items 1 to 3 keep such a document from holding a handle to the user's
+// The first layer keeps such a document from holding a handle to the user's
 // windows: the agent's code doesn't run in an adopted popup of the user's
 // tab. This layer catches what gets through anyway, so the tests mark that
 // popup's document from chrome, as if code had run there, and run each
@@ -208,8 +207,8 @@ test("what stays allowed: an adopted popup the agent ran nothing in moving its o
 
     // A sign-in popup the agent adopted but ran nothing in: its own code
     // moves its opener. First, while no document of the group holds the
-    // agent's code: then the user's tab opens it with an opener (zen-core's
-    // item 3 opens it without one).
+    // agent's code: then the user's tab opens it with an opener (once one
+    // does, zen-core opens it without one).
     const oauth = `${base}/oauth?to=${encodeURIComponent(hit("signed-in"))}`;
     await userOpens(mark, oauth);
     await adopt(space, oauth, "signin");

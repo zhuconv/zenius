@@ -2,8 +2,7 @@
 // screenshot, info, events and the JS dialog answers.
 // Portions adapted from citrolabs/ego-lite (MIT License).
 //
-// Semantics follow Ego (page-model.ts, driver/observe.ts); the design is in
-// docs/research/observe.md §1, §2 and §5.
+// Semantics follow Ego (page-model.ts, driver/observe.ts).
 
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
 import { Unserializable } from "chrome://userscripts/content/zenius/modules/serialize.sys.mjs";
@@ -130,7 +129,7 @@ function contextDestroyed(e) {
  * the response timeout. The outcome classes are Ego's (§5.2).
  */
 /**
- * Closed groups, item 1: the agent's code doesn't run in a page that shares
+ * Closed groups: the agent's code doesn't run in a page that shares
  * a window group with a window outside its task. zen-core's
  * pages.codeRefusal answers, and its answer sticks for the page's time in
  * the task. Checked before each run, and before the document is marked.
@@ -272,8 +271,8 @@ async function recoverEvaluation(ctx, { browser, page }, call, outcome, timing) 
  * throws ends the wait at once; one whose document goes away is polled
  * again on the new one, `polling` ms later as Ego's is. A throw while a
  * navigation is under way, or while the document is still loading (the
- * content side), counts as not yet (zen-eval's round 2: a results page with
- * no body yet). The content side loops, so a poll costs no round trip; the
+ * content side), counts as not yet: a results page can have no body yet.
+ * The content side loops, so a poll costs no round trip; the
  * parent bounds a predicate that never settles.
  */
 async function waitForFunction(ctx, params) {
@@ -623,12 +622,12 @@ async function encodePNG(doc, bitmap, crop = null, cover = []) {
 //
 // drawSnapshot paints every frame of the page, an add-on's too (a password
 // manager's menu, which can show the user's saved logins). The screenshot
-// paints over each add-on frame instead of refusing the whole shot
-// (docs/research/addons.md §2). Each document that holds a frame on the way
-// down says where that frame's box is in its own viewport; the parent maps
-// the add-on frame's box up through them. The frames are placed before,
-// during and after the paint, and the shot counts only when all three agree:
-// a page that moves the frame meanwhile gets another try, then a refusal.
+// paints over each add-on frame instead of refusing the whole shot. Each
+// document that holds a frame on the way down says where that frame's box
+// is in its own viewport; the parent maps the add-on frame's box up through
+// them. The frames are placed before, during and after the paint, and the
+// shot counts only when all three agree: a page that moves the frame
+// meanwhile gets another try, then a refusal.
 
 /** The gray an add-on frame's area is painted. */
 const COVER_COLOR = "#808080";
@@ -640,9 +639,8 @@ const COVER_TRIES = 3;
  * Whether page.screenshot paints over an add-on's frames instead of
  * refusing the shot. Off: painting over trusts three reads of where a frame
  * sits, and a page that moves the frame between them can leave it
- * uncovered (docs/research/addons.md §2). The manager's call (2026-11-20):
- * refuse in the candidate. The first update turns it on, with the page held
- * still for the paint. Tests turn it on with setAddonPaintOver.
+ * uncovered, so for now the shot is refused. Turning this on needs the page
+ * held still for the paint. Tests turn it on with setAddonPaintOver.
  */
 let addonPaintOver = false;
 
@@ -797,8 +795,7 @@ function cropOf(bitmap, cut, scale) {
  * and so does a clip wholly inside the viewport, which is cut from the
  * viewport's snapshot (fixed elements where the user sees them too). A clip
  * that leaves the viewport is drawn from the document, without scrollbars,
- * as Chromium draws beyond the viewport (zen-eval's measurement of Ego,
- * 2026-11-20).
+ * as Ego's Chromium draws beyond the viewport.
  */
 async function screenshot(ctx, params) {
   const { browser, browsingContext, page } = ctx.resolvePage(params);
@@ -861,8 +858,8 @@ async function screenshot(ctx, params) {
     if (!before) {
       throw refused("zenius couldn't find where it paints, to paint over it");
     }
-    // Full page draws position:fixed elements once, where they sit at scroll 0
-    // (docs/research/observe.md §5).
+    // Full page draws position:fixed elements once, where they sit at
+    // scroll 0.
     const painting = wgp.drawSnapshot(rect, scale, "white", { resetScrollPosition: fullPage });
     const during = addonAreas(ctx, browsingContext, frames);
     const bitmap = await painting;
@@ -893,8 +890,8 @@ async function screenshot(ctx, params) {
 // ---------------------------------------------------------------------------
 // Methods
 
-// Gate classes (docs/research/method-boundary.md): access for the control
-// gate (I3), i5 for the web-content gate (I5).
+// Gate classes: access for the control gate (I3), i5 for the web-content
+// gate (I5).
 export const access = {
   // Both run the agent's JavaScript in the page: mutate, so a takeover
   // prompt holds them.

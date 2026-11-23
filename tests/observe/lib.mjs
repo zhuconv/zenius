@@ -285,7 +285,7 @@ function processesNaming(path) {
  * fake agents get their log paths in it and may still be ending after
  * A.stop: a log line written during the removal made rmSync fail with
  * ENOTEMPTY, and the after hook never reached env.close, so the file hung
- * until run.sh's limit (zen-sdk's run, 2026-11-21). Waits up to 5 s for
+ * until run.sh's limit. Waits up to 5 s for
  * them, then removes with retries.
  */
 export async function removeScratch(dir) {

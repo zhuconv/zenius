@@ -36,7 +36,7 @@ const server = http.createServer(async (req, res) => {
   res.end("no");
 });
 // Ego's embedded Node (stdin mode) resolves listen() only while a timer is
-// pending (zen-eval's run on the Mac): without one the script hangs about
+// pending (seen on the Mac): without one the script hangs about
 // 100 s and the CLI exits 0 with no output.
 const keepAlive = setInterval(() => {}, 20);
 await new Promise(r => server.listen(0, "127.0.0.1", r));

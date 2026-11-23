@@ -1,7 +1,6 @@
 // The record of the agent's own code (observe/agentcode.sys.mjs), behind
-// zen-ux's handOff warning: by site, per task, for the task's life
-// (docs/research/own-tab.md, item 1). 127.0.0.1 (both fixture servers) and
-// localhost are the two sites.
+// zen-ux's handOff warning: by site, per task, for the task's life.
+// 127.0.0.1 (both fixture servers) and localhost are the two sites.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { setup } from "./lib.mjs";

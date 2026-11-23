@@ -5,7 +5,7 @@
 // DOMWillOpenModalDialog (which can select the tab) and move keyboard focus
 // into the dialog. For a tab the agent drives we answer that message
 // ourselves: no UI is created, and the page stays blocked in its dialog
-// until the agent accepts or dismisses it. docs/research/observe.md §5.
+// until the agent accepts or dismisses it.
 //
 // Firefox's own questions about what a page did come the same way, as a
 // confirmEx no page can open: whether to send a form from a secure page over

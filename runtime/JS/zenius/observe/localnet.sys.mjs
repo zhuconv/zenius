@@ -1,11 +1,11 @@
 // A task's pages and the local network (zen-observe). They may not reach
 // private-network addresses or .local names: an app's first reach into the
 // local network raises macOS 15's Local Network prompt, whose answer covers
-// the whole Zen.app, the user's own Zen included (the manager's order,
-// 2026-11-20). Loopback stays open, for dev servers and the tests'
-// fixtures. The user can open hosts and ranges, such as servers on a private
-// network, in the zenius.agentTabs.allowPrivateNetworks pref, which agents
-// can't reach: they get no about:config and no pref method.
+// the whole Zen.app, the user's own Zen included. Loopback stays open, for
+// dev servers and the tests' fixtures. The user can open hosts and ranges,
+// such as servers on a private network, in the
+// zenius.agentTabs.allowPrivateNetworks pref, which agents can't reach: they
+// get no about:config and no pref method.
 //
 // The refusal holds in a task's tabs for its whole life, the user's hold
 // included (a page the user loads there would become the agent's when it
@@ -14,8 +14,7 @@
 // load the user starts from the browser (the address bar, a bookmark) goes
 // through: it replaces that document. A load the user started that is
 // refused is told to onUserLoadRefused's listeners (zen-ux's notice in the
-// tab), so it isn't cancelled silently (the manager's decision,
-// 2026-11-20).
+// tab), so it isn't cancelled silently.
 //
 // The parent cancels a task page's request as it opens
 // (http-on-opening-request), before the channel looks the host up or
@@ -26,11 +25,10 @@
 // loading principal places them (taskWorkerMark). A blob shared worker's
 // carry neither, only the origin's principal: while a task's document shows
 // that site, its private-address requests are refused, the user's own blob
-// shared workers' on the site included (blobWorkerSite; the manager's call,
-// 2026-11-21: rare, and suspect from a public site). A task's data: shared
-// worker, which has no site, is refused (content/refusals.sys.mjs). Not
-// caught here
-// (docs/research/observe.md):
+// shared workers' on the site included (blobWorkerSite: an accepted cost,
+// since they're rare, and suspect from a public site). A task's data: shared
+// worker, which has no site, is refused (content/refusals.sys.mjs).
+// Not caught here:
 // - a DNS name that resolves to a private address;
 // - connection hints, which make no request: preconnect, and DNS prefetch;
 // - the site's service worker's own requests;

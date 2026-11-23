@@ -1,7 +1,6 @@
 // Downloads from agent tabs (zen-observe): no panel, no toolbar animation,
 // nothing in ~/Downloads or in history. Each file lands in its own folder
 // under the profile's zenius-downloads until the agent reads or deletes it.
-// docs/research/observe.md §6.
 //
 // Three hooks:
 //  1. The tab's downloadFolderOverride puts the .part file in our directory.
@@ -25,10 +24,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
 });
 
-// What a task's downloads may hold at once (docs/research/content-boundary.md,
-// finding 4): page script can start downloads without end, one click can
-// start hundreds, and each one fills the disk. Prefs, for a user who needs
-// more.
+// What a task's downloads may hold at once: page script can start downloads
+// without end, one click can start hundreds, and each one fills the disk.
+// Prefs, for a user who needs more.
 const MAX_COUNT_PREF = "zenius.observe.downloads.maxCount";
 const MAX_MIB_PREF = "zenius.observe.downloads.maxMiB";
 const DEFAULT_MAX_COUNT = 50;
@@ -71,16 +69,15 @@ let installed = false;
 
 // Agent downloads land under the profile, in <profile>/zenius-downloads
 // (0700, made afresh at each start), each in a folder of its own inside
-// (d<random>, 0700). The browser writes them outside any agent's sandbox,
-// so the whole path must be out of the agent's reach too. The temp folder
-// isn't: a sandboxed CLI may write it (Codex's workspace-write can), and a
-// link it put in place of one of these folders would have the browser
-// write a site's bytes wherever the link points, or the cleanup delete
-// there (zen-input's find, 2026-11-21). No sandboxed CLI writes the
-// profile. Every folder is made exclusively, and before the browser writes
-// and after, each folder and file is checked to be zenius's own, with no
-// link in its place or above it. Those checks are only a backstop: a path
-// can't be checked and used in one step.
+// (d<random>, 0700). The browser writes them outside any agent's sandbox, so
+// the whole path must be out of the agent's reach too. The temp folder isn't:
+// a sandboxed CLI may write it (Codex's workspace-write can), and a link it
+// put in place of one of these folders would have the browser write a site's
+// bytes wherever the link points, or the cleanup delete there. No sandboxed
+// CLI writes the profile. Every folder is made exclusively, and before the
+// browser writes and after, each folder and file is checked to be zenius's
+// own, with no link in its place or above it. Those checks are only a
+// backstop: a path can't be checked and used in one step.
 const ROOT_NAME = "zenius-downloads";
 let root = null;
 /** `root` with every link resolved, at its making: what each check compares with. */
@@ -182,9 +179,9 @@ export async function remakeDownloadRoot() {
  * moving it into the profile, recurses through folders that an agent which
  * writes the temp folder, or is already inside one, can still change.
  * nsLocalFile::Remove checks a folder with lstat, then opens it by path, so
- * a folder swapped for a link in between has the link's target emptied
- * (zen-snapshot's review). Removing only their plain files has the same
- * flaw: each is reached through a folder that can be swapped.
+ * a folder swapped for a link in between has the link's target emptied.
+ * Removing only their plain files has the same flaw: each is reached through
+ * a folder that can be swapped.
  */
 export async function sweepDownloadLeftovers() {
   const into = await readyRoot();
@@ -649,13 +646,12 @@ const preparedIds = new Set();
 /**
  * A cross-site load can replace a tab's top BrowsingContext (Gecko 160's
  * fission.bfcacheInParent), and the new one starts with no
- * downloadFolderOverride: CanonicalBrowsingContext::ReplacedBy doesn't
- * carry it over. A download the new page started before zenius's next call
- * then had its temporary file in Gecko's default folder, the user's
- * Downloads (zen-input's review of f5b49be). So an agent tab's new top
- * context gets the override as it attaches, before its first load; so does
- * a new tab an agent tab opened. The prompt fails closed for anything this
- * misses.
+ * downloadFolderOverride: CanonicalBrowsingContext::ReplacedBy doesn't carry
+ * it over. A download the new page started before zenius's next call then had
+ * its temporary file in Gecko's default folder, the user's Downloads. So an
+ * agent tab's new top context gets the override as it attaches, before its
+ * first load; so does a new tab an agent tab opened. The prompt fails closed
+ * for anything this misses.
  */
 function contextAttached(bc) {
   try {

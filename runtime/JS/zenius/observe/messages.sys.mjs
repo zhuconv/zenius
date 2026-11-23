@@ -14,12 +14,11 @@ function plain(code, message, data = {}) {
 }
 
 /**
- * ZEN_AGENT_CODE_REFUSED (docs/research/user-tab-reach.md, "Fix: closed
- * groups", item 1 and decision 2): the page shares a window group with a
- * window outside the task (zen-core's pages.codeRefusal), so the agent's
- * code doesn't run there, and page.goto loads neither the agent's own page
- * (`what` "agentPage") nor another site ("site"). It names no window or URL
- * of the user's.
+ * ZEN_AGENT_CODE_REFUSED, for closed groups: the page shares a window group
+ * with a window outside the task (zen-core's pages.codeRefusal), so the
+ * agent's code doesn't run there, and page.goto loads neither the agent's
+ * own page (`what` "agentPage") nor another site ("site"). It names no
+ * window or URL of the user's.
  *
  * @param {string} method
  * @param {string} label
@@ -45,8 +44,8 @@ export function agentCodeRefused(method, label, refusal, what = "code") {
 
 /**
  * The agent's code in its isolated world read a page global the world can't
- * see (docs/research/isolated-world.md; `refusal.reason` "pageGlobal"). The
- * call fails even when the code caught the throw. Its routes into the page's
+ * see (`refusal.reason` "pageGlobal"). The call fails even when the code
+ * caught the throw. Its routes into the page's
  * own JavaScript run and mark the page hooked instead (content/evidence.sys.mjs).
  */
 export function agentWorldRefused(method, label, refusal) {

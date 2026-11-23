@@ -20,8 +20,7 @@ const LOGIN = "data:text/html,<title>login</title><input id=pw type=password aut
 const pageValue = (page, expr) => env.call("dev.evalContent", { ...page.P, code: expr });
 /**
  * A value in the agent's world for the page, where its code keeps
- * `window.__x` (docs/research/isolated-world.md); undefined once the page
- * has no world.
+ * `window.__x`; undefined once the page has no world.
  */
 const worldValue = async (page, expr) => {
   const r = await env.chrome(
@@ -53,7 +52,7 @@ async function until(fn, ms = 5000) {
 /**
  * The agent takes its Space back so it can finish it; then finish. A
  * takeOver waits until 10 s after the user's last real input in the task
- * (zen-core's 7b626b3, which zen-ux's detector feeds), and this test played
+ * (zen-core's wait, which zen-ux's detector feeds), and this test played
  * the user just before: age that input first.
  */
 async function finish(page) {

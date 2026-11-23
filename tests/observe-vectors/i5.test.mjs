@@ -248,7 +248,7 @@ async function refusedIn(page, url) {
   }
   // What the parent answers alone still works, and the agent may leave:
   // page.info with the URL only, since the title and metrics are the
-  // document's (docs/research/method-boundary.md, item 2).
+  // document's.
   assert.deepEqual(await page.call("page.info"), { url }, `page.info in ${url}`);
   await page.call("page.events");
 }
@@ -364,8 +364,8 @@ test("a goto that ends on a certificate warning fails clearly, and no agent meth
       assert.equal(await page.call("page.url"), url);
       // What goto reads when the warning commits before the load stops.
       // Under load goto can answer first, from the TLS error the load
-      // stopped with, so wait for the warning to commit (zen-ux's flake in
-      // a parallel test-all on 411c6ec).
+      // stopped with, so wait for the warning to commit (a flake seen in a
+      // parallel test-all).
       const warning = () =>
         env
           .chrome(`const { browser } = ctx.resolvePage(arg); return ctx.content(browser.browsingContext, "nav#certificateError", {});`, page.P)
@@ -482,9 +482,9 @@ async function viewTab(page) {
   return () => env.chrome(`await win.gZenWorkspaces.changeWorkspaceWithID(arg);`, userWs);
 }
 
-// An add-on's dialog is the user's, never the agent's (method-boundary.md,
-// item 3; the manager's decision): no event, no answer. Hidden, it's
-// dismissed unseen; with the user looking, Firefox shows it to them.
+// An add-on's dialog is the user's, never the agent's: no event, no answer.
+// Hidden, it's dismissed unseen; with the user looking, Firefox shows it to
+// them.
 test("an add-on frame's dialog never reaches the agent: dismissed unseen while hidden, shown to the user who looks", () =>
   env.inSpace("i5 add-on dialog", async page => {
     const dir = scratchDir("addon-dialog-");
@@ -664,7 +664,7 @@ test("an add-on's frame in a web page: a screenshot is refused while it's there,
       assert.match(snap, /top text/);
       assert.doesNotMatch(snap, /add-on frame text/);
       // Nothing of the frame's reached page.events: not its console, not its
-      // image's request (method-boundary.md, item 3).
+      // image's request.
       const events = JSON.stringify(await page.call("page.events"));
       assert.doesNotMatch(events, /add-on frame console|i5-addon-frame-image|moz-extension:/, events.slice(0, 2000));
 
@@ -772,7 +772,7 @@ test("painting over an add-on's frame (switched off) covers it wherever it paint
 
       // A page that keeps moving the frame can leave it uncovered: the
       // three reads of where it sits can agree while the paint caught it
-      // elsewhere (zen-input's run, 2026-11-20: 10800 of its pixels). So
+      // elsewhere (one run: 10800 of its pixels). So
       // the switch is off for the candidate, and the shot is refused,
       // moving or not. The first update holds the page still for the
       // paint, and checks a moving frame with the switch on.

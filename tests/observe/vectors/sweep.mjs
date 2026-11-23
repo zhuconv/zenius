@@ -3,8 +3,8 @@
 // grants user activation) and by the page's own script, in a hidden agent
 // tab and in one the user is watching. Record what changes outside the
 // page: windows, dialogs, doorhangers, panels, fullscreen, sound, focus, the
-// Space's owner, downloads. Not part of test-all: its matrix is in
-// docs/research/observe.md §10, and tests/observe/*.test.mjs hold the fixes.
+// Space's owner, downloads. Not part of test-all: tests/observe/ and
+// tests/observe-vectors/ hold the fixes.
 //
 //   tests/observe/vectors/run.sh                  every vector
 //   tests/observe/vectors/run.sh print auth-nav   some

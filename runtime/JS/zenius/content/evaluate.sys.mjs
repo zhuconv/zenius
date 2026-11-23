@@ -4,7 +4,7 @@
 // Debugger.executeInGlobal() runs source in the page's own global, as
 // devtools' console and WebDriver BiDi do: page globals are visible, `var`
 // lands on window, and the page's CSP doesn't block it. The window is never
-// made a debuggee, so nothing is deoptimized. docs/research/observe.md §2.
+// made a debuggee, so nothing is deoptimized.
 //
 // When the agent's code runs past its deadline, the world's hook
 // (content/agentworld.sys.mjs) ends it: executeInGlobal returns a null
@@ -392,12 +392,11 @@ export async function evaluate(actor, args) {
 
 /**
  * Ego's waitForFunction poll: Boolean(await predicate) every `polling` ms
- * until it holds or `timeoutMs` passes. A predicate that throws ends the
- * wait at once, but not while the document is still loading: a page with
- * no body yet throws on what it hasn't parsed (zen-eval's round 2), so that
- * counts as not yet. `delayMs` holds the first poll, as Ego's does after a
- * navigation. Returns {ok} | {timedOut, url, title} | {exception} |
- * {terminated}.
+ * until it holds or `timeoutMs` passes. A predicate that throws ends the wait
+ * at once, but not while the document is still loading: a page with no body
+ * yet throws on what it hasn't parsed, so that counts as not yet. `delayMs`
+ * holds the first poll, as Ego's does after a navigation. Returns {ok} |
+ * {timedOut, url, title} | {exception} | {terminated}.
  */
 export async function waitForFunction(actor, { id, polling = 100, timeoutMs = 10000, delayMs = 0, ...args }) {
   const win = actor.contentWindow;

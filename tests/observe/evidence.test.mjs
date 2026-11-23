@@ -1,6 +1,6 @@
-// The evidence flag (docs/research/hooked.md; docs/briefs/defenses-evidence.md,
-// the user's pass of 2026-11-21): one flag per document, with its reasons
-// (hooked, made, listed, flagged), which the defenses read instead of written.
+// The evidence flag (the user's call of 2026-11-21): one flag per document,
+// with its reasons (hooked, made, listed, flagged), which the defenses read
+// instead of written.
 // observe/evidence.sys.mjs (markEvident, isEvident, evidenceOf, onEvident) and
 // content/evidence.sys.mjs (isEvident, evidenceOf, evidenceFlag, markHooked,
 // hookedMarkup).
@@ -66,7 +66,7 @@ test("a page the agent only loaded has no evidence; markEvident adds a reason wi
     assert.equal(seen.viaWgp, true);
     const expected = { listed: "goog-phish-proto", flagged: "it asks for the card's PIN" };
     assert.deepEqual(await parentOf(page.P), { evident: true, of: expected }, "the first detail stays");
-    // Listed and flagged pages get a warning, not a clean copy (the manager's call): no "clean".
+    // Listed and flagged pages get a warning, not a clean copy: no "clean".
     assert.deepEqual(
       await inContent(page.P, "[EV.isEvident(window), EV.evidenceOf(window.browsingContext), EV.evidenceFlag(window)]"),
       [true, expected, null],
@@ -104,7 +104,7 @@ test("a page the agent made from data: has evidence 'made', and evidenceFlag say
     assert.deepEqual(await inContent(page.P, "[EV.isEvident(window), EV.evidenceFlag(window)]"), [true, "drop"]);
   }));
 
-test("markHooked in content marks the page there at once and in the parent, and only that page: a popup of its site, which page code could reach, isn't hooked (rule 3 of the safety rubric)", () =>
+test("markHooked in content marks the page there at once and in the parent, and only that page: a popup of its site, which page code could reach, isn't hooked", () =>
   env.inSpace("evidence hooked group", async page => {
     const S = `${env.base}/nav-target?evidence-popup`;
     await page.goto(`${env.base}/nav-target?evidence-group`);
@@ -331,7 +331,7 @@ test("a callback the agent's code left counts when it runs: a timer that adds a 
     await until("the timer's mark", async () => (await hookedIn(page.P)) === "a script element");
   }));
 
-test("a popup a hooked page opens after the agent left a script isn't hooked: only the agent's own writes hook a window (rule 3 of the safety rubric)", () =>
+test("a popup a hooked page opens after the agent left a script isn't hooked: only the agent's own writes hook a window", () =>
   env.inSpace("hooked beside", async page => {
     const S = `${env.base}/nav-target?hooked-beside-popup`;
     await sitePage(page);
@@ -357,7 +357,7 @@ test("a popup a hooked page opens after the agent left a script isn't hooked: on
     assert.equal(await hookedIn(page.P), "a script element", "the opener stays hooked");
   }));
 
-test("the agent's code that writes into another window of its group hooks that window by its own write, after its page was hooked too (rule 3: each window the agent wrote into)", () =>
+test("the agent's code that writes into another window of its group hooks that window by its own write, after its page was hooked too", () =>
   env.inSpace("hooked second window", async page => {
     const S = `${env.base}/nav-target?hooked-second-popup`;
     await sitePage(page);

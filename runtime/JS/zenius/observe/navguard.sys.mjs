@@ -1,8 +1,7 @@
 // zen-observe: a document where the agent's code ran doesn't navigate a
-// window outside the task (docs/research/user-tab-reach.md, "Fix: closed
-// groups", item 4, the second layer).
+// window outside the task. It's the closed groups' second layer.
 //
-// Items 1 to 3 keep such a document from holding a handle to a window
+// The first keeps such a document from holding a handle to a window
 // outside the task. This catches a navigation that gets through anyway. A
 // content policy in the parent sees every document and frame load, whatever
 // the scheme (http(s), blob:, about:blank), before http-on-opening-request,
@@ -15,14 +14,14 @@
 // It can't see what names the target's own document as the source: a
 // navigation run as the target's code through a same-origin handle, or a
 // history move or reload of the target. Nor close(), which reaches the
-// target as WindowClose with no source. Items 1 to 3 cover those.
+// target as WindowClose with no source. The first layer covers those.
 //
 // While the user holds a page (observe/hold.sys.mjs), a load into it or one
 // of its frames that any document outside the hold started is refused too:
 // a page of another site can't read the held page, but it could swap it for
-// a look-alike while the user types (the manager's hand-off rule,
-// 2026-11-20). A hold's own documents, and the user's and zenius's loads,
-// which name no document, still load. Two more, whoever starts them: a Back
+// a look-alike while the user types (the hand-off rule). A hold's own
+// documents, and the user's and zenius's loads, which name no document,
+// still load. Two more, whoever starts them: a Back
 // or Forward into a data: or blob: entry (the agent's kind of page), and a
 // frame of a site that a window near the held page, which may hold the
 // agent's code, also shows.

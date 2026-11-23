@@ -89,8 +89,8 @@ export const VECTORS = {
   "dialog-iframe-same": `document.getElementById("same").contentWindow.postMessage("alert", "*");`,
   "dialog-iframe-cross": `document.getElementById("cross").contentWindow.postMessage("alert", "*");`,
   beforeunload: `window.onbeforeunload = e => { e.preventDefault(); e.returnValue = ""; }; note("handler set");`,
-  // The site's storage that outlives the task (own-tab.md, item 3). Each
-  // notes one outcome per try: "registered", "put" and so on, or the error.
+  // The site's storage that outlives the task. Each notes one outcome per
+  // try: "registered", "put" and so on, or the error.
   "sw-register": `navigator.serviceWorker.register("/sw.js").then(r => r.unregister().then(() => note("registered")), e => note(e.name));`,
   "cache-write": `caches.open("zenius-vectors").then(async c => {
       for (const [n, f] of [["put", () => c.put("/plain?put", new Response("planted"))], ["add", () => c.add("/plain?add")], ["addAll", () => c.addAll(["/plain?addAll"])]]) {

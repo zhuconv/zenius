@@ -1,6 +1,6 @@
-// zen-observe's Mac checks (docs/observe/mac-checklist.md): screenshots in
-// CSS pixels on a Retina display, and no download or dialog UI for agent
-// tabs. zen-eval runs them on the Mac in a visible dev Zen:
+// zen-observe's Mac checks: screenshots in CSS pixels on a Retina display,
+// and no download or dialog UI for agent tabs. zen-eval runs them on the
+// Mac in a visible dev Zen:
 //
 //   ZENIUS_OBSERVE_HEADED=1 tests/observe/run.sh tests/observe/mac/mac.test.mjs
 //
@@ -71,7 +71,7 @@ function pixels(page, path, points) {
   );
 }
 
-test("M1, M2: screenshots are CSS pixels with exact colors at the display's scale", () =>
+test("screenshots are CSS pixels with exact colors at the display's scale", () =>
   env.inSpace("mac screenshot", async page => {
     await page.goto(BANDS);
     const dpr = await page.evaluate("devicePixelRatio");
@@ -105,7 +105,7 @@ test("M1, M2: screenshots are CSS pixels with exact colors at the display's scal
     ]);
   }));
 
-test("M3: an agent's download shows no UI and stays out of the user's downloads", () =>
+test("an agent's download shows no UI and stays out of the user's downloads", () =>
   env.inSpace("mac download", async page => {
     await page.goto(`${env.base}/nav-target`);
     // Watch what the user's downloads UI watches: the public list Zen's
@@ -146,7 +146,7 @@ test("M3: an agent's download shows no UI and stays out of the user's downloads"
     assert.deepEqual(ui, { added: [], animations: 0, buttonAttention: false, panelOpen: false, inUserDownloads: false });
   }));
 
-test("M4: an agent's JS dialog shows no UI and asks for no attention", () =>
+test("an agent's JS dialog shows no UI and asks for no attention", () =>
   env.inSpace("mac dialog", async page => {
     await page.goto(`${env.base}/nav-target`);
     await env.chrome(

@@ -3,11 +3,10 @@
 // navigation is pending or a dialog is open.
 // Portions adapted from citrolabs/ego-lite (MIT License).
 //
-// Semantics follow Ego (page-model.ts, driver/page-waits.ts); the design is
-// in docs/research/observe.md §3 and §4. Gecko keeps the old document
-// responsive while a navigation is pending, so where Chromium stalls, the
-// gate here waits for the commit on purpose and stops the navigation once
-// that wait runs out, which gives agents Ego's outcomes.
+// Semantics follow Ego (page-model.ts, driver/page-waits.ts). Gecko keeps
+// the old document responsive while a navigation is pending, so where
+// Chromium stalls, the gate here waits for the commit on purpose and stops
+// the navigation once that wait runs out, which gives agents Ego's outcomes.
 
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
 import { log } from "chrome://userscripts/content/zenius/modules/util.sys.mjs";
@@ -349,13 +348,13 @@ async function navigate(ctx, params, method) {
   if (local) {
     throw msg.navigationFailed(method, local, { url: uri.spec, error: "localNetwork" });
   }
-  // Closed groups (item 1, decision 2): in a page that shares a window group
-  // with a window outside the task, the agent's own page (data:, blob:)
-  // doesn't load, nor does another site, whose code could reach that
-  // window. The page's site and about:blank still do. Asked only while the
-  // page shows a document in a web content process: from an add-on's or the
-  // browser's own page, a load to the web lands in a new group
-  // (inWebProcess), and an answer there would stick.
+  // Closed groups: in a page that shares a window group with a window outside
+  // the task, the agent's own page (data:, blob:) doesn't load, nor does
+  // another site, whose code could reach that window. The page's site and
+  // about:blank still do. Asked only while the page shows a document in a web
+  // content process: from an add-on's or the browser's own page, a load to
+  // the web lands in a new group (inWebProcess), and an answer there would
+  // stick.
   const refusal = inWebProcess(browser.browsingContext) ? ctx.pages.codeRefusal(space, page) : null;
   if (refusal) {
     if (uri.scheme === "data" || uri.scheme === "blob") {
@@ -495,9 +494,9 @@ async function navigate(ctx, params, method) {
       }
       throw msg.navigationFailed(method, NET_STATUS[name] ?? name, { url: uri.spec, error: name });
     }
-    // A data: or blob: page is the agent's own code, as page.evaluate's is
-    // (user-tab-reach.md, Fix, item 1): mark the document it committed, a
-    // reload's too. pages.new with a url comes here through page.goto.
+    // A data: or blob: page is the agent's own code, as page.evaluate's is:
+    // mark the document it committed, a reload's too. pages.new with a url
+    // comes here through page.goto.
     if (!committed.sameDocument && !committed.errorPage && (uri.scheme === "data" || uri.scheme === "blob")) {
       noteAgentCode(space, browser.browsingContext);
       noteMade(browser.browsingContext);
@@ -670,8 +669,8 @@ export const pageGates = [pageReadyGate, webContentGate];
 // ---------------------------------------------------------------------------
 // Methods
 
-// Gate classes (docs/research/method-boundary.md): access for the control
-// gate (I3), i5 for the web-content gate (I5).
+// Gate classes: access for the control gate (I3), i5 for the web-content
+// gate (I5).
 export const access = {
   "page.goto": "mutate",
   "page.reload": "mutate",

@@ -1,7 +1,6 @@
 // The sites where the agent ran its own code (zen-observe), for zen-ux's
-// "Use your own tab" (ui/index.sys.mjs, docs/research/own-tab.md). Code the
-// agent runs on a site can outlive the document it ran in, and could read
-// what the user types there:
+// "Use your own tab" (ui/index.sys.mjs). Code the agent runs on a site can
+// outlive the document it ran in, and could read what the user types there:
 // - in a same-site popup or frame it wrote a script into;
 // - as a blob: page it navigated to, all the agent's code, on the site's
 //   origin;
@@ -16,8 +15,7 @@
 // into its popup) goes by its precursor's site, the site that made it. One
 // with no site behind it at all counts as the agent's, record or not: only the
 // agent's goto (or the user typing one) makes a top-level data: page, since
-// Firefox refuses content's own top-level data: navigation
-// (docs/research/own-tab.md, second round).
+// Firefox refuses content's own top-level data: navigation.
 
 import { AGENT_CODE_DOCS_KEY } from "chrome://userscripts/content/zenius/content/refusals.sys.mjs";
 import { fromBeforeHold, holdOf } from "chrome://userscripts/content/zenius/observe/hold.sys.mjs";
@@ -26,27 +24,27 @@ import { isWritten, onWritten } from "chrome://userscripts/content/zenius/observ
 /** Task (its space id) → the sites (siteOriginNoSuffix) where its agent ran its code. */
 const sites = new Map();
 
-// The refusals that hold for a task's whole life stay on a document that
-// may hold the agent's code (the manager's decisions, 2026-11-20): code the
-// agent left there keeps running after the task. The content guards read
-// the marked top documents from sharedData (AGENT_CODE_DOCS_KEY), and the
-// parent's local network check asks agentCodeDocument(). This module marks
-// a tab's top document as the agent's code is about to run in it, during
-// the task, so nothing is unmarked at the finish. A mark of the agent's
-// world code lasts only while its world does, unless the page is written
-// (forgetWorldMarks, onWritten); the others last while their tab lives: a
-// document the tab goes Back to is the same document, with the same code.
+// The refusals that hold for a task's whole life stay on a document that may
+// hold the agent's code: code the agent left there keeps running after the
+// task. The content guards read the marked top documents from sharedData
+// (AGENT_CODE_DOCS_KEY), and the parent's local network check asks
+// agentCodeDocument(). This module marks a tab's top document as the agent's
+// code is about to run in it, during the task, so nothing is unmarked at the
+// finish. A mark of the agent's world code lasts only while its world does,
+// unless the page is written (forgetWorldMarks, onWritten); the others last
+// while their tab lives: a document the tab goes Back to is the same
+// document, with the same code.
 
 /** Marked top documents (innerWindowId) → their tab's browserId. */
 const agentCodeDocs = new Map();
 
 /**
  * Of those, the ones only the agent's world ran in (page.evaluate,
- * page.waitForFunction). The world holds that code, so the mark goes with
- * the world (forgetWorldMarks), unless the world wrote into the page: a
- * group holds the agent's code only while a page in it has a live world or
- * is written (the manager's rule, 2026-11-20). Every other mark (a page the
- * agent made, its html paste, a written document) stays with the document.
+ * page.waitForFunction). The world holds that code, so the mark goes with the
+ * world (forgetWorldMarks), unless the world wrote into the page: a group
+ * holds the agent's code only while a page in it has a live world or is
+ * written. Every other mark (a page the agent made, its html paste, a written
+ * document) stays with the document.
  */
 const worldOnly = new Set();
 
@@ -239,8 +237,8 @@ function siteOf(site) {
 /**
  * An about:blank document. One with no site behind it is a tab zenius or the
  * user opened blank: no other document can script it, so only code run in it
- * writes into it, and that code marks its tab (the manager's rule,
- * 2026-11-20: an untouched about:blank isn't the agent's).
+ * writes into it, and that code marks its tab: an untouched about:blank
+ * isn't the agent's.
  */
 function isBlank(windowGlobal) {
   try {
@@ -507,7 +505,7 @@ function endCleanCopies(bc) {
   } catch {}
   if (group === null) {
     // Fail closed: with no group to tell them apart, every clean copy
-    // counts by site again (zen-core's review).
+    // counts by site again.
     cleanLoaded.clear();
     return;
   }

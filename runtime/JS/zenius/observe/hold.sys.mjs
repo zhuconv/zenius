@@ -1,5 +1,5 @@
-// zen-observe: the page the user holds (H), for the manager's hand-off rule
-// (2026-11-20): while the user types in H, nothing of the agent's reaches it.
+// zen-observe: the page the user holds (H), for the hand-off rule: while the
+// user types in H, nothing of the agent's reaches it.
 // zen-core calls holdPage() as a hand-off (or the user's Take over) begins,
 // before its quiet reload, and releasePage() at Resume agent or at any other
 // end of the hold. While H is held:

@@ -1,5 +1,5 @@
 // Surfaces an agent page may not open over the user's view (I1) or outside
-// the browser (I4), from the I1/I4 sweep (docs/research/observe.md §10):
+// the browser (I4), from the I1/I4 sweep (tests/observe/vectors/sweep.mjs):
 // print, HTTP sign-in, dialogs in frames, downloads under the user's "always
 // ask" settings, beforeunload. Each runs in a hidden agent tab and in one
 // the user is watching; env.inSpace checks the user's view around it.
@@ -220,9 +220,9 @@ test("downloads under the user's 'always ask' settings open no picker and no dia
     }
   }));
 
-// Ego's requirement (native-javascript-dialog-requirement.md): after a
-// trusted click, beforeunload is the agent's dialog, reported before it
-// chooses whether the navigation may go on.
+// Ego's requirement (Ego Lite's docs/native-javascript-dialog-requirement.md):
+// after a trusted click, beforeunload is the agent's dialog, reported before
+// it chooses whether the navigation may go on.
 test("beforeunload after an agent click is the agent's dialog, with no UI", () =>
   bothViews("beforeunload", async (page, how) => {
     await page.goto(`${vectors.base}/vectors`);
@@ -447,8 +447,8 @@ test("agent tabs make sound only while the user can see them; the page plays on 
     await page.call("page.click", { target: "#v-audio" });
     await sleep(600);
     // The page plays: its clock runs and its media plays. On the Mac the
-    // context can stay "suspended" a while as the output device opens
-    // (zen-eval's run of 2026-11-21), so wait for the state.
+    // context can stay "suspended" a while as the output device opens, so
+    // wait for the state.
     await until("the tone's clock", async () => (await env.call("dev.evalContent", { ...page.P, code: `window.__tone.state` })) === "running", 8000);
     assert.deepEqual(await results(page, "audio"), ["playing"]);
     assert.equal(await env.call("dev.evalContent", { ...page.P, code: `String(window.__audio.paused)` }), "false");
@@ -700,9 +700,8 @@ test("a hidden agent tab's media that holds a wake lock pauses: none held, full-
 });
 
 // Gecko keeps a page with an unload listener out of the bfcache, so the
-// guards add none (zen-snapshot's bfcache test caught one). Under load a
-// page can miss the bfcache once (zen-ux saw it), so it gets three tries: a
-// listener like that blocks every one.
+// guards add none. Under load a page can miss the bfcache once, so it gets
+// three tries: a listener like that blocks every one.
 test("agent pages with the guards in still go to the bfcache", () =>
   env.inSpace("bfcache", async page => {
     const topId = () => env.chrome(`return ctx.resolvePage(arg).browser.browsingContext.id;`, page.P);

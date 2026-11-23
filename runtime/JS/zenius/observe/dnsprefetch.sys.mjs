@@ -2,10 +2,9 @@
 //
 // A page's <link rel=dns-prefetch> and an http page's links look names up
 // with no channel, so neither the local-network refusal nor Firefox's LNA
-// sees them. A .local name becomes an mDNS query on the user's LAN
-// (docs/research/speculative-connect.md). The manager accepted such lookups
-// as a residual, since any page in the user's own tabs makes them, and asked
-// for this cheap layer (2026-11-20).
+// sees them. A .local name becomes an mDNS query on the user's LAN. Such
+// lookups are an accepted residual, since any page in the user's own tabs
+// makes them, and this layer is cheap.
 //
 // A document decides whether it prefetches once, when it's created: from its
 // docShell's allowDNSPrefetch at that moment, or from its response's

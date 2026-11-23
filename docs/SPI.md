@@ -2508,7 +2508,7 @@ accessibleName(element); // → "Save"
 ## Navigation and observation (zen-observe)
 
 zen-observe maintains this section. Its parent-side modules live in
-`runtime/JS/zenius/observe/`; the design is in `docs/research/observe.md`.
+`runtime/JS/zenius/observe/`.
 
 **What runs with no task (I4).** `observe/setup.sys.mjs` installs
 zen-observe's hooks once. The observers that also see the user's own
@@ -2578,8 +2578,8 @@ wait. `webContentGate` is I5's (below).
   through the commit, within their own timeout.
   - waitForFunction's poll treats a throw as not yet in two places. The
     content loop does while `document.readyState` is `"loading"`. The parent
-    does while the tracker has a navigation pending. That was zen-eval's
-    round 2: a results page with no body yet.
+    does while the tracker has a navigation pending. That covers a results
+    page that has no body yet.
   - After a navigation, the next document's first poll waits `polling` ms
     (`delayMs`), the same cadence as Ego.
 
@@ -2675,8 +2675,8 @@ folder, with no downloads panel, no toolbar animation and nothing in
     workspace-write can), and a link put in place of a folder there has the
     browser write a site's bytes wherever the link points. A link there
     also has `download.read` hand the agent a file from outside its
-    sandbox, or the cleanup delete outside (zen-input's find, 2026-11-21;
-    zen-snapshot's `tests/snapshot/tools/staging-probe.mjs`).
+    sandbox, or the cleanup delete outside (zen-snapshot's
+    `tests/snapshot/tools/staging-probe.mjs`).
   - No sandboxed CLI writes the profile. zen-input's uploads live beside
     the downloads, in `<profile>/zenius-uploads`.
 - **Each start makes the folder afresh** (`remakeDownloadRoot`): the last
@@ -2689,7 +2689,7 @@ folder, with no downloads panel, no toolbar animation and nothing in
     override: `CanonicalBrowsingContext::ReplacedBy` doesn't carry it.
   - A download the new page started by itself (an interstitial, a meta
     refresh) then had Gecko's temporary file in its default folder, the
-    user's Downloads (zen-input's review of f5b49be).
+    user's Downloads.
   - So `contextAttached` sets the override as an agent tab's new top
     context attaches, before its first load. It does the same for a new
     tab an agent tab opened. It listens to `browsing-context-attached`
@@ -2714,8 +2714,7 @@ folder, with no downloads panel, no toolbar animation and nothing in
     through folders that an agent which writes the temp folder, or is
     already inside one, can still change. `nsLocalFile::Remove` checks a
     folder with lstat, then opens it by path, so a folder swapped for a link
-    in between has the link's target emptied (zen-snapshot's review of
-    f5b49be, as of zen-input's uploads in 7a9df6a).
+    in between has the link's target emptied.
   - Removing only their plain files has the same flaw: each is reached
     through a folder that can be swapped.
   - `sweepDownloadLeftovers` touches only the root: it removes what no
@@ -2825,8 +2824,9 @@ holds the rules; use it rather than your own checks:
 user's view, outside the browser, or into the OS) is refused, and the agent
 is told: a `Zenius.refused` event `{kind, message, url}` in `page.events()`,
 and `refused: [{kind, message}]` in the receipt of the action that caused
-it. PROTOCOL.md lists the kinds; the I1/I4 sweep (docs/research/observe.md
-§10) lists every surface and its owner. Where each refusal lives:
+it. PROTOCOL.md lists the kinds, and the I1/I4 sweep
+(`tests/observe/vectors/sweep.mjs`) tries every surface. Where each refusal
+lives:
 
 - `observe/refusals.sys.mjs`, in the parent: print, HTTP sign-in, external
   apps, `.xpi` installs (amContentHandler), the pop-up-blocked bar
@@ -2843,9 +2843,9 @@ it. PROTOCOL.md lists the kinds; the I1/I4 sweep (docs/research/observe.md
   content event. The sound notice hears media start from the media guard
   (`content/media.sys.mjs`), which also hears elements in shadow trees and
   elements never put in the document (`new Audio()`).
-  - The site's storage (`serviceWorker`, `cacheStorage`; own-tab.md,
-    item 3) is refused in every document of a task's page, whoever holds
-    it (`isAgentTaskPage`, not `isAgentDriven`).
+  - The site's storage (`serviceWorker`, `cacheStorage`) is refused in
+    every document of a task's page, whoever holds it (`isAgentTaskPage`,
+    not `isAgentDriven`).
   - It also covers a popup a task's page opens, from its first document,
     before the parent routes it. `isTaskPopup(bc)` keeps the popup's
     opener as it was then, and zen-core's actor calls
@@ -2907,8 +2907,9 @@ it. PROTOCOL.md lists the kinds; the I1/I4 sweep (docs/research/observe.md
     `ServiceWorkerRegistration.prototype.showNotification` rejects.
     workerguard.js has the same fake for workers, and a test compares the
     two texts. In workers it holds for the task's whole life: a worker
-    can't read the hold or the evidence (a residual, told to zen-ux). zen-ux's guard (`ui/systemui/ZeniusSystemUiChild.sys.mjs`)
-    installs after it at DOMWindowCreated and wraps it: while the agent
+    can't read the hold or the evidence (a known residual). zen-ux's guard
+    (`ui/systemui/ZeniusSystemUiChild.sys.mjs`) installs after it at
+    DOMWindowCreated and wraps it: while the agent
     drives a page with the site's grant, theirs answers first.
   - WebRTC (`localNetwork`): `guardPeerConnections` makes RTCPeerConnection
     a Proxy whose construct throws NotAllowedError by the `devices` rule
@@ -2944,7 +2945,7 @@ it. PROTOCOL.md lists the kinds; the I1/I4 sweep (docs/research/observe.md
     (setup's `taskTabShowing`), such a request is the task's for this
     refusal, told on that tab as "A blob shared worker of this site tried
     to reach …".
-    - **The I4 cost** (the manager's call, 2026-11-21): meanwhile the
+    - **The I4 cost** (accepted on 2026-11-21): meanwhile the
       user's own blob shared workers on that site lose the local network
       too. A public site's blob shared worker asking for a private address
       is rare and suspect.
@@ -2978,7 +2979,7 @@ it. PROTOCOL.md lists the kinds; the I1/I4 sweep (docs/research/observe.md
     loaded, `location` is empty, and stays empty (measured). A blob:
     worker's principal is the origin's and carries no mark. A blob worker
     started by such a worker after a claim inherits the site's worker,
-    and nothing places its requests (the bound, research/observe.md).
+    and nothing places its requests, which is where the bypass stops.
     So the worker the site registered from the user's tabs sees none of
     a task's requests, navigations included, even after its
     `clients.claim()`. `content/refusals.sys.mjs`'s
@@ -3004,8 +3005,8 @@ it. PROTOCOL.md lists the kinds; the I1/I4 sweep (docs/research/observe.md
     while the agent doesn't drive the tab. Its `scope` is the rule that
     refused it: "task" (the tab, or a popup's opener, is a task's) or
     "agentCode" (its document, or the opener's, ran the agent's code).
-- **The navigation guard** (`observe/navguard.sys.mjs`; closed groups,
-  item 4). Its content policy's `shouldLoad` takes document and frame
+- **The navigation guard** (`observe/navguard.sys.mjs`), the closed groups'
+  second layer. Its content policy's `shouldLoad` takes document and frame
   loads of any scheme, before `http-on-opening-request`.
   - The source is the top of `WindowGlobalParent.getByInnerWindowId(
     loadInfo.triggeringWindowId)`; the target the top of
@@ -3015,7 +3016,7 @@ it. PROTOCOL.md lists the kinds; the I1/I4 sweep (docs/research/observe.md
     source's live task (`taskOf`: the task set and the page record's
     `spaceId`), or a window that still shows its initial about:blank
     (`isInitialDocument`, or no window global yet): a window being opened,
-    whose opening zen-core's items 2 and 3 decide (a kept marked page's
+    whose opening zen-core decides (a kept marked page's
     `noopener` tab opens). The opener doesn't count: a
     `window.open(url, name)` on an existing window makes the caller its
     opener before the load is checked. After the task every other tab
@@ -3027,10 +3028,10 @@ it. PROTOCOL.md lists the kinds; the I1/I4 sweep (docs/research/observe.md
     frame, `blob:`, `about:blank`) arrives with the popup as source. From
     a cross-site popup Gecko itself starts no load into the opener, and a
     named open doesn't find the user's tab, so it opens a new window.
-- **The hand-off** (the manager's rule, 2026-11-20): while the user types
-  in the page H, nothing of the agent's reaches it. zen-core decides what
-  loads afresh, from the evidence flag (`evidenceOf` and `needsCleanCopy`
-  in `modules/handoff.sys.mjs`); this side guards the hold.
+- **The hand-off**: while the user types in the page H, nothing of the
+  agent's reaches it. zen-core decides what loads afresh, from the evidence
+  flag (`evidenceOf` and `needsCleanCopy` in `modules/handoff.sys.mjs`);
+  this side guards the hold.
   - `agentSitesNear(rec, browser)` (`observe/agentcode.sys.mjs`): the sites
     (`siteOriginNoSuffix`) of the documents, frames' too, in the other
     windows of H's group (`top.group.getToplevels()`, less the hold's own
@@ -3103,9 +3104,9 @@ it. PROTOCOL.md lists the kinds; the I1/I4 sweep (docs/research/observe.md
     set to content as `AGENT_CODE_DOCS_KEY`
     (`content/refusals.sys.mjs`), so nothing is unmarked when the task's
     tabs leave `TASK_BROWSERS_KEY`.
-  - A mark of the agent's world code lasts only while its world does (the
-    manager's rule: a group holds the agent's code only while a page in it
-    has a live world or is written). The parent's `discard` ends it
+  - A mark of the agent's world code lasts only while its world does: a
+    group holds the agent's code only while a page in it has a live world
+    or is written. The parent's `discard` ends it
     (`forgetWorldMarks`) unless the page is written, and a written document
     marks its tab's top for good (`onWritten`). The marks of a page the
     agent made and of its html paste last while the tab lives. Back to a
@@ -3143,12 +3144,12 @@ it. PROTOCOL.md lists the kinds; the I1/I4 sweep (docs/research/observe.md
     MediaController of its own, so `browsing-context-attached` mutes it
     at once.
 - `observe/agentcode.sys.mjs`: the record of the agent's own code, for
-  zen-ux's "Use your own tab", by site, per task, for the task's life
-  (`docs/research/own-tab.md`, item 1). Code the agent ran on a site can
+  zen-ux's "Use your own tab", by site, per task, for the task's life.
+  Code the agent ran on a site can
   outlive its document: in a same-site popup or frame it wrote to, a
   `blob:` page it navigated to, the site's storage, or a page that later
   navigates to the site.
-  - Closed groups, item 1: before that, `page.evaluate`
+  - Closed groups: before that, `page.evaluate`
     (`runEvaluation`) and each poll of `page.waitForFunction` ask zen-core's
     `pages.codeRefusal(space, page)`, and `navigate()` asks before a
     `data:` or `blob:` load or one of another site (`sameSite`: the target's
@@ -3173,7 +3174,7 @@ it. PROTOCOL.md lists the kinds; the I1/I4 sweep (docs/research/observe.md
     as the agent's, record or not. In practice that is the agent's own
     top-level `data:` page, since content can't navigate a top level to
     `data:`, and a site's `data:` and sandboxed frames have the site as
-    precursor (own-tab.md, second round).
+    precursor.
   - `agentCodeOnSite(rec, site)` takes a principal or a site. It answers
     whether the agent's code ran on that site in the task, in any document.
   - `agentCodeInPage(rec, browser)` answers whether the page shows such a
@@ -3223,11 +3224,9 @@ const refused = r.stop();                // [{kind, message}]; put it in the rec
 
 ### Parent backstops
 
-`modules/backstops.sys.mjs` (built by zen-core, finished by zen-observe;
-zen-snapshot's facts in docs/research/parent-backstops.md, the manager's
-list of 2026-11-20). The parent refuses a task's pages again where their
-code can't reach: the second line behind the page refusals and the
-world's mirror of them.
+`modules/backstops.sys.mjs` (built by zen-core, finished by zen-observe).
+The parent refuses a task's pages again where their code can't reach: the
+second line behind the page refusals and the world's mirror of them.
 
 - **In only while a task has pages (I4).** zen-core's service calls
   `setBackstops(service, on)` from publishAgentBrowsers: in with a live
@@ -3263,8 +3262,7 @@ world's mirror of them.
   stored geolocation grant is covered: PermissionUI reads it inside the
   prompt the override replaces. Every other prompt of a task's page goes
   on to PermissionUI (`backstopState().kept` counts them): zen-ux's
-  hand-off while the agent drives, the user's answer during the hold (A8,
-  agreed with zen-ux, 2026-11-21).
+  hand-off while the agent drives, the user's answer during the hold.
 - **Streams stop when the agent has the tab again.**
   `observe/capture.sys.mjs`'s `stopCapture(browser)` runs from setup's
   `watchAgentTabs` for each tab newly in `AGENT_BROWSERS_KEY` (Resume, a
@@ -3299,8 +3297,7 @@ world's mirror of them.
 ### Remote tasks
 
 The `sidebar.*` methods are described in PROTOCOL's "Remote tasks: the
-sidebar", and the brief is `docs/briefs/remote-tasks.md`. They're
-cross-owner: zen-observe's code in zen-ux's sidebar, which zen-ux reviews.
+sidebar". They're cross-owner: zen-observe's code in zen-ux's sidebar.
 - `agent-sidebar/remote.sys.mjs` keeps `conv.remote`: `{address, label,
   requestId, startedAt, endsAt, endedAt, final}`. It reads a task's state
   from the sidebar's own (`taskInfo`). AgentService imports it at the
@@ -3329,10 +3326,9 @@ cross-owner: zen-observe's code in zen-ux's sidebar, which zen-ux reviews.
 
 ### The evidence flag
 
-The defenses act only on evidence of phishing or danger: the user's pass on
-`docs/briefs/defenses-evidence.md`, with the design in
-`docs/research/hooked.md`. It replaces written as their trigger. Written
-stays until no defense reads it.
+The defenses act only on evidence of phishing or danger (the user's call,
+2026-11-21). It replaces written as their trigger. Written stays until no
+defense reads it.
 - Each document (innerWindowId) may have reasons, each with a detail of one
   line, at most 200 characters:
   - `hooked`: the agent's code left something that outlives the discard of
@@ -3354,7 +3350,7 @@ stays until no defense reads it.
   - `isEvident`, `evidenceOf`, and `evidenceFlag` (pageFlag's contract:
     `"drop"` for a made top document, `"clean"` for a hooked one). Listed
     and flagged pages get zen-ux's warning, not a clean copy: a reload
-    brings the danger back (the manager's call);
+    brings the danger back;
   - `markHooked(target, detail)` marks the window's document and the other
     documents of its group in that process, at once and through the
     `zenius:evident` message;
@@ -3378,10 +3374,10 @@ stays until no defense reads it.
   - Style rules, `attachShadow` (also through `content/media.sys.mjs`'s
     shim) and `document.write`/`open` leave no record. They mark the page
     by their built-in.
-  - A mark takes only the document the agent's code wrote into (rule 3 of
-    `docs/safety-rubric.md`). A same-site window of its group that page
-    code left there could reach isn't hooked; that route is a line in
-    `docs/potential-issues.md`.
+  - A mark takes only the document the agent's code wrote into: the
+    defenses act on evidence. A same-site window of its group that page
+    code left there could reach isn't hooked, a known gap with no reported
+    use.
   - Limits: a shadow root that appears during a run isn't watched until the
     next run. When page code dispatches an event synchronously to a
     listener the world left, a change the page makes after that listener

@@ -1,5 +1,5 @@
-// The agent's code in an isolated world (docs/research/isolated-world.md):
-// the hooks the others build on. content/agentworld.sys.mjs (discard,
+// The agent's code in an isolated world: the hooks the others build on.
+// content/agentworld.sys.mjs (discard,
 // isWritten, pageFlag) and observe/agentworld.sys.mjs (isWritten, onWritten,
 // discard, noteWritten, noteMade).
 import { after, before, test } from "node:test";
@@ -143,7 +143,7 @@ test("through the Xray, the agent's code reads an open shadow root, live form va
     assert.ok((await page.evaluate(`document.getElementById("bottom").scrollIntoView(); window.scrollY`)) > 0);
   }));
 
-test("a string timer runs in the page itself and marks it hooked (the user's pass on the defenses brief, A9); function timers run in the world", () =>
+test("a string timer runs in the page itself and marks it hooked; function timers run in the world", () =>
   env.inSpace("world timers", async page => {
     await page.goto(`${env.base}/nav-target?timers`);
     assert.equal(await page.evaluate(`setTimeout("document.title = 'string'", 0); 1`), 1);
@@ -295,7 +295,7 @@ test("the world gets the guards other modules put on the page's prototypes: zen-
     });
     assert.deepEqual(passkeys, ["get NotAllowedError", "create NotAllowedError"]);
 
-    // Location is refused only on evidence (A8): the code leaves a style sheet first.
+    // Location is refused only on evidence: the code leaves a style sheet first.
     await page.evaluate(() => {
       document.head.append(Object.assign(document.createElement("style"), { textContent: "#zo-hooked {}" }));
       return true;
@@ -320,7 +320,7 @@ test("the world gets the guards other modules put on the page's prototypes: zen-
   }));
 
 // ---------------------------------------------------------------------------
-// The native hook (zen-snapshot's red team; the manager's design, 2026-11-20)
+// The native hook
 
 /** Ran the page's own JavaScript? The marker the routes below try to set. */
 const ranInPage = P => pageWorld(P, "return document.documentElement.dataset.ran ?? null;");
@@ -366,7 +366,7 @@ test("the hook: reads, JavaScript's own built-ins and the agent's actions don't 
     assert.equal(await pageWorld(page.P, "return document.body.getAttribute('data-hx-on');"), "x");
   }));
 
-test("the routes into the page's own JavaScript run there and mark the page hooked (A9): another window's timer, a location set past window.location, javascript: URLs, the page's eval and Function, script elements", () =>
+test("the routes into the page's own JavaScript run there and mark the page hooked: another window's timer, a location set past window.location, javascript: URLs, the page's eval and Function, script elements", () =>
   env.inSpace("world routes", async page => {
     await page.goto(`${env.base}/nav-target?routes`);
     await page.evaluate(`(() => { const f = document.createElement("iframe"); f.id = "zo-frame"; document.body.append(f); return 1; })()`);
@@ -445,7 +445,7 @@ test("the deadline stops the agent's code that runs past it: a loop that calls n
       assert.ok(ms < 1800 + 1000, `${fn} took ${ms} ms`);
       assert.equal(await page.evaluate("1 + 1"), 2);
     }
-    // zen-eval's e2e case: a callback the call left blocks past the call's deadline.
+    // A callback the call left blocks past the call's deadline.
     const { value: e, ms } = await timed(() =>
       page.fail("page.evaluate", {
         fn: `async () => {
@@ -644,8 +644,7 @@ test("a document that comes in beside a written one of its group is flagged writ
     // opener's origin, in the opener's process, so the code left there can
     // reach it, and it counts as written. pages.list already names the popup
     // by the URL it's loading (displayURL), so the check after this waits for
-    // that site's own document (zen-core's flake on f6a56c9: it read the
-    // about:blank under load).
+    // that site's own document (under load it once read the about:blank).
     const crossUrl = `${env.base.replace("127.0.0.1", "localhost")}/api/slow?ms=1500&exposed-cross`;
     const cross = await openPopup("cross", crossUrl);
     const docUrl = P => env.chrome(`return ctx.resolvePage(arg).browser.browsingContext.currentWindowGlobal?.documentURI?.spec ?? "";`, P);
@@ -673,7 +672,7 @@ test("a document that comes in beside a written one of its group is flagged writ
     assert.equal(await written(page.P), false, "a written page's clean copy, nothing written beside it");
   }));
 
-test("the agent's Ctrl/Cmd+V of the Space's clipboard with html flags the page written too (zen-input's point)", () =>
+test("the agent's Ctrl/Cmd+V of the Space's clipboard with html flags the page written too", () =>
   env.inSpace("world shortcut paste", async page => {
     const written = () => env.chrome(`${PARENT} return AW.isWritten(p.browser);`, { P: page.P });
     await page.goto(`${env.base}/nav-target?paste-key`);
@@ -748,7 +747,7 @@ test("after the finish, a kept page holds the agent's code only while it's writt
   assert.equal(wrote.opens, !wrote.written, JSON.stringify(wrote));
 });
 
-test("a process flags only its own documents: a page naming another site's document (another process) flags nothing and steers no clean load; that page naming its own does (zen-core's review)", () =>
+test("a process flags only its own documents: a page naming another site's document (another process) flags nothing and steers no clean load; that page naming its own does", () =>
   env.inSpace("world sender", async page => {
     await page.goto(`${env.base}/nav-target?sender-a`);
     const { label } = await env.call("pages.new", { space: page.P.space, url: `${env.base.replace("127.0.0.1", "localhost")}/nav-target?sender-b` });
@@ -783,14 +782,14 @@ test("a process flags only its own documents: a page naming another site's docum
     assert.deepEqual(await state(), { written: true, before: message.urls[docs.id].before });
   }));
 
-test("closing a popup the task adopted keeps its opener's world: a tab that closes takes only its own worlds (zen-eval's e2e on 0a85e8d)", () =>
+test("closing a popup the task adopted keeps its opener's world: a tab that closes takes only its own worlds", () =>
   env.inSpace("world popup close", async page => {
     await page.goto(`${env.base}/nav-target?opener`);
     // The agent's code writes into the opener and keeps a value in its world.
     await page.evaluate(`document.documentElement.dataset.zo = "1"; window.__probe = { made: true }; 1`);
     for (const [tag, base] of [["same", env.base], ["cross", env.base.replace("127.0.0.1", "localhost")]]) {
       const url = `${base}/nav-target?popup-${tag}`;
-      // As in zen-eval's case: a listener of the world's opens it, at the agent's click.
+      // A listener of the world's opens it, at the agent's click.
       await page.evaluate(
         `(() => {
            const b = document.createElement("button"); b.id = "zo-open-${tag}"; b.textContent = "open"; b.style.cssText = "display:block;width:200px;height:30px";
@@ -815,7 +814,7 @@ test("closing a popup the task adopted keeps its opener's world: a tab that clos
     }
   }));
 
-test("the user closing a popup the task adopted keeps its opener's world: their close animates the tab out, marked closing, and the popup's world goes with its documents (zen-input's review)", () =>
+test("the user closing a popup the task adopted keeps its opener's world: their close animates the tab out, marked closing, and the popup's world goes with its documents", () =>
   env.inSpace("world popup user close", async page => {
     await page.goto(`${env.base}/nav-target?opener-user`);
     await page.evaluate(`document.documentElement.dataset.zo = "1"; window.__probe = { made: true }; 1`);
@@ -999,7 +998,7 @@ test("a process that ran the agent's code watches nothing once the task's docume
   }
 });
 
-test("after a task ends, nothing of its worlds stays (zen-core's I4 idea): its process holds no world, compile hook or observer, and the parent listens only while a task has pages or a page keeps the agent's code", async () => {
+test("after a task ends, nothing of its worlds stays: its process holds no world, compile hook or observer, and the parent listens only while a task has pages or a page keeps the agent's code", async () => {
   const mark = `zo-world-after-${Date.now()}`;
   const site = env.base.replace("127.0.0.1", "world-after.localhost");
   const held = () =>

@@ -3,7 +3,7 @@
 // the parent is told (a Zenius.refused event). zen-core's page guards
 // install them in every new document of a tab the agent drives, before the
 // page's scripts. Each call checks again, so a tab handed to the user
-// behaves normally. docs/research/observe.md §10.
+// behaves normally.
 //
 // - fullscreen: fullscreenerror, and a TypeError for the promise (Gecko's
 //   own denial); the window never goes fullscreen.
@@ -15,14 +15,13 @@
 // - the site's storage that outlives the task: serviceWorker.register() and
 //   Cache's put, add and addAll reject with SecurityError, as when the user's
 //   settings block site data. A service worker or a cached script would stay
-//   in the user's profile and run in their own tabs on the site
-//   (docs/research/own-tab.md, item 3). These hold for the task's whole life,
-//   the user's hold included, and in the workers the task's pages start
-//   (workerguard.js).
-// - the user's devices (A8 of the user's pass on the defenses brief,
-//   2026-11-21): while the agent drives the page, the camera, microphone and
-//   screen (getUserMedia, mozGetUserMedia, getDisplayMedia,
-//   selectAudioOutput) and speech recognition get the denial a page gets
+//   in the user's profile and run in their own tabs on the site. These
+//   hold for the task's whole life, the user's hold included, and in the
+//   workers the task's pages start (workerguard.js).
+// - the user's devices (the user's call, 2026-11-21): while the agent
+//   drives the page, the camera, microphone and screen (getUserMedia,
+//   mozGetUserMedia, getDisplayMedia, selectAudioOutput) and speech
+//   recognition get the denial a page gets
 //   when the user says no, and enumerateDevices() lists none: the agent never
 //   uses the user's devices. So does a popup an agent-driven page opens,
 //   from its first document. A refused request never leaves the page: none
@@ -339,7 +338,7 @@ export function installRefusalGuards(actor) {
     );
   }
   guardServiceWorkerAccess(win, page, { report, guard, guardGetter, applies: taskPage });
-  // The user's devices and the prompts' APIs (A8): the devices while the
+  // The user's devices and the prompts' APIs: the devices while the
   // agent drives the page, or a popup an agent-driven page opened before the
   // parent makes it the task's; everything on evidence of danger, the user's
   // hold included.
@@ -377,8 +376,7 @@ export function installRefusalGuards(actor) {
 /**
  * The page's own BroadcastChannels and shared workers, per document (its
  * WindowGlobalChild), held weakly: muteChannels closes them as the user is
- * about to hold the page. Glue by zen-core (the manager's channel mute,
- * 2026-11-20).
+ * about to hold the page. Glue by zen-core.
  *
  * @type {WeakMap<object, Array<{kind: "channel"|"worker", ref: WeakRef<object>}>>}
  */
@@ -402,16 +400,15 @@ function noteChannel(owner, kind, obj) {
 }
 
 /**
- * Close the BroadcastChannels and shared-worker ports this document opened
- * (the manager's channel mute, 2026-11-20). The parent calls it in each
- * document of the page the user is about to hold: opened before the hold,
- * they're in the task's scope (channelScope), so the held page would hear
- * the task's pages, and they it, both ways. What the page opens from then
- * on gets the held scope, and the channels the agent's world opened go
- * with its discard. The site's code keeps working: postMessage on a closed
- * channel would throw (the spec's InvalidStateError), so each closed
- * channel gets an own postMessage that does nothing, and a closed port
- * drops its messages as it is. Glue by zen-core.
+ * Close the BroadcastChannels and shared-worker ports this document opened.
+ * The parent calls it in each document of the page the user is about to hold:
+ * opened before the hold, they're in the task's scope (channelScope), so the
+ * held page would hear the task's pages, and they it, both ways. What the
+ * page opens from then on gets the held scope, and the channels the agent's
+ * world opened go with its discard. The site's code keeps working:
+ * postMessage on a closed channel would throw (the spec's InvalidStateError),
+ * so each closed channel gets an own postMessage that does nothing, and a
+ * closed port drops its messages as it is. Glue by zen-core.
  *
  * @returns {{channels: number, workers: number}}
  */
@@ -463,11 +460,11 @@ export function muteChannels(actor) {
  * Nor can the site's worker reach the page first. Its
  * `clients.matchAll({ includeUncontrolled: true })` lists a task's documents
  * and workers, and a message it posts them can carry a MessagePort that
- * works both ways (zen-snapshot, research/agent-sidebar-redteam.md). Its
- * messages never arrive: zenius's listener, added before the page's code
- * runs and capturing, so it runs before the page's listeners, `onmessage`
- * and the agent's worlds' (capturing listeners run first at the target),
- * stops each one and closes the ports it carries. Once per document too.
+ * works both ways. Its messages never arrive: zenius's listener, added
+ * before the page's code runs and capturing, so it runs before the page's
+ * listeners, `onmessage` and the agent's worlds' (capturing listeners run
+ * first at the target), stops each one and closes the ports it carries.
+ * Once per document too.
  */
 function guardServiceWorkerAccess(win, page, { report, guard, guardGetter, applies }) {
   const said = api =>
@@ -947,13 +944,12 @@ const SCOPED_MARKS = ["zenius-task-", "zenius-held-"];
 
 /**
  * A shared worker is shared with every tab of the site, the user's too. A
- * page of an agent task that connects to one the user's tab started could
- * ask it to write for it (own-tab.md, second round: userShared). So in such
- * a page, `new SharedWorker()` gets a worker of the task's own: zenius adds
- * a fragment to the script URL, so Gecko starts a separate worker, and the
- * worker watcher puts the refusals in it. The page's code works as before;
- * only the sharing with the user's tabs is gone, and the worker sees the
- * fragment in `self.location`.
+ * page of an agent task that connects to one the user's tab started could ask
+ * it to write for it. So in such a page, `new SharedWorker()` gets a worker
+ * of the task's own: zenius adds a fragment to the script URL, so Gecko
+ * starts a separate worker, and the worker watcher puts the refusals in it.
+ * The page's code works as before; only the sharing with the user's tabs is
+ * gone, and the worker sees the fragment in `self.location`.
  *
  * The wrapper is a Proxy made in a sandbox with the page's principal, so the
  * page constructs through it as usual, and SharedWorker.prototype.constructor
@@ -1134,14 +1130,14 @@ const CHANNEL_GUARD = `function zeniusChannelGuard(Native, scopeOf, noted) {
 }`;
 
 /**
- * A task shares the user's container (SPEC §3.4), so a BroadcastChannel
- * joins every same-site document of the profile, the user's open tabs too,
- * both ways: data, but data the site's code in the user's tab acts on, with
- * that tab's grants (zen-snapshot's channels probe; the manager's decision,
- * 2026-11-20). In a task's documents a channel's name gets the task's scope
- * (channelScope), so task pages hear only each other. As for the shared
- * worker, the wrapper is a Proxy made in a sandbox with the page's principal,
- * and the page reads its own names back.
+ * A task shares the user's container (SPEC §3.4), so a BroadcastChannel joins
+ * every same-site document of the profile, the user's open tabs too, both
+ * ways: data, but data the site's code in the user's tab acts on, with that
+ * tab's grants (tests/snapshot/tools/channels-probe.mjs). In a task's
+ * documents a channel's name gets the task's scope (channelScope), so task
+ * pages hear only each other. As for the shared worker, the wrapper is a
+ * Proxy made in a sandbox with the page's principal, and the page reads its
+ * own names back.
  */
 function guardBroadcastChannels(win, scopeNow, noted) {
   const page = Cu.waiveXrays(win);

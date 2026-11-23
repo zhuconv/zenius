@@ -1,9 +1,8 @@
-// The user's setting for agents' page code (zen-observe; the manager's
-// first-update item, 2026-11-21). The agent's page code is what
-// page.evaluate and page.waitForFunction run in its isolated world, and the
-// agent's own pages (data:, blob:), whose code is all the agent's
-// (PAGE_CODE_METHODS, OWN_PAGE_LOADS). html pasted into a page isn't code,
-// and it is sanitized.
+// The user's setting for agents' page code (zen-observe). The agent's page
+// code is what page.evaluate and page.waitForFunction run in its isolated
+// world, and the agent's own pages (data:, blob:), whose code is all the
+// agent's (PAGE_CODE_METHODS, OWN_PAGE_LOADS). html pasted into a page isn't
+// code, and it is sanitized.
 //
 // zenius.agentTabs.pageCode is the setting:
 //  - "always", the default: the world makes page code safe, and nothing asks
@@ -50,8 +49,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 /**
  * The setting: "always", "ask" or "never". Unset is "always". A pref of
  * another type reads as "ask", like any other value: getStringPref would
- * give its default, "always", for a Boolean false a user made meaning off
- * (zen-sdk's find).
+ * give its default, "always", for a Boolean false a user made meaning off.
  */
 export function pageCodeMode() {
   const type = Services.prefs.getPrefType(PAGE_CODE_PREF);

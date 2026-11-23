@@ -1,6 +1,6 @@
-// Agent tabs make sound only while the user can see them (zen-observe;
-// docs/research/observe.md §10). A tab the user can't see is muted through
-// its MediaController, the switch behind the tab's speaker button, so the
+// Agent tabs make sound only while the user can see them (zen-observe). A
+// tab the user can't see is muted through its MediaController, the switch
+// behind the tab's speaker button, so the
 // page plays on silently: media keeps its clock and events, and agent tasks
 // about media still work. Showing the tab, or handing its Space to the user,
 // gives the sound back. Once the user mutes or unmutes a tab by hand, it is
@@ -22,7 +22,7 @@ import { MEDIA_HIDDEN_KEY } from "chrome://userscripts/content/zenius/content/me
 
 // Pages by browserId, not <browser>: Zen's window sync moves a page's
 // docShell, with its browserId and its MediaController's mute, to another
-// window's copy of its tab (docs/research/two-windows.md).
+// window's copy of its tab.
 /** Pages (browserId) zenius muted. */
 const muted = new Set();
 /** Muted page → the document (WindowGlobalParent) the agent was last told about. */

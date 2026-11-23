@@ -1,10 +1,9 @@
 // BroadcastChannel in a task's documents (content/refusals.sys.mjs
-// guardBroadcastChannels; the manager's decision, 2026-11-20, on
-// zen-snapshot's channels probe): a task shares the user's container, so a
-// channel would join the user's open tabs on the site, both ways. In a
-// task's documents a channel's name is scoped to the task: its pages, their
-// frames and workers hear each other, and nothing of the user's tabs or of
-// another task.
+// guardBroadcastChannels; tests/snapshot/tools/channels-probe.mjs): a task
+// shares the user's container, so a channel would join the user's open tabs
+// on the site, both ways. In a task's documents a channel's name is scoped to
+// the task: its pages, their frames and workers hear each other, and nothing
+// of the user's tabs or of another task.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";

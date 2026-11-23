@@ -5,8 +5,7 @@
 // Every HTTP channel passes the http-on-* observers. A channel belongs to a
 // tab through its load info's browsing context, whose browserId is the same
 // for every frame of the tab, out-of-process iframes included; a dedicated
-// worker's requests carry the window's browsing context id. Measurements are
-// in docs/research/observe.md §4.
+// worker's requests carry the window's browsing context id.
 
 import { whyNotWebPrincipal } from "chrome://userscripts/content/zenius/observe/webcontent.sys.mjs";
 

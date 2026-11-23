@@ -1,10 +1,9 @@
-// Caps on the page text zenius carries (zen-observe; docs/research/
-// content-boundary.md, finding 3). Page script decides what a console call,
-// an alert, a notification or a URL holds, and it all ends up in the main
-// process, where running out of memory takes every window with it. Content
-// modules cut what they send, and the parent cuts again whatever it buffers,
-// since a page's own process is no judge of its text. No parent-only API
-// here: content modules import it too.
+// Caps on the page text zenius carries (zen-observe). Page script decides
+// what a console call, an alert, a notification or a URL holds, and it all
+// ends up in the main process, where running out of memory takes every
+// window with it. Content modules cut what they send, and the parent cuts
+// again whatever it buffers, since a page's own process is no judge of its
+// text. No parent-only API here: content modules import it too.
 
 /** Characters of text one event carries in all. */
 export const EVENT_TEXT = 8 * 1024;

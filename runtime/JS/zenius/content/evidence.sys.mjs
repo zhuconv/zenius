@@ -1,5 +1,5 @@
-// The evidence flag, content side (zen-observe; docs/research/hooked.md and
-// docs/briefs/defenses-evidence.md, the user's pass of 2026-11-21).
+// The evidence flag, content side (zen-observe; the user's call of
+// 2026-11-21).
 //
 // The defenses act only on evidence of phishing or danger: one flag per
 // document, with its reasons (hooked, made, listed, flagged). The parent
@@ -128,8 +128,7 @@ export function isEvident(target) {
  * zen-input's flag for the page, pageFlag's contract on evidence: "drop" when
  * its top document is one the agent made, "clean" when a document of it is
  * hooked (or made), else null. Listed and flagged pages get a warning, not a
- * clean copy: the danger is the page itself, which a reload brings back (the
- * manager's call on the brief, 2026-11-21).
+ * clean copy: the danger is the page itself, which a reload brings back.
  *
  * @param {Window|BrowsingContext} target
  * @returns {"drop"|"clean"|null}
@@ -154,8 +153,8 @@ export function evidenceFlag(target) {
  * outside anything the parent sees: its world's insertions, or zen-input's
  * paste of markup that carries code. The document is hooked, here at once and
  * in the parent. Only that one: a window is hooked when the agent's code
- * wrote into it, not when page code left there could reach it (rule 3 of
- * docs/safety-rubric.md; that route is in docs/potential-issues.md).
+ * wrote into it, not when page code left there could reach it: the defenses
+ * act on evidence, and that route is a known gap with no reported use.
  *
  * @param {Window|BrowsingContext} target  the document's window
  * @param {string} detail  what was left, in a few words ("a script element")

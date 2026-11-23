@@ -1,9 +1,8 @@
-// Closed groups, zen-observe's item 1 (docs/research/user-tab-reach.md,
-// "Fix: closed groups"): in a page that shares a window group with a window
+// Closed groups: in a page that shares a window group with a window
 // outside its task (zen-core's pages.codeRefusal), the agent's code doesn't
 // run. page.evaluate and page.waitForFunction are refused, and so is
-// page.goto to the agent's own page (data:, blob:) or to another site
-// (decision 2). The page's own site still loads, and nothing is marked.
+// page.goto to the agent's own page (data:, blob:) or to another site.
+// The page's own site still loads, and nothing is marked.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";

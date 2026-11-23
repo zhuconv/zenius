@@ -1,6 +1,6 @@
-// The hold (observe/hold.sys.mjs; the manager's hand-off rule, 2026-11-20)
-// keeps everything of the agent's away from the page H while the user holds
-// it. agentSitesNear (observe/agentcode.sys.mjs) names the sites of the
+// The hold (observe/hold.sys.mjs; the hand-off rule) keeps everything of
+// the agent's away from the page H while the user holds it.
+// agentSitesNear (observe/agentcode.sys.mjs) names the sites of the
 // windows near H that may hold the agent's code, for the hold's frame and
 // COOP rule. What a hand-off loads afresh is zen-core's call, from the
 // evidence flag (tests/core/handoff.test.mjs).
@@ -164,7 +164,7 @@ test("agentSitesNear: the sites, frames' too, of the other windows of a page's g
     }
   }));
 
-test("a clean copy zenius loaded isn't near the agent's code by site (zen-sdk's rehearsal on 424962d), until the agent's code runs in its group again", () =>
+test("a clean copy zenius loaded isn't near the agent's code by site, until the agent's code runs in its group again", () =>
   env.inSpace("handoff clean copy", async page => {
     const tag = Date.now();
     const X = `${vectors.crossBase}/plain?written=${tag}`;
@@ -435,8 +435,8 @@ test("the hold: Back or Forward into a data: or blob: entry is refused, and the 
         await P.goto(url);
       }
       // The parent commits the last entry after the page has loaded; a
-      // history.back() sent before then goes from the entry before it (the
-      // flake zen-input saw under test-all's load).
+      // history.back() sent before then goes from the entry before it (a
+      // flake under test-all's load).
       const last = urls[urls.length - 1];
       await until("the history settled", () =>
         env.chrome(`${FIND} const sh = find(arg.last).browsingContext.sessionHistory; return sh.count === arg.n && sh.index === arg.n - 1 && sh.requestedIndex === -1;`, { last, n: urls.length })
@@ -455,8 +455,7 @@ test("the hold: Back or Forward into a data: or blob: entry is refused, and the 
       // own refusal (no principal it trusts started it), and Gecko doesn't
       // cache a page left while its load group still holds a request: so
       // each try waits longer before leaving it, and goes back only once
-      // the entry is cached (the flake zen-input and zen-core saw under
-      // test-all's load).
+      // the entry is cached (a flake under test-all's load).
       let reached = 0;
       for (let n = 1, settle = 250; n <= 4 && !reached; n++, settle *= 2) {
         const agent = `${AGENT}-c${n}`;

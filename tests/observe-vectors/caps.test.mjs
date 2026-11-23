@@ -1,7 +1,7 @@
-// What a page can make the main process hold (docs/research/
-// content-boundary.md): running out of memory there takes every window the
-// user has with it. Each event's text is capped, each page's event buffer
-// too, and a page's buffer goes when its page or its task ends.
+// What a page can make the main process hold: running out of memory there
+// takes every window the user has with it. Each event's text is capped, each
+// page's event buffer too, and a page's buffer goes when its page or its
+// task ends.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { checkView, pageHelpers, setup } from "../observe/lib.mjs";

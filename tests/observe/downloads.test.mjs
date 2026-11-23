@@ -201,7 +201,7 @@ test("a sweep touches only the download folder: earlier versions' folders in the
   let h = 0x811c9dc5;
   for (const ch of profileDir) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0;
   const prefix = `zenius-downloads-${h.toString(16).padStart(8, "0")}`;
-  // f5b49be's sweep took the temp folder to clear as its argument; it moved
+  // An earlier sweep took the temp folder to clear as its argument; it moved
   // such folders into the root and removed them there.
   const sweep = dir => env.chrome(`${DOWNLOADS} await D.sweepDownloadLeftovers(arg); return true;`, dir);
   // On the profile's volume, as the Linux server's /tmp and a Mac's temp folder are.
@@ -386,7 +386,7 @@ for (const [kind, path, name] of [
   ["an interstitial", "/interstitial", "interstitial.txt"],
   ["a meta refresh", "/refresh", "refresh.txt"],
 ]) {
-  test(`${kind} on another site starts a download by itself: Gecko's temporary file is in zenius's folder (zen-input's review of f5b49be)`, () =>
+  test(`${kind} on another site starts a download by itself: Gecko's temporary file is in zenius's folder`, () =>
     env.inSpace(`download ${kind}`, async page => {
       const cross = await crossSite();
       try {
@@ -491,7 +491,7 @@ test("cancel and delete change a download only while the agent controls its task
     assert.equal(await env.call("download.failure", { download: d.download }), null, "the download finished");
     const path = await tempFile(d.download);
     // They name a download, not a space: the handler gates on the task the
-    // download came from (docs/research/method-boundary.md, item 7).
+    // download came from.
     await page.call("spaces.handOff", { reason: "manual_takeover" });
     try {
       for (const method of ["download.cancel", "download.delete"]) {

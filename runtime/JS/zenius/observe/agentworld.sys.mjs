@@ -1,5 +1,5 @@
 // The agent's code in an isolated world, parent side (zen-observe; the
-// user's decision (A), 2026-11-20; docs/research/isolated-world.md).
+// user's decision, 2026-11-20).
 //
 // The hooks the others call:
 // - isWritten(target): did the agent's world write into the page, its top
@@ -98,9 +98,8 @@ export function onWritten(fn) {
 
 /**
  * Content saw the agent's world write into these documents of `bc`'s tab,
- * and, in `urls`, change their URLs in place (glue by zen-core for landing
- * (2), the shape agreed with zen-observe, 2026-11-20). Flags only ever get
- * added from content: a forged one costs a reload.
+ * and, in `urls`, change their URLs in place (zen-core's glue). Flags only
+ * ever get added from content: a forged one costs a reload.
  *
  * @param {BrowsingContext} bc  any BrowsingContext of the tab
  * @param {number[]} innerWindowIds
@@ -163,9 +162,9 @@ function noteURLs(top, urls) {
 }
 
 /**
- * Where a clean load of the page should go (the manager's rule for Take
- * over, 2026-11-20): the URL its top document had before the agent's code
- * changed it in place, while it still shows the URL the agent's code set.
+ * Where a clean load of the page should go, for Take over: the URL its top
+ * document had before the agent's code changed it in place, while it still
+ * shows the URL the agent's code set.
  * Null when the current URL is the one to load: the agent never changed it,
  * or the site's own routing moved on since.
  *
@@ -318,7 +317,7 @@ export async function discard(target) {
 export function discardLeftTab(browserId) {
   // A tab that closes takes its own worlds with its documents. Discarding
   // its group would also end the worlds of the task's other pages in it: an
-  // opener whose adopted popup the agent closed (zen-eval's e2e on 0a85e8d).
+  // opener whose adopted popup the agent closed, as zen-eval's e2e found.
   // The page leaves the task before its tab starts closing, so wait a turn:
   // by then the agent's close has removed the tab, and the user's is
   // animating it out, marked closing. A tab that is neither stays open
@@ -343,7 +342,7 @@ function tabClosing(top) {
     if (!browser?.isConnected) {
       return true;
     }
-    // Not ownerGlobal: Gecko 160 has no Node.ownerGlobal (zen-input's review).
+    // Not ownerGlobal: Gecko 160 has no Node.ownerGlobal.
     return !!browser.ownerDocument?.defaultView?.gBrowser?.getTabForBrowser?.(browser)?.closing;
   } catch {
     return false;
@@ -374,7 +373,7 @@ function onWrittenMessage(msg) {
   // Each document must be the sending process's own. A parent message
   // manager's target has no childID in Gecko 160, only osPid; without one,
   // the message counts for nothing, so a process can't flag another site's
-  // documents or steer their clean load (zen-core's review).
+  // documents or steer their clean load.
   const pid = msg.target?.osPid;
   if (typeof pid !== "number") {
     return;

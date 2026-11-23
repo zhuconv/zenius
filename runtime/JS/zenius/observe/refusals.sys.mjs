@@ -3,8 +3,8 @@
 // agent drives, zenius refuses it and tells the agent, never silently: a
 // "Zenius.refused" event in page.events(), and `refused: [{kind, message}]`
 // in the receipt of the action that caused it. This module refuses print,
-// HTTP authentication and external apps; the I1/I4 sweep
-// (docs/research/observe.md §10) lists every surface and who handles it.
+// HTTP authentication and external apps. The I1/I4 sweep
+// (tests/observe/vectors/sweep.mjs) tries every surface.
 //
 // Other owners: reportRefused(browser, kind, message) for a surface you
 // refuse; watchRefusals(browser) for an action's receipt (docs/SPI.md).

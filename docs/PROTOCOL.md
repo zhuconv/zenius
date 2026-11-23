@@ -279,7 +279,7 @@ a pending navigation, and `page.evaluate`'s budget.
   in the call or in a callback the call left running then, loops that call
   no built-in included; a callback that starts later still runs (Ego's late
   effects). Outside a call, a callback may run 1 s at once.
-- The isolated world (docs/research/isolated-world.md): one sandbox per
+- The isolated world: one sandbox per
   document, kept across calls, that shares only the page's DOM. A page
   global the world can't see throws a ReferenceError naming it, and the call
   fails with `ZEN_PAGE_GLOBAL_HIDDEN`. Routes into the page's own JavaScript
@@ -318,9 +318,9 @@ a pending navigation, and `page.evaluate`'s budget.
     runs. The agent's own pages run without asking. A page with no
     `http(s)` site to allow (`about:blank`, the opener's popup before it
     loads) is refused.
-- Closed groups (docs/research/user-tab-reach.md, item 1 and decision 2): in
-  a page that shares a browsing context group with a window outside its
-  task (zen-core's `pages.codeRefusal`), the agent's code doesn't run.
+- Closed groups: in a page that shares a browsing context group with a
+  window outside its task (zen-core's `pages.codeRefusal`), the agent's
+  code doesn't run.
   `page.evaluate`, `page.waitForFunction` (checked before each poll),
   `page.goto` to a `data:` or `blob:` URL and `page.reload` of one fail with
   `ZEN_AGENT_CODE_REFUSED`, and so does `page.goto` to another site: one
@@ -382,8 +382,7 @@ a pending navigation, and `page.evaluate`'s budget.
     fails at once with `ZEN_NAVIGATION_FAILED` and `data.refused`. During
     the user's hold, Firefox asks the user as usual.
   - `serviceWorker` and `cacheStorage`: the site's storage that would
-    outlive the task and reach the user's own tabs on the site
-    (`docs/research/own-tab.md`, item 3).
+    outlive the task and reach the user's own tabs on the site.
     - `navigator.serviceWorker.register()` and Cache's `put`, `add` and
       `addAll` reject with SecurityError, as when the user's settings block
       site data. Reading Cache Storage still works.
@@ -521,8 +520,8 @@ a pending navigation, and `page.evaluate`'s budget.
     - A task's documents and frames don't prefetch DNS: neither
       `<link rel=dns-prefetch>` nor an http page's links look names up.
       Lookups that preconnect and Early Hints make, which never connect to
-      a private address, are an accepted residual
-      (`docs/research/observe.md`). No event: nothing was refused.
+      a private address, are an accepted residual. No event: nothing was
+      refused.
   - `userTabNavigation`: a page where the agent's code ran tried to load a
     page in a tab outside the task, or in a frame of one: by its
     `location`, a named `window.open`, a link or form with its name, a
@@ -530,9 +529,9 @@ a pending navigation, and `page.evaluate`'s budget.
     anything is sent, the tab stays as it was, and the page hears nothing.
     The page's own loads, its frames' and its new popups' and tabs' still
     go, and so do a page's where the agent's code didn't run (a sign-in
-    popup moving its opener). After the task every other tab is outside. Closed groups'
-    second layer (`docs/research/user-tab-reach.md`, item 4): with items 1
-    to 3 it shouldn't fire.
+    popup moving its opener). After the task every other tab is outside.
+    It's the closed groups' second layer: with the first in place it
+    shouldn't fire.
   - `heldPageNavigation`: while the user holds a page after a hand-off, a
     page outside the hold tried to load a page in it or in one of its
     frames. The parent stops the load before anything is sent, and the
@@ -612,8 +611,7 @@ a pending navigation, and `page.evaluate`'s budget.
   the user as in Ego (`ZEN_TASK_SPACE_USER_IN_CONTROL` with Ego's reason),
   once per site in a task (see zen-ux's "Once per site in a task"). During
   the hold the user answers it. On evidence the parent cancels every
-  prompt (`promptDenied`, below). docs/research/observe.md §10 has the
-  full sweep.
+  prompt (`promptDenied`, below).
 - **The agent's JavaScript runs only while it controls the Space (I3).**
   `page.evaluate` and `page.waitForFunction` are held while the Space is
   paused (a takeover prompt, the panel's Pause) and refused under user
@@ -1083,8 +1081,8 @@ their clipboard as usual.
 
 ### Remote tasks: the sidebar (zen-observe)
 
-Another of the user's agents can send the sidebar's agent a task
-(`docs/briefs/remote-tasks.md`): a caller on the user's machine passes
+Another of the user's agents can send the sidebar's agent a task: a caller
+on the user's machine passes
 each request on through these methods. A remote task is a Work task in
 a new chat. It shows in the directory like any task, and its card names its
 source. It starts at once.

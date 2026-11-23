@@ -329,7 +329,7 @@ test("the zenius-only hook: web search and fetch run in Chat and Work, but WebFe
 
 // zen-observe's drift loop. The hook's lists and the tools Work offers once
 // drifted apart: the hook refused Work's AskUserQuestion, and the mock, which
-// sends elicitation/create itself, hid it (Claude's ask fix, 7788299). So
+// sends elicitation/create itself, hid it (until Claude's ask fix). So
 // each mode's own session/new options go through the real hook, both ways.
 test("the zenius-only hook and what each mode offers can't drift apart: every built-in a Claude session's options offer runs past the real hook in that mode, and every other built-in the sidebar knows is refused there; zenius's tools run in Work only, another server's nowhere", async () => {
   const known = await chrome(
@@ -654,8 +654,8 @@ test("Codex is on by default, its limits merged in memory with zenius's server i
   }
   assert.equal(chatConfig.mcp_servers.zenius, undefined, "Chat's process has no zenius server");
   // Codex 0.169.0 offers request_user_input in its Default mode only with
-  // this feature (zen-sidebar's check on the Linux server): Work's agent asks with it
-  // (AgentService's onAsk); Chat has no ask.
+  // this feature: Work's agent asks with it (AgentService's onAsk); Chat has
+  // no ask.
   assert.equal(workConfig.features.default_mode_request_user_input, true, "Work's Codex has its ask tool");
   assert.equal(chatConfig.features.default_mode_request_user_input, false, "Chat's Codex has no ask tool");
   assert.equal(workConfig.mcp_servers.zenius.command, CLI);
@@ -707,7 +707,7 @@ test("Codex is on by default, its limits merged in memory with zenius's server i
   assert.deepEqual(requests(join(dir, "codex.log"), "session/prompt"), [], "a question reached Codex while the user had it off");
 });
 
-test("a new chat's agent: the user's last pick, else config.json's default when it may run, else Claude Code; a fallback isn't kept as a pick (the manager's order)", async () => {
+test("a new chat's agent: the user's last pick, else config.json's default when it may run, else Claude Code; a fallback isn't kept as a pick", async () => {
   // config.json here: { default: "codex", agents: { claude, codex } }.
   const r = await chrome(
     `const PICK = "uc.agent-sidebar.harness", CODEX = "zenius.agentSidebar.allowCodex";

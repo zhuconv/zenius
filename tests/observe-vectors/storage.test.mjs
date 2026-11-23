@@ -1,7 +1,7 @@
 // The site's storage that outlives the task (content/refusals.sys.mjs and
-// content/workerguard.js; docs/research/own-tab.md, item 3). In every
-// document of an agent task's pages, and in the workers they start,
-// serviceWorker.register() and Cache's put, add and addAll reject with
+// content/workerguard.js). In every document of an agent task's pages, and
+// in the workers they start, serviceWorker.register() and Cache's put, add
+// and addAll reject with
 // SecurityError for the task's life, the user's hold included, so nothing
 // lands in the user's profile. A page the task kept is the user's again.
 import { after, before, test } from "node:test";
@@ -452,8 +452,8 @@ test("a task's shared worker and the workers it starts skip the site's worker fr
       // The task's shared worker fetches, and so do the workers it starts:
       // from the site's script or a blob, kept from step to step or fresh.
       // After the claim, a blob worker it starts inherits the site's worker
-      // (a blob worker's principal carries no mark: the bound in
-      // docs/research/observe.md), so that one isn't asked then.
+      // (a blob worker's principal carries no mark, a known bound), so that
+      // one isn't asked then.
       const reach = step =>
         page.evaluate(`(async () => {
           const within = (p, what) => Promise.race([p, new Promise(r => setTimeout(() => r("no answer: " + what), 3000))]);

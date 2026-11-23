@@ -1,8 +1,7 @@
 // sidebar.* methods (zen-observe): remote tasks, which another of the user's
-// agents sends to the sidebar's agent (docs/briefs/remote-tasks.md; PROTOCOL
-// "Remote tasks: the sidebar"). zen-sdk's bridge calls them for the requests
-// it takes from zen-core's gate. This is cross-owner work by the manager's
-// assignment: the sidebar is zen-ux's, and zen-ux reviews it.
+// agents sends to the sidebar's agent (PROTOCOL "Remote tasks: the
+// sidebar"). zen-sdk's bridge calls them for the requests it takes from
+// zen-core's gate. It's cross-owner work: the sidebar is zen-ux's.
 //
 // The sidebar keeps each task's remote state (agent-sidebar/remote.sys.mjs).
 // This module checks the params, holds the limits, and stops tasks: at their
@@ -30,16 +29,16 @@ const PREF_WINDOW = "zenius.agentSidebar.remote.windowSeconds";
 const ADDRESS = /^[A-Za-z0-9._:@/-]{1,64}$/;
 const ID = /^[A-Za-z0-9._-]{1,64}$/;
 // A label is a short tag: ASCII letters and digits, spaces and - _ . / : @ #.
-// Nothing in it can close the quotes the agent's rules put it in
-// (zen-snapshot's T1), make markup, or reorder the card's text as a bidi
-// override would. zen-core's gate allows the same set, so the gate never
-// passes a label that start refuses.
+// Nothing in it can close the quotes the agent's rules put it in, make
+// markup, or reorder the card's text as a bidi override would. zen-core's
+// gate allows the same set, so the gate never passes a label that start
+// refuses.
 const LABEL = /^[A-Za-z0-9 _.:@#/-]{0,80}$/;
 
 const METHODS = ["sidebar.start", "sidebar.send", "sidebar.status", "sidebar.list", "sidebar.stop"];
 
-// Gate classes (docs/research/method-boundary.md). They name no space, so
-// the control gate never meets them, and they touch no page.
+// Gate classes: they name no space, so the control gate never meets them,
+// and they touch no page.
 export const access = Object.fromEntries(METHODS.map(m => [m, "none"]));
 export const i5 = Object.fromEntries(METHODS.map(m => [m, "none"]));
 

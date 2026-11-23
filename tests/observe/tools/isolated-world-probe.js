@@ -1,4 +1,4 @@
-// The isolated-world probe (docs/research/isolated-world.md), zen-observe, 2026-11-20.
+// The isolated-world probe, zen-observe, 2026-11-20.
 // The body of a privileged dev.evalContent call in a task page: run it from a
 // throwaway tests/observe test, e.g.
 //   const code = fs.readFileSync("tests/observe/tools/isolated-world-probe.js", "utf8");

@@ -1,7 +1,7 @@
 // The names the agent's world shares between the content and parent
-// processes (zen-observe; docs/research/isolated-world.md). They have a
-// module of their own, so the parent needn't evaluate content/agentworld.sys.mjs
-// (its setup source and tables) to read them.
+// processes (zen-observe). They have a module of their own, so the parent
+// needn't evaluate content/agentworld.sys.mjs (its setup source and tables)
+// to read them.
 
 /** sharedData: the documents (innerWindowId) the agent's world wrote into. */
 export const WRITTEN_DOCS_KEY = "zenius:writtenDocs";
@@ -12,10 +12,9 @@ export const MADE_DOCS_KEY = "zenius:madeDocs";
 export const WORLD_URL = "zenius://agent-world";
 
 /**
- * sharedData: the documents with evidence of phishing or danger
- * (docs/research/hooked.md), which the defenses read: a Map of
- * innerWindowId → {reason: detail}. observe/evidence.sys.mjs publishes it,
- * content/evidence.sys.mjs reads it.
+ * sharedData: the documents with evidence of phishing or danger, which the
+ * defenses read: a Map of innerWindowId → {reason: detail}.
+ * observe/evidence.sys.mjs publishes it, content/evidence.sys.mjs reads it.
  */
 export const EVIDENCE_DOCS_KEY = "zenius:evidenceDocs";
 
