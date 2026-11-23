@@ -364,9 +364,10 @@ lite browser is a separate, free download."
 ## Benchmarks
 
 zen(ius) is faster than Ego Lite on every operation the bench timed on both,
-passes every case of Ego Lite's own end-to-end suite that applies to it, and
-did every live task in both rounds. Each number below links to its report in
-[`docs/eval/`](docs/eval/), which names the build it ran on.
+passes every case of Ego Lite's own end-to-end suite that applies to it,
+did every live task in both rounds, and used less CPU and memory per round.
+Each number below links to its report in [`docs/eval/`](docs/eval/), which
+names the build it ran on.
 
 <div align="center">
 
@@ -426,6 +427,25 @@ Zen raises a window before it loads a link into it. zen(ius) now opens such a
 link without raising Zen: on the release candidate,
 [nothing came forward](docs/eval/no-preemption.md), neither for the middle
 click nor for a popup that `window.open` gives a size.
+
+**Memory and CPU** ([report](docs/eval/footprint-comparison.md)). One run
+each, on the same Mac: the same script five times in each browser, with its
+whole process tree sampled every 2 s.
+
+| | zen(ius) | Ego Lite |
+|---|---|---|
+| Processes in the tree | [10 to 11](docs/eval/footprint-comparison.md) | [48 to 55](docs/eval/footprint-comparison.md) |
+| Time per round, median | [576 ms](docs/eval/footprint-comparison.md) | [2,068 ms](docs/eval/footprint-comparison.md) |
+| CPU per round, above the background | [0.51 CPU-s](docs/eval/footprint-comparison.md) | [3.0 CPU-s](docs/eval/footprint-comparison.md) |
+| Memory added during the rounds, at the peak | [+122 MiB](docs/eval/footprint-comparison.md) | [+825 MiB](docs/eval/footprint-comparison.md) |
+| The browser without its pages | [950 MiB](docs/eval/footprint-comparison.md), the whole tree | [969 MiB](docs/eval/footprint-comparison.md), plus [351 MiB](docs/eval/footprint-comparison.md) in 5 extension processes |
+
+Memory and CPU at rest aren't compared: at start, Ego Lite brought up 33
+page renderers, which looks like its saved session reopening, while zen(ius)
+ran on a fresh profile. Ego Lite's background CPU was still settling, so its
+CPU per round runs from [0.6 to 3.4 CPU-s](docs/eval/footprint-comparison.md),
+depending on the stretch of background it's measured against. zen(ius)'s
+background stayed near zero.
 
 ## Docs
 

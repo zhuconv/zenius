@@ -207,8 +207,9 @@ zen(ius) 以 MIT 许可证开源，运行在 Zen 里的那部分也包括在内�
 ## 基准测试
 
 在基准测试里两边都计时的每一项操作上，zen(ius) 都比 Ego Lite 快；Ego Lite 自己的端
-到端测试中，适用于 zen(ius) 的用例它全部通过；两轮实测任务它也全部完成。下面每个数字都链接到 [`docs/eval/`](docs/eval/) 里的报
-告，报告里写明了每次运行用的构建。
+到端测试中，适用于 zen(ius) 的用例它全部通过；两轮实测任务它也全部完成；每轮用的 CPU
+和内存也更少。下面每个数字都链接到 [`docs/eval/`](docs/eval/) 里的报告，报告里写明了
+每次运行用的构建。
 
 <div align="center">
 
@@ -261,6 +262,22 @@ Opus 5.5，effort xhigh。
 往窗口里加载链接之前会先把这个窗口提到前面。现在 zen(ius) 打开这类链接时不会再把 Zen
 带到前面：在发布候选版上，无论是中键点击，还是 `window.open` 指定了尺寸的弹窗，
 [都没有把任何窗口带到前面](docs/eval/no-preemption.md)。
+
+**内存和 CPU**（[报告](docs/eval/footprint-comparison.md)）。每边各跑一次，在同一台
+Mac 上：同一个脚本在每个浏览器里跑五轮，每 2 秒采样一次它的整个进程树。
+
+| | zen(ius) | Ego Lite |
+|---|---|---|
+| 进程树里的进程数 | [10 到 11](docs/eval/footprint-comparison.md) | [48 到 55](docs/eval/footprint-comparison.md) |
+| 每轮用时，中位数 | [576 ms](docs/eval/footprint-comparison.md) | [2,068 ms](docs/eval/footprint-comparison.md) |
+| 每轮 CPU，扣除后台 | [0.51 CPU 秒](docs/eval/footprint-comparison.md) | [3.0 CPU 秒](docs/eval/footprint-comparison.md) |
+| 跑这几轮时增加的内存，取峰值 | [+122 MiB](docs/eval/footprint-comparison.md) | [+825 MiB](docs/eval/footprint-comparison.md) |
+| 不算页面的浏览器本身 | [950 MiB](docs/eval/footprint-comparison.md)，整个进程树 | [969 MiB](docs/eval/footprint-comparison.md)，另有 5 个扩展进程共 [351 MiB](docs/eval/footprint-comparison.md) |
+
+静止时的内存和 CPU 没有拿来比：Ego Lite 启动时带起了 33 个页面渲染进程，
+看起来是恢复了上次的会话；而 zen(ius) 用的是全新的配置文件。
+Ego Lite 的后台 CPU 当时还没稳定下来，所以它每轮的 CPU 随扣除的那段后台而变，
+在 [0.6 到 3.4 CPU 秒](docs/eval/footprint-comparison.md)之间。zen(ius) 的后台一直接近零。
 
 ## 文档
 
