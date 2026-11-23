@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Every headless suite that guards main: the smoke test, each component's
-# tests/<area>/run.sh, and the SDK's unit and integration tests. Run it
-# before merging into main. zen-eval's e2e and bench suites aren't included;
-# they compare targets and take longer.
+# tests/<area>/run.sh (the ported e2e suite's among them), and the SDK's unit
+# and integration tests. Run it before merging into main. The bench suite
+# isn't included: it compares targets and takes longer.
 #
 #   scripts/test-all.sh            all suites; exits non-zero if any fails
 #   scripts/test-all.sh smoke ux   only the named suites (smoke, <area>, sdk-unit, sdk-it)
@@ -51,7 +51,7 @@ for dir in tests/*/; do
   # live runs agents against public sites (zen-eval's harness): never here.
   # mac is zen-eval's Mac-only suite (tests/mac/README.md), run on the Mac
   # against a checkout with the agent's sidebar: not here either.
-  case $area in fixtures | golden | e2e | bench | live | mac) continue ;; esac
+  case $area in fixtures | golden | bench | live | mac) continue ;; esac
   [[ -x $dir/run.sh ]] && wanted "$area" && names+=("$area")
 done
 sdk=()
