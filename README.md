@@ -52,6 +52,21 @@ under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 zen(ius) runs on macOS and Linux, with Zen 1.24. It's used daily on macOS
 and tested headless on Linux. Windows isn't tested.
 
+### 0. Get Zen
+
+[Zen](https://zen-browser.app) is a free, open-source browser built on
+Firefox, with vertical tabs and Spaces, close to Arc's look. zen(ius) runs
+inside it. If you already use Zen 1.24, skip to step 1.
+
+- **macOS:** `brew install --cask zen`, or the `.dmg` from
+  [zen-browser.app/download](https://zen-browser.app/download).
+- **Linux:** `zen.linux-x86_64.tar.xz` (or aarch64) from
+  [the same page](https://zen-browser.app/download), unpacked into a folder
+  you own. The Flatpak and the AppImage keep Zen's app folder read-only,
+  and fx-autoconfig needs its two files there (see below).
+
+Open Zen once so it makes your profile, then quit it.
+
 ### 1. Install
 
 Pick one. Each needs [Zen](https://zen-browser.app) and

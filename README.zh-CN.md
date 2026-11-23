@@ -45,6 +45,20 @@ https://github.com/user-attachments/assets/eab70814-e6da-481f-ab1f-0e3ee8b4f15d
 zen(ius) 支持 macOS 和 Linux，配合 Zen 1.24 使用。我们每天在 macOS 上用它，并在
 Linux 上做无头测试。Windows 尚未测试。
 
+### 0. 安装 Zen
+
+[Zen](https://zen-browser.app) 是一款基于 Firefox 的免费开源浏览器，有竖排标签页和
+Spaces，界面和 Arc 很接近。zen(ius) 就运行在它里面。已经在用 Zen 1.24
+的话，直接跳到第 1 步。
+
+- **macOS：** `brew install --cask zen`，或者从
+  [zen-browser.app/download](https://zen-browser.app/download) 下载 `.dmg`。
+- **Linux：** 从[同一页面](https://zen-browser.app/download)下载
+  `zen.linux-x86_64.tar.xz`（或 aarch64 版），解压到你自己有写权限的文件夹。Flatpak
+  和 AppImage 版本的程序文件夹是只读的，而 fx-autoconfig 需要在那里放两个文件（见下文）。
+
+先打开一次 Zen，让它创建你的配置文件，然后退出。
+
 ### 1. 安装
 
 任选一种。都需要先装好 [Zen](https://zen-browser.app) 和
