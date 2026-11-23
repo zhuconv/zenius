@@ -7,7 +7,7 @@
 //   (install-cli.sh --sandbox), installed into a temp home of its own. Its
 //   working folder lies outside ~/.zenius-dev, which the launcher never grants.
 //
-// zen-manager's rules (2026-11-20):
+// The rules (2026-11-20):
 // - every file the probes plant or make the browser write stays in
 //   ~/.zenius-dev/canary/<run>/, never over an existing file;
 // - uploads go only to a loopback page;

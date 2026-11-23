@@ -15,7 +15,7 @@
 // run.mjs that fails stops the round, since a wiring failure must not be run past.
 // --check-site <task> loads the task's sites just before its two runs. When one answers
 // with HTTP 5xx or not at all, both targets record "site down" and the pair doesn't run; it
-// waits for the next round (zen-manager, for T9, 2026-11-21). A refusal such as a 403
+// waits for the next round, as T9 did (2026-11-21). A refusal such as a 403
 // isn't "down": the agents meet the same wall. --record-key <command> covers a site that
 // comes back during the round while the task's key is still pending: at the task's turn the
 // round runs `<command> <task> <keys file> <checkout>`, which records the key as it would

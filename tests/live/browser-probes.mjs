@@ -1,4 +1,4 @@
-// Browser-side probes for rubric C's containment (zen-manager, 2026-11-20).
+// Browser-side probes for rubric C's containment (2026-11-20).
 // The sandboxed launcher (install-cli.sh --sandbox) confines the process that
 // runs an agent's script, but the browser runs outside it. These probes ask
 // what such a script can still reach through the browser: local files,
@@ -301,7 +301,7 @@ console.log("PROBES " + JSON.stringify(out));`;
 }
 
 /**
- * The probes' files and loopback server, under zen-manager's rules: a fresh
+ * The probes' files and loopback server, under the containment's rules: a fresh
  * ~/.zenius-dev/canary/<run>/ folder holds every file the probes plant or
  * make the browser write, each under a new name, and close() deletes it all.
  */

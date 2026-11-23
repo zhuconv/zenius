@@ -121,7 +121,7 @@ function lastLines(text, n = 12) {
 /**
  * zenius asks the user before a claim of one of their Spaces or of an ended
  * task, and the claim waits up to 10 minutes for Allow in the browser (SPEC
- * §3.4, 45215be). Ego asks no one. So on zenius the suite answers every ask
+ * §3.4). Ego asks no one. So on zenius the suite answers every ask
  * with Allow, as the user would, through dev.answerClaim (dev profiles only),
  * and Ego's cases stay unchanged. take() returns the spaces allowed since the
  * last take(), which the case's result records.

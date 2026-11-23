@@ -1,7 +1,7 @@
 {
   "target": "zenius",
   "version": "0.1.0",
-  "versionDetail": "zen 1.24.3b, commit 9abcd8e",
+  "versionDetail": "zen 1.24.3b, round 2's pre-release build of 0.1.0",
   "startedAt": "2026-11-22T01:21:50.243Z",
   "finishedAt": "2026-11-22T01:22:44.209Z",
   "iterations": 20,

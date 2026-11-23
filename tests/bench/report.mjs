@@ -33,7 +33,7 @@ const GROUPS = [
 const TARGETS = {
   "spawn-first-rpc": "≤ 80 ms",
   "snapshot-typical": "≤ 60 ms",
-  "snapshot-large": "≤ 250 ms (zen-snapshot brief)",
+  "snapshot-large": "≤ 134 ms",
   "screenshot-viewport": "≤ 300 ms",
 };
 

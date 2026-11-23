@@ -8,7 +8,7 @@ process table every 2 s.
 - **Ego Lite** as installed on the Mac (0.6.3.17 at the bench of 2026-11-20;
   we never upgrade it). It wasn't running, so the run's first call through
   `ego-browser nodejs` started it, with its window.
-- **zenius:** a dev Zen (Zen 1.24.3b, zenius at `d815f22`) on a fresh dev
+- **zenius:** a dev Zen (Zen 1.24.3b, zenius from main at 18:27 UTC on 2026-11-22, after v0.1.0) on a fresh dev
   profile, with the agent's scripts as the daily install has them, and a
   window like Ego Lite's.
 

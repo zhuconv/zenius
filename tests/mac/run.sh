@@ -7,7 +7,7 @@
 #   tests/mac/run.sh tests/mac/urlbar.test.mjs
 #   ZENIUS_MAC_HEADED=1 tests/mac/run.sh tests/mac/look.test.mjs
 #       the look, in a visible window that closes on every way out. On the
-#       user's Mac, only through zen-eval's nets (AGENTS.md): the user idle,
+#       user's Mac, only through zen-eval's nets: the user idle,
 #       and no call or screen share.
 #
 #   ZENIUS_MAC_REPO=<checkout>   whose runtime and SDK the dev Zen runs

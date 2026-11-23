@@ -1,7 +1,7 @@
 {
  "target": "zenius",
  "version": "0.1.0",
- "versionDetail": "zen 1.24.3b, commit 9abcd8e",
+ "versionDetail": "zen 1.24.3b, round 2's pre-release build of 0.1.0",
  "sdk": "zenius",
  "runs": [
   {
@@ -1141,7 +1141,7 @@
    "file": "page-workers.mjs",
    "category": "v2",
    "zenius": "differs",
-   "reason": "zenius refuses service worker registration in an agent task's pages (8d22cba): the registration would outlive the task and control the user's own tabs on the site; \"zen-eval: a task's service worker is refused\" checks the refusal",
+   "reason": "zenius refuses service worker registration in an agent task's pages: the registration would outlive the task and control the user's own tabs on the site; \"zen-eval: a task's service worker is refused\" checks the refusal",
    "verdict": "differs",
    "assertions": 0,
    "runs": [
@@ -1149,7 +1149,7 @@
      "status": "differs",
      "durationMs": 0,
      "assertions": 0,
-     "message": "zenius refuses service worker registration in an agent task's pages (8d22cba): the registration would outlive the task and control the user's own tabs on the site; \"zen-eval: a task's service worker is refused\" checks the refusal"
+     "message": "zenius refuses service worker registration in an agent task's pages: the registration would outlive the task and control the user's own tabs on the site; \"zen-eval: a task's service worker is refused\" checks the refusal"
     }
    ]
   },

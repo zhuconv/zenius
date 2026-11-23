@@ -42,7 +42,7 @@ Warm operations run in a loop inside one script, the way an agent chains actions
   103 ms for GitHub's repository page (16 KiB of text, viewport), 134 ms for
   the same page in full (60 KiB), and 9.3 s for the Wikipedia table page
   (588 KiB). SPEC §5's target for zenius is 60 ms for a typical viewport
-  snapshot; zen-snapshot's brief adds 250 ms for a large full page.
+  snapshot, and Ego's own 134 ms for the GitHub page in full.
 - **Process start is Ego's floor for every agent round.** A new
   `ego-browser nodejs` process reaches its first RPC in 166 ms (SPEC target
   for zenius: 80 ms) and resumes a task space in another 10 ms.
@@ -77,7 +77,7 @@ Warm operations run in a loop inside one script, the way an agent chains actions
 |---|---|---|---|---|---|---|---|
 | snapshot, small (bench fixture, viewport) | 4.6 | 6.5 | 4.9 | 3.7 | 6.7 | 20 | 0.6 KiB of text |
 | snapshot, typical (GitHub repo replay, viewport) | 103 | 261 | 142 | 61.2 | 644 | 20 | 15.9 KiB of text; SPEC target ≤ 60 ms |
-| snapshot, large (GitHub repo replay, full_page) | 134 | 183 | 141 | 125 | 215 | 20 | 60.4 KiB of text; SPEC target ≤ 250 ms (zen-snapshot brief) |
+| snapshot, large (GitHub repo replay, full_page) | 134 | 183 | 141 | 125 | 215 | 20 | 60.4 KiB of text; SPEC target ≤ 134 ms |
 | snapshot, huge (Wikipedia table replay, full_page) | 9290 | 10062 | 8106 | 5186 | 10098 | 10 | 588.4 KiB of text |
 
 ## Actions

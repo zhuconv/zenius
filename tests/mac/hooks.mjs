@@ -115,7 +115,7 @@ export const URLBAR = {
 };
 
 /**
- * Step 6, Watch. window.ucAgentSidebar: watch(uid, { tab }) and
+ * Watch. window.ucAgentSidebar: watch(uid, { tab }) and
  * takeOver(uid) resolve to booleans; stopWatching({ back = true }); the
  * `watching` getter (a uid or null). A click on .asb-dir-tab watches the task
  * on that tab. ⌃Tab goes back while watching, and is Zen's otherwise; only
@@ -143,7 +143,7 @@ export const WATCH = {
   /** The strip's " <kbd>⌃Tab</kbd>" while watching, never cut. */
   stripKey: ".zenius-strip-key",
   /**
-   * Once the watched task ends, ⌃Tab still goes back (zen-ux's af4bc5b): the
+   * Once the watched task ends, ⌃Tab still goes back: the
    * strip is [watching="done"] and says "Task done, [⌃Tab] back to your
    * tabs", or the chip, where the strip can't be read, is [done] and says the
    * same. "back to your tabs" is cut first, never "Task done" or the key.

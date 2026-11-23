@@ -107,6 +107,6 @@ test("on zenius, the SDK reads of a fixture page's own objects go to the page's 
       moved++;
     }
   }
-  // zen-sdk's count (docs/reports/zen-sdk.md, "agents' page code in an isolated world").
+  // The fixture reads counted when page code moved to an isolated world.
   assert.equal(moved, 24);
 });

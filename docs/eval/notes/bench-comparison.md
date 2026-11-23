@@ -1,14 +1,14 @@
 ## Reading the comparison
 
-- **Every zenius row comes from one run on 9abcd8e,** round 2's build, so
-  all four rubrics cite one build.
+- **Every zenius row comes from one run on round 2's build,** a 0.1.0
+  pre-release from 2026-11-21, so all four rubrics cite one build.
   - A headless dev Zen on the Mac, on a fresh profile, 2026-11-22 01:21 UTC.
     Each row is 20 timed iterations after 2 warm-up ones; the whole run took
     55 s.
-  - The checkout was 9abcd8e plus zen-eval's round 2 harness, a local commit
-    that touches only `tests/live`, two unit tests and `docs/eval` (on `main`
-    since e8b0182). The runtime, the SDK and the bench are 9abcd8e's, so the
-    results name 9abcd8e.
+  - The checkout was round 2's build plus zen-eval's round 2 harness, a
+    local commit that touches only `tests/live`, two unit tests and
+    `docs/eval` (now on `main`). The runtime, the SDK and the bench are the
+    build's own.
   - Every row runs the checkout's CLI under node 24.22.2, the spawn rows too.
   - The Mac was busy. Its load average was 11.5 at the start and 8.8 at the
     end (over 1 minute, on 8 cores), and the user's try-out Zen ran beside it.
@@ -16,16 +16,15 @@
   - Ego ran in its real window, with task spaces in background Spaces.
   - The daily Zen is headed and keeps agent tabs in background workspaces, so
     a headed zenius run may come out differently.
-  - The table this replaces combined runs on four builds from 2026-11-20
-    (c314f9b, e9a3373, cc3849a and 6b00f45). Git history keeps it.
-- **What moved since then, and why: an A/B.** 6b00f45's runtime, SDK and
-  bench ran against 9abcd8e's on the same Zen 1.24.3b, under the same load
-  (4–7), in four alternating pairs. The first pair warmed the old profile's
-  cache and is left out. 6b00f45's own `zen-dev.sh` predates the update
-  guard (e0dd6dd), so 9abcd8e's started both instances. p50 in ms, the
-  median of the three pairs:
+  - The table this replaces combined runs on four builds from 2026-11-20.
+- **What moved since then, and why: an A/B.** The runtime, SDK and bench of
+  the last of those four builds ran against round 2's on the same Zen
+  1.24.3b, under the same load (4–7), in four alternating pairs. The first
+  pair warmed the old profile's cache and is left out. The old build's own
+  `zen-dev.sh` predates the update guard, so round 2's started both
+  instances. p50 in ms, the median of the three pairs:
 
-  | Row | 6b00f45 | 9abcd8e | 9abcd8e / 6b00f45 |
+  | Row | Old build | Round 2 | Round 2 / old |
   |---|---|---|---|
   | snapshot, huge (Wikipedia table replay) | 40.2 | 69.4 | 1.73 |
   | snapshot, large (GitHub replay, full page) | 7.43 | 12.4 | 1.66 |
@@ -37,23 +36,23 @@
   | snapshot, small | 0.65 | 0.72 | 1.11 |
   | taskSpace(name), new space | 43.3 | 40.8 | 0.94 |
 
-  - **The snapshot of a large page is slower by design (7819d7d).**
+  - **The snapshot of a large page is slower by design.**
     - Snapshots now print CSS generated content, as Ego's do. The walker asks
       Gecko about each element's `::before` and `::after` boxes, and keeps
       one computed style per element.
     - On the Wikipedia replay (10,085 elements), the runtime's own log shows
-      the walk at 22 ms on 6b00f45 and 47 ms on 9abcd8e (medians). It makes
+      the walk at 22 ms on the old build and 47 ms on round 2's (medians). It makes
       8,819 pseudo-element queries and keeps 5,723 styles, against 2,641.
-    - 7819d7d's message weighed that cost. A cached scan of the style rules
+    - The change weighed that cost when it was made. A cached scan of the style rules
       would have saved at most 30–35 ms per full page on the Linux server, but it would
       have charged each site's first snapshot for the scan. The A/B measured
       29 ms on the Wikipedia replay.
     - Small pages barely move.
   - **keyboard.type:** the shift explained in the last section. The Mac shows
     it too.
-  - **click is faster** on 9abcd8e.
-  - **finish isn't settled.** Its pairs overlap: 7.4–12.0 ms on 6b00f45,
-    10.2–16.4 ms on 9abcd8e.
+  - **click is faster** on round 2's build.
+  - **finish isn't settled.** Its pairs overlap: 7.4–12.0 ms on the old build,
+    10.2–16.4 ms on round 2's.
   - **The sub-millisecond rows** (`page.url()`, evaluate, waitForSelector with
     the element present, `mouse.click`) move by fractions of a millisecond.
   - **The table's run had more load on top.** snapshot-huge took 79.2 ms there
@@ -83,7 +82,7 @@
 - **Process start.** The spawn rows now run the checkout's CLI under node 24,
   as every other row does. SPEC §5's target for spawn to first RPC is 80 ms or
   less.
-  - An earlier run on e9a3373 (a headless dev Zen on the Mac, 20 iterations
+  - An earlier run on a 2026-11-20 build (a headless dev Zen on the Mac, 20 iterations
     per row) compared launchers, including the installed CLI under the PATH
     node (v23.5) that agents on the Mac ran then. p50 in ms:
 
@@ -94,7 +93,7 @@
     | zenius installed copy, PATH node 23.5 | 51.0 | 53.0 | 0.6 | 2.7 |
     | Ego Lite's CLI (node 24.22.1) | 166 | 171 | 7.0 | 9.2 |
 
-  - On e9a3373, most of zenius's time was Node starting up. `node -e 0` alone
+  - On that build, most of zenius's time was Node starting up. `node -e 0` alone
     took 44.5 ms under the PATH node and 30.2 ms under node 24 (p50 of 20), so
     zenius added about 6 ms either way.
   - `--timing` on the installed copy (PATH node, 10 runs) showed where the
@@ -120,12 +119,12 @@
   - The bench loads each replay until its load event comes (up to five
     tries) before timing it. On a cold cache, the GitHub replay's load event
     once missed the 15 s goto timeout.
-- **type-50 rose from about 34 to 47 ms on the Linux server between ce24f90 and 9ce85d1
-  (zen-sdk's runs, 2026-11-21). It's explained and closed with no runtime
-  change, so don't chase it again.**
-  - It comes from `3da910a`, which changed only the click's `settle()` and
-    made clicks about 75 ms faster (110 → 34 ms). On ce24f90 with
-    `3da910a` alone, type-50 went from 33–35 to 46–53 ms.
+- **type-50 rose from about 34 to 47 ms on the Linux server between two
+  builds of 2026-11-20 and 2026-11-21. It's explained and closed with no
+  runtime change, so don't chase it again.**
+  - It comes from one change, which touched only the click's `settle()` and
+    made clicks about 75 ms faster (110 → 34 ms). On the earlier build with
+    that change alone, type-50 went from 33–35 to 46–53 ms.
   - Typing does no more work per key. A raw replay of the same rows over
     one connection shows the click gain but typing within noise (p50 28.1
     against 28.2 ms), with the same CPU per call in the page process (27.4
@@ -135,5 +134,3 @@
     agent tab whose frames stall (the compositor acknowledges its paints
     only every 200–500 ms). Where the time goes in that state wasn't
     traced further.
-  - Details: `docs/reports/zen-input.md` (2026-11-21, 07:40Z) and
-    `docs/reports/zen-sdk.md`.

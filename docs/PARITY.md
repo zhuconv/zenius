@@ -11,9 +11,9 @@ While zenius's methods are still landing, a case fails at its first missing meth
 | API | Cases that call it | Ego | zenius | Divergence |
 |---|---|---|---|---|
 | `profiles` | TaskSpace profile selection | pass (1/1) | pass (1/1) |  |
-| `listTaskSpaces` | task spaces and control; TaskSpace profile selection; zen-eval: v2 control lifecycle | pass (2/2) | pass (2/2) | A user workspace no agent has claimed lists an empty recentTabTitles, and keeps its name. Tasks and claimed workspaces, current or ended, keep their titles; Ego lists them for every space. In the daily browser those titles are the user's private tabs (mail, bank, health), which would otherwise reach the model provider (0776a68). |
+| `listTaskSpaces` | task spaces and control; TaskSpace profile selection; zen-eval: v2 control lifecycle | pass (2/2) | pass (2/2) | A user workspace no agent has claimed lists an empty recentTabTitles, and keeps its name. Tasks and claimed workspaces, current or ended, keep their titles; Ego lists them for every space. In the daily browser those titles are the user's private tabs (mail, bank, health), which would otherwise reach the model provider. |
 | `taskSpace` | task spaces and control; TaskSpace profile selection; v2 cross-space routing; page labels: create; +73 more | 55 pass, 10 flaky, 3 fail of 68 | pass (69/69) |  |
-| `claimTaskSpace` | task spaces and control; zen-eval: v2 control lifecycle | pass (1/1) | pass (1/1) | A claim of one of the user's Spaces, or of an ended task, waits up to 10 minutes for the user's Allow in the browser; Deny or no answer fails it with ZEN_TASK_SPACE_CLAIM_DENIED. A claim of the agent's own task asks no one. Ego shows no prompt and relies on the agent asking in chat (45215be). |
+| `claimTaskSpace` | task spaces and control; zen-eval: v2 control lifecycle | pass (1/1) | pass (1/1) | A claim of one of the user's Spaces, or of an ended task, waits up to 10 minutes for the user's Allow in the browser; Deny or no answer fails it with ZEN_TASK_SPACE_CLAIM_DENIED. A claim of the agent's own task asks no one. Ego shows no prompt and relies on the agent asking in chat. |
 | `takeOverTaskSpace` | task spaces and control; zen-eval: v2 control lifecycle | pass (1/1) | pass (1/1) | Fails with ZEN_TASK_SPACE_USER_IN_CONTROL until 10 s after the user's last real input in the task's tabs, so an agent can't take a task back while the user types. Ego takes it back at once. Like the user's Resume agent, it first empties the password, card and code fields the user typed in, loading those pages afresh (The hand-off and the hold, below). |
 | `TaskSpace.spaceId` | task spaces and control; TaskSpace profile selection; page labels: create; page actions and popup adoption; +4 more | 6 pass, 1 fail of 7 | pass (7/7) |  |
 | `TaskSpace.name` | environment initialization; task spaces and control; TaskSpace profile selection; observation helpers; +7 more | 3 pass, 1 flaky, 1 fail of 5 | pass (5/5) |  |
@@ -92,24 +92,24 @@ While zenius's methods are still landing, a case fails at its first missing meth
   restores the user's clipboard afterwards; zenius never touches it. Copy-then-paste inside one task
   still works, as in Ego's portable keyboard workflow case.
 - **The page's clipboard API.** In an agent tab, `navigator.clipboard.readText()` and `read()` answer from
-  the Space's own clipboard, with no prompt, but only to the origin that wrote its current contents
-  (`9ff893f`). Another origin gets `NotAllowedError`, as after a dismissed paste prompt, and the agent gets
+  the Space's own clipboard, with no prompt, but only to the origin that wrote its current contents.
+  Another origin gets `NotAllowedError`, as after a dismissed paste prompt, and the agent gets
   `Zenius.refused` with `kind: "clipboardRead"`, naming the writer, also in the receipt of the click that
   caused the read. Ego hands the Space to the user with reason `"clipboard"` instead, because its read would
-  reach the user's real clipboard. zenius's per-Space clipboard (`cdaf463`) needs no permission, and the
+  reach the user's real clipboard. zenius's per-Space clipboard needs no permission, and the
   origin rule keeps one site in a task from reading what the agent copied on another. The agent's own
   Cmd/Ctrl+V still pastes anywhere. Writes go to the Space's clipboard too: in the headed run on the Mac
   (2026-11-20), the system pasteboard's change count didn't move.
 - **Service workers and Cache Storage.** In an agent task's pages, their popups and the workers they start,
-  `navigator.serviceWorker.register()` and Cache's `put`, `add` and `addAll` reject with `SecurityError`
-  (`8d22cba`). The agent gets `Zenius.refused` with `kind: "serviceWorker"` or `"cacheStorage"` in
+  `navigator.serviceWorker.register()` and Cache's `put`, `add` and `addAll` reject with `SecurityError`.
+  The agent gets `Zenius.refused` with `kind: "serviceWorker"` or `"cacheStorage"` in
   `page.events()`, once per document and once per worker. A registration outlives the task and would
   control the user's own tabs on that site, and what a task writes to Cache Storage would reach them
   likewise. Reading Cache Storage still works, and the user's own tabs on the site are unaffected: they
   register and cache as usual.
   - The site's own service worker, registered from the user's tabs, runs for them, outside the task. A
-    task's pages and the workers they start don't use it (`94a298f`, `107f93c`). Their requests skip it, a
-    shared worker's only until the site's worker claims it (a residual, `docs/research/observe.md`), and
+    task's pages and the workers they start don't use it. Their requests skip it, a
+    shared worker's only until the site's worker claims it (a known residual), and
     to them the site has none: `getRegistration()` resolves undefined, `getRegistrations()` an empty list,
     `ready` never settles, `controller` is null, and a ServiceWorker's `postMessage` does nothing.
   - The first such access is reported apart from a refused registration: a second `serviceWorker`
@@ -123,7 +123,7 @@ While zenius's methods are still landing, a case fails at its first missing meth
 - **Video in hidden agent tabs.** In an agent tab the user can't see, zenius pauses each playing video that holds
   the display wake lock by Gecko's rule: a video track, and an audio track or a MediaStream source, muted or not.
   It resumes them when the user looks or the tab stops being the agent's, never a video the page or the agent
-  paused (`1b7984b`). The agent gets `Zenius.mediaPaused` and `Zenius.mediaResumed` (`reason: "hidden"`, `count`,
+  paused. The agent gets `Zenius.mediaPaused` and `Zenius.mediaResumed` (`reason: "hidden"`, `count`,
   `url`) in `page.events`. Ego's hidden task tabs keep playing. The cause is Gecko 160: the flag that keeps a
   hidden agent tab at full speed (`BrowsingContext.isActive`) also makes a playing video's wake lock a foreground
   one, so an unseen agent tab would keep the user's display awake. `<audio>`, Web Audio and other videos hold no
@@ -131,13 +131,13 @@ While zenius's methods are still landing, a case fails at its first missing meth
 - **The user's Allow before a claim.** A claim of one of the user's Spaces, or of an ended task, shows a
   prompt in the user's window ("An agent asks to work in your Space …", with the name the client gives
   itself) and waits up to 10 minutes for Allow. Deny or no answer fails it with
-  `ZEN_TASK_SPACE_CLAIM_DENIED` (`45215be`, SPEC §3.4). A claim of the agent's own task asks no one.
+  `ZEN_TASK_SPACE_CLAIM_DENIED` (SPEC §3.4). A claim of the agent's own task asks no one.
   `takeOverTaskSpace` of a task handed to the user, and a claim of one, fail with
   `ZEN_TASK_SPACE_USER_IN_CONTROL` until 10 s after the user's last real input in its tabs. Ego shows no
   prompt and relies on the agent asking in chat. The e2e runner answers each prompt with Allow through
   `dev.answerClaim`, as the user would, and records the spaces it allowed in each case's result.
 - **The hand-off and the hold.** The user types in the agent's own tab, and zenius keeps what they type from
-  the agent (`ab3e065`, `f740de1`). Before the card shows, `handOff()` loads afresh the page the user will
+  the agent. Before the card shows, `handOff()` loads afresh the page the user will
   hold, and any window that could reach it, wherever the agent's code may be. It refuses a page the agent
   made, or one it can't make safe, with `ZEN_HANDOFF_REFUSED`. When the user presses Resume agent, or the
   agent takes the task back, zenius first empties the password, card and code fields the user typed in,
@@ -145,7 +145,7 @@ While zenius's methods are still landing, a case fails at its first missing meth
   `task.handBack`: `reloaded`, the Pages zenius loaded afresh since the agent last had control, and rarely
   `openerCut`, when the page the user held lost its opener, so a sign-in popup's report never reached the
   agent's Page. Ego gives the tab over as it is and reports nothing on hand back. This replaces Use your
-  own tab, which `f740de1` removed.
+  own tab, which was removed.
 - **CDP.** `page.cdp()` and `task.cdp()` fail with `ZEN_UNSUPPORTED` (SPEC §2). Cases that exist to test
   CDP are N/A. Cases that use CDP only for setup or one check run on zenius with an exact-string patch
   (`tests/e2e/zen-adapt.mjs`, listed with its reason in `docs/eval/e2e-zenius.md`).
@@ -159,7 +159,7 @@ While zenius's methods are still landing, a case fails at its first missing meth
   In the snapshot goldens only icon buttons change (MDN's "Search the site", PyPI's "Copy PIP
   instructions").
 - **Icon glyphs and empty boxes in snapshots.** Ego prints the text of CSS `::before` and `::after` boxes, and
-  so does zenius (`docs/research/snapshot.md` §3.5), except two kinds that tell an agent nothing: text made
+  so does zenius, except two kinds that tell an agent nothing: text made
   only of private-use characters, which icon fonts draw as icons (PyPI's U+F002, Apple's U+F301: 90 lines
   in the snapshot goldens), and boxes with no text (a clearfix's `content: ""; display: table`, which Ego
   prints as `table > table_row > table_cell`: 384 lines on Stack Overflow).
@@ -168,8 +168,8 @@ While zenius's methods are still landing, a case fails at its first missing meth
   none is missed. It doesn't re-adopt untracked tabs by their opener: that could claim a tab the user opened
   from an agent page, which `finish()` would then close. "page actions and popup adoption" skips its
   simulated miss on zenius.
-- **Input.** zenius keeps these on purpose (`docs/research/input-gaps.md`, section E). Ego's side, where
-  given, is from zen-eval's run of the input gap probe on Ego Lite (2026-11-20).
+- **Input.** zenius keeps these on purpose. Ego's side, where
+  given, is from a run of the input gap probe on Ego Lite (2026-11-20).
   - `setInputFiles(sel, [])` clears the input, as Playwright does. Ego kept the file the input had.
   - A middle click on a link opens it as a new page of the task, listed in `receipt.popups`, on both. zenius
     opens it itself, in the background, and cancels the browser's own handling, so nothing opens outside the

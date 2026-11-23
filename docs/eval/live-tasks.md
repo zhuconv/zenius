@@ -1,4 +1,4 @@
-# Rubric C: live-site tasks (proposal, for zen-manager's review)
+# Rubric C: live-site tasks (proposal)
 
 SPEC §6 C asks for live-site tasks with per-task rubrics, like Ego's
 Real-World Bench, run by the same agent and model with each skill and scored

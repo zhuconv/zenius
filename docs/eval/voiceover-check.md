@@ -50,7 +50,7 @@ a page the agent made (6), a new task for the finish (7), and the claim
 | 8 | Claim prompt | An agent calls `claimTaskSpace(<id>)` on one of the user's Spaces | "Agent request. An agent asks to work in your Space “<name>”. It calls itself “<client>”." | Tab from the page: Allow, Deny | Heard once. The countdown in the card's name ("denied in N min") is current when reached. Deny closes it |
 
 Pages the task leaves open say nothing else: a page kept at the finish, or
-left by the panel's Stop, has no card (the user's decision (A)).
+left by the panel's Stop, has no card, by design.
 
 ## Report
 

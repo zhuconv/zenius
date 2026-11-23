@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Does Claude Code's allow rule Bash(zenius:*) let through a command that runs
-// something other than the sandboxed zenius? zen-manager's question for the
-// runbook (2026-11-20). With scripts/install-cli.sh --sandbox,
+// something other than the sandboxed zenius? The install's runbook needs to
+// know (2026-11-20). With scripts/install-cli.sh --sandbox,
 // ~/.local/bin/zenius is the sandboxed launcher, and the user's Claude Code
 // would allow Bash(zenius:*) with dontAsk. A command the rule lets through that
 // starts another program, or picks another zenius (PATH=.), gets past the

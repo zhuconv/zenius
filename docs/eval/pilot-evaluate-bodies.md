@@ -1,6 +1,6 @@
 # The pilot's page.evaluate and waitForFunction bodies
 
-For zen-sdk's isolated-world measurement: the code the pilot's agents ran
+For measuring page code in an isolated world: the code the pilot's agents ran
 in pages, reduced to its shape. zen-eval, 2026-11-20.
 
 ## Where they come from
@@ -8,8 +8,8 @@ in pages, reduced to its shape. zen-eval, 2026-11-20.
 - **The zenius half of the pilot**: tasks T2, T8 and T13 of
   `docs/eval/live-tasks.md`, rounds 1 to 3 (`docs/eval/live-pilot.md`).
   Round 1 ran T2 only.
-- **The Ego half hasn't run.** It waits for the user's decision on its
-  profile (`live-pilot.md`), so there are no Ego transcripts. The zenius
+- **The Ego half hasn't run.** It waits until its profile is chosen
+  (`live-pilot.md`), so there are no Ego transcripts. The zenius
   half's agents wrote the same Ego-style API calls (`page.evaluate`,
   `page.waitForFunction`) that they would write against Ego.
 - **What was taken:** every `evaluate(` and `waitForFunction(` call in

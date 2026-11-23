@@ -29,7 +29,7 @@
   103 ms for GitHub's repository page (16 KiB of text, viewport), 134 ms for
   the same page in full (60 KiB), and 9.3 s for the Wikipedia table page
   (588 KiB). SPEC §5's target for zenius is 60 ms for a typical viewport
-  snapshot; zen-snapshot's brief adds 250 ms for a large full page.
+  snapshot, and Ego's own 134 ms for the GitHub page in full.
 - **Process start is Ego's floor for every agent round.** A new
   `ego-browser nodejs` process reaches its first RPC in 166 ms (SPEC target
   for zenius: 80 ms) and resumes a task space in another 10 ms.

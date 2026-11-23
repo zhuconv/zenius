@@ -1,4 +1,4 @@
-// The two-mode sidebar's look (the bundle's Mac test 1) in Zen's own Light
+// The two-mode sidebar's look in Zen's own Light
 // and Dark: the Chat and Work chats and the directory drawer, laid out as the
 // user asked (2026-11-21). zen-eval runs it in a visible window on the Mac:
 //
@@ -165,7 +165,7 @@ function rgbToHsl([r, g, b]) {
 }
 
 /**
- * The composer's row, as the user asked for it: one row wherever it fits.
+ * The composer's row: one row wherever it fits.
  * With `narrow`, zen-sidebar's wrap passes too: '+' and the switch on the
  * first row, the pickers then send right-aligned on a second. Either way
  * nothing is hidden and nothing runs past #box's edge.
@@ -433,7 +433,7 @@ for (const theme of ["light", "dark"]) {
         else assert.ok(s.max <= 245, `the ${part} is solid (alpha ${s.max}), but should let Zen's material through`);
       }
       if (r.zen && r.zen.max <= 245 && MATERIAL.panel === "solid") {
-        console.log(`# note for the user's call: Zen's own sidebar lets its material through (alpha ${r.zen.min}-${r.zen.max}); the agent panel is solid by design`);
+        console.log(`# note: Zen's own sidebar lets its material through (alpha ${r.zen.min}-${r.zen.max}); the agent panel is solid by design`);
       }
     }));
 }
@@ -474,10 +474,10 @@ test("the composer's row holds at the sidebar's narrowest width", () =>
     assert.ok(r.header.titleLines <= 1.6 && r.chatHeader.titleLines <= 1.6, `the title wraps at ${r.after} px`);
   }));
 
-// 4f97629 at 168 px (zen-eval's Mac look, 2026-11-22): the busy box's hint, "<status> · Enter
+// At 168 px, on a build of 2026-11-22: the busy box's hint, "<status> · Enter
 // queues, ⌘Enter steers", took 3 lines, and Chat's empty box kept that height after it, since
 // Gecko counts an empty box's placeholder in its scrollHeight. Where the whole hint doesn't fit
-// 2 lines, it now leaves out the status (zen-ux's 545564d). Linux's floor is wider (196 px on
+// 2 lines, it now leaves out the status (zen-ux's fix). Linux's floor is wider (196 px on
 // the Linux server), so only the Mac's run reaches 168 px.
 test("at the sidebar's narrowest width, a busy task's empty box stays 2 lines and says 'Enter queues, ⌘Enter steers', which fits; so does Chat's after it", () =>
   inTheme(h, "light", async () => {

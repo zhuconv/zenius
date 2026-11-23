@@ -1,5 +1,5 @@
 {
-  "recorded": "2026-11-21 between 22:57 and 22:59 UTC, for round 2, by zen-eval's own scripts (not an agent) on a fresh headless dev profile (zen-eval-keys-r2) at the round 2 branch ad7e6ef (main 33e6288 and the round 2 harness), before the round's runs. T1, T2, T3, T5, T6, T7, T10, T11 and T12: each key script printed the same output as at round 1's recording (15:25-15:35 UTC), so their keys are round 1's. T4: the exact phrase, as round 2's prompt names it. T8: carried over, as in round 1.",
+  "recorded": "2026-11-21 between 22:57 and 22:59 UTC, for round 2, by zen-eval's own scripts (not an agent) on a fresh headless dev profile (zen-eval-keys-r2) at the round 2 branch (main as of 2026-11-21 22:41 UTC plus the round 2 harness), before the round's runs. T1, T2, T3, T5, T6, T7, T10, T11 and T12: each key script printed the same output as at round 1's recording (15:25-15:35 UTC), so their keys are round 1's. T4: the exact phrase, as round 2's prompt names it. T8: carried over, as in round 1.",
   "T1": {
     "en_length": "1230",
     "de_length": "1232.7",

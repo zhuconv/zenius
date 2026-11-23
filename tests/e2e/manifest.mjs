@@ -92,7 +92,7 @@ const table = {
   "Page dedicated Worker startup": ["page-workers.mjs", "v2", "run"],
   "Page AudioWorklet startup": ["page-workers.mjs", "v2", "run"],
   "Page SharedWorker startup": ["page-workers.mjs", "v2", "run"],
-  "Page Service Worker startup": ["page-workers.mjs", "v2", "differs", "zenius refuses service worker registration in an agent task's pages (8d22cba): the registration would outlive the task and control the user's own tabs on the site; \"zen-eval: a task's service worker is refused\" checks the refusal"],
+  "Page Service Worker startup": ["page-workers.mjs", "v2", "differs", "zenius refuses service worker registration in an agent task's pages: the registration would outlive the task and control the user's own tabs on the site; \"zen-eval: a task's service worker is refused\" checks the refusal"],
   "Page API alignment": ["page-api-alignment.mjs", "v2", "run"],
   "Page actionability": ["page-actionability.mjs", "v2", "run"],
   "Page evaluate timeout recovery": ["page-evaluate-timeout.mjs", "v2+obs", "run", "sets EGO_BROWSER_RESPONSE_TIMEOUT_MS, which the zenius SDK reads under that name"],

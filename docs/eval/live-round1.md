@@ -117,10 +117,10 @@ with one browser skill, on two targets. This is round 1 of two.
 
 ### The targets
 
-- **zenius at 88a5983**, the build the user gets next. The round used its runtime, SDK
-  and scripts, which the round checked were identical to 88a5983's at its start, with
-  the harness's `tests/live` commits on top (local branch `zen-eval/round1-88a5983`,
-  ef28152). It ran on a headed dev Zen (profile `zen-eval`, new for the round) behind the
+- **zenius, a 0.1.0 release candidate of 2026-11-21 (18:36 UTC)**, the build the user gets
+  next. The round used its runtime, SDK and scripts, which the round checked were identical
+  to the build's at its start, with the harness's `tests/live` commits on top. It ran on a
+  headed dev Zen (profile `zen-eval`, new for the round) behind the
   user's windows, with no developer methods.
   - Each run installs the CLI the user chose, the sandboxed launcher
     (`install-cli.sh --sandbox`), into its own temp home.

@@ -1,4 +1,4 @@
-// Cmd+T '>' (the bundle's Mac test 2), headless. The user's keys are played
+// Cmd+T '>', headless. The user's keys are played
 // through nsITextInputProcessor, so Zen's own shortcut and the URL bar's own
 // input handling run, as for a person:
 // - with a '>' prefix, 'Ask agent' is the first row, and Enter starts a work

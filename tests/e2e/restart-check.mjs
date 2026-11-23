@@ -3,7 +3,7 @@
 // docs/SPI.md, "Tasks in the Agents Space"). Tasks share the Agents Space, and
 // a task's tabs carry their task in the session value `zenius`. After a
 // restart or a crash the runtime puts each restored tab back in its task
-// (step 4, 50fde32). Its pages stay unloaded until an agent's call uses one.
+// (step 4). Its pages stay unloaded until an agent's call uses one.
 // tests/core/restart.test.mjs checks this on Linux with browser.startup.page
 // set to 3 in user.js. Here the restore prefs stay at Zen's own defaults, as
 // on the user's daily profile, which sets neither: browser.startup.page (3)
@@ -60,8 +60,8 @@ const name = opts.name ?? `zen-eval-restart-${opts.case}${opts.startupPage === "
 const profile = join(DEV_HOME, "profiles", name);
 const stateDir = join(homedir(), ".zenius", "state", name);
 
-// Tasks always share the Agents Space since b3d226e, which removed pref
-// zenius.agentsSpace; only the edge case sets a pref of its own.
+// Tasks always share the Agents Space (the pref zenius.agentsSpace is gone);
+// only the edge case sets a pref of its own.
 const prefs = opts.case === "edge" ? { "zen.workspaces.continue-where-left-off": true } : {};
 const devEnv = { ...process.env };
 delete devEnv.ZENIUS_DEV_METHODS;

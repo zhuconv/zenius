@@ -1,4 +1,4 @@
-// Watch and ⌃Tab (the bundle's Mac test 3, zen-sidebar's step 6), headless,
+// Watch and ⌃Tab, headless,
 // with the keys played through nsITextInputProcessor:
 // - while the user isn't watching, ⌃Tab stays Zen's own tab switch;
 // - a working task's live card shows its page, with Watch and Take over, and
@@ -27,9 +27,9 @@ const OUT = process.env.ZENIUS_MAC_SHOTS || join(tmpdir(), "zenius-mac-look");
 mkdirSync(OUT, { recursive: true });
 const h = await setup("watch");
 const BUILT = await h.chrome(`return typeof T.glue()?.watch === "function";`);
-const skip = !BUILT && "zen-sidebar's step 6 (Watch) isn't built in this checkout";
+const skip = !BUILT && "Watch isn't built in this checkout";
 const DONE_BUILT = BUILT && (await h.chrome(`return typeof ChromeUtils.importESModule(H.WATCH.ui).ZeniusUI?.watchingDone === "function";`));
-const skipDone = skip || (!DONE_BUILT && "zen-ux's af4bc5b (the way back after a watched task's end) isn't in this checkout");
+const skipDone = skip || (!DONE_BUILT && "the way back after a watched task's end isn't in this checkout");
 let uid = null;
 // The done case's own task: finishing it ends it, so it isn't the one above.
 let doneUid = null, doneSpace = null, doneFinished = false;
@@ -584,7 +584,7 @@ test("After Take over, the hint with a 200-character name is the same, in Light 
   }
 });
 
-// zen-manager's case for zen-ux's af4bc5b: a watched task's end keeps ⌃Tab's
+// A watched task's end keeps ⌃Tab's
 // way back. It watches a task of its own (the mock's SCENARIO:flights, which
 // holds a step), since finishing ends it, and the agent finishes it through
 // zenius, keeping nothing, as task.finish({ keep: [] }) does. The window then

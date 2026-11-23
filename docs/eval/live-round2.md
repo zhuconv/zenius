@@ -1,7 +1,7 @@
 # Rubric C, round 2: zenius and Ego Lite (2026-11-21)
 
 zen-eval ran round 2 of `live-tasks.md` on both targets on 2026-11-21, 23:14 to 23:46 UTC,
-on zenius 9abcd8e. Each of the 15 tasks ran once on each target, the two runs back to back,
+on round 2's build of zenius (below). Each of the 15 tasks ran once on each target, the two runs back to back,
 in the opposite order from round 1. Gutenberg was down again, so T9 ran in neither round.
 Fourteen tasks ran on both targets, and every run was a full success.
 
@@ -117,12 +117,12 @@ WebFetch and WebSearch off, and the prompt with its common tail are round 1's.
 
 ### The targets
 
-- **zenius at 9abcd8e**, main when the round started. It has zen-observe's fix for a
-  `goto` to a `#fragment` (9b85f61), and test-all was green on it. Without that fix, such
+- **zenius, round 2's build**: a 0.1.0 pre-release, main as of 2026-11-21 22:58 UTC,
+  when the round started. It has zen-observe's fix for a `goto` to a `#fragment`, and
+  test-all was green on it. Without that fix, such
   a `goto` held the next call for 15 s.
-  - The round used 9abcd8e's runtime, SDK and scripts, which the round checked were
-    identical to 9abcd8e's at its start, with round 2's harness commits on top (local
-    branch `zen-eval/round2-9abcd8e`, dce8dc4).
+  - The round used the build's runtime, SDK and scripts, which the round checked were
+    identical to the build's at its start, with round 2's harness commits on top.
   - It ran on a headed dev Zen (profile `zen-eval-r2`, new for the round) behind the
     user's windows, with no developer methods, and each run installed the sandboxed
     launcher into its own temp home, as in round 1.

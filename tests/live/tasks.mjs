@@ -4,7 +4,7 @@
 //   trajectory  checked by script against the URLs the run visited (`visited`)
 //   live        graded by the judge against the run's own page reads
 // Answer keys come from a reference pass on the sites before the runs
-// (docs/eval/live-pilot.md says when and how); zen-manager reviews them.
+// (docs/eval/live-pilot.md says when and how).
 // T2, T8 and T13 are the pilot's, unchanged; the other twelve follow
 // live-tasks.md word for word in their prompts.
 

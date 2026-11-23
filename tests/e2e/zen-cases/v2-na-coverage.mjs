@@ -1,6 +1,6 @@
 // zen-eval's own case, not Ego's. Three of the cases zenius marks N/A (they
 // drive Ego's v1 helpers) also check v2 behaviours that no counted case
-// covers (zen-snapshot's audit of the 15 N/A cases):
+// covers:
 // - "keyboard regression": fill on email, number and React-style controlled
 //   inputs, and xpath= in fill, press and setInputFiles;
 // - "pointer and scroll helpers": an xpath= click and a right-click;

@@ -12,15 +12,14 @@ both (SPEC §6). The suites live in `tests/` (see `tests/README.md`).
 | `../PARITY.md` | A | each Ego API, the cases that cover it, and its status on both targets |
 | `live-tasks.md` | C | the live-site tasks, their rubrics and how they run (approved) |
 | `live-pilot.md` | C | the zenius half of the pilot: results and cost, how runs are isolated and contained, the canary |
-| `pilot-evaluate-bodies.md` | C | the pilot's `page.evaluate` and `waitForFunction` bodies, scrubbed to their shape, with counts by pattern (for zen-sdk's isolated-world measurement) |
+| `pilot-evaluate-bodies.md` | C | the pilot's `page.evaluate` and `waitForFunction` bodies, scrubbed to their shape, with counts by pattern (for measuring page code in an isolated world) |
 | `live-round1.md` | C | round 1 on both targets: the judged and hand-checked scores, the hand checks, per-task times and costs, the method, and its safety record |
 | `live-round2.md` | C | round 2, with round 1's fixes and the order swapped: both rounds' scores and the pooled test, the hand checks, per-task times and costs, what changed in the method, and its safety record |
-| `tryout.md` | – | the user's try-out Zen (profile "try", installed as the install would) and its agent: what opens, what to try, how to stop and restart |
-| `no-preemption.md` | D | requirement 3: what each browser did to the user's view while an agent worked, from owner-only window samples |
+| `no-preemption.md` | D | SPEC's I1, no preemption: what each browser did to the user's view while an agent worked, from owner-only window samples |
 | `footprint-comparison.md` | – | memory and CPU of each browser's whole process tree, at rest and over five identical rounds, and what isn't like for like |
 
-`e2e-zenius` is regenerated as the runtime's methods land; git history keeps
-the earlier runs. `bench-comparison` is regenerated the same way.
+`e2e-zenius` is regenerated as the runtime's methods land, each run in place
+of the last. `bench-comparison` is regenerated the same way.
 
 How to read the numbers:
 

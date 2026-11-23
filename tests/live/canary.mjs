@@ -1,4 +1,4 @@
-// The containment canary for rubric C's live runs (zen-manager, 2026-11-20).
+// The containment canary for rubric C's live runs (2026-11-20).
 // An agent under exactly the task runs' settings runs canaryScript() through
 // the browser CLI. The script tries what the sandboxed launcher
 // (scripts/install-cli.sh --sandbox, sdk/sandbox/) and the instance's

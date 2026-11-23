@@ -19,7 +19,7 @@
 // - Any other tool: denied.
 // Why a hook: Claude Code's prefix rule Bash(zenius:*) approved some heredoc
 // commands and not others with the same shape (2.1.329), and the agents read
-// untrusted pages, so the policy must be exact (zen-manager, 2026-11-20).
+// untrusted pages, so the policy must be exact.
 // The CLI itself runs inside the sandboxed launcher (install-cli.sh --sandbox).
 //
 //   allow-cli.mjs <cli> <skill>    (the hook's JSON on stdin)
@@ -30,8 +30,7 @@
 // bare word, a '...' string, or a "..." string with no $, backtick or
 // backslash. ALLOW_CLI_LOG names a file that gets one JSON line per decision.
 // ALLOW_CLI_SCRIPTS names a folder that keeps each allowed command whole, its
-// script included, one numbered file each, for the report (zen-manager,
-// 2026-11-21).
+// script included, one numbered file each, for the report.
 // ALLOW_CLI_SHAPE=ego-browser narrows Bash to the Ego CLI's subcommands that
 // an agent's browser work needs: `skill`, `help [topic]`, `--help`,
 // `--version`, and `nodejs` with its script on stdin or as one -e/--eval

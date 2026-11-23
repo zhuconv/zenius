@@ -1,11 +1,11 @@
 // zen-eval's own case: the zenius counterpart of Ego's "Page Service Worker
 // startup", which is N/A on zenius. In an agent task's pages zenius refuses
-// service worker registration and Cache Storage writes (8d22cba): either
+// service worker registration and Cache Storage writes: either
 // would outlive the task and reach the user's own tabs on the site. The
 // agent must see the refusal through the public API: the page's call
 // rejects with SecurityError, and page.events() reports each refusal once.
 //
-// Since 94a298f a task's pages can't reach the site's own worker either:
+// A task's pages can't reach the site's own worker either:
 // getRegistrations() lists none and reports serviceWorker once per document,
 // apart from the refused registration (PROTOCOL.md, "The site's own service
 // worker"). So page.events() has two serviceWorker refusals here, told apart

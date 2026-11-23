@@ -66,7 +66,7 @@ cases on zenius anyway), `--sdk-path <path>` (ego: a checkout's SDK build
 instead of the one embedded in Ego Lite), `--keep`.
 
 `e2e/restart-check.mjs --case restart|edge|crash` is the Mac restart check
-for the Agents Space (`docs/research/restart-mac.md`).
+for the Agents Space.
 
 - It runs on a fresh dev profile. Tasks share the Agents Space.
 - `browser.startup.page` and `resume_from_crash` stay at Zen's defaults,
@@ -111,8 +111,8 @@ fires: up to 5 tries of 15 s (`replayWarmup` in the row's result).
 gives each task's prompt (`live/tasks.mjs`, from `docs/eval/live-tasks.md`) to a fresh `claude -p`:
 Opus 5.5 at effort xhigh, 60 turns and 20 minutes. It scores each run three ways: fixed items by
 script against the keys, trajectory items against the profile's history, and live items by a
-judge that sees no target's name. Only the zenius half exists so far; the Ego half waits for the
-user's decision on its profile.
+judge that sees no target's name. `--target ego` runs the same tasks on the
+running Ego Lite.
 - **Before any round,** run `--canary` under the same settings: it tries what the containment
   must block, and a control that must still work. `live/canary.mjs` covers the CLI's sandbox and
   the hook; `live/browser-probes.mjs` covers the browser, run as a second script the agent loads

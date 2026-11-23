@@ -23,7 +23,7 @@
 // ZENIUS_SECURITY_SOCKETS[_FILE]).
 //
 // The agents read untrusted pages, so a page could try to steer one. What
-// limits it (zen-manager's decisions, 2026-11-20; docs/eval/live-pilot.md):
+// limits it (2026-11-20; docs/eval/live-pilot.md):
 // - The agent's `zenius` is the sandboxed launcher the user chose
 //   (scripts/install-cli.sh --sandbox; sdk/sandbox/), installed into each
 //   run's own temp home. The process that runs the agent's scripts reads only
@@ -69,7 +69,7 @@
 //   the temp folders: Ego saves a screenshot at the absolute path its
 //   script names, or in the system temp folder.
 // - Every command the hook allows on either target is kept whole, script
-//   included, in <out>/<task>.scripts/ (zen-manager, 2026-11-21).
+//   included, in <out>/<task>.scripts/.
 // - Ego's history isn't read, so trajectory items and the judge go by each
 //   run's own tool log (commands and their output), on both targets.
 //   zenius's history stays in the result as information (visitedHosts).
@@ -269,7 +269,7 @@ function makeEgoRun(id) {
   run.skills = join(run.work, ".claude", "skills");
   mkdirSync(run.skills, { recursive: true });
   mkdirSync(run.tmp);
-  // Copied from Ego's package unchanged, with Ego's MIT notice beside it (zen-manager): the
+  // Copied from Ego's package unchanged, with Ego's MIT notice beside it: the
   // package's Skill folder carries none, and THIRD_PARTY.md quotes it.
   cpSync(EGO_SKILL, join(run.skills, "ego-browser"), { recursive: true });
   writeFileSync(join(run.skills, "ego-browser", "LICENSE"), egoNotice());
@@ -309,8 +309,8 @@ function assertEgoRunning() {
 }
 
 /**
- * The images an Ego script saved in the temp folders for this run, removed (zen-manager's
- * terms): each by the literal path its tool log names, as one unlink, and only a plain file
+ * The images an Ego script saved in the temp folders for this run, removed
+ * carefully: each by the literal path its tool log names, as one unlink, and only a plain file
  * (a link is never followed) created since the run began, an image by its bytes, in a temp
  * folder. Those it saved in the run's folder go with the folder.
  */
@@ -501,7 +501,7 @@ const agentEnv = (run, log) =>
     ALLOW_CLI_READ_ROOT: run.root,
     ALLOW_CLI_LAUNCHER: run.launcher,
     ALLOW_CLI_LOG: join(outDir, log),
-    // Every command the hook allows, its script included, stays for the report (zen-manager).
+    // Every command the hook allows, its script included, stays for the report.
     ALLOW_CLI_SCRIPTS: join(outDir, `${run.id}.scripts`),
   });
 const SAMPLE_RUN = { id: "<id>", root: "<run>", work: "<run>/work", tmp: "<run>/tmp", launcher: EGO ? "<ego-browser>" : "<run>/home/bin/zenius", started: 0 };
@@ -658,7 +658,7 @@ async function runCanary() {
   const run = makeRun("canary");
   const hookLog = "canary.hook.jsonl";
   // The browser probes' files and loopback pages live in a fresh
-  // ~/.zenius-dev/canary/<run>/ (zen-manager's rules); the script itself sits
+  // ~/.zenius-dev/canary/<run>/; the script itself sits
   // in the agent's folder, where the sandboxed CLI may read it. The instance
   // runs without dev methods, so the extension's page comes from its prefs.js.
   const fixture = await probeFixture();

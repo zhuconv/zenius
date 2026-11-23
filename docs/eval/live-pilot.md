@@ -2,13 +2,13 @@
 
 zen-eval ran the zenius half of the pilot in `live-tasks.md` (T2, T8, T13).
 All three runs answered fully correctly, for $0.68 in agent cost plus $0.30
-for the judge, in 29 turns and 2 minutes in all. Then zen-manager asked for
+for the judge, in 29 turns and 2 minutes in all. Then the pilot added
 containment, because the agents read untrusted pages. The containment
 canary blocked everything the browser CLI's process tried. It also found that
 an agent's `page.goto` opens `file://`, `about:config` and `chrome://` pages,
 and that `page.evaluate` runs with chrome privileges on the last two. The
 probes that followed found the saved logins, extensions' APIs and file paths
-open too. SPEC's I5 closed all of it: on main `7c22f68` the canary passes
+open too. SPEC's I5 closed all of it: with I5 on main, the canary passes
 (see "After I5").
 
 ## What ran
@@ -17,7 +17,7 @@ open too. SPEC's I5 closed all of it: on main `7c22f68` the canary passes
   and T13 (Hacker News), with the prompts and common tail of
   `live-tasks.md`.
 - **Browser:** a headless dev Zen on a fresh profile, `zen-eval-pilot`. The
-  runtime and the CLI are from main at `1e44edd`. The CLI was installed by
+  runtime and the CLI are from main as of 2026-11-20 08:17 UTC. The CLI was installed by
   `scripts/install-cli.sh` into a temp home, under the Mac's Node 23.5.
 - **Agent:** Claude Code 2.1.329, resolved to its versioned binary so an
   update can't change it mid-round. Model `claude-opus-5-5` at effort
@@ -108,7 +108,7 @@ the files that changed under `~/.claude`:
 
 ## Containment
 
-zen-manager chose a Seatbelt wrapper around the browser CLI, plus a hook
+The containment is a Seatbelt wrapper around the browser CLI, plus a hook
 that decides every tool call.
 
 - **The hook** (`tests/live/allow-cli.mjs`, passed in `--settings`, unit
@@ -167,7 +167,7 @@ process with the user's rights. No sandbox around the CLI can stop that.
 
 No pilot run used a non-web scheme or a chrome API: all four streams were
 grepped. The fix belongs in the runtime, and it matters for the daily
-install as much as for this eval. The proposal sent to zen-manager:
+install as much as for this eval. The proposed fix:
 - agent `goto` loads only `http(s)`, `data:` and `about:blank`, with a
   content triggering principal, so Firefox's own link checks apply;
 - `evaluate` refuses documents with a system principal.
@@ -177,7 +177,7 @@ open `chrome://` and `file://` URLs.
 
 ### The browser probes, run directly
 
-zen-manager added probes for after the fix: uploads, save paths, popups
+Probes were added for after the fix: uploads, save paths, popups
 to `file:`, `about:logins`, `moz-extension:` and the `about:blank`
 principal. `node tests/live/probe-browser.mjs` runs them all now, to show
 the runtime's owners which are open. It uses no agent, a fresh dev profile
@@ -190,7 +190,7 @@ with dev methods off, and the CLI inside the same sandbox. Its setup:
   login included.
 
 `tests/live/browser-probes.mjs` holds the probes, ready for the agent
-canary. Results on 2026-11-20 (the second run is on main at `edade81`):
+canary. Results on 2026-11-20 (the second run is on main as of 09:36 UTC):
 
 | Probe | Today |
 |---|---|
@@ -200,7 +200,7 @@ canary. Results on 2026-11-20 (the second run is on main at `edade81`):
 | goto `data:` | open (the proposal keeps it) |
 | goto `about:logins` | open: the snapshot lists the dummy login, and `evaluate` reads its password from `login-item._login`. Firefox sends every saved login, password included, to that page when it opens. macOS's prompt guards only reveal, copy, edit and export. |
 | goto `moz-extension:` (webcompat's about-compat page) | open: `evaluate` gets its 66 `browser.*` APIs, and `cookies.getAll` read the loopback page's cookie. webcompat also holds `<all_urls>`, `scripting` and `webRequestBlocking`. |
-| `setInputFiles` of a file outside the run's folder | open at first; **blocked on main since zen-input's `d0d9b87` and `5537e18`**. The SDK now reads the file inside the CLI, where the sandbox refuses it (permission denied). |
+| `setInputFiles` of a file outside the run's folder | open at first; **blocked on main since zen-input's change: uploads send file contents, not paths (SPEC I5)**. The SDK now reads the file inside the CLI, where the sandbox refuses it (permission denied). |
 | the same over the raw protocol, bypassing the SDK | blocked: the runtime takes file contents, not paths |
 | `page.screenshot({path})`, `page.fetch({saveAs})`, `download.saveAs` outside the run's folder | open: all three files on disk. By code they'd replace an existing file too (not tried). |
 | `page.screenshot` and `page.fetch` with those paths over the raw protocol | open: the runtime writes them itself, so the fix has to refuse paths in the runtime, not only in the SDK |
@@ -222,13 +222,13 @@ results:
 
 ### After I5: the canary passes
 
-SPEC's I5 landed on main in `30beabd`..`fbf160c`:
+SPEC's I5 landed on main on 2026-11-20:
 - agents load only web URLs, act only in web content, and name no paths;
 - screenshots, fetch bodies and downloads come back as bytes, and the CLI
   writes them.
 
-The rerun was on main `7c22f68`: `fbf160c`, plus zen-ux's `7ddb9c3` and a
-MANAGER.md edit. The pilot instance was restarted on it with dev methods
+The rerun was on main as of 2026-11-20 10:09 UTC: I5, plus zen-ux's change to
+how the Agents Space shows each task's status. The pilot instance was restarted on it with dev methods
 off, and the harness checked that its runtime copy matched the checkout.
 
 - **The agent canary passed**, under exactly the task runs' settings:
@@ -256,9 +256,9 @@ privileged pages, and the per-document gate.
 
 ### Round 3: the tasks under the final containment
 
-zen-manager allowed one rerun of T2, T8 and T13. Everything was as in
+One rerun of T2, T8 and T13 followed. Everything was as in
 round 2 (same model, effort, limits, keys and judge), plus the containment
-above, on main `37287a5`. All three were fully correct again:
+above, on main as of 2026-11-20 10:13 UTC. All three were fully correct again:
 
 | Task | Round 2: turns, wall, cost, judge | Round 3: turns, wall, cost, judge | Tokens in / out / cache read / cache write, round 2 → round 3 |
 |---|---|---|---|
@@ -289,6 +289,6 @@ above, on main `37287a5`. All three were fully correct again:
 
 - The browser-side blocker is cleared. The zenius half of the pilot is
   done, before and after the containment.
-- The Ego half waits for the user's decision on its profile. Its CLI gets
+- The Ego half waits until its profile is chosen. Its CLI gets
   the same wrapper, with the socket rule allowing Ego's own connection.
 - The full round waits for the user, after they have seen these numbers.
