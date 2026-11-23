@@ -27,7 +27,7 @@
 
 ## 演示
 
-https://github.com/user-attachments/assets/eab70814-e6da-481f-ab1f-0e3ee8b4f15d
+https://github.com/user-attachments/assets/8ea1391b-c35d-4df3-8ca4-e99a7da6968a
 
 演示里，用户在读维基百科的京都条目。与此同时，一个 Agent 在它自己的标签页里，在 OpenStreetMap 上找清水寺附近吃饭的地方，并通过 Needs you 向用户提问。
 

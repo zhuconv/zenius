@@ -37,7 +37,7 @@ also gets an agent of its own.
 
 ## Demo
 
-https://github.com/user-attachments/assets/eab70814-e6da-481f-ab1f-0e3ee8b4f15d
+https://github.com/user-attachments/assets/8ea1391b-c35d-4df3-8ca4-e99a7da6968a
 
 In the demo, the user reads Wikipedia's article on Kyoto. Meanwhile an
 agent, in its own tab, finds places to eat near Kiyomizu-dera on
