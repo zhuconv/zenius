@@ -107,12 +107,12 @@ const GUARD_TIMEOUT_MS = 2000;
 /**
  * At most this many clean copies on demand of one tab within `windowMs`. A
  * written page needs one per document it gets written in; more means each
- * copy comes in written again (zen-snapshot's Take over probes on 99cdc39).
+ * copy comes in written again (seen in probes of Take over).
  */
 const CLEAN_COPY_CAP = { max: 5, windowMs: 60_000 };
 /**
  * What a Safe Browsing list says of a page, for its listed evidence: the
- * classifier's result codes (docs/research/safe-browsing.md).
+ * classifier's result codes.
  */
 const LISTED_KINDS = [
   ["NS_ERROR_PHISHING_URI", "phishing"],
@@ -134,7 +134,7 @@ const LISTED_KINDS = [
 const ACCESS_LEVELS = new Set(["mutate", "read", "task", "none"]);
 /**
  * How a method may reach page documents (I5), declared with `export const
- * i5 = {…}` (zen-input's audit, docs/research/method-boundary.md):
+ * i5 = {…}` (SPI.md, "Dispatch"):
  * document (acts in or reads them: the page gate and ctx.content check
  * them), outside (what the parent knows, or a load whose URL is checked),
  * frames (content calls checked, no page gate), none (no content call),
@@ -300,8 +300,8 @@ class Service {
       startedAt: this.startedAt,
     });
     Services.obs.addObserver(this, "quit-application");
-    // The self-check's own socket (docs/research/selfcheck.md) waits for an
-    // idle moment: only step 6 of an install uses it.
+    // The self-check's own socket waits for an idle moment: only step 6 of
+    // an install uses it.
     Services.tm.idleDispatchToMainThread(() => this.#startSelfCheck(), 10000);
     const methods = this.#methodsLoaded ? `${this.#methods.size} methods` : "methods at the first connection";
     log(`listening on ${paths.socket} (${methods}, dev=${this.dev}) in ${(now() - t0).toFixed(1)}ms`);
@@ -327,12 +327,12 @@ class Service {
     await this.#store?.flush();
   }
 
-  // --- The self-check's socket (docs/research/selfcheck.md) ---
+  // --- The self-check's socket (PROTOCOL.md, "Self-check") ---
   //
   // It serves selfcheck.run and nothing else, on a dev Zen too, and shares
   // nothing with the agents' socket: its own connections, no method
-  // registry, no gates. The sandbox can't reach it (method-boundary.md,
-  // finding 12). Its module, modules/selfcheck.sys.mjs, loads at the first
+  // registry, no gates. The sandbox can't reach it. Its module,
+  // modules/selfcheck.sys.mjs, loads at the first
   // call, so the socket holds nothing else at startup (I4).
 
   /** @type {RpcServer|null} */
@@ -689,7 +689,7 @@ class Service {
     // before: an adopted tab, a task claimed again after the user's Stop, a
     // new page's first document. Its back-forward cache holds more, which
     // Back would bring back with no guards (they come back at pageshow, not
-    // DOMWindowCreated; docs/research/device-bypass.md §1): those go.
+    // DOMWindowCreated): those go.
     for (const tab of joined) {
       evictBFCache(tab.linkedBrowser.browserId);
       this.installGuards(tab);
@@ -859,8 +859,7 @@ class Service {
    * evidence a clean copy clears (what the agent's code left there, or a
    * page the agent made: the user's call on evidence, A2) opens nothing,
    * with an opener or without: a look-alike of the held page could take
-   * what the user types (the manager's decision on zen-observe's question,
-   * 2026-11-20). The held page and the popups that joined its hold open as
+   * what the user types. The held page and the popups that joined its hold open as
    * usual, and so does a page where the agent's code only ran, since the
    * hand-off discarded it.
    *
@@ -1252,7 +1251,7 @@ class Service {
   noteOpenedTab(tab, options) {
     const opener = options?.openerBrowser ?? options?.openWindowInfo?.parent?.top?.embedderElement ?? null;
     // A tab the user's own tab opens is theirs too: its page can reach the
-    // own tab's through window.opener (I2; zen-snapshot's red team, item 4).
+    // own tab's through window.opener (I2).
     const openerTab = opener?.ownerDocument?.defaultView?.gBrowser?.getTabForBrowser?.(opener);
     if (openerTab && this.pages.isUserOwn(openerTab)) {
       this.pages.markUserOwn(tab);
@@ -1267,7 +1266,7 @@ class Service {
   /**
    * The window creator's wrapper (modules/guards.sys.mjs) is in only while
    * it can matter: a task is live, or a document holds the agent's code
-   * (the manager's rule 6, I4). Checked as tasks start, end and change
+   * (I4). Checked as tasks start, end and change
    * hands, as a tab joins or leaves one, and as the marks change
    * (observe/setup.sys.mjs's syncHooks, which keeps zen-observe's own hooks
    * on the same terms).
@@ -2111,7 +2110,7 @@ class Service {
   /**
    * zen-input's step ring (input/steps.sys.mjs): what the sidebar shows of
    * each task. A ring that fails to load costs only the steps: every call
-   * still runs (zen-core's review).
+   * still runs.
    */
   #noteStep(fn, ...args) {
     if (this.#steps === undefined) {
@@ -2248,7 +2247,7 @@ class Service {
       i5,
       // I5: a method declared to make no content call makes none (fails
       // closed), and one that acts in documents reaches only web content,
-      // frames included (zen-observe's check). Async, so a refusal is a
+      // frames included. Async, so a refusal is a
       // rejection.
       content: async (bc, spec, args, opts) => {
         if (!CONTENT_CALLERS.has(i5)) {
@@ -2347,12 +2346,12 @@ class Service {
       },
       allFrames: true,
       // Gecko 160 refuses getActor() in web content processes unless the
-      // actor opts in (see docs/research/gecko-160.md).
+      // actor opts in.
       safeForUntrustedWebProcess: true,
       // Tabs only: not sidebars, devtools or other embedded browsers.
       messageManagerGroups: ["browsers"],
-      // Web content processes only (I5, defense in depth: zen-input's method
-      // audit, item 4). Without this the child, and the content modules it
+      // Web content processes only (I5, defense in depth). Without this
+      // the child, and the content modules it
       // loads, ran in file, privilegedabout and extension processes, and in
       // the parent's own tab documents (about:preferences). There a content
       // call fails with ZEN_UNSUPPORTED, after checkContentCall has already
@@ -2429,8 +2428,7 @@ class Service {
    * process is the untrusted side, so only the names content modules send
    * (CONTENT_EVENTS), only from a document of an agent task's page, with
    * the space and page set here; anything else is dropped. A forged
-   * spaceChanged or popup would reach zen-ux's UI and action receipts
-   * (zen-snapshot's content-boundary audit, item 6).
+   * spaceChanged or popup would reach zen-ux's UI and action receipts.
    */
   onContentEvent(actor, msg) {
     const name = msg?.name;

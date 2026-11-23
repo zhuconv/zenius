@@ -1,4 +1,4 @@
-// The post-install self-check's entry (zen-core; docs/research/selfcheck.md):
+// The post-install self-check's entry (zen-core; PROTOCOL.md, "Self-check"):
 // its socket, a run's window, output and cleanup, and retention. The agent
 // sidebar's scenarios are zen-sidebar's, with their own tests; here a run
 // gets stand-ins for prepare, run and cleanup through SelfCheck.start's
@@ -234,7 +234,7 @@ test("a run: its window isn't a browser window and is gone after done, and its f
       thisOne: M.defaultWindow(),
       onMac: AppConstants.platform === "macosx",
     };
-    // zen-ux's probe: a window that takes activation, even for a moment,
+    // A window that takes activation, even for a moment,
     // gives the user's window a deactivate and blurs.
     seen.events = { deactivate: 0, blur: 0 };
     const count = e => seen.events[e.type]++;
@@ -299,7 +299,7 @@ test("a run: its window isn't a browser window and is gone after done, and its f
   // (the next tests); a headless Zen has no front app, and its window floats.
   assert.equal(seen.headless, true);
   assert.equal(seen.zenInFront, false, "a headless Zen has no front app to wait for");
-  // A headed Mac opens it invisible (zen-eval's Mac check of 51ac866d);
+  // A headed Mac opens it invisible;
   // another display, offscreen; a headless Zen, floating.
   const { thisOne, onMac, ...byKind } = seen.defaults;
   assert.deepEqual(byKind, { headless: "floating", macHeadless: "floating", mac: "invisible", elsewhere: "offscreen" });
@@ -423,7 +423,7 @@ test("a failing check, an error in prepare and a hang past the limit: cleanup ru
   }
 });
 
-test("each window mode zen-eval's spike tries opens the window, hands the focus back before prepare, takes its shots and closes it; an unknown one is refused", async () => {
+test("each window mode opens the window, hands the focus back before prepare, takes its shots and closes it; an unknown one is refused", async () => {
   // In the spike's order: the unseen ones first. Then invisible, the
   // follow-up's candidate.
   const expected = ["minimized", "minimized-active", "offscreen", "offscreen-floating", "offscreen-floating-active", "floating", "popup", "corner", "invisible"];

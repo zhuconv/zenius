@@ -2,8 +2,8 @@
 
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
 
-// Gate classes (docs/research/method-boundary.md): access for the control
-// gate (I3), i5 for the web-content gate (I5).
+// Gate classes (SPI.md, "Dispatch"): access for the control gate (I3), i5
+// for the web-content gate (I5).
 export const access = {
   "events.subscribe": "none",
 };

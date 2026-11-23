@@ -1,4 +1,4 @@
-// I4's guard, the manager's order of 2026-11-20: with no agent connected,
+// I4's guard: with no agent connected,
 // zenius holds nothing in the main process or in the user's tabs beyond
 // ALLOWED. That day's growth (84 modules at startup, observers on every
 // request, four actors in every user tab) came in unseen; anything new that is

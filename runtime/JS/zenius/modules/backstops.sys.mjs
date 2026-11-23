@@ -1,7 +1,5 @@
 // The parent's backstops for a task's pages (zen-observe; built by zen-core,
-// from zen-snapshot's docs/research/parent-backstops.md and the manager's
-// order of 2026-11-20; the rules are A8 of the user's pass on
-// docs/briefs/defenses-evidence.md, 2026-11-21).
+// 2026-11-20, and acting on a page's evidence since 2026-11-21).
 //
 // zen-observe's page refusals (content/refusals.sys.mjs) and the agent
 // world's mirror of them refuse in the page. These refuse the same requests

@@ -59,8 +59,8 @@ test("the registry says each method's module, access and I5 class, and which wer
   assert.ok(!left.some(m => m.startsWith("dev.probe")), "the probes are gone");
 });
 
-// I5 by declared class, not by name (docs/research/method-boundary.md,
-// "Enforcement"). A probe named dev.* is no page method by name, so what
+// I5 by declared class, not by name (SPI.md, "Dispatch"). A probe named
+// dev.* is no page method by name, so what
 // gates it below is its class alone.
 
 /**

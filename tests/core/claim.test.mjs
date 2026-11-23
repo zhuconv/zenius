@@ -1,5 +1,4 @@
-// The user's say over claims and takeovers (SPEC §3.4; the manager's
-// decisions on the method audit, item 6). A claim's ask waits for the
+// The user's say over claims and takeovers (SPEC §3.4). A claim's ask waits for the
 // user's answer in the browser (zen-ux's prompt), and takeOver waits until
 // 10 s after the user's last real input in the task's tabs.
 import assert from "node:assert/strict";

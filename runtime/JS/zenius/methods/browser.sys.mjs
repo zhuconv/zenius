@@ -5,8 +5,8 @@ import { listProfiles } from "chrome://userscripts/content/zenius/modules/spaces
 import { hostWindow } from "chrome://userscripts/content/zenius/modules/windows.sys.mjs";
 import { i5Status } from "chrome://userscripts/content/zenius/observe/webcontent.sys.mjs";
 
-// Gate classes (docs/research/method-boundary.md): access for the control
-// gate (I3), i5 for the web-content gate (I5).
+// Gate classes (SPI.md, "Dispatch"): access for the control gate (I3), i5
+// for the web-content gate (I5).
 // None of these names a space or acts on one: no control gate applies.
 export const access = {
   "browser.version": "none",

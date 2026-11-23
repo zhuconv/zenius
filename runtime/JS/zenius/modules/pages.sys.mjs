@@ -649,7 +649,7 @@ export class Pages {
   }
 
   // ---------------------------------------------------------------------------
-  // Closed groups (docs/research/user-tab-reach.md, "Fix: closed groups"):
+  // Closed groups (SPI.md, "Closed groups"):
   // a document where the agent's code can run never shares a browsing
   // context group with a window outside its task.
 
@@ -701,7 +701,7 @@ export class Pages {
    * No answer, and nothing kept, while the tab's document isn't in a web
    * content process. An add-on's page (about:compat, any moz-extension:
    * page) shares its group with the add-on's background page, which is no
-   * window of the user's (zen-observe's report, measured on the Linux server). zenius
+   * window of the user's (zen-observe measured it on Linux). zenius
    * runs no agent code in such a document (observe/webcontent.sys.mjs), and
    * a load from it to the web gets a group of its own, which the next check
    * sees.

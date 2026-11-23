@@ -4,10 +4,9 @@
 // them on the parent's request (ZeniusService.installGuards): an adopted tab,
 // a task claimed again after the user's Stop, a new page's first document.
 // Before this, such a document ran without guards until its next navigation
-// (found during I4; docs/reports/zen-core.md). Nor does a document that
+// (found during I4). Nor does a document that
 // Back brings from the tab's back-forward cache, so a tab's bfcache is
-// emptied when it joins a task, and when it leaves one
-// (docs/research/device-bypass.md §1).
+// emptied when it joins a task, and when it leaves one.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { after, before, test } from "node:test";

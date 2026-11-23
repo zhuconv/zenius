@@ -1,6 +1,6 @@
 // Events from content: a content process is the untrusted side of the actor,
 // so the parent takes only the names content modules send, only from an
-// agent task's page (zen-snapshot's content-boundary audit, item 6).
+// agent task's page.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { setup } from "./lib.mjs";

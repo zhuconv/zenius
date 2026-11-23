@@ -8,8 +8,7 @@
 //
 // all = prepare (fresh profiles, install into b, a cold start) + rounds (I4_ROUNDS
 // alternating runs per arm, default 6). variants: profile b with zenius
-// uninstalled (u) and without the actor's DOMWindowCreated (c). deferral:
-// a, b and d (b with zenius.uc.js from before 8dd1bc1) in rotation. Results go to
+// uninstalled (u) and without the actor's DOMWindowCreated (c). Results go to
 // $IDLE_COST_DIR (default ~/.zenius-dev/idle-cost). Each run takes I4_T2 + ~5 s.
 // guard: one brief run per arm for the I4 guard test (below).
 import { spawn, execFileSync } from "node:child_process";
@@ -310,25 +309,6 @@ if (plan === "variants") {
     for (let i = 1; i <= n; i++) await run("b", `u${i}-u`);
   } finally {
     installer([]);
-  }
-}
-if (plan === "deferral") {
-  // The deferral alone: rounds of a, b (zenius as installed) and d (the same
-  // profile with zenius.uc.js as it was before the runtime waited for its
-  // window's startup), in rotating order.
-  const uc = `${profileOf("b")}/chrome/JS/zenius.uc.js`;
-  const current = fs.readFileSync(uc, "utf8");
-  const before = execFileSync("git", ["-C", ROOT, "show", "8dd1bc1~1:runtime/JS/zenius.uc.js"], { encoding: "utf8" });
-  const orders = [["a", "b", "d"], ["b", "d", "a"], ["d", "a", "b"]];
-  try {
-    for (let i = 1; i <= ROUNDS; i++) {
-      for (const arm of orders[(i - 1) % 3]) {
-        fs.writeFileSync(uc, arm === "d" ? before : current);
-        await run(arm === "d" ? "b" : arm, `r${i}-${arm}`);
-      }
-    }
-  } finally {
-    fs.writeFileSync(uc, current);
   }
 }
 server.close();

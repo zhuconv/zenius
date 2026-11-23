@@ -40,8 +40,7 @@ export const CONTROL_WAIT_TIMEOUT_MS = 600000;
 /**
  * An agent's takeOver of a task handed to the user, or its claim of one,
  * waits until this long after the user's last real input in the task's
- * tabs: an agent can't snatch a task while the user types (the manager's
- * decision on the method audit, item 6).
+ * tabs: an agent can't snatch a task while the user types.
  */
 export const USER_INPUT_QUIET_MS = 10_000;
 /** The longest name of a client's own that the claim prompt quotes. */
@@ -106,7 +105,7 @@ export function newLedger() {
 const AGENTS_SPACE_NAME = "Agents";
 
 /**
- * A task's source (docs/briefs/external-tasks.md): who drives it, which the
+ * A task's source: who drives it, which the
  * sidebar's directory shows as text. A field stays only in the remote
  * label's plain set (zen-observe's sidebar.start LABEL), and anything else
  * is left out, so an odd folder name never blocks the task.
@@ -779,8 +778,7 @@ export class Spaces {
         out.removed.push(ws.uuid);
       } else {
         // The user decides what goes. A name that tells it from the Agents
-        // Space, which likely has the same one (the manager's call: it's
-        // zenius's own Space).
+        // Space, which likely has the same one: that one is zenius's own.
         if (!(ws.name ?? "").endsWith(OLD_SUFFIX)) {
           ws.name = `${ws.name || this.#agents.name}${OLD_SUFFIX}`;
           win.gZenWorkspaces.saveWorkspace(ws);
@@ -945,7 +943,7 @@ export class Spaces {
   }
 
   // ---------------------------------------------------------------------------
-  // The task feed (docs/briefs/external-tasks.md): every task's life for the
+  // The task feed (SPI.md, "The task feed"): every task's life for the
   // sidebar's directory, whoever drives it. feed() is the list now, and the
   // "taskFeed" local event (service.addEventListener) carries an entry each
   // time it changes.
@@ -999,7 +997,7 @@ export class Spaces {
    * Titles of the most recently used tabs in a space, for listings. None for
    * a workspace of the user's that no agent claimed: the titles of the
    * user's own tabs (mail, bank, health) would reach the agent's model
-   * provider (I2; the manager's decision on the method audit, item 5).
+   * provider (I2).
    * Tasks, and workspaces claimed now or before, keep them.
    */
   recentTabTitles(rec, limit = 5) {
@@ -1054,8 +1052,8 @@ export class Spaces {
    *   source: who decided: "agent" (an RPC), "user" (prompt or panel),
    *     "permission" (a permission prompt)
    *   via: where the user decided, when the agent should know. No caller
-   *     sets it since zen-ux dropped its own-tab notice ("ownTab",
-   *     f740de1); the reports stay until the SDK drops the field
+   *     sets it since zen-ux dropped its own-tab notice ("ownTab"); the
+   *     reports stay until the SDK drops the field
    *   reloaded, carried: for agentDelegatedToUser, what the hold's quiet
    *     load did to the page the user holds (modules/handoff.sys.mjs):
    *     "reload" or "get" when it loaded afresh, and whether a field came

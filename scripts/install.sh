@@ -172,7 +172,7 @@ JSDIR=$PROFILE/chrome/JS
 OWNER=$(profile_owner "$PROFILE")
 # The one pref zenius can set, only with --disable-ipv6: the user's choice for
 # their own install (2026-11-20, their answer (b) on DoH), opt-in since
-# 2026-11-21 so that nobody else's Zen loses IPv6 (the manager's call). Zen
+# 2026-11-21 so that nobody else's Zen loses IPv6. Zen
 # then makes no IPv6 lookups, so github.com no longer stalls on
 # their IPv4-only network. Its cost: a site reachable only over IPv6 doesn't load
 # in Zen. It goes in user.js, which Zen reads at every start; Zen then keeps
@@ -372,8 +372,7 @@ drop_zenius_prefs() {
 # 0700 (input/filechooser.sys.mjs, observe/downloads.sys.mjs). Until
 # 2026-11-21 they lived in the temp folder, one set per run named for the
 # profile's path: zenius-upload-<hash> and zenius-downloads-<hash>. Since
-# 883ab36 (uploads) and e794b28 (downloads) zenius leaves those old ones
-# alone, so only drop_staging and the system's temp cleanup remove them. The
+# then zenius leaves those old ones alone, so only drop_staging and the system's temp cleanup remove them. The
 # hash is theirs: FNV-1a over the path's characters, which matches for an
 # ASCII path.
 profile_hash() {
@@ -415,8 +414,8 @@ drop_staging() {
 }
 
 # The sidebar's agent workspace: zenius's sidebar makes it in the profile,
-# and rewrites its limit files before each agent session (the manager's
-# ruling, 2026-11-21). install.sh never writes it. Nothing else uses it, so
+# and rewrites its limit files before each agent session. install.sh never
+# writes it. Nothing else uses it, so
 # uninstall takes it out, with what the agents left there, after a backup.
 WORKSPACE=$PROFILE/agent-sidebar-workspace
 drop_workspace() {

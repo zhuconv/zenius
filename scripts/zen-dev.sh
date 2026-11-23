@@ -18,9 +18,8 @@
 # folder: every Zen started from the install applies it first, before it reads
 # a profile or a pref, and on the Mac that install is the user's own Zen.app.
 # See refuse_waiting_update. Behind that guard, every dev Zen starts with
-# MOZ_DISABLE_UPDATE_PROCESSING=1, which leaves a waiting update alone
-# (docs/research/update-processing.md): an update that arrives after the
-# check still isn't applied by a dev Zen.
+# MOZ_DISABLE_UPDATE_PROCESSING=1, which leaves a waiting update alone: an
+# update that arrives after the check still isn't applied by a dev Zen.
 # ZENIUS_START_WAIT_S=<s> start: how long to wait for the runtime before
 #   stopping Zen (default 90 s, 40 s headed).
 # ZENIUS_START_RETRIES=<n> start: how many times to start again after Zen dies
@@ -50,8 +49,8 @@
 # ZENIUS_DEV_DEFAULT_PREFS="<pref> ..." start: leave those prefs at Zen's own
 # default, as an untouched daily profile has them: their lines are dropped
 # from user.js and prefs.js. user_pref() can't do that, since a value read from
-# user.js stays a user value even when it equals the default (zen-eval's Mac
-# restart check: browser.startup.page, whose default in Zen 1.24.2b is 3).
+# user.js stays a user value even when it equals the default (for example
+# browser.startup.page, whose default in Zen 1.24.2b is 3).
 #
 # Never point this at the user's daily profile: it always uses ~/.zenius-dev/profiles/<name>.
 set -euo pipefail
@@ -250,8 +249,8 @@ waiting_update() {
   echo "$status${version:+, version $version}"
 }
 
-# Never start a Zen whose install has an update waiting (the manager's order,
-# 2026-11-20). At 12:12 CST that day the user's own Zen staged 1.24.3b; a dev
+# Never start a Zen whose install has an update waiting. On 2026-11-20 the
+# user's own Zen staged 1.24.3b; a dev
 # Zen started from /Applications/Zen.app then tried to switch the app to it,
 # which asked for an admin password (SMJobBless), and hung until this
 # script's timeout. Only the user applies an update to their Zen, by quitting
@@ -376,7 +375,7 @@ user_pref("app.update.suppressPrompts", true);
 // "update available" doorhanger within 6 s.
 user_pref("app.update.checkInstallTime", false);
 // Nothing downloads into the install's update folder, which on the Mac is the
-// user's own Zen's (the manager's order, 2026-11-20): app.update.auto false
+// user's own Zen's: app.update.auto false
 // above (off Windows a plain pref: UpdateUtils' PER_INSTALLATION_PREFS_PLATFORMS),
 // and nothing staged, no background update task, and no restart to apply an
 // update once the last window closes (macOS).
@@ -518,7 +517,7 @@ expire() {
 }
 
 # Headless starts on the Linux server sometimes die of a signal before the runtime loads,
-# and work on retry. Count them here (the manager's request) and retry once.
+# and work on retry. Count them here and retry once.
 # A start that stalls before the runtime loads is counted here too.
 record_crash() {
   {

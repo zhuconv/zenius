@@ -1,7 +1,7 @@
 // The device backstop's fallback (zen-core): in each content process, a
 // task page's device request is denied as MediaManager makes it, while the
 // agent drives the page or when the page shows evidence of danger, the
-// parent's rule (A8 of the defenses brief; zen-observe's glue). The parent
+// parent's rule (zen-observe's glue). The parent
 // registers this process actor only when its WebRTCParent patch can't go in
 // (modules/backstops.sys.mjs), and only while a task has pages (I4).
 //

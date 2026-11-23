@@ -1,5 +1,5 @@
 // The Zenius actor lives only in web content processes (I5, defense in
-// depth: docs/research/method-boundary.md, item 4). Its child, and the
+// depth). Its child, and the
 // content modules it loads, never run in the parent's own tab documents or
 // in file, privilegedabout or extension processes.
 import assert from "node:assert/strict";

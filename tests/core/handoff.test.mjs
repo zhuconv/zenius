@@ -1,6 +1,5 @@
-// The hand-off (the manager's rule of 2026-11-20): before the user holds a
-// page, zenius makes it safe for their typing, on evidence only since the
-// user's call of 2026-11-21 (docs/briefs/defenses-evidence.md, A1 to A3).
+// The hand-off (SPI.md, "The hand-off"): before the user holds a page,
+// zenius makes it safe for their typing, on evidence only since 2026-11-21.
 // Only a page the agent's code left something hooked in, or one the agent
 // made, gets the quiet load, the hold's COOP, the channel mute and the
 // refusal of new windows: filling, clicking and reading are no evidence, nor
@@ -403,7 +402,7 @@ test("when the agent's code doesn't stop, the hand-off is refused (discardFailed
   }
 });
 
-test("a held popup beside the agent's page on its site, which the agent's code hooked: that page loads afresh, and the popup, where the agent's code left nothing, is held as it is, with its group and opener (the rubric's rule 3)", async () => {
+test("a held popup beside the agent's page on its site, which the agent's code hooked: that page loads afresh, and the popup, where the agent's code left nothing, is held as it is, with its group and opener", async () => {
   const space = await h.space("ho beside");
   try {
     const { label: T } = await h.call("pages.new", { space, url: site("/form?ho=4bT") });
@@ -516,7 +515,7 @@ test("a held popup whose opener is on another site keeps it: the agent's hooked 
     await front(space, P);
     const rBefore = (await info(space, R)).inner;
     const reply = await h.call("spaces.handOff", { space });
-    assert.deepEqual(reply.reloaded, [R], "P, beside R, isn't hooked (the rubric's rule 3)");
+    assert.deepEqual(reply.reloaded, [R], "P, beside R, isn't hooked");
     assert.notEqual((await info(space, R)).inner, rBefore, "R loaded afresh");
     assert.equal((await info(space, P)).tops, 3, "P keeps its group");
     assert.equal(await inPage(space, P, "return String(window.opener !== null);"), "true");

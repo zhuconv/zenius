@@ -425,7 +425,7 @@ test("it warns, without stopping, when another Zen from the same app runs: the r
     assert.doesNotMatch(r.out, new RegExp(`pid ${content.pid}\\b`));
     // Without the app's binary named, a Linux run looks for nothing. A Mac
     // run looks at /Applications/Zen.app, where the user's own Zen and dev
-    // Zens may well run (zen-eval's run there), so only Linux can say none.
+    // Zens may well run, so only Linux can say none.
     const un = s.run(["--uninstall", "--profile", p]);
     assert.equal(un.status, 0, un.err);
     if (process.platform !== "darwin") {
@@ -775,27 +775,6 @@ function checkoutWith(name, agent) {
 }
 
 /**
- * The version the daily Zen runs (cbac1ef), the last from before the agent's
- * scripts: its install.sh, with this checkout's runtime. Null in a clone
- * without that commit.
- */
-function installedVersion() {
-  const dir = path.join(tmp, "checkout-cbac1ef");
-  if (!fs.existsSync(dir)) {
-    const r = spawnSync("git", ["-C", ROOT, "show", "cbac1ef:scripts/install.sh"], { encoding: "utf8" });
-    if (r.status !== 0) {
-      return null;
-    }
-    fs.mkdirSync(path.join(dir, "scripts"), { recursive: true });
-    fs.writeFileSync(path.join(dir, "scripts/install.sh"), r.stdout);
-    fs.mkdirSync(path.join(dir, "runtime/JS"), { recursive: true });
-    fs.copyFileSync(path.join(RUNTIME, "zenius.uc.js"), path.join(dir, "runtime/JS/zenius.uc.js"));
-    fs.cpSync(path.join(RUNTIME, "zenius"), path.join(dir, "runtime/JS/zenius"), { recursive: true });
-  }
-  return path.join(dir, "scripts/install.sh");
-}
-
-/**
  * A profile with an earlier sidebar and a script of the user's own, and
  * the sidebar's own data under the fake HOME. `others()` is what no run may
  * change; `users()` that earlier sidebar as it is now.
@@ -1021,78 +1000,6 @@ test("Undo leaves a sidebar the user put there after zenius's", () => {
   assert.match(un.out, /left agent-sidebar in place: it changed since zenius installed it, so it's the user's own/);
   assert.deepEqual({ script: snap(path.join(js, "agent-sidebar.uc.js")), folder: snap(path.join(js, "agent-sidebar")) }, theirs);
   assert.ok(!fs.existsSync(path.join(js, "agent-urlbar.uc.js")));
-  assert.ok(!fs.existsSync(prior));
-});
-
-test("going back to the installed version (cbac1ef): Undo with this checkout, then that version's install, leaves the earlier sidebar as before the update", t => {
-  const older = installedVersion();
-  if (!older) {
-    t.skip("this clone hasn't cbac1ef");
-    return;
-  }
-  const s = sandbox("agent-back");
-  const { p, js, others, users, prior } = usersProfile(s);
-  const theirs = users();
-  const before = others();
-  const script = checkoutWith("agent", ZENIUS_AGENT);
-  for (const [args, by] of [
-    [["--profile", p], older], // what the daily Zen has
-    [["--profile", p], script], // the update
-    [["--uninstall", "--profile", p], script], // Undo, by the updated checkout
-    [["--profile", p], older], // the older commit again
-  ]) {
-    const r = s.run(args, { script: by });
-    assert.equal(r.status, 0, r.err);
-  }
-  assert.deepEqual(users(), theirs);
-  assert.ok(!fs.existsSync(path.join(js, "agent-urlbar.uc.js")));
-  assert.ok(!fs.existsSync(path.join(js, "agent-urlbar")));
-  assert.deepEqual(others(), before);
-  assert.ok(!fs.existsSync(prior));
-});
-
-test("going back with cbac1ef's install.sh alone keeps zenius's agent scripts and their note, so this checkout's update and Undo still know the earlier sidebar", t => {
-  const older = installedVersion();
-  if (!older) {
-    t.skip("this clone hasn't cbac1ef");
-    return;
-  }
-  const s = sandbox("agent-older");
-  const { p, js, others, users, prior } = usersProfile(s);
-  const theirs = users();
-  const before = others();
-  const script = checkoutWith("agent", ZENIUS_AGENT);
-  const run = (args, by) => {
-    const r = s.run(args, { script: by });
-    assert.equal(r.status, 0, r.err);
-    return r;
-  };
-  run(["--profile", p], older);
-  const kept = run(["--profile", p], script).out.match(OWN_SIDEBAR)?.[1];
-  assert.ok(kept);
-  const note = fs.readFileSync(prior, "utf8");
-  // The older install.sh doesn't know the agent's scripts: they stay zenius's.
-  run(["--profile", p], older);
-  assert.equal(fs.readFileSync(path.join(js, "agent-sidebar.uc.js"), "utf8"), ZENIUS_AGENT["agent-sidebar.uc.js"]);
-  assert.equal(fs.readFileSync(prior, "utf8"), note);
-  // Updating again keeps the note on the earlier copy.
-  assert.doesNotMatch(run(["--profile", p], script).out, /the profile's own/);
-  assert.equal(fs.readFileSync(prior, "utf8"), note);
-  // The older Undo leaves the scripts and the sidebar's workspace; this
-  // checkout's Undo then puts the earlier sidebar back and takes the rest out.
-  const ws = path.join(p, "agent-sidebar-workspace");
-  writeTree(ws, { claude: { ".claude": { "settings.json": "{}\n" } } });
-  run(["--uninstall", "--profile", p], older);
-  assert.ok(!fs.existsSync(path.join(js, "zenius.uc.js")));
-  assert.equal(fs.readFileSync(prior, "utf8"), note);
-  assert.ok(fs.existsSync(ws));
-  const un = run(["--uninstall", "--profile", p], script);
-  assert.match(un.out, /zenius isn't in .* any more, but the agent's scripts it put there are/);
-  assert.ok(un.out.includes(`put back the profile's own agent-sidebar from ${kept}`), un.out);
-  assert.deepEqual(users(), theirs);
-  assert.ok(!fs.existsSync(path.join(js, "agent-urlbar.uc.js")));
-  assert.ok(!fs.existsSync(ws));
-  assert.deepEqual(others(), before);
   assert.ok(!fs.existsSync(prior));
 });
 

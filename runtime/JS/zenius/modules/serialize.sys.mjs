@@ -20,9 +20,9 @@ const MAX_ITEMS = 1000;
 
 /**
  * A value with more items than a result carries. It fails the call instead
- * of coming back cut: a cut that says nothing misled a test (zen-eval's read
- * of a page's log came back cut mid-move, the manager's report of
- * 2026-11-20), and a mark inside an array is lost to a filter or a count.
+ * of coming back cut: a cut that says nothing misled a test (a read of a
+ * page's log came back cut mid-move), and a mark inside an array is lost to
+ * a filter or a count.
  */
 export class TooManyItems extends Error {
   /**

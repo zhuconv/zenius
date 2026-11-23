@@ -1,6 +1,6 @@
 // Every tab an agent page opens becomes one of the agent's Pages as it opens,
-// whatever path opened it. zenius never adopts a tab later by its opener (the
-// manager's decision on zen-eval's 66/68): that could claim a tab the user
+// whatever path opened it. zenius never adopts a tab later by its opener:
+// that could claim a tab the user
 // opened from an agent page, which finish() would then close. So each path
 // here must register its tab by itself.
 import assert from "node:assert/strict";

@@ -129,8 +129,8 @@ export function installWindowGuards(win) {
     return tab;
   };
 
-  // Closed groups, item 3 (docs/research/user-tab-reach.md, "Fix"): a page
-  // whose browsing context group holds the agent's code, outside a live
+  // Closed groups (SPI.md, "Closed groups"): a page whose browsing context
+  // group holds the agent's code, outside a live
   // task, gets no handle to a new window. Every tab a page opens comes
   // through createContentWindowInFrame. Throwing NS_ERROR_ABORT there
   // refuses the open as the popup blocker does: window.open returns null,

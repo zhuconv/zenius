@@ -16,8 +16,7 @@ export const TASK_BROWSERS_KEY = "zenius:taskBrowserIds";
  * The top documents (innerWindowId) where the agent's code ran, in a task's
  * tab (observe/agentcode.sys.mjs).
  * The refusals that hold for a task's whole life stay on such a document
- * after the task, until it is replaced: code the agent left there still runs
- * (the manager's decision, 2026-11-20).
+ * after the task, until it is replaced: code the agent left there still runs.
  */
 export const AGENT_CODE_DOCS_KEY = "zenius:agentCodeDocIds";
 /**

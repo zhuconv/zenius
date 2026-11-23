@@ -47,8 +47,8 @@ export function zeniusHome() {
 }
 
 /**
- * The post-install self-check's folder, which holds its socket and its runs
- * (docs/research/selfcheck.md). It's outside run/ on purpose: the sandboxed
+ * The post-install self-check's folder, which holds its socket and its runs.
+ * It's outside run/ on purpose: the sandboxed
  * launcher allows run/<instance>.sock for any instance name a caller gives.
  */
 export function selfCheckDir(home = zeniusHome()) {
@@ -67,7 +67,7 @@ export function plainInstance(name) {
 /**
  * mkdir -p with mode 0700 on every directory it creates or finds, never
  * through a link: zenius's socket, records and modes go only where its own
- * folders are (zen-snapshot's sweep, 2026-11-21). Throws if `path`, or a
+ * folders are. Throws if `path`, or a
  * folder between `home` and it, is a link. `home` and the folders above it
  * may be links: macOS's /tmp is one, and so may the user's home be.
  */

@@ -1,4 +1,4 @@
-// zen-core's task feed (docs/briefs/external-tasks.md): every task's life for
+// zen-core's task feed (SPI.md, "The task feed"): every task's life for
 // the sidebar's directory, with the caller's source, and the error a call on
 // an ended task gets.
 import assert from "node:assert/strict";

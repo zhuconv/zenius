@@ -1,6 +1,10 @@
 // Does an agent's mouse input commit the user's IME composition in another tab
 // of the same content process, and what can zenius see before it presses?
-// Findings: docs/research/ime-commit.md.
+// Findings (2026-11-20): every mouse button event zenius sends to any tab of
+// the process commits the composition (a commit, not a cancel), while hover,
+// keys, insertText, fill and focus leave it open. Before it presses, chrome
+// code in that process sees the user's field as Services.focus.focusedElement,
+// in another document, with its editor.composing true.
 //
 // The user's tab and an agent's task page are both on the lab page of
 // tests/snapshot/tools/owntab-site.mjs (zen-snapshot's kit), in one process.

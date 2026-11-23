@@ -1,4 +1,4 @@
-// zen-core's evidence (docs/briefs/defenses-evidence.md): the agent's own
+// zen-core's evidence (SPI.md, "Flagged and listed"): the agent's own
 // flag (page.flag) and the Safe Browsing lists (listed), both kept in
 // zen-observe's evidence flag (observe/evidence.sys.mjs), per document.
 import assert from "node:assert/strict";

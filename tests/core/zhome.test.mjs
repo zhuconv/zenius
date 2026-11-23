@@ -1,6 +1,5 @@
 // zenius's own folder (~/.zenius, or ZENIUS_HOME) follows no link planted in
-// it (zen-snapshot's sweep, docs/reports/zen-snapshot.md, 2026-11-21 09:55
-// CST). A link in place of one of its folders, or at a record's temporary
+// it. A link in place of one of its folders, or at a record's temporary
 // name, would otherwise steer its socket, its records and their modes into a
 // place of the planter's choosing. The folders above its home may be links:
 // macOS's /tmp is one, and so may the user's home be.

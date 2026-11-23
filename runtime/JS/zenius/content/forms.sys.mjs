@@ -1,5 +1,5 @@
-// Content side of the quiet reload's form carry-over (zen-core, the manager's
-// decisions of 2026-11-20). Before zenius reloads a page the user is about to
+// Content side of the quiet reload's form carry-over (zen-core, 2026-11-20).
+// Before zenius reloads a page the user is about to
 // hold, record() keeps the values of its visible, ordinary fields and which
 // field had the focus; fill() puts them back into the new document, and the
 // focus with them. Only the top document's fields, and only fields the

@@ -753,8 +753,7 @@ export function addBackgroundTab(win, workspaceUuid, { userContextId = 0, addTab
 }
 
 // ---------------------------------------------------------------------------
-// Closed groups, item 3 (docs/research/user-tab-reach.md, "Fix: closed
-// groups"): after a task, a page whose group holds the agent's code gets no
+// Closed groups (SPI.md, "Closed groups"): after a task, a page whose group holds the agent's code gets no
 // handle to a new window. The parent refuses the opener-linked open; zen-ux's
 // pill tells the user when nothing opened in its place.
 
@@ -813,8 +812,7 @@ function withEvidence(info) {
   }
 }
 
-// The reminders (zen-ux's report, "2026-11-20: wording pass and reminders",
-// the user's choice A): after its task, a page whose top document holds the
+// The reminders (zen-ux, 2026-11-20, as the user chose): after its task, a page whose top document holds the
 // agent's code keeps the task's refusals (content/refusals.sys.mjs). zen-ux's
 // card tells the user when their own action there was refused.
 

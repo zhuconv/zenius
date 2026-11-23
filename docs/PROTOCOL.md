@@ -132,7 +132,7 @@ reports, once, and only when there's something to say:
   to; one that wouldn't blank was closed. What the step showed is the
   user's: ask them for anything you need from it.
 
-The hand-off (zen-core, the manager's rule of 2026-11-20): the page the
+The hand-off (zen-core): the page the
 user will hold is held first (zen-observe's guards keep everything else
 away from it while they type), then made safe:
 - The agent's page code goes first, in every process, with its listeners,
@@ -189,7 +189,7 @@ whose tabs came back is gone: a call naming it fails at once with
 | `tabs.list` | `{space}` | `[{label?, tab, title, url, active, openedBy}]`: every tab of the task, managed or not. That's its pages, plus released pages and tabs the user opened from its pages; for a claimed user workspace, every tab there. |
 | `pages.new` | `{space, url?, options?}` | `{label, tab}`; with `url`, also runs `page.goto` with `options` before returning. Fails with `ZEN_PAGE_BUDGET_REACHED` at Ego's 8 managed pages (pref `zenius.pageBudget`). |
 | `pages.adopt` | `{space, tab, as?}` | `{label, tab}`: manages a tab from `tabs.list`, keeping its origin; `as` picks the label |
-| `pages.release` | `{space, page, group?}` | `{tab, openedBy}`: stops managing a page without closing it; pages the agent opened must be closed instead. A page that shares a browsing context group with other pages of the task (an opener and its popups) fails with `ZEN_PAGE_GROUP_SHARED`: once the user's, it would share a group with pages where the agent's code runs (closed groups, `docs/research/user-tab-reach.md`). With `group: true` it releases the page and every page in its group, agent-opened ones included: `{tab, openedBy, released: [{page, tab, openedBy}]}`, the named page first. |
+| `pages.release` | `{space, page, group?}` | `{tab, openedBy}`: stops managing a page without closing it; pages the agent opened must be closed instead. A page that shares a browsing context group with other pages of the task (an opener and its popups) fails with `ZEN_PAGE_GROUP_SHARED`: once the user's, it would share a group with pages where the agent's code runs (closed groups, SPI.md's "Closed groups"). With `group: true` it releases the page and every page in its group, agent-opened ones included: `{tab, openedBy, released: [{page, tab, openedBy}]}`, the named page first. |
 | `pages.close` | `{space, page}` | `{ok, deferred}`: the page ends at once. `deferred` is true when a window shows its tab, which then closes once the user leaves it. Closing the task's last tab leaves a blank one, which is the agent's and never keeps `finish()` from closing the task. |
 | `pages.userPage` | `{space}` | `{label?, tab, openedBy}` or `null`: the task's tab a window shows; else the task's current Page, as in Ego: whichever came last of the page the agent made current (a new page, an acting call) and the task tab the user selected, else its first page. For a claimed workspace: its tab a window shows, else the one Zen shows when the user returns to it. |
 | `page.flag` | `{space, page, reason}` | `{ok: true}`: the agent flags the page as looking like phishing or wanting what the task doesn't need. Its current top document gets the evidence reason `flagged`, with `reason` as the detail, and zen-ux warns the user on it. `reason` is required: one line of 1 to 200 characters once trimmed, with no control or bidi formatting character, else `ZEN_INVALID_ARGUMENT`. A page with no document yet fails with `ZEN_PAGE_NOT_FOUND`. Under the control gate, as other page methods. Per document, as all evidence: a reload or a new load starts clean. |
@@ -1228,17 +1228,16 @@ reasons: `hooked`, `made`, `listed`, `flagged`); or `paused`, or
 
 ### Self-check (zen-core)
 
-The post-install self-check (`docs/research/selfcheck.md`) has a socket of its
+The post-install self-check has a socket of its
 own: `~/.zenius/selfcheck/<instance>.sock`, mode 0600 in a 0700 folder, which
 the runtime opens at idle after the agents' socket. It takes the same frames
 and sends the same hello, and it serves one method. Anything else there gets
 `ZEN_UNSUPPORTED`, `dev.*` included. The agents' socket doesn't have the
-method, and the sandboxed CLI can't reach this socket
-(`docs/research/method-boundary.md`, finding 12).
+method, and the sandboxed CLI can't reach this socket.
 
 | Method | Params | Result |
 |---|---|---|
-| `selfcheck.run` | none (`{}`) | `{ok, timedOut, callerLeft, ms, waitedMs, window, dir, runtimeVersion, commit, zenVersion, error, checks: [{id, title, ok, failedStep, error, shots}]}`, once the run has ended and cleaned up; `window` is the mode its window opened in: `invisible` on a Mac's display (`corner` if its see-through step failed, and the log says why), `offscreen` on another display, `floating` on a headless Zen, unless a dev Zen's test chose another (`docs/research/selfcheck.md`, "The window") |
+| `selfcheck.run` | none (`{}`) | `{ok, timedOut, callerLeft, ms, waitedMs, window, dir, runtimeVersion, commit, zenVersion, error, checks: [{id, title, ok, failedStep, error, shots}]}`, once the run has ended and cleaned up; `window` is the mode its window opened in: `invisible` on a Mac's display (`corner` if its see-through step failed, and the log says why), `offscreen` on another display, `floating` on a headless Zen, unless a dev Zen's test chose another |
 
 - One run goes at a time. The call answers when the run ends, within its
   120 s limit plus 10 s, after any wait.

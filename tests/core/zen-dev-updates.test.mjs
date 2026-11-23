@@ -1,5 +1,5 @@
-// zen-dev.sh never starts a Zen whose install has an update waiting (the
-// manager's order, 2026-11-20): Zen applies it at startup, before it reads a
+// zen-dev.sh never starts a Zen whose install has an update waiting: Zen
+// applies it at startup, before it reads a
 // profile, and on the Mac the install is the user's own Zen.app, whose switch
 // asks for an admin password. No Zen runs here: a stand-in "zen" in a scratch
 // install notes that it ran, under a ZENIUS_DEV_HOME of the test's own. The

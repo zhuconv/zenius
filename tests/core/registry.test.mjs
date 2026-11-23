@@ -1,10 +1,10 @@
 // Every registered method declares its gate classes in its own module
-// (docs/research/method-boundary.md, "Enforcement"):
+// (SPI.md, "Dispatch"):
 // - `export const access`, the control gate's class (I3);
 // - `export const i5`, the web-content gate's class (I5).
 // A method added without them fails here, and so does an I5 class that
-// doesn't fit the method's name. The gates read the classes (zen-core's
-// 1aaf205). Their name lists remain as the fallback for a call without a
+// doesn't fit the method's name. The gates read the classes. Their name
+// lists remain as the fallback for a call without a
 // class, so a stale name there would exempt a method added under it later,
 // unannounced.
 import assert from "node:assert/strict";
@@ -30,13 +30,13 @@ test("every registered method declares an access class and an I5 class in its mo
   assert.deepEqual(
     missing,
     [],
-    `declare each in its module's export const access / export const i5 (docs/research/method-boundary.md):\n${missing.join("\n")}`
+    `declare each in its module's export const access / export const i5 (SPI.md, "Dispatch"):\n${missing.join("\n")}`
   );
 });
 
 test("each method's declared I5 class fits its name", () => {
-  // The gates go by the declared classes (zen-core's 1aaf205), so the names
-  // are what a wrong declaration is still checked against (zen-core's rule):
+  // The gates go by the declared classes, so the names
+  // are what a wrong declaration is still checked against:
   // a page.* method acts in its page's document or outside it, a
   // filechooser.* one in the chooser's frame, a dev.* one exists only in dev
   // profiles, and no other method is document, outside or dev.

@@ -38,8 +38,8 @@ function adoptWindow(rec, userPageTab) {
   }
 }
 
-// Gate classes (docs/research/method-boundary.md): access for the control
-// gate (I3), i5 for the web-content gate (I5).
+// Gate classes (SPI.md, "Dispatch"): access for the control gate (I3), i5
+// for the web-content gate (I5).
 export const access = {
   "spaces.list": "none",
   "spaces.create": "none",
@@ -105,7 +105,7 @@ export const methods = {
         { spaceId: clash.id, ownership: clash.ownership }
       );
     }
-    // source: who drives the task, for the sidebar (docs/briefs/external-tasks.md).
+    // source: who drives the task, which the sidebar's list of tasks shows.
     const rec = await ctx.spaces.create({ name, profileId: params.profileId, source: params.source });
     ctx.pages.open(rec);
     return {
@@ -217,7 +217,7 @@ export const methods = {
       const browser = ctx.pages.userTab(rec)?.linkedBrowser ?? null;
       if (browser) {
         // The page the user will hold is made safe for their typing before
-        // the card shows (the manager's hand-off rule, 2026-11-20).
+        // the card shows (SPI.md, "The hand-off").
         const { reloaded } = await ctx.service.holdForUser(rec, browser, { source: "agent", reason, secret });
         return { id: rec.id, ownership: rec.ownership, ...(reloaded.length ? { reloaded } : {}) };
       }

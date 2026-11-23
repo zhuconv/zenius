@@ -1,7 +1,5 @@
-// The parent backstops (modules/backstops.sys.mjs; zen-snapshot's
-// docs/research/parent-backstops.md, and A8 of the user's pass on
-// docs/briefs/defenses-evidence.md). A task page's device and peer requests
-// are refused while the agent drives it, or when it shows evidence; its
+// The parent backstops (modules/backstops.sys.mjs). A task page's device
+// and peer requests are refused while the agent drives it, or when it shows evidence; its
 // permission prompts only on evidence. During the user's hold the page asks
 // the user, as any site does, and a stream started then stops when the agent
 // has the page again. Each request comes from a sandbox with the page's
@@ -488,7 +486,7 @@ test("fail closed: with the WebRTCParent patch refused at its startup check, a t
          out.userDoorhanger = !!n;
          // WebRTCChild still sent the parent the task's request, before the
          // user's. zen-ux's watcher removes that doorhanger in a task's page
-         // at once, as a deny (its DENIED set, since 7ef325e). So by the time
+         // at once, as a deny (its DENIED set). So by the time
          // the user's shows, none waits in the task's tab, and the task is
          // still the agent's.
          out.taskDoorhanger = !!doorhanger(arg.id, "webRTC-shareDevices");
@@ -617,7 +615,7 @@ test("a stream the user starts in a held page stops when the agent has the page 
     await resume(space);
     // The tracks end in content, and webrtcUI drops the stream when content
     // reports it: a read between the two sees one done and not the other
-    // (zen-core's flake on 727d0da), so wait for both.
+    // (a flake zen-core once saw), so wait for both.
     const end = Date.now() + 5000;
     let now;
     while (!((now = await streamState(id)).tracks === "ended ended" && !now.listed) && Date.now() < end) {

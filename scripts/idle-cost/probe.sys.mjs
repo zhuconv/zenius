@@ -211,8 +211,7 @@ async function inspectTabs() {
     parent: { esModuleURI: "chrome://userscripts/content/i4/parent.sys.mjs" },
     child: { esModuleURI: "chrome://userscripts/content/i4/child.sys.mjs" },
     allFrames: true,
-    // Gecko 160 refuses actors in web content processes without it
-    // (docs/research/gecko-160.md).
+    // Gecko 160 refuses actors in web content processes without it.
     safeForUntrustedWebProcess: true,
   });
   const globals = () =>

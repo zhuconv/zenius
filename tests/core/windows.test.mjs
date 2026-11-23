@@ -1,6 +1,6 @@
 // Two windows, with Zen's window sync on (its default): every window has a
 // copy of each tab, and Zen moves a page's docShell to the copy the user
-// selects in the focused window (docs/research/two-windows.md). A page is
+// selects in the focused window. A page is
 // its tab's sync id (SPI "Windows: a page is its sync id"): the agent
 // drives the live copy, the guards follow it, any copy maps to its page,
 // a copy any window shows counts as shown, and lists count each tab once.

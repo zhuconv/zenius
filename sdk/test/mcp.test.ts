@@ -1,7 +1,7 @@
 // zenius mcp's steps (zen-core's src/mcp.ts), as a call's arguments give
 // them: the lines the user reads in the sidebar, and what a failure shows.
 // They must never show a typed secret, a URL's token, or text that reads as
-// something else (zen-ux's review). test/integration/mcp.it.ts drives the
+// something else. test/integration/mcp.it.ts drives the
 // server against a dev Zen.
 
 import assert from "node:assert/strict";
@@ -87,7 +87,7 @@ describe("zenius mcp steps", () => {
 });
 
 describe("zenius mcp hard stops", () => {
-  it("say which browser prompt paused the task, by the runtime's reason key (zen-ux's A8)", async () => {
+  it("say which browser prompt paused the task, by the runtime's reason key", async () => {
     const paused = async (reason: string) => {
       const session = {
         connect() {},

@@ -81,7 +81,7 @@ Zen.
 ## How a step reads
 
 The user reads the steps, maybe on a shared screen, so they show only what
-is safe and plain to read (zen-ux's review):
+is safe and plain to read:
 
 - **Secrets.** A step never shows text typed into a password, card or
   one-time-code field, the kinds Resume agent clears

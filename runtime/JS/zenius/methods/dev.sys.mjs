@@ -9,8 +9,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
-// Gate classes (docs/research/method-boundary.md): access for the control
-// gate (I3), i5 for the web-content gate (I5).
+// Gate classes (SPI.md, "Dispatch"): access for the control gate (I3), i5
+// for the web-content gate (I5).
 export const access = {
   "dev.evalChrome": "none",
   "dev.evalContent": "none",

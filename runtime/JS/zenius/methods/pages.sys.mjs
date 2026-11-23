@@ -29,8 +29,8 @@ function tabInfo(tab, current) {
   };
 }
 
-// Gate classes (docs/research/method-boundary.md): access for the control
-// gate (I3), i5 for the web-content gate (I5).
+// Gate classes (SPI.md, "Dispatch"): access for the control gate (I3), i5
+// for the web-content gate (I5).
 export const access = {
   "pages.list": "read",
   "tabs.list": "read",
@@ -137,7 +137,7 @@ export const methods = {
     if (params.group !== undefined && typeof params.group !== "boolean") {
       throw new ZenError("ZEN_INVALID_ARGUMENT", "pages.release group must be a boolean");
     }
-    // Closed groups, the manager's decision 1: the user's window would share
+    // Closed groups: the user's window would share
     // a browsing context group with pages where the agent's code runs. The
     // agent names every page it hands over; taking more unasked could take
     // its main page.

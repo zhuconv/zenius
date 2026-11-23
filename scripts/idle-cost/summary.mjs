@@ -142,18 +142,15 @@ for (const t of [...types].sort()) {
 
 // ---- variants ----------------------------------------------------------------
 // a (profile a, no zenius), b (profile b, zenius), u (profile b, zenius
-// uninstalled), c (profile b, zenius without the actor's DOMWindowCreated),
-// d (profile b with zenius.uc.js from before the runtime waited for its
-// window's startup, 8dd1bc1).
+// uninstalled), c (profile b, zenius without the actor's DOMWindowCreated).
 const loadV = f => JSON.parse(fs.readFileSync(path.join(DIR, f), "utf8"));
-if (fs.readdirSync(DIR).some(f => /^([cu]\d+-[cu]|r\d+-d)\.json$/.test(f))) {
+if (fs.readdirSync(DIR).some(f => /^[cu]\d+-[cu]\.json$/.test(f))) {
   const group = re => fs.readdirSync(DIR).filter(f => re.test(f)).map(loadV).filter(r => r.probe);
   const sets = {
     a: group(/^r\d+-a\.json$/),
     b: group(/^r\d+-b\.json$/),
     u: group(/^u[1-9]\d*-u\.json$/),
     c: group(/^c\d+-c\.json$/),
-    d: group(/^r\d+-d\.json$/),
   };
   const cols = Object.keys(sets).filter(k => sets[k].length);
   const medianV = xs => {
@@ -191,7 +188,7 @@ if (fs.readdirSync(DIR).some(f => /^([cu]\d+-[cu]|r\d+-d)\.json$/.test(f))) {
     ["USS all (MiB)", r => ussV(r, () => true), 1],
     ["parent memory after GC (MiB)", r => r.probe.afterGC.parent.memory / 1048576, 1],
   ];
-  console.log("\nvariants (u: b uninstalled, c: no actor event, d: zenius.uc.js before the deferral):", "runs:", Object.entries(sets).map(([k, v]) => `${k}=${v.length}`).join(" "));
+  console.log("\nvariants (u: b uninstalled, c: no actor event):", "runs:", Object.entries(sets).map(([k, v]) => `${k}=${v.length}`).join(" "));
   const base = sets.u.length ? "u" : "a";
   const diffs = cols.filter(k => k !== "a" && k !== base);
   console.log("metric".padEnd(44), cols.map(k => k.padStart(8)).join(""), diffs.map(k => `${k}−${base}`.padStart(8)).join(""));

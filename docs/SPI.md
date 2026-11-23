@@ -1,8 +1,8 @@
 # Zenius runtime internals (SPI)
 
 How the browser side is put together, and how to add methods and content
-code to it. zen-core owns this file; tell zen-core (through the manager) when
-something here is wrong or missing.
+code to it. zen-core owns this file; tell zen-core when something here is
+wrong or missing.
 
 ## Layout
 
@@ -127,8 +127,8 @@ export const methods = {
    method without one, which would get `mutate` (`none` for `dev.*`).
    `dev.registry` lists every method's level.
 
-   Each module also declares each method's I5 class (zen-input's audit,
-   `docs/research/method-boundary.md`): `export const i5 = { "page.foo":
+   Each module also declares each method's I5 class:
+   `export const i5 = { "page.foo":
    "document" };`, one of `document` (acts in or reads the page's
    documents), `outside` (what the parent knows, or a load whose URL is
    checked), `frames` (content calls checked, no page gate), `none` (no
@@ -252,8 +252,7 @@ Ego's behaviors the methods keep:
   reason, ended, state text, labels used). Tab ids don't survive a
   restart, so after one a space's tabs are unmanaged, as in Ego.
 
-**The user's say over claims and takeovers** (built; the manager's
-decisions on the method audit, item 6; SPEC §3.4). `spaces.claim` of a
+**The user's say over claims and takeovers** (built; SPEC §3.4). `spaces.claim` of a
 workspace of the user's, or of an ended task, waits in `askClaim` below.
 - `spaces.noteUserInput(rec)`: zen-ux's takeover detector calls it for the
   user's real input in a task's tabs, whoever controls the task. It sets
@@ -287,8 +286,7 @@ workspace of the user's, or of an ended task, waits in `askClaim` below.
 
 ### The task feed (zen-core, for zen-ux's sidebar)
 
-Every task's life for the sidebar's directory, whoever drives it
-(docs/briefs/external-tasks.md).
+Every task's life for the sidebar's directory, whoever drives it.
 - `spaces.feed()` lists the entries now: live tasks (and claimed Spaces
   while a task runs there), then the ended tasks the registry no longer
   holds, from the last day and at most 50. `spaces.json` keeps them across
@@ -326,7 +324,7 @@ Every task's life for the sidebar's directory, whoever drives it
 
 Two of the evidence flag's reasons are zen-core's (zen-observe's
 `markEvident`). Both get zen-ux's warning on the page, not a hold or a clean
-copy: the danger is the page itself (the manager's call, 2026-11-21).
+copy: the danger is the page itself.
 - `flagged`: `page.flag {space, page, reason}` (`methods/pages.sys.mjs`)
   marks the page's top document with the agent's one-line reason.
 - `listed`: from the first task page to the last (I4), the service observes
@@ -334,8 +332,7 @@ copy: the danger is the page itself (the manager's call, 2026-11-21).
   classified (`nsIURIClassifier.classify`), and one on a phishing, malware,
   unwanted or harmful list is marked with `"<kind>: <list>"`, for example
   `phishing: goog-phish-proto`. Gecko blocks such a page as it loads, so
-  this finds the one someone clicked through its warning to.
-  `docs/research/safe-browsing.md` has what Zen 1.24's lists do. Tests use
+  this finds the one someone clicked through its warning to. Tests use
   Mozilla's `moztest-*` entries offline, through `network.dns.localDomains`.
 
 ## Content modules
@@ -419,8 +416,7 @@ exists in every document of every tab.
 
 ## Tasks in the Agents Space (zen-core)
 
-The design for SPEC §3.4 and §3.5, approved by the manager on 2026-11-20,
-and what runs. The one-workspace-per-task model it replaced, and its pref
+The design for SPEC §3.4 and §3.5 (2026-11-20), and what runs. The one-workspace-per-task model it replaced, and its pref
 `zenius.agentsSpace`, are gone.
 
 **Built** (`tests/core/agents-space.test.mjs`): records, the Agents
@@ -485,8 +481,7 @@ in `modules/pages.sys.mjs` reads it:
 - Lookups stay in memory, in `Pages` (`lookup(tab)`, `findTab`). The value
   is written on each change and read only at start.
 
-**Windows: a page is its sync id** (built; the manager's decision of
-2026-11-20, from `docs/research/two-windows.md`; suite
+**Windows: a page is its sync id** (built, 2026-11-20; suite
 `tests/core/windows.test.mjs`). Zen 1.24 makes every window a view of the
 same tabs (`zen.window-sync.*`, on by default):
 - Each tab has a copy in every synced window. The copies share Zen's sync
@@ -562,8 +557,7 @@ zenius treats a tab's copies as one tab:
     `pages.settle()` moves it next to its task once no window shows the
     Space, on a window's next `TabSelect`.
   - It moves no other tab.
-- **Window sync and placement** (measured on Zen 1.24.2b,
-  `docs/research/two-windows.md`):
+- **Window sync and placement** (measured on Zen 1.24.2b):
   - Zen copies a new tab into the other windows from its `TabOpen`
     handler, and moves the copies on `TabMove`, to where the tab is at
     that moment. In an RPC call the handler runs inside `addTab`; in a
@@ -679,7 +673,7 @@ user would see on opening the task, where zen-ux's panel Open lands.
 - It's kept in memory: after a restart it's the first page until one of
   those happens.
 - It moves no window (I1). `pages.list`'s `active` marks the same tab
-  (`pages.userTab(rec)`). The manager approved this on 2026-11-20.
+  (`pages.userTab(rec)`).
 
 **Restart (built).** The first window starts the rebuild (or a timer, 30 s
 after start, if no window comes). It waits, at most 30 s in all, for
@@ -777,7 +771,7 @@ Space it made by a mark in the Space's own object in Zen, `zenius:
   - removes any other marked Space that's empty and that no window shows;
   - leaves any other one, and logs it. It renames it "<name> (old)" once,
     so the user can tell it from the Agents Space, which likely has the
-    same name (the manager's call: it's zenius's own Space).
+    same name: that one is zenius's own.
     `browser.health`'s `strayAgentsSpaces` lists it with its `position` in
     Zen's Space switcher, so `zenius doctor` warns and the user can find it
     and remove it.
@@ -809,8 +803,8 @@ Actors register with `addGuardActor(name)` and answer `"installGuards"`.
 **The back-forward cache (built, 2026-11-20).** A document Back or Forward
 restores from the bfcache comes back with a `pageshow` (persisted), not a
 DOMWindowCreated, so the guards miss it: a tab that joined a task with
-pages from before would bring them back unguarded (zen-snapshot's
-adoptBack and userTabBack, `docs/research/device-bypass.md` §1). So
+pages from before would bring them back unguarded (as probes of
+adoptBack and userTabBack showed). So
 `publishAgentBrowsers()` empties a tab's bfcache
 (`sessionHistory.evictAllDocumentViewers()`, by browserId):
 - when the tab joins the task-page set (adopt, a claim, a task claimed
@@ -831,7 +825,7 @@ no-store, which Gecko never caches). They check the history entry's
 cached, and without that check a test could pass with no eviction at
 all.
 
-**Decisions** (the manager, 2026-11-20, on this design):
+**Decisions** (2026-11-20, on this design):
 1. **The Agents Space goes once it's empty and no window shows it.**
    `spaces.json` keeps its name and icon, and `ensureAgentsSpace` reapplies
    them, so a rename by the user survives removals.
@@ -871,7 +865,7 @@ all.
   - two windows showing the Space.
 
 **Tests.** Each I1 rule gets a test with a window showing the Agents Space,
-measured as zen-ux's probe did: the selected tab, the active Space, the
+measured as a probe did: the selected tab, the active Space, the
 strip's `scrollTop`, and the user's tab's place on screen.
 - A new task, a page and a popup while the user views the Space: none of
   the four changes.
@@ -899,8 +893,7 @@ strip's `scrollTop`, and the user's tab's place on screen.
 
 ## Closed groups (zen-core)
 
-The rule (the manager's decision on zen-snapshot's I1 map; the plan is
-`docs/research/user-tab-reach.md`, "Fix: closed groups"): a document where
+The rule: a document where
 the agent's code can run never shares a browsing context group with a
 window outside its task, during the task or after it. Gecko groups a window
 with every window it opened with an opener, and code in one reaches the
@@ -1013,10 +1006,8 @@ zen-ux checks that the user's own input came just before.
 
 ## The hand-off (zen-core)
 
-The manager's rule (2026-11-20), on evidence since the user's call
-(2026-11-21, `docs/briefs/defenses-evidence.md`, A1 to A3) and for the
-safety rubric's test a (page code capturing what the user types after a
-takeover), in this order: nothing the agent's code left can reach what the
+The rule, on evidence since 2026-11-21, against page code capturing what
+the user types after a takeover, in this order: nothing the agent's code left can reach what the
 user types in the page they hold (H); H keeps its opener when it can; only
 a document the agent's code left something in loads afresh, never one
 that is only reachable from such a document (the rubric's rule 3). That's
@@ -1030,8 +1021,7 @@ either reason, the evidence of the agent's code that the hold's COOP, its
 channel mute, its refusal of new windows and the refusal events key on.
 Filling, clicking, reading and plain text are no evidence. A `listed` or
 `flagged` page gets zen-ux's warning, never a reload or a clean copy: the
-danger is the page itself, which a reload brings back (the manager's
-call). zen-observe keeps everything else away while H is held (`holdPage`
+danger is the page itself, which a reload brings back. zen-observe keeps everything else away while H is held (`holdPage`
 in `observe/hold.sys.mjs`). zen-core picks the remedy and does the loads
 (`modules/handoff.sys.mjs`).
 
@@ -1082,16 +1072,15 @@ Entry points (`modules/service.sys.mjs`):
     another window of its group (a popup on its site, or the page that
     opened it), leaves something in the copy as it comes in. The tab's
     typing stays held on that copy (zen-input's `dropUserTyping` release
-    with `{failed: true, holdNow: true}`), until the page loads again. On
-    99cdc39 the replay set off the next clean copy there, without end
-    (zen-snapshot's Take over probes, when a document beside a hooked one
-    came in marked). The error has `stillEvident` and the copy's
+    with `{failed: true, holdNow: true}`), until the page loads again. In
+    probes of Take over, the replay set off the next clean copy there
+    without end, when a document beside a hooked one came in marked. The error has `stillEvident` and the copy's
     `evidence`.
   - At most 5 clean copies on demand per tab in 60 s (`CLEAN_COPY_CAP`;
     tests set `service.cleanCopyCap`). Past that it rejects before loading,
     and the typing stays held.
   - The keys the user types while that load runs go into the clean copy
-    (zen-input's replay, bf4eaf9): `forms#record` says whether its
+    (zen-input's replay): `forms#record` says whether its
     `focused` is the noteUserTarget field (`userTarget`), and when
     `forms#fill` puts the focus back on that field, `forms.userFieldBack(doc)`
     names it. zen-input's guard types the replay only into that field.
@@ -1197,10 +1186,10 @@ The quiet load (`cleanLoad`):
   fields come back from the first record. With no such URL (none, another
   origin, or the URL just stopped), or when that load is stopped too, the
   load fails (`reloadFailed`), and the old document stays unless the first
-  load brought one (the manager, 2026-11-21). A fresh document that ends on
+  load brought one. A fresh document that ends on
   another site anyway (a service worker's redirect, say) fails it at once.
   Later loads of the held page that its own code starts may cross sites,
-  as sign-ins need (the manager, 2026-11-20);
+  as sign-ins need;
   zen-ux's hold card names H's current site. The windows loaded afresh
   because they could reach H may leave the site.
 - Fields come back only into a document of the recorded one's origin.
@@ -1241,7 +1230,7 @@ observers are on only while a page is held or a quiet load runs.
 
 Residuals:
 - A page that opened H can still `close()` it: the user loses the page,
-  but nothing leaks (the manager's decision).
+  but nothing leaks.
 - A leave prompt stops a quiet load only where Gecko prompts without a
   user activation (`dom.require_user_interaction_for_beforeunload` false,
   not the default): the hand-off is then refused (`reloadFailed`), never
@@ -3690,7 +3679,7 @@ Written by `install.sh`. It writes copies, never links:
   zenius sets: no IPv6 lookups in Zen. It's the user's choice for their own
   install (2026-11-20), which ends the GitHub stall on their IPv4-only network,
   at the cost of IPv6-only sites; opt-in since 2026-11-21, so nobody else's
-  Zen loses IPv6 (the manager's call). An install without the flag leaves
+  Zen loses IPv6. An install without the flag leaves
   `user.js` as it is, zenius's line from an earlier install included.
   Zen reads `user.js` at each start and then keeps the value in `prefs.js`
   too, so removing the line alone wouldn't undo it (checked in 1.24.2b).
@@ -3735,7 +3724,7 @@ Written by `install.sh`. It writes copies, never links:
 Removed by `--uninstall`, though `install.sh` never writes it:
 `<profile>/agent-sidebar-workspace/`. zenius's sidebar keeps its agent
 sessions' working folders and limit files there, and rewrites the limits
-before each session (zen-ux's; the manager's ruling, 2026-11-21).
+before each session (zen-ux's).
 `--uninstall` backs it up, with whatever the agents left in it, then
 removes it. That includes a workspace an older version's uninstall left
 behind. The sidebar's chats, `<profile>/agent-sidebar-tasks.json`, are the
@@ -3785,7 +3774,7 @@ daily profile):
   Spaces), and its records go to a fresh temporary file made exclusively,
   then renamed over the record, so a link at either name is never written
   through. `~/.zenius` itself, and the folders above it, may be links
-  (zen-snapshot's sweep, 2026-11-21; `tests/core/zhome.test.mjs`).
+  (`tests/core/zhome.test.mjs`).
 - `browser.version` and the registry's `install` are `{commit,
   installedAt}` from the `install.json` the runtime found when Zen started,
   or null on a profile `install.sh` didn't fill. The runtime reads it once,

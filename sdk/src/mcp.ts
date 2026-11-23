@@ -68,7 +68,7 @@ const TARGET_PARAM = {
 };
 
 // Steps are lines the user reads, built from what the agent sends and what
-// pages say, so nothing in them may read as something else (zen-ux's review).
+// pages say, so nothing in them may read as something else.
 
 /** Characters that change how a line reads without showing: bidi controls, zero-width and other format characters, controls. */
 const INVISIBLE = /[\p{Cc}\p{Cf}\p{Default_Ignorable_Code_Point}]/gu;

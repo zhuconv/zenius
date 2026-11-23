@@ -1,17 +1,15 @@
 // zen-core: the page the user holds (H), at an agent's hand-off or the
-// user's Take over, for the manager's rule of 2026-11-20, on evidence since
-// the user's call of 2026-11-21 (docs/briefs/defenses-evidence.md, A2), and
-// for docs/safety-rubric.md's test a: page code capturing what the user
-// types after a takeover. In this order: nothing the agent's code left can
+// user's Take over, made safe against page code capturing what the user
+// types after a takeover, on evidence since 2026-11-21. In this order: nothing the agent's code left can
 // reach what the user types in H; H keeps its opener when it can; only a
 // document the agent's code left something in loads afresh, never one that
-// is only reachable from such a document (the rubric's rule 3). That's
+// is only reachable from such a document. That's
 // zen-observe's evidence flag (observe/evidence.sys.mjs) with reason
 // hooked: what the agent's code left that outlives the discard of its
 // world. A page the agent made (made, a data: or blob: page it opened) is
 // held as it is, and the agent's own hand-off of it is refused. A listed or
 // flagged page gets zen-ux's warning instead: a reload brings its danger
-// back (the manager's call). The discard runs at every hand-off all the
+// back. The discard runs at every hand-off all the
 // same, and zen-observe's holdPage keeps everything else away while the
 // user holds H (observe/hold.sys.mjs). This module picks the remedy and
 // does the loads.
@@ -188,7 +186,7 @@ export function evidenceOf(target) {
 
 /**
  * Has the evidence a reason a clean copy clears: hooked or made? Those are
- * the defenses' trigger (the manager's call, 2026-11-21); listed and
+ * the defenses' trigger (since 2026-11-21); listed and
  * flagged pages get zen-ux's warning instead.
  *
  * @param {Record<string, string>} evidence
@@ -241,7 +239,7 @@ function othersOutsideHold(top) {
 /**
  * The windows of H's browsing context group, outside its hold, that need a
  * clean copy themselves (needsCleanCopy: the agent's code left something
- * in them, not only beside them, the rubric's rule 3), and that show a site
+ * in them, not only beside them), and that show a site
  * one of H's documents shows, top or frame on either side. Through top, opener and frames, which
  * work across origins, such a window can walk to H's document of that site
  * and script it. Site, not origin: Gecko 160's agent clusters are
@@ -447,7 +445,7 @@ const responseHook = {
  * typing never goes to another site's page.
  *
  * It loads the URL the page had before the agent's code last changed it in
- * place (zen-observe's urlBefore, the manager's rule for Take over), while
+ * place (zen-observe's urlBefore), while
  * the page still shows the URL the agent's code set; else the current one.
  * The site's own routing (its pushState) stays the target.
  *
@@ -604,8 +602,8 @@ export async function cleanLoad(svc, browser, { sameSite = false, evidentFails =
     // During the task, the agent's code in another window of its group (a
     // popup on its site, or the page that opened it) can leave something in
     // the copy as it comes in. The user's typing can't go into that copy,
-    // and its replay would be their next trigger there: on 99cdc39 the page
-    // loaded afresh again and again (zen-snapshot's Take over probes). The
+    // and its replay would be their next trigger there: in probes of Take
+    // over, the page loaded afresh again and again. The
     // settle above gave content's mark time to come.
     if (evidentFails) {
       const evidence = evidenceOf(browser);
@@ -735,8 +733,8 @@ export function heldWith(browser) {
 
 /**
  * The user is about to hold the page in `browser` (H): hold it
- * (zen-observe's holdPage), then make it safe as the manager's rule says,
- * on evidence (see the top of this file).
+ * (zen-observe's holdPage), then make it safe, on evidence (see the top of
+ * this file).
  * - A page the agent made (made, a data: or blob: page it opened) is held
  *   and left as it is (`agentPage`). With `refuseAgentPage` (the agent's
  *   own hand-off) nothing else happens, and the caller refuses it.
@@ -783,8 +781,8 @@ export async function holdFor(svc, rec, browser, { refuseAgentPage = false } = {
   };
   // What needs a clean copy: H, and the windows that could reach it.
   const evidenceCheck = () => ({ page: needsCleanCopy(evidenceOf(browser)), reaching: markedReaching(browser) });
-  // Each quiet load says where and why in the log (zen-sdk's ask): the user
-  // sees only a reload.
+  // Each quiet load says where and why in the log, since the user sees only
+  // a reload.
   const loadH = async why => {
     log(`the held page loads afresh in place: ${why}`);
     noteEvidence(browser);

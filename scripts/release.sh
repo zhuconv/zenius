@@ -5,10 +5,8 @@
 #   scripts/release.sh [--rev <commit>] [--version <x.y.z>] [--out <dir>] [--url <base>]
 #                      [--attach <file>]... [--test-build]
 #
-# Run it in a clone of this repo, at the commit being released. It refuses a
-# commit of the private repo this one was exported from, one with
-# docs/MANAGER.md, docs/reports/ or docs/briefs/, unless --test-build says the
-# assets are for tests and never published.
+# Run it in a clone of this repo, at the commit being released. --test-build
+# marks assets made for tests, which are never published.
 #
 #   --rev      the commit to build (default HEAD). Only what the commit holds
 #              goes in (git archive), never the working tree.
@@ -37,7 +35,7 @@
 #                                   metadata, stops the build, by name.
 #                                   Its entries name no one (uid and gid 0)
 #                                   and carry the commit's time, so a commit
-#                                   always builds the same bytes. The export's
+#                                   always builds the same bytes.
 #                                   scripts/package-check.pl checks them here.
 #   zenius-<version>.tar.gz.sha256  its SHA-256, as sha256sum prints it
 #   install.sh                      scripts/release-install.sh of that commit,
@@ -90,11 +88,6 @@ if [[ -e $out ]]; then
   [[ -d $out && -z $(ls -A "$out") ]] || die "$out must be an empty folder, or absent"
 fi
 
-for private in docs/MANAGER.md docs/reports docs/briefs; do
-  if ((!test_build)) && git -C "$ROOT" cat-file -e "$sha:$private" 2>/dev/null; then
-    die "$rev has $private, so it's a commit of the private repo: build the release from a commit of the public one, or pass --test-build for assets that are never published"
-  fi
-done
 short=$(git -C "$ROOT" rev-parse --short "$sha")
 
 name=zenius-$version
@@ -193,8 +186,8 @@ out=$(cd "$out" && pwd)
 # macOS's tar would add its own metadata files without COPYFILE_DISABLE.
 (cd "$work" && tr '\n' '\0' <"$work/list" |
   COPYFILE_DISABLE=1 tar -c -f - --format=ustar "${owners[@]}" --no-recursion --null -T -) | gzip -n -9 >"$out/$name.tar.gz"
-# The export's own check of what the headers hold, so that no package leaves
-# here naming its builder, whichever tar made it.
+# The check of what the headers hold, so that no package leaves here naming
+# its builder, whichever tar made it.
 if ! found=$(perl "$ROOT/scripts/package-check.pl" "$out/$name.tar.gz" 2>&1); then
   echo "$found" >&2
   rm -f "$out/$name.tar.gz"

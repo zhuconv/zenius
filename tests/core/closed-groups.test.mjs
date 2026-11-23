@@ -1,10 +1,9 @@
-// Closed groups (docs/research/user-tab-reach.md, "Fix: closed groups"): a
+// Closed groups (SPI.md, "Closed groups"): a
 // document where the agent's code can run never shares a browsing context
 // group with a window outside its task. zen-core's parts: the group check
 // (pages.codeRefusal, which zen-observe's and zen-input's methods ask before
 // running the agent's code), the refusal of a release that would split a
-// group (the manager's decision 1), and the hook zen-ux's pill hears item 3's
-// refusals on.
+// group, and the hook on which zen-ux's pill hears a refused new window.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { setup } from "./lib.mjs";
@@ -303,7 +302,7 @@ const closeTabsShowing = part =>
 
 // A written kept page stays written through the finish, standing in for a
 // page whose clean reload failed: landing (2) reloads written kept pages at
-// the task's end (zen-core's call, 2026-11-20).
+// the task's end.
 const keepWritten = () => h.chrome(`Services.prefs.setBoolPref("zenius.handoff.quietReload", false); return true;`);
 const reloadAgain = () => h.chrome(`Services.prefs.clearUserPref("zenius.handoff.quietReload"); return true;`).catch(() => {});
 

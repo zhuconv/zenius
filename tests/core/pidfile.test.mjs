@@ -190,7 +190,7 @@ test("a zombie isn't the profile's Zen, whether the pid file or the lock symlink
   // A Zen that has exited but isn't reaped yet: kill -0 still succeeds on it.
   // Its parent here is a perl that forks it and never waits. (A bash that
   // ran "sleep 0 &" and then exec'd a sleep reaped its child when the child
-  // exited before the exec, as on a loaded Linux server: zen-input's flake.)
+  // exited before the exec, as on a loaded Linux server.)
   const parent = spawn("perl", ["-e", '$| = 1; my $pid = fork() // die "fork: $!"; if (!$pid) { exit 0 } print "$pid\\n"; sleep 300'], {
     stdio: ["ignore", "pipe", "ignore"],
   });

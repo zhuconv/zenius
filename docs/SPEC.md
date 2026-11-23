@@ -10,8 +10,8 @@ Space, while the user keeps browsing in theirs.
 1. **Coverage.** Everything an agent can do with Ego Lite (0.6.3.17, skill
    guide v2.2.1) works on Zen: task spaces, pages, snapshots with refs,
    selectors, pointer and keyboard input, waits, dialogs, popups, downloads,
-   file choosers, evaluate and fetch, handoff and takeover.
-   `docs/reference/ego-0.6.3.17-skill-guide.md` is the agent-facing contract.
+   file choosers, evaluate and fetch, handoff and takeover. Ego Lite's skill
+   guide is the agent-facing contract.
 2. **Speed.** Per-action latency and API round trips are at least as fast as
    Ego Lite on the same Mac. We measure first, then optimize in passes.
 3. **Spaces without preemption.** Each agent task runs in its own Zen Space
@@ -84,7 +84,7 @@ tests/fixtures/              fixture web server and pages
 tests/e2e/                   Ego's real-browser e2e suite, ported, runnable against ego or zenius
 tests/bench/                 latency and non-preemption benchmarks
 scripts/                     zen-dev.sh (dev profiles), install, doctor
-docs/                        SPEC, PROTOCOL, SPI, research/, reports/, reference/
+docs/                        SPEC, PROTOCOL, SPI, PARITY, the install and sidebar guides, eval/
 ```
 
 ### 3.3 Transport
@@ -179,9 +179,9 @@ docs/                        SPEC, PROTOCOL, SPI, research/, reports/, reference
     `browser.startup.page` 3, Zen's default, which the user's daily profile
     keeps. Checked on the Linux server with a clean quit: with 3, a task Space's two tabs
     came back unloaded, with their session values; with 0, the Space came
-    back empty, although Zen's session file still held both tabs. zen-eval's
-    Mac check passes too (`tests/e2e/restart-check.mjs`,
-    `docs/research/restart-mac.md`): restarts, crashes, and a window on the
+    back empty, although Zen's session file still held both tabs. The Mac
+    check passes too (`tests/e2e/restart-check.mjs`): restarts,
+    crashes, and a window on the
     Agents Space with `zen.workspaces.continue-where-left-off`.
   - After a crash, Zen restores the session as well
     (`browser.sessionstore.resume_from_crash`, on by default), and the tasks
@@ -202,20 +202,19 @@ docs/                        SPEC, PROTOCOL, SPI, research/, reports/, reference
 
 ### 3.5 Tabs and pages
 
-zen-ux measured each rule below in a window showing the Space
-(`docs/research/agents-space.md`).
+zen-ux measured each rule below in a window showing the Space.
 
 - **Background only.**
   - Agent tabs and popups open in the background, without Firefox's
     background-tab notification. That notification scrolls the strip to the
-    new tab: the user's tab moved 401 px in zen-ux's probe.
+    new tab: the user's tab moved 401 px in a probe.
   - No agent call changes a window's selected tab or active Space.
   - `bringToFront` records the task's front tab instead, which the panel's
     Open selects.
 - **A task's tabs stay together.**
   - A new task's first tab goes at the bottom of the Agents Space, so
     starting a task never moves a tab the user sees. A tab added or moved
-    above the user's moves it down a row (40 px in zen-ux's probe); one
+    above the user's moves it down a row (40 px in a probe); one
     added below moves nothing.
   - Each later page or popup goes right after the task's last tab.
   - While a window shows the Agents Space in a strip too short to scroll,
@@ -291,10 +290,9 @@ without taking focus from the user.
 
 ### 3.7 Snapshot
 
-- The text format is Ego's. Examples are in
-  `docs/reference/ego-0.6.3.17-sample-snapshots.txt`: a header line, an
-  indented role tree, `[ref=N, loc=…, url=…]`, and the "more content below the
-  viewport" footer.
+- The text format is Ego's (its captures are in `tests/golden/ego/`): a
+  header line, an indented role tree, `[ref=N, loc=…, url=…]`, and the "more
+  content below the viewport" footer.
 - Computed in content JavaScript without the accessibility service, which
   slows every content process.
 - Refs are bound to (browsing context, document, node) in a per-tab registry.
@@ -327,7 +325,7 @@ without taking focus from the user.
   - **No sidebar grouping.** Zen's sidebar shows the tabs ungrouped:
     - Zen folders pin their tabs;
     - Firefox's tab groups are off in Zen. Headings may come later, behind
-      a pref (`docs/research/agents-space.md`).
+      a pref.
   - **The badge.** The Agents Space gets a badge in Zen's Space switcher
     while a task needs the user. `handOff()` (for a CAPTCHA, login or 2FA)
     raises a notification and that badge.
@@ -337,8 +335,8 @@ without taking focus from the user.
   cancelled, during a hold too, and the agent gets `promptDenied`. That
   covers notifications, location, camera, microphone, MIDI, persistent
   storage and any type not listed. A device stream or a location watch the
-  user allowed would carry on under the agent after Resume (the manager's
-  decision of 2026-11-20, under the user's rule for sensitive input).
+  user allowed would carry on under the agent after Resume (the user's rule
+  for sensitive input).
 
 ### 3.9 Invariants (each has an automated test)
 

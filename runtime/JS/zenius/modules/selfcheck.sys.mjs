@@ -1,13 +1,12 @@
-// The post-install self-check's runs (zen-core; docs/research/selfcheck.md).
+// The post-install self-check's runs (zen-core; PROTOCOL.md, "Self-check").
 //
 // After an install, the relay or the user's own shell runs `zenius
 // selfcheck` outside zenius's sandbox. That front connects to a socket of the
 // self-check's own, ~/.zenius/selfcheck/<instance>.sock, which the service
 // serves (modules/service.sys.mjs) with selfcheck.run and nothing else. The
 // agents' socket doesn't have the method, and the sandbox can't reach this
-// one: the launcher allows only run/<instance>.sock
-// (docs/research/method-boundary.md, finding 12). This module loads at the
-// socket's first call, so it holds nothing at startup.
+// one: the launcher allows only run/<instance>.sock. This module loads at
+// the socket's first call, so it holds nothing at startup.
 //
 // A run opens a window that isn't a browser window and hands it to the agent
 // sidebar's scenarios (agent-sidebar/selfcheck.sys.mjs: prepare, run,
@@ -43,8 +42,8 @@ const HTML_NS = "http://www.w3.org/1999/xhtml";
 export const LIMIT_MS = 120000;
 // While Zen is the app in front, a run waits before its window opens, at
 // most this long. A window opened then would take Zen's focus from the
-// user's window for a moment (zen-eval's spike on the Mac: 1 deactivate and
-// 3 blurs, under 20 ms): enough to close a dropdown, fire a form's onblur,
+// user's window for a moment (on the Mac: 1 deactivate and 3 blurs, under
+// 20 ms): enough to close a dropdown, fire a form's onblur,
 // or catch keys meant for the page. Step 6 starts the run from a terminal,
 // so it rarely waits. The wait holds the call (PROTOCOL "Held calls"): the
 // run's limit starts when it ends. A test may shorten it, never lengthen it.
@@ -59,8 +58,8 @@ const CLOSE_MS = 5000;
 const WIDTH = 720;
 const HEIGHT = 760;
 const MARGIN = 16;
-// How the window shows (docs/research/selfcheck.md, "The window"), in the
-// order zen-eval's spike on the Mac tried them: the unseen ones first. Each
+// How the window shows, in the order a spike on the Mac tried them: the
+// unseen ones first. Each
 // mode says where the window opens (a corner of the screen the user's
 // window is on, or beyond the screens), and whether it:
 //   float     is kept above others (alwaysontop, as Picture-in-Picture
@@ -72,8 +71,7 @@ const MARGIN = 16;
 //             runs where the window can't be seen
 //   invisible is see-through and lets clicks pass through it, wherever it
 //             is (seeThrough): on a second display it shows nothing. The
-//             follow-up's candidate, and since zen-eval's Mac check, the
-//             default on a headed Mac
+//             default on a headed Mac, since a check there
 const MODES = {
   minimized: { place: "corner", minimize: true },
   "minimized-active": { place: "corner", minimize: true, active: true },
@@ -89,8 +87,8 @@ export const WINDOW_MODES = Object.freeze(Object.keys(MODES));
 
 /**
  * The mode of a run that asks for none.
- * - On a Mac's display: invisible, after the wait (WAIT_MS). zen-eval's Mac
- *   check of 51ac866d, on both displays: the window server's alpha 0 from
+ * - On a Mac's display: invisible, after the wait (WAIT_MS). Checked on a
+ *   Mac, on both displays: the window server's alpha 0 from
  *   the first on-screen moment through the close, clicks through, Gecko
  *   never throttled it (rAF 60.5 Hz, fresh shots), and nothing activated.
  *   offscreen, the spike's first pick, showed on the display without the
@@ -100,7 +98,7 @@ export const WINDOW_MODES = Object.freeze(Object.keys(MODES));
  * - On another display: offscreen, after the wait. Only the Mac was checked.
  * - On a headless Zen: floating. There's no front app to wait for, and Zen's
  *   one window is always the active one. Only a floating window leaves it
- *   so (zen-ux's probe), and there's no screen for it to float over.
+ *   so, and there's no screen for it to float over.
  *
  * @param {boolean} [isHeadless]
  * @param {string} [platform]
@@ -437,8 +435,7 @@ class Run {
     // Opened while Zen is in the background, it very likely becomes Zen's
     // key window. So a user who comes back to Zen mid-run with Cmd-Tab or
     // the Dock would find it over their window, with the focus: their keys
-    // would land in the panel and a step's PNG (zen-observe's review of the
-    // wait). The same covers Zen active with none of its windows active,
+    // would land in the panel and a step's PNG. The same covers Zen active with none of its windows active,
     // which the wait reads as background.
     win.addEventListener("activate", () => Services.tm.dispatchToMainThread(() => giveFocusBack(win)), true);
     const mode = MODES[this.#mode];
@@ -600,7 +597,7 @@ class Run {
  * (-moz-window-opacity, and pointer-events: none on a panel), never for a
  * top-level window like this one. Gecko still paints the window, so its shots
  * and requestAnimationFrame shouldn't depend on it being seen. On the Mac,
- * that was zen-eval's check (occlusion, 60 Hz, fresh pixels, clicks through).
+ * that was checked: occlusion, 60 Hz, fresh pixels, clicks through.
  * Returns whether the window is see-through, and what it did, for the log.
  *
  * @param {Window} win
@@ -625,7 +622,7 @@ export function seeThrough(win, platform = AppConstants.platform) {
       const sel = objc.declare("sel_registerName", ctypes.default_abi, id, ctypes.char.ptr);
       // Plain C, which can't raise. A message the object doesn't take would
       // raise an Objective-C exception: no JS error that try/catch sees, but
-      // an abort of the user's Zen (zen-observe's review). So each selector
+      // an abort of the user's Zen. So each selector
       // is checked before it's sent.
       const classOf = objc.declare("object_getClass", ctypes.default_abi, id, id);
       const takes = objc.declare("class_respondsToSelector", ctypes.default_abi, ctypes.bool, id, id);
