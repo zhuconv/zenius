@@ -337,8 +337,8 @@ test("agent methods refuse every privileged document the user opened in an agent
         S.run(
           `const T = { timeout: 1500 };
 const out = {};
-// What zen-eval's probes did with these documents' powers: chrome APIs,
-// an add-on's cookies, about:logins' own data, and the file itself.
+// What these documents' powers could reach: chrome APIs, an add-on's
+// cookies, about:logins' own data, and the file itself.
 out.evaluate = await attempt(() => page.evaluate(async (secretPath) => {
   const found = { html: document.documentElement.outerHTML.slice(0, 2000) };
   const tryTo = async (key, get) => { try { found[key] = await get(); } catch (error) { found[key] = "threw " + String(error).slice(0, 80); } };

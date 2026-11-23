@@ -447,7 +447,7 @@ function installRecordCheck(o: Resolved, entry: Check, profileDir: string): void
     warn(entry, [`${plural(gone.length, "file")} that scripts/install.sh wrote ${gone.length === 1 ? "is" : "are"} missing (${gone.slice(0, 3).join(", ")}${gone.length > 3 ? ", …" : ""}): reinstall with scripts/install.sh.`]);
   }
   if (typeof record.backup === "string" && !isDirectory(record.backup)) {
-    // Since aedc306 a first install's backup holds only user.js, so say both.
+    // A first install's backup holds only a copy of user.js, so say both.
     warn(entry, [`The backup folder ${record.backup} is missing. It held what this install backed up: an earlier version's zenius files and their commit, which going back to that version needs, or, after a first install, a copy of user.js.`]);
   }
 }
@@ -494,7 +494,7 @@ function builtinLines(builtin: SidebarBuiltin, configPath: string | undefined): 
   return lines;
 }
 
-/** The fixed line in zenius's agent-sidebar.uc.js, among its first 20 (agreed with zen-ux, 2026-11-21). */
+/** The fixed line zenius's agent-sidebar.uc.js keeps among its first 20, for this check to find. */
 const SIDEBAR_MARKER = "// zenius: agent-sidebar";
 
 /**
@@ -514,7 +514,7 @@ function sidebarCheck(o: Resolved, profileDir: string | undefined, live: Live, i
   const problems: string[] = [];
   // Information that goes with the check whatever its status: the built-in agents.
   const notes: string[] = [];
-  // install.sh keeps a copy the user put back as theirs: Undo restores it (zen-core's f02a91c).
+  // install.sh keeps a copy the user put back as theirs: Undo restores it.
   const restore = "With the user's OK, reinstall with scripts/install.sh, which keeps the copy it replaces for Undo; then the user quits and reopens Zen.";
   const present = isFile(file);
   const marked = present && hasSidebarMarker(file);
@@ -585,10 +585,10 @@ function sidebarCheck(o: Resolved, profileDir: string | undefined, live: Live, i
     const loaded = counts ? counts.started > 0 : status.loaded === true;
     running = counts?.open === 0 ? `no browser window open${config}` : loaded ? `loaded${windows}${config}` : "not loaded";
   }
-  // Codex is on by default (the user's call, 2026-11-21), and off is the user's choice: information,
-  // not a warning. The lines say what holds Codex and the one read path no Codex setting removes, which
-  // the user accepted. A profile with no agents (config none or missing) runs no Codex either, nor do
-  // built-in agents without Codex.
+  // Codex is on by default, and off is the user's choice: information, not a warning. The lines say
+  // what holds Codex and the one read path no Codex setting removes, a known limit rather than a fault.
+  // A profile with no agents (config none or missing) runs no Codex either, nor do built-in agents
+  // without Codex.
   const noAgents =
     status?.config === "none" || status?.config === "missing" || (status?.config === "builtin" && !builtinAgents(status.builtin).includes("codex"));
   const codexOff = profilePref(profileDir, "zenius.agentSidebar.allowCodex") === "false";
@@ -614,8 +614,8 @@ type WindowCounts = {
 };
 
 /**
- * zen-input's count of every window (agreed with zen-sdk): open (M) is the
- * browser windows whose toolbar shows, windows (N) those where zenius's
+ * zen-input's count of every window: open (M) is the browser windows whose
+ * toolbar shows, windows (N) those where zenius's
  * sidebar started, failed those where its start threw, and the rest haven't
  * recorded a start, as a window still opening. perWindow lists popups too,
  * which no count includes: the sidebar leaves them alone. A runtime from
@@ -645,8 +645,8 @@ function windowCounts(status: NonNullable<Live["sidebar"]>): WindowCounts | unde
 
 /**
  * "zenius's sidebar failed to start in 1 of 2 windows (a private window):
- * <error>": each failed window by its kind, with its error (the manager's
- * ask). Windows that threw different errors each get theirs.
+ * <error>": each failed window by its kind, with its error. Windows that
+ * threw different errors each get theirs.
  */
 function failedStart(counts: WindowCounts, firstError: unknown): string {
   const head = `zenius's sidebar failed to start in ${counts.failed} of ${plural(counts.open, "window")}`;
@@ -1374,8 +1374,8 @@ function readIni(file: string): Map<string, Map<string, string>> | undefined {
 
 /**
  * What holds Codex in the sidebar: codexEnvironment's limits
- * (runtime/JS/agent-sidebar/workspace.sys.mjs, with ce1e535's), as zen-eval's
- * probes of Codex 0.169 found them. Code Mode's exec reaches nothing by
+ * (runtime/JS/agent-sidebar/workspace.sys.mjs), as probes of Codex 0.169
+ * found them. Code Mode's exec reaches nothing by
  * itself, and apply_patch can't write, but its check reads the target first
  * and says which case it found.
  */
@@ -1389,9 +1389,9 @@ const DNS_PREF = "network.dns.disableIPv6";
 
 /**
  * No IPv6 lookups in Zen is an install's option: scripts/install.sh
- * --disable-ipv6 (the user's choice for their own install, 2026-11-20; opt-in
- * since 77d83f5) puts network.dns.disableIPv6 true in the profile's user.js,
- * under a "// zenius" comment, and Zen applies user.js at each start. Without
+ * --disable-ipv6 (opt-in, for a network that has only IPv4) puts
+ * network.dns.disableIPv6 true in the profile's user.js, under a "// zenius"
+ * comment, and Zen applies user.js at each start. Without
  * the flag, install leaves user.js as it is, so false or unset is fine: only
  * zenius's line with the running value false is worth a warning. The running
  * Zen's value comes from browser.health; with Zen closed, or a runtime from
@@ -1451,7 +1451,7 @@ function dnsInUserJs(file: string): { value?: string; zenius: boolean } {
  * observe/pagecode.sys.mjs). zenius.agentTabs.pageCode is always (the
  * default), ask or never, and any other value acts as ask.
  * zenius.agentTabs.pageCodeSites lists the sites the user allowed. Only the
- * user sets them, so doctor reports them and never warns (the manager).
+ * user sets them, so doctor reports them and never warns.
  */
 function pageCodeCheck(profileDir: string | undefined): Check {
   const entry = check("pagecode", "agents' page code");

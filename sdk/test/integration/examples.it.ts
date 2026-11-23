@@ -271,7 +271,7 @@ const CHECKS: Record<string, Check> = {
   'console.log(await page.snapshot({ scope: "subtree", root: "@12" }));': {
     run: async (r, block) => {
       const { name, code } = opened("/framed");
-      // By id: the frame's own script holds the button's text too, which text= skipped only from 313fd3f on.
+      // By id: the frame's own script holds the button's text too, which an older runtime's text= doesn't skip.
       const first = ok(await r.script(`${code}await page.waitForSelector("#in-frame");\nconsole.log(await page.snapshot());`));
       const ref = /iframe \[ref=(\d+)\]/.exec(first.stdout)?.[1];
       assert.ok(ref, first.stdout);
@@ -508,7 +508,7 @@ console.log(JSON.stringify({ ...stored, refused }));${FINISH}`;
   // references/install.md: Codex's view of the Skill. It runs Codex, not
   // zenius, and sdk-it makes no Codex calls.
   "command codex debug prompt-input hi | grep -o -- '- zenius: [^\\]*'": {
-    skip: "runs Codex: checked by hand, offline, with a scratch CODEX_HOME (zen-sdk's report, 2026-11-20)",
+    skip: "runs Codex: checked by hand, offline, with a scratch CODEX_HOME",
   },
 
   // references/install.md: the release's installer. It downloads from
@@ -717,8 +717,8 @@ describe("the guide's lines on what a task's pages refuse", () => {
     }
   });
 
-  // zen-observe's 95c15a4 (A9): the sandbox's routes into the page's own
-  // JavaScript run there and mark the page hooked, instead of failing the call.
+  // The sandbox's routes into the page's own JavaScript run there and mark
+  // the page hooked, instead of failing the call.
   it("code you hand the page itself runs there, and the call doesn't fail", async () => {
     const says = "Code you hand the page itself (`<script>`, `eval()`, string timers) runs there";
     assert.ok(guideText().includes(says), `guide.md no longer says "${says}": update this probe`);
@@ -751,7 +751,7 @@ console.log(JSON.stringify({ ran }));`),
     try {
       // Within the task, Back restores A, mark and all; then the task keeps the tab on B.
       // Gecko caches a page only once its load has ended, and under load it
-      // can still skip one (sdk-it on the Linux server, 2026-11-20), so A gets 3 tries: a
+      // can still skip one (seen in sdk-it on Linux), so A gets 3 tries: a
       // miss in each means zenius empties the cache within a task.
       const left = lastJson(
         ok(

@@ -6,7 +6,7 @@
 import type { SidebarTask } from "../src/sidebar.ts";
 import { MockError, type MockRuntime } from "./mock-runtime.ts";
 
-/** A label's set since zen-observe's d444cbc, once trimmed; empty means none. */
+/** The characters a label may hold, as the runtime checks them, once trimmed; empty means none. */
 const LABEL = /^[A-Za-z0-9 _.\/:@#-]{0,80}$/;
 
 export class FakeSidebar {

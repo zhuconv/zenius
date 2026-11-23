@@ -158,7 +158,7 @@ console.log(await task.page("p1").snapshot());`);
       pagecode: "ok",
     });
     assert.match(report.checks.find((check) => check.id === "zen")!.summary, /\(from the running instance, pid \d+\)$/);
-    // I5, from the real runtime's browser.health.i5 (zen-observe, e3bd44a).
+    // I5, from the real runtime's browser.health.i5 (zen-observe's).
     assert.equal(
       report.checks.find((check) => check.id === "boundary")!.summary,
       "agents load only http:, https:, data:, blob: and about:blank; page gate on; self-tests refused about:config, file:/// and a browser document",

@@ -17,7 +17,7 @@ export type FilePayload = { name: string; mimeType: string; lastModified: number
 
 /** Playwright's limit for files sent to a remote browser; the runtime refuses more too. */
 export const UPLOAD_LIMIT_BYTES = 50 * 1024 * 1024;
-/** A folder upload's most files: the runtime writes each one to disk (docs/research/folder-uploads.md). */
+/** A folder upload's most files: the runtime writes each one to disk. */
 export const UPLOAD_LIMIT_FILES = 1000;
 // With the runtime's upload folder in front, these keep a path under the Mac's 1024 bytes.
 const SEGMENT_LIMIT_BYTES = 255;

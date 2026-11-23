@@ -584,7 +584,7 @@ describe("zenius doctor", () => {
     assert.equal(daily.status, "ok");
   });
 
-  it("says nothing of a leftover zenius.handoff.groupSwitch: the user's pass dropped the switch, so the pref does nothing", async () => {
+  it("says nothing of a leftover zenius.handoff.groupSwitch: the switch is gone, so the pref does nothing", async () => {
     const fixture = install();
     await run(fixture);
     writeFileSync(join(fixture.profile, "prefs.js"), 'user_pref("zenius.handoff.groupSwitch", true);\n');
@@ -959,7 +959,7 @@ process.stdin.setEncoding("utf8").on("data", (chunk) => {
 }
 
 const SIDEBAR_OK = { loaded: true, windows: 2, config: "found", configPath: "/Users/u/Library/Application Support/zenius-agent-sidebar/config.json" };
-/** The sidebar line's Codex part: Codex is on by default (the user's call, 2026-11-21). */
+/** The sidebar line's Codex part: Codex is on by default. */
 const CODEX_ON = "; Codex can run, within the limits below";
 const CODEX_LIMITS = [
   "Codex runs read-only: no shell, no writes, and no network outside zenius and its hosted web search, live in Work and cached in Chat. Its sub-agents are off, and the sidebar refuses every approval it asks for.",
@@ -1216,7 +1216,7 @@ describe("zenius doctor's sidebar check", () => {
       assert.deepEqual(sidebar.details, CODEX_LIMITS);
     });
 
-    it("names each failed window's kind and its error (the manager's ask)", async () => {
+    it("names each failed window's kind and its error", async () => {
       const fixture = install();
       installSidebar(fixture);
       const mock = await run(fixture, { sidebar: SIDEBAR_OK });
@@ -1247,7 +1247,7 @@ describe("zenius doctor's sidebar check", () => {
       }
     });
 
-    it("counts a popup's failed start nowhere, as from a sidebar file before 6646a6c", async () => {
+    it("counts a popup's failed start nowhere, as an older sidebar file still reports one", async () => {
       const fixture = install();
       installSidebar(fixture);
       await run(fixture, { sidebar: counted([{ kind: "browser", sidebar: "started" }, { kind: "popup", sidebar: "failed", error: GBROWSER }]) });

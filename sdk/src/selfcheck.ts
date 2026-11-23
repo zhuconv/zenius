@@ -1,7 +1,7 @@
-// `zenius selfcheck [--instance <name>]`: the post-install self-check's front
-// (docs/research/selfcheck.md, zen-core's design). The runtime runs the
-// update's step-6 checks in a window of its own, with a mock agent, and
-// answers with each check's result and the folder of its shots.
+// `zenius selfcheck [--instance <name>]`: the post-install self-check's
+// front. The runtime runs its checks of the agent sidebar in a window of its
+// own, with a mock agent, and answers with each check's result and the
+// folder of its shots.
 //
 // The runtime serves it on a socket of its own,
 // <ZENIUS_HOME or ~/.zenius>/selfcheck/<instance>.sock, which zenius's
@@ -41,7 +41,7 @@ from the user's own shell, outside zenius's sandbox.
 
 export type SelfcheckCheck = { id?: unknown; title?: unknown; ok?: unknown; failedStep?: unknown; error?: unknown; shots?: unknown };
 
-/** selfcheck.run's answer (docs/research/selfcheck.md, "The entry and its CLI front"). */
+/** selfcheck.run's answer, as the runtime sends it. */
 export type SelfcheckResult = {
   ok?: unknown;
   timedOut?: unknown;
@@ -163,8 +163,8 @@ export function failureText(
   const errno = typeof error.data?.errno === "string" ? error.data.errno : undefined;
   if (errno !== undefined) {
     // No path here: no one who can use it reads this message, and it would
-    // show an agent whose harness reaches Unix sockets what to try
-    // (zen-observe's review). The relay, outside, gets the path below.
+    // show an agent whose harness reaches Unix sockets what to try. A caller
+    // outside the sandbox gets the path below.
     if (sandboxed || errno === "EPERM" || errno === "EACCES") {
       return (
         `this process can't reach the self-check (${errno}). ` +

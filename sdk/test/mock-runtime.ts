@@ -488,8 +488,8 @@ export class MockRuntime {
         if (params.group !== undefined && typeof params.group !== "boolean") {
           throw new MockError("ZEN_INVALID_ARGUMENT", "pages.release group must be a boolean");
         }
-        // Closed groups (zen-core's 6b285a3): an opener and its popups share a
-        // window group, and go to the user together or not at all.
+        // Closed groups, as the runtime keeps them: an opener and its popups
+        // share a window group, and go to the user together or not at all.
         const mates = groupMates(space, page);
         if (mates.length && params.group !== true) {
           const labels = mates.map((mate) => mate.label!);

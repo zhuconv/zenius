@@ -1,6 +1,6 @@
 // Instance names (src/instance.ts): only what the launcher takes, so no name
 // leaves the folder it's joined to, and `--instance ../selfcheck/default`
-// can't make the agents' socket the self-check's (zen-observe's review).
+// can't make the agents' socket the self-check's.
 
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";

@@ -269,7 +269,7 @@ describe("globals", () => {
       }
     }));
 
-  // The sidebar lists every zenius task by its source (docs/briefs/external-tasks.md).
+  // The sidebar lists every zenius task by its source.
   // zen-core keeps each field that fits the label set and drops the rest, so a
   // task always starts; the SDK fits them first, so nothing useful is dropped.
   it("taskSource names the hc terminal, the agent's kind and the folder's name, fitted to the label set, and never a path", () => {
@@ -609,8 +609,8 @@ describe("Page", () => {
       assert.deepEqual(refused.map((event) => [event.params.kind, event.params.url]), [["print", "http://127.0.0.1/x"]]);
     }));
 
-  // The agent's own evidence for zenius's defenses (docs/briefs/defenses-evidence.md,
-  // "Flagged"): zen-core's page.flag marks the page's current document.
+  // The agent's own evidence for zenius's defenses: zen-core's page.flag marks
+  // the page's current document as flagged.
   it("flag(reason) asks zenius to guard the page, sends only the reason, and leaves its rules to the runtime", () =>
     withMock(async ({ mock }) => {
       mock.handle("page.flag", () => ({ ok: true }));

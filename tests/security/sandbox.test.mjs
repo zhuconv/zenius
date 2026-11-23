@@ -8,8 +8,7 @@
 // (never ~/.local/bin or ~/.zenius/cli) and names it in
 // ZENIUS_SECURITY_LAUNCHER. The post-install self-check's socket is one of
 // the sockets out of reach: neither a script nor `zenius selfcheck` through
-// the launcher reaches it, and `zenius mcp` offers no tool for it
-// (docs/research/selfcheck.md).
+// the launcher reaches it, and `zenius mcp` offers no tool for it.
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -98,7 +97,7 @@ before(async () => {
   rmSync(sibling, { force: true });
   await listen("a socket beside the instance's", sibling);
   cleanups.push(() => rmSync(sibling, { force: true }));
-  // The self-check's socket, beside run/ (docs/research/selfcheck.md): only a
+  // The self-check's socket, beside run/: only a
   // caller outside the sandbox may reach it. The runtime serves it once it has
   // the self-check; until then, or until it opens it, a stand-in listens at
   // its place. The stand-in binds under a name of its own and is renamed into
@@ -599,8 +598,8 @@ console.log(JSON.stringify(out));
   assert.deepEqual(got, []);
 });
 
-// install-cli.sh --sandbox --read-dir, the user's ~/Downloads (D4 in
-// docs/briefs/defenses-evidence.md); run.sh installs with a folder of its own.
+// install-cli.sh --sandbox --read-dir, for a folder uploads come from, such
+// as ~/Downloads; run.sh installs with a folder of its own.
 test("a script reads and uploads from the install's read folder, writes nothing there, and can't upload a link in it to a file outside", async () => {
   const reads = launcherValue("READ_DIR");
   assert.ok(reads, "run.sh installs the launcher with --read-dir");
@@ -724,10 +723,10 @@ test("the launcher passes the claim prompt's label for the agent, and none of th
   assert.deepEqual(got, []);
 });
 
-// The task's source for the sidebar (docs/briefs/external-tasks.md): display
-// text the runtime keeps only within its label set, and the sidebar's own
-// conversation id (ZENIUS_SIDEBAR_TASK, which the sidebar's zenius mcp gets),
-// passed exactly or not at all.
+// The task's source for the sidebar: display text the runtime keeps only
+// within its label set, and the sidebar's own conversation id
+// (ZENIUS_SIDEBAR_TASK, which the sidebar's zenius mcp gets), passed exactly
+// or not at all.
 test("the launcher passes the task's source: a plain HC_TERMINAL_ID, a plain ZENIUS_SIDEBAR_TASK, and the working folder's name even when it isn't granted", async () => {
   const probe = `console.log(JSON.stringify({ terminal: process.env.HC_TERMINAL_ID ?? null, sidebar: process.env.ZENIUS_SIDEBAR_TASK ?? null, folder: process.env.ZENIUS_FOLDER ?? null, cwd: process.cwd() }));`;
   const uid = "3f2c9a10-7b4e-4c1d-9a2f-0e5d6c7b8a91";
@@ -781,7 +780,7 @@ test("zenius selfcheck through the launcher can't reach the self-check, says it 
   assert.equal(result.code, 2, `${result.stdout}\n${result.stderr}`);
   assert.equal(result.stdout, "");
   // The code is the sandbox's refusal. No path: it would show an agent whose
-  // harness reaches Unix sockets what to try (zen-observe's review).
+  // harness reaches Unix sockets what to try.
   assert.match(
     result.stderr,
     /^zenius selfcheck: this process can't reach the self-check \([A-Z_]+\)\. The self-check runs only from the user's own shell, outside zenius's sandbox \(install-daily\.md, step 6\)\.\n$/,

@@ -98,12 +98,12 @@ describe("the usage guide", () => {
     assert.match(ALL, /never switches the user's Space or tab/);
     assert.match(ALL, /watch your cursor/);
     const control = section(ALL, "User control");
-    // zen-ux's approved text (docs/research/ux.md §7a) and the ignored-prompt rule.
+    // The guide's words for the takeover prompt, and the ignored-prompt rule.
     assert.match(control, /pauses your next browser action and asks them whether to take over/);
     assert.match(control, /only clicked and leave the question unanswered for 10 seconds, the action runs/);
     assert.match(control, /type into the page and leave the question unanswered, the call fails with `ZEN_TASK_SPACE_USER_IN_CONTROL` and reason `manual_takeover`/);
     assert.match(control, /resume with `takeOverTaskSpace\(id\)`/);
-    // After the flip (1e32f75) the badge is the Agents Space's (SPEC §3.8 "The badge").
+    // The badge is the Agents Space's (SPEC §3.8 "The badge").
     assert.match(control, /`handOff\(\)` badges the Agents Space[^\n]*nothing notifies the user outside the browser/);
   });
 

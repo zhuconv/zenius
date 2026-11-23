@@ -23,8 +23,7 @@ export type CodeGuide = {
   owned?: boolean;
   /**
    * Left out of help("errors") and help("<code>"), which agents read: only
-   * `zenius selfcheck` meets the code, and agents never run it
-   * (docs/research/selfcheck.md).
+   * `zenius selfcheck` meets the code, and agents never run it.
    */
   unlisted?: boolean;
   /** Sent as a plain Error without a code, as Ego throws it: scripts see only the message. */
@@ -306,8 +305,8 @@ const DOWNLOAD_NEXT =
 
 /**
  * A dialog that opened during the call stopped it there: what the call did
- * before took effect, and nothing after (zen-input's de3560c). A select's
- * choice may be made with its change event unsent.
+ * before took effect, and nothing after. A select's choice may be made with
+ * its change event unsent.
  */
 const DIALOG_DURING_NEXT =
   "What the call did before the dialog opened took effect: after you handle it, check the page with snapshot() before you repeat anything.";
@@ -344,9 +343,9 @@ const STILL_THE_USERS =
 const EVIDENCE =
   "a page with evidence (your code wrote into it, you opened it as a data: or blob: page, a phishing or malware list names its site, or you flagged it)";
 
-// The manager's prompt decision (2026-11-21): with no location, sites ask for
-// a typed place. A device is the user's during their hold, unless the page
-// shows evidence (A8, with zen-observe's C).
+// With no location, sites ask for a typed place. A device is the user's
+// during their hold, unless the page shows evidence (docs/PROTOCOL.md,
+// "Permission prompts in a task's pages").
 const DEVICE_NEXT =
   "For the location, sites then ask for a typed place (a city or postcode): type it, or ask the user for it. If the task needs a device, hand the task to the user with task.handOff({ message }) saying what for: the page asks them during their hold, unless the message names evidence; then tell the user it works in their own tab.";
 

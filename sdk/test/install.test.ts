@@ -438,7 +438,7 @@ describe("scripts/install-cli.sh --sandbox", () => {
     }
   });
 
-  // The user's D4 (docs/briefs/defenses-evidence.md): ~/Downloads, for uploads.
+  // --read-dir: one more folder scripts may read, such as ~/Downloads, for uploads.
   it("lets scripts read the folder --read-dir names, keeps it, drops it with none, and refuses one wider than a task's", { skip }, () => {
     const home = scratch("zenius-install-");
     const real = realpathSync(home);

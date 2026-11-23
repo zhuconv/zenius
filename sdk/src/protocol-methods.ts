@@ -63,9 +63,9 @@ export const RUNTIME_METHODS: Readonly<Record<string, readonly string[]>> = {
 };
 
 /**
- * Methods the SDK calls on another socket than the agents': the self-check's
- * (docs/research/selfcheck.md), which the agents' socket never lists. So
- * they stay out of RUNTIME_METHODS, which is compared with browser.methods.
+ * Methods the SDK calls on another socket than the agents': the self-check's,
+ * which the agents' socket never lists. So they stay out of RUNTIME_METHODS,
+ * which is compared with browser.methods.
  */
 export const SELFCHECK_METHODS: Readonly<Record<string, readonly string[]>> = {
   "selfcheck.run": ["zenius selfcheck"],

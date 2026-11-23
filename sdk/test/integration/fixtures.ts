@@ -83,7 +83,7 @@ export const FIXTURE_PAGES: Record<string, string> = {
 <button id="pick" onclick="document.querySelector('#hidden').click()">pick a file</button>`,
   ),
 
-  // Folder uploads (input-gaps 24): an input with webkitdirectory, and a
+  // Folder uploads: an input with webkitdirectory, and a
   // hidden one whose folder chooser a button opens.
   "/folders": page(
     "sdk folders",

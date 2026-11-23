@@ -11,7 +11,7 @@ import { fs, os, path } from "./node.ts";
  * Instance names as the launcher takes them (sdk/sandbox/launcher.sh): with no
  * '/', no name leaves the folder it's joined to, run/, instances/ or
  * selfcheck/. So `--instance ../selfcheck/default` can't turn the agents'
- * socket into the self-check's (zen-observe's review of the self-check).
+ * socket into the self-check's.
  */
 const INSTANCE_NAME = /^[A-Za-z0-9._-]+$/;
 
@@ -78,9 +78,9 @@ export function socketPath(name: string, env: NodeJS.ProcessEnv = process.env): 
 }
 
 /**
- * The self-check's socket (docs/research/selfcheck.md), from the name alone:
- * never ZENIUS_SOCKET or the registry's path, and outside run/, of which
- * zenius's sandbox reaches only the one socket.
+ * The self-check's socket, from the name alone: never ZENIUS_SOCKET or the
+ * registry's path, and outside run/, of which zenius's sandbox reaches only
+ * the one socket.
  */
 export function selfcheckSocket(name: string, env: NodeJS.ProcessEnv = process.env): string {
   return path.join(zeniusHome(env), "selfcheck", `${checkedName(name)}.sock`);

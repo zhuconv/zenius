@@ -1,8 +1,7 @@
-// Commands a build adds through src/extensions/ (src/commands.ts). The cases
-// build a copy of the SDK with a fixture extension of their own, so they run
-// the same in the public export, which leaves the repo's own extension out
-// (remote-bridge.test.ts covers that one). A build without the folder, as the
-// public export's, has no trace of one: no usage line, no command, no import.
+// Commands a build adds through src/extensions/ (src/commands.ts). This repo
+// ships no extension, so the cases build a copy of the SDK with a fixture
+// extension of their own. A build without the folder, as this repo's, has no
+// trace of one: no usage line, no command, no import.
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -20,7 +19,7 @@ after(() => {
   for (const dir of temporary) rmSync(dir, { recursive: true, force: true });
 });
 
-/** A copy of the SDK's sources without the repo's src/extensions, and the skill's guide the build bundles. */
+/** A copy of the SDK's sources without any src/extensions, and the skill's guide the build bundles. */
 function copySdk(): { work: string; sdk: string } {
   const work = mkdtempSync(join(tmpdir(), "zenius-extensions-"));
   temporary.push(work);
@@ -77,7 +76,7 @@ describe("commands a build adds (src/extensions/)", () => {
     }
   });
 
-  it("leave no trace in a build without src/extensions, as the public export's", () => {
+  it("leave no trace in a build without src/extensions, as this repo's", () => {
     const { work, sdk } = copySdk();
     assert.doesNotMatch(build(sdk), /zenius remote|remote-bridge/);
 

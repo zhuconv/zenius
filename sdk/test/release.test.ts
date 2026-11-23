@@ -143,8 +143,8 @@ function machine(options: { app?: boolean; loader?: boolean } = {}) {
 }
 
 /**
- * The release's installer for a package with the sidebar's agents. Until
- * zen-ux's runtime/agents lands, that's a copy of the package with two
+ * The release's installer for a package with the sidebar's agents: the
+ * package itself when it holds runtime/agents, else a copy of it with two
  * stand-in files, and an installer with that copy's SHA-256.
  */
 let agentsRelease: { script: string; url: string } | undefined;

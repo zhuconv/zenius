@@ -98,7 +98,7 @@ describe("help(\"errors\")", () => {
     for (const [code, guide] of Object.entries(CODE_GUIDE)) {
       assert.ok(guide.what.length > 0 && guide.next.length > 0);
       if (guide.unlisted) {
-        // Only `zenius selfcheck` meets these, and agents never run it (docs/research/selfcheck.md).
+        // Only `zenius selfcheck` meets these, and agents never run it.
         assert.doesNotMatch(text, new RegExp(`^${code}\\b`, "m"), code);
         assert.equal(codeHelp(code), undefined, code);
         continue;
@@ -157,7 +157,7 @@ describe("an error's message", () => {
     const stop = fromWireError({ code: "ZEN_TASK_SPACE_INACTIVE", message: "ended" }, "page.click", false);
     assert.match(stop.message, /^page\.click: This task space is no longer assigned to the agent/);
     assert.ok(!stop.message.includes("A hard stop"), "Ego's own wording only");
-    // The user's Stop in Zen (docs/briefs/external-tasks.md) says so, still a hard stop;
+    // The user's Stop in Zen says so, still a hard stop;
     // the agent's own finish() and a closed last tab keep Ego's words.
     for (const reason of ["finished", "closed", undefined]) {
       const ended = fromWireError({ code: "ZEN_TASK_SPACE_INACTIVE", message: "ended", data: { reason } }, "page.click", false);
@@ -224,7 +224,7 @@ describe("an error's message", () => {
     assert.match(group.message, /task\.newPage\(\)/);
   });
 
-  it("describes no pageWorld refusal: since zen-observe's 95c15a4, code the agent hands the page runs there", () => {
+  it("describes no pageWorld refusal: code the agent hands the page runs there", () => {
     assert.doesNotMatch(CODE_GUIDE.ZEN_AGENT_CODE_REFUSED!.what, /pageWorld|script element|\beval\b|string timer/);
     const error = fromWireError({ code: "ZEN_AGENT_CODE_REFUSED", message: "page.evaluate: refused.", data: { method: "page.evaluate", page: "p1", reason: "pageWorld" } }, "page.evaluate");
     assert.doesNotMatch(error.message, /Each route has a form that stays in your function/);

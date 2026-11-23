@@ -39,8 +39,7 @@ that copy, and with `--skill`, links `~/.claude/skills/zenius` and
 `~/.agents/skills/zenius` to the copy's Skill. Since the copy has no sources,
 it always runs its bundle: it needs only Node 22.3 or later, and a pull or
 an edit in the checkout doesn't change it. Rerun the script to update the
-copy. `--uninstall` removes the copy and the links. On the user's Mac the
-script runs only when the manager says so.
+copy. `--uninstall` removes the copy and the links.
 
 `zenius doctor` checks a setup against the layout `scripts/install.sh`
 writes (SPI.md "Install layout"):

@@ -1,8 +1,7 @@
-// `zenius selfcheck`, the post-install self-check's front (src/selfcheck.ts,
-// docs/research/selfcheck.md): the socket it reaches and the one it never
-// does, the wait for Zen to be in the background, what it prints, and its
-// exit codes. That the sandbox can't reach the self-check's socket is
-// tests/security/sandbox.test.mjs's canary.
+// `zenius selfcheck`, the post-install self-check's front (src/selfcheck.ts):
+// the socket it reaches and the one it never does, the wait for Zen to be in
+// the background, what it prints, and its exit codes. That the sandbox can't
+// reach the self-check's socket is tests/security/sandbox.test.mjs's canary.
 
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
@@ -164,7 +163,7 @@ describe("zenius selfcheck", () => {
     assert.match(text, /\n1 of 1 checks failed in 41\.2 s: the run stopped at its time limit; the run failed \(Error: late\)\.\n/);
     // An error makes no pass, whatever ok says.
     assert.equal(formatResult({ ...passing(), error: "Error: late" }, "default").code, 1);
-    // Through the command, as the relay sees it.
+    // Through the command, as a caller outside the sandbox sees it.
     await withSelfcheck("default", () => ({ ok: false, timedOut: false, ms: 1500, error: "Error: the window didn't open", checks: [] }), async () => {
       const result = await selfcheck();
       assert.equal(result.code, 2, result.stderr);
@@ -197,7 +196,7 @@ describe("zenius selfcheck", () => {
     assert.equal(failureText(blocked("EPERM"), socket, "default", { sandboxed: true }), expected.replace("ENOENT", "EPERM"));
     // Another sandbox around a shell (Codex's, with its network off) refuses it the same way.
     assert.equal(failureText(blocked("EPERM"), socket, "default", { sandboxed: false }), expected.replace("ENOENT", "EPERM"));
-    // No path either: it would show an agent whose harness reaches Unix sockets what to try (zen-observe's review).
+    // No path either: it would show an agent whose harness reaches Unix sockets what to try.
     for (const errno of ["ENOENT", "EPERM", "EACCES", "ECONNREFUSED"]) {
       const text = failureText(blocked(errno), socket, "default", { sandboxed: true });
       assert.doesNotMatch(text, COMMAND);

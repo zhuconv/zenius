@@ -1,7 +1,7 @@
-// Folder uploads, the SDK half (input-gaps 24; docs/research/folder-uploads.md,
-// agreed with zen-input): the CLI walks the folder with lstat, never follows a
-// link, makes the runtime's checks before reading, and reads each file only if
-// it is still the one the walk saw.
+// Folder uploads, the SDK half (the runtime half is zen-input's): the CLI
+// walks the folder with lstat, never follows a link, makes the runtime's
+// checks before reading, and reads each file only if it is still the one the
+// walk saw.
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";

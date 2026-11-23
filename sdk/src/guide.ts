@@ -21,9 +21,8 @@ export const GUIDE_PLATFORMS = ["macos", "linux"] as const;
 export type GuidePlatform = (typeof GUIDE_PLATFORMS)[number];
 /**
  * Claude Code keeps 30,000 characters of command output, and the cap leaves
- * 4,500 of them as headroom. The manager raised it from 25,000 for the
- * hand-off rules after a real-use bug (2026-11-21); make room by tightening
- * before asking to raise it again.
+ * 4,500 of them as headroom. It was raised from 25,000 for the hand-off
+ * rules; make room by tightening before raising it again.
  */
 export const MAX_GUIDE_LENGTH = 25_500;
 
