@@ -20,7 +20,8 @@
  * Prefs: uc.agent-sidebar.shortcut ("accel,shift+A"; Zen's own key for it is
  *        switched off while the script runs),
  *        uc.agent-sidebar.max-page-chars (120000),
- *        uc.agent-sidebar.default-question;
+ *        uc.agent-sidebar.default-question (what a selection or files sent
+ *        with nothing typed ask; unset, a question in Zen's UI language);
  *        AgentService.sys.mjs reads the others.
  */
 (function agentSidebar() {
@@ -1088,8 +1089,16 @@
           openWebLinkIn(url, "tab");
         }
       },
+      // What a selection or files sent with nothing typed ask: the pref, else
+      // a question in Zen's UI language, Chinese for a Chinese UI and English
+      // for any other. An empty pref counts as unset.
       defaultQuestion() {
-        return Services.prefs.getStringPref("uc.agent-sidebar.default-question", "解释一下这段内容。");
+        const own = Services.prefs.getStringPref("uc.agent-sidebar.default-question", "").trim();
+        if (own) {
+          return own;
+        }
+        const chinese = /^zh(-|$)/i.test(Services.locale.appLocaleAsBCP47);
+        return chinese ? "解释一下这段内容。" : "Explain this.";
       },
       get panel() {
         return panel;

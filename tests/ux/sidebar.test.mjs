@@ -8380,6 +8380,98 @@ test("a file a closed sidebar was still reading doesn't hold up the next send: E
   assert.notEqual(out.hint, "Reading the files…", "nothing left waiting on the file");
 });
 
+// What a selection or files sent with nothing typed ask follows Zen's UI
+// language: the Chinese question for a Chinese UI, English for any other.
+// uc.agent-sidebar.default-question overrides both, which is how an English
+// UI keeps the Chinese question.
+const ZH_QUESTION = "解释一下这段内容。";
+
+test("a selection sent with nothing typed asks in Zen's UI language: English on an English or French UI, the Chinese question on a Chinese one; uc.agent-sidebar.default-question overrides both, and an empty one counts as unset", async () => {
+  await useMock();
+  const out = await chrome(
+    `
+    ${DRAFT_SCENE}
+    const PREF = "uc.agent-sidebar.default-question";
+    const REQUESTED = "intl.locale.requested";
+    const L = Services.locale;
+    const available = L.availableLocales;
+    const requested = Services.prefs.prefHasUserValue(REQUESTED) ? Services.prefs.getCharPref(REQUESTED) : null;
+    // Zen's UI in a language, as a language pack and the Language setting
+    // make it: what was asked for, what the UI is in, and the question.
+    const ui = locale => {
+      L.availableLocales = [...new Set([...available, locale])];
+      L.requestedLocales = [locale];
+      return [locale, L.appLocaleAsBCP47, g.defaultQuestion()];
+    };
+    await S.openPanel();
+    g.setMode("work");
+    const task = seeded("Default question " + arg.run);
+    // Enter on an empty box, a selection in the composer.
+    const send = async selection => {
+      await until(() => !task.busy, "the last turn's end", 10000);
+      task.draft = { text: "", selection, attachments: [] };
+      g.showTask(task);
+      await until(() => V.conv() === task && V.$("input"), "the task in the panel");
+      V.send("");
+      const mine = m => m.role === "user" && m.selection === selection;
+      await until(() => task.messages.some(mine), "the message with " + selection);
+      return task.messages.find(mine).text;
+    };
+    try {
+      const res = { ui: L.appLocaleAsBCP47 };
+      res.sent = await send("Selected words " + arg.run);
+      Services.prefs.setStringPref(PREF, arg.ZH);
+      res.kept = await send("More selected words " + arg.run);
+      // A new UI language reloads an open sidebar, so the panel stays closed
+      // while the language changes; the glue answers without it.
+      win.SidebarController.hide();
+      Services.prefs.clearUserPref(PREF);
+      res.uis = ["zh-CN", "zh-TW", "fr", "en-US"].map(ui);
+      res.prefs = [];
+      for (const [locale, value] of [["zh-CN", "Summarize this."], ["en-US", " "], ["en-US", ""]]) {
+        Services.prefs.setStringPref(PREF, value);
+        res.prefs.push([value, ...ui(locale)]);
+      }
+      return res;
+    } finally {
+      Services.prefs.clearUserPref(PREF);
+      L.availableLocales = available;
+      if (requested === null) {
+        Services.prefs.clearUserPref(REQUESTED);
+      } else {
+        Services.prefs.setCharPref(REQUESTED, requested);
+      }
+      A.removeTask(task);
+      await S.openPanel().catch(() => {});
+    }
+  `,
+    { run, ZH: ZH_QUESTION }
+  );
+  const all = JSON.stringify(out);
+  assert.equal(out.ui, "en-US", `the test's Zen has an English UI: ${all}`);
+  assert.equal(out.sent, "Explain this.", `Enter under a selection, with nothing typed, asks in English: ${all}`);
+  assert.deepEqual(
+    out.uis,
+    [
+      ["zh-CN", "zh-CN", ZH_QUESTION],
+      ["zh-TW", "zh-TW", ZH_QUESTION],
+      ["fr", "fr", "Explain this."],
+      ["en-US", "en-US", "Explain this."],
+    ],
+    "the question follows Zen's UI language: Chinese for any Chinese UI, English for any other"
+  );
+  assert.equal(out.kept, ZH_QUESTION, `with the pref set to the Chinese question, the English UI asks it: ${all}`);
+  assert.deepEqual(
+    out.prefs,
+    [
+      ["Summarize this.", "zh-CN", "zh-CN", "Summarize this."],
+      [" ", "en-US", "en-US", "Explain this."],
+      ["", "en-US", "en-US", "Explain this."],
+    ],
+    "the pref overrides the UI's language, and an empty one counts as unset"
+  );
+});
+
 // Another window on the same task: only the panel that read a file drew it
 // again as the read ended, so another window's sidebar on that task said
 // "Reading…" until something else drew its files.

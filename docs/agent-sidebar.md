@@ -573,6 +573,9 @@ Firefox's Actions restrict token and shows no row.
   for the built-in agents alone, the tests'), `uc.agent-sidebar.harness`
   (the agent the user picked),
   `uc.agent-sidebar.shortcut`, `uc.agent-sidebar.max-page-chars`,
+  `uc.agent-sidebar.default-question` (what a selection or files sent with
+  nothing typed ask; unset or empty, "Explain this.", or the same question
+  in Chinese when Zen's UI is in Chinese),
   `uc.agent-sidebar.debug`, `uc.agent-sidebar.width` (the panel's width as
   the user last dragged it, in px; 420 until then; the box takes it as the
   browser shows the panel, before its first paint, with the panel's look).
