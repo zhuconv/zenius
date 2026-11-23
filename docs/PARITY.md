@@ -12,17 +12,17 @@ While zenius's methods are still landing, a case fails at its first missing meth
 |---|---|---|---|---|
 | `profiles` | TaskSpace profile selection | pass (1/1) | pass (1/1) |  |
 | `listTaskSpaces` | task spaces and control; TaskSpace profile selection; zen-eval: v2 control lifecycle | pass (2/2) | pass (2/2) | A user workspace no agent has claimed lists an empty recentTabTitles, and keeps its name. Tasks and claimed workspaces, current or ended, keep their titles; Ego lists them for every space. In the daily browser those titles are the user's private tabs (mail, bank, health), which would otherwise reach the model provider. |
-| `taskSpace` | task spaces and control; TaskSpace profile selection; v2 cross-space routing; page labels: create; +73 more | 55 pass, 10 flaky, 3 fail of 68 | pass (69/69) |  |
+| `taskSpace` | task spaces and control; TaskSpace profile selection; v2 cross-space routing; page labels: create; +73 more | 55 pass, 10 flaky, 3 fail of 68 | pass (71/71) |  |
 | `claimTaskSpace` | task spaces and control; zen-eval: v2 control lifecycle | pass (1/1) | pass (1/1) | A claim of one of the user's Spaces, or of an ended task, waits up to 10 minutes for the user's Allow in the browser; Deny or no answer fails it with ZEN_TASK_SPACE_CLAIM_DENIED. A claim of the agent's own task asks no one. Ego shows no prompt and relies on the agent asking in chat. |
 | `takeOverTaskSpace` | task spaces and control; zen-eval: v2 control lifecycle | pass (1/1) | pass (1/1) | Fails with ZEN_TASK_SPACE_USER_IN_CONTROL until 10 s after the user's last real input in the task's tabs, so an agent can't take a task back while the user types. Ego takes it back at once. Like the user's Resume agent, it first empties the password, card and code fields the user typed in, loading those pages afresh (The hand-off and the hold, below). |
 | `TaskSpace.spaceId` | task spaces and control; TaskSpace profile selection; page labels: create; page actions and popup adoption; +4 more | 6 pass, 1 fail of 7 | pass (7/7) |  |
-| `TaskSpace.name` | environment initialization; task spaces and control; TaskSpace profile selection; observation helpers; +7 more | 3 pass, 1 flaky, 1 fail of 5 | pass (5/5) |  |
+| `TaskSpace.name` | environment initialization; task spaces and control; TaskSpace profile selection; observation helpers; +7 more | 3 pass, 1 flaky, 1 fail of 5 | pass (6/6) |  |
 | `TaskSpace.ownership` | task spaces and control; zen-eval: v2 control lifecycle | pass (1/1) | pass (1/1) |  |
 | `TaskSpace.page` | task spaces and control; TaskSpace profile selection; v2 cross-space routing; page labels: restore and reuse; +18 more | 15 pass, 3 flaky, 1 fail of 19 | pass (20/20) |  |
 | `TaskSpace.userPage` | task spaces and control; zen-eval: v2 control lifecycle | pass (1/1) | pass (1/1) |  |
 | `TaskSpace.pages` | page labels: create | pass (1/1) | pass (1/1) |  |
 | `TaskSpace.tabs` | task spaces and control; TaskSpace profile selection; page labels: create; page labels: close and do not reuse; +4 more | 6 pass, 1 fail of 7 | pass (7/7) | Doesn't re-adopt an untracked tab by its opener. zenius registers popups as their tabs open, so none is missed, and adopting by opener alone could claim a tab the user opened from an agent page, which finish() would then close. |
-| `TaskSpace.newPage` | task spaces and control; page labels: create; page labels: close and do not reuse; page labels: persist before hard stop; +60 more | 43 pass, 9 flaky, 3 fail of 55 | pass (56/56) |  |
+| `TaskSpace.newPage` | task spaces and control; page labels: create; page labels: close and do not reuse; page labels: persist before hard stop; +60 more | 43 pass, 9 flaky, 3 fail of 55 | pass (58/58) |  |
 | `TaskSpace.adopt` | page adoption and release; zen-eval: v2 control lifecycle | pass (2/2) | pass (2/2) |  |
 | `TaskSpace.release` | page adoption and release | pass (1/1) | pass (1/1) |  |
 | `TaskSpace.waitForControl` | task spaces and control; zen-eval: v2 control lifecycle | pass (1/1) | pass (1/1) | The first waitForControl or takeOver after the user's hold reports, once, in task.handBack: reloaded lists the Pages zenius loaded afresh since the agent last had control, so the agent looks at them again; rarely, openerCut says the page the user held lost its opener, so a sign-in popup's report never reached the agent's Page. Ego reports nothing on hand back (The hand-off and the hold, below). |
@@ -33,7 +33,7 @@ While zenius's methods are still landing, a case fails at its first missing meth
 | `Page.spaceId` | task spaces and control; TaskSpace profile selection; page labels: create; page actions and popup adoption; +4 more | 6 pass, 1 fail of 7 | pass (7/7) |  |
 | `Page.openedBy` | task spaces and control; TaskSpace profile selection; page labels: create; page adoption and release; +1 more | 3 pass, 1 fail of 4 | pass (4/4) |  |
 | `Page.targetId` | environment initialization; TaskSpace profile selection; navigation helpers; target-scoped event isolation; +19 more | 15 pass, 3 flaky, 2 fail of 20 | pass (20/20) | An opaque zenius tab id, not a CDP target id. |
-| `Page.goto` | task spaces and control; TaskSpace profile selection; v2 cross-space routing; page labels: create; +66 more | 49 pass, 9 flaky, 3 fail of 61 | pass (62/62) |  |
+| `Page.goto` | task spaces and control; TaskSpace profile selection; v2 cross-space routing; page labels: create; +66 more | 49 pass, 9 flaky, 3 fail of 61 | pass (64/64) |  |
 | `Page.reload` | Page load states; Page API alignment | 1 pass, 1 flaky of 2 | pass (2/2) |  |
 | `Page.snapshot` | page labels: create; page labels: restore and reuse; page labels: close and do not reuse; page labels: restore after hard stop; +28 more | 26 pass, 3 flaky, 1 fail of 30 | pass (31/31) | A ref'd button, ARIA link or href-less anchor that would print with no name takes its accessible name (hidden text, else its title), as in pdf.js's toolbar: button "Download". Ego prints those nameless. Links with href keep Ego's form. |
 | `Page.screenshot` | page basic operations; Page drag and canvas drawing; Page JavaScript dialog handling; Page media playback; +5 more | 7 pass, 1 flaky, 1 fail of 9 | pass (9/9) |  |
@@ -48,31 +48,31 @@ While zenius's methods are still landing, a case fails at its first missing meth
 | `Download.failure` | Page download lifecycle; Concurrent TaskSpace downloads; Page Chromium PDF viewer download; zen-eval: pdf.js viewer download | pass (2/2) | pass (3/3) |  |
 | `Download.cancel` | none | no counted case | no counted case |  |
 | `Download.delete` | Page download lifecycle; Concurrent TaskSpace downloads; Concurrent Page downloads: slow response; Page Chromium PDF viewer download; +3 more | 3 pass, 2 flaky of 5 | pass (6/6) |  |
-| `Page.waitForTimeout` | page basic operations; Page JavaScript dialog handling; Page refs across rounds: resume; Page Chromium PDF viewer download; +5 more | 3 pass, 1 flaky, 1 fail of 5 | pass (6/6) |  |
+| `Page.waitForTimeout` | page basic operations; Page JavaScript dialog handling; Page refs across rounds: resume; Page Chromium PDF viewer download; +5 more | 3 pass, 1 flaky, 1 fail of 5 | pass (7/7) |  |
 | `Page.title` | TaskSpace profile selection; page basic operations | 1 pass, 1 fail of 2 | pass (2/2) |  |
 | `Page.info` | v2 cross-space routing; page basic operations | 1 pass, 1 fail of 2 | pass (2/2) |  |
 | `Page.acceptDialog` | Page JavaScript dialog handling | 1 flaky of 1 | pass (1/1) |  |
 | `Page.dismissDialog` | Page JavaScript dialog handling | 1 flaky of 1 | pass (1/1) |  |
-| `Page.evaluate` | page labels: restore and reuse; page basic operations; page complex evaluate; page fetch; +51 more | 37 pass, 10 flaky, 3 fail of 50 | pass (50/50) |  |
+| `Page.evaluate` | page labels: restore and reuse; page basic operations; page complex evaluate; page fetch; +51 more | 37 pass, 10 flaky, 3 fail of 50 | pass (52/52) |  |
 | `Page.waitForFunction` | page basic operations; page actions and popup adoption; Page action popup receipts; Page JavaScript dialog handling; +4 more | 3 pass, 3 flaky, 2 fail of 8 | pass (8/8) |  |
 | `Page.fetch` | page labels: restore and reuse; page fetch | pass (2/2) | pass (2/2) |  |
 | `Page.cdp` | page basic operations; Page JavaScript dialog handling; Page snapshot iframe viewport; Page OOPIF actions; +6 more | 6 pass, 1 flaky, 1 fail of 8 | pass (8/8) | Not supported: fails with ZEN_UNSUPPORTED and points at the documented methods (SPEC §2: no CDP emulation). |
 | `Page.waitForSelector` | page basic operations; Page action idle fail-fast; Page media playback; Page snapshot locator quality; +10 more | 9 pass, 2 flaky, 1 fail of 12 | pass (13/13) |  |
 | `Page.waitForLoadState` | page basic operations; Page action idle fail-fast; Page load states; Page API alignment | 1 pass, 2 flaky, 1 fail of 4 | pass (4/4) |  |
-| `Page.events` | page basic operations; Page JavaScript dialog handling; Page load states; Page automation hooks; +1 more | 1 pass, 1 flaky, 1 fail of 3 | pass (3/3) |  |
-| `Page.click` | page labels: restore and reuse; page basic operations; page actions and popup adoption; Page action popup receipts; +36 more | 25 pass, 9 flaky, 2 fail of 36 | pass (37/37) | The input of a file chooser nobody waits for hears cancel, and at an open dialog the click fails at once, where Ego's waits (Input, below). |
+| `Page.events` | page basic operations; Page JavaScript dialog handling; Page load states; Page automation hooks; +1 more | 1 pass, 1 flaky, 1 fail of 3 | pass (4/4) |  |
+| `Page.click` | page labels: restore and reuse; page basic operations; page actions and popup adoption; Page action popup receipts; +36 more | 25 pass, 9 flaky, 2 fail of 36 | pass (38/38) | The input of a file chooser nobody waits for hears cancel, and at an open dialog the click fails at once, where Ego's waits (Input, below). |
 | `Page.dblclick` | page actions and popup adoption | 1 fail of 1 | pass (1/1) |  |
 | `Page.hover` | page actions and popup adoption; Page refs after failed actions: resume; Page actionability | 2 pass, 1 fail of 3 | pass (3/3) |  |
 | `Page.dragAndDrop` | page actions and popup adoption; Page drag and canvas drawing; Page actionability | 2 pass, 1 fail of 3 | pass (3/3) |  |
-| `Page.fill` | page basic operations; page actions and popup adoption; Page action popup receipts; Page click hit target; +12 more | 10 pass, 2 flaky, 2 fail of 14 | pass (14/14) |  |
+| `Page.fill` | page basic operations; page actions and popup adoption; Page action popup receipts; Page click hit target; +12 more | 10 pass, 2 flaky, 2 fail of 14 | pass (15/15) |  |
 | `Page.selectOption` | page labels: restore and reuse; Page action popup receipts; Page refs across rounds: resume; Page API alignment; +1 more | 3 pass, 2 flaky of 5 | pass (5/5) | Fires trusted input and change events, as a user's choice does. Ego's are untrusted (Input, below). |
 | `Page.focus` | keyboard and file helpers; page basic operations; Page refs after failed actions: resume; v1 and v2 action parity; +2 more | 2 pass, 2 fail of 4 | pass (4/4) |  |
-| `Page.press` | page basic operations; Page refs across rounds: resume; Page refs after upload: resume; Page API alignment; +4 more | 3 pass, 1 flaky, 2 fail of 6 | pass (6/6) |  |
-| `Page.setInputFiles` | page basic operations; zen-eval: v2 checks from N/A cases | 1 fail of 1 | pass (1/1) | An empty list clears the input, as in Playwright. Ego keeps the file it had (Input, below). |
+| `Page.press` | page basic operations; Page refs across rounds: resume; Page refs after upload: resume; Page API alignment; +4 more | 3 pass, 1 flaky, 2 fail of 6 | pass (7/7) |  |
+| `Page.setInputFiles` | page basic operations; zen-eval: v2 checks from N/A cases | 1 fail of 1 | pass (2/2) | An empty list clears the input, as in Playwright. Ego keeps the file it had (Input, below). |
 | `Page.waitForFileChooser` | page basic operations; Page JavaScript dialog handling; Page refs after upload: prepare | 1 pass, 1 flaky, 1 fail of 3 | pass (3/3) |  |
 | `FileChooser.isMultiple` | page basic operations | 1 fail of 1 | pass (1/1) |  |
 | `FileChooser.setFiles` | page basic operations; Page JavaScript dialog handling; Page refs after upload: prepare | 1 pass, 1 flaky, 1 fail of 3 | pass (3/3) |  |
-| `Page.close` | task spaces and control; page labels: close and do not reuse; page labels: restore after hard stop; page inventory and budget; +60 more | 43 pass, 9 flaky, 3 fail of 55 | pass (56/56) |  |
+| `Page.close` | task spaces and control; page labels: close and do not reuse; page labels: restore after hard stop; page inventory and budget; +60 more | 43 pass, 9 flaky, 3 fail of 55 | pass (58/58) |  |
 | `Page.mouse.click` | page actions and popup adoption; Page click hit target; visual workflow | 2 pass, 1 fail of 3 | pass (3/3) |  |
 | `Page.mouse.move` | page actions and popup adoption; Page drag and canvas drawing; visual workflow | 2 pass, 1 fail of 3 | pass (3/3) | The pointer's position and held buttons belong to the page, shared by all its handles. Ego keeps them per handle (Input, below). |
 | `Page.mouse.down` | page actions and popup adoption; Page drag and canvas drawing | 1 pass, 1 fail of 2 | pass (2/2) |  |
