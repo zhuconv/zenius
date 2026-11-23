@@ -936,9 +936,10 @@ previous version" puts back, has no `zenius selfcheck`: skip it then.
 
 The last line names the run's folder. It holds `summary.json`, the run's
 result with each check's shots by name, and a PNG per step,
-`<NN>-<check>-<step>.png`, numbered in order. Show the user the summary,
-then the shots in their order: each is the self-check's window at the
-step its name says. Once they've looked, delete the folder by the path the
+`<NN>-<check>-<step>.png`, numbered in order. Look at the shots yourself,
+in their order: each is the self-check's window at the step its name says.
+Tell the user the result in one line, and show them a shot only when its
+check failed or it looks wrong. Then delete the folder by the path the
 line printed:
 
 ```bash
