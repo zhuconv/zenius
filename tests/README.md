@@ -9,7 +9,7 @@ the same scripts. Each worker keeps its own runtime tests in `tests/<area>/`
 |---|---|---|
 | `fixtures/server.mjs` | Ego's e2e fixture server (ported), `/zoo/` pages, golden DOM replays | `node tests/fixtures/server.mjs --port 8765` |
 | `golden/` | Ego's snapshots of fixture pages and live sites (see `golden/README.md`) | `node tests/golden/capture.mjs --target ego` |
-| `e2e/` | Ego's real-browser e2e suite, 83 cases, plus zen-eval's own cases | `node tests/e2e/runner.mjs --target ego` |
+| `e2e/` | Ego's real-browser e2e suite, 83 cases, plus zen-eval's own cases; on zenius, against a fresh headless dev instance | `tests/e2e/run.sh` |
 | `bench/` | latency benchmarks, 20 iterations, p50/p95 | `node tests/bench/bench.mjs --target ego` |
 | `live/` | rubric C: live-site tasks, one fresh Claude Code agent each, scored by script and a blind judge | `node tests/live/run.mjs --instance <name> --keys <json> --judge` |
 | `unit/` | checks for the tooling itself, no browser needed; part of `scripts/test-all.sh` | `tests/unit/run.sh` |
@@ -23,6 +23,9 @@ overrides; on the Mac, Homebrew's `node@24`). Start the instance first with
 
 ## e2e
 
+- `e2e/run.sh` runs the zenius target on a fresh headless dev instance of
+  its own, in about 2 minutes. It fails unless every case that runs passes;
+  the manifest's N/A cases and deliberate differences don't run.
 - `e2e/cases/` are Ego's case files at tag v2.2.1, unchanged. `e2e/source.mjs`
   is Ego's prelude; on zenius it changes three things:
   - It renames error codes, markers and default file names (`EGO_X` →
