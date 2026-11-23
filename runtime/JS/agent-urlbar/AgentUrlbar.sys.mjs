@@ -204,8 +204,9 @@ async function dispatchToTab(win, sidebar, text) {
     return;
   }
   if (text && conv.busy) {
-    // The agent is still answering in this tab: leave the text to send.
-    conv.draft = { ...conv.draft, text };
+    // The agent is still answering in this tab: leave the text to send, in
+    // the draft as AgentService keeps it (setDraft, the one way a draft is written).
+    AgentService.setDraft(conv, { ...conv.draft, text });
   }
   panel.show(conv);
   if (text && !conv.busy) {

@@ -194,6 +194,9 @@ stable, and a change to one is announced to zen-eval first.
   AgentService's word that each read ended (`fileSettled`). A panel that
   closes fails the reads it hasn't finished, so a send from the next panel
   doesn't wait on a dead read: the file says it wasn't read and stays out.
+  When a read ends, every sidebar showing that draft draws its files again
+  (`{type: "files"}`), another window's on the same task too. Only the
+  files are drawn again, so the box there keeps what's typed and its caret.
 - **Thinking**: from the moment a question goes out until the agent's
   first words, a step the user sees, or a question for the user, the chat
   shows a row "Thinking for 12 s, <what it's on>". So does every later

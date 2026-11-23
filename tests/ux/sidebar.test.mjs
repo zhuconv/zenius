@@ -8361,3 +8361,82 @@ test("a file a closed sidebar was still reading doesn't hold up the next send: E
   assert.equal(out.box, "", "the box emptied");
   assert.notEqual(out.hint, "Reading the files…", "nothing left waiting on the file");
 });
+
+// Another window on the same task (zen-ux's nit 2 on draft-leak-2): only the
+// panel that read a file drew it again as the read ended, so another
+// window's sidebar on that task said "Reading…" until something else drew
+// its files.
+test("a file read in one window's sidebar shows as read in another window's on the same task once the read ends, and that window's box keeps its words and its caret", async () => {
+  await useMock();
+  const out = await chrome(
+    `
+    ${DRAFT_SCENE}
+    await S.openPanel();
+    g.setMode("work");
+    const task = seeded("Two windows " + arg.run);
+    // This window's read is held where it hands what it read to
+    // AgentService, so the other window finds the file still being read.
+    const fileRead = A.fileRead;
+    let held = null;
+    A.fileRead = (...args) => {
+      held = args;
+    };
+    const endRead = () => {
+      A.fileRead = fileRead;
+      if (held) {
+        const args = held;
+        held = null;
+        fileRead.apply(A, args);
+      }
+    };
+    // A sidebar's files as it shows them: name, state, and the line under the name.
+    const files = view => [...view.pdoc().querySelectorAll("#attachments .attachment")].map(el => [
+      el.querySelector(".name").textContent,
+      ["reading", "ready", "error"].find(state => el.classList.contains(state)) ?? el.className,
+      el.querySelector(".info").textContent,
+    ]);
+    const w2 = win.OpenBrowserWindow();
+    try {
+      await until(() => w2.ucAgentSidebar?.AgentService && w2.gBrowser, "the other window", 30000);
+      await w2.delayedStartupPromise;
+      await w2.SidebarController.show("viewAgentSidebar");
+      await until(() => w2.ucAgentSidebar.panel, "the other window's sidebar", 10000);
+      const g2 = w2.ucAgentSidebar;
+      const V2 = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/sidebarview.sys.mjs").sidebarView(w2, { frameMs: null });
+      g2.setMode("work");
+      // This window: a file in the task's box, its read not ended.
+      g.showTask(task);
+      await until(() => V.conv() === task && V.$("input"), "the task in this window");
+      const pwin = V.pdoc().defaultView;
+      const input = V.$("file-input");
+      input.mozSetFileArray([new pwin.File(["notes " + arg.run], "notes.txt", { type: "text/plain" })]);
+      input.dispatchEvent(new pwin.Event("change", { bubbles: true }));
+      await until(() => held, "this window's read");
+      // The other window: the same task, words typed in its box, the caret in them.
+      g2.showTask(task);
+      await until(() => V2.conv() === task && V2.$("input"), "the task in the other window");
+      V2.type("Words in the other window");
+      V2.$("input").setSelectionRange(5, 5);
+      const res = { before: files(V2) };
+      endRead();
+      await S.until(() => files(V2)[0]?.[1] === "ready", 3000);
+      res.other = files(V2);
+      res.here = files(V);
+      res.info = task.draft?.attachments?.[0]?.info ?? null;
+      res.box = { value: V2.$("input").value, caret: [V2.$("input").selectionStart, V2.$("input").selectionEnd] };
+      return res;
+    } finally {
+      endRead();
+      w2.close();
+      await S.until(() => w2.closed, 5000);
+      A.removeTask(task);
+    }
+  `,
+    { run }
+  );
+  assert.deepEqual(out.before, [["notes.txt", "reading", "Reading…"]], `the other window's sidebar shows the file still being read: ${JSON.stringify(out)}`);
+  assert.ok(out.info, `the read gave the file its line: ${JSON.stringify(out)}`);
+  assert.deepEqual(out.other, [["notes.txt", "ready", out.info]], `the other window's sidebar shows the file read once the read ends: ${JSON.stringify(out)}`);
+  assert.deepEqual(out.here, [["notes.txt", "ready", out.info]], "and so does this window's, which read it");
+  assert.deepEqual(out.box, { value: "Words in the other window", caret: [5, 5] }, "the other window's box keeps its words and its caret");
+});

@@ -828,7 +828,8 @@ function filesOf(attachments) {
  * The files of the box's drafts that this module made or took in (setDraft,
  * newDraftFile), so a draft holds nothing of the panel that attached them
  * (own); and of those, the ones a panel still reads, with what tells a
- * panel waiting to send that the read ended.
+ * panel waiting to send that the read ended, and the conversation whose
+ * draft has the file (setDraft), whose sidebars draw it again then.
  */
 const draftFiles = new WeakSet();
 const fileReads = new WeakMap();
@@ -851,12 +852,18 @@ function draftFile(file) {
   return kept;
 }
 
-/** A read of a draft's file ended: whoever waits on it goes on (fileSettled). */
+/** A read of a draft's file ended: whoever waits on it goes on (fileSettled),
+ * and every sidebar showing that draft draws its files again: another
+ * window's on the same task too, which only the panel that read the file
+ * did before (zen-ux's nit 2 on the draft's pin). */
 function settleFile(file) {
   const read = fileReads.get(file);
   if (read) {
     fileReads.delete(file);
     read.settle();
+    if (read.conv?.draft?.attachments?.includes(file)) {
+      read.conv.emit({ type: "files" });
+    }
   }
 }
 
@@ -5179,6 +5186,13 @@ export const AgentService = {
     const text = typeof draft?.text === "string" ? draft.text : "";
     const selection = typeof draft?.selection === "string" ? draft.selection : "";
     const attachments = Array.from(draft?.attachments ?? [], draftFile);
+    // A file still being read tells this draft's sidebars when its read ends (settleFile).
+    for (const file of attachments) {
+      const read = fileReads.get(file);
+      if (read) {
+        read.conv = conv;
+      }
+    }
     conv.draft = text || selection || attachments.length ? { text, selection, attachments } : null;
     return conv.draft;
   },

@@ -3,7 +3,7 @@
 zen-eval's suites, runnable against Ego Lite (`--target ego`) and against a
 zenius dev instance (`--target zenius --instance <name>`), so both browsers run
 the same scripts. Each worker keeps its own runtime tests in `tests/<area>/`
-(zen-ux: `tests/ux/`); the rest of `tests/` is zen-eval's.
+(zen-ux: `tests/ux/` and `tests/parse/`); the rest of `tests/` is zen-eval's.
 
 | Path | What | Run |
 |---|---|---|
@@ -13,6 +13,7 @@ the same scripts. Each worker keeps its own runtime tests in `tests/<area>/`
 | `bench/` | latency benchmarks, 20 iterations, p50/p95 | `node tests/bench/bench.mjs --target ego` |
 | `live/` | rubric C: live-site tasks, one fresh Claude Code agent each, scored by script and a blind judge | `node tests/live/run.mjs --instance <name> --keys <json> --judge` |
 | `unit/` | checks for the tooling itself, no browser needed; part of `scripts/test-all.sh` | `tests/unit/run.sh` |
+| `parse/` | zen-ux's parse check: every script in `runtime/JS` parses as Gecko loads it, so a bad rebase fails in a second with its file and line; no browser needed; part of `scripts/test-all.sh` | `tests/parse/run.sh` |
 | `security/` | zen-sdk's escape suite (SPEC I5): zen-eval's browser probes on a headless dev instance, and the canary of the launcher `install-cli.sh --sandbox` writes; part of `scripts/test-all.sh` | `tests/security/run.sh` |
 | `lib/targets.mjs` | runs a script on either target | |
 

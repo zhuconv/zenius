@@ -2167,6 +2167,10 @@ function onChange(change) {
   } else if (change.type === "draft") {
     // Stop, or a failed turn, put the queued messages back in the box.
     loadDraft();
+  } else if (change.type === "files") {
+    // A file's read ended, in this panel or another window's: only the
+    // files draw again, so what's typed in the box and its caret stay.
+    renderAttachments();
   } else {
     scheduleRender();
   }
@@ -2225,12 +2229,9 @@ function addFiles(files) {
           AgentService.fileFailed(item, e instanceof Refused ? e.message : "could not read it");
         }
       )
-      .then(() => {
-        reading.delete(item);
-        if (conv === target) {
-          renderAttachments();
-        }
-      });
+      // The file draws again in every sidebar on its draft, this one too
+      // (AgentService's "files" change).
+      .then(() => reading.delete(item));
     added.push(item);
   }
   const draft = target.draft;
@@ -3044,12 +3045,13 @@ window.addEventListener("unload", () => {
   stopLive();
   liveObserver.disconnect();
   saveDraft();
-  // Reads this panel won't end: their files say so, and a send waits on none.
+  unsubscribe?.();
+  // Reads this panel won't end: their files say so, in the sidebars that
+  // show them (not this one, which is going), and a send waits on none.
   for (const item of reading) {
     AgentService.fileFailed(item);
   }
   reading.clear();
-  unsubscribe?.();
   unsubscribeTasks();
   glue?.detachPanel(api);
 });

@@ -482,8 +482,9 @@ came from a cold run and is superseded by the table above.
 Each worker also owns `tests/<area>/` for its own runtime-level tests
 (`tests/core/`, `tests/input/`, `tests/observe/` and
 `tests/observe-vectors/`, `tests/snapshot/`, `tests/ux/`; zen-sdk owns
-`tests/security/`); give each a `run.sh` that starts a fresh headless dev
-Zen.
+`tests/security/`, and zen-ux also owns `tests/parse/`). Give each a
+`run.sh` that starts a fresh headless dev Zen. `tests/parse/` needs none:
+it compiles every runtime script, and runs none of them.
 `zen-eval` owns the rest of `tests/`: fixtures, goldens, e2e and bench. The
 SDK's tests stay in `sdk/test/`.
 
