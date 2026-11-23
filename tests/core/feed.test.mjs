@@ -154,7 +154,7 @@ test("an ended task the runtime removed stays in the feed, as done", async () =>
 
 test("source.sidebar, the sidebar's own conversation, is kept only as an exact id", async () => {
   const cases = [
-    [{ agent: "Claude Code", sidebar: "c0c2a400-0f86-4287-9d0d-be5cee77c33d" }, { agent: "Claude Code", sidebar: "c0c2a400-0f86-4287-9d0d-be5cee77c33d" }],
+    [{ agent: "Claude Code", sidebar: "12345678-9abc-4def-8123-456789abcdef" }, { agent: "Claude Code", sidebar: "12345678-9abc-4def-8123-456789abcdef" }],
     [{ sidebar: "conv 1" }, null],
     [{ sidebar: " conv-1" }, null],
     [{ sidebar: "conv_1" }, null],
