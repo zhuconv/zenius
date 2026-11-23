@@ -10,9 +10,8 @@
 // Each write keeps the origin of the document that wrote it. A page reads
 // the Space's clipboard only from that origin (readFor): without it, what
 // the agent copied on one site, any other site in the task would read on
-// the agent's next click, with no paste prompt (zen-snapshot's audit,
-// docs/research/content-boundary.md). The agent's own paste (read) is the
-// agent's choice, like a user's paste, and isn't limited.
+// the agent's next click, with no paste prompt. The agent's own paste
+// (read) is the agent's choice, like a user's paste, and isn't limited.
 
 /**
  * MIME type → data, most preferred first (zen-input's toClipData and

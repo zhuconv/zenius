@@ -46,8 +46,7 @@ function kindOf(win) {
  *
  * Only a failed window and one with no start carry their kind, the ones
  * doctor names. Any socket client may call the method, and the other
- * windows' kinds would tell it whether the user has a private window open
- * (zen-observe's review, 2026-11-23).
+ * windows' kinds would tell it whether the user has a private window open.
  *
  * @returns {{sidebar: "started"|"failed"|"skipped"|"none", kind?: "browser"|"private"|"popup", error?: string}}
  */

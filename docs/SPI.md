@@ -1301,8 +1301,7 @@ zen-observe's `observe/navtracker.sys.mjs` follows this rule.
 
 ## UI hooks (zen-ux)
 
-zen-ux maintains this section. The design notes are in
-`docs/research/ux.md`.
+zen-ux maintains this section.
 
 **The agent sidebar's start.** `agent-sidebar.uc.js` reports each window's
 start to `ui.sidebarStatus` (`docs/PROTOCOL.md`) as a property of the
@@ -1431,7 +1430,8 @@ deadline += await ctx.gate();
 `PopupNotifications.show()`.
 
 - The rules follow the page's evidence and who holds the task (the user's
-  pass on defenses, A8, 2026-11-21, with zen-observe's C):
+  pass on defenses, 2026-11-21; zen-observe's backstops follow the same
+  rules):
   - While the agent drives, a managed page's prompt puts the Space in
     `agentDelegatedToUser` with Ego's reason key (`REASONS`):
     `storage_access` (an embedded sign-in frame's requestStorageAccess()
@@ -1462,8 +1462,7 @@ deadline += await ctx.gate();
 - When the last such prompt is answered or goes away, ownership returns to
   `agent`, unless the user took over or the agent handed off meanwhile.
 - Other doorhangers (saving a password, add-on installs) change nothing.
-- **A page can't ask at will** (the content-boundary audit, item 5; the
-  manager's rules of 2026-11-20). While the agent drives, a prompt or a
+- **A page can't ask at will.** While the agent drives, a prompt or a
   passkey request is an automatic handoff. A page can withdraw its own
   request (a reload removes its prompt, an abort ends its passkey call),
   which hands the task back and lets it ask anew, so without limits it
@@ -1499,22 +1498,21 @@ deadline += await ctx.gate();
   "The agent says: “<state text>”." (the user's design, 2026-11-20; no cap,
   the '?' opens what one line doesn't show). The pill follows later
   state-text changes.
-- **The site** the user is on there (the manager, 2026-11-20): Zen's compact
-  mode often hides the URL bar, and a sign-in may take the held page to
-  another site on its own (a SAML post, an SSO redirect), which zenius
-  lets it do. Every hold card (the hand-off, Take over, a permission hold)
-  names the page's registrable domain after the task, as Firefox shows it
-  (`heldSite`, from `siteName`), never cut: the task's name gives way
-  first. When the buttons can't sit beside the title and the site, they
-  go under the line (or under the title row, with no line); when even the
-  title and the site can't share a row (a long site on a sliver of a
-  page), the site takes a row of its own and wraps there. notices.sys.mjs
-  `watchSite` picks the layout from the parts' own one-line widths, so it
-  can't flip between them. It follows the page's top document
-  (`#onHandedPageLocation`). A
-  page with no site (data:, blob:, about:) names none. The pill's label
-  and the hand-off's announcement say "on <site>"; a move to another
-  site isn't announced again, since the page's own load speaks.
+- **The site** the user is on there: Zen's compact mode often hides the URL
+  bar, and a sign-in may take the held page to another site on its own (a
+  SAML post, an SSO redirect), which zenius lets it do. Every hold card (the
+  hand-off, Take over, a permission hold) names the page's registrable
+  domain after the task, as Firefox shows it (`heldSite`, from `siteName`),
+  never cut: the task's name gives way first. When the buttons can't sit
+  beside the title and the site, they go under the line (or under the title
+  row, with no line); when even the title and the site can't share a row (a
+  long site on a sliver of a page), the site takes a row of its own and
+  wraps there. notices.sys.mjs `watchSite` picks the layout from the parts'
+  own one-line widths, so it can't flip between them. It follows the page's
+  top document (`#onHandedPageLocation`). A page with no site (data:, blob:,
+  about:) names none. The pill's label and the hand-off's announcement say
+  "on <site>"; a move to another site isn't announced again, since the
+  page's own load speaks.
 - **The Resume line.** Resume agent clears password, card and code fields
   (zen-input's hand-back guard) and reloads a page where one was typed and
   not sent. So once the user types one in the task's pages (zen-input's
@@ -1538,12 +1536,11 @@ deadline += await ctx.gate();
   `typedSecrets`, zen-observe's `evidenceOf` saying hooked or made, then
   zen-core's `cleanLoad`), tells zen-core (`noteReloaded`), then hands back.
   A page without such evidence keeps what the user typed until zen-input's
-  guard empties its secret fields (the user's pass on defenses, 2026-11-21,
-  A4). zen-core's own ways back to
-  the agent (`spaces.takeOver`, `spaces.claim`) await the same step through
-  `service.beforeHandBack`, which zen-ux sets. The agent's calls wait out
-  the reload: they're held while the task is paused or the user's, and the
-  hand back comes after it.
+  guard empties its secret fields (the user's pass on defenses, 2026-11-21).
+  zen-core's own ways back to the agent (`spaces.takeOver`, `spaces.claim`)
+  await the same step through `service.beforeHandBack`, which zen-ux sets.
+  The agent's calls wait out the reload: they're held while the task is
+  paused or the user's, and the hand back comes after it.
   - zen-core's switch `zenius.handoff.quietReload` (default `true`) turns
     these reloads off too, for tests of the hand back's other layers
     (zen-input's hand-back tests keep the agent's own password in the
@@ -1555,7 +1552,7 @@ deadline += await ctx.gate();
   sensitive information out.", only while the page asks for a password, a
   card's details or a one-time code (zen-input's `secretFields`, through
   `content/uipage.sys.mjs`'s `secretKinds`, asked of every frame), or the
-  agent flagged it (A6).
+  agent flagged it.
 - The Space's badge and the tasks strip show that it needs the user.
 - An OS notification is off by default (I1). Pref
   `zenius.ux.handoff.systemNotification` (bool, default `false`) turns it on
@@ -1566,7 +1563,7 @@ deadline += await ctx.gate();
     raises the window the user was in last.
   - A claim's notification closes when the ask settles. A handoff's closes
     when the task stops waiting: handed back (the permission answered, too)
-    or ended. Left up, it sent the user to a moment that was over (B3).
+    or ended. Left up, it sent the user to a moment that was over.
   - None of them focuses or raises a window by itself.
 
 **Tasks panel.** `ui/panel.sys.mjs`.
@@ -1580,9 +1577,8 @@ deadline += await ctx.gate();
   titles and idleness change without a badge event. Its buttons:
   - **Open:** watches the task (below): shows the Space, on a page that
     needs the user (a permission prompt, a handOff's), else on the task's
-    front tab (zen-core's
-    `pages.frontTab`: the last the agent made current or the user picked;
-    the manager's decision of 2026-11-20).
+    front tab (zen-core's `pages.frontTab`: the last the agent made
+    current or the user picked).
   - **Pause / Resume:** while paused, the agent's next action waits, and
     the user's own input in its pages opens no takeover prompt.
   - **Take over:** as the prompt's (zen-core's `userTakeOver`), then
@@ -1618,18 +1614,18 @@ deadline += await ctx.gate();
     ⌃Tab is Zen's: the listeners are in only during a watch.
   - Picking a tab outside the task, or another Space, ends the watch where
     the user went. There's no Back control (the user's decision).
-  - The task's end doesn't end it (the manager's decision, 2026-11-21: the
-    user reaches for ⌃Tab right then). The window stays where it is: on
-    the task's page, whose close waits until the user leaves it (SPEC
-    §3.5), or on a page the task kept. The strip (`[watching="done"]`), or
-    the chip (`[done]`), says "Task done, [⌃Tab] back to your tabs", where
-    "back to your tabs" is cut first, never the key. ⌃Tab still goes back
-    until the user presses it or picks another tab or Space themselves.
-    The tab Zen picks when that page closes (its pill's Close, ⌘W) isn't
-    their pick: Firefox selects it before it marks the page closing, so the
-    check waits for that call to end, and the page the user left closes a
-    tick later (zen-core's `closeLeft`). Another task's watch keeps the way
-    back too. Nothing moves by itself.
+  - The task's end doesn't end it (the user reaches for ⌃Tab right then).
+    The window stays where it is: on the task's page, whose close waits
+    until the user leaves it (SPEC §3.5), or on a page the task kept. The
+    strip (`[watching="done"]`), or the chip (`[done]`), says "Task done,
+    [⌃Tab] back to your tabs", where "back to your tabs" is cut first,
+    never the key. ⌃Tab still goes back until the user presses it or picks
+    another tab or Space themselves. The tab Zen picks when that page
+    closes (its pill's Close, ⌘W) isn't their pick: Firefox selects it
+    before it marks the page closing, so the check waits for that call to
+    end, and the page the user left closes a tick later (zen-core's
+    `closeLeft`). Another task's watch keeps the way back too. Nothing
+    moves by itself.
   - A screen reader hears "Watching <task>. Control Tab goes back to your
     tabs." as a watch begins, and "Task done: <task>. Control Tab goes back
     to your tabs." as its task ends. The closing pill's announcement then
@@ -1658,7 +1654,7 @@ deadline += await ctx.gate();
 - **Live rows.** A task keeps its row element while it's listed. An update
   changes only the text and attributes that changed, and moves a row only
   when the order does, so a button the user has focused or is pressing
-  survives the agents' progress reports (B1: rebuilding every row lost the
+  survives the agents' progress reports (rebuilding every row lost the
   focus and 8 of 10 presses). Open and Stop stay; the buttons between them
   follow who holds the task, with Pause and Resume one button relabelled,
   and focus on a button that goes moves to the first that comes. The
@@ -1672,7 +1668,7 @@ deadline += await ctx.gate();
 - **Many tasks.** Past the window's height (`100vh` less 96 px), the rows
   scroll under the panel's title, which stays, and keyboard focus scrolls a
   row into view. A popup can't outgrow the screen, so rows it cut off were
-  out of reach (the load pass of 2026-11-20, B4).
+  out of reach.
 - **In the window.** The panel opens above the strip and grows toward the
   window's middle. It lines up with the strip's left edge when the sidebar
   is on the left, and with its right edge when it's on the right. The side
@@ -1694,11 +1690,10 @@ deadline += await ctx.gate();
     Mac, which layout doesn't see. While a CSS transform runs, the vertical
     place comes from the popup's screen rect.
   - On Zen 1.24.3b (Gecko 160.0.1) on a Mac, the panel stayed where it
-    opened (zen-eval's bisect, 0c25f24). On Linux the screen rect has no
-    size at `popuppositioned`, so layout's rect did the work there, and on
-    1.24.3b it still does. The Mac's screen rect is the likeliest break.
-    1.24.3b changed no popup code in either omni.ja, so the change is
-    native.
+    opened. On Linux the screen rect has no size at `popuppositioned`, so
+    layout's rect did the work there, and on 1.24.3b it still does. The
+    Mac's screen rect is the likeliest break. 1.24.3b changed no popup
+    code in either omni.ja, so the change is native.
   - A move that didn't take (the panel is still where it was) is made
     again with `moveTo`, at the screen point layout's rect asks for.
   - Each step goes to the dev log, with the side, the anchor, the rect and
@@ -1710,7 +1705,7 @@ deadline += await ctx.gate();
 - **Right-to-left names.** A row's name, its tabs' titles and a pill's
   detail each hold one text, marked `dir="auto"`. So a clipped right-to-left
   one loses its end to the ellipsis, not its start, and a short one still
-  lines up with the rest (B5). Lines that start with zenius's words (a row's
+  lines up with the rest. Lines that start with zenius's words (a row's
   detail, the Space's status pill, the cursor's label) stay left-to-right;
   their tooltips carry the whole text.
 - **Idle tasks** (SPEC §3.4). A task the auto-close would take
@@ -1798,11 +1793,10 @@ clipboard, which is the user's.
   - zen-input's chords (`clipboardOf` and `noteClipboard` in
     `methods/actions.sys.mjs`) and the page guards below share it: a page's
     own "Copy" button and the agent's Ctrl/Cmd+V meet here.
-- **Who may read it** (the content-boundary audit,
-  `docs/research/content-boundary.md`). A page's `readText()` and `read()`
-  answer from the Space's clipboard only to the origin that wrote its
-  contents. Without that, what the agent copied on one site, any other site
-  in the task would read on the agent's next click, with no paste prompt.
+- **Who may read it.** A page's `readText()` and `read()` answer from the
+  Space's clipboard only to the origin that wrote its contents. Without
+  that, what the agent copied on one site, any other site in the task would
+  read on the agent's next click, with no paste prompt.
   - The writer is the document of a page write or copy event, or for the
     agent's chords the frame they copied in (`clipboardOrigin` in
     zen-input's key result, `content/actions.sys.mjs`). The parent keeps a
@@ -1906,13 +1900,12 @@ task's documents, by the Zenius actor or zen-core's `installGuards` request
     `signal` aborts it with its own reason.
   - Passkey autofill (conditional mediation) needs the user's own focus on a
     field and passes through.
-- **The parent trusts no message** (the content-boundary audit, item 6).
-  Only an agent task's pages run the guards, so the parent ignores
-  messages from other tabs: a passkey request from one is the page's own.
-  It checks each message's fields (a passkey's id is a string; a
-  notification's fields count only as strings), and a notification's URL
-  is the parent's record of the document. `observe/events.sys.mjs` caps
-  the event's text.
+- **The parent trusts no message.** Only an agent task's pages run the
+  guards, so the parent ignores messages from other tabs: a passkey
+  request from one is the page's own. It checks each message's fields (a
+  passkey's id is a string; a notification's fields count only as
+  strings), and a notification's URL is the parent's record of the
+  document. `observe/events.sys.mjs` caps the event's text.
 - The quiet Notification's Proxy handler has no prototype, so the page's
   `Object.prototype` can't add traps to it or reach its `construct`.
 - ZeniusUI takes a task's ownership from its record, not from a
@@ -1991,14 +1984,13 @@ zen-core's tab code imports.
   (`zen-workspace > .zenius-space-status`, after the header), starting
   where the header's content does. The header's row has a fixed height,
   and in it the status had shared the width with the name and Zen's
-  actions button: at the sidebar's default width it showed "Agent nee…"
-  (B6).
+  actions button: at the sidebar's default width it showed "Agent nee…".
   - Its state words ("Agent needs you", "Agent paused") show in the pill's
     color, then a space and the rest in gray, with commas only between the
-    rest's own parts (the user's text pass, 2026-11-23). They always show
-    whole, even at Zen's narrowest sidebar. Only what follows them clips,
-    with an ellipsis (`.zenius-space-status-words`, then `-more`, in a grid
-    whose second column has no minimum).
+    rest's own parts. They always show whole, even at Zen's narrowest
+    sidebar. Only what follows them clips, with an ellipsis
+    (`.zenius-space-status-words`, then `-more`, in a grid whose second
+    column has no minimum).
   - The rest shows only with at least 5em of room, or whole. With less it
     hides (`[short]`), and the status's title keeps the whole text. On a
     Mac's narrower system font, Zen's narrowest sidebar left it a few
@@ -2035,8 +2027,7 @@ in-process `tabClosing {space, tab}`, ZeniusUI:
 - offers **Keep tab** (`service.keepDeferred(tab)`: the tab stays as the
   user's, nothing moves or is selected) and **Close now**
   (`service.closeDeferred(tab)`: now). Leaving the tab closes it, the pill
-  with it. It says nothing of the agent's code (the user's choice A, then
-  their decision (A)).
+  with it. It says nothing of the agent's code (the user's decision).
 - The buttons are chrome, so only the user's own clicks reach them, and
   they arm after 400 ms like every pill's.
 - A close that waited across a restart waits again: zen-core's rebuild
@@ -2045,7 +2036,7 @@ in-process `tabClosing {space, tab}`, ZeniusUI:
   a window's UI is up. So ZeniusUI also shows the pill at a window's start
   on any tab `service.pages.isDeferred(tab)` holds.
 
-**Pages a task leaves open** (the user's decision (A), 2026-11-20). The
+**Pages a task leaves open** (the user's decision, 2026-11-20). The
 agent's code runs in a sandbox of its own (zen-observe's isolated world),
 which ends with the task, so a page the task leaves open (kept at the
 finish, left by the panel's Stop, kept from a waiting close) holds none of
@@ -2053,15 +2044,14 @@ it, and shows nothing: no mark, no reminder, no card.
 - **Pages with evidence** (zen-observe's evidence flag, per document:
   `evidenceOf(browser)` gives `{reason: detail}` over the page's top
   document and frames). What reloads keys on the evidence a clean copy
-  clears, hooked and made (the manager's call, 2026-11-21): a page on a
-  list, or that the agent flagged, is dangerous itself, so it gets the
-  page warning below instead. Such a page keeps an agent tab's limits until
-  its document is replaced: zen-observe and zen-core refuse what it asks
-  for, and its window group can't open windows with an opener. When the
-  user's own click or key there came just before (5 s, the window's capture
-  listener, real input only), a refusal loads the page afresh, quietly,
-  through zen-core's `cleanLoad`, with the form carried over, so their next
-  try works:
+  clears, hooked and made: a page on a list, or that the agent flagged, is
+  dangerous itself, so it gets the page warning below instead. Such a page
+  keeps an agent tab's limits until its document is replaced: zen-observe
+  and zen-core refuse what it asks for, and its window group can't open
+  windows with an opener. When the user's own click or key there came just
+  before (5 s, the window's capture listener, real input only), a refusal
+  loads the page afresh, quietly, through zen-core's `cleanLoad`, with the
+  form carried over, so their next try works:
   - `ZeniusUI.keptRefused({browser, kind, asked, evident})`, zen-core's
     `onKeptRefused`: a device, location or notification request;
   - `ZeniusUI.openRefused({browser, url, reopened, hold, evident})`,
@@ -2074,13 +2064,13 @@ it, and shows nothing: no mark, no reminder, no card.
   otherwise; without it, zen-ux reads `evidenceOf`. Without zen-observe's
   module, or when it fails, a page counts as evident (`unknown`), so these
   act as they did before rather than not at all.
-- **The page warning** (`zenius-page-warning`, `pageWarningCard(evidence)`;
-  the manager's call and wording, 2026-11-21). A page on a phishing or
-  malware list (zen-observe's `listed`, from Safe Browsing) or that the
-  agent flagged (`flagged`) says "This page is on a phishing or malware
-  list", or "The agent flagged this page" with the agent's reason (one
-  line of at most 200 characters, isolated, as text), and "Be careful what
-  you enter here."; both: the list first, and "The agent flagged it too:
+- **The page warning** (`zenius-page-warning`,
+  `pageWarningCard(evidence)`). A page on a phishing or malware list
+  (zen-observe's `listed`, from Safe Browsing) or that the agent flagged
+  (`flagged`) says "This page is on a phishing or malware list", or "The
+  agent flagged this page" with the agent's reason (one line of at most 200
+  characters, isolated, as text), and "Be careful what you enter here.";
+  both: the list first, and "The agent flagged it too:
   <reason>." behind the '?'. It shows while the user is on the page: their
   hold, the agent paused, after the task, or a page no task has; not while
   an agent drives it. It comes as zen-observe's mark does (`onEvident`,
@@ -2089,43 +2079,41 @@ it, and shows nothing: no mark, no reminder, no card.
   informs: its one button is ✕, which keeps it away for that document; it
   takes no focus; a screen reader hears it as it comes up, when the tab is
   in view. Window sync moves it with the docShell.
-- **Before the user acts.** From the user's first press or key anywhere in
-  a page with evidence a clean copy clears (hooked or made), zen-input's guard holds their presses and keys there and
-  has zen-core load it afresh (`cleanOnDemand`), in a live task's page or a
-  kept one; zen-ux only watches (`onUserTyping`). If no new document comes
-  in 15 s, the tab says "This page couldn't reload", "Clicks and typing
-  here stay off until it does.", with [Reload] (zen-core's
-  `cleanLoad` again; the pill stays while it tries) and ✕. It goes with the
-  tab's next document (the manager's recommendation, 2026-11-20). When the
-  new document came in with evidence too (zen-core's `stillEvident`: a popup
-  or other window on the site shares its group and holds the agent's code),
-  Reload alone can't help until that window closes. Then the note reads
-  "Clicks and typing here stay off. Close the popup or other window on this
-  site, then reload.", and a screen reader hears it.
+- **Before the user acts.** From the user's first press or key anywhere in a
+  page with evidence a clean copy clears (hooked or made), zen-input's guard
+  holds their presses and keys there and has zen-core load it afresh
+  (`cleanOnDemand`), in a live task's page or a kept one; zen-ux only watches
+  (`onUserTyping`). If no new document comes in 15 s, the tab says "This page
+  couldn't reload", "Clicks and typing here stay off until it does.", with
+  [Reload] (zen-core's `cleanLoad` again; the pill stays while it tries) and ✕.
+  It goes with the tab's next document. When the new document came in with
+  evidence too (zen-core's `stillEvident`: a popup or other window on the site
+  shares its group and holds the agent's code), Reload alone can't help until
+  that window closes. Then the note reads "Clicks and typing here stay off.
+  Close the popup or other window on this site, then reload.", and a screen
+  reader hears it.
 - **A page that loaded afresh at the user's press or for a hold**
-  (`zenius-reloaded`, `reloadedCard({clickLost})`; the manager's ask,
-  2026-11-21, after a React form came back at its defaults and the user
-  submitted it): when `cleanOnDemand`'s result has a `how` (null: nothing
-  to clean); at a Take over whose `userTakeOver` result has one (also on
-  the task's other pages in its `reloaded`); and at the agent's hand-off
-  whose `spaceChanged` has `reloaded` (on the page handed off, the
-  `pages.userTab` zen-core held), and on each page zen-core noted for that
-  hold (the record's `handBackReloaded`, by label, which the hold's start
-  clears). zen-input's form tests found the hand-off's gap: a press there
-  submitted the form's defaults with no word of the reload. The title is "Your click didn't go through",
-  with "the page reloaded", when the press went nowhere (zen-input's
-  `field` is false), else "This page reloaded". It says why
-  (`reloadReason`, the user's pass on defenses, A1), from the evidence
-  zen-core acted on (`cleanOnDemand`'s `evidence`, `userTakeOver`'s by
-  label) or else the page's own as the press came: "the agent's code had
-  changed it", with what it left behind the '?', or "the agent made
-  it". The line: "A form here may
-  be back to its defaults: check it before you submit.", and behind the
-  '?' "It reloaded without the agent's changes." zen-core's `carried` doesn't
-  change it: a framework's state and custom widgets don't come back. It only
-  informs: its one button is ✕, it takes no focus, a screen reader hears it
-  when the tab is in view, and it goes with ✕ or the tab's next document.
-  At a hand-off it comes after the hold's card, and is heard after it.
+  (`zenius-reloaded`, `reloadedCard({clickLost})`, since 2026-11-21, when a
+  React form came back at its defaults and was submitted): when
+  `cleanOnDemand`'s result has a `how` (null: nothing to clean); at a Take over
+  whose `userTakeOver` result has one (also on the task's other pages in its
+  `reloaded`); and at the agent's hand-off whose `spaceChanged` has `reloaded`
+  (on the page handed off, the `pages.userTab` zen-core held), and on each page
+  zen-core noted for that hold (the record's `handBackReloaded`, by label, which
+  the hold's start clears). zen-input's form tests found the hand-off's gap: a
+  press there submitted the form's defaults with no word of the reload. The
+  title is "Your click didn't go through", with "the page reloaded", when the
+  press went nowhere (zen-input's `field` is false), else "This page reloaded".
+  It says why (`reloadReason`, the user's pass on defenses), from the evidence
+  zen-core acted on (`cleanOnDemand`'s `evidence`, `userTakeOver`'s by label) or
+  else the page's own as the press came: "the agent's code had changed it", with
+  what it left behind the '?', or "the agent made it". The line: "A form here
+  may be back to its defaults: check it before you submit.", and behind the '?'
+  "It reloaded without the agent's changes." zen-core's `carried` doesn't change
+  it: a framework's state and custom widgets don't come back. It only informs:
+  its one button is ✕, it takes no focus, a screen reader hears it when the tab
+  is in view, and it goes with ✕ or the tab's next document. At a hand-off it
+  comes after the hold's card, and is heard after it.
 - **Pages the agent made** (data:, blob:, a popup its code filled;
   zen-observe's `agentMadePage`) can't be cleaned by a reload. As the user
   goes to type there (a field has the keyboard after their click, key or
@@ -2154,8 +2142,9 @@ decide anything about safety (the user's correction, 2026-11-20). There is
 no own tab.
 - **Take over** and zen-core's `spaces.handOff` load the handed page afresh
   first when the agent's code could see what the user types there, and the
-  pages of its group the sandbox wrote into, in place (the user's decision
-  (A)). Each page that loaded afresh says so (`zenius-reloaded`, above).
+  pages of its group the sandbox wrote into, in place (the user's
+  decision). Each page that loaded afresh says so (`zenius-reloaded`,
+  above).
 - **A tab that joins the task** while the user holds it (opened from the
   agent's page) says "Agent's tab · <task>", "You opened it from the
   agent's page, so it's part of the task: the agent can use it once you
@@ -2176,8 +2165,7 @@ origin, reason, typed, scope, evident}`).
   opener, marked the user's own (`pages.markUserOwn`).
 - **Add to allowlist**, only for an address the user typed: zen-ux appends
   that exact host to `zenius.agentTabs.allowPrivateNetworks`, then the
-  address loads in the agent's tab (the manager, 2026-11-20: the write is
-  zen-ux's).
+  address loads in the agent's tab (the write is zen-ux's).
   - Only the user's own click writes it: a trusted click on that button, in
     that tab's card. The card is chrome, which page code can't reach, and
     the agent's synthesized clicks and keys never leave its content
@@ -2198,12 +2186,12 @@ origin, reason, typed, scope, evident}`).
 - **When it goes:** with the tab's next document, on ✕, or after a button.
   It's announced when its tab is in view, and takes no focus.
 
-**The page-code card** (`ui/pagecode.sys.mjs`; zen-input's glue, with
-zen-ux's OK, 2026-11-21). With `zenius.agentTabs.pageCode` at "ask",
-zen-observe holds the agent's page code on a site the user hasn't allowed
-and asks once per task and site (`onPageCodeAsk`, `{space, browser, site}`;
-`space` is the task's record). The tab of `browser` shows the pill
-`zenius-pagecode:<site>`, one per site per task: "Allow the agent's code on
+**The page-code card** (`ui/pagecode.sys.mjs`; zen-input's glue). With
+`zenius.agentTabs.pageCode` at "ask", zen-observe holds the agent's page
+code on a site the user hasn't allowed and asks once per task and site
+(`onPageCodeAsk`, `{space, browser, site}`; `space` is the task's record).
+The tab of `browser` shows the pill `zenius-pagecode:<site>`, one per site
+per task: "Allow the agent's code on
 <site>?" (the host for https, else the whole site, never cut) with [Allow on
 this site] and [Not now].
 - **Allow on this site** calls zen-observe's `allowPageCodeSite(site, event,
@@ -2223,9 +2211,8 @@ this site] and [Not now].
   look test), `siteLabel(site)` the site as the card names it, and
   `PAGE_CODE_NOTICE` the notice's prefix.
 
-**The claim prompt** (the manager's decision on zen-input's method audit,
-item 6). When an agent claims a user's Space or an ended task, zen-core's
-gate asks the user:
+**The claim prompt.** When an agent claims a user's Space or an ended
+task, zen-core's gate asks the user:
 - zen-core sends `claimAsked {id, space, name, client, until}` in process
   (`emitLocal`). There's one pending ask per Space. `client` is the label
   the claim call gave, which zen-core sanitizes, or null. `until` is the
@@ -2233,11 +2220,11 @@ gate asks the user:
 - ZeniusUI shows "Agent request · denied in {t}", with zenius's own words
   first, "An agent asks to work in your Space “<name>”.", and only then
   the client's label, "It calls itself “<label>”.", in the same plain
-  text. A steered agent mustn't pose as zenius or the browser (the
-  manager's rule). **Allow** (primary) and **Deny** go on the selected tab
-  of every window. The prompt moves with the selection, takes no focus and
-  selects nothing. Its buttons are chrome: only real clicks reach them,
-  and they arm after 400 ms.
+  text. A steered agent mustn't pose as zenius or the browser. **Allow**
+  (primary) and **Deny** go on the selected tab of every window. The
+  prompt moves with the selection, takes no focus and selects nothing. Its
+  buttons are chrome: only real clicks reach them, and they arm after 400
+  ms.
 - Both names are cleaned again here, as zen-core's runtime does
   (`plainText`): no Unicode Cc or Cf characters (an RLO would reverse the
   rest of the line, a zero-width one hides), no line or paragraph
@@ -2251,8 +2238,7 @@ gate asks the user:
   `service.spaces.pendingClaims()`.
 - Notices count down in minutes from a minute up (`{t}` in the detail).
 
-**Accessibility** (the manager's pass and decisions, 2026-11-20; the
-survey is in `docs/reports/zen-ux.md`).
+**Accessibility** (since 2026-11-20).
 - **Announcements.** Only the moments that need the user are announced.
   They go through Firefox's own `A11yUtils.announce({raw})`: an ARIA alert
   in the window the user was in last, since Firefox notes that JAWS ignores
@@ -2269,10 +2255,10 @@ survey is in `docs/reports/zen-ux.md`).
     <task>. This tab closes when you leave it."
   - Never routine agent actions, an agent's close of one page, or a pill
     shown again for a new window or after a restart.
-  - Moments that come together are heard together. The announcer keeps
-    one label, which each announcement replaces, so announcements within
+  - Moments that come together are heard together. The announcer keeps one
+    label, which each announcement replaces, so announcements within
     `ANNOUNCE_MS` (300 ms) of the first go out as one, each in the order it
-    came and a repeat dropped (B2: four came within 27 ms). One that comes
+    came and a repeat dropped (four came within 27 ms). One that comes
     alone goes out that much later.
 - **Pills** are groups named by their text, which a screen reader reads as
   the user Tabs to their buttons. As live regions they would be read
@@ -2329,8 +2315,8 @@ survey is in `docs/reports/zen-ux.md`).
   - Known gap: compact mode hides the sidebar, and the strip and the badge
     with it. A user there learns of a moment that needs them only from the
     OS notification, if they turned it on.
-  - The manager decided against flashing the sidebar, which would draw
-    over the user's page (I1).
+  - The sidebar never flashes: that would draw over the user's page
+    (I1).
 
 **Two windows** (`tests/ux/windows.test.mjs`; zen-core's "Windows: a page
 is its sync id"). What zen-ux shows on a tab stays on the copy that holds
@@ -2356,8 +2342,7 @@ its page, the one the user sees:
   `browserId`. So `isUserUsing`, the clipboard's test for a copy the user
   made, follows the page too.
 
-**Held calls.** The manager's rule (2026-11-20), with details settled by
-zen-core, zen-sdk and zen-ux (`docs/research/ux.md` §7b):
+**Held calls.** Settled by zen-core, zen-sdk and zen-ux (2026-11-20):
 
 - **Which calls wait.**
   - zen-core's dispatcher passes the I3 gate before every gated call.
@@ -2373,9 +2358,9 @@ zen-core, zen-sdk and zen-ux (`docs/research/ux.md` §7b):
   false}` on release, or just the final result or error. Every hold, the
   mid-action one included, sends its own pair.
   - Frames go only to requests whose frame has `"progress": true`. The SDK
-    sets it from 9d9eec9 on. A client that takes the first frame with its
-    `id` as the answer would otherwise carry on while the action is still
-    held. Without the flag, the call is held silently.
+    sets it. A client that takes the first frame with its `id` as the
+    answer would otherwise carry on while the action is still held.
+    Without the flag, the call is held silently.
 - **Timeouts.**
   - Held time is left out of the method's timing: its clock starts at
     release.

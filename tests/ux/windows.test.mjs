@@ -1,8 +1,8 @@
 // Two windows, with Zen's window sync on (its default): every window has a
 // copy of each tab, and Zen moves a page's docShell to the copy the user
-// selects in the focused window; the copy it leaves shows about:blank
-// (docs/research/two-windows.md; SPI "Windows: a page is its sync id").
-// zen-ux's part, the manager's order of 2026-11-20:
+// selects in the focused window; the copy it leaves shows about:blank (SPI
+// "Windows: a page is its sync id").
+// zen-ux's part:
 // - the task's tag on every copy;
 // - the pill, the cursor and the takeover prompt on the copy that holds the
 //   page, following it between windows;

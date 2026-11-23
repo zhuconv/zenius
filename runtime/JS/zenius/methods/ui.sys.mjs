@@ -22,8 +22,8 @@ startSystemUi(ZeniusService);
 ZeniusService.pages.keepView = keepView;
 ZeniusService.pages.stripCanScroll = stripCanScroll;
 
-// Gate classes (docs/research/method-boundary.md): access for the control
-// gate (I3), i5 for the web-content gate (I5).
+// Gate classes: access for the control gate (I3), i5 for the web-content
+// gate (I5).
 export const access = {
   "ui.cursor": "mutate",
   "ui.state": "none",

@@ -22,8 +22,8 @@ const TaskMenu = ChromeUtils.importESModule(new URL("taskmenu.sys.mjs", import.m
 const glue = window.browsingContext.topChromeWindow.ucAgentSidebar;
 // A window that let its glue go (unload, or the self-check window's cleanup)
 // gets no panel: without glue.scope, the panel would list and subscribe to
-// the user's own tasks (zen-observe's review). A browser window sets its
-// glue before it registers the panel, so a panel there always has one.
+// the user's own tasks. A browser window sets its glue before it registers
+// the panel, so a panel there always has one.
 if (!glue) {
   throw new Error("agent-sidebar: the panel's window has no glue");
 }
@@ -135,8 +135,8 @@ let lastRender = 0;
 
 // The attributes an answer's HTML keeps once sanitized. An id or a class
 // could pass part of an answer for the panel's own: a look-alike "The agent
-// wants to:" line, or a second #send for the tests' hooks (zen-snapshot's red
-// team, finding 5). A code block's language stays, for Save as.
+// wants to:" line, or a second #send for the tests' hooks. A code block's
+// language stays, for Save as.
 const KEPT_ATTRIBUTES = { a: ["href"], ol: ["start"], th: ["align"], td: ["align"], code: ["class"] };
 
 /** Markdown from the model, through Firefox's HTML sanitizer: no scripts,
@@ -220,8 +220,8 @@ function fillSource(el, text) {
 
 /**
  * An age as a phrase ends with it, short as the panel's ages are: "2 min
- * ago", or "just now" ("Finished 2 min ago": the user's text pass).
- * AgentService's ago() spells it out ("5 minutes ago") for the way back.
+ * ago", or "just now" ("Finished 2 min ago"). AgentService's ago() spells
+ * it out ("5 minutes ago") for the way back.
  */
 function minAgo(since) {
   const when = age(since);
@@ -265,12 +265,12 @@ function listFor(c) {
 
 // --- A task the sidebar doesn't drive (external.sys.mjs) ---------------------
 //
-// Read-only (the user's ask, docs/briefs/external-tasks.md): where it's driven
-// from, its steps from the runtime's own record (zen-input's ring), a card
-// while it needs the user, then the live card. Every part from the page or the
-// agent goes in as text, and each name a step quotes sits in its own isolate,
-// so a step can't pass for a row of the panel's or pull the panel's words
-// around (zen-snapshot's points for external tasks).
+// Read-only (the user's ask): where it's driven from, its steps from the
+// runtime's own record (zen-input's ring), a card while it needs the user,
+// then the live card. Every part from the page or the agent goes in as text,
+// and each name a step quotes sits in its own isolate, so a step can't pass
+// for a row of the panel's or pull the panel's words around (zen-snapshot's
+// points for external tasks).
 
 function externalView() {
   const view = div("list ext-view");
@@ -406,7 +406,7 @@ function renderArchivedBar() {
   els.archivedBar.hidden = !archived;
   if (archived) {
     // Since when is the tooltip's: the bar says only what the box's place
-    // shows already (the user's text pass).
+    // shows already.
     els.archivedText.textContent = "Archived";
     els.archivedText.title = `Archived ${minAgo(conv.archivedAt)}`;
   }
@@ -473,9 +473,9 @@ function fillQuestion(el, message) {
   }
   parts.push(div("text", message.text));
   if (message.attached) {
-    // One phrase, the page's title quoted as the cards quote names (the
-    // user's text pass): 'Page “Flights to Tokyo” attached'. The title sits
-    // in its own isolate, as a step's quoted names do.
+    // One phrase, the page's title quoted as the cards quote names: 'Page
+    // “Flights to Tokyo” attached'. The title sits in its own isolate, as a
+    // step's quoted names do.
     const what = message.attached.kind === "pdf" ? "PDF" : "Page";
     const how = message.attached.update ? "updated" : "attached";
     const cut = message.attached.truncated ? ", truncated" : "";
@@ -507,12 +507,12 @@ function fillQuestion(el, message) {
 // question that takes words; a secret one has a masked field of its own in
 // the card, since the box's text is the chat's draft, which Stop puts back.
 // The card names who asks: the chat's agent, or an MCP server (message.from).
-// An ask for a password or a code (AgentService's isCredentialAsk; the
-// safety rubric's row on the explicit ask) masks every field of words and
-// says in a fixed line where those go: an injected agent can ask, but only
-// the prompt kept passwords in the site. AgentService keeps none of its
-// answer. A masked question shows its field right under it, and its options
-// after the field as quiet pills, each one's description its tooltip.
+// An ask for a password or a code (AgentService's isCredentialAsk) masks
+// every field of words and says in a fixed line where those go: an injected
+// agent can ask, but only the prompt kept passwords in the site.
+// AgentService keeps none of its answer. A masked question shows its field
+// right under it, and its options after the field as quiet pills, each
+// one's description its tooltip.
 
 /** The card's own line on an ask for a password or a code, which nothing the agent sends can change. */
 const CREDENTIAL_LINE = "Passwords and codes go into the site itself: use Take over to sign in.";
@@ -627,8 +627,7 @@ function fillAsk(el, message) {
     const { action, summary } = message.answer;
     const said = action === "accept" ? `→ ${summary ?? ""}` : action === "decline" ? "Skipped" : "Not answered";
     // The question it answers: the ask's own title, else its questions', one
-    // after another, each ending in its own mark, else a comma (the user's
-    // text pass).
+    // after another, each ending in its own mark, else a comma.
     const asked = message.title || questionsLine(message.questions.map(q => q.text));
     el.replaceChildren(div("ask-text", asked), div("ask-answer", said));
     // What the user typed, a secret's too, lives no longer than the card's question.
@@ -823,11 +822,10 @@ function thoughtSeconds(s) {
 }
 
 /**
- * The row's words, one phrase (the user's text pass, 2026-11-23): "Thinking
- * for 12 s, <title>" while it lasts, "Thought for 23 s" after. The row
- * clamps to two lines (zen-ux's call: Claude Code's titles are whole
- * sentences). The seconds come right after "Thinking", so a long title never
- * hides them, and the whole title is the row's tooltip.
+ * The row's words, one phrase: "Thinking for 12 s, <title>" while it lasts,
+ * "Thought for 23 s" after. The row clamps to two lines (Claude Code's
+ * titles are whole sentences). The seconds come right after "Thinking", so a
+ * long title never hides them, and the whole title is the row's tooltip.
  */
 function fillThoughtLine(line, message) {
   const ended = message.ms !== null && message.ms !== undefined;
@@ -908,7 +906,7 @@ function tickThoughts() {
 /** The element of a new message, in its place: a tool call joins the steps
  * box of the tool calls right before it. So does a thought that comes after
  * a step, as a line of the box, and the steps after it go on in the same box
- * (zen-ux's call: the box stays one list). */
+ * (the box stays one list). */
 function placeMessage(message, index, el) {
   const list = listFor(conv);
   if (message.role !== "tool" && message.role !== "thought") {
@@ -1089,9 +1087,9 @@ function turnParts(message) {
 }
 
 /**
- * One copy and save row per turn, on its last part, once the turn has ended
- * (zen-ux's call): the parts between thoughts and steps are one answer, which
- * the row copies and saves whole (act). Code blocks keep their own buttons.
+ * One copy and save row per turn, on its last part, once the turn has ended:
+ * the parts between thoughts and steps are one answer, which the row copies
+ * and saves whole (act). Code blocks keep their own buttons.
  */
 function renderAnswerActions() {
   // The turn the agent is on, steers and all, hasn't ended.
@@ -1203,9 +1201,8 @@ function availability(harness) {
 
 /**
  * The composer's label: the chat's model and its effort ("Opus 5.5 Low",
- * the effort in gray, with no dot: the user's text pass),
- * or the agent's name until it reports its models. It opens the model
- * picker, which redraws with it.
+ * the effort in gray, with no dot), or the agent's name until it reports
+ * its models. It opens the model picker, which redraws with it.
  */
 function renderOptions() {
   if (!conv) {
@@ -1319,8 +1316,7 @@ function renderPicker() {
   );
   // A session can't move to another agent, so in a chat with messages
   // another family's model starts the chat over (setHarness). The rows say
-  // so, with no question to answer (t10x's call: the user dislikes
-  // interruptions).
+  // so, with no question to answer, which would interrupt.
   const anew = !locked && picking.family !== conv.harness && conv.messages.length > 0;
   els.pickNote.hidden = !anew;
   els.pickNote.textContent = anew ? "Picking a model here starts a new chat" : "";
@@ -1719,9 +1715,9 @@ function renderBinding() {
 }
 
 /**
- * Chat's way back (docs/research/chat-way-back.md, part 2): the first line of
- * the empty Chat view offers back the newest earlier chat about this page,
- * as the glue finds it, with its age, and its first question as the tooltip.
+ * Chat's way back: the first line of the empty Chat view offers back the
+ * newest earlier chat about this page, as the glue finds it, with its age,
+ * and its first question as the tooltip.
  */
 function renderEarlier() {
   const offer = conv?.kind === "chat" && !conv.external && !conv.messages.length && !conv.busy ? (glue.earlierChat?.() ?? null) : null;
@@ -1981,8 +1977,8 @@ function placeholders() {
 /**
  * What the empty box says, longest first: it shows the first that fits its
  * two lines (fitHint). A busy chat's says only what Enter and Steer do: the
- * thinking row, the steps and Stop show that the agent works (the user's
- * text pass dropped "Working… ·" before it).
+ * thinking row, the steps and Stop show that the agent works (with no
+ * "Working… ·" before it).
  */
 function hintsFor(busy) {
   if (!busy) {
@@ -2039,7 +2035,7 @@ function openPermission(target = conv) {
 function renderStatus() {
   // For every chat, since it hides the bar too: called only for a task
   // another agent drives, it left "Finished · now" on the next chat shown
-  // (the user's bug in 5ca03b1).
+  // (the user's bug).
   renderExternalBar();
   if (conv?.external) {
     // Read-only: no question box, no Send, Steer or Stop of the chat's.
@@ -2062,8 +2058,8 @@ function renderStatus() {
 
 /**
  * Whether the chat ends in a thought row that's still live (fillThought): it
- * already says the agent is thinking, so the busy box leaves its status out
- * (the relay's polish). A later wait has no row, and the box says it.
+ * already says the agent is thinking, so the busy box leaves its status out.
+ * A later wait has no row, and the box says it.
  */
 function thinkingRow() {
   const last = conv?.messages.findLast(m => !m.hidden);
@@ -2183,7 +2179,7 @@ function onChange(change) {
  * empty box's placeholder in scrollHeight, so a busy chat's that wrapped
  * past two lines at Zen's narrowest sidebar sized the box, and the next
  * chat's too, since show() grows the box before that chat's placeholder
- * goes in (zen-eval's look run on 4f97629). */
+ * goes in. */
 function autoGrow() {
   els.input.style.height = "auto";
   if (els.input.value) {
@@ -2196,7 +2192,7 @@ function autoGrow() {
 /** The box's words, selection and files go into the conversation's draft,
  * which AgentService keeps in its own realm (setDraft): a draft this panel
  * made, left in the box, kept the panel's whole window for as long as the
- * chat or the task was kept (zen-ux's note on the night cut's leak). */
+ * chat or the task was kept. */
 function saveDraft() {
   if (conv) {
     AgentService.setDraft(conv, { text: els.input.value, selection: conv.draft?.selection ?? "", attachments: conv.draft?.attachments ?? [] });

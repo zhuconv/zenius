@@ -1,5 +1,5 @@
 /* Agent Sidebar: the zenius tasks the sidebar doesn't drive (the user's ask,
- * 2026-11-21, docs/briefs/external-tasks.md).
+ * 2026-11-21).
  *
  * A Claude or Codex session in a terminal, or a script, drives the browser
  * through zenius's CLI, SDK or MCP. Its task shows in the directory like the
@@ -39,12 +39,12 @@ function plain(text, max = 200) {
 const isolate = text => `\u2068${text}\u2069`;
 
 /**
- * Where an external task is driven from (zen-core's source), one phrase (the
- * user's text pass, 2026-11-23): "Claude Code on laptop/t5x" when its caller
- * runs in an hc terminal, else "Claude Code in zenius-eval" (its agent and
- * its folder's name). Each part is a first-strong isolate, as
- * remoteSource's. `terminal` says whether the last part is the terminal,
- * which the look sets apart as a chip. Null without a source it can name.
+ * Where an external task is driven from (zen-core's source), one phrase:
+ * "Claude Code on laptop/t5x" when its caller runs in an hc terminal, else
+ * "Claude Code in zenius-eval" (its agent and its folder's name). Each part
+ * is a first-strong isolate, as remoteSource's. `terminal` says whether the
+ * last part is the terminal, which the look sets apart as a chip. Null
+ * without a source it can name.
  *
  * @param {{terminal?: string, agent?: string, folder?: string}|null} source
  * @returns {{text: string, terminal: boolean}|null}

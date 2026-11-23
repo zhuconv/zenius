@@ -15,10 +15,10 @@
 // - notification: the page's notification wasn't shown; the agent gets a
 //   Zenius.notification event.
 //
-// Defence in depth (content-boundary audit, item 6): only an agent task's
-// pages run the guards, so messages from other tabs are ignored, and each
-// message's fields are checked, as a compromised content process could send
-// anything. observe/events.sys.mjs caps an event's text.
+// Defence in depth: only an agent task's pages run the guards, so messages
+// from other tabs are ignored, and each message's fields are checked, as a
+// compromised content process could send anything. observe/events.sys.mjs
+// caps an event's text.
 
 import { pushEvent } from "chrome://userscripts/content/zenius/observe/events.sys.mjs";
 import { ZeniusUI } from "chrome://userscripts/content/zenius/ui/index.sys.mjs";

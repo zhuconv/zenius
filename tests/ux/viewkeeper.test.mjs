@@ -75,8 +75,8 @@ test("a tab added above the shown tab: Zen's strip moves it a row, keepView hold
     const user = T("A15");
     let y0 = top(user);
     add(${JSON.stringify(tall)}, "N1");
-    // At once, and after the next frames: on zen-eval's throttled Mac (the
-    // screen locked) the tab hadn't moved at once.
+    // At once, and after the next frames: on a throttled Mac (the screen
+    // locked) the tab hadn't moved at once.
     const now = top(user) - y0;
     await settle();
     const after = top(user) - y0;

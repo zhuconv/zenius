@@ -98,7 +98,7 @@ export class Directory {
   source(text, { chip = true } = {}) {
     const line = this.el("div", "asb-dir-src");
     // The address or the terminal is the phrase's last isolate ("From <label>
-    // on <address>", "<agent> on <terminal>": the user's text pass).
+    // on <address>", "<agent> on <terminal>").
     const end = chip ? text.lastIndexOf("\u2069") : -1;
     const start = end < 0 ? -1 : text.lastIndexOf("\u2068", end);
     if (start < 0) {
@@ -196,7 +196,7 @@ export class Directory {
     listen(this.win, "resize", () => this.isOpen && this.place());
     // A right-click on a row opens its menu; the keys' menu comes from onKey.
     // A self-check window's rows have none: a pin or a name there would go to
-    // the user's tasks file (zen-observe's cross-point with the self-check).
+    // the user's tasks file.
     if (!this.scope) {
       listen(this.drawer, "contextmenu", event => this.onContextMenu(event));
       this.buildMenu(listen);
@@ -365,7 +365,7 @@ export class Directory {
   /**
    * The row's name again, the field's words kept if `keep`. A name left as
    * it was renames nothing: it would make the name it shows the user's own,
-   * which a task's later names never change (zen-observe's review).
+   * which a task's later names never change.
    */
   endRename({ keep = false } = {}) {
     const edit = this.renaming;
@@ -530,10 +530,9 @@ export class Directory {
           .sort((a, b) => b.task.since - a.task.since),
       })),
     ].filter(group => group.tasks.length);
-    // Earlier chats (docs/research/chat-way-back.md, part 3), only while a
-    // search runs, as the window's glue finds them: none in a private
-    // window, whose glue keeps no chats, nor in the self-check window,
-    // which lists its scope alone.
+    // Earlier chats, only while a search runs, as the window's glue finds
+    // them: none in a private window, whose glue keeps no chats, nor in the
+    // self-check window, which lists its scope alone.
     const chats = query && !this.scope ? (this.glue.earlierChats?.(query) ?? []) : [];
     if (chats.length) {
       groups.push({ state: "chats", label: "Earlier chats", shown: true, tasks: [], chats });
@@ -679,9 +678,9 @@ export class Directory {
   }
 
   /**
-   * An earlier chat's row (part 3): its first question as its name, its age,
-   * a gray dot where a task's shows its state, and its newest question's
-   * page under it.
+   * An earlier chat's row: its first question as its name, its age, a gray
+   * dot where a task's shows its state, and its newest question's page under
+   * it.
    */
   chatRow(chat) {
     const row = this.el("div", "asb-dir-row");

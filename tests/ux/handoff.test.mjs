@@ -32,7 +32,7 @@ const CLEARS = "Resume agent clears password, card and code fields, so submit wh
 const inControl = () => ({ notice: `You're in control · the agent waits until you resume it on ${site()}`, note: CLEARS, more: null, buttons: ["Resume agent"] });
 // A page the agent made itself, which no website served.
 const MADE_NOTE = "The agent made this page. It might contain malicious code. Keep sensitive information out.";
-// A page that loaded afresh at the user's press (the manager's wording, 2026-11-21).
+// A page that loaded afresh at the user's press.
 const RELOADED_NOTE = "A form here may be back to its defaults: check it before you submit.";
 const RELOADED_MORE = "It reloaded without the agent's changes.";
 // A hand-off whose step shows the user a secret (zen-core's secret flag).
@@ -215,7 +215,7 @@ test("a hand-off with no reload: Agent needs you, with the task, Resume agent, t
   assert.equal(out.reloaded, null, "nothing of a reload");
 });
 
-test("a hold that ends before its announcement goes out isn't heard: the user's Resume right after the hand-off, or the agent's finish while the user holds the task; one that lasts is heard once (zen-eval's Mac run heard one test's hold in the next)", async () => {
+test("a hold that ends before its announcement goes out isn't heard: the user's Resume right after the hand-off, or the agent's finish while the user holds the task; one that lasts is heard once (on a Mac, one test's hold was heard in the next)", async () => {
   // A task of its own, to finish.
   const { id: own } = await h.createSpace({ name: `zen-ux brief hold ${run}` });
   await h.call("page.goto", { space: own, page: "p1", url: `${h.base}/` });
@@ -556,7 +556,7 @@ test("a quiet reload whose new document came in with evidence too (zen-core's st
   assert.deepEqual(out.heard, [`This page couldn't reload. ${note}`]);
 });
 
-test("a Take over that loaded another page of the task afresh, by zen-core's label (a form page that a popup the agent acted in last could reach: zen-input's probe), says so on that page, and not on the page taken over when it didn't reload itself", async () => {
+test("a Take over that loaded another page of the task afresh, by zen-core's label (a form page that a popup the agent acted in last could reach), says so on that page, and not on the page taken over when it didn't reload itself", async () => {
   const { label } = await h.call("pages.new", { space });
   await h.call("page.goto", { space, page: label, url: `${h.base}/` });
   try {
@@ -602,8 +602,8 @@ test("a Take over that loaded another page of the task afresh, by zen-core's lab
 // of danger, and the notice says which (zen-core's results carry what they
 // acted on: cleanOnDemand's evidence, holdForUser's by label). Only the
 // agent's code (hooked) and its own page (made) reload: a listed or flagged
-// page gets its warning instead (the manager's call, 2026-11-21), so those
-// two never say why a page reloaded.
+// page gets its warning instead, so those two never say why a page
+// reloaded.
 test("the reload notice says why the page reloaded: the agent's code changed it, with what it left, or the agent made it; a list or the agent's flag isn't why; at the user's press, from zen-core's result or the hook's own read; at Take over and the agent's hand-off, by the page's label", async () => {
   const out = await h.chrome(`${P}
     try {
@@ -811,11 +811,10 @@ test("the panel's Pause: once the user typed a secret meanwhile, the row says it
   });
 });
 
-// Listed and flagged pages (the manager's call, 2026-11-21, from zen-input's
-// finding): the danger there is the page itself, which a clean copy can't
-// remove (a listed copy is marked again, a flagged one loses its flag). So
-// they get no hold and no clean copy, only a warning while the user is on
-// the page, which informs: no choice, no focus.
+// Listed and flagged pages: the danger there is the page itself, which a
+// clean copy can't remove (a listed copy is marked again, a flagged one
+// loses its flag). So they get no hold and no clean copy, only a warning
+// while the user is on the page, which informs: no choice, no focus.
 test("a page on a phishing or malware list, or that the agent flagged, warns the user while they're on it: in the hold, as the mark comes, and on a page no task drives, in its words; not while the agent drives it, nor for the agent's code alone; no choice but its ✕, which keeps it away for that document; no focus; heard once", async () => {
   const out = await h.chrome(`${P}
     const warning = (t = tab) => {
@@ -1002,11 +1001,11 @@ test("Resume agent first reloads each page with evidence of danger where the use
   assert.deepEqual(out, ["cleanLoad true", "noteReloaded 1 true", "agent"]);
 });
 
-// The user's pass on defenses (2026-11-21, A4): without evidence of danger,
-// a page keeps what the user typed until zen-input's clear empties its
-// secret fields; only code the agent left there could have read it. A page
-// on a list or that the agent flagged stays too: a clean copy can't clear
-// the page itself (the manager's call, 2026-11-21).
+// The user's pass on defenses (2026-11-21): without evidence of danger, a
+// page keeps what the user typed until zen-input's clear empties its secret
+// fields; only code the agent left there could have read it. A page on a
+// list or that the agent flagged stays too: a clean copy can't clear the
+// page itself.
 for (const [what, evidence] of [
   ["without evidence of danger", {}],
   ["on a phishing or malware list", { listed: "goog-phish-proto" }],
@@ -1144,8 +1143,8 @@ const NEW_PAGE = `
   };
 `;
 
-// The user's pass on defenses (2026-11-21, A6): the line comes only when
-// the page asks for a password, a card's details or a one-time code, or the
+// The user's pass on defenses (2026-11-21): the line comes only when the
+// page asks for a password, a card's details or a one-time code, or the
 // agent flagged it.
 test("a page the agent made itself: the user's Take over keeps it as it is, and the card says, behind the '?', it might contain malicious code, only once the page asks for a password, card or code, or the agent flagged it", async () => {
   const { label } = await h.call("pages.new", { space });

@@ -48,10 +48,10 @@ test("on a hidden tab, a move records the point and returns at once", async t =>
   `);
   assert.equal(out.stats.hidden, 1000);
   assert.equal(out.stats.animated, 0);
-  // Returning at once means no frame, no animation and no overlay: far under
-  // a millisecond. The bound leaves room for a busy machine (zen-eval measured
-  // 0.23 ms a move on a Mac during a Zoom call); a wait for a frame or an
-  // animation would still cost several times it.
+  // Returning at once means no frame, no animation and no overlay: far under a
+  // millisecond. The bound leaves room for a busy machine (0.23 ms a move on a
+  // busy Mac); a wait for a frame or an animation would still cost several
+  // times it.
   t.diagnostic(`a hidden move: ${out.perCallMs.toFixed(4)} ms a call, ${out.inMoveMs.toFixed(4)} ms of it in moveCursor`);
   assert.ok(out.perCallMs < 1, `a hidden move costs ${out.perCallMs} ms (${out.inMoveMs} ms in moveCursor)`);
   assert.equal(out.layers, 0, "no overlay DOM for a tab nobody has seen");
@@ -94,8 +94,8 @@ test("a visible move animates and resolves when the animation ends (or, in a win
   assert.equal(out.r.visible, true);
   assert.ok(out.r.ms >= 100 && out.r.ms < 1000, `move took ${out.r.ms} ms`);
   assert.equal(out.transform, "translate(500px, 300px)");
-  // zen-eval's throttled Mac (background priority, the screen locked)
-  // painted too seldom for the animation to end within the grace.
+  // A throttled Mac (background priority, the screen locked) painted too
+  // seldom for the animation to end within the grace.
   if (out.gap > SMOOTH_FRAME_MS) {
     console.log(`# frames up to ${out.gap} ms apart: the move may resolve before its animation ends (animated ${out.r.animated}); not checked here`);
     return;
@@ -210,8 +210,8 @@ test("switching back to the user's Space makes moves free again", async () => {
   assert.deepEqual(await h.call("dev.viewState"), userView, "the user's view is back as it was");
 });
 
-// The guided check on the Mac (docs/reports/mac-relay.md): after Hand back (now Resume agent)
-// the cursor didn't come back, and after a swipe back it had lost its label.
+// In the guided check on the Mac, after Hand back (now Resume agent) the cursor
+// didn't come back, and after a swipe back it had lost its label.
 test("Resume agent brings the cursor back where it was, with its label", async () => {
   const out = await h.chrome(`${P}
     const Pages = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/pages.sys.mjs");

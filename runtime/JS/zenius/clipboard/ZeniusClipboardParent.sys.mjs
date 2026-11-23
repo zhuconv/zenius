@@ -17,10 +17,10 @@
 // origin gets NotAllowedError, as after a dismissed paste prompt, and the
 // agent a Zenius.refused {kind: "clipboardRead"} event.
 //
-// Defence in depth (content-boundary audit): only an agent task's pages run
-// the guards that send these messages, so messages from anywhere else are
-// ignored, and each one's shape is checked, as a compromised content
-// process could send anything.
+// Defence in depth: only an agent task's pages run the guards that send
+// these messages, so messages from anywhere else are ignored, and each
+// one's shape is checked, as a compromised content process could send
+// anything.
 
 import { SpaceClipboard } from "chrome://userscripts/content/zenius/clipboard/store.sys.mjs";
 import { ZeniusService } from "chrome://userscripts/content/zenius/modules/service.sys.mjs";

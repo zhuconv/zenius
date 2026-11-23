@@ -41,8 +41,8 @@ let observing = false;
  * The least room the rest of a Space's status gets, in ems. With less it
  * hides, rather than show a stub such as "Agent needs you ·…": on a Mac's
  * narrower system font the narrowest sidebar left it a few pixels, where
- * Linux's words fill the line (zen-eval's Mac run, 2026-11-20). The status's
- * title keeps the whole text.
+ * Linux's words fill the line (on a Mac, 2026-11-20). The status's title
+ * keeps the whole text.
  */
 const MIN_REST_EM = 5;
 /** Each window's ResizeObserver: a Space's status refits when its width changes. */
@@ -118,8 +118,8 @@ function hookWindow(win) {
 /**
  * The words a header's status pill always shows in full, its start; what
  * follows them (the rest of the state, the tasks' names) is clipped first.
- * They're what every handoff shows: at the sidebar's default width the
- * pill had shown "Agent nee…" (the load pass's B6).
+ * They're what every handoff shows: at the sidebar's default width the pill
+ * had shown "Agent nee…".
  */
 const STATE_WORDS = {
   working: "Agent working",
@@ -132,9 +132,9 @@ const STATE_WORDS = {
 /**
  * The status's words: the state's own (STATE_WORDS), then a space and the
  * rest, its parts after a comma: "Agent working Finding a table for 2, Click
- * Submit". The picker's look, the user's choice for the text pass
- * (2026-11-23): the state's words in the pill's color, the rest in gray
- * (zenius-ux.css). The Space's tooltip reads the same words.
+ * Submit". The picker's look, the user's choice (2026-11-23): the state's
+ * words in the pill's color, the rest in gray (zenius-ux.css). The Space's
+ * tooltip reads the same words.
  *
  * @param {BadgeInfo} info
  */
@@ -193,7 +193,7 @@ export function applyWindow(win) {
     // Its own line under the header, as wide as the sidebar. In the header's
     // row, of a fixed height, it had to share the width with the Space's
     // name and Zen's actions button, and showed "Agent nee…" at the
-    // sidebar's default width (the load pass's B6).
+    // sidebar's default width.
     let status = space.querySelector(":scope > .zenius-space-status");
     if (!info) {
       status?.remove();

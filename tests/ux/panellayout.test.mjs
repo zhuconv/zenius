@@ -1,7 +1,7 @@
-// The tasks panel with many tasks, and long or right-to-left names (the load
-// pass of 2026-11-20: B4 and B5 in docs/reports/zen-ux.md). The rows here are
-// stand-ins that panel.sys.mjs draws itself, so the test needs no 30 real
-// tasks; ZeniusUI's own rows come back the next time the user opens it.
+// The tasks panel with many tasks, and long or right-to-left names (found in
+// a load test, 2026-11-20). The rows here are stand-ins that panel.sys.mjs
+// draws itself, so the test needs no 30 real tasks; ZeniusUI's own rows come
+// back the next time the user opens it.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { setup } from "./lib.mjs";

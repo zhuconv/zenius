@@ -1,5 +1,5 @@
 // Permission prompts in agent pages, on evidence since the user's pass on
-// defenses (2026-11-21, A8; zen-observe's backstops follow the same rules):
+// defenses (2026-11-21; zen-observe's backstops follow the same rules):
 // - while the agent drives, a page's prompt puts its Space under the user's
 //   control with Ego's reason key, and gives it back once it's answered;
 // - during the user's hold it's theirs, as on any site: nothing happens here;

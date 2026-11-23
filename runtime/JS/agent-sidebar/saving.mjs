@@ -11,8 +11,8 @@
  * exclusive), never into a path that's already there. An agent whose sandbox
  * writes the Downloads folder could plant a link at the name, or swap the
  * file for one between two steps. The answer, which the agent wrote, would
- * then go over whatever the link points to (zen-snapshot's sweep,
- * 2026-11-21). A link at the name only takes that name. */
+ * then go over whatever the link points to. A link at the name only takes
+ * that name. */
 
 import { marked } from "./vendor/marked.esm.js";
 

@@ -85,8 +85,8 @@ export function needsUser(row) {
  * Each window's strip and panel. `els` holds one row element per task for as
  * long as the task is listed: updates change those rows in place, so a
  * button the user has focused or is pressing survives an agent's progress
- * report (the load pass of 2026-11-20 saw ~12 updates a second). `actions`
- * is the latest set, which the buttons call.
+ * report (~12 updates a second under load). `actions` is the latest set,
+ * which the buttons call.
  *
  * @type {WeakMap<Window, {strip: Element, panel: Element|null, rows: TaskRow[], els: Map<number, Element>, actions: PanelActions}>}
  */
@@ -132,10 +132,10 @@ const watchHints = new WeakMap();
 
 /**
  * While `win` watches a task, its strip says so, and how to go back:
- * "Watching <task> [⌃Tab]" (the user's design, 2026-11-21; the key a keycap
- * since the text pass). Once the task ended there, while ⌃Tab still goes
- * back: "Task done, [⌃Tab] back to your tabs". A hint, not a Back button: a
- * click still opens the tasks panel.
+ * "Watching <task> [⌃Tab]" (the user's design, 2026-11-21; the key a
+ * keycap). Once the task ended there, while ⌃Tab still goes back: "Task
+ * done, [⌃Tab] back to your tabs". A hint, not a Back button: a click still
+ * opens the tasks panel.
  *
  * @param {Window} win
  * @param {WatchHint|null} hint  `words`: the key as a screen reader should
@@ -201,12 +201,10 @@ function renderStrip(win, w) {
 }
 
 /**
- * "Watching <task> [⌃Tab]", or "Task done, [⌃Tab] back to your tabs", the
- * key a keycap as the watch chip draws it (the user's text pass, 2026-11-23):
- * where the strip is narrow the name, or where ⌃Tab goes, is cut, never the
- * key.
- * The tooltip and the accessible name say what the key does, and keep the
- * strip's own news.
+ * "Watching <task> [⌃Tab]", or "Task done, [⌃Tab] back to your tabs", the key
+ * a keycap as the watch chip draws it: where the strip is narrow the name, or
+ * where ⌃Tab goes, is cut, never the key. The tooltip and the accessible name
+ * say what the key does, and keep the strip's own news.
  */
 function renderWatching(strip, label, { name, done = false, key, words }, text) {
   const state = done ? "done" : "true";
@@ -367,18 +365,17 @@ function panelPosition(win, panel, anchor) {
 }
 
 /**
- * Keep the panel inside its window (zen-eval's Mac layouts runs). A popup is
- * a window of its own, which the system keeps on the screen, not in the
- * browser's window. On a Mac whose window doesn't fill the screen it hung
- * 62 px past the window's right edge with the sidebar on the right, and 13 px
- * past a second window's left edge, with the rows' Stop and Resume agent. Its
- * margin (Zen's shadow margin, 8 px on a Mac, none on Linux) and the window's
- * place on the screen decide by how much, so this measures where it landed
- * and moves it in by that much.
+ * Keep the panel inside its window. A popup is a window of its own, which the
+ * system keeps on the screen, not in the browser's window. On a Mac whose
+ * window doesn't fill the screen it hung 62 px past the window's right edge
+ * with the sidebar on the right, and 13 px past a second window's left edge,
+ * with the rows' Stop and Resume agent. Its margin (Zen's shadow margin, 8 px
+ * on a Mac, none on Linux) and the window's place on the screen decide by how
+ * much, so this measures where it landed and moves it in by that much.
  *
  * - It measures with layout's rect (rectInWindow). On Zen 1.24.3b on a Mac
- *   this no longer worked from the popup's screen rect alone (zen-eval,
- *   0c25f24): the panel stayed where it opened.
+ *   this no longer worked from the popup's screen rect alone: the panel
+ *   stayed where it opened.
  * - It measures at popuppositioned, at popupshown, and once more a moment
  *   after, in case the system places the popup late.
  * - A move that didn't take (the panel is where it was) is made again as an
@@ -832,9 +829,8 @@ function syncButtons(doc, box, row) {
 
 /**
  * The Resume line under the row's Resume or Resume agent, once the user
- * typed a password, card or code where that button clears it (the
- * manager's recommendation, 2026-11-20). It's part of the row's text, which
- * describes each of its buttons.
+ * typed a password, card or code where that button clears it. It's part of
+ * the row's text, which describes each of its buttons.
  */
 function syncClears(doc, el, row) {
   let line = el.querySelector(":scope > .zenius-task-clears");

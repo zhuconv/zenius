@@ -1,9 +1,9 @@
 // The agent sidebar's start in each kind of browser window, and every way
-// out of it (zen-manager's order of 2026-11-22). In the user's daily,
-// doctor said "zenius's sidebar failed to start in the running Zen: can't
-// access property "tabContainer", gBrowser is undefined". The window was a
-// site's popup: its toolbar isn't visible, so fx-autoconfig takes it for a
-// dialog and runs the sidebar's script before the browser makes gBrowser.
+// out of it. In a daily profile, doctor said "zenius's sidebar failed to
+// start in the running Zen: can't access property "tabContainer", gBrowser
+// is undefined". The window was a site's popup: its toolbar isn't visible,
+// so fx-autoconfig takes it for a dialog and runs the sidebar's script
+// before the browser makes gBrowser.
 // - A popup gets no sidebar, and nothing is registered for it.
 // - A start that throws midway undoes what it did.
 // - A closed window leaves nothing of the sidebar's in AgentService: the
@@ -324,8 +324,8 @@ test("ui.sidebarStatus reports each browser window: started, failed with its err
         delete second.gBrowser.addProgressListener;
       }
       res.failed = await now();
-      // A sidebar file from before 6646a6c started in popups and threw there,
-      // as in the user's daily.
+      // An older sidebar file started in popups and threw there, as in the
+      // user's daily.
       popup.zeniusSidebarStart = Object.freeze({ error: arg.old });
       res.oldPopup = await now();
       delete popup.zeniusSidebarStart;

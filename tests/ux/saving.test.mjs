@@ -1,11 +1,10 @@
 // Saving an answer (runtime/JS/agent-sidebar/saving.mjs) never writes through
-// a link an agent planted (zen-snapshot's sweep, 2026-11-21). An agent whose
-// sandbox writes the Downloads folder could plant one at the name the save
-// uses, or swap the file for one between two steps. The answer, which the
-// agent wrote, would then go over whatever the link points to: here a
-// "victim" outside the folder. Each save gets a link planted at its path
-// just before its bytes are written (the module's IOUtils, wrapped), and a
-// Save As replaces a name that's a link.
+// a link an agent planted. An agent whose sandbox writes the Downloads folder
+// could plant one at the name the save uses, or swap the file for one between
+// two steps. The answer, which the agent wrote, would then go over whatever
+// the link points to: here a "victim" outside the folder. Each save gets a
+// link planted at its path just before its bytes are written (the module's
+// IOUtils, wrapped), and a Save As replaces a name that's a link.
 import assert from "node:assert/strict";
 import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

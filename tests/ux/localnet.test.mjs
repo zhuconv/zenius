@@ -157,7 +157,7 @@ test("a load the user typed, refused in a task's tab: the notice says why and na
       await view(from);
       const tabs = new Set(Win.uniqueTabs());
       // Every tab the window selects on the way: only the new one, not the
-      // Space's last tab first (landOn, zen-input's find).
+      // Space's last tab first (landOn).
       const selected = [];
       const onSelect = e => selected.push(e.target.linkedBrowser?.browserId ?? null);
       win.gBrowser.tabContainer.addEventListener("TabSelect", onSelect);

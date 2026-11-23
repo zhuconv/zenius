@@ -110,10 +110,10 @@
   margin-inline-start: 6px;
 }
 
-/* The site the user is on, in the hold cards (the manager, 2026-11-20):
-   after the task, never cut; the task's name gives way first. It reads as
-   one phrase with the task's name, "Book flights on united.com": a word's
-   space before "on", not the card's gap (the user's text pass, 2026-11-23). */
+/* The site the user is on, in the hold cards: after the task, never cut;
+   the task's name gives way first. It reads as one phrase with the task's
+   name, "Book flights on united.com": a word's space before "on", not the
+   card's gap. */
 .zenius-card-site {
   flex: none;
   margin-inline-start: calc(-1 * var(--zenius-card-gap));
@@ -691,7 +691,7 @@ toolbarbutton[zenius-agent="user"] > .zenius-space-badge {
 /* The Space's status: a line of its own under its header (zen-workspace is
    a column), starting where the header's content does. The header's row has
    a fixed height, and its width went to the Space's name and Zen's actions
-   button: the pill there showed "Agent nee…" (B6). */
+   button: the pill there showed "Agent nee…". */
 zen-workspace > .zenius-space-status {
   flex: none;
   align-self: flex-start;
@@ -762,8 +762,8 @@ zen-workspace > .zenius-space-status {
   /* A grid item drops the leading space of " <names>" otherwise. */
   white-space: pre;
   /* The rest in gray, after the state's words in the pill's color: the
-     picker's look (the user's text pass, 2026-11-23). At least 5.3:1 on the
-     agent's and the user's tints, in both themes (AA for 10.5 px). */
+     picker's look. At least 5.3:1 on the agent's and the user's tints, in
+     both themes (AA for 10.5 px). */
   color: light-dark(rgba(29, 29, 31, 0.68), rgba(245, 245, 247, 0.68));
 }
 
@@ -984,7 +984,7 @@ zen-workspace > .zenius-space-status {
   }
 
   /* The key as a keycap, in the watch chip's shape and the sidebar's own
-     colors (the user's text pass, 2026-11-23). */
+     colors. */
   & kbd {
     padding: 1px 6px;
     border-radius: 5px;
@@ -999,8 +999,8 @@ zen-workspace > .zenius-space-status {
  * [⌃Tab]", or "Task done, [⌃Tab] back to your tabs" once the task ended
  * there. The script places it, at most 280 px or 40 % of the page area
  * wide: never over the page's top middle, where its search and sign-in
- * fields sit (zen-snapshot's red team). A hint, not a control: every click
- * goes through it to the page. */
+ * fields sit. A hint, not a control: every click goes through it to the
+ * page. */
 
 #zenius-watch-pill {
   position: absolute;

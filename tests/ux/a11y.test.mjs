@@ -1,7 +1,7 @@
-// Accessibility of everything zenius shows (the manager's pass, 2026-11-20):
-// screen-reader names and announcements, the keyboard, contrast and
-// right-to-left names. docs/reports/zen-ux.md has the survey; the checklist's
-// rows A1-A6 are the Mac checks that need macOS's own settings.
+// Accessibility of everything zenius shows: screen-reader names and
+// announcements, the keyboard, contrast and right-to-left names. What needs
+// macOS's own settings (VoiceOver, keyboard navigation, Increase contrast,
+// Reduce motion) is checked by hand on the Mac.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { iso, prelude, setup } from "./lib.mjs";
@@ -533,10 +533,10 @@ test("muted text is AA; with increased contrast the pill turns solid, with full-
   assert.match(out.more.plainEdge, /inset/, "an edge on the plain button");
 });
 
-// Today's cards (the manager's pass of 2026-11-20): the local-network notice,
-// the pills a Stop and a finish leave on pages that ran the agent's code,
-// the closing pill's line about them, and the claim prompt beside them.
-// Their addresses are the fixture's, so no button reaches a real local host.
+// The cards added on 2026-11-20: the local-network notice, the pills a Stop
+// and a finish leave on pages that ran the agent's code, the closing pill's
+// line about them, and the claim prompt beside them. Their addresses are the
+// fixture's, so no button reaches a real local host.
 const agentCode = () => h.call("page.evaluate", { space, page: "p1", fn: "() => document.title", isFunction: true });
 
 test("today's cards are groups named by all they show, not live regions, their buttons real buttons with the main one first and filled", async () => {
@@ -673,7 +673,7 @@ test("each pill's buttons are described by the pill, and each panel row's by the
           b.focus();
           const atFocus = now();
           // Gecko signals each change of the focused button's description
-          // (zen-ux's probe, 2026-11-20): no change, no signal.
+          // (probed 2026-11-20): no change, no signal.
           await sleep(2600);
           const held = now();
           browser.focus();

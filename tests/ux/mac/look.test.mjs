@@ -1,6 +1,6 @@
-// The look of every zen-ux surface, for a person to review (UX checklist
-// L1–L7 in docs/ux/checklist.md). zen-eval runs it on the Mac in a visible
-// dev Zen, so the screenshots show Retina rendering:
+// The look of every zen-ux surface, for a person to review (L1–L7 below).
+// zen-eval runs it on the Mac in a visible dev Zen, so the screenshots show
+// Retina rendering:
 //
 //   ZENIUS_UX_HEADED=1 tests/ux/run.sh tests/ux/mac/look.test.mjs
 //
@@ -100,12 +100,11 @@ const inactive = [];
 const THEME_PREFS = ["zen.view.window.scheme", "ui.systemUsesDarkTheme"];
 /**
  * What drawSnapshot paints under Zen's window. On a Mac the window is
- * transparent over the system's own material, which a snapshot can't draw.
- * Over white, Zen's dark chrome came out as grey: 153 in the sidebar, about
- * 160 in the content (zen-eval, 2026-11-20). zen-ux's probe on the Linux server
- * reproduced both numbers with Zen's transparent window, and got 18 and 40
- * over a dark backdrop. So a dark theme's shots get a dark stand-in for
- * that material.
+ * transparent over the system's own material, which a snapshot can't draw. Over
+ * white, Zen's dark chrome came out as grey: 153 in the sidebar, about 160 in
+ * the content (2026-11-20). A probe on Linux reproduced both numbers with Zen's
+ * transparent window, and got 18 and 40 over a dark backdrop. So a dark theme's
+ * shots get a dark stand-in for that material.
  */
 let backdrop = "white";
 
@@ -262,7 +261,7 @@ for (const theme of ["light", "dark"]) {
         const d = UI.describe(two.space);
         return { notice: d.controlNotice, said: [d.controlNote, d.controlMore].join(" ") };
       `);
-      // The detail comes in Unicode isolates (zen-ux's B5, for right-to-left names).
+      // The detail comes in Unicode isolates (for right-to-left names).
       assert.match(needsYou.notice.replace(/[\u2066-\u2069]/g, ""), /^Agent needs you · /);
       assert.ok(needsYou.said.replace(/[\u2066-\u2069]/g, "").includes("The agent says: “Log in to continue”."), needsYou.said);
       shots.push(await shot(`L4-agent-needs-you-${theme}`));
@@ -323,13 +322,12 @@ for (const theme of ["light", "dark"]) {
   }));
 }
 
-// The notice pills (docs/ux/pill-*.png): the takeover pill at the bottom
-// center of the agent's page, and a 2x sheet of every pill (takeover after a
-// click and after typing, You're in control, Agent needs you with and
-// without zen-core's reload, a permission prompt, a close waiting for the
-// user, the claim gate's prompt, the local-address cards, a tab that joined
-// a held task, and the cards of a kept page that runs the agent's code), in
-// light and dark.
+// The notice pills: the takeover pill at the bottom center of the agent's
+// page, and a 2x sheet of every pill (takeover after a click and after
+// typing, You're in control, Agent needs you with and without zen-core's
+// reload, a permission prompt, a close waiting for the user, the claim gate's
+// prompt, the local-address cards, a tab that joined a held task, and the
+// cards of a kept page that runs the agent's code), in light and dark.
 for (const theme of ["light", "dark"]) {
   test(`${theme}: the notice pills, for review`, () =>
     inTheme(theme, async () => {
@@ -412,9 +410,9 @@ for (const theme of ["light", "dark"]) {
           "zenius-localnet",
           `N.removeNotice(tab, "zenius-localnet");`,
         ],
-        // A kept page the agent made (the user's decision (A) keeps its
-        // card, whose form waits on the user's answer): the reminder as the
-        // user is about to type, and a refusal of what they just did there.
+        // A kept page the agent made (the user's decision keeps its card,
+        // whose form waits on the user's answer): the reminder as the user
+        // is about to type, and a refusal of what they just did there.
         madeReminder: [
           `N.showNotice(tab, "zenius-kept-code", ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").madePageCard());`,
           "zenius-kept-code",

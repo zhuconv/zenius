@@ -236,9 +236,9 @@ button.icon {
   display: none;
 }
 
-/* An earlier chat about this page, offered back above the hints
-   (docs/research/chat-way-back.md, part 2; the user's pick, (a)): a quiet
-   pill. The empty view lets clicks through; the pill takes them. */
+/* An earlier chat about this page, offered back above the hints (the
+   user's pick): a quiet pill. The empty view lets clicks through; the pill
+   takes them. */
 #empty #earlier {
   pointer-events: auto;
   display: inline-flex;
@@ -994,8 +994,8 @@ body.busy .msg.user > .actions {
  * <what it's on>" while it lasts, then "Thought for 23 s", which opens to
  * what it thought, quiet as the steps are. The row wraps to two lines at
  * most, Claude Code's titles being whole sentences in a narrow sidebar, and
- * the seconds come first, so they always show (the user's text pass). After
- * a step, it's a line of the steps' box. */
+ * the seconds come first, so they always show. After a step, it's a line of
+ * the steps' box. */
 .msg.thought {
   font-size: 12px;
   color: var(--muted);

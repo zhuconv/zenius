@@ -9,7 +9,7 @@
 // It can only refuse, never allow: a call it lets through still meets the
 // session's permission rules, which allow these tools and nothing else.
 //  - Both kinds may search the web and fetch pages (WebSearch, WebFetch: the
-//    user's pass on defenses, D1, 2026-11-21).
+//    user's pass on defenses, 2026-11-21).
 //  - In Chat, WebFetch opens only a URL that came from the session's search
 //    results, the page it read or the user's own words: the session's list
 //    (fetchable.sys.mjs). It's checked before anything else, so the host of
@@ -31,9 +31,9 @@
 // there. A Work session can open such a page in a tab, where the user's own
 // list of local hosts (zenius.agentTabs.allowPrivateNetworks) applies.
 // Unlike the tabs' rule, a name counts by what it resolves to as well (a
-// router's name, 10-0-0-7.nip.io; zen-ux's review). The CLI looks the name
-// up again when it connects, so a name whose answer changes in between
-// (DNS rebinding) still gets through.
+// router's name, 10-0-0-7.nip.io). The CLI looks the name up again when it
+// connects, so a name whose answer changes in between (DNS rebinding) still
+// gets through.
 import dns from "node:dns/promises";
 import { readFileSync } from "node:fs";
 import { BlockList, isIP } from "node:net";

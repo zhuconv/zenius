@@ -1,6 +1,6 @@
-/* Agent Sidebar, the post-install self-check's scenarios (zen-sidebar's half
- * of docs/briefs/selfcheck.md; zen-core's runner and window are in
- * zenius/modules/selfcheck.sys.mjs, its design in docs/research/selfcheck.md).
+/* Agent Sidebar, the post-install self-check's scenarios: zen-sidebar's half
+ * of the self-check. zen-core's runner and its window are in
+ * zenius/modules/selfcheck.sys.mjs.
  *
  * The runner opens a window that isn't a browser window and hands it here:
  *  - prepare(win) fills its host box with the panel and All tasks' drawer,
@@ -52,7 +52,7 @@ const FIRST = "Say hello for the self-check.";
 const FIFTY = "Write 50 numbered lines, one short sentence each.";
 const MORE = "Now 50 more, numbered on from 51.";
 
-// The three checks, in step 6's order (install-daily.md, update-2026-11-22.md).
+// The three checks, in step 6's order (docs/install-daily.md).
 const CHECKS = [
   { id: "menu", title: "The ⋯ menu", run: menuCheck },
   { id: "archive", title: "Archive, Archived and Unarchive", run: archiveCheck },

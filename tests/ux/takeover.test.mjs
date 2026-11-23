@@ -42,7 +42,7 @@ before(async () => {
     // default in the middle of the page, away from the window's corners,
     // where Firefox anchors its doorhangers. It checks first that the point
     // reaches the page: on the Mac, Firefox's update doorhanger once took
-    // the clicks (docs/reports/zen-eval.md, 2026-11-20).
+    // the clicks (2026-11-20).
     const userClick = (x, y) => {
       const r = browser.getBoundingClientRect();
       const px = r.x + (x ?? r.width / 2);
@@ -294,9 +294,8 @@ test("Take over hands the Space to the user and fails the waiting action", async
 });
 
 // The classifier takes the platform as a parameter, so the Mac's rules run
-// on Linux too. The Mac cases come from the guided check with the user
-// (docs/reports/mac-relay.md, G6): Cmd+L counted as typing while a Chinese
-// IME was active.
+// on Linux too. The Mac cases come from the guided check with the user:
+// Cmd+L counted as typing while a Chinese IME was active.
 test("which keys count as typing, on the Mac and elsewhere", async () => {
   const out = await h.chrome(`
     const T = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/takeover.sys.mjs");

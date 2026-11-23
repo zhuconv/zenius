@@ -1,10 +1,9 @@
 // zen-ux's content actors, ZeniusClipboard and ZeniusSystemUi, live only in a
-// task's documents (zen-core's I4 finding and the plan agreed with zen-core,
-// 2026-11-20). They have no DOMWindowCreated of their own: zen-core's Zenius
-// actor makes them in a task's new documents, top and frames, and calls
-// their installGuards(). A user's document never gets them, so nothing of
-// theirs loads in the user's tabs. The clipboard and system-UI suites check
-// what the guards do; this one checks where they live.
+// task's documents (SPEC's I4). They have no DOMWindowCreated of their own:
+// zen-core's Zenius actor makes them in a task's new documents, top and
+// frames, and calls their installGuards(). A user's document never gets them,
+// so nothing of theirs loads in the user's tabs. The clipboard and system-UI
+// suites check what the guards do; this one checks where they live.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { setup } from "./lib.mjs";

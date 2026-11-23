@@ -65,7 +65,7 @@ test("both tasks live in the Agents Space, each with its own state in the panel 
     ctx.spaces.setOwnership(B.space, "agentDelegatedToUser", { source: "agent" });
     await tick();
     const res = {
-      // zen-core's step 2 marks task pages; zen-ux's tag builds on it.
+      // zen-core marks task pages; zen-ux's tag builds on it.
       marked: [A.tab.getAttribute("zenius-task") === String(A.space.id), B.tab.getAttribute("zenius-task") === String(B.space.id)],
       kinds: [A.space.kind, B.space.kind],
       shared: A.space.uuid === B.space.uuid && ctx.service.spaces.isAgentsSpace(uuid),

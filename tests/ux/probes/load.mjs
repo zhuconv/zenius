@@ -1,6 +1,5 @@
-// Load probe (zen-ux's load pass of 2026-11-20; docs/reports/zen-ux.md).
-// Not a test: no suite runs it, and it asserts nothing. It prints
-// "# key: json" lines.
+// Load probe (a load test, 2026-11-20). Not a test: no suite runs it, and
+// it asserts nothing. It prints "# key: json" lines.
 //
 //   ZENIUS_UX_INSTANCE=zen-ux-load tests/ux/run.sh tests/ux/probes/load.mjs
 //   PHASE_MS=10000 shortens each phase (default 20000).

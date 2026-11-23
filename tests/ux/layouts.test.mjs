@@ -1,12 +1,11 @@
-// zenius in each of Zen's layouts (the manager's accessibility and settings
-// pass, 2026-11-20): the layouts 1.24's settings offer (single toolbar,
-// multiple toolbars, collapsed), the sidebar on the right, compact mode, two
-// windows and split view. In each, the strip and the tasks panel stay in the
-// window, the pill sits on the agent's own page, and an agent action moves
-// nothing the user sees (I1). 1.24 offers no horizontal tabs.
+// zenius in each of Zen's layouts: the layouts 1.24's settings offer (single
+// toolbar, multiple toolbars, collapsed), the sidebar on the right, compact
+// mode, two windows and split view. In each, the strip and the tasks panel
+// stay in the window, the pill sits on the agent's own page, and an agent
+// action moves nothing the user sees (I1). 1.24 offers no horizontal tabs.
 //
 // Headless, compact mode's sidebar never hides (no pointer leaves it); that
-// it hides the strip and the badge there is known (docs/reports/zen-ux.md).
+// it hides the strip and the badge there is a known limit.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { prelude, setup, SMOOTH_FRAME_MS } from "./lib.mjs";
@@ -174,19 +173,19 @@ test("a second window gets the strip, the panel and the claim prompt, and an age
   assert.deepEqual(out, { strip: "in the window", panel: "in the window", claimIn: [true, true], claimGone: true, i1: true });
 });
 
-// zen-eval's Mac run (2026-11-20): a popup is a window of its own, which the
-// system keeps on the screen but not in the browser's window. With the
-// sidebar on the right the panel ran 62 px past the window's right edge, and
-// in a second window it started at x -13, Stop and Resume agent with it. Here
-// the windows don't fill the screen, as there, and a margin pushes the panel
-// out as Zen's 8 px shadow margin does on a Mac (Linux has none).
+// On a Mac (2026-11-20): a popup is a window of its own, which the system
+// keeps on the screen but not in the browser's window. With the sidebar on
+// the right the panel ran 62 px past the window's right edge, and in a second
+// window it started at x -13, Stop and Resume agent with it. Here the windows
+// don't fill the screen, as there, and a margin pushes the panel out as Zen's
+// 8 px shadow margin does on a Mac (Linux has none).
 //
 // Only a headless window fills its screen, so only a headless run resizes
 // and moves the windows. On a Mac they stay where they are: moved, the
 // window can end up under the user's front window, macOS gives a covered
-// window no frames, and a panel without a frame never opens (zen-eval's
-// unfocused run, 2026-11-20; zen-ux's probe with a paused refresh driver).
-// The margin's push makes the overflow in any window.
+// window no frames, and a panel without a frame never opens (seen
+// 2026-11-20, and reproduced with a paused refresh driver). The margin's
+// push makes the overflow in any window.
 const HEADLESS = process.env.ZENIUS_UX_HEADED !== "1";
 test("the tasks panel grows toward the window's middle and stays inside a window that doesn't fill the screen: either sidebar side, a second window, and a margin that pushes it out", async () => {
   const out = await h.chrome(`${P}
@@ -273,9 +272,9 @@ test("the tasks panel grows toward the window's middle and stays inside a window
 });
 
 test("the tasks panel still moves into its window when its screen rect says it's inside, or when a move doesn't take (Zen 1.24.3b on a Mac)", async () => {
-  // zen-eval's bisect (0c25f24): on Zen 1.24.3b on a Mac, 548c848's
-  // keepInWindow no longer moved the panel. These stand in for the two ways
-  // that could happen, with the 30 px push that forces the overflow here.
+  // On Zen 1.24.3b on a Mac, keepInWindow no longer moved the panel. These
+  // stand in for the two ways that could happen, with the 30 px push that
+  // forces the overflow here.
   const out = await h.chrome(`${P}
     const strip = win.document.getElementById("zenius-agents-strip");
     const panel = () => win.document.getElementById("zenius-tasks-panel");
@@ -361,7 +360,7 @@ test("in each sidebar layout every card the user can meet sits whole on the agen
       "sidebar on the right": () => Services.prefs.setBoolPref("zen.tabs.vertical.right-side", true),
       compact: () => { gZenCompactModeManager.preference = true; },
     };
-    // A visible run holds each card for the eye (zen-eval's look on the Mac).
+    // A visible run holds each card for the eye.
     const hold = ${HEADLESS ? 350 : 1500};
     const handOffWith = text => {
       ctx.spaces.setStateText(rec, text);
@@ -498,7 +497,7 @@ test("the hold card's site stays whole at any page width: the task's name gives 
       if (!el.hasAttribute("site-alone")) {
         if (!oneLine(site)) out.push("the site wraps in the title row");
         // Right after the task's name, which gives way to it: the site's box
-        // starts with its own " on " (the user's text pass), not the card's gap.
+        // starts with its own " on ", not the card's gap.
         if (detail?.getClientRects().length && Math.abs(site.getBoundingClientRect().left - detail.getBoundingClientRect().right) > 1) out.push("the site isn't right after the task");
       }
       return out;
@@ -507,9 +506,9 @@ test("the hold card's site stays whole at any page width: the task's name gives 
     const misfits = {};
     const modes = {};
     // The pill's ResizeObservers settle it in a frame or two, which a
-    // throttled Mac (zen-eval's background-priority run, the screen locked)
-    // stretches past a fixed wait: measure once the card's mode and its
-    // parts' boxes stay the same from one frame to the next.
+    // throttled Mac (background priority, the screen locked) stretches past
+    // a fixed wait: measure once the card's mode and its parts' boxes stay
+    // the same from one frame to the next.
     const twoFrames = () => Promise.race([new Promise(r => win.requestAnimationFrame(() => win.requestAnimationFrame(r))), sleep(500)]);
     const shape = el => mode(el) + JSON.stringify([...el.querySelectorAll("*")].map(e => {
       const b = e.getBoundingClientRect();

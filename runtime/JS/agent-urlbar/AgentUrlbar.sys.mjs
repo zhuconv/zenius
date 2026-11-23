@@ -237,12 +237,12 @@ class AgentAskBase extends UrlbarProvider {
       return;
     }
     // By now the box has reverted to the page's URL: the address bar reverts
-    // before it tells the row's provider. It would stay open, the URL
-    // selected in it, until the sidebar took focus a few frames on (zen-eval's
-    // take-6 captures). Closed in this same task, no frame shows that; Zen's
-    // floating box closes with the view and gives the page focus. The
-    // sidebar's releaseAddressBar does it: the rule for every focus our code
-    // moves out of the address bar, which an IME needs (zen-input, 2026-11-22).
+    // before it tells the row's provider. It would stay open, the URL selected
+    // in it, until the sidebar took focus a few frames on. Closed in this same
+    // task, no frame shows that; Zen's floating box closes with the view and
+    // gives the page focus. The sidebar's releaseAddressBar does it: the rule
+    // for every focus our code moves out of the address bar, which an IME
+    // needs.
     try {
       const sidebar = controller?.browserWindow?.ucAgentSidebar;
       if (sidebar?.releaseAddressBar) {

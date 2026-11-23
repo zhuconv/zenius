@@ -1,5 +1,4 @@
-// The post-install self-check (docs/research/selfcheck.md) from the user's
-// side: zen-ux's part of docs/briefs/selfcheck.md.
+// The post-install self-check from the user's side.
 //
 // A self-check runs zen-sidebar's scenarios in a window of its own, with
 // synthetic tasks and a mock agent, inside the user's running Zen. The
@@ -29,7 +28,7 @@ import { setup } from "./lib.mjs";
 
 const CLI = new URL("../../sdk/bin/zenius", import.meta.url).pathname;
 const MEDIA_CHECK = new URL("../../scripts/media-check.pl", import.meta.url).pathname;
-// zen-core's runner and zen-sidebar's scenarios (the design note's interfaces).
+// zen-core's runner and zen-sidebar's scenarios.
 const SELFCHECK = "chrome://userscripts/content/zenius/modules/selfcheck.sys.mjs";
 const SCENARIOS = "chrome://userscripts/content/agent-sidebar/selfcheck.sys.mjs";
 // The user's sidebar, read by the module the self-check's scenarios drive
@@ -102,8 +101,8 @@ const SEEN = `
       // Headless Linux has no stacking order to read. What "frontmost" can
       // mean here: the user's window stays the active one and the one zenius
       // and Zen pick as the front browser window (the self-check's, of
-      // another type, is never a candidate). zen-eval's spike covers how it
-      // looks on the Mac.
+      // another type, is never a candidate). zen-eval checks how it looks on
+      // the Mac.
       focus: {
         active: Services.focus.activeWindow === win,
         recentBrowser: Services.wm.getMostRecentWindow("navigator:browser") === win,
@@ -392,7 +391,7 @@ test("a self-check that runs past its limit ends at the limit and cleans up the 
   assert.ok(out.ms < limit + 10_000, `done settled ${out.ms} ms after the start`);
 });
 
-test("a self-check whose task comes to need the user, as a failed turn leaves one, shows nothing of it in the user's window: zenius's strip and its count, the waiting line, the Spaces' badges, the panel's Needs-you count and notifications stay as they were, and the sidebar tells zenius of no such task; it needs the user in the run's own window alone (zen-observe's review)", async () => {
+test("a self-check whose task comes to need the user, as a failed turn leaves one, shows nothing of it in the user's window: zenius's strip and its count, the waiting line, the Spaces' badges, the panel's Needs-you count and notifications stay as they were, and the sidebar tells zenius of no such task; it needs the user in the run's own window alone", async () => {
   const out = await userRun("needs", 120_000);
   assert.deepEqual(out.needs, { state: "needs", scoped: true, inRun: 1, userLists: false }, "the run's task needs the user, in the run's own lists alone");
   assert.equal(out.result?.ok, true, `the run still passed: ${JSON.stringify(out.result)}`);
@@ -433,8 +432,8 @@ test("end to end, as step 6 runs it: `zenius selfcheck` from outside the sandbox
     const res = await cli(["selfcheck", "--instance", instance], 180_000);
     const ms = Date.now() - t0;
     // The run's new folder, if it made one. Only a real folder named by its
-    // UTC start is the test's to remove after (zen-observe's nit), whatever
-    // the exit: a failing run leaves anything else alone.
+    // UTC start is the test's to remove after, whatever the exit: a failing
+    // run leaves anything else alone.
     const made = existsSync(runs) ? readdirSync(runs).filter(name => !had.has(name)) : [];
     const folder = made.length === 1 && /^\d{8}T\d{6}Z$/.test(made[0]) ? lstatSync(join(runs, made[0])) : null;
     if (folder?.isDirectory() && !folder.isSymbolicLink()) {

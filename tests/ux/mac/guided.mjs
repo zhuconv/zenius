@@ -1,4 +1,4 @@
-// Guided check with real input (UX checklist G1–G10 in docs/ux/checklist.md):
+// Guided check with real input, in steps G1–G10:
 // a person at the Mac clicks, types and swipes in a visible dev Zen, and this
 // script watches what zenius does. Real OS input is the one thing the
 // headless suite can't produce.
@@ -243,9 +243,9 @@ cursor ("Waiting for you"). Bring that window to the front, then follow each ste
   await step("G8b", "Open the panel again and click \"Resume\".", s => !s.pausedByUser && !s.paused);
   // A permission prompt while the user is elsewhere, in Firefox's own
   // doorhanger: a storage access prompt, one of the two kinds a task's pages
-  // may still hand to the user (the manager, 2026-11-20). A cross-site
-  // sign-in frame raises it for real; here chrome raises it, as PermissionUI
-  // does, so no frame or cookie is involved.
+  // may still hand to the user. A cross-site sign-in frame raises it for
+  // real; here chrome raises it, as PermissionUI does, so no frame or cookie
+  // is involved.
   await chrome(`
     await gZenWorkspaces.changeWorkspaceWithID(${JSON.stringify(userWs)});
     await sleep(400);

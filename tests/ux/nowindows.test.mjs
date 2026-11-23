@@ -1,13 +1,12 @@
 // After its task, a page can't open a window with an opener while its window
-// group holds a document the agent's sandbox wrote into: zen-core refuses it
-// (item 3 of the closed-groups plan, docs/research/user-tab-reach.md), and
-// opens nothing in its place (a form posted into a new window, about:blank,
-// blob:, data:, a feature popup refused on the Mac, and today every other).
-// Under the user's decision (A) nothing shows: when the user's own click or
-// key there came just before, the pages with the writes load afresh,
-// quietly (zen-core's cleanLoad), this page or the group's others, so the
-// next try opens. One the page opened on its own, one a plain tab opened
-// instead (reopened), or one refused during a hold changes nothing.
+// group holds a document the agent's sandbox wrote into: zen-core refuses
+// it, and opens nothing in its place (a form posted into a new window,
+// about:blank, blob:, data:, a feature popup refused on the Mac, and today
+// every other). Under the user's decision nothing shows: when the user's own
+// click or key there came just before, the pages with the writes load
+// afresh, quietly (zen-core's cleanLoad), this page or the group's others,
+// so the next try opens. One the page opened on its own, one a plain tab
+// opened instead (reopened), or one refused during a hold changes nothing.
 // zen-core's hook, noteOpenRefused, stands in for its refusals here, a
 // reload for zen-core's cleanLoad, and a stand-in for zen-observe's
 // evidenceOf; tests/core has the refusals themselves.

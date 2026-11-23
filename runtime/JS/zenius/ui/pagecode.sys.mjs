@@ -1,10 +1,10 @@
-// The page-code card (zen-input's glue in zen-ux's files, with zen-ux's OK,
-// 2026-11-21). With the user's page-code setting at "ask", zen-observe holds
-// the agent's page code on a site the user hasn't allowed, and asks once per
-// task and site (observe/pagecode.sys.mjs, onPageCodeAsk). The agent's tab
-// asks the user, in zen-observe's words: Allow on this site puts the site on
-// the user's list, on their own click only; Not now refuses it for that task
-// and writes nothing.
+// The page-code card (zen-input's glue in zen-ux's files). With the user's
+// page-code setting at "ask", zen-observe holds the agent's page code on a
+// site the user hasn't allowed, and asks once per task and site
+// (observe/pagecode.sys.mjs, onPageCodeAsk). The agent's tab asks the user,
+// in zen-observe's words: Allow on this site puts the site on the user's
+// list, on their own click only; Not now refuses it for that task and writes
+// nothing.
 //
 // The card is a notice (ui/notices.sys.mjs): chrome, which page code can't
 // reach, and the agent's synthesized clicks and keys never leave its content.

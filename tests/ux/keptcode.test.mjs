@@ -1,6 +1,6 @@
-// Pages a task left open (the user's decision (A), 2026-11-20). The agent's
-// code runs in a sandbox that zenius discards at the task's end, so a kept
-// page shows nothing: no mark, no tooltip line, no card, nothing heard, and
+// Pages a task left open (the user's decision, 2026-11-20). The agent's code
+// runs in a sandbox that zenius discards at the task's end, so a kept page
+// shows nothing: no mark, no tooltip line, no card, nothing heard, and
 // nothing takes the focus or moves a view (I1). zenius makes it safe itself:
 // - a page with evidence of danger (zen-observe's evidenceOf, a stand-in
 //   here) loads afresh, quietly, when something the user just did there was
@@ -240,7 +240,7 @@ test("a kept page the agent made itself that asks for a password: as the user is
   }
 });
 
-// The user's pass on defenses (2026-11-21, A6): the card comes only when the
+// The user's pass on defenses (2026-11-21): the card comes only when the
 // page asks for a password, a card's details or a one-time code, or the
 // agent flagged it.
 test("a kept page the agent made that asks for no secret: the user's click into its field shows nothing, and the focus stays in the field", async () => {

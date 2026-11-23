@@ -119,8 +119,7 @@ test("the agent closing the page the user is looking at: it waits, with a pill; 
 });
 
 test("finish() while the user looks at the task's page: 'Task finished', and Close now closes it", async () => {
-  // Either model: a task's own workspace stays while a window shows it, too
-  // (zen-core's 11ec8ad).
+  // Either model: a task's own workspace stays while a window shows it, too.
   const name = `zen-ux closing finish ${run}`;
   const space = await shownTask(name);
   const receipt = await h.call("spaces.finish", { space, keep: [] });

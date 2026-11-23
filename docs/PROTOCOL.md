@@ -1063,7 +1063,8 @@ their clipboard as usual.
   - The agent's own `handOff()` is never limited, and while the user holds
     the task, the page's requests are theirs, as before. To let the user
     answer a refused one, hand them the task.
-- **Permission prompts in a task's pages** (A8, with zen-observe's C):
+- **Permission prompts in a task's pages** (zen-observe's backstops
+  follow the same rules):
   - While the agent drives, a page's prompt hands the task to the user
     with Ego's reason key: `storage_access` (an embedded sign-in frame's),
     `local_network_access`, `location`, `notifications`, `midi`, `serial`,

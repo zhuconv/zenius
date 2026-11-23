@@ -5,8 +5,8 @@
 // mouse, keyboard, touch) always enters through the parent process, where a
 // chrome listener sees it targeted at the tab's <browser>, while the input
 // our actors synthesize is dispatched inside the content process and never
-// passes through the parent. docs/research/ux.md §3 has the spike. Input that
-// zenius code dispatches from the parent must run inside withAgentInput().
+// passes through the parent. Input that zenius code dispatches from the
+// parent must run inside withAgentInput().
 
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 import {
@@ -280,7 +280,7 @@ export class Takeover {
     }
     // Whoever holds the task: an agent's takeOver, or its claim of a task
     // handed to the user, waits until 10 s after the user's last real input
-    // there (the manager's rule; zen-core keeps the time).
+    // there (zen-core keeps the time).
     try {
       this.host.noteUserInput?.(hit.rec);
     } catch (e) {

@@ -168,7 +168,7 @@ test("Pause holds the agent's next action until Resume; user input opens no prom
       prompt: UI.takeover.promptState(rec.id),
       actions: (await openPanel(), actionsOf()),
       // The task's own word: the strip sums every task, and a kept profile
-      // may hold another that needs the user (zen-eval's Mac run, 15 saved).
+      // may hold another that needs the user (15 saved, on a Mac).
       badge: UI.badgeFor(rec)?.state ?? null,
     };
     await press("resume");

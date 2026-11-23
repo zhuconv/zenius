@@ -28,19 +28,17 @@ let server;
 let dir;
 let config;
 // How long the suite's server holds /article.html, in ms: a page still
-// loading when the user acts (zen-observe's mid-open probe of Archive).
+// loading when the user acts.
 let holdArticle = 0;
 const slow = new Set();
 const run = Date.now().toString(36).slice(-5);
 
-// What a page can show the user and what it can only lay out (zen-snapshot's
-// red team, docs/research/agent-sidebar-redteam.md, finding 2): the agent
-// gets the first kind as is, and since the user's pass on defenses
-// (2026-11-21, A11) the second marked as hidden, a JSON string the page
-// can't close ([hidden: "…"]), rather than not at all. What isn't rendered,
-// and the site's navigation, stay out. The second slide of the box below
-// overflows a box of some size, which the user can bring into view, so it
-// is shown.
+// What a page can show the user and what it can only lay out: the agent gets
+// the first kind as is, and since the user's pass on defenses (2026-11-21)
+// the second marked as hidden, a JSON string the page can't close ([hidden:
+// "…"]), rather than not at all. What isn't rendered, and the site's
+// navigation, stay out. The second slide of the box below overflows a box of
+// some size, which the user can bring into view, so it is shown.
 const SHOWN = ["VISIBLE", "DARKBG", "GRADIENT", "CONTENTS", "SLIDE1", "SLIDE2", "SUMMARY"];
 const MARKED = ["SRINLINE", "OFFSCREEN", "INDENT", "WHITE", "NEARWHITE", "TRANSPARENT", "TINY", "OPACITY", "SRONLY", "CLIPPATH", "COLLAPSED", "SCALED"];
 const LEFT_OUT = ["NAV", "DISPNONE", "VISHIDDEN", "DETAILS"];
@@ -100,7 +98,7 @@ const PAGES = {
      <details><summary>SUMMARY_MARK</summary>DETAILS_MARK</details>`,
     `<style>body { background: #fff; color: #222; } .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }</style>`
   ),
-  // A page that says it is Firefox's PDF viewer (finding 3).
+  // A page that says it is Firefox's PDF viewer.
   "/zen-ux/fakepdf.html": page(
     "zen-ux ordinary page",
     `<p>ORDINARY_TEXT on an ordinary page.</p>`,
@@ -111,8 +109,7 @@ const PAGES = {
       };
     </script>`
   ),
-  // Links the user can see, and ones they can't (Chat's fetch: the user's call
-  // on D1, docs/research/chat-fetch.md).
+  // Links the user can see and ones they can't (Chat's fetch: the user's call).
   "/zen-ux/links.html": page(
     "zen-ux links",
     `<nav><a href="https://nav.example/">NAV_LINK</a></nav>
@@ -177,7 +174,7 @@ before(async () => {
     }
     if (path === "/zen-ux/slow.pdf") {
       // The headers and the first bytes, then nothing: pdf.js waits for the
-      // rest (finding 4).
+      // rest.
       res.writeHead(200, { "content-type": "application/pdf", "content-length": 100000 });
       res.write("%PDF-1.4\n%");
       slow.add(res);
@@ -195,8 +192,8 @@ before(async () => {
   dir = mkdtempSync(join(tmpdir(), "zen-ux-sidebar-"));
   config = join(dir, "config.json");
   execFileSync(process.execPath, [join(FIX, "config.mjs"), "--instance", process.env.ZENIUS_INSTANCE, "--out", config, "--www", www(), "--logs", join(dir, "logs")]);
-  // A kept profile (zen-eval's runs on the Mac) restores earlier runs' tasks,
-  // whose questions count as needing the user: the counts start from none.
+  // A kept profile (as on the Mac) restores earlier runs' tasks, whose
+  // questions count as needing the user: the counts start from none.
   await chrome(`
     const A = win.ucAgentSidebar.AgentService;
     await A.tasksReady;
@@ -785,7 +782,7 @@ test("the user's name for a task wins: its first question, the agent's name for 
   }
 });
 
-test("a name another live task has already (zen-observe's review of the rename): the sidebar shows it as the user typed it, and the zenius task takes it with a number, as a new task's name gets one ('<name> 2'), so a script's taskSpace(name) still finds the script's own task; the number stays when the agent names the task again, and an empty name gives the zenius task the agent's name back, numbered too while another live task has it", async () => {
+test("a name another live task has already: the sidebar shows it as the user typed it, and the zenius task takes it with a number, as a new task's name gets one ('<name> 2'), so a script's taskSpace(name) still finds the script's own task; the number stays when the agent names the task again, and an empty name gives the zenius task the agent's name back, numbered too while another live task has it", async () => {
   await useMock();
   const name = `Plan a route ${run}`;
   const taken = `zen-sidebar script task ${run}`;
@@ -850,7 +847,7 @@ test("a name another live task has already (zen-observe's review of the rename):
   }
 });
 
-test("removing a task (removeTask, for programs and tests; the menu archives since the user's ask of 2026-11-22): it takes the task out of the list and out of the panel, its live card too, though its tab is still open and its agent is answering; the agent stops, its zenius task ends as the strip's Stop ends one, and its tabs stay open; the directory doesn't list that zenius task as another program's, after a restart either; '+ New task' then gives a new task (the user's bug in 664f66a)", async () => {
+test("removing a task (removeTask, for programs and tests; the menu archives since the user's ask of 2026-11-22): it takes the task out of the list and out of the panel, its live card too, though its tab is still open and its agent is answering; the agent stops, its zenius task ends as the strip's Stop ends one, and its tabs stay open; the directory doesn't list that zenius task as another program's, after a restart either; '+ New task' then gives a new task (the user's bug)", async () => {
   await useMock();
   const name = `Find a hotel ${run}`;
   const out = await chrome(
@@ -903,8 +900,8 @@ test("removing a task (removeTask, for programs and tests; the menu archives sin
       A.externalTasks().sync();
       res.restarted = listed();
       // Another program claims the ended task again, as spaces.claim does once
-      // the user says yes (zen-manager's follow-up): a task like any other,
-      // listed while it runs and once it ends.
+      // the user says yes: a task like any other, listed while it runs and
+      // once it ends.
       const spaces = A.zenius().spaces;
       const row = () => A.taskByUid("ext-" + rec.id)?.task.state ?? null;
       spaces.setSource(rec, { agent: "script", folder: "zenius-eval" });
@@ -1101,7 +1098,7 @@ test("archiving a task (the user's ask, 2026-11-22): the ⋯ menu says New, Rena
   assert.deepEqual(out.resent, { archived: null, inList: true }, "a new turn brings it back to the list");
 });
 
-test("an archived task that was waiting on the user reads as archived in All tasks, not as needing them: no Needs you tint and no orange dot, where a listed one has both (zen-sidebar's look check of Archive)", async () => {
+test("an archived task that was waiting on the user reads as archived in All tasks, not as needing them: no Needs you tint and no orange dot, where a listed one has both", async () => {
   await useMock();
   const out = await chrome(`
     await S.openPanel();
@@ -1142,7 +1139,7 @@ test("an archived task that was waiting on the user reads as archived in All tas
   assert.notEqual(out.archived.dot, out.waiting.dot, "nor the orange dot");
 });
 
-test("Archive and Remove while the agent's first open is still loading its page end the zenius task that open started, though the chat hasn't linked it yet: it's the user's, its tab kept, and All tasks doesn't list it; one zenius creates for an archived or removed chat after the click ends as it starts (zen-observe's review of Archive)", async () => {
+test("Archive and Remove while the agent's first open is still loading its page end the zenius task that open started, though the chat hasn't linked it yet: it's the user's, its tab kept, and All tasks doesn't list it; one zenius creates for an archived or removed chat after the click ends as it starts", async () => {
   // The mock dressed as codex-acp (CODEX_PATH): its zenius server gets the
   // chat's uid (ZENIUS_SIDEBAR_TASK), as both real adapters' servers do.
   const file = join(dir, "config-codex-midopen.json");
@@ -1249,7 +1246,7 @@ test("Archive and Remove while the agent's first open is still loading its page 
   assert.deepEqual(out.late, { archived: { ownership: "user", ended: "stopped", listed: false }, removed: { ownership: "user", ended: "stopped", listed: false } }, "one zenius creates after the click ends as it starts");
 });
 
-test("an archived or removed chat's late pass ends only the zenius tasks whose source names the chat: the task it followed, ended at the click and claimed since by a program the user let have it, goes on, both as the turn the click cut ends and as zenius creates a task for the chat afterwards (zen-observe's nit on Archive)", async () => {
+test("an archived or removed chat's late pass ends only the zenius tasks whose source names the chat: the task it followed, ended at the click and claimed since by a program the user let have it, goes on, both as the turn the click cut ends and as zenius creates a task for the chat afterwards", async () => {
   await useMock();
   const name = `Claimed ${run}`;
   const out = await chrome(
@@ -1314,7 +1311,7 @@ test("an archived or removed chat's late pass ends only the zenius tasks whose s
   assert.deepEqual(out.remove, goesOn, "Remove: the same");
 });
 
-test("a question being edited when its task is archived, in another window say, closes its editor: its Send can't run the edit and bring the task back (zen-observe's review of Archive)", async () => {
+test("a question being edited when its task is archived, in another window say, closes its editor: its Send can't run the edit and bring the task back", async () => {
   await useMock();
   const out = await chrome(`
     await S.openPanel();
@@ -1344,7 +1341,7 @@ test("a question being edited when its task is archived, in another window say, 
   assert.deepEqual(out.after, { editor: false, archived: true, questions: ["First question"], busy: false });
 });
 
-test("the sidebar's key in the panel's hints, Close's and the empty chat's, is the one the window bound, in the platform's form: ⌘⇧A on the Mac, Ctrl+Shift+A on Linux and Windows, and another key the same way (zen-observe's review of Archive)", async () => {
+test("the sidebar's key in the panel's hints, Close's and the empty chat's, is the one the window bound, in the platform's form: ⌘⇧A on the Mac, Ctrl+Shift+A on Linux and Windows, and another key the same way", async () => {
   const out = await chrome(`
     await S.openPanel();
     const g = win.ucAgentSidebar;
@@ -1368,7 +1365,7 @@ test("the sidebar's key in the panel's hints, Close's and the empty chat's, is t
   assert.equal(out.plain, out.mac ? "⌃⇧F2" : "Ctrl+Shift+F2");
 });
 
-test("an archived task goes as if done once there are more than 60 tasks, even one left in Needs you: it never counts as needing the user; a listed one in Needs you stays (zen-observe's review of Archive)", async () => {
+test("an archived task goes as if done once there are more than 60 tasks, even one left in Needs you: it never counts as needing the user; a listed one in Needs you stays", async () => {
   const out = await chrome(`
     const A = win.ucAgentSidebar.AgentService;
     for (const conv of [...A.tasks.values()]) A.removeTask(conv);
@@ -1411,9 +1408,10 @@ test("an archived task goes as if done once there are more than 60 tasks, even o
   assert.deepEqual(out.after, { archived: false, listed: true, size: 60 }, "past it, the archived one goes; the listed one in Needs you stays");
 });
 
-// --- All tasks' right-click menu (the user's ask, 2026-11-22: "你这应该有右键功能
-// … 至少有右键给某个会话pin or rename应该有"): Pin or Unpin, Rename, then Archive or
-// Unarchive, on each row; Pinned at the top of All tasks.
+// --- All tasks' right-click menu (the user's ask, 2026-11-22: a
+// right-click on a task should at least offer Pin and Rename): Pin or
+// Unpin, Rename, then Archive or Unarchive, on each row; Pinned at the top
+// of All tasks.
 
 /** What the menu's items say: the ⋯ menu's words, and Pin's own. */
 const PIN_TIP = "Keeps the task in Pinned, at the top of All tasks.";
@@ -1949,7 +1947,7 @@ const EXTERNAL_ROW = `
   };
 `;
 
-test("a sidebar name with emoji is kept whole (zen-observe's review of the row menu): a name of 54 characters, 94 UTF-16 units, and one cut at 80 characters, 159 units, stay through the feed's next word, in the tasks file, and after a restart", async () => {
+test("a sidebar name with emoji is kept whole: a name of 54 characters, 94 UTF-16 units, and one cut at 80 characters, 159 units, stay through the feed's next word, in the tasks file, and after a restart", async () => {
   const name = `zen-ux row menu emoji ${run}`;
   const { id } = await h.createSpace({ name });
   try {
@@ -2001,7 +1999,7 @@ test("a sidebar name with emoji is kept whole (zen-observe's review of the row m
   }
 });
 
-test("a Rename left as it was names nothing (zen-observe's review of the row menu): Enter or a click outside on a program's task's name keeps no name of the sidebar's, so its program's later names show; its program's own name typed in clears the sidebar's; a task of the user's left as it was isn't renamed at all", async () => {
+test("a Rename left as it was names nothing: Enter or a click outside on a program's task's name keeps no name of the sidebar's, so its program's later names show; its program's own name typed in clears the sidebar's; a task of the user's left as it was isn't renamed at all", async () => {
   const name = `zen-ux row menu as it was ${run}`;
   const { id } = await h.createSpace({ name });
   try {
@@ -2069,7 +2067,7 @@ test("a Rename left as it was names nothing (zen-observe's review of the row men
   }
 });
 
-test("the self-check's window has no row menu (zen-observe's cross-point with the self-check): a right-click on a row of its All tasks, or the context-menu key or Shift+F10 on the row the arrows are on, opens nothing; AgentService pins, unpins and names none of its tasks; the user's tasks file stays as it was, byte for byte, and their All tasks has no pin", async () => {
+test("the self-check's window has no row menu: a right-click on a row of its All tasks, or the context-menu key or Shift+F10 on the row the arrows are on, opens nothing; AgentService pins, unpins and names none of its tasks; the user's tasks file stays as it was, byte for byte, and their All tasks has no pin", async () => {
   const out = await chrome(`
     const g = win.ucAgentSidebar;
     const A = g.AgentService;
@@ -2245,11 +2243,10 @@ test("a remote task says which of the user's agents sent it: 'From <label> on <a
   assert.deepEqual(out, { question: from, card: from, row: from, tip: from, found: true, foundLabel: true, missed: false });
 });
 
-// The user's call on defenses (docs/briefs/defenses-evidence.md): trust the
-// agent, and stop only on evidence. A10 is the sidebar agent's rules; C1
-// dropped the hand-off refusal on written pages, and its "input tools only"
-// rule with it.
-test("the sidebar agent's rules, in its work prompt and in its folder's CLAUDE.md and AGENTS.md: it follows page text that serves the task and stops only on evidence, types what the user gave it in the chat, leaves a payment to the user unless they asked for that purchase, hands off a secret with secret: true and never reads that page after, and the user's word not to look holds for the whole task; Chat follows page text the same way; both know they have web search and fetch (D1), and that an instruction in text the page hides from the user (marked hidden, A11) is evidence of a page steering them", async () => {
+// The user's call on defenses: trust the agent, and stop only on evidence.
+// The sidebar agent's rules say so, and the hand-off refusal on written
+// pages is gone, with its "input tools only" rule.
+test("the sidebar agent's rules, in its work prompt and in its folder's CLAUDE.md and AGENTS.md: it follows page text that serves the task and stops only on evidence, types what the user gave it in the chat, leaves a payment to the user unless they asked for that purchase, hands off a secret with secret: true and never reads that page after, and the user's word not to look holds for the whole task; Chat follows page text the same way; both know they have web search and fetch, and that an instruction in text the page hides from the user (marked hidden) is evidence of a page steering them", async () => {
   const out = await chrome(`
     const W = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/workspace.sys.mjs");
     const A = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentService.sys.mjs");
@@ -2294,10 +2291,10 @@ test("the sidebar agent's rules, in its work prompt and in its folder's CLAUDE.m
   assert.doesNotMatch(out.chat, /untrusted content|tell the user instead of doing it/);
 });
 
-// The agent's own ask (docs/research/ask-user.md): elicitation/create in form
-// mode, as claude-agent-acp sends Claude Code's AskUserQuestion and codex-acp
-// Codex's request_user_input, and an MCP server's own form. The mock's ASK*
-// keywords send each shape and then say "ask outcome: <what came back>".
+// The agent's own ask: elicitation/create in form mode, as claude-agent-acp
+// sends Claude Code's AskUserQuestion and codex-acp Codex's
+// request_user_input, and an MCP server's own form. The mock's ASK* keywords
+// send each shape and then say "ask outcome: <what came back>".
 const ASKS = `
   const A = win.ucAgentSidebar.AgentService;
   const shown = m => ({ from: m.from, title: m.title, questions: m.questions, answer: m.answer });
@@ -2404,7 +2401,7 @@ test("an ask of several questions takes a pick and words together, a several-pic
   assert.deepEqual(out.second, { action: "decline" });
 });
 
-test("a question's page line and an answered ask read as one phrase each (the user's text pass): 'Page “<title>” attached', then 'updated', a PDF's ', truncated', and 'Page attached' with no title; an answered ask's questions one after another, each with its own mark or else a comma, then '→' and its answer, its questions' answers after commas, or after semicolons once one holds a comma (several picks)", async () => {
+test("a question's page line and an answered ask read as one phrase each: 'Page “<title>” attached', then 'updated', a PDF's ', truncated', and 'Page attached' with no title; an answered ask's questions one after another, each with its own mark or else a comma, then '→' and its answer, its questions' answers after commas, or after semicolons once one holds a comma (several picks)", async () => {
   await useMock();
   const out = await chrome(`
     await S.openPanel();
@@ -2466,7 +2463,7 @@ test("a question's page line and an answered ask read as one phrase each (the us
   ]);
 });
 
-test("Codex's request_user_input, as codex-acp sends it: words alone answer with its 'None of the above' and go in the note field; with a secret among its questions it's an ask for a password or a code, so its whole answer reaches the agent but is masked in the summary and kept nowhere (the safety rubric's row); an ask saved while open comes back not answered", async () => {
+test("Codex's request_user_input, as codex-acp sends it: words alone answer with its 'None of the above' and go in the note field; with a secret among its questions it's an ask for a password or a code, so its whole answer reaches the agent but is masked in the summary and kept nowhere; an ask saved while open comes back not answered", async () => {
   await useMock();
   const out = await chrome(`
     ${ASKS}
@@ -2582,11 +2579,11 @@ test("Stop cancels an open ask, and one the agent withdraws ($/cancel_request, a
   assert.equal(log.find(m => m.id === out.withdrawn.rpcId && !m.method)?.error?.code, -32800);
 });
 
-// The agent's wait before its first words (zen-sidebar's diagnosis of the
-// Chat stall, 2026-11-22: Codex at xhigh thought for 23 s with nothing on
-// screen but the box's "Thinking…", then its first sentences came at once). A
-// thought shows from the moment the question goes out until the agent's first
-// words, step or question; the mock's THINK* keywords think as each agent does.
+// The agent's wait before its first words (2026-11-22: Codex at xhigh thought
+// for 23 s with nothing on screen but the box's "Thinking…", then its first
+// sentences came at once). A thought shows from the moment the question goes
+// out until the agent's first words, step or question; the mock's THINK*
+// keywords think as each agent does.
 const THOUGHTS = `
   const A = win.ucAgentSidebar.AgentService;
   const doc = S.panelDoc();
@@ -2598,7 +2595,7 @@ const THOUGHTS = `
   const roles = conv => conv.messages.map(m => m.role);
 `;
 
-test("while the agent thinks before its first words, the chat says so from the moment the question goes out: 'Thinking for N s, <its latest reasoning title>' (the user's text pass), then 'Thought for N s', which opens to its titles; in Chat too, and saved and restored with the task", async () => {
+test("while the agent thinks before its first words, the chat says so from the moment the question goes out: 'Thinking for N s, <its latest reasoning title>', then 'Thought for N s', which opens to its titles; in Chat too, and saved and restored with the task", async () => {
   await useMock();
   const out = await chrome(`
     await S.openPanel();
@@ -2780,7 +2777,7 @@ test("a live row's 'Thinking' keeps its element as the seconds go on, so its pul
   }
 });
 
-test("while the agent works, the box's placeholder says only what Enter and Steer do ('Enter queues, ⌘Enter steers'): under a live thought row, a later stretch of thinking's too, and once words come (the user's text pass dropped 'Working… ·' before it)", async () => {
+test("while the agent works, the box's placeholder says only what Enter and Steer do ('Enter queues, ⌘Enter steers'): under a live thought row, a later stretch of thinking's too, and once words come (with no 'Working… ·' before it)", async () => {
   await useMock();
   const out = await chrome(`
     await S.openPanel();
@@ -2957,7 +2954,7 @@ test("an answer in parts, with thoughts between them, gets one copy and save row
   assert.deepEqual(out.saved, { name: "Part two.md", text: `${answer}\n` }, "named after the answer's first heading, in its second part");
 });
 
-test("a long live title, as Claude Code's summaries have, clamps to two lines with an ellipsis, the seconds right after 'Thinking' on its first line (the user's text pass); the row's tooltip has the whole sentence", async () => {
+test("a long live title, as Claude Code's summaries have, clamps to two lines with an ellipsis, the seconds right after 'Thinking' on its first line; the row's tooltip has the whole sentence", async () => {
   await useMock();
   const out = await chrome(`
     await S.openPanel();
@@ -3000,10 +2997,10 @@ test("a long live title, as Claude Code's summaries have, clamps to two lines wi
   assert.match(out.time, /^ for [1-9] s$/);
 });
 
-// Every zenius task in the sidebar (the user's ask, docs/briefs/external-tasks.md):
-// a task the sidebar doesn't drive shows in the directory and opens to a
-// read-only view. zen-core's feed (spaces.feed) and zen-input's ring
-// (input/steps.sys.mjs) are stand-ins here; their suites test them.
+// Every zenius task in the sidebar (the user's ask): a task the sidebar doesn't
+// drive shows in the directory and opens to a read-only view. zen-core's feed
+// (spaces.feed) and zen-input's ring (input/steps.sys.mjs) are stand-ins here;
+// their suites test them.
 const EXTERNAL = `
   const A = win.ucAgentSidebar.AgentService;
   const spaces = A.zenius().spaces;
@@ -3225,7 +3222,7 @@ test("a task another agent drives (a terminal's Claude Code) shows in the direct
   assert.deepEqual(out.endedAgain, { where: "list", state: "done" }, "and still listed once that run ends");
 });
 
-test("leaving a task another agent drives, for '+ New task', a Work chat of the sidebar's or Chat, leaves none of its read-only view behind: its bar ('Finished just now'), source line, steps and live card go, and the question box and Send come back (the user's bug in 5ca03b1)", async () => {
+test("leaving a task another agent drives, for '+ New task', a Work chat of the sidebar's or Chat, leaves none of its read-only view behind: its bar ('Finished just now'), source line, steps and live card go, and the question box and Send come back (the user's bug)", async () => {
   const name = `zen-ux external switch ${run}`;
   const { id } = await h.createSpace({ name });
   await h.call("page.goto", { space: id, page: "p1", url: `${www()}/zen-ux/hidden.html?switch` });
@@ -3439,7 +3436,7 @@ test("the strip's count and Work's are one number: a task another agent drives t
   assert.equal(out.shown, true, "Open shows the chat in the sidebar");
 });
 
-test("a remote task's source line: the address alone without a label, each part isolated so a right-to-left label keeps 'From' and 'on' in place, the address last for its chip (the user's text pass); nothing for other chats or without an address", async () => {
+test("a remote task's source line: the address alone without a label, each part isolated so a right-to-left label keeps 'From' and 'on' in place, the address last for its chip; nothing for other chats or without an address", async () => {
   const out = await chrome(`
     const { remoteSource } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentService.sys.mjs");
     return {
@@ -3768,7 +3765,7 @@ test("with the agent sidebar closed, a remote task's start shows the same card o
   t.diagnostic(`the arrival card over the strip: ${out.width} px wide, its text in ${out.lines} lines`);
 });
 
-// zen-sidebar's look for f037079's source line and f0c6954's arrival card.
+// zen-sidebar's look for a remote task's source line and its arrival card.
 test("a remote task's look: its address is a chip, with the text unchanged, over its question, on its live card, on its arrival card and on its directory row; the arrival card lines up with the question box, its text and ✕ on top, Watch and Stop under them on the right", async () => {
   await useMock();
   const out = await chrome(`
@@ -3840,9 +3837,8 @@ test("a remote task's look: its address is a chip, with the text unchanged, over
 });
 
 // A work chat follows only the zenius task its own open started, by that
-// task's id (zenius's red team, finding 6). On resume that id goes to the
-// agent's zenius server, so a chat linked to another task would put its
-// agent in that task's tabs.
+// task's id. On resume that id goes to the agent's zenius server, so a chat
+// linked to another task would put its agent in that task's tabs.
 const START_CHAT = `
   await S.openPanel();
   const A = win.ucAgentSidebar.AgentService;
@@ -3863,7 +3859,7 @@ const END_CHAT = `
 // This checkout's CLI: a Work session's zenius server, as the sidebar starts it.
 const CLI = new URL("../../sdk/bin/zenius", import.meta.url).pathname;
 
-test("a Work chat on Codex that the idle stop parked goes on in its own task once resumed: the resumed session's zenius server reads the task's page (check 3 on the Mac at 2f165ce: 'the browser reports no active task')", async () => {
+test("a Work chat on Codex that the idle stop parked goes on in its own task once resumed: the resumed session's zenius server reads the task's page (on a Mac, it had said 'the browser reports no active task')", async () => {
   // The mock dressed as codex-acp (CODEX_PATH): each session starts its
   // zenius server from its own ACP mcpServers, else from CODEX_CONFIG, which
   // every session of the process shares, as codex-acp does (mock_agent.py's
@@ -4093,14 +4089,15 @@ test("a question the agent ends with puts its task under Needs you, and Work's s
 // What taskInfo says of a work chat's last answer: the question it shows
 // under Needs you, else its state.
 const ANSWERS = [
-  // zen-eval's demo (2026-11-22): the question, then the choices as a numbered list.
+  // A real answer (2026-11-22): the question, then the choices as a numbered
+  // list.
   ["Wikivoyage's Kyoto guide lists these day trips. Which one would you like?\n\n1. Nara\n2. Uji\n3. Himeji", "Which one would you like?"],
   ["Which one should I plan?\n\n- **Nara**: deer and Tōdai-ji\n- **Uji**: tea and Byōdō-in\n- **Himeji**: the castle", "Which one should I plan?"],
   ["Which do you prefer?\n1) Nara\n2) Uji", "Which do you prefer?"],
   ["Which do you prefer?\n• Nara\n• Uji", "Which do you prefer?"],
   ["Which do you prefer?\n\n| Trip | By train |\n|---|---|\n| Nara | 45 min |\n| Uji | 20 min |", "Which do you prefer?"],
-  // Up to three lines after the list, of any length: zen-eval's retake, word
-  // for word (its closing line is over 80 characters), and three paragraphs.
+  // Up to three lines after the list, of any length: a real answer, word for
+  // word (its closing line is over 80 characters), and three paragraphs.
   // Items with indented lines of their own.
   ["Which day trip would you like?\n\n1. Nara\n2. Uji\n3. Himeji\n\nLet me know.", "Which day trip would you like?"],
   ["Wikivoyage's Kyoto guide lists these day trips under \"Go next\" — which one would you like?\n\n1. Nara\n2. Uji\n3. Himeji\n\nOnce you pick, I'll look it up with Wikivoyage's search box and give you the train directions.", "Wikivoyage's Kyoto guide lists these day trips under \"Go next\" — which one would you like?"],
@@ -4140,8 +4137,7 @@ const ANSWERS = [
   ["Let me know whether you want the 9:10 train next Tuesday.", "Let me know whether you want the 9:10 train next Tuesday."],
   ["Let me know which of the next two trains you would like.", "Let me know which of the next two trains you would like."],
   ["Tell me which hotel you prefer, and I will book it next.", "Tell me which hotel you prefer, and I will book it next."],
-  // A question followed only by a bare closing, on its line or the next
-  // (t10x, 2026-11-22).
+  // A question followed only by a bare closing, on its line or the next.
   ["Two trains fit: 9:10 and 10:05. Which works for you? Let me know.", "Which works for you?"],
   ["Two trains fit: 9:10 and 10:05. Which works for you?\n\nLet me know.", "Which works for you?"],
   ["Which one should I book? Thanks!", "Which one should I book?"],
@@ -4191,11 +4187,11 @@ const ANSWERS = [
   ["已经确认好了，我会在出发前一天提醒你。", "done"],
   ["确认好了，我会在出发前一天提醒你。", "done"],
   ["请告诉我是否还有其他需要。", "done"],
-  // The agent's own step done for the user (帮你, 替你, 给你, 为你: zen-ux).
+  // The agent's own step done for the user (帮你, 替你, 给你, 为你).
   ["我帮你选好了座位，我会把确认邮件转给你。", "done"],
   ["已经帮你确认好了，我会在出发前一天提醒你。", "done"],
   ["我替你决定好了，我就订这一班。", "done"],
-  // Done: an offer of more after a finished task (t10x), a closing after an
+  // Done: an offer of more after a finished task, a closing after an
   // answered question, and a closing after a result.
   ["I booked the 9:10 train. Let me know if you'd like me to book the return too.", "done"],
   ["Is Nara worth the trip? Absolutely: the deer park alone is. Thanks!", "done"],
@@ -4215,7 +4211,7 @@ test("Needs you finds the question an answer asks before its list of choices, wh
   }
 });
 
-test("an agent that asks, lists the choices, then says what it does once the user picks (zen-eval's retake, word for word) puts its task under Needs you: the directory, Work's count and zenius's strip", async () => {
+test("an agent that asks, lists the choices, then says what it does once the user picks (a real answer, word for word) puts its task under Needs you: the directory, Work's count and zenius's strip", async () => {
   await useMock();
   const out = await chrome(`
     await S.openPanel();
@@ -4297,7 +4293,7 @@ test("the address bar: with '>', 'Ask agent' is the first row and Enter starts a
   assert.deepEqual(out.plain[1], { i: 1, provider: "ZeniusAskAgentSuggest", heuristic: false, dynamic: "zeniusAskAgent" });
 });
 
-test("Enter on the address bar's 'Ask agent' row closes the box in that same moment: no frame shows the open box with the page's URL back in it (zen-eval's take-6 captures showed it for a few frames); the closed box shows the page's URL and the page has focus", async () => {
+test("Enter on the address bar's 'Ask agent' row closes the box in that same moment: no frame shows the open box with the page's URL back in it (frame captures showed it for a few frames); the closed box shows the page's URL and the page has focus", async () => {
   await useMock();
   const out = await chrome(`
     const sidebar = win.ucAgentSidebar;
@@ -4361,7 +4357,7 @@ test("Enter on the address bar's 'Ask agent' row closes the box in that same mom
   assert.equal(out.pageFocused, true, "the page has focus, as the dispatch leaves it");
 });
 
-test("the agent sidebar paints at its own width from its first frame, without the browser's header, so the page beside it reflows once, on every open: a profile's first open through the '>' dispatch's startWorkChat (420 px, not Zen's default), a later open as the toolbar opens it, and an open after a restart, at the width the user dragged the splitter to (zen-eval's take-6 captures and probe: the browser's 'Agent ×' header on every open, 216 px first, and 216 px for good after a restart)", async () => {
+test("the agent sidebar paints at its own width from its first frame, without the browser's header, so the page beside it reflows once, on every open: a profile's first open through the '>' dispatch's startWorkChat (420 px, not Zen's default), a later open as the toolbar opens it, and an open after a restart, at the width the user dragged the splitter to (before this, the browser's 'Agent ×' header on every open, 216 px first, and 216 px for good after a restart)", async () => {
   await useMock();
   const out = await chrome(`
     const g = win.ucAgentSidebar;
@@ -5273,7 +5269,7 @@ test("an answer can't pass for the panel's own parts: no id or class from it, li
   assert.match(out.panel, /panel\.html$/);
 });
 
-test("step 6: the live card draws only while the user can see it; Watch moves the window only on its click, and ⌃Tab back only while watching; Take over is zenius's own, until its Resume agent", async t => {
+test("the live card draws only while the user can see it; Watch moves the window only on its click, and ⌃Tab back only while watching; Take over is zenius's own, until its Resume agent", async t => {
   await useMock();
   const before = await h.call("dev.viewState");
   const out = await chrome(`
@@ -5387,7 +5383,7 @@ test("step 6: the live card draws only while the user can see it; Watch moves th
   const after = await h.call("dev.viewState");
   assert.equal(after.windows[0].activeWorkspace, before.windows[0].activeWorkspace, "the user's Space at the end");
 });
-test("step 6: the card paints only an agent's page of its chat's own task, checked before the actor is made: never the user's tab, a tab they opened from the task's page, or another task's page; a picture is raw pixels of the size asked; a page too busy to answer costs only itself, and the card keeps what it has", async () => {
+test("the card paints only an agent's page of its chat's own task, checked before the actor is made: never the user's tab, a tab they opened from the task's page, or another task's page; a picture is raw pixels of the size asked; a page too busy to answer costs only itself, and the card keeps what it has", async () => {
   await useMock();
   const other = await h.createSpace({ name: `zen-ux sidebar other ${run}` });
   let out;
@@ -5534,9 +5530,9 @@ test("step 6: the card paints only an agent's page of its chat's own task, check
 
 // The card keeps its last picture only for its own task. drawPicture paints
 // a page only while the agent has it, so a finished task's card kept the
-// picture of the task shown before it: another task's page (seen in
-// zen-sidebar's remote-task shots, 2026-11-21).
-test("step 6: the card shows only its own task's page: from a working task's card to a finished task's, which it doesn't paint, the card shows only its foot, never the other task's picture; back on the working task, its own picture comes again", async () => {
+// picture of the task shown before it: another task's page (seen
+// 2026-11-21).
+test("the card shows only its own task's page: from a working task's card to a finished task's, which it doesn't paint, the card shows only its foot, never the other task's picture; back on the working task, its own picture comes again", async () => {
   await useMock();
   const out = await chrome(`
     const g = win.ucAgentSidebar;
@@ -5735,12 +5731,12 @@ test("the sidebar's ways in are zenius's watch: a directory tab and the card's W
   assert.deepEqual(out.click, { hits: ["browser"], watching: true }, "the user's click at the page's top center went to the page, and the watch went on");
 });
 
-// The user saw about:config's Delete button through the drawer in the try Zen
-// (zen-sidebar's see-through look, since removed): Zen paints about:config in
-// its own process, and the frost's blur never reached it, so the button and
-// its row showed sharp through the drawer's 72 % background. The drawer is
-// solid now. This checks it stays so over such a page: whether the button
-// shows is whether the drawer's pixels over it change when it's hidden.
+// The drawer once let about:config's Delete button show through (a
+// see-through look, since removed): Zen paints about:config in its own
+// process, and the frost's blur never reached it, so the button and its row
+// showed sharp through the drawer's 72 % background. The drawer is solid now.
+// This checks it stays so over such a page: whether the button shows is
+// whether the drawer's pixels over it change when it's hidden.
 test("the drawer hides the page under it: over about:config's Delete button, a page Zen paints in its own process, the drawer is on top, solid and unblurred, and its pixels are the same with the button or without, in the light and dark themes", async () => {
   await useMock();
   const out = await chrome(`
@@ -5824,8 +5820,9 @@ test("the drawer hides the page under it: over about:config's Delete button, a p
   assert.equal(out.frostedShows, true, "the check sees the button through a frosted drawer");
 });
 
-// The user: '你现在这个 sidebar 和中间的页面的 gap 有点大'. Two panes of a Zen
-// split sit --zen-split-row-gap apart, the user's --zen-element-separation.
+// The gap between the sidebar and the page beside it was too wide. Two
+// panes of a Zen split sit --zen-split-row-gap apart, the user's
+// --zen-element-separation.
 test("the sidebar sits one --zen-element-separation from the page, as a Zen split's two panes do, with its top and bottom on the page's and its outer edge as far from the window's as the page's: at Zen's 8 px, at a separation of 12 px, on the left, and beside a split's panes on either side", async () => {
   await useMock();
   const out = await chrome(`
@@ -5913,8 +5910,8 @@ test("the sidebar sits one --zen-element-separation from the page, as a Zen spli
   assert.deepEqual(out.splitLeft, { ...pane, paneGap: 8, edge: null }, "on the left of a split's first pane");
 });
 
-// The user: '你的sidebar 好像有两层布局 就是里面一个box外面一个box 我不管你实现怎么样
-// 但是就ui来看 应该就是看起来是一个区域就好'.
+// The sidebar looked like two layers, a box inside a box: however it's
+// built, it should look like one area.
 test("the sidebar reads as one area, like the page's box beside it: no padding, the panel's background in the box, and the page's corner (radius and shape) and shadow, in the light and dark themes", async () => {
   await useMock();
   const out = await chrome(`
@@ -5948,7 +5945,7 @@ test("the sidebar reads as one area, like the page's box beside it: no padding, 
   assert.deepEqual(out, { light: one, dark: one });
 });
 
-// The user: '发消息符号变成一个小的向上箭头吧'.
+// The send button is a small up arrow.
 test("Send is zenius's own small up arrow (send.svg) in the question box and in the edit box: a round button named Send, the arrow a mask in its text color; Stop stays a square", async () => {
   await useMock();
   const out = await chrome(`
@@ -6154,7 +6151,7 @@ const FOLLOW = `
   };
 `;
 
-test("the view's own moves up aren't the user's scroll (zen-observe's review of the follow): a message of several lines sent from the end, whose box empties as it goes, and an edited question, which cuts the chat short, keep the view on the answer as it streams, while the next message grows the box; the user's own scroll of 60 px up mid-answer stays put", async () => {
+test("the view's own moves up aren't the user's scroll: a message of several lines sent from the end, whose box empties as it goes, and an edited question, which cuts the chat short, keep the view on the answer as it streams, while the next message grows the box; the user's own scroll of 60 px up mid-answer stays put", async () => {
   await useMock();
   const out = await chrome(`${FOLLOW}
     // The next message, typed as the answer streams: the box grows five lines.
@@ -6227,7 +6224,7 @@ test("the view's own moves up aren't the user's scroll (zen-observe's review of 
   assert.deepEqual(out.modest, { moved: 60, atEnd: false }, "the user's own scroll of 60 px up mid-answer stays where they put it");
 });
 
-test("each other way to send takes the chat to its end from an earlier answer the user scrolled up to, and the agent's words after it show there (zen-observe's review of the follow): Steer (Ctrl+Enter, ⌘Enter on a Mac) as the agent answers, a queued message's Steer, and an answer to the agent's ask, by a click on its card, or by words in the box, which may answer only its first question", async () => {
+test("each other way to send takes the chat to its end from an earlier answer the user scrolled up to, and the agent's words after it show there: Steer (Ctrl+Enter, ⌘Enter on a Mac) as the agent answers, a queued message's Steer, and an answer to the agent's ask, by a click on its card, or by words in the box, which may answer only its first question", async () => {
   await useMock();
   const out = await chrome(`${FOLLOW}
     const card = () => [...m.querySelectorAll(".msg.ask")].at(-1);
@@ -6786,7 +6783,7 @@ test("Stop in the panel: the queued rows go back into the box, in order, before 
   await useMock();
 });
 
-test("at the sidebar's narrowest width, the empty box keeps its two lines and its words fit them: a busy chat's says only what Enter and Steer do ('Enter queues, Ctrl+Enter steers', ⌘Enter on a Mac), at every width and whatever its status (the user's text pass); that placeholder's size reaches neither its own box nor the next chat's (zen-eval's look run on 4f97629); words typed still grow the box, and it shrinks back once they go", async () => {
+test("at the sidebar's narrowest width, the empty box keeps its two lines and its words fit them: a busy chat's says only what Enter and Steer do ('Enter queues, Ctrl+Enter steers', ⌘Enter on a Mac), at every width and whatever its status; that placeholder's size reaches neither its own box nor the next chat's; words typed still grow the box, and it shrinks back once they go", async () => {
   const { file } = ownMock("panelnarrow");
   const keys = `Enter queues, ${STEER_KEY} steers`;
   // A status as long as a step's title.
@@ -7195,7 +7192,7 @@ test("end to end, the card answers the agent's real asks (elicitation/create thr
   await useMock();
 });
 
-test("an ask for a password or a code (the safety rubric's row on the explicit ask), in English and Chinese: a secret, or such a word in a question, its header (the field's label) or the ask's title, masks every field of words, shows the card's own fixed line under the agent's name, and keeps the answer out of the chat, its summary, the draft and the saved task, though the agent gets it; other asks, in English and Chinese (pinning a tab among them), show no line and keep their answers as before", async () => {
+test("an ask for a password or a code, in English and Chinese: a secret, or such a word in a question, its header (the field's label) or the ask's title, masks every field of words, shows the card's own fixed line under the agent's name, and keeps the answer out of the chat, its summary, the draft and the saved task, though the agent gets it; other asks, in English and Chinese (pinning a tab among them), show no line and keep their answers as before", async () => {
   const { file } = ownMock("askguard");
   const out = await chrome(`${STEER_PANEL}${ASK_LOOK}
     const { isCredentialAsk } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentService.sys.mjs");
@@ -7340,12 +7337,12 @@ test("an ask for a password or a code (the safety rubric's row on the explicit a
   await useMock();
 });
 
-// The user's step 6 on 664f66a (the manager's, 2026-11-22): Claude Code asked
-// "Please enter the 6-digit code from the email (type it via 'Other')." under
-// the header "Code", and the card took it for an ordinary ask. An N-digit
-// code from an email or a text is the commonest way to ask for a one-time
-// code, and what an injected agent would write (the rubric's rule 1a).
-test("an ask for a one-time code as agents write it reads as one for a password or a code (the user's step 6 on 664f66a): an N-digit code; a code from, in or sent to an email, a text, SMS, a phone, an inbox or an authenticator app; a sign-in, login, confirmation, access, auth or 2-step code, MFA, 2-step verification; a question headed just 'Code'; in Chinese a digit code, or one from a text or an email. Ordinary uses of 'code' in a browser task don't: a code style, the page's code, a code block, a promo code, a country or zip code, an error code. The user's own ask, Claude Code's 'Please enter the 6-digit code from the email' headed 'Code', is masked, under the card's line, and keeps nothing", async () => {
+// In a real task (2026-11-22), Claude Code asked "Please enter the 6-digit
+// code from the email (type it via 'Other')." under the header "Code", and
+// the card took it for an ordinary ask. An N-digit code from an email or a
+// text is the commonest way to ask for a one-time code, and what an
+// injected agent would write.
+test("an ask for a one-time code as agents write it reads as one for a password or a code: an N-digit code; a code from, in or sent to an email, a text, SMS, a phone, an inbox or an authenticator app; a sign-in, login, confirmation, access, auth or 2-step code, MFA, 2-step verification; a question headed just 'Code'; in Chinese a digit code, or one from a text or an email. Ordinary uses of 'code' in a browser task don't: a code style, the page's code, a code block, a promo code, a country or zip code, an error code. The user's own ask, Claude Code's 'Please enter the 6-digit code from the email' headed 'Code', is masked, under the card's line, and keeps nothing", async () => {
   const { file } = ownMock("askcode");
   const TEXT = "Please enter the 6-digit code from the email (type it via 'Other').";
   const out = await chrome(`${STEER_PANEL}${ASK_LOOK}
@@ -7370,8 +7367,8 @@ test("an ask for a one-time code as agents write it reads as one for a password 
       ["Type the code we texted you", null, true],
       ["Your SMS code?", null, true],
       ["What's the email code?", null, true],
-      // zen-snapshot's review of ada4665: a text message's code, and one
-      // texted or emailed to the user, said without a "we".
+      // A text message's code, and one texted or emailed to the user, said
+      // without a "we".
       ["What's the text message code?", null, true],
       ["Enter the text-message code", null, true],
       ["Type the code texted to you", null, true],
@@ -7844,15 +7841,15 @@ for (const [keys, realKeys] of IME_KEYS) test(`IME (${keys}) in a task's name as
   await useMock();
 });
 
-// IME from an open address bar (zen-ux's report and zen-input's finding,
-// 2026-11-22). With its results open, Zen's address bar gives the page the
-// focus as it closes (UrlbarInputBase.mjs #closePopover). When our code put
-// the cursor in our UI from there, that ran inside our focus(): Gecko kept
-// the page's process as the one IME compositions go to, and the user's words
-// went into the page's field, not our box. A real IME is routed the same way
-// (IMEStateManager decides, below the widget). Keys go by the chrome focus
-// either way, so a plain key reached the box all along. The routing doesn't
-// depend on how the IME marks its keys, so one kind of keys is enough here.
+// IME from an open address bar (2026-11-22). With its results open, Zen's
+// address bar gives the page the focus as it closes (UrlbarInputBase.mjs
+// #closePopover). When our code put the cursor in our UI from there, that
+// ran inside our focus(): Gecko kept the page's process as the one IME
+// compositions go to, and the user's words went into the page's field, not
+// our box. A real IME is routed the same way (IMEStateManager decides, below
+// the widget). Keys go by the chrome focus either way, so a plain key
+// reached the box all along. The routing doesn't depend on how the IME marks
+// its keys, so one kind of keys is enough here.
 const URLBAR_IME = `
   ${IME}
   const fm = Services.focus;
@@ -7877,7 +7874,7 @@ const URLBAR_IME = `
   // ⌘⇧A. On the Mac the real keys reach the sidebar's key from the address
   // bar. On Linux the address bar takes Ctrl+Shift+A first, so it never
   // gets there; the test runs the command the key runs instead, with the
-  // address bar still focused. zen-eval's Mac case presses the real keys.
+  // address bar still focused. The Mac suite presses the real keys.
   const sidebarKey = () => {
     if (Services.appinfo.OS === "Darwin") {
       press("A", ACCEL_KEY, "Shift");
@@ -7948,7 +7945,7 @@ const URLBAR_IME = `
 for (const how of ["⌘T", "⌘L"]) {
   for (const panelOpen of [false, true]) {
     const before = panelOpen ? "the panel open, with text newly selected on the page" : "the panel closed";
-    test(`IME from an open address bar (after ${how}), ${before}: ⌘⇧A puts the cursor in the panel's box, and a plain key and an IME's 你 go into the box; the page's field, which had the focus, gets no composition and no input (zen-ux's report; zen-input, 2026-11-22)`, async () => {
+    test(`IME from an open address bar (after ${how}), ${before}: ⌘⇧A puts the cursor in the panel's box, and a plain key and an IME's 你 go into the box; the page's field, which had the focus, gets no composition and no input`, async () => {
       await useMock();
       const out = await chrome(
         `
@@ -8143,11 +8140,10 @@ test("with no agent, the sidebar starts cleanly and the address bar offers no 'A
 });
 
 
-// The night cut's leak (zen-ux's memory runs, 2026-11-22): a kept message
-// held objects the panel it was sent from had made (its files, an ask's
-// answers), and so that panel's whole window, about 0.9 MB, for as long as
-// the chat or the task was kept. Each ⌘⇧A that closed a panel the user had
-// asked from left one more.
+// A leak (measured 2026-11-22): a kept message held objects the panel it
+// was sent from had made (its files, an ask's answers), and so that panel's
+// whole window, about 0.9 MB, for as long as the chat or the task was kept.
+// Each ⌘⇧A that closed a panel the user had asked from left one more.
 test("closing the sidebar lets its panel go: ten panels, each asking a task and the tab's chat from its box and then closed with ⌘⇧A, leave no more panel documents after a minimize than before", async () => {
   await useMock();
   const out = await chrome(
@@ -8202,8 +8198,8 @@ test("closing the sidebar lets its panel go: ten panels, each asking a task and 
       const after = await panels();
       return { before, after, task: answers(task), chat: answers(chat), listed: !!A.taskByUid(task.uid) };
     } finally {
-      // What the ten panels asked goes with the test (zen-sidebar's review):
-      // the task, and the tab with its chat, saved at once.
+      // What the ten panels asked goes with the test: the task, and the tab
+      // with its chat, saved at once.
       A.removeTask(task);
       A.clearChat(chat);
       win.gBrowser.removeTab(tab, { animate: false });
@@ -8219,11 +8215,11 @@ test("closing the sidebar lets its panel go: ten panels, each asking a task and 
   );
 });
 
-// The draft's pin (zen-ux's note on its leak fix, 2026-11-22): what's left in
-// the box, the chat's draft, was an object the panel made, with its files and
-// each file's read in the panel's realm, so it kept that panel's whole window
-// for as long as the chat or the task was kept. One more for each
-// conversation a closed panel had left words or a file in.
+// The draft's pin (2026-11-22): what's left in the box, the chat's draft, was
+// an object the panel made, with its files and each file's read in the
+// panel's realm, so it kept that panel's whole window for as long as the chat
+// or the task was kept. One more for each conversation a closed panel had
+// left words or a file in.
 const DRAFT_SCENE = `
   const g = win.ucAgentSidebar;
   const A = g.AgentService;
@@ -8258,7 +8254,7 @@ test("a draft left in the box lets its panel go: ten tasks, each left with words
     ${DRAFT_SCENE}
     await S.openPanel();
     const mgr = Cc["@mozilla.org/memory-reporter-manager;1"].getService(Ci.nsIMemoryReporterManager);
-    // The panel documents the parent holds after a minimize (zen-ux's count).
+    // The panel documents the parent holds after a minimize.
     const panels = async () => {
       await new Promise(r => mgr.minimizeMemoryUsage(() => r()));
       let n = 0, bytes = 0;
@@ -8362,10 +8358,9 @@ test("a file a closed sidebar was still reading doesn't hold up the next send: E
   assert.notEqual(out.hint, "Reading the files…", "nothing left waiting on the file");
 });
 
-// Another window on the same task (zen-ux's nit 2 on draft-leak-2): only the
-// panel that read a file drew it again as the read ended, so another
-// window's sidebar on that task said "Reading…" until something else drew
-// its files.
+// Another window on the same task: only the panel that read a file drew it
+// again as the read ended, so another window's sidebar on that task said
+// "Reading…" until something else drew its files.
 test("a file read in one window's sidebar shows as read in another window's on the same task once the read ends, and that window's box keeps its words and its caret", async () => {
   await useMock();
   const out = await chrome(

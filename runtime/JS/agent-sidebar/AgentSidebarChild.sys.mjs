@@ -22,11 +22,10 @@ const PDF_OPEN_MS = 30000;
 // footer of an article or section stay (#isSitePart).
 const SITE_PARTS = "nav, header, footer, [role=navigation], [role=banner], [role=contentinfo]";
 // Text that is laid out but that the user can't read comes marked as hidden
-// (#hidden): a page could hide instructions for the agent in it
-// (zen-snapshot's red team, docs/research/agent-sidebar-redteam.md, finding
-// 2). It was left out until the user's pass on defenses (2026-11-21, A11):
-// trust the agent, and let it see what the user can't, marked so. Hidden is
-// text smaller than this,
+// (#hidden): a page could hide instructions for the agent in it. It was
+// left out until the user's pass on defenses (2026-11-21): trust the agent,
+// and let it see what the user can't, marked so. Hidden is text smaller
+// than this,
 const MIN_FONT_PX = 4;
 // squeezed or clipped into a box thinner than this (screen-reader-only
 // text's 1 px box, a transform),
@@ -138,7 +137,7 @@ export class AgentSidebarChild extends JSWindowActorChild {
     }
     // Firefox's PDF viewer only, on an application/pdf document, which the
     // parent saw as one too. Any page can define a PDFViewerApplication, and
-    // the agent then got the page's chosen text as the PDF's (finding 3).
+    // the agent then got the page's chosen text as the PDF's.
     if (kind === "pdf" && this.document.contentType === "application/pdf") {
       const viewer = Cu.waiveXrays(win).PDFViewerApplication;
       if (viewer) {
@@ -249,14 +248,13 @@ export class AgentSidebarChild extends JSWindowActorChild {
   }
 
   /**
-   * The links the user can see, for Chat's fetch (the user's call on D1,
-   * docs/research/chat-fetch.md): Chat opens only a URL from its sources, the
-   * page's links among them. Each is a link with text the user can see
-   * (#visibleText), outside the site's navigation, http(s) only, to another
-   * page than this one, once, in page order: {url, name}. A link the page
-   * hides, or one without text, isn't one the user could follow, so it stays
-   * out; its name is only the text the user can see in it, so no hidden text
-   * goes unmarked.
+   * The links the user can see, for Chat's fetch (the user's call): Chat
+   * opens only a URL from its sources, the page's links among them. Each is a
+   * link with text the user can see (#visibleText), outside the site's
+   * navigation, http(s) only, to another page than this one, once, in page
+   * order: {url, name}. A link the page hides, or one without text, isn't one
+   * the user could follow, so it stays out; its name is only the text the
+   * user can see in it, so no hidden text goes unmarked.
    *
    * @param {{shown: Set<Text>, lit: Set<Element>}} seen
    * @returns {Array<{url: string, name: string}>}

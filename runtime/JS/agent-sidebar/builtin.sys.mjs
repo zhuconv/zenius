@@ -1,7 +1,7 @@
 /* Agent Sidebar: the agents it offers when the user has no config.json of
- * their own (the manager's release blocker, 2026-11-21: on a fresh install
- * the sidebar offered no agent). zen-ux wrote it, with zen-sidebar's notes
- * on the config's shape and the adapters, and zen-sdk's installer.
+ * their own (before it, a fresh install offered no agent, 2026-11-21).
+ * zen-ux wrote it, with zen-sidebar on the config's shape and the adapters,
+ * and zen-sdk's installer.
  *
  * zenius's installer puts the two ACP adapters in ~/.zenius/agents, pinned
  * by runtime/agents/package-lock.json (npm ci --omit=dev --omit=optional

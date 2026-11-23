@@ -1,6 +1,6 @@
-// Click probe (zen-ux's load pass of 2026-11-20): one task, no load, the
-// baseline for the slow clicks seen with ten tasks. Not a test; it prints
-// "# key: json" lines.
+// Click probe (a load test, 2026-11-20): one task, no load, the baseline
+// for the slow clicks seen with ten tasks. Not a test; it prints "# key:
+// json" lines.
 //
 //   ZENIUS_UX_INSTANCE=zen-ux-load tests/ux/run.sh tests/ux/probes/click.mjs
 import { after, before, test } from "node:test";

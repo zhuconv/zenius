@@ -2,8 +2,8 @@
 // strip (a tab added, moved or closed) must leave what each window shows of
 // its strip where it was. Zen's strip gets no help from scroll anchoring:
 // even a plain element inserted above the view moved the tabs below it
-// (zen-ux's probe, 2026-11-20). So keepView() notes where a tab in view sits
-// before the change and scrolls the strip back by however far it moved.
+// (probed 2026-11-20). So keepView() notes where a tab in view sits before
+// the change and scrolls the strip back by however far it moved.
 //
 // A strip scrolls only as far as its content allows. In a strip shorter
 // than its box (stripCanScroll() is false), or near its top, a change above

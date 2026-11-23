@@ -1,8 +1,7 @@
 /* Agent Sidebar: the panel and All tasks as a script reads and drives them.
  * The post-install self-check's scenarios (selfcheck.sys.mjs) and the tests
  * (tests/ux) share it, so both go by one set of the sidebar's ids and classes
- * (docs/briefs/selfcheck.md; zen-core's ask in the design note's review: the
- * scenarios' private helpers, lifted here by zen-ux).
+ * (the scenarios' private helpers, lifted here by zen-ux at zen-core's ask).
  *
  * sidebarView(win) works in a browser window, whose glue is
  * agent-sidebar.uc.js's, and in the self-check's window, which

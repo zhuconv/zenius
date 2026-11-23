@@ -88,8 +88,8 @@
     const PREF_SHORTCUT = "uc.agent-sidebar.shortcut";
     const PREF_MAX_CHARS = "uc.agent-sidebar.max-page-chars";
     // How long a question waits for the page's text, by kind: a page that
-    // never finishes (a PDF that never loads) can't hold it up (zen-snapshot's
-    // red team, finding 4). The pref, in ms, is for tests.
+    // never finishes (a PDF that never loads) can't hold it up. The pref, in
+    // ms, is for tests.
     const READ_TIMEOUT_MS = { html: 5000, pdf: 30000 };
     const PREF_READ_TIMEOUT = "uc.agent-sidebar.page-read-timeout";
     const PREF_PLACED = "uc.agent-sidebar.placed-right";
@@ -246,9 +246,8 @@
 
     /**
      * The earlier chat the selected tab's page offers back, for the panel's
-     * empty Chat view (docs/research/chat-way-back.md, part 2), or null: only
-     * in Chat mode, in a window whose chats are kept, while the tab's chat
-     * is empty.
+     * empty Chat view, or null: only in Chat mode, in a window whose chats
+     * are kept, while the tab's chat is empty.
      */
     function earlierChat() {
       if (!keepChats || mode !== "chat") {
@@ -262,7 +261,7 @@
       return AgentService.earlierChatFor(tab.linkedBrowser?.currentURI?.spec ?? "", heldChats());
     }
 
-    /** The earlier chats All tasks' search finds for `query` (part 3); none in a window whose chats aren't kept. */
+    /** The earlier chats All tasks' search finds for `query`; none in a window whose chats aren't kept. */
     function earlierChats(query) {
       return keepChats ? AgentService.earlierChats(query, heldChats()) : [];
     }
@@ -287,12 +286,12 @@
     }
 
     /**
-     * An earlier chat comes back (part 2's Open, part 3's row): in place when
-     * the selected tab is on a page it asked about and the tab's chat is
-     * empty, as part 1's rebind brings a restored tab's chat back, else on a
-     * new tab on its newest question's page. The tab keeps its id. False when
-     * it's no earlier chat (gone, or a tab shows it now), and in a window
-     * whose chats aren't kept.
+     * An earlier chat comes back (the empty Chat view's Open, or its row in
+     * All tasks' search): in place when the selected tab is on a page it
+     * asked about and the tab's chat is empty, as a restored tab gets its
+     * chat back, else on a new tab on its newest question's page. The tab
+     * keeps its id. False when it's no earlier chat (gone, or a tab shows it
+     * now), and in a window whose chats aren't kept.
      *
      * @param {string} uid
      */
@@ -308,7 +307,7 @@
       const conv = conversations.get(tab);
       // A tab that keeps another chat by its value isn't empty either, though
       // it has no conversation yet (restored at the start and not shown
-      // since): the pick doesn't take it over (zen-observe's review).
+      // since): the pick doesn't take it over.
       const kept = savedChatOf(tab);
       if (!place.here || conv?.messages.length || conv?.busy || (kept && kept !== conv?.uid)) {
         // A chat of questions on no web page comes back on an empty tab.
@@ -454,13 +453,13 @@
     // --- A remote task's arrival ---------------------------------------------
     //
     // Another of the user's agents started a task (remote tasks; the user's
-    // call "可以弹一个卡片但是不需要同意": a card pops up, with no approval). A
-    // small card says "Task from <label> on <address>", with Watch and Stop:
-    // in the agent sidebar if it's open in this window, else over zenius's
-    // strip in Zen's own sidebar, where zenius tells the user a task needs
-    // them. It takes no focus, opens nothing and selects nothing (I1), and
-    // goes after ARRIVAL_MS, or when dismissed. Only the front window shows
-    // it, and only for a task that just started.
+    // call: a card pops up, with no approval). A small card says "Task from
+    // <label> on <address>", with Watch and Stop: in the agent sidebar if
+    // it's open in this window, else over zenius's strip in Zen's own
+    // sidebar, where zenius tells the user a task needs them. It takes no
+    // focus, opens nothing and selects nothing (I1), and goes after
+    // ARRIVAL_MS, or when dismissed. Only the front window shows it, and
+    // only for a task that just started.
 
     const arrived = new Set(AgentService.tasks.keys());
     cleanups.push(
@@ -676,10 +675,9 @@
     // loaded, both came frames late: every open painted the browser's own
     // "Agent ×" header first, a profile's first open its default 216 px, and
     // after a restart the box stayed at 216 px, its widening done once per
-    // profile through an inline width that doesn't outlive the window
-    // (zen-eval's take-6 captures and probe). The browser unhides the box
-    // and sets "checked" on each show, and the panel's id with them; the
-    // observer runs before the next paint.
+    // profile through an inline width that doesn't outlive the window. The
+    // browser unhides the box and sets "checked" on each show, and the
+    // panel's id with them; the observer runs before the next paint.
     function fitBox(records) {
       const box = document.getElementById("sidebar-box");
       if (!box) {
@@ -891,9 +889,8 @@
     /**
      * A key as the panel's hints show it (Close, the empty chat): ⌘⇧A on
      * the Mac, Ctrl+Shift+A elsewhere, as the panel shows ⌘Enter and
-     * Ctrl+Enter (zen-observe's review of Archive: the hints were the Mac's
-     * default alone). The Mac's marks keep ⌘ first, as the sidebar always
-     * wrote its key.
+     * Ctrl+Enter (the hints once showed the Mac's alone). The Mac's marks
+     * keep ⌘ first, as the sidebar always wrote its key.
      */
     function shortcutLabel({ modifiers, key }) {
       const isMac = AppConstants.platform === "macosx";

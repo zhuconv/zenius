@@ -1,9 +1,8 @@
-// The claim gate's prompt (the manager's decision on zen-input's method audit,
-// item 6). When an agent claims a user's Space or an ended task, zen-core asks
-// the user: it sends claimAsked {id, space, name, client, until} in process,
-// takes the answer through spaces.answerClaim(id, allow), and sends
-// claimSettled {id, verdict} at every end. These tests send the events
-// themselves and stand in for answerClaim.
+// The claim gate's prompt. When an agent claims a user's Space or an ended
+// task, zen-core asks the user: it sends claimAsked {id, space, name, client,
+// until} in process, takes the answer through spaces.answerClaim(id, allow),
+// and sends claimSettled {id, verdict} at every end. These tests send the
+// events themselves and stand in for answerClaim.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { setup, iso } from "./lib.mjs";

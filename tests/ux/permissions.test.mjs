@@ -1,10 +1,10 @@
 // Permission prompts in agent pages (runtime/JS/zenius/ui/permissions.sys.mjs),
-// on evidence since the user's pass on defenses (2026-11-21, A8). While the
-// agent drives, a page's prompt puts the Space under the user's control with
-// Ego's reason key, waits in the background for the user to open the Space,
-// and gives control back once answered. During the user's hold it's theirs.
-// On evidence of danger in the page it's cancelled, held or not; the camera,
-// microphone and screen's is cancelled while the agent drives.
+// on evidence since the user's pass on defenses (2026-11-21). While the agent
+// drives, a page's prompt puts the Space under the user's control with Ego's
+// reason key, waits in the background for the user to open the Space, and gives
+// control back once answered. During the user's hold it's theirs. On evidence
+// of danger in the page it's cancelled, held or not; the camera, microphone and
+// screen's is cancelled while the agent drives.
 //
 // The prompts that hand off need a cross-site frame, or a public page asking
 // for a private address, to come up for real, so these tests raise them from
@@ -103,11 +103,11 @@ test("a storage access prompt in a background agent page hands the Space to the 
   assert.deepEqual(gate, { code: "ZEN_TASK_SPACE_USER_IN_CONTROL", data: { space, reason: "storage_access" } });
 });
 
-// G10b on the Mac: after Open in the tasks panel no prompt showed
-// (docs/reports/mac-relay.md). Firefox shows a background tab's prompt when
-// the tab is selected, unless it suppresses doorhangers at that moment, and
-// then only something that re-checks shows it. The test plays that miss:
-// suppression during the switch, and a prompt the user had clicked away.
+// On the Mac, after Open in the tasks panel no prompt showed. Firefox shows
+// a background tab's prompt when the tab is selected, unless it suppresses
+// doorhangers at that moment, and then only something that re-checks shows
+// it. The test plays that miss: suppression during the switch, and a prompt
+// the user had clicked away.
 test("Open in the tasks panel shows the page's prompt, even when Firefox's own update misses it", async () => {
   const out = await h.chrome(`${P}
     const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;

@@ -1,7 +1,6 @@
-// The self-check's scenarios: zen-sidebar's half of docs/briefs/selfcheck.md
-// (runtime/JS/agent-sidebar/selfcheck.sys.mjs's prepare, run and cleanup),
-// in a window that isn't a browser window, as zen-core's runner hands one
-// over (docs/research/selfcheck.md). The tests open the runner's own window
+// The self-check's scenarios (runtime/JS/agent-sidebar/selfcheck.sys.mjs's
+// prepare, run and cleanup), in a window that isn't a browser window, as
+// zen-core's runner hands one over. The tests open the runner's own window
 // (zenius/selfcheck/window.xhtml) themselves, at its own size, and drive the
 // three functions as the runner does; zen-ux's end-to-end test runs the
 // whole of it through the runner.
@@ -329,7 +328,7 @@ test("the self-check's agent is in no picker, and a scope's conversations write 
   });
 });
 
-test("an ended scope makes nothing more: createConversation and createTask refuse it, and a panel in a window with no glue stops before it lists or subscribes to the user's tasks (zen-observe's review); and a self-check task's failed turn never shows the user's own agent's last exit", async () => {
+test("an ended scope makes nothing more: createConversation and createTask refuse it, and a panel in a window with no glue stops before it lists or subscribes to the user's tasks; and a self-check task's failed turn never shows the user's own agent's last exit", async () => {
   const out = await h.call("dev.evalChrome", {
     code: `${HARNESS}
       const { SELF_CHECK_HARNESS } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentService.sys.mjs");
@@ -425,7 +424,7 @@ test("an ended scope makes nothing more: createConversation and createTask refus
   assert.equal(out.userTail, false, "a self-check task's error doesn't name the user's agent's exit");
 });
 
-test("the self-check window lists none of the user's earlier chats (Chat parts 2 and 3; its shots must never show the user's chats): its glue offers none, its panel's empty Chat view has no line for one, and its All tasks' search lists none, where the user's own window's search lists it", async () => {
+test("the self-check window lists none of the user's earlier chats (Chat's way back; its shots must never show the user's chats): its glue offers none, its panel's empty Chat view has no line for one, and its All tasks' search lists none, where the user's own window's search lists it", async () => {
   const out = await h.call("dev.evalChrome", {
     code: `${HARNESS}
       // An earlier chat of the user's: saved, and shown by no tab.

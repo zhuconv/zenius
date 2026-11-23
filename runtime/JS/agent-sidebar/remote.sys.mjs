@@ -1,8 +1,8 @@
-// Remote tasks (zen-observe; docs/briefs/remote-tasks.md, PROTOCOL "Remote
-// tasks: the sidebar"): what the sidebar keeps for a task that another of the
-// user's agents sent, and how its state reads to that caller. zenius's
-// methods/sidebar.sys.mjs serves the socket's sidebar.* methods from this.
-// It's cross-owner work by the manager's assignment: the sidebar is zen-ux's.
+// Remote tasks (zen-observe; PROTOCOL "Remote tasks: the sidebar"): what the
+// sidebar keeps for a task that another of the user's agents sent, and how
+// its state reads to that caller. zenius's methods/sidebar.sys.mjs serves the
+// socket's sidebar.* methods from this. It's cross-owner work: the sidebar is
+// zen-ux's.
 //
 // AgentService imports this module at the sidebar's start, so it imports
 // nothing of zenius's (I4).
@@ -46,8 +46,8 @@ export function onRemoteEnded(fn) {
  * and a short plain label.
  *
  * Both go in as JSON strings, so nothing in them can close their quotes and
- * read as rules (zen-snapshot's T1). sidebar.start lets only plain values
- * through, but a task's values also come back from the tasks file.
+ * read as rules. sidebar.start lets only plain values through, but a task's
+ * values also come back from the tasks file.
  */
 export function remoteInstructions(remote) {
   const label = remote.label ? `, which labels the task ${JSON.stringify(remote.label)}` : "";

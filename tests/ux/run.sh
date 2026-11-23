@@ -26,8 +26,8 @@ export ZENIUS_AGENT_SCRIPTS=1
 
 # The checkout's CLI has to run, before any Zen starts. The mock agents'
 # opens and the self-check's end-to-end test use it. A fresh worktree has no
-# sdk/dist, and a Node that can't strip types can't run its sources: on the
-# night cut's Mac run that showed up as 165 failures, not as one line.
+# sdk/dist, and a Node that can't strip types can't run its sources: on a
+# Mac that showed up as 165 failures, not as one line.
 if ! cli_err=$(node "$ROOT/sdk/bin/zenius" --version 2>&1 >/dev/null); then
   echo "tests/ux: the checkout's CLI doesn't run on $(command -v node) ($(node --version 2>/dev/null)):" >&2
   echo "$cli_err" >&2

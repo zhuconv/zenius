@@ -1,8 +1,8 @@
-/* Agent Sidebar: the URLs Chat may fetch. The user's call on defenses (D1,
- * 2026-11-21): Chat's WebFetch opens only a URL that came from its search
+/* Agent Sidebar: the URLs Chat may fetch. The user's call on defenses
+ * (2026-11-21): Chat's WebFetch opens only a URL that came from its search
  * results, the page it read, or the user's own words. An injected line then
  * can't get Chat to build a URL that carries the chat's content to a server.
- * Work keeps any URL. docs/research/chat-fetch.md has the design.
+ * Work keeps any URL.
  *
  * Each Claude Code Chat session has a list, <profile>/agent-sidebar-allow/
  * <session id>.txt, one URL per line, as fetchKey writes it:

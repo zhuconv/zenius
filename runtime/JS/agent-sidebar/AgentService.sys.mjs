@@ -40,8 +40,7 @@ import {
   processFolder,
   sessionLimits,
 } from "./workspace.sys.mjs";
-// Remote tasks (zen-observe's, by the manager's assignment): conv.remote
-// and its hooks below.
+// Remote tasks (zen-observe's): conv.remote and its hooks below.
 import {
   keepRemote,
   remoteChanged,
@@ -52,13 +51,13 @@ import {
   restoreRemote,
   serializeRemote,
 } from "./remote.sys.mjs";
-// The zenius tasks the sidebar doesn't drive (zen-ux's, the user's ask,
-// docs/briefs/external-tasks.md): read-only entries in the directory.
+// The zenius tasks the sidebar doesn't drive (zen-ux's, the user's ask):
+// read-only entries in the directory.
 import { builtinAgents } from "./builtin.sys.mjs";
 import { ExternalTasks } from "./external.sys.mjs";
 import { ExternalMarks, PIN_CAP } from "./pins.sys.mjs";
-// Chat's fetch rule (the user's call on defenses, D1): the lists of URLs a
-// Chat session may fetch.
+// Chat's fetch rule (the user's call on defenses): the lists of URLs a Chat
+// session may fetch.
 import { fetchKey, listName, urlsIn } from "./fetchable.sys.mjs";
 // Text a page lays out where the user can't see it, as the page block marks
 // it (AgentSidebarChild's hiddenMark: a JSON string the page can't close).
@@ -88,8 +87,8 @@ export const EFFORT_OPTIONS = ["reasoning_effort", "effort"];
 export const SELF_CHECK_HARNESS = "zenius:selfcheck";
 
 // A Chat session's only tools are web search and web fetch (the user's pass
-// on defenses, D1; before it, none, from zen-snapshot's red team, ed709c0).
-// workspace.sys.mjs holds it to that; these words only say so.
+// on defenses; before it, none). workspace.sys.mjs holds it to that; these
+// words only say so.
 const INSTRUCTIONS = `You are a reading assistant inside the user's web browser (Zen).
 The user is reading a web page or a PDF. With their question, the browser attaches:
 - the page's text as the user sees it, as an embedded resource whose URI is the page URL. It is attached in full the first time the user asks about a page. After that only what is new on the page is attached, marked as a page update, so look back at the earlier text for the rest. Text the page lays out where the user can't see it (screen-reader-only, transparent, tiny or off the page) comes as [hidden: "..."], a JSON string: the user doesn't see it.
@@ -134,11 +133,11 @@ function systemPromptFor(conv) {
 }
 
 // Chat's threads (the user's bug, 2026-11-22: the update's restart lost a
-// chat; docs/briefs/chat-persistence.md): a JSON file in the profile, beside
-// TASKS_FILE, one entry per tab's chat, under an opaque id its tab keeps as a
-// SessionStore value (agent-sidebar.uc.js). A chat unused for CHATS_MS goes,
-// unless its tab shows it now, then the least recently used past CHATS_KEPT
-// chats or CHATS_BYTES (keptChats).
+// chat): a JSON file in the profile, beside TASKS_FILE, one entry per tab's
+// chat, under an opaque id its tab keeps as a SessionStore value
+// (agent-sidebar.uc.js). A chat unused for CHATS_MS goes, unless its tab
+// shows it now, then the least recently used past CHATS_KEPT chats or
+// CHATS_BYTES (keptChats).
 const CHATS_FILE = "agent-sidebar-chats.json";
 const CHATS_VERSION = 1;
 const CHATS_KEPT = 100;
@@ -666,9 +665,8 @@ const SHOWN_LINKS_CHARS = 8000;
 /**
  * The page's links as Chat sees them after the text: the first of those the
  * user can see (the child's GetPageText), one per line, its URL then its
- * name. Chat may fetch a URL only from its sources (the user's call on D1,
- * docs/research/chat-fetch.md), so a link whose URL it can't see is one it
- * can't open. "" without any.
+ * name. Chat may fetch a URL only from its sources (the user's call), so a
+ * link whose URL it can't see is one it can't open. "" without any.
  *
  * @param {Array<{url: string, name: string}>|undefined} links
  */
@@ -791,8 +789,8 @@ function pageNow(page) {
  * made in that panel's window, and a kept message holding any object of it,
  * even an empty array, keeps the window and the whole panel alive for as
  * long as the message is kept: about 0.9 MB for each panel the user ever
- * asked from (the night cut's leak; zen-ux's memory runs, 2026-11-22). A
- * reader's promise (an attachment's `ready`) and functions stay behind.
+ * asked from (measured 2026-11-22). A reader's promise (an attachment's
+ * `ready`) and functions stay behind.
  */
 function own(value) {
   if (typeof value === "function" || typeof value?.then === "function") {
@@ -854,8 +852,8 @@ function draftFile(file) {
 
 /** A read of a draft's file ended: whoever waits on it goes on (fileSettled),
  * and every sidebar showing that draft draws its files again: another
- * window's on the same task too, which only the panel that read the file
- * did before (zen-ux's nit 2 on the draft's pin). */
+ * window's on the same task too, which only the panel that read the file did
+ * before. */
 function settleFile(file) {
   const read = fileReads.get(file);
   if (read) {
@@ -1002,9 +1000,9 @@ function isHiddenTool(tool) {
 // --- The agent's own ask: elicitation/create in form mode ---------------------
 //
 // claude-agent-acp turns Claude Code's AskUserQuestion into it, codex-acp
-// Codex's request_user_input, and both pass on an MCP server's own form
-// (docs/research/ask-user.md). The panel shows it as zen-ux's card, from the
-// fields askForm makes; the answer goes back in the request's own shape.
+// Codex's request_user_input, and both pass on an MCP server's own form. The
+// panel shows it as zen-ux's card, from the fields askForm makes; the answer
+// goes back in the request's own shape.
 
 /** codex-acp's option for an answer given in a question's note field (its USER_INPUT_OTHER_OPTION). */
 const CODEX_NONE = "None of the above";
@@ -1016,14 +1014,13 @@ const GENERIC_ASKS = new Set(["Codex needs your input to continue.", "Please ans
 const MASKED = "••••";
 
 /**
- * Words that make an ask read as one for a password or a code
- * (docs/safety-rubric.md, the explicit ask's row): an injected agent could
- * ask the user for one in the chat, where only the prompt says it belongs in
- * the site. English with case aside, and Chinese. PIN counts in capitals, or
- * as a PIN code or number, since a browser's agent may well ask to pin a tab.
- * A bare "code" doesn't count (a code style, the page's code, a promo,
- * country or zip code), but one asked for the way one-time codes are (the
- * user's step 6 on 664f66a: "the 6-digit code from the email") does.
+ * Words that make an ask read as one for a password or a code: an injected
+ * agent could ask the user for one in the chat, where only the prompt says it
+ * belongs in the site. English with case aside, and Chinese. PIN counts in
+ * capitals, or as a PIN code or number, since a browser's agent may well ask
+ * to pin a tab. A bare "code" doesn't count (a code style, the page's code, a
+ * promo, country or zip code), but one asked for the way one-time codes are
+ * (as in "the 6-digit code from the email") does.
  */
 const CREDENTIAL_WORDS = [
   /\b(?:pass(?:word|code|phrase)s?|otps?|one[- ]?time codes?|(?:verification|security|authentication) codes?|2fa|two[- ]?factor|card numbers?|cvv2?|cvc2?|ssns?|pin[- ]?(?:codes?|numbers?))\b|pin\s*码/i,
@@ -1041,7 +1038,7 @@ const CREDENTIAL_WORDS = [
   /[0-9０-９一二三四五六七八九十两]+\s*位(?:数字|数|码)|(?:短信|邮件|邮箱)[^。？！?!\n]{0,12}?(?<![编代])码/,
 ];
 
-/** A question headed just "Code" (Claude Code's header for the user's step 6). */
+/** A question headed just "Code" (Claude Code's header for a code). */
 const CODE_HEADER = /^\s*code\s*$/i;
 
 /**
@@ -1241,10 +1238,10 @@ function askAnswer(message, answers) {
     const labels = (question.multi ? picks : picks.slice(0, 1)).map(value => question.options.find(option => option.value === value).label);
     parts.push(question.secret || guarded ? MASKED : [...labels, words].filter(Boolean).join(", "));
   }
-  // One line (the user's text pass): the answers after commas, "Tuesday,
-  // Window seat". Once an answer holds a comma of its own (several picks, a
-  // pick and words, or words with one), semicolons keep the questions apart:
-  // "Kobe; Temples, Food, a tea house" (zen-manager's call, 2026-11-23).
+  // One line: the answers after commas, "Tuesday, Window seat". Once an
+  // answer holds a comma of its own (several picks, a pick and words, or
+  // words with one), semicolons keep the questions apart: "Kobe; Temples,
+  // Food, a tea house".
   return { content, kept, summary: parts.join(parts.some(part => part.includes(",")) ? "; " : ", ") };
 }
 
@@ -1581,7 +1578,7 @@ function lastSentence(line) {
 }
 
 // A short closing that asks nothing of its own ("Let me know.", "Thanks!"):
-// a question right before it still waits on the user (t10x, 2026-11-22).
+// a question right before it still waits on the user.
 const BARE_CLOSING =
   /^(?:(?:(?:just|please|do|so)\s+)?(?:let me know|tell me)(?:,?\s+(?:thanks|thank you))?|thanks(?:\s+in advance)?|thank you(?:\s+in advance)?|many thanks|cheers|(?:请|麻烦)?(?:告诉我|跟我说|让我知道)(?:一声|吧)?|谢谢|多谢)[.!。！]*$/i;
 
@@ -1607,17 +1604,15 @@ function askedIn(line) {
 }
 
 /**
- * The question an answer ends with, if it ends with one: its last line's,
- * also when only a bare closing follows it ("Which works for you? Let me
- * know.", on its line or the next); or, when the answer ends with a list (the choices it asks about) and up to
- * three lines of any length after it, the line's before the list; or a last
- * sentence that waits on the user ("Once you pick, I'll …", "Let me know
- * which …", in Chinese too), with or without a question mark (zen-eval's
- * demo and its retake, 2026-11-22), but not a sign-off such as "Let me know
- * what you think" (waitsOnUser). It leans to
- * Needs you, since a missed one leaves a task waiting unseen and a false one
- * costs the user a glance (t10x). A list with no question right before it is
- * a result.
+ * The question an answer ends with, if it ends with one: its last line's, also
+ * when only a bare closing follows it ("Which works for you? Let me know.", on
+ * its line or the next); or, when the answer ends with a list (the choices it
+ * asks about) and up to three lines of any length after it, the line's before
+ * the list; or a last sentence that waits on the user ("Once you pick, I'll …",
+ * "Let me know which …", in Chinese too), with or without a question mark, but
+ * not a sign-off such as "Let me know what you think" (waitsOnUser). It leans
+ * to Needs you, since a missed one leaves a task waiting unseen and a false one
+ * costs the user a glance. A list with no question right before it is a result.
  */
 function questionIn(text) {
   const lines = answerLines(text);
@@ -1793,13 +1788,13 @@ export function keptArchived(list, now = Date.now()) {
 
 /**
  * Where a remote task came from, as its card, its directory row and its
- * questions say it, one phrase (the user's text pass, 2026-11-23): "From
- * <label> on devbox/t5", or "From devbox/t5" with no label (conv.remote,
- * zen-observe's remote tasks: plain strings its API has checked). The label
- * and the address are each a first-strong isolate, so a label in a
- * right-to-left script keeps "From" and "on" in place. The address comes
- * last, where the chip goes (fillSource). Null for any other chat. The
- * arrival card leads with "Task from".
+ * questions say it, one phrase: "From <label> on devbox/t5", or "From
+ * devbox/t5" with no label (conv.remote, zen-observe's remote tasks: plain
+ * strings its API has checked). The label and the address are each a
+ * first-strong isolate, so a label in a right-to-left script keeps "From"
+ * and "on" in place. The address comes last, where the chip goes
+ * (fillSource). Null for any other chat. The arrival card leads with "Task
+ * from".
  *
  * @param {object} conv
  * @param {string} [lead]
@@ -1880,10 +1875,9 @@ export function ago(since, now = Date.now()) {
 }
 
 /**
- * A page as an earlier chat matches it (docs/research/chat-way-back.md): its
- * origin and path, for a web page only, else "". The query and the fragment
- * don't count: the query often changes on the same page, and may hold a
- * token.
+ * A page as an earlier chat matches it: its origin and path, for a web page
+ * only, else "". The query and the fragment don't count: the query often
+ * changes on the same page, and may hold a token.
  */
 export function pageKey(url) {
   try {
@@ -1897,7 +1891,7 @@ export function pageKey(url) {
 /**
  * A page's address as All tasks' earlier chats read and show it: its origin
  * and path, with no query or fragment (which may hold a token), and a file:
- * page's file name alone (zen-manager's call, 2026-11-22).
+ * page's file name alone.
  */
 export function pageAddress(url) {
   let parsed;
@@ -2012,8 +2006,7 @@ function serializeTask(conv) {
 
 /**
  * A Chat message as CHATS_FILE keeps it: serializeMessage's, with attached
- * files by their names alone, never a screenshot's thumbnail (the brief's
- * "files by name only").
+ * files by their names alone, never a screenshot's thumbnail.
  */
 function chatMessage(m) {
   const kept = serializeMessage(m);
@@ -2048,9 +2041,9 @@ function serializeChat(conv) {
  * The chats worth keeping (AgentService.saveChats), newest first: none
  * unused for CHATS_MS but those a tab shows now (`live`, by uid), then the
  * shown ones and the newest, at most CHATS_KEPT of them. A chat that would
- * take the file past CHATS_BYTES is left out and the next ones still count
- * (zen-manager's review): a shown or newest chat over the limit on its own
- * would otherwise leave the file empty.
+ * take the file past CHATS_BYTES is left out and the next ones still count:
+ * a shown or newest chat over the limit on its own would otherwise leave
+ * the file empty.
  *
  * @param {object[]} list  chats as CHATS_FILE keeps them
  * @param {number} [now]
@@ -2148,9 +2141,9 @@ function earlierEntry(chat) {
  * them, its latest EARLIER_MAX characters. Null when there's nothing before.
  *
  * An answer may repeat a page's words, so a page could plant a line that
- * reads as the user's turn, or the block's end (zen-manager's review): each
- * line of an answer is quoted ("> ", as a selection is), the thread never
- * holds the end tag, and a cut thread starts at a line's start.
+ * reads as the user's turn, or the block's end: each line of an answer is
+ * quoted ("> ", as a selection is), the thread never holds the end tag, and
+ * a cut thread starts at a line's start.
  */
 function earlierChat(conv, upTo) {
   const parts = [];
@@ -2317,8 +2310,8 @@ export const AgentService = {
     this.base = base;
     registerActor(base);
     Services.obs.addObserver(() => this.shutdown(), "quit-application-granted");
-    // Clearing history takes the chats too (the brief's call: respect it),
-    // even as Zen quits: the clearing on quit comes after quit-application.
+    // Clearing history takes the chats too, even as Zen quits: the clearing
+    // on quit comes after quit-application.
     for (const topic of [PURGE_HISTORY, PURGE_SITE]) {
       Services.obs.addObserver((subject, name, data) => this.onPurge(name, data), topic);
     }
@@ -2366,9 +2359,9 @@ export const AgentService = {
 
   /** @param {{scope?: object}} [options]  a self-check window's scope (openScope), whose agent the conversation gets */
   createConversation(kind = "chat", { scope = null } = {}) {
-    // An ended scope makes nothing (zen-observe's review): a late show or
-    // new task from its window's glue, after closeScope, fails here instead
-    // of leaving a conversation closeScope never forgets.
+    // An ended scope makes nothing: a late show or new task from its
+    // window's glue, after closeScope, fails here instead of leaving a
+    // conversation closeScope never forgets.
     if (scope?.closed) {
       throw new Error("the self-check has ended");
     }
@@ -2382,12 +2375,12 @@ export const AgentService = {
 
   /**
    * A scope for a window that shows only tasks of its own: the post-install
-   * self-check's (docs/research/selfcheck.md). Its tasks are never in
-   * this.tasks, so they're never saved, never in sidebar.status or list,
-   * never told to zenius (noteWaiting, noteZen), and never listed in another
-   * window: each list takes the scope of the window it shows in. Its agent
-   * is the connection `connect` makes, in this process, and nothing its
-   * conversations do writes a pref or the options file.
+   * self-check's. Its tasks are never in this.tasks, so they're never saved,
+   * never in sidebar.status or list, never told to zenius (noteWaiting,
+   * noteZen), and never listed in another window: each list takes the scope
+   * of the window it shows in. Its agent is the connection `connect` makes,
+   * in this process, and nothing its conversations do writes a pref or the
+   * options file.
    *
    * @param {{connect: () => object}} agent  makes the scope's connection (AcpConnection's shape)
    */
@@ -2546,16 +2539,16 @@ export const AgentService = {
     this.saveChatsSoon();
   },
 
-  // An earlier chat is a saved one no tab shows (docs/research/chat-way-back.md):
-  // a chat a tab shows is one tab-switch away. That's a tab's chat now
-  // (liveChats), and one a tab keeps by its value but hasn't shown since a
-  // restart (`held`, the glue's). These read only what the file keeps, and
-  // only for a window whose chats are kept (the glue's).
+  // An earlier chat is a saved one no tab shows: a chat a tab shows is one
+  // tab-switch away. That's a tab's chat now (liveChats), and one a tab keeps
+  // by its value but hasn't shown since a restart (`held`, the glue's). These
+  // read only what the file keeps, and only for a window whose chats are kept
+  // (the glue's).
 
   /**
    * The newest earlier chat about the page at `url`, which the empty Chat
-   * view offers back (part 2): one of its questions was asked on the same
-   * page, by origin and path (pageKey). Null when there's none.
+   * view offers back: one of its questions was asked on the same page, by
+   * origin and path (pageKey). Null when there's none.
    *
    * @param {string} url
    * @param {Set<string>} [held]  the chats tabs keep
@@ -2576,9 +2569,9 @@ export const AgentService = {
   },
 
   /**
-   * The earlier chats All tasks' search finds for `query` (part 3), newest
-   * first: by the words of their questions and answers, and their questions'
-   * pages' titles and addresses. None without a query.
+   * The earlier chats All tasks' search finds for `query`, newest first: by
+   * the words of their questions and answers, and their questions' pages'
+   * titles and addresses. None without a query.
    *
    * @param {string} query
    * @param {Set<string>} [held]  the chats tabs keep
@@ -2919,8 +2912,7 @@ export const AgentService = {
    * (source.sidebar, its uid, which both adapters' zenius servers send:
    * workspace.sys.mjs's withTask). The agent's first open links its task
    * only from its result, once the page loaded, and a call the user's Stop
-   * cut never reports one (zen-observe's review of Archive). The user's
-   * own, and ended ones, aren't.
+   * cut never reports one. The user's own, and ended ones, aren't.
    */
   liveZenTasks(conv) {
     const linked = this.zenRecord(conv);
@@ -2957,12 +2949,11 @@ export const AgentService = {
   /**
    * Chat `uid`, if the user archived or removed it, may still have zenius
    * tasks running: a call the Stop cut can reach zenius after the click, from
-   * its request. They end too, once that turn is over (send(), with the
-   * chat) or as zenius creates one (onZenEvent). Only those whose source
-   * names the chat, as a task it links late does: the one it follows ended at
-   * the click, so if that one runs again, a program claimed it on the user's
-   * yes, with a source of its own (zen-observe's nit on Archive). A removal
-   * covers them as they ended.
+   * its request. They end too, once that turn is over (send(), with the chat)
+   * or as zenius creates one (onZenEvent). Only those whose source names the
+   * chat, as a task it links late does: the one it follows ended at the
+   * click, so if that one runs again, a program claimed it on the user's yes,
+   * with a source of its own. A removal covers them as they ended.
    */
   endLateZenTasks(uid, conv = this.tasks.get(uid)) {
     const removed = !this.tasks.has(uid) && this.removedTasks.some(r => r.uid === uid);
@@ -3070,7 +3061,7 @@ export const AgentService = {
    * 2026-11-22): its name in the sidebar only, kept by its id and start
    * (pins.sys.mjs). Its zenius task keeps the name its program gave
    * (renameTask). An empty name, or the program's own, shows the program's
-   * names again, its later ones too (zen-observe's review).
+   * names again, its later ones too.
    */
   labelTask(conv, name) {
     // A self-check window's task is never another program's, nor named here.
@@ -3271,11 +3262,10 @@ export const AgentService = {
   /**
    * The tasks that need the user: the Work switch's count. It's zen-ux's
    * strip count (ZeniusUI.needsCount), so the two say the same number (the
-   * user's ask, docs/briefs/external-tasks.md): every zenius task that
-   * needs the user, the sidebar's and the others, plus the sidebar's tasks
-   * that need the user where no zenius task of theirs says so (noteWaiting).
-   * Without zenius, the sidebar's own count. A self-check window counts its
-   * own tasks alone (`scope`).
+   * user's ask): every zenius task that needs the user, the sidebar's and
+   * the others, plus the sidebar's tasks that need the user where no zenius
+   * task of theirs says so (noteWaiting). Without zenius, the sidebar's own
+   * count. A self-check window counts its own tasks alone (`scope`).
    */
   needsCount(scope = null) {
     if (scope) {
@@ -3457,10 +3447,9 @@ export const AgentService = {
   /**
    * The oldest finished tasks go once there are more than MAX_TASKS, and
    * archived ones as if finished, whatever state they were left in: one
-   * never counts as needing the user (zen-observe's review of Archive). A
-   * remote task stays until 24 h after it ended, for its caller to read. A
-   * pinned task never goes, nor counts: Pinned has a cap of its own
-   * (PIN_CAP).
+   * never counts as needing the user. A remote task stays until 24 h after
+   * it ended, for its caller to read. A pinned task never goes, nor counts:
+   * Pinned has a cap of its own (PIN_CAP).
    */
   pruneTasks() {
     let excess = [...this.tasks.values()].filter(conv => !conv.pinnedAt).length - MAX_TASKS;
@@ -3804,12 +3793,11 @@ export const AgentService = {
    * through the adapters zenius's installer put in ~/.zenius/agents), or an
    * error that says what's missing; "builtin" asks for those alone. A path
    * the pref names never falls back to them: a test's or a dev Zen's scratch
-   * path must never run the user's own Claude Code with their sign-in (the
-   * manager's rule, 2026-11-22), so a missing one fails as before. A config
-   * that can't be read leaves no agents either: the list mustn't keep the
-   * agents of an earlier read (zen-ux's sidebar tests). Runs again before
-   * each agent process starts, so an install or a removed CLI shows at the
-   * next one.
+   * path must never run the user's own Claude Code with their sign-in, so a
+   * missing one fails as before. A config that can't be read leaves no agents
+   * either: the list mustn't keep the agents of an earlier read (zen-ux's
+   * sidebar tests). Runs again before each agent process starts, so an
+   * install or a removed CLI shows at the next one.
    */
   async loadConfig() {
     const set = Services.prefs.getStringPref(PREF_CONFIG, "");
@@ -3903,11 +3891,10 @@ export const AgentService = {
   },
 
   /**
-   * The agent a new chat starts with (MANAGER.md, the sidebar's two modes):
-   * the user's last pick in the sidebar, then config.json's default (the
-   * user's own pick too), then Claude Code; the first of those that may run
-   * now. Falling back while an agent is off picks nothing: only setHarness
-   * keeps a pick, and only the user's.
+   * The agent a new chat starts with: the user's last pick in the sidebar,
+   * then config.json's default (the user's own pick too), then Claude Code;
+   * the first of those that may run now. Falling back while an agent is off
+   * picks nothing: only setHarness keeps a pick, and only the user's.
    */
   preferredHarness() {
     const wanted = Services.prefs.getStringPref(PREF_HARNESS, "");
@@ -3928,8 +3915,7 @@ export const AgentService = {
    * process, and starts each session's MCP servers from them
    * (codexEnvironment): Chat has a process with no zenius server, and each
    * Work chat a process of its own, whose zenius server has the chat's uid
-   * and task (check 3 on the Mac at 2f165ce: a resumed session's new server
-   * had no task).
+   * and task (on the Mac, a resumed session's new server once had no task).
    */
   slotFor(harness, kind, conv = null) {
     const agent = this.config?.agents?.[harness];
@@ -4127,8 +4113,8 @@ export const AgentService = {
     // Removed or closed (forget) while its process started or its session
     // opened, as after its first question or the user's typing (prewarm):
     // reset() found nothing to end, so nothing of it may start now. Its own
-    // process stops, with the session in it; a shared one closes the
-    // session. Not counted by limitOpenSessions either (zen-observe's review).
+    // process stops, with the session in it; a shared one closes the session.
+    // Not counted by limitOpenSessions either.
     if (!this.conversations.has(conv.id)) {
       const own = ownProcess(conv, conn);
       if (own) {
@@ -4407,11 +4393,11 @@ export const AgentService = {
   },
 
   /**
-   * Chat's fetch rule (the user's call on defenses, D1): before a Chat
-   * question goes out, the URLs it carries join the session's list, which
-   * the zenius-only hook holds WebFetch to (fetchable.sys.mjs). They come
-   * from the user's words (bare addresses too), the page's address and text,
-   * the selection, attached files, and `links`, the page's links as the read
+   * Chat's fetch rule (the user's call on defenses): before a Chat question
+   * goes out, the URLs it carries join the session's list, which the
+   * zenius-only hook holds WebFetch to (fetchable.sys.mjs). They come from
+   * the user's words (bare addresses too), the page's address and text, the
+   * selection, attached files, and `links`, the page's links as the read
    * returned them ([{url, name}], up to 200; Chat sees 60 of them). Never
    * from these instructions or the agent's answers, nor from text the page
    * hides from the user ([hidden: "..."]): a URL only there is one the user
@@ -4798,7 +4784,7 @@ export const AgentService = {
       if (text) {
         conv.setStatus("Reading the page…");
         // Stop ends a question that is still reading the page, which can
-        // take as long as the read's bound (pageOf; red team, finding 4).
+        // take as long as the read's bound (pageOf).
         const info = await Promise.race([text, new Promise(resolve => (conv.onStop = () => resolve(null)))]);
         conv.onStop = null;
         conv.pageText = null;
@@ -5126,13 +5112,13 @@ export const AgentService = {
 
   /**
    * After the user's Stop, or a turn that failed, nothing waiting goes out on
-   * its own (zen-ux's call): the steers that hadn't reached the agent, which
-   * leave the chat, then the queued messages go back into the box
-   * (conv.draft), in order, before what it holds, with their files. Texts are
-   * joined by a blank line; the box's selection stays, else the first one's,
-   * and any other selection goes into its own text as a "> " quote. A steer
-   * whose `_session/steering` is out waits for its answer (deliverSteer).
-   * `only`: just these. Returns the messages it moved.
+   * its own: the steers that hadn't reached the agent, which leave the chat,
+   * then the queued messages go back into the box (conv.draft), in order,
+   * before what it holds, with their files. Texts are joined by a blank line;
+   * the box's selection stays, else the first one's, and any other selection
+   * goes into its own text as a "> " quote. A steer whose `_session/steering`
+   * is out waits for its answer (deliverSteer). `only`: just these. Returns
+   * the messages it moved.
    */
   queueToDraft(conv, only = null) {
     const take = item => !item.sending && (!only || only.includes(item));
@@ -5175,9 +5161,9 @@ export const AgentService = {
    * The box's draft for `conv`, its words, its selection and its files, as
    * this module keeps it (own): a draft the panel made, left in the box,
    * kept that panel's whole window for as long as the chat or the task was
-   * kept (zen-ux's note on the night cut's leak). Null when it holds
-   * nothing. Every draft comes through here: the panel's typing and files,
-   * a selection it picks up, Stop putting the queue back.
+   * kept. Null when it holds nothing. Every draft comes through here: the
+   * panel's typing and files, a selection it picks up, Stop putting the
+   * queue back.
    *
    * @param {object} conv
    * @param {{text?: string, selection?: string, attachments?: object[]}|null} draft
@@ -5412,9 +5398,8 @@ export const AgentService = {
    * agent's first words, step or question for the user, and again whenever
    * its thinking has words later in the turn. The chat shows it thinking,
    * with what it's on if it says (thoughtTitle), and for how long. Codex at
-   * a high effort can think for half a minute before its first word
-   * (zen-sidebar's diagnosis of the Chat stall, 2026-11-22). Claude Code
-   * thinks between parts of its answer too.
+   * a high effort can think for half a minute before its first word. Claude
+   * Code thinks between parts of its answer too.
    */
   startThought(conv) {
     this.endThought(conv);
@@ -5637,9 +5622,8 @@ export const AgentService = {
         return;
       }
       const call = message.params.toolCall ?? {};
-      // Nothing asks the user about safety (the manager, from zen-snapshot's
-      // red team): a request for anything but zenius's tools in a Work
-      // session is refused at once, unseen.
+      // Nothing asks the user about safety: a request for anything but
+      // zenius's tools in a Work session is refused at once, unseen.
       const tool = { toolName: call._meta?.claudeCode?.toolName ?? null, rawTitle: call.title ?? "", rawInput: call.rawInput };
       if (conv.kind !== "work" || !zeniusCall(tool)) {
         const reject = (message.params.options ?? []).find(o => String(o.kind ?? "").startsWith("reject"));

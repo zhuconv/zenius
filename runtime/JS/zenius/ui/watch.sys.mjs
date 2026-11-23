@@ -8,19 +8,18 @@
 // "Watching <task> [⌃Tab]". Where the strip can't be read (compact mode, a
 // collapsed sidebar), a chip in the page area's top left corner says the
 // same. Both are hints, not controls: the user rejected a Back button left
-// in the session, and one over the page sits where a site's links do
-// (zen-snapshot's finding 7), so every click goes through the chip to the
-// page.
+// in the session, and one over the page sits where a site's links do, so
+// every click goes through the chip to the page.
 //
 // ⌃Tab means "back" only while the window watches; everywhere else it is
 // Zen's. Picking a tab outside the task, or another Space, ends the watch
 // where the user went. A watch's listeners are in only while it lasts.
 //
-// The task's end doesn't end it (the manager's decision, 2026-11-21): the
-// user reaches for ⌃Tab right then. The window stays where it is, on the
-// task's page, which waits until the user leaves it (SPEC §3.5); the hints
-// say "Task done, [⌃Tab] back to your tabs"; ⌃Tab goes back until the user
-// goes elsewhere themselves. Nothing moves by itself.
+// The task's end doesn't end it: the user reaches for ⌃Tab right then. The
+// window stays where it is, on the task's page, which waits until the user
+// leaves it (SPEC §3.5); the hints say "Task done, [⌃Tab] back to your
+// tabs"; ⌃Tab goes back until the user goes elsewhere themselves. Nothing
+// moves by itself.
 
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
