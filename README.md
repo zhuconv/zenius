@@ -440,9 +440,9 @@ whole process tree sampled every 2 s.
 | Memory added during the rounds, at the peak | [+122 MiB](docs/eval/footprint-comparison.md) | [+825 MiB](docs/eval/footprint-comparison.md) |
 | The browser without its pages | [950 MiB](docs/eval/footprint-comparison.md), the whole tree | [969 MiB](docs/eval/footprint-comparison.md), plus [351 MiB](docs/eval/footprint-comparison.md) in 5 extension processes |
 
-Memory and CPU at rest aren't compared: at start, Ego Lite brought up 33
-page renderers, which looks like its saved session reopening, while zen(ius)
-ran on a fresh profile. Ego Lite's background CPU was still settling, so its
+Memory and CPU at rest aren't compared: Ego Lite's start brought up
+[45 renderer processes](docs/eval/footprint-comparison.md) in its first minute, which looks like
+its saved session reopening, while zen(ius) ran on a fresh profile. Ego Lite's background CPU was still settling, so its
 CPU per round runs from [0.6 to 3.4 CPU-s](docs/eval/footprint-comparison.md),
 depending on the stretch of background it's measured against. zen(ius)'s
 background stayed near zero.
