@@ -1,7 +1,7 @@
 // scripts/package-check.pl: what a release package's headers hold besides its
-// files. The public export runs it on the package scripts/release.sh builds,
-// and reads every .gz's header with it. The archives here are built byte by
-// byte, plus one pair from the system's tar when it's GNU tar.
+// files. scripts/release.sh runs it on the package it builds, and every .gz's
+// header is read with it before it's published. The archives here are built
+// byte by byte, plus one pair from the system's tar when it's GNU tar.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";

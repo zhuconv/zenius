@@ -5,12 +5,10 @@
 #   scripts/release.sh [--rev <commit>] [--version <x.y.z>] [--out <dir>] [--url <base>]
 #                      [--attach <file>]... [--test-build]
 #
-# Run it in a clone of the public export (scripts/export-public.sh stages
-# it), at the commit being released: the export leaves out what stays private
-# and replaces private strings, which a package built from this repo's own
-# commits would still hold. So it refuses a commit with docs/MANAGER.md,
-# docs/reports/ or docs/briefs/, unless --test-build says the assets are for
-# tests and never published.
+# Run it in a clone of this repo, at the commit being released. It refuses a
+# commit of the private repo this one was exported from, one with
+# docs/MANAGER.md, docs/reports/ or docs/briefs/, unless --test-build says the
+# assets are for tests and never published.
 #
 #   --rev      the commit to build (default HEAD). Only what the commit holds
 #              goes in (git archive), never the working tree.
@@ -94,7 +92,7 @@ fi
 
 for private in docs/MANAGER.md docs/reports docs/briefs; do
   if ((!test_build)) && git -C "$ROOT" cat-file -e "$sha:$private" 2>/dev/null; then
-    die "$rev has $private, so it's a commit of the private repo: build the release in a clone of the public export, or pass --test-build for assets that are never published"
+    die "$rev has $private, so it's a commit of the private repo: build the release from a commit of the public one, or pass --test-build for assets that are never published"
   fi
 done
 short=$(git -C "$ROOT" rev-parse --short "$sha")
@@ -173,7 +171,7 @@ fi
 
 # The package names no one, and one commit always makes the same bytes. A
 # plain tar would record the builder's user and group, the build's times, and
-# modes from the umask (0600 under export-public.sh's). So every entry gets
+# modes from the umask (0600 under umask 077). So every entry gets
 # uid and gid 0 with no names, the commit's time, and mode 755 (folders and
 # executables) or 644, in byte order, as ustar: no pax headers, so no other
 # times. gzip -n stores no name or time. bin/zenius and install-cli.sh take a

@@ -1,8 +1,8 @@
 #!/usr/bin/env perl
 # What an image or a movie holds besides its pixels or frames. Names, paths,
 # places and times ride in metadata, and a cropped screenshot's original can
-# ride after its end, so the public export runs this on every image it ships
-# (scripts/export-public.sh), and the release on every media file it carries
+# ride after its end, so every image is checked with this before it's
+# published, and the release runs it on every media file it carries
 # (scripts/release.sh).
 #
 #   perl scripts/media-check.pl <file>...

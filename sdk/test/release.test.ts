@@ -42,7 +42,7 @@ const version = JSON.parse(readFileSync(join(REPO, "sdk/package.json"), "utf8"))
 const name = `zenius-${version}`;
 // What the installers record from RELEASE, as from a checkout: git's short hash.
 const short = run("git", ["rev-parse", "--short", "HEAD"]).out.trim();
-// This repo's own commits have docs/MANAGER.md; the public export's clone, where test-all also runs, has none.
+// Only the private repo this one was exported from has commits with docs/MANAGER.md; this repo has none.
 const PRIVATE = existsSync(join(REPO, "docs/MANAGER.md"));
 
 /** Where the sidebar reads its agents: AgentService's DEFAULT_CONFIG under the home folder. The installer's check must look in the same place, so the tests put config.json there. */
@@ -252,7 +252,7 @@ describe("scripts/release.sh", () => {
     const paths = entries.map((entry) => entry.path.replace(/\/$/, ""));
     assert.deepEqual(paths, [...paths].sort(), "entries in byte order");
 
-    // Again under export-public.sh's umask, which made 0600 and 0700 before.
+    // Again under umask 077, which made 0600 and 0700 before.
     const again = join(scratch("zenius-release-again-"), "assets");
     const rebuilt = run("bash", ["-c", 'umask 077 && exec bash "$@"', "release", join(REPO, "scripts/release.sh"), "--out", again, "--url", `file://${assets}`, "--test-build"]);
     assert.equal(rebuilt.code, 0, rebuilt.out);
@@ -328,15 +328,15 @@ describe("scripts/release.sh", () => {
     assert.match(run("bash", [join(REPO, "scripts/release.sh"), "--out", join(busy, "new"), "--version", "1.2", "--test-build"]).out, /must look like 1\.2\.3/);
   });
 
-  it("builds nothing from a commit of the private repo without --test-build: a release comes from the public export", (t) => {
+  it("builds nothing from a commit of the private repo without --test-build: a release comes from the public one", (t) => {
     if (!PRIVATE) {
-      t.skip("the public export's clone: nothing private to refuse");
+      t.skip("a commit of the public repo: nothing private to refuse");
       return;
     }
     const out = join(scratch("zenius-release-private-"), "assets");
     const result = run("bash", [join(REPO, "scripts/release.sh"), "--out", out]);
     assert.equal(result.code, 1, result.out);
-    assert.match(result.out, /has docs\/MANAGER\.md, so it's a commit of the private repo: build the release in a clone of the public export/);
+    assert.match(result.out, /has docs\/MANAGER\.md, so it's a commit of the private repo: build the release from a commit of the public one/);
     assert.ok(!existsSync(out), "no assets");
   });
 });

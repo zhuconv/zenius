@@ -2,9 +2,9 @@
 # What a release package's headers hold besides its files. tar records each
 # entry's owner and group, by name and by number, and its times; gzip records
 # the source file's name and time unless run with -n. Where the release is
-# built, those are the builder's account and the build's hours. So the public
-# export runs this on the package scripts/release.sh builds, and its check of
-# every .gz it ships reads gzip_extras (scripts/export-public.sh).
+# built, those are the builder's account and the build's hours. So
+# scripts/release.sh runs this on the package it builds, and every .gz is
+# checked with gzip_extras before it's published.
 #
 #   perl scripts/package-check.pl <file>...
 #

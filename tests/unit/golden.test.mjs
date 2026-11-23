@@ -37,7 +37,7 @@ test("goldens carry nothing from the user's accounts", async () => {
       const text = await readFile(join(egoDir, file), "utf8");
       // A capture made from a profile in someone's home would name the folder.
       // The account names themselves aren't in this repo, and no test reads
-      // them: the public export's scan checks for them (scripts/export-public.sh).
+      // them: a scan before each publish checks for them.
       assert.ok(!/(^|[\s"'(=]|file:\/\/)\/(Users|home)\/(?!u\/)[\w.-]+\//m.test(text), `${file} names a home folder`);
     }
   }

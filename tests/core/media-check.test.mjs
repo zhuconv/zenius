@@ -1,7 +1,7 @@
 // scripts/media-check.pl: what an image or a movie holds besides its pixels.
-// The public export runs it on every image it ships, and the release on every
-// media file it carries. The files here are built byte by byte, so the test
-// needs no image or video tools.
+// Every image is checked with it before it's published, and the release runs
+// it on every media file it carries. The files here are built byte by byte,
+// so the test needs no image or video tools.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
