@@ -34,9 +34,9 @@ Zen 的侧边栏里还有一个自带的 Agent。
 
 ## 演示
 
-演示里，用户在读维基百科的京都条目。与此同时，一个 Agent 在它自己的标签页里，在 OpenStreetMap 上找清水寺附近吃饭的地方，并通过 Needs you 向用户提问。
+https://github.com/user-attachments/assets/eab70814-e6da-481f-ab1f-0e3ee8b4f15d
 
-完整视频在[最新发布页](https://github.com/zhuconv/zenius/releases/latest)上。
+演示里，用户在读维基百科的京都条目。与此同时，一个 Agent 在它自己的标签页里，在 OpenStreetMap 上找清水寺附近吃饭的地方，并通过 Needs you 向用户提问。
 
 地图数据 © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright)。文章是维基百科的 [Kyoto](https://en.wikipedia.org/wiki/Kyoto) 条目，采用 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) 许可。
 

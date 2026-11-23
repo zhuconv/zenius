@@ -37,12 +37,11 @@ also gets an agent of its own.
 
 ## Demo
 
+https://github.com/user-attachments/assets/eab70814-e6da-481f-ab1f-0e3ee8b4f15d
+
 In the demo, the user reads Wikipedia's article on Kyoto. Meanwhile an
 agent, in its own tab, finds places to eat near Kiyomizu-dera on
 OpenStreetMap, and asks the user through Needs you.
-
-The full video is on the
-[release page](https://github.com/zhuconv/zenius/releases/latest).
 
 Map data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright).
 The article is [Kyoto](https://en.wikipedia.org/wiki/Kyoto), from Wikipedia,

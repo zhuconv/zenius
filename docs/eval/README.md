@@ -17,6 +17,7 @@ both (SPEC §6). The suites live in `tests/` (see `tests/README.md`).
 | `live-round2.md` | C | round 2, with round 1's fixes and the order swapped: both rounds' scores and the pooled test, the hand checks, per-task times and costs, what changed in the method, and its safety record |
 | `tryout.md` | – | the user's try-out Zen (profile "try", installed as the install would) and its agent: what opens, what to try, how to stop and restart |
 | `no-preemption.md` | D | requirement 3: what each browser did to the user's view while an agent worked, from owner-only window samples |
+| `footprint-comparison.md` | – | memory and CPU of each browser's whole process tree, at rest and over five identical rounds, and what isn't like for like |
 
 `e2e-zenius` is regenerated as the runtime's methods land; git history keeps
 the earlier runs. `bench-comparison` is regenerated the same way.
