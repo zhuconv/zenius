@@ -20,6 +20,15 @@ suffix=$(basename "$ROOT" | sed 's/^zenius-\{0,1\}//' | tr 'A-Z' 'a-z' | tr -c '
 LOGS=${TMPDIR:-/tmp}/zenius-test-all/${suffix:-main}
 # Owner-only, both levels: on a shared machine, /tmp is open to every account.
 (umask 077; mkdir -p "$LOGS")
+# A developer's gh may be signed in, with a token that can post wherever they
+# can. No suite reaches GitHub (a test that needs gh uses a fake), so every
+# lane runs with an empty gh config and a placeholder token: gh takes GH_TOKEN
+# before its config and the system keyring, and GitHub refuses it, so a gh
+# call that a test didn't fake fails instead of posting.
+(umask 077; mkdir -p "$LOGS/gh-config")
+export GH_CONFIG_DIR=$LOGS/gh-config GH_PROMPT_DISABLED=1
+export GH_TOKEN=zenius-test-all-signed-out GH_ENTERPRISE_TOKEN=zenius-test-all-signed-out
+unset GITHUB_TOKEN GITHUB_ENTERPRISE_TOKEN
 cd "$ROOT"
 
 serial=${ZENIUS_SERIAL:-}
