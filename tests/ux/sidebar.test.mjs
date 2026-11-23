@@ -1822,7 +1822,7 @@ for (const [label, realKeys] of [
   });
 }
 
-test("a task another program drives has Pin and Rename in All tasks' menu, and Archive once it ended, as the ⋯ menu has it; its Rename names it in the sidebar only, its zenius task keeping its program's name; pinned, it stays in Pinned while zenius's feed keeps it, through a restart as an archive does, and a new task given its id later is neither pinned nor renamed", async () => {
+test("a task another program drives has Pin and Rename in All tasks' menu, and Archive once it ended, as the ⋯ menu has it; its Rename names it in the sidebar only, its zenius task keeping its program's name; pinned, it stays in Pinned while zenius's feed keeps it, through a restart as an archive does; and tasks that share an id share no marks: it takes none of an earlier task's, and a new task given its id later none of its own", async () => {
   const name = `zen-ux row menu external ${run}`;
   const { id } = await h.createSpace({ name });
   const out = await chrome(
@@ -1834,6 +1834,12 @@ test("a task another program drives has Pin and Rename in All tasks' menu, and A
     const created = Date.now() - 60000;
     const entry = { space: arg.id, name: arg.name, kind: "task", source: { terminal: "laptop/t5x", agent: "Claude Code" }, state: "working", createdAt: created, updatedAt: created };
     entries.set(arg.id, entry);
+    // An earlier task's pin and name under the same id, as a profile the
+    // suite keeps between runs has them (the Mac's): space ids repeat from
+    // run to run there, and marks go by a task's id and start.
+    const earlier = created - 86400000;
+    A.marks.pin(arg.id, earlier, earlier + 1000);
+    A.marks.label(arg.id, earlier, "An earlier task's name");
     // The feed can also drop it, as zen-core's does a task it forgot.
     const gone = new Set();
     const withEntries = spaces.feed;
@@ -1844,6 +1850,7 @@ test("a task another program drives has Pin and Rename in All tasks' menu, and A
       await g.newTask();
       await openDir();
       await S.until(() => row(uid), 3000);
+      res.listed = { name: nameOf(uid), pinned: V.groupOf(row(uid)) === "pinned" };
       await rightClick(uid);
       res.running = items();
       await hide();
@@ -1876,9 +1883,13 @@ test("a task another program drives has Pin and Rename in All tasks' menu, and A
       // doesn't take them.
       await A.saveTasks();
       const file = await IOUtils.readJSON(A.tasksPath());
+      // A task's marks go by its id and start: this task's, and beside them
+      // the earlier task's, as they were.
+      const marksOf = (list, start) => (list ?? []).filter(m => m.space === arg.id && m.createdAt === start);
       res.file = {
-        pinned: (file.pinned ?? []).filter(p => p.space === arg.id).map(p => ({ createdAt: p.createdAt === created, at: typeof p.at })),
-        labels: (file.labels ?? []).filter(l => l.space === arg.id).map(l => ({ createdAt: l.createdAt === created, label: l.label })),
+        pinned: marksOf(file.pinned, created).map(p => ({ at: typeof p.at })),
+        labels: marksOf(file.labels, created).map(l => ({ label: l.label })),
+        earlier: { pinned: marksOf(file.pinned, earlier).length, labels: marksOf(file.labels, earlier).length },
       };
       const marks = new A.marks.constructor();
       marks.restore(file);
@@ -1896,11 +1907,18 @@ test("a task another program drives has Pin and Rename in All tasks' menu, and A
       g.closeDirectory();
       spaces.feed = withEntries;
       restoreFeed();
+      // A profile the suite keeps between runs keeps none of these marks.
+      for (const start of [earlier, created]) {
+        A.marks.unpin(arg.id, start);
+        A.marks.label(arg.id, start, null);
+      }
+      await A.saveTasks();
       g.setMode("chat");
     }
   `,
     { id, name, run }
   );
+  assert.deepEqual(out.listed, { name, pinned: false }, "an earlier task's pin and name under the same id aren't its");
   assert.deepEqual(out.running, [
     { id: "pin", label: "Pin", disabled: false, tip: PIN_TIP },
     { id: "rename", label: "Rename", disabled: false, tip: RENAME_EXTERNAL_TIP },
@@ -1909,7 +1927,11 @@ test("a task another program drives has Pin and Rename in All tasks' menu, and A
   assert.equal(out.afterSync, "My label", "and the feed's next word keeps the sidebar's name");
   assert.equal(out.pinned, "pinned", "pinned, it stays in Pinned while the feed keeps it");
   assert.deepEqual(out.ended.map(i => (i === "-" ? i : i.label)), ["Unpin", "Rename", "-", "Archive"], "once it ended, Archive");
-  assert.deepEqual(out.file, { pinned: [{ createdAt: true, at: "number" }], labels: [{ createdAt: true, label: "My label" }] }, "the tasks file keeps the pin and the name, by the task's id and start");
+  assert.deepEqual(
+    out.file,
+    { pinned: [{ at: "number" }], labels: [{ label: "My label" }], earlier: { pinned: 1, labels: 1 } },
+    "the tasks file keeps the pin and the name by the task's id and start, beside the earlier task's"
+  );
   assert.deepEqual(out.restart, { pinned: "number", label: "My label" }, "they come back after a restart");
   assert.deepEqual(out.reused, { pinned: null, label: null }, "a new task given the same id takes neither");
   assert.equal(out.dropped, false, "once the feed drops it, Pinned counts it no more");
