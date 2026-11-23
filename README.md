@@ -133,6 +133,14 @@ This adds only the zen(ius) skill to your agents. The first time an agent
 needs a browser, the skill finds `zenius` missing and walks you through
 installing it.
 
+**Allowing `zenius` in your agent.** A plain `zenius` runs any script with
+your own access, so allow or auto-approve `zenius` in Claude Code or Codex
+only when it's the sandboxed launcher: its `zenius --version` ends in
+`sandboxed`. 1.1's command installs that launcher with
+`| bash -s -- --sandbox` instead of `| bash`, with Node 24 first on PATH;
+[the install reference](skill/zenius/references/install.md) says what it
+allows.
+
 ### 2. Try your first task
 
 **In Zen's sidebar.** Press ⌘⇧A (Ctrl+Shift+A on Linux) to open the agent

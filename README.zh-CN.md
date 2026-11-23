@@ -90,6 +90,8 @@ npx skills add zhuconv/zenius
 
 这只会给你的 Agent 添加 zen(ius) Skill。Agent 第一次需要浏览器时，Skill 会发现还没装 `zenius`，并带你一步步装好。
 
+**在 Agent 里放行 `zenius`。** 普通安装的 `zenius` 会以你自己的权限运行任何脚本，所以只有当它是沙箱启动器时，才在 Claude Code 或 Codex 里允许或自动批准 `zenius`：这时 `zenius --version` 的输出以 `sandboxed` 结尾。把 1.1 命令里的 `| bash` 换成 `| bash -s -- --sandbox`，并让 PATH 里最先找到的是 Node 24，装的就是沙箱启动器；它允许做什么，见[安装说明](skill/zenius/references/install.md)。
+
 ### 2. 跑第一个任务
 
 **在 Zen 的侧边栏里。** 按 ⌘⇧A（Linux 上是 Ctrl+Shift+A）打开 Agent 侧边栏。它运行的是你已经装好的 Claude Code 或 Codex，所以请先像在终端里一样登录其中一个。点 **+ New task**，或者在地址栏输入 `>` 再写上你的任务，例如：

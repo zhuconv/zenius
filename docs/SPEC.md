@@ -32,6 +32,9 @@ Space, while the user keeps browsing in theirs.
   on dev profiles, never the product.
 - No CDP emulation. `page.cdp()` and `task.cdp()` fail with `ZEN_UNSUPPORTED`
   and point at the documented methods.
+- No signing in for programs. zenius doesn't complete a program's sign-in
+  (OAuth consent pages, device codes) on the user's behalf: those stay with
+  the user.
 
 ## 3. Architecture
 
