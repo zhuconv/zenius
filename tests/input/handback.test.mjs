@@ -523,10 +523,10 @@ test("onSecretTyped: the agent's own fill, typing, text, paste and selection nev
   }));
 
 // ---------------------------------------------------------------------------
-// Addresses and cards (the manager's decision): while the user holds an
-// agent tab, their own click gets their saved addresses and cards. On the
-// way back, the card details filled meanwhile are emptied like passwords;
-// addresses stay, for the agent to go on with.
+// Addresses and cards: while the user holds an agent tab, it's theirs, so
+// their own click gets their saved addresses and cards. On the way back, the
+// card details filled meanwhile are emptied like passwords, because the agent
+// must never read them; addresses stay, for the agent to go on with.
 
 const SAVED_ADDRESS = {
   name: "Saved Person",
@@ -834,9 +834,9 @@ test("while the user holds an agent tab, their click in a card field gets their 
 });
 
 // ---------------------------------------------------------------------------
-// Tabs the agent takes over (the manager's decision): a claimed Space's
-// pages and an adopted tab have every password and card detail the agent
-// didn't set emptied before its first call.
+// Tabs the agent takes over: a claimed Space's pages and an adopted tab have
+// every password and card detail the agent didn't set emptied before its
+// first call, so the agent never reads what the user typed there.
 
 /** A Space of the user's own with one tab, loaded as the user loads a URL (zen-core's tests do the same). */
 const userSpace = (name, url) =>

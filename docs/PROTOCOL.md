@@ -679,7 +679,7 @@ a pending navigation, and `page.evaluate`'s budget.
 
 | Method | Params | Result |
 |---|---|---|
-| `page.snapshot` | `{space, page, options}` | `{text, refs?}`. `text` is the full Ego-format output, header line included; the SDK reads only `text`. `refs: [{ref, role, name, loc?, url?}]` lists the printed refs, only with `includeRefs: true` (for tests and tools). Options: Ego's `scope` (`only_within_viewport` default, `full_page`, `subtree` with `root: "@N"`), `includeActionMarks`, `includeStableLocator`, plus `interactiveOnly` and `maxResultLength` (Ego's native options, which the SDK doesn't take; see `docs/research/snapshot.md` §4.8) |
+| `page.snapshot` | `{space, page, options}` | `{text, refs?}`. `text` is the full Ego-format output, header line included; the SDK reads only `text`. `refs: [{ref, role, name, loc?, url?}]` lists the printed refs, only with `includeRefs: true` (for tests and tools). Options: Ego's `scope` (`only_within_viewport` default, `full_page`, `subtree` with `root: "@N"`), `includeActionMarks`, `includeStableLocator`, plus `interactiveOnly` and `maxResultLength` (Ego's native options: the SDK rejects them as unknown options, as Ego's public `page.snapshot` does, and protocol clients such as tools can use them) |
 
 ### Actions (zen-input)
 

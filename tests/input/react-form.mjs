@@ -1,6 +1,6 @@
-// A React-style form, for the hand-off form-reset bug (MANAGER.md, 2026-11-21
-// 13:54): an agent filled a token form built with React, the page reloaded
-// at the user's first press, and the form came back at its defaults. This
+// A React-style form, for the hand-off form-reset bug seen in real use on
+// 2026-11-21: an agent filled a token form built with React, the page
+// reloaded at the user's first press, and the form came back at its defaults. This
 // page behaves the way React's controlled components do, without React:
 //   - Its state is the truth, and each render writes it to the DOM.
 //   - A text input tracks its value as React's inputValueTracking does. A

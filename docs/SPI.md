@@ -2377,9 +2377,8 @@ its page, the one the user sees:
 
 ## Refs and locators (zen-snapshot)
 
-zen-snapshot maintains this section; the design is in
-`docs/research/snapshot.md`. zen-input resolves `@N` targets and `loc=`
-locators through these modules. Their exports stay stable; zen-snapshot tells
+zen-snapshot maintains this section. zen-input resolves `@N` targets and
+`loc=` locators through these modules. Their exports stay stable; zen-snapshot tells
 zen-input before changing them.
 
 **Refs, in the parent.** One registry per tab:

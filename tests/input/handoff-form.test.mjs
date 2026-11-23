@@ -1,5 +1,5 @@
-// The Cloudflare bug from real use (MANAGER.md, 2026-11-21 13:54), as its
-// regression tests, on a React-style form (react-form.mjs). An agent filled
+// The Cloudflare bug from real use (2026-11-21), as its regression tests,
+// on a React-style form (react-form.mjs). An agent filled
 // a token form with page code and handed off. The page loaded afresh under
 // the user, and they submitted it at its defaults: a framework's state doesn't
 // come back with the form's fields. Under the evidence model, only a page the

@@ -108,8 +108,8 @@ test("paste into a contenteditable lands after the tab navigated", async () => {
 
 test("an agent's paste with html counts as the agent's code in the page, as page.evaluate does (closed groups)", async () => {
   // A page's paste handler may insert the html with innerHTML, where it
-  // runs as script (the manager's decision). No page.evaluate or data: page
-  // before the checks: either marks it too.
+  // runs as script, so the paste counts as the agent's code there. No
+  // page.evaluate or data: page before the checks: either marks it too.
   const marked = page =>
     h.call("dev.evalChrome", {
       arg: { space: page.spaceId, page: page.label },

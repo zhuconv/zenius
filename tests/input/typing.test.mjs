@@ -496,7 +496,7 @@ test("a page the agent's code wrote into, leaving nothing hooked, keeps the user
     assert.deepEqual(await cleanCalls(), [], "no clean copy");
   }));
 
-test("only hooked evidence holds the user's input: a listed or flagged page leaves it on, for zen-ux's warning (the manager's call)", async () => {
+test("only hooked evidence holds the user's input: a listed or flagged page leaves it on, for zen-ux's warning", async () => {
   for (const [reason, detail] of [
     ["listed", "goog-phish-proto"],
     ["flagged", "it asks for the card's PIN"],
