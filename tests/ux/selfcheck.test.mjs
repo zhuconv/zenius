@@ -17,9 +17,11 @@
 //
 // The last test is the run end to end, as step 6 runs it: `zenius selfcheck`
 // from outside the sandbox, through the self-check socket. All three checks
-// pass, and the run's folder holds exactly its summary and one PNG per step.
+// pass, and the run's folder holds exactly its summary and one PNG per step,
+// no two of them the same picture.
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, lstatSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -406,7 +408,7 @@ function cli(args, timeout) {
   });
 }
 
-test("end to end, as step 6 runs it: `zenius selfcheck` from outside the sandbox reaches the self-check socket and runs all three checks, which pass; the run's folder holds exactly summary.json, with names and no paths, and one PNG per step, 0600 and holding only pixels, in a folder of its own that only the user can read; the user's window kept the focus, and no self-check window is left", async () => {
+test("end to end, as step 6 runs it: `zenius selfcheck` from outside the sandbox reaches the self-check socket and runs all three checks, which pass; the run's folder holds exactly summary.json, with names and no paths, and one PNG per step, no two the same picture, 0600 and holding only pixels, in a folder of its own that only the user can read; the user's window kept the focus, and no self-check window is left", async () => {
   const sock = join(home, "selfcheck", `${instance}.sock`);
   const runs = join(home, "selfcheck", instance);
   // The runtime opens the socket at idle, after the agents' one.
@@ -469,6 +471,7 @@ test("end to end, as step 6 runs it: `zenius selfcheck` from outside the sandbox
       `each check's shots are <n>-<check>-<step>.png: ${shots.join(", ")}`
     );
     assert.deepEqual(readdirSync(dir).sort(), ["summary.json", ...shots].sort(), "the folder holds the summary and the shots only");
+    const pictures = new Map();
     for (const name of shots) {
       const st = lstatSync(join(dir, name));
       assert.ok(st.isFile(), `${name} is a file`);
@@ -476,7 +479,14 @@ test("end to end, as step 6 runs it: `zenius selfcheck` from outside the sandbox
       const png = readFileSync(join(dir, name));
       assert.equal(png.subarray(0, 8).toString("binary"), "\x89PNG\r\n\x1a\n", `${name} is a PNG`);
       assert.ok(png.readUInt32BE(16) > 0 && png.readUInt32BE(20) > 0, `${name} has pixels`);
+      const hash = createHash("sha256").update(png).digest("hex");
+      pictures.set(hash, [...(pictures.get(hash) ?? []), name]);
     }
+    // Each shot is the window at the step its name says (docs/install-daily.md),
+    // so no two are the same picture. One that repeats another shows nothing
+    // its name claims: Archive's first step once took a shot of the ⋯ menu
+    // check's view, named for a tooltip, which no capture of the window shows.
+    assert.deepEqual([...pictures.values()].filter(names => names.length > 1), [], "no two shots are the same picture");
     const media = await new Promise(resolve =>
       execFile("perl", [MEDIA_CHECK, ...shots.map(name => join(dir, name))], (error, stdout) => resolve({ code: error?.code ?? 0, stdout }))
     );

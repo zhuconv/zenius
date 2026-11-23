@@ -269,10 +269,10 @@ test("the self-check's three checks pass in a window of their own, in step 6's o
 
 test("a check that fails names its step, and the next check still runs; a run cut short ends the same; either way cleanup leaves nothing of the run, and the user's side, files and prefs are as they were", async () => {
   const failed = await h.call("dev.evalChrome", { code: `${HARNESS}\nreturn await runOnce(arg);`, arg: { check: "archive", kind: "fail" } });
-  assert.equal(failed.tripped, "archive/tooltip");
+  assert.equal(failed.tripped, "archive/archived");
   assert.deepEqual(
     failed.result.checks.map(c => [c.id, c.ok, c.failedStep]),
-    [["menu", true, null], ["archive", false, "tooltip"], ["follow", true, null]],
+    [["menu", true, null], ["archive", false, "archived"], ["follow", true, null]],
     `the archive check failed at its step, and follow ran: ${JSON.stringify(failed.result.checks)}`
   );
   // An Error comes back from chrome JS as its fields.

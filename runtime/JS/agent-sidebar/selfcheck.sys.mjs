@@ -572,21 +572,20 @@ async function menuCheck(t) {
 /** Archive moves the task to Archived, the last group, and the panel on; opened from there it reads as it was; Unarchive brings it back. */
 async function archiveCheck(t) {
   const task = () => t.scope.tasks.get(t.state.menuTask ?? "") ?? null;
-  await t.step("tooltip", async () => {
+  await t.step("archived", async () => {
     // The task the menu check asked in, as step 6 goes on with it.
     const conv = AgentService.taskList(t.scope).find(c => c.messages.some(m => m.role === "user" && m.text === FIRST));
     t.must(conv, "the menu check's task");
     t.state.menuTask = conv.uid;
     t.glue.showTask(conv);
     await t.until(() => t.$("title").textContent === conv.title, "the task in the panel");
+    // Archive's tooltip is checked by its text, with no shot of its own. A
+    // native tooltip is drawn outside the window, so no capture shows it,
+    // and the open menu would only repeat the menu check's shot.
     const menu = await t.openMenu();
     t.expect(menu["archive-task"], { label: "Archive", kbd: null, tip: "Moves the task to Archived, at the bottom of All tasks." }, "Archive's item");
-    return t.panelRect();
-  });
-  await t.step("archived", async () => {
     t.click(t.$("archive-task"));
-    const conv = task();
-    await t.until(() => conv?.archivedAt && t.glue.currentTask !== conv, "the task archived");
+    await t.until(() => conv.archivedAt && t.glue.currentTask !== conv, "the task archived");
     const next = AgentService.taskList(t.scope)[0];
     t.must(t.glue.currentTask === next, "the panel on the newest of the other tasks");
     await t.until(() => t.$("title").textContent === next.title, "the newest other task in the panel");
