@@ -41,7 +41,7 @@ let zenEnv = {}; // the canaries' values in Zen before the test
 const chrome = (code, arg) => env.chrome(PRELUDE + code, arg);
 const lines = file => (existsSync(file) ? readFileSync(file, "utf8").trim().split("\n").filter(Boolean).map(l => JSON.parse(l)) : []);
 const requests = (file, method) => lines(file).filter(e => e.event === "request" && e.method === method).map(e => e.params);
-// Web search and fetch, on in Chat and Work (the user's pass on defenses, D1).
+// Web search and fetch, on in Chat and Work (the user's call).
 const WEB = ["WebSearch", "WebFetch"];
 // A session's options neither deny the web tools nor carry a rule against them.
 function allowsWeb(options) {
@@ -161,7 +161,7 @@ test("a Claude Code session's limits are set in memory over config.json's: setti
   const [chatParams, workParams] = requests(join(dir, "claude.log"), "session/new");
   const ws = join(chat.profile, "agent-sidebar-workspace", "claude");
 
-  // Chat: web search and fetch (the user's pass on defenses, D1), nothing else.
+  // Chat: web search and fetch (the user's call), nothing else.
   assert.equal(chatParams.cwd, join(ws, "chat"));
   assert.deepEqual(chatParams.mcpServers, []);
   const c = chatParams._meta.claudeCode.options;
@@ -295,7 +295,7 @@ test("the zenius-only hook: web search and fetch run in Chat and Work, but WebFe
       "https://[fd12::1]/",
       "https://[fe80::1]/",
       "https://nas.local./",
-      // Names, by what they resolve to (zen-ux's review).
+      // Names that look like no address, by what they resolve to.
       "https://router.lan/",
       "https://10-0-0-7.nip.io/",
       "https://mixed.example/", // any local address counts
@@ -551,12 +551,12 @@ test("Claude Code's thinking comes as summaries (CLAUDE_CODE_THINKING_DISPLAY), 
   assert.equal(out.own, "omitted");
 });
 
-test("Claude Code's thinking switch was checked against the pinned claude-agent-acp and SDK: moving either pin needs the real-turn check again (docs/research/claude-thinking-display.md)", () => {
+test("Claude Code's thinking switch was checked against the pinned claude-agent-acp and SDK: moving either pin needs a real turn's check again that the thinking still comes as summaries", () => {
   // The switch is the adapter's own env name. The adapter reads it into
   // {type: adaptive, display}, which the SDK passes as --thinking=adaptive.
-  // zen-sidebar's real turns (2026-11-22) found every model fine with that:
-  // Haiku 4.5, the one without adaptive thinking, falls back cleanly. A new
-  // adapter or SDK may read or pass it otherwise.
+  // Real turns (2026-11-22) found every model fine with that: Haiku 4.5, the
+  // one without adaptive thinking, falls back cleanly. A new adapter or SDK
+  // may read or pass it otherwise.
   const lock = JSON.parse(readFileSync(join(repo, "runtime/agents/package-lock.json"), "utf8")).packages;
   assert.equal(lock["node_modules/@agentclientprotocol/claude-agent-acp"].version, "0.107.0");
   assert.equal(lock["node_modules/@anthropic-ai/claude-agent-sdk"].version, "0.3.323");
@@ -642,7 +642,7 @@ test("Codex is on by default, its limits merged in memory with zenius's server i
       assert.equal(codex.features[feature], false, `${feature} off`);
     }
     // Newer Codex's own switches, over the agent's own CODEX_CONFIG: no
-    // sub-agent tools (zen-eval's probe). Its hosted web search is on (D1),
+    // sub-agent tools. Its hosted web search is on,
     // and older versions' feature for it too: live in Work, the cached index
     // in Chat.
     assert.deepEqual(codex.agents, { enabled: false }, "agents.enabled = false");
@@ -793,7 +793,7 @@ test("a Work chat's live zenius task goes to its zenius server, at session/new a
   }
 });
 
-test("a Codex Work chat has a process of its own, whose CODEX_CONFIG gives its zenius server the chat's uid and live task: a parked chat resumes, and an edited question forks, in a process that has the task; at most uc.agent-sidebar.open-sessions of them run (check 3 on the Mac at 2f165ce)", async () => {
+test("a Codex Work chat has a process of its own, whose CODEX_CONFIG gives its zenius server the chat's uid and live task: a parked chat resumes, and an edited question forks, in a process that has the task; at most uc.agent-sidebar.open-sessions of them run", async () => {
   // codex-acp starts each session's servers from CODEX_CONFIG, which it reads
   // once per process. A session's own ACP server would replace CODEX_CONFIG's
   // mcp_servers table, the user's servers switched off by name included, and
@@ -988,7 +988,7 @@ test("removing a Codex Work chat stops its own process at once, and one removed 
   );
 });
 
-test("a Codex Work chat removed while its process starts keeps nothing running, whether its first question or the user's typing started it: that process stops, and no session of it stays the chat's or the sidebar's (zen-observe's review of 8d831af)", async () => {
+test("a Codex Work chat removed while its process starts keeps nothing running, whether its first question or the user's typing started it: that process stops, and no session of it stays the chat's or the sidebar's", async () => {
   const out = await chrome(
     `Services.prefs.setBoolPref("zenius.agentSidebar.allowCodex", true);
      const slot = conv => A.slotFor("codex", "work", conv);
@@ -1035,7 +1035,7 @@ test("a Codex Work chat removed while its process starts keeps nothing running, 
   assert.deepEqual({ first: out.first, typing: out.typing }, { first: gone, typing: gone });
 });
 
-test("an agent's warnings never open an answer: the sidebar declares ACP's session.notices, so codex-acp sends Codex's as notices, which stay out of the chat (Codex's multi_agent warning on the Mac at 2f165ce)", async () => {
+test("an agent's warnings never open an answer: the sidebar declares ACP's session.notices, so codex-acp sends Codex's as notices, which stay out of the chat (Codex's multi_agent warning, for one)", async () => {
   const answers = await chrome(
     `Services.prefs.setBoolPref("zenius.agentSidebar.allowCodex", true);
      const conv = A.createConversation("chat");

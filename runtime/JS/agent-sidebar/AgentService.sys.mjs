@@ -1524,7 +1524,7 @@ const OFFER = /\b(?:anything|something|what|whatever)\s+else\b|\bdo\s+next\b|\bn
 // (告诉我…): "你选好后我再查车次。". Without 你, the choice starts the sentence
 // ("选好后告诉我。", "确认后我再下单。"), and 好了 counts only before a
 // request ("选好了告诉我。"): "确认好了，我会…" is the agent's own step, done
-// (zen-ux), and so is a 你 after 帮, 替, 给 or 为 ("我帮你选好了座位，我会…").
+// already, and so is a 你 after 帮, 替, 给 or 为 ("我帮你选好了座位，我会…").
 // And 告诉我 where a sentence or clause starts, with 哪, 是否,
 // 要不要, 还是 or 几 ("请告诉我你想去哪一个。"), unless it offers more (其他,
 // 别的, 还有什么).

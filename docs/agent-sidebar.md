@@ -36,8 +36,8 @@ stable, and a change to one is announced to zen-eval first.
     (`AgentService.renameTask`, `nameZen`). While another live task has the
     name, the zenius task takes it with a number, as a new task's name gets
     one ("<name> 2"), and keeps that number: zenius keeps live names
-    unique, and a script's `taskSpace(name)` must still find its own task
-    (zen-observe's review). The sidebar shows the name as typed. A task
+    unique, and a script's `taskSpace(name)` must still find its own task.
+    The sidebar shows the name as typed. A task
     another program drives keeps its program's name, with no Rename: a
     script finds its task by that name (`taskSpace(name)`), and zenius
     shows it.
@@ -50,9 +50,9 @@ stable, and a change to one is announced to zen-eval first.
     tabs stay open, the user's: the one the chat follows, and any its agent
     started that the chat hasn't linked yet, by their `source.sidebar`,
     such as the first open's while its page still loads, or one zenius
-    creates after the click from a call the Stop cut (zen-observe's review:
-    `liveZenTasks`, ended again at the turn's end and on zenius's
-    `spaceCreated`). That late pass ends only the tasks whose
+    creates after the click from a call the Stop cut (`liveZenTasks`,
+    ended again at the turn's end and on zenius's `spaceCreated`). That
+    late pass ends only the tasks whose
     `source.sidebar` names the chat: the one it follows ended at the click,
     so if it runs again, a program claimed it on the user's yes, with a
     source of its own. Opened from Archived, a task reads as it was, without
@@ -79,8 +79,8 @@ stable, and a change to one is announced to zen-eval first.
   the answer ends with, an error, or Zen quitting mid-task. A question
   right before the answer's closing list of choices counts too, whatever up
   to three lines follow the list, and so does a last sentence that waits on
-  the user, with or without a question mark (zen-eval's demo and its
-  retake, 2026-11-22): the agent's next step once the user picks ("Once you
+  the user, with or without a question mark: the agent's next step
+  once the user picks ("Once you
   pick, I'll …", "I'll book it once you pick"), or "Let me know which …",
   in Chinese too ("你选好后我再…", "请告诉我…哪…"). The sign-offs that end
   many finished tasks don't count ("Let me know what you think", "… how it
@@ -93,11 +93,12 @@ stable, and a change to one is announced to zen-eval first.
   Archived, the tasks the user archived, last archived first: collapsed,
   with a count, and open on its own when the panel shows one of them. A
   search shows its matches there too.
-- **Pinned, and each row's menu** (the user's ask, 2026-11-22: "至少有右键给某个
-  会话pin or rename应该有"): a right-click on a row, or the context-menu key or
-  Shift+F10 on the row the arrow keys are on, opens its menu, a XUL menu
-  under that row for the keys: Pin or Unpin, Rename, then Archive or
-  Unarchive, in the ⋯ menu's words and tooltips (`taskmenu.sys.mjs`, which
+- **Pinned, and each row's menu** (the user's ask, 2026-11-22: a right-click
+  on a task should at least offer Pin and Rename): a right-click on a row, or
+  the context-menu key or Shift+F10 on the row the arrow keys are on,
+  opens its menu, a XUL menu under that row for the keys: Pin or Unpin,
+  Rename, then Archive or Unarchive, in the ⋯ menu's words and tooltips
+  (`taskmenu.sys.mjs`, which
   the ⋯ menu shares). Pin puts the task in Pinned, the first group, the
   last pinned first; a pinned task keeps its state, so one that needs the
   user keeps the Needs you tint. At most 20 are pinned (`PIN_CAP`): then
@@ -117,10 +118,10 @@ stable, and a change to one is announced to zen-eval first.
   zenius's feed keeps the task, through a restart, and a new task given its
   id later takes neither (`pins.sys.mjs`, `AgentService.pinTask`,
   `unpinTask`, `labelTask`, `marks`).
-- **The agent's own ask** (step 2 of Needs you; zen-ux's card): Work's
+- **The agent's own ask** (zen-ux's card): Work's
   agent asks with its own tool, Claude Code's AskUserQuestion or Codex's
   request_user_input, which its adapter turns into ACP's
-  `elicitation/create` (docs/research/ask-user.md). The sidebar declares
+  `elicitation/create`. The sidebar declares
   form elicitation in `initialize`, never url mode, so no agent can have it
   open a link. An ask holds the turn as a message of role `ask` (the
   agent's tool step gives way to it) and the task needs the user, with its
@@ -134,7 +135,7 @@ stable, and a change to one is announced to zen-eval first.
   English or Chinese, a one-time code among them as agents ask for one: by
   its digits, from an email, a text or an authenticator app, a sign-in or
   confirmation code, MFA; a bare "code", as in a code style or a zip code,
-  doesn't count; docs/safety-rubric.md) masks every field of words, keeps all of its
+  doesn't count) masks every field of words, keeps all of its
   answer out the same way, and the card says in a fixed line that passwords
   and codes go into the site through Take over. A masked field comes right
   under its question, with the question's options after it as a row of
@@ -161,8 +162,8 @@ stable, and a change to one is announced to zen-eval first.
   their way when the steer went (its `messageId`, which both adapters
   stamp on each chunk) go on in its bubble, above the steer, where they
   can't read as the answer to it (`conv.cutReply`). Both adapters take
-  `_session/steering` (claude-agent-acp 0.107.0, codex-acp 2.6.0;
-  docs/research/steer.md), with `idleBehavior: "promptRequired"`, so a steer
+  `_session/steering` (claude-agent-acp 0.107.0, codex-acp 2.6.0), with
+  `idleBehavior: "promptRequired"`, so a steer
   that meets the turn's end goes as the next question. For an agent that
   doesn't steer, the turn stops for it (session/cancel, with no
   "Stopped."), and it goes next. A steer during a permission declines it
@@ -184,7 +185,7 @@ stable, and a change to one is announced to zen-eval first.
   the next message grows), until the user scrolls up: from there it stays
   where they put it, as before (panel.js's `followUp`, `following`). The
   move is instant.
-- **What AgentService keeps holds no panel** (the night cut's leak,
+- **What AgentService keeps holds no panel** (a leak fixed on
   2026-11-22). An object a panel made keeps that panel's whole window, about
   0.9 MB, for as long as anything holds it. So AgentService keeps its own
   copies of what a panel hands it: a question's files and an ask's answers
@@ -209,8 +210,7 @@ stable, and a change to one is announced to zen-eval first.
     the row's tooltip has all of it.
   - Claude Code's thinking has words only with
     `CLAUDE_CODE_THINKING_DISPLAY=summarized`. The sidebar sets it in its
-    own Claude Code process's env (`claudeEnvironment`,
-    docs/research/claude-thinking-display.md).
+    own Claude Code process's env (`claudeEnvironment`).
   - Once a stretch ends, its row turns into "Thought for 23 s", which opens
     to what the agent thought. A stretch with no words, or one under a
     second, leaves nothing behind (AgentService's
@@ -220,10 +220,9 @@ stable, and a change to one is announced to zen-eval first.
     it go on in the same box.
   - **Why:** Codex at xhigh thought for 23 s before its first word, with
     only the box's "Thinking…" on screen, and then its first sentences came
-    in one piece. The user read this as a stall (zen-sidebar's diagnosis,
-    2026-11-22).
+    in one piece. The user read this as a stall (2026-11-22).
 - **Copy and save**: a turn's answer gets one copy and save row, on its
-  last part, once the turn has ended (zen-ux's call, 2026-11-22).
+  last part, once the turn has ended.
   - It copies or saves the Markdown of all the turn's parts, joined by a
     blank line, without thoughts, steps, asks or notes. Save names the file
     after the answer's first heading.
@@ -336,11 +335,11 @@ started a hold is the `source` of zenius's spaceChanged, kept in the task's
 
 ## The self-check's scenarios
 
-`selfcheck.sys.mjs` is zen-sidebar's half of the post-install self-check
-(`docs/briefs/selfcheck.md`; zen-core's runner, gate and window are in
-`docs/research/selfcheck.md`). The runner opens a window that isn't a
-browser window, so none of the three `.uc.js` scripts load there, and hands
-it over:
+`selfcheck.sys.mjs` is zen-sidebar's half of the post-install self-check.
+zen-core's runner (`runtime/JS/zenius/modules/selfcheck.sys.mjs`) has the
+rest: the socket that `zenius selfcheck` calls, and the run's window. The
+runner opens a window that isn't a browser window, so none of the three
+`.uc.js` scripts load there, and hands it over:
 
 - `prepare(win)` fills its `#zenius-selfcheck-host` with the panel (a
   chrome `<browser>` on `panel.html`, in a `#sidebar-box` 420 px wide, or
@@ -351,7 +350,7 @@ it over:
   the panel shows. The panel takes the window's width less 280 px for the
   drawer, between 300 and 420 px: in zen-core's 720 x 760 window it has
   its full 420, and a 480 px window still works, with a 300 px panel.
-- `run(win, {shot, checked, signal})` goes through step 6's checks in its
+- `run(win, {shot, checked, signal})` goes through the post-install checks in
   order, `menu` ("The ⋯ menu"), `archive` ("Archive, Archived and
   Unarchive") and `follow` ("Sending follows the answer"), and resolves to
   `{checks: [{id, title, ok, failedStep, error}]}`. Each step checks
@@ -469,7 +468,7 @@ Firefox's Actions restrict token and shows no row.
 - Each window's start ends by setting
   `window.zeniusSidebarStart = Object.freeze({ error })`, where `error` is
   the start's exception message, or null. zen-ux's `ui.sidebarStatus` reads
-  it in each open window (agreed with zen-sdk). A property, so the sidebar's
+  it in each open window, for zen-sdk's doctor. A property, so the sidebar's
   start loads no zenius module (I4). A start that throws undoes what it did
   before the throw. A popup has no start, so no `zeniusSidebarStart`, and
   the status lists it as skipped.
@@ -492,8 +491,8 @@ Firefox's Actions restrict token and shows no row.
   comes back as Needs you. It keeps no attached file's contents and no tool
   input or result, only what each step shows.
 - `agent-sidebar-chats.json` in the profile: each tab's Chat conversation
-  (the user's bug, 2026-11-22: an update's restart lost one;
-  `docs/briefs/chat-persistence.md`). `{ version: 1, chats: [...] }`, the
+  (the user's bug, 2026-11-22: an update's restart lost one).
+  `{ version: 1, chats: [...] }`, the
   newest first, each with its `uid`, agent, `createdAt`, `activeAt` (its
   last message), the page it was last asked about, its agent's session and
   its messages. Read once at startup, written 1 s after a chat's message
@@ -542,7 +541,7 @@ Firefox's Actions restrict token and shows no row.
   - A file of another version is left unread, and the next save writes
     over it, as with the tasks file.
   - An earlier chat is a saved one no tab shows, offered back in two places
-    (`docs/research/chat-way-back.md`, as the user picked on 2026-11-22). A
+    (as the user picked on 2026-11-22). A
     page matches it by its origin and path, a web page only: the query and
     the fragment don't count.
     - The way back: the empty Chat view's first line offers the newest
@@ -586,8 +585,7 @@ Firefox's Actions restrict token and shows no row.
   user's own Claude Code and Codex, through the ACP adapters that zenius's
   installer puts in `~/.zenius/agents`. A path the pref names never falls
   back to them, so a test's or a dev Zen's scratch path can't run the
-  user's own Claude Code with their sign-in: a missing one fails as before
-  (the manager's rule, 2026-11-22).
+  user's own Claude Code with their sign-in: a missing one fails as before.
   - The installer copies `runtime/agents/package.json` and its lock there,
     then runs `npm ci --omit=dev --omit=optional --ignore-scripts --no-audit
     --no-fund --loglevel=error` (zen-sdk's). The lock
@@ -609,10 +607,9 @@ Firefox's Actions restrict token and shows no row.
 
 ## The agents' limits
 
-Decided (SPEC §8, zen-ux's review, zen-manager), built on the process side by
-zen-observe (`zen-observe/sidebar-limits`; zen-sidebar's start of it is
-`zen-sidebar/limits-wip`). Nothing goes into `~/.claude` or `~/.codex`, and
-the user's config.json is only read.
+Decided in SPEC §8, and built on the process side by zen-observe. Nothing
+goes into `~/.claude` or `~/.codex`, and the user's config.json is only
+read.
 
 - The workspace is `<profile>/agent-sidebar-workspace/`, with one folder for
   each adapter, `claude/` and `codex/`, so Codex's sandboxed writes can't
@@ -630,8 +627,8 @@ the user's config.json is only read.
   as its only server. Its session `_meta` sets `settingSources: ["project"]`,
   `strictMcpConfig: true`, and disallows Bash, Edit, MultiEdit, Write,
   NotebookEdit, Read, Glob, Grep and Task.
-- Web search and fetch are on in Chat and Work (the user's pass on
-  defenses, D1, 2026-11-21): Claude Code's WebSearch and WebFetch, allowed
+- Web search and fetch are on in Chat and Work (the user's call,
+  2026-11-21): Claude Code's WebSearch and WebFetch, allowed
   without asking, are Chat's only tools. The user's own denial of one in
   config.json stays. WebFetch runs in the CLI, which Zen started, so macOS
   counts its requests as Zen.app's: the zenius-only hook keeps it off the
@@ -652,13 +649,13 @@ the user's config.json is only read.
   - the zenius-only hook refuses any other URL, before it looks a host up,
     and refuses every fetch when it can't read the list.
 
-  Work fetches any URL. docs/research/chat-fetch.md has the design.
+  Work fetches any URL.
 - Codex runs with its limits in memory: a read-only sandbox with no network,
   no shell tools or sub-agents, zenius's server in Work's processes only,
   one per Work chat (at most `uc.agent-sidebar.open-sessions` of them; the
   least recently used one stops, and a chat's stops when it's removed or
   closed, or as its last turn ends), cwd `codex/`. Its hosted web search,
-  which runs at OpenAI, is on (D1): live in Work, and in Chat kept to the
+  which runs at OpenAI, is on: live in Work, and in Chat kept to the
   cached index, where no hook could hold it to Chat's sources. The user's own `CODEX_CONFIG` `"disabled"` or
   `"cached"` stays in both. The sidebar refuses its permission requests as
   it does Claude Code's. One read path stays: apply_patch's check can tell Codex
@@ -679,7 +676,7 @@ the user's config.json is only read.
 - install.sh writes none of the workspace. Undo removes it, and doctor
   reports it (zen-core and zen-sdk).
 - The MCP server runs the installed CLI's `zenius mcp`. A CLI installed
-  before `sdk/src/mcp.ts` (the daily's at cbac1ef) has no `mcp`, so
+  before `sdk/src/mcp.ts` has no `mcp`, so
   install-cli.sh has to install a current main with the sidebar.
 
 ## Tests and fixtures

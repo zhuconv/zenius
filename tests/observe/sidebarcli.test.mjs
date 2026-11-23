@@ -291,7 +291,7 @@ test("Chat with the real CLI: only web search and fetch are offered; Bash and ze
   // reference, as in Work.
   const each = mine.map(r => r.tools.join("+") || "none").join(" | ");
   const offered = [...new Set(mine.flatMap(r => r.tools))].filter(name => name !== "DeferredToolPlaceholder").sort();
-  assert.deepEqual(offered, ["WebFetch", "WebSearch"], `Chat is offered web search and fetch only (D1): ${each}`);
+  assert.deepEqual(offered, ["WebFetch", "WebSearch"], `Chat is offered web search and fetch only: ${each}`);
   for (const def of mine.flatMap(r => r.toolDefs)) {
     assert.equal(def.defer === true, def.name === "DeferredToolPlaceholder", `${def.name} is ${def.defer === true ? "deferred" : "whole"}: ${each}`);
   }
