@@ -1,16 +1,15 @@
-// zen-core's clean copy on demand beside a hooked window of its group
-// (zen-snapshot's Take over probes on 99cdc39), on evidence since the
-// user's call of 2026-11-21. A popup on the page's site that the agent's
-// code opened shares the page's group. On 99cdc39 each new document of the
+// zen-core's clean copy on demand beside a hooked window of its group, on
+// evidence since the user's call of 2026-11-21. A popup on the page's site
+// that the agent's code opened shares the page's group. In an earlier
+// version, each new document of the
 // page came in marked for being beside such a popup, the clean copy's
 // replay typed the user's keys into that copy, the guard took them for the
 // user's next trigger, and the page loaded afresh again and again, without
-// end. Since the rubric's rule 3 (docs/safety-rubric.md), only what the
-// agent's code left in a document marks it: the copy comes in clean, the
-// user's keys come back into it once, and the page isn't loaded again. A
-// copy that does come in with evidence fails (stillEvident). zen-core's
-// test, here in zen-input's suite for its harness: the user's click and
-// keys in a watched agent tab.
+// end. Now only what the agent's code left in a document marks it: the copy
+// comes in clean, the user's keys come back into it once, and the page
+// isn't loaded again. A copy that does come in with evidence fails
+// (stillEvident). zen-core's test, here in zen-input's suite for its
+// harness: the user's click and keys in a watched agent tab.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { after, before, test } from "node:test";
@@ -154,7 +153,8 @@ test("beside a popup of its site with what the agent's code left hooked in it, a
       await h.userPress(page, "a", "b");
       await h.until(async () => (await cleanCalls()) >= 1, "the clean copy on demand", 10_000);
       await h.until(async () => (await fields(page)).load !== "1", "the clean copy's document", 15_000);
-      // On 99cdc39 the page loaded afresh every second or so from here, for good.
+      // In an earlier version, the page loaded afresh every second or so
+      // from here, for good.
       await h.sleep(6000);
       const calls = await cleanCalls();
       const loads = loadsOf(mainPath);

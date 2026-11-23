@@ -2,8 +2,9 @@
 //
 // Everything here works in a tab the user can't see and never reaches the
 // parent: mouse events go through window.synthesizeMouseEvent, keys through
-// nsITextInputProcessor, text through the element's editor. See
-// docs/research/background-input.md for why each mechanism was chosen.
+// nsITextInputProcessor, text through the element's editor. Each one gives
+// the page trusted events from this process alone, so none needs the
+// window's focus or touches the user's own pointer and keyboard.
 
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
 import { keyDefinition, MODIFIER_NAMES } from "chrome://userscripts/content/zenius/content/keys.sys.mjs";
@@ -44,8 +45,8 @@ const MICROTASK_HOPS = 16;
  * ends its task, so the page's microtasks run before the next key, and
  * Ego's keys and its fill's read-back are separate commands. Without this,
  * a call's keys all ran before any of the page's microtasks, and fill read
- * the field back before a microtask undid the text (input-gaps.md B5). No
- * task gets in, so a navigation or a timer can't come between two keys.
+ * the field back before a microtask undid the text. No task gets in, so a
+ * navigation or a timer can't come between two keys.
  */
 export async function settleMicrotasks() {
   for (let i = 0; i < MICROTASK_HOPS; i++) {
@@ -200,7 +201,7 @@ export function keyEvent(win, phase, def, { mods = [], repeat = false } = {}) {
     // A lock key never locks for the agent, as with Ego: Chromium's
     // synthesized keys carry no lock state. The processor toggles a lock on
     // its key's keydown, so it goes on silently first, and the key's own
-    // keydown turns it off again (input-gaps.md 23).
+    // keydown turns it off again.
     const lock = new win.KeyboardEvent("", { key: def.key, code: def.code });
     const silent = tip.KEY_NON_PRINTABLE_KEY | tip.KEY_DONT_DISPATCH_MODIFIER_KEY_EVENT;
     tip.keydown(lock, silent);
@@ -426,7 +427,7 @@ export function deleteSelection(doc) {
  * Gecko would have scrolled. Ctrl+wheel would zoom the tab: never emulated.
  * `origin`, the target of a motion's first event, is where the scroll
  * starts instead: Gecko sends all of a gesture's events to its first one's
- * target, and zenius ends its gesture after each event (input-gaps.md F7).
+ * target, and zenius ends its gesture after each event.
  * The page hears the deltas asked, in CSS px, as zenius scrolls them. Gecko
  * takes them in device pixels, and would first multiply them by the wheel
  * speed prefs, which are for the user's own wheel (Zen ships
@@ -454,7 +455,7 @@ export function wheelAt(win, x, y, dx, dy, mods, origin = null) {
   // System group: it runs after every page listener, so defaultPrevented is
   // the page's decision. At the tab's root, which a same-process frame's
   // events reach too: the wheel lands in one once a motion scrolls it under
-  // the pointer (input-gaps.md F7). A window sees only its own document's.
+  // the pointer. A window sees only its own document's.
   const at = win.docShell?.chromeEventHandler ?? win;
   at.addEventListener("wheel", listener, { capture: true, mozSystemGroup: true });
   try {
@@ -498,7 +499,7 @@ const XHTML_NS = "http://www.w3.org/1999/xhtml";
  * The viewport's overflow, `prop` "overflowX" or "overflowY". While the
  * root's overflow is visible on both axes, CSS gives the viewport the
  * body's: body{overflow:hidden} is how a modal locks the page's scroll, and
- * a real wheel leaves such a page where it is (input-gaps.md 19).
+ * a real wheel leaves such a page where it is.
  */
 function viewportOverflow(doc, prop) {
   const win = doc.defaultView;
@@ -581,7 +582,7 @@ function flatParent(node) {
  * @returns {{el: Element} | {out: BrowsingContext} | null} `el` scrolls.
  *   `out`: nothing in this process can, and the scroll goes on in the
  *   document embedding `out`'s, which is another process's (Gecko's own
- *   wheel gets there through APZ, which zenius's skips: input-gaps.md 18).
+ *   wheel gets there through APZ, which zenius's skips).
  *   null: nothing scrolls, or something keeps the wheel from chaining.
  */
 export function wheelScroller(target, dx, dy) {
@@ -676,8 +677,8 @@ function setEditorCaret(doc, on) {
  * it by script, autofocus or a Tab) gets what real focus gives it: the
  * selection inside its editing host, at the start unless it's already
  * inside, and the caret on. A hidden tab's focus() places neither, so keys
- * typed after it were lost while inserted text landed
- * (docs/research/background-input.md). Chromium places the caret on focus.
+ * typed after it were lost while inserted text landed. Chromium places the
+ * caret on focus.
  */
 export function ensureEditorCaret(el) {
   if (isRichEditable(el) && !el.ownerDocument.hasFocus()) {
@@ -696,9 +697,9 @@ export function ensureEditorCaret(el) {
  * and chrome code can't set it. So a move to the document's end (Ctrl+End,
  * Ctrl+Shift+End; Shift+End on the Mac) left the host: the selection ran
  * into the next editor on the page, or the caret left and focus went to the
- * body, and the text typed next was lost (input-gaps.md B25). Put the
- * selection back where the limiter would have stopped it, and the focus
- * with it. The caller runs this only after a key whose default action ran
+ * body, and the text typed next was lost. Put the selection back where the
+ * limiter would have stopped it, and the focus with it. The caller runs
+ * this only after a key whose default action ran
  * (a page that handles the key moves the selection itself), and not after
  * a Tab, which moves focus on purpose.
  *
@@ -1241,8 +1242,8 @@ export function sanitizePastedHtml(html) {
 
 /**
  * What in the agent's pasted html counts as hooked, in a few words, or null
- * (the defenses brief's A5, on the user's call of 2026-11-21): code, a
- * frame, a form, a field, an editable area, a base, a meta refresh or a
+ * (on the user's call of 2026-11-21): code, a frame, a form, a field, an
+ * editable area, a base, a meta refresh or a
  * style sheet, by zen-observe's hookedMarkup, which its world runs on what
  * the agent's code inserts, so the two count the same things. It reads the
  * markup as the agent sent it, not as the sanitizer lets it through: a paste
@@ -1287,9 +1288,9 @@ export function interceptShortcuts(win, isMac) {
   const requests = [];
   // Tab and F6 move focus by default, and Gecko hands focus that leaves the
   // page's top document to the browser window, where it lands on the user's
-  // tab, the Agents strip or the address bar (zen-snapshot's audit,
-  // docs/research/process-input-state.md). This listener is the last of the
-  // system group, after the page and any editor that takes Tab for itself.
+  // tab, the Agents strip or the address bar. This listener is the last of
+  // the system group, after the page and any editor that takes Tab for
+  // itself.
   // An agent's Tab then moves within the page (tabInPage), and F6 and
   // Ctrl+Tab, which move between documents and the browser's toolbars, do
   // nothing.

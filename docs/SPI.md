@@ -3416,8 +3416,7 @@ writes nothing.
     `ZEN_INTERNAL`. The chooser stays open.
   - Removal touches only folders directly in the root, and only while the
     root is a folder of zenius's own, not a link. That covers a closed tab,
-    quit, a failed check and the start-up sweep. (zen-observe's review of
-    7a9df6a.)
+    quit, a failed check and the start-up sweep.
   - **Known limits.** Each needs write access to the profile, which is
     outside the threat model.
     - `setPermissions` and `setModificationTime` run by path after the
@@ -3441,15 +3440,14 @@ writes nothing.
       folder swapped for a link in between has the link's target emptied.
     - Removing only their plain files has the same flaw: each file is
       reached through a folder that can be swapped.
-    - zen-snapshot found this contact in the rename version (7a9df6a).
+    - The version that first renamed them into the profile had this race.
 - **Tests.** `tests/input/uploads.test.mjs` plays each race through
   `uploadTestHooks` (`making`, `made`), at the moments a racing agent would
   act.
 
 ### Folder uploads
 
-A payload's `relativePath` makes a folder upload (input-gaps 24,
-`docs/research/folder-uploads.md`).
+A payload's `relativePath` makes a folder upload.
 
 - **Checks.** `folderPlan` refuses a bad path before anything is decoded or
   written (PROTOCOL lists the refusals), so every path stays inside the
@@ -3486,8 +3484,8 @@ A payload's `relativePath` makes a folder upload (input-gaps 24,
     `file-input-picker-opening` right after the picker's `init`, for
     WebDriver BiDi. zenius's content picker hands the input over with the
     answer.
-  - So the call returns once the input holds the whole folder
-    (zen-observe's review). The 10 s cap is only a backstop.
+  - So the call returns once the input holds the whole folder. The 10 s
+    cap is only a backstop.
 - **Firefox's folder question.** Gecko asks before any folder pick reaches
   a page (`nsIPromptCollection.confirmFolderUpload`, Bug 1338637). In an
   agent tab, zen-observe's handler answers Cancel. With the manager's go
@@ -3523,10 +3521,9 @@ A payload's `relativePath` makes a folder upload (input-gaps 24,
 
 ### The typing guard and the paste, on evidence
 
-The user's call of 2026-11-21 (`docs/briefs/defenses-evidence.md`, A1 and
-A5): the guard acts only on evidence against a page, zen-observe's evidence
-flag, and of its reasons only on hooked (the manager's call, the same day).
-Written doesn't count.
+The user's call of 2026-11-21: the guard acts only on evidence against a
+page, zen-observe's evidence flag, and of its reasons only on hooked (the
+manager's call, the same day). Written doesn't count.
 
 - **The guard.** `content/typing.sys.mjs` holds the user's first press or
   key in a page that has hooked evidence, in its top document or a frame
@@ -3544,7 +3541,7 @@ Written doesn't count.
   - a held tab;
   - a hooked document in `EVIDENCE_DOCS_KEY`. Such a page keeps its process
     armed after its task, too.
-- **The paste (A5).** Content's paste op runs zen-observe's `hookedMarkup`
+- **The paste.** Content's paste op runs zen-observe's `hookedMarkup`
   over the agent's html (`hookedPaste` in `content/input.sys.mjs`). It reads
   the markup as the agent sent it, not as the sanitizer lets it through,
   parsed whole by the page's DOMParser through its Xray. When it finds
@@ -3565,8 +3562,7 @@ Written doesn't count.
 ### Each task's steps
 
 Every zenius task shows in the sidebar, whoever drives it (the user's ask,
-2026-11-21; `docs/briefs/external-tasks.md`). Its view lists the agent's
-steps from `input/steps.sys.mjs`.
+2026-11-21). Its view lists the agent's steps from `input/steps.sys.mjs`.
 
 - **Recording.** zen-core's dispatcher calls `beginCall` as a client's call
   begins and `endCall` as it ends. A handler's own calls (`ctx.call`)

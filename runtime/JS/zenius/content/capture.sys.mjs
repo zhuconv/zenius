@@ -1,6 +1,5 @@
 // Mouse input state that Gecko shares between the tabs of a content process
-// (zen-input; zen-snapshot's audit, docs/research/process-input-state.md,
-// items 2, 3 and 4).
+// (zen-input).
 //
 // - Mouse capture is per process, and the parent keeps one pointer capture
 //   per pointer, across processes. While zenius held a press in a hidden
@@ -9,14 +8,13 @@
 //   pointer, the instant of a click). While the user, or another task, held
 //   a press, zenius's events went to that tab instead of the agent's.
 // - IMEStateManager is per process: any mouse button event zenius sends in
-//   the process commits the composition the user has open in another tab
-//   (docs/research/ime-commit.md).
-// - The mouse's last point is per process (item 5): a move's movementX/Y
+//   the process commits the composition the user has open in another tab.
+// - The mouse's last point is per process: a move's movementX/Y
 //   counts from the process's last move (EventStateManager's
 //   sLastRefPoint), whatever tab it was in. The agent's first move in a tab
 //   counted from the user's pointer in another, which its page could read,
 //   and the user's next move counted from the agent's.
-// - So is the pointer's (item 5b): after a reflow, Gecko re-hit-tests a page
+// - So is the pointer's: after a reflow, Gecko re-hit-tests a page
 //   the pointer is in, and puts its pointerover/out and :hover at the
 //   process's last pointer point (dom.event.pointer.boundary.
 //   dispatch_when_layout_change). After an agent's move, a reflow in the
@@ -88,7 +86,7 @@ let userPress = null;
 // A press whose release went where this process can't see it stops
 // counting once the user's mouse has been quiet here this long. Until then
 // no zenius mouse event goes out, since even dropped in the user's tab a
-// move would step their drag (zen-snapshot saw 5 s let one out).
+// move would step their drag (a 5 s limit still let one out).
 const USER_PRESS_STALE_MS = 30000;
 /** Process-top windows whose press the guard ended inside the user's current event. */
 const ending = new Set();
@@ -344,7 +342,7 @@ export function pressElsewhere(win) {
  * agent's press held that capture, or for the moment of an agent's click on
  * text, the user's next press or release in another tab of the process went
  * to the agent's page, where the guard dropped it: the user's click was
- * lost, or their page kept a press with no release (input-gaps.md F8). So
+ * lost, or their page kept a press with no release. So
  * zenius drops that capture as soon as its press is handled. Its selection
  * drag goes on without it (nsIFrame::HandleDrag needs none), as zenius moves
  * within its page. A press on a scrollbar, a range input or a list box keeps
@@ -393,7 +391,7 @@ function dragNeedsCapture(node) {
  * the frame that started it, whichever tab the event was for. So a user's
  * wheel (a trackpad's momentum tail too) that came during an agent's motion
  * went to the agent's page, and an agent's wheel during the user's scroll
- * went to theirs (input-gaps.md F7). zenius ends its own transaction after
+ * went to theirs. zenius ends its own transaction after
  * each wheel event it sends (content/actions.sys.mjs), and waits while the
  * user scrolls.
  */

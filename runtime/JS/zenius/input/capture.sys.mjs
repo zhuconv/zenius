@@ -1,8 +1,8 @@
 // Registers the ZeniusInput actor, whose capture listeners keep mouse and
 // pointer input in the tab it was for (content/capture.sys.mjs), and arms it
 // only in the content processes where a task page lives, frames included
-// (I4: zen-core's report "What zenius has in a user's tab"). A process
-// without one has no listener of it in any tab, and a process loses them
+// (I4). A process without one has no listener of it in any tab, and a
+// process loses them
 // when its last task page goes. The guard is about input state that Gecko
 // shares between a process's tabs, so where no task page lives there is
 // nothing to guard. A page the agent's code left something hooked in
@@ -50,8 +50,7 @@ export function installCaptureGuards() {
     // No events: the child adds its listeners when armed, and only then.
     child: { esModuleURI: "chrome://userscripts/content/zenius/content/capture.sys.mjs" },
     allFrames: true,
-    // Gecko 160 refuses actors in web content processes without this
-    // (docs/research/gecko-160.md).
+    // Gecko 160 refuses actors in web content processes without this.
     safeForUntrustedWebProcess: true,
     messageManagerGroups: ["browsers"],
     remoteTypes: ["web", "webIsolated", "webCOOP+COEP"],

@@ -1,5 +1,5 @@
-// The typing guard's parent half (zen-input; the manager's owners note,
-// 2026-11-20; on evidence only since the user's call of 2026-11-21).
+// The typing guard's parent half (zen-input; 2026-11-20, on evidence only
+// since the user's call of 2026-11-21).
 // content/typing.sys.mjs stops the user's first press or key anywhere in a
 // page the agent's code left something hooked in (zen-observe's evidence),
 // and tells this module, which:

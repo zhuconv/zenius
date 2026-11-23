@@ -813,7 +813,7 @@ goes away or the element is garbage-collected.
   for a real pick. A one-file chooser keeps the first of several files, as
   Chromium's does. After a refusal the chooser stays open for another
   `filechooser.setFiles`.
-- **Folder uploads** (input-gaps 24). Each file may also carry
+- **Folder uploads.** Each file may also carry
   `relativePath`, the path the page reads as `File.webkitRelativePath`: the
   folder's own name, its subfolders, then the file's name, joined by `/`
   (`photos/2024/a.jpg`).
@@ -905,8 +905,7 @@ goes away or the element is garbage-collected.
     hears nothing. So a reflow re-hovers neither the user's page at the
     agent's point nor the agent's page at the user's, and the user's next
     move counts from 0. While the agent holds a button the pointer stays,
-    and the user's first move after the agent's isn't heard by their page
-    (`docs/research/input-gaps.md`, F 5b).
+    and the user's first move after the agent's isn't heard by their page.
   - None of this listens in a process where no task page lives: no
     listener there at all.
 - **The page's microtasks come between keys.** A real key ends its task,

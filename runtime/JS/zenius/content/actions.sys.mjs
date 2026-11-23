@@ -366,7 +366,7 @@ function guardMouseDefaults(win, drag, call) {
 }
 
 /**
- * D3: a middle click on a link opens it as a new page of the task, as on
+ * A middle click on a link opens it as a new page of the task, as on
  * Ego, where Chromium opens it in a background tab that joins the task
  * (receipt.popups). Firefox's own handling stays cancelled; this takes what
  * its ClickHandlerChild would send, and the parent opens the link as its
@@ -683,7 +683,7 @@ const wheelTransactionMs = C.wheelTransactionMs;
  * One wheel event, its transaction ended at once. The transaction is the
  * process's, so one left alive between our events took the user's wheel
  * (a trackpad's momentum tail) from their tab into this page, and the
- * user's took ours into theirs (C.untilWheelFree; input-gaps.md F7). So
+ * user's took ours into theirs (C.untilWheelFree). So
  * this waits while the user scrolls, ends what their scroll left, and ends
  * its own before anything else can run. `origin` keeps a motion on what its
  * first event scrolled (wheelEvents). A lost event (see above) is waited
@@ -733,7 +733,7 @@ async function wheelStep(win, x, y, dx, dy, mods, deadline, origin) {
  * frame this motion scrolled: that tab's page misses it and waits the
  * transaction out (wheelStep), and this tab's page gets it. With tasks on
  * one site, which share a few processes, a click that scrolled its target
- * into view took 1.7 s about one time in three (docs/research/load-clicks.md).
+ * into view took 1.7 s about one time in three.
  *
  * A real pointer move outside the transaction's frame ends it. So after a
  * motion, send one beyond the tab's top-left corner and one back to where
@@ -861,7 +861,7 @@ async function wheelEvents(win, { x, y, deltaX, deltaY }, deadline, mods, chaine
  * Gecko's refresh driver waits ("waiting for paint"): the page's own frames
  * don't run either, so nothing frame-driven can move. A click paints, so
  * back-to-back clicks each waited out the old 100 ms cap (110 ms a click
- * against 35 ms; docs/research/click-speed.md). So each frame here is a
+ * against 35 ms). So each frame here is a
  * rAF or SETTLE_FRAME_MAX_MS, whichever comes first, and a first frame that
  * didn't come ends the wait.
  *
@@ -1080,9 +1080,9 @@ function resolveTarget(actor, { target, ref, only, level, action }) {
   const win = actor.contentWindow;
   if (ref) {
     // A node the page took out stays its ref's until it's gone: the call
-    // retries while it's out and acts once it's back, as Ego's does
-    // (input-gaps.md 11). One the page moved into another document is
-    // stale already: the walker's resolve keeps only its own document's.
+    // retries while it's out and acts once it's back, as Ego's does. One
+    // the page moved into another document is stale already: the walker's
+    // resolve keeps only its own document's.
     const el = lazy.resolveRef(actor, ref, { detached: true });
     if (!el.isConnected) {
       throw transient(`${action ?? "page action"} failed: element is not connected`);
@@ -1132,9 +1132,8 @@ export async function count(actor, { target, level }) {
 
 /**
  * Bring the frame owner of child `childBcId` into view; returns its viewport
- * origin. With `measure`, for an action that needn't see the frame
- * (input-gaps.md 17), nothing is checked or scrolled, and a frame that is
- * gone has no origin.
+ * origin. With `measure`, for an action that needn't see the frame,
+ * nothing is checked or scrolled, and a frame that is gone has no origin.
  */
 export async function frameOwnerIntoView(actor, { childBcId, action, deadline, measure }) {
   const owner = BrowsingContext.get(childBcId)?.embedderElement;
@@ -1378,8 +1377,7 @@ const ACTIONS = {
       return setInputFolder(input, args.folder);
     }
     const files = args.files ?? [];
-    // A one-file input keeps the first, as Chromium does (Ego's live run,
-    // input-gaps.md 12).
+    // A one-file input keeps the first, as Chromium does (Ego's live run).
     input.mozSetFileArray(input.multiple ? files : files.slice(0, 1));
     I.dispatchTrusted(input, new win.Event("input", { bubbles: true, composed: true }));
     I.dispatchTrusted(input, new win.Event("change", { bubbles: true }));
@@ -1428,8 +1426,8 @@ async function setInputFolder(input, folder) {
 /**
  * dragAndDrop: both ends resolved here, then four events 25 ms apart.
  *
- * On screen the parent calls it in three phases, for the cursor (input-gaps
- * C 26): "prepare" resolves and stages both ends and dispatches nothing,
+ * On screen the parent calls it in three phases, for the cursor:
+ * "prepare" resolves and stages both ends and dispatches nothing,
  * "press" moves to the source and presses there once the cursor has flown
  * to it, and "release" moves to the target and releases there once the
  * cursor has flown on. The page hears the same four events.
@@ -1530,8 +1528,8 @@ async function dragIn(actor, args, call) {
   return { from: topPoint(src.el, a), point: topPoint(dst.el, b), wheel: !!counters.wheel };
 }
 
-// A drag between frames runs as Ego's does, in page coordinates
-// (input-gaps.md 10): the press's frame gets the move to the source, the
+// A drag between frames runs as Ego's does, in page coordinates: the
+// press's frame gets the move to the source, the
 // press and the move toward the target, and the frame under the drop point
 // gets the release. Chromium keeps a pressed mouse's moves in the frame
 // where the press began; Gecko would hand that move to the frame under it
@@ -1631,7 +1629,7 @@ export function dragDone(actor, args) {
 
 /**
  * Watches for a click that would open a file chooser, and for a chooser the
- * page asks for itself during the action (showPicker(), input-gaps 15), so
+ * page asks for itself during the action (showPicker()), so
  * the parent knows how long to wait for one after the action. Ego's probe
  * wraps the input's click() and showPicker() for the same.
  */
@@ -1877,7 +1875,7 @@ const ACCEPTED = new Set(["exact", "equivalent", "transformed"]);
 
 async function verifyFill(el, before, value, clearFirst) {
   // Ego reads back in a later command: after the page's microtasks, which
-  // may undo the text (input-gaps.md B5).
+  // may undo the text.
   await I.settleMicrotasks();
   let prior;
   let consecutive = 0;
@@ -2316,8 +2314,8 @@ async function runKeySteps(win, { steps, isMac, clipboard, pasteContent, guardCh
             // glue).
             lazy.noteWrittenWindow(into);
             // Evidence against the page only when the markup carries what
-            // zen-observe counts as hooked (the defenses brief's A5): here
-            // at once, before the paste, and in the parent. Inert markup,
+            // zen-observe counts as hooked: here at once, before the paste,
+            // and in the parent. Inert markup,
             // formatted text into a mail or a document, is none.
             const hooked = I.hookedPaste(into, content["text/html"]);
             if (hooked) {
@@ -2487,7 +2485,7 @@ export function awaitFileInput(actor, { expectFiles, folder = null, input = null
     }
     // An input the page never attached: its events never reach the window,
     // but zenius's picker in this process sees the input's callback return,
-    // with its files set and its handlers run (input-gaps.md 14). A folder's
+    // with its files set and its handlers run. A folder's
     // events come later, from Gecko's walk, at the input the picker names.
     offAnswered = onChooserAnswered(actor.browsingContext, (result, info) => {
       if (!folder || !info?.folder || result !== Ci.nsIFilePicker.returnOK) {

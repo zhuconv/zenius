@@ -1,5 +1,5 @@
-// Each task's recent steps (zen-input; docs/briefs/external-tasks.md, the
-// user's ask of 2026-11-21). Every zenius task shows in the sidebar, whoever
+// Each task's recent steps (zen-input; the user's ask of 2026-11-21).
+// Every zenius task shows in the sidebar, whoever
 // drives it (a Claude or Codex session in a terminal, a script, the sidebar's
 // own agents), and its view lists what the agent did there. zen-core's
 // dispatcher tells this module of each call a client makes, as it begins and

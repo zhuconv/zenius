@@ -1,5 +1,4 @@
-// File choosers in a content process where a task page lives (zen-input;
-// docs/research/input-gaps.md, 14).
+// File choosers in a content process where a task page lives (zen-input).
 //
 // A page's <input type=file> asks its own process for an nsIFilePicker:
 // Gecko's proxy for the parent's picker (input/filechooser.sys.mjs). While

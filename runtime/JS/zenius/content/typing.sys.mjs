@@ -3,14 +3,13 @@
 // (zen-input). Only those tabs' roots get these listeners: the user's own
 // tabs never do (I4).
 //
-// - Take over (the user's decision (A), 2026-11-20): the user's first key
+// - Take over (the user's decision, 2026-11-20): the user's first key
 //   or press in a live task's tab discards the agent's worlds there
 //   (zen-observe's discard, content/agentworld.sys.mjs), synchronously,
 //   before any listener of the page sees it.
-// - The typing guard (the manager's owners note and its change, 2026-11-20),
-//   on evidence only (the user's call, 2026-11-21; docs/briefs/
-//   defenses-evidence.md, A1). In a page the agent's code left something
-//   hooked in (zen-observe's evidence, reason hooked), the user's first press
+// - The typing guard (2026-11-20), on evidence only (the user's call,
+//   2026-11-21). In a page the agent's code left something hooked in
+//   (zen-observe's evidence, reason hooked), the user's first press
 //   or key anywhere in the tab is stopped before any listener of the page,
 //   and so is every press and key of theirs after it, until the tab's top
 //   document is replaced: nothing the agent's code left runs on their input.

@@ -132,7 +132,7 @@ test("digits typed into a date or time input after a click set it, hidden or wat
     }
   }));
 
-// Ego prints a date's fields as spinbutton refs (zen-snapshot's dfe0775).
+// Ego prints a date's fields as spinbutton refs, as zenius's snapshot does.
 test("a date typed field by field at its spinbutton refs commits in any order, hidden or watched", () =>
   h.bothViews(task, ONE_DATE, async (page, how) => {
     const text = await page.snapshot({ includeRefs: true, scope: "full_page" });

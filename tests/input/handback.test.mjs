@@ -63,7 +63,7 @@ const takeBack = async page => {
   await ageUserInput(page);
   return h.call("spaces.takeOver", space(page));
 };
-/** A claim asks the user (zen-core's item 6): answer Allow, as the user would. */
+/** A claim asks the user: answer Allow, as the user would. */
 const claimAllowed = params => Promise.all([h.call("spaces.claim", params), h.call("dev.answerClaim", { space: params.space })]);
 const browserIdOf = page => chrome(`${SERVICE} return ZeniusService.resolvePage(arg).browser.browserId;`, { space: page.spaceId, page: page.label });
 const handBackStats = () =>
@@ -377,7 +377,7 @@ const pauseByUser = page => chrome(`${SERVICE} ${UI} UI.pauseByUser(ZeniusServic
  * Wait until the window sends the user's keys to `selector` in the page's
  * top document, or in its frame whose URL has `frameUrl`: there, and
  * focused. Under load the window learned of a focus move late, and keys
- * sent sooner went to the frame that had the focus (test-all, 4f1a2a7).
+ * sent sooner went to the frame that had the focus (test-all).
  */
 async function keysGoTo(page, selector, frameUrl = null, ms = 30_000) {
   const focused = `return document.activeElement === document.querySelector(${JSON.stringify(selector)})`;
@@ -523,7 +523,7 @@ test("onSecretTyped: the agent's own fill, typing, text, paste and selection nev
   }));
 
 // ---------------------------------------------------------------------------
-// Addresses and cards (the manager's decision (c)): while the user holds an
+// Addresses and cards (the manager's decision): while the user holds an
 // agent tab, their own click gets their saved addresses and cards. On the
 // way back, the card details filled meanwhile are emptied like passwords;
 // addresses stay, for the agent to go on with.
@@ -834,7 +834,7 @@ test("while the user holds an agent tab, their click in a card field gets their 
 });
 
 // ---------------------------------------------------------------------------
-// Tabs the agent takes over (the manager's decision (b)): a claimed Space's
+// Tabs the agent takes over (the manager's decision): a claimed Space's
 // pages and an adopted tab have every password and card detail the agent
 // didn't set emptied before its first call.
 

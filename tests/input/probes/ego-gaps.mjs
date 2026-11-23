@@ -1,7 +1,7 @@
-// For docs/research/input-gaps.md (zen-input). The input cases where
-// Chromium's own behavior decides what Ego does ("Ego run" there). Also the
-// dialog, focus, idle and drag cases whose Ego side was read from its code,
-// checked before zenius changes them. Run it on either target:
+// The input cases where Chromium's own behavior decides what Ego does, run
+// on Ego and on zenius to compare them (zen-input). Also the dialog, focus,
+// idle and drag cases whose Ego side was read from its code, checked before
+// zenius changes them. Run it on either target:
 //   ego-browser nodejs < tests/input/probes/ego-gaps.mjs
 //   sdk/bin/zenius nodejs --instance <name> < tests/input/probes/ego-gaps.mjs
 // What it touches:
@@ -17,9 +17,9 @@
 // page.evaluate runs in an isolated world on zenius, which can't see the
 // page's globals (Ego's runs in the page's own), so each page hands its logs
 // over through the DOM (BRIDGE), the same way on both.
-// `gap` is the item's label in input-gaps.md: a number for a gap, D1-D7 for
-// a deliberate difference (run here so its PARITY note states what Ego
-// does), and E for the open question in its section E.
+// `gap` labels each case: a number for a gap between the two, D1-D7 for a
+// difference zenius keeps on purpose (run here so docs/PARITY.md can state
+// what Ego does), and E for actions while a dialog is open.
 const http = await import("node:http");
 const fs = await import("node:fs");
 const os = await import("node:os");
@@ -361,7 +361,7 @@ try {
     return { whileDetached, afterPutBack, putBackDuringRetry, clicks: ((await pageVar("clicks")) ?? 0) };
   });
 
-  // ---- Files (gaps 12-17, F7)
+  // ---- Files (gaps 12-17)
   const names = () => read(() => Array.from(document.querySelector("#one").files, f => f.name));
   await run("setInputFiles with two files on a one-file input", "12", async () => {
     await go("/files");

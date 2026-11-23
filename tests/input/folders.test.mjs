@@ -1,5 +1,5 @@
-// Folder uploads (input-gaps 24, docs/research/folder-uploads.md). A payload
-// may carry the relativePath the page reads as webkitRelativePath. The
+// Folder uploads. A payload may carry the relativePath the page reads as
+// webkitRelativePath. The
 // runtime writes the folder under the profile, as it writes a chooser's files
 // (tests/input/uploads.test.mjs), and refuses any path that could leave it
 // (SPEC I5). A content process reads a folder only once Gecko's picker parent

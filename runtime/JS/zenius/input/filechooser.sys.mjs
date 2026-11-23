@@ -353,7 +353,7 @@ export function waitForChooser(browser, timeoutMs, conn = null) {
     }, timeoutMs);
     waiters.set(browser, entry);
     // A page that closes ends the wait at once, as Ego's chooser session is
-    // detached then (input-gaps.md 16).
+    // detached then.
     offClosed = onPageClosed(browser, () => {
       if (waiters.get(browser) === entry) {
         end();
@@ -772,9 +772,8 @@ const NOT_IN_A_PATH = /[\u0000-\u001f\u007f\\]/;
 /**
  * A folder upload's plan, or null when no payload carries a relativePath
  * (plain files). Every check runs before anything is decoded or written,
- * and each refuses the whole call (docs/research/folder-uploads.md, checks
- * 1 to 9): every path the runtime writes stays inside the folder it names
- * (SPEC I5).
+ * and each refuses the whole call: every path the runtime writes stays
+ * inside the folder it names (SPEC I5).
  *
  * @param {unknown} files  the client's payloads
  * @param {string} operation  the SDK method, for messages

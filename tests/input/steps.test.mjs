@@ -1,5 +1,5 @@
-// Each task's recent steps (input/steps.sys.mjs; docs/briefs/external-tasks.md,
-// the user's ask of 2026-11-21): every zenius task shows in the sidebar,
+// Each task's recent steps (input/steps.sys.mjs; the user's ask of
+// 2026-11-21): every zenius task shows in the sidebar,
 // whoever drives it, and its view lists what the agent did. zen-core's
 // dispatcher tells the ring of each call a client made; zen-ux reads it
 // beside zen-core's task feed (stepsOf, onStep). A step is a line the user

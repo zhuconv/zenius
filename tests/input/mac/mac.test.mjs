@@ -1,5 +1,5 @@
-// zen-input's Mac checks (docs/input/mac-checklist.md): the platform's
-// editing shortcuts, the macOS pasteboard never touched, no native file
+// zen-input's Mac checks: the platform's editing shortcuts, the macOS
+// pasteboard never touched, no native file
 // picker for agent tabs, and pointer input at the right CSS pixel in a
 // visible tab on a Retina display. zen-eval runs them on the Mac in a
 // visible dev Zen:

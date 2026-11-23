@@ -108,8 +108,8 @@ test("paste into a contenteditable lands after the tab navigated", async () => {
 
 test("an agent's paste with html counts as the agent's code in the page, as page.evaluate does (closed groups)", async () => {
   // A page's paste handler may insert the html with innerHTML, where it
-  // runs as script (the manager's decision, docs/research/user-tab-reach.md).
-  // No page.evaluate or data: page before the checks: either marks it too.
+  // runs as script (the manager's decision). No page.evaluate or data: page
+  // before the checks: either marks it too.
   const marked = page =>
     h.call("dev.evalChrome", {
       arg: { space: page.spaceId, page: page.label },
@@ -283,7 +283,7 @@ test("page.keyboard.paste's html reaches the page sanitized: neither a site's pa
     }
     assert.equal(await agentCodeMarked(page), true, "the page holds the agent's code");
     assert.equal(await writtenFlag(page), true, "and is written");
-    // The markup carried code, which never ran: evidence all the same (A5).
+    // The markup carried code, which never ran: evidence all the same.
     assert.deepEqual(await evidenceInPage(page), ONERROR);
     await h.until(async () => (await evidenceOf(page)).hooked !== undefined, "the parent to hold the paste's evidence");
     assert.deepEqual(await evidenceOf(page), ONERROR);
@@ -305,10 +305,10 @@ test("Ctrl/Cmd+V of the Space clipboard's html is sanitized too, and the page it
     assert.doesNotMatch(s.handled, /onerror/, "without its onerror");
     assert.equal(await agentCodeMarked(page), true, "the page holds the agent's code");
     assert.equal(await writtenFlag(page), true, "and is written");
-    assert.deepEqual(await evidenceInPage(page), ONERROR, "the Space clipboard's markup is checked as page.keyboard's is (A5)");
+    assert.deepEqual(await evidenceInPage(page), ONERROR, "the Space clipboard's markup is checked as page.keyboard's is");
   }));
 
-// The agent's pasted markup, and the evidence it leaves (A5): only what
+// The agent's pasted markup, and the evidence it leaves: only what
 // zen-observe's hookedMarkup counts, read from the markup as the agent sent
 // it, the whole document, head included.
 const PASTE_CASES = [
@@ -328,7 +328,7 @@ const PASTE_CASES = [
   ["<style>p { color: red }</style><p>x</p>", { hooked: "a paste with a style sheet" }],
 ];
 
-test("an agent's paste with html is evidence against the page only when its markup carries code, a frame, a form, a field, an editable area, a meta refresh or a style sheet (A5)", () =>
+test("an agent's paste with html is evidence against the page only when its markup carries code, a frame, a form, a field, an editable area, a meta refresh or a style sheet", () =>
   withPasteSite(async url => {
     const page = track(await h.newPageAt(task, url));
     const got = [];
@@ -503,7 +503,7 @@ test("keys reach a contenteditable that the page focused itself, by script or a 
   assert.deepEqual(await state(), ["e", "aZbc"], "typed at the page's caret");
 });
 
-test("a move to the document's end stops at the end of the editing host, as with real focus (B25)", async () => {
+test("a move to the document's end stops at the end of the editing host, as with real focus", async () => {
   // Real focus limits an editor's selection to its editing host, which a
   // hidden tab's focus skips: Ctrl+Shift+End ran into the next editor on
   // the page, and after Ctrl+End the typed text was lost with focus on the
@@ -579,7 +579,7 @@ test("a move to the document's end stops at the end of the editing host, as with
   assert.deepEqual([chip.active, chip.a, chip.b], ["a", "Hi @bobZ", "second editor"], "typed after the chip");
 });
 
-test("the page's microtasks run between keys, and fill reads the field back after them (B5)", async () => {
+test("the page's microtasks run between keys, and fill reads the field back after them", async () => {
   // All of a call's keys ran in one turn, so the page's microtasks ran only
   // after the last, and fill read the field back before a microtask undid
   // the text. A real key ends its task, and Ego's keys and its read-back
@@ -736,10 +736,10 @@ test("file choosers never reach a native dialog", async () => {
   await page.setInputFiles("#file-input", []);
   assert.equal(await page.evaluate(() => document.querySelector("#file-input").files.length), 0, "an empty list clears");
   await h.assertRejects(() => page.setInputFiles("#click-button", a), "requires a file input", "not a file input");
-  // showPicker() and a chooser opened after the action has returned
-  // (docs/research/input-gaps.md, 15) go to zenius's picker too, never the
-  // native one. Every nsIFilePicker comes from the contract zenius wraps,
-  // which counts what it hands out, so this holds headed and on the Mac.
+  // showPicker() and a chooser opened after the action has returned go to
+  // zenius's picker too, never the native one. Every nsIFilePicker comes
+  // from the contract zenius wraps, which counts what it hands out, so this
+  // holds headed and on the Mac.
   const stats = () =>
     h.call("dev.evalChrome", {
       code: `return ChromeUtils.importESModule("chrome://userscripts/content/zenius/input/filechooser.sys.mjs").chooserStats();`,
@@ -763,8 +763,8 @@ test("file choosers never reach a native dialog", async () => {
     document.body.append(field);
   });
   const before = await stats();
-  // An action during which the page calls showPicker() fails, as Ego's does
-  // (input-gaps 15). A chooser opened after the click has returned leaves it
+  // An action during which the page calls showPicker() fails, as Ego's
+  // does. A chooser opened after the click has returned leaves it
   // {} unless zenius's own work after the click outlasts the delay, as on
   // Ego, where the user's native picker would then open.
   for (const [what, act] of [
@@ -793,7 +793,7 @@ test("file choosers never reach a native dialog", async () => {
 
 // I3: a chooser the agent holds is answered only while the agent drives its
 // tab. The method names a chooser, not a space, so the dispatcher's control
-// gate doesn't run for it (docs/research/method-boundary.md, item 1).
+// gate doesn't run for it.
 test("a file chooser the agent holds goes back with control: no answer after a handoff or a release", async t => {
   // The site's page, with the field and its counter made by the page's own
   // code (h.asUser): a data: page would be the agent's own, and a hand-off
@@ -928,8 +928,7 @@ test("uploads carry bytes: the runtime refuses every path (SPEC I5)", async () =
     }),
     { name: "timed.txt", lastModified: 1700000000000, type: "text/plain", text: "timed" }
   );
-  // A one-file chooser keeps the first of several files, as Ego's does
-  // (input-gaps 13).
+  // A one-file chooser keeps the first of several files, as Ego's does.
   await page.evaluate(() => {
     const input = document.createElement("input");
     input.type = "file";
@@ -1108,7 +1107,7 @@ test("a page hears the agent's wheel deltas as asked, whatever the wheel speed p
   }
 });
 
-test("an agent's wheel leaves a page whose body locks its scroll where it is, as a real wheel does (input-gaps 19)", async () => {
+test("an agent's wheel leaves a page whose body locks its scroll where it is, as a real wheel does", async () => {
   // While the root's overflow is visible, CSS gives the viewport the body's:
   // body{overflow:hidden} is how a modal locks the page under it.
   const page = track(await h.newPageAt(task, `${h.baseUrl}/?locked=${Date.now()}`));
@@ -1132,7 +1131,7 @@ test("an agent's wheel leaves a page whose body locks its scroll where it is, as
   assert.equal(await page.evaluate(() => Math.round(scrollY)), 800, "the viewport scrolls once the root's overflow is its own");
 });
 
-test("setInputFiles and selectOption reach a cross-site frame's input as it is, in a frame of no size or below the fold, as Ego's do (input-gaps 17)", async t => {
+test("setInputFiles and selectOption reach a cross-site frame's input as it is, in a frame of no size or below the fold, as Ego's do", async t => {
   const page = track(await h.newPageAt(task, `${h.baseUrl}/?frame17=${Date.now()}`));
   await delayedShown(page);
   const frames = { zero: "position: absolute; left: 0; top: 0; width: 0; height: 0; border: 0;", far: "position: absolute; left: 0; top: 4000px; width: 400px; height: 300px; border: 0;" };
@@ -1210,7 +1209,7 @@ test("setInputFiles and selectOption reach a cross-site frame's input as it is, 
   }
 });
 
-test("an agent's wheel over a cross-site frame with nothing left to scroll that way scrolls the page around it, as a real wheel does (input-gaps 18)", async () => {
+test("an agent's wheel over a cross-site frame with nothing left to scroll that way scrolls the page around it, as a real wheel does", async () => {
   // The motion runs in the frame's process, where nothing more can scroll.
   // Gecko's own wheel chains on to the page through APZ, which zenius's skips.
   const page = track(await h.newPageAt(task, `${h.baseUrl}/?frame18=${Date.now()}`));
@@ -1248,7 +1247,7 @@ test("an agent's wheel over a cross-site frame with nothing left to scroll that 
   assert.equal((await where())[0], 0, "a frame whose root contains its overscroll keeps the page still");
 });
 
-test("mouse.click with a button the agent holds sends only the move, and the button stays held, as Ego's does (input-gaps 22)", async () => {
+test("mouse.click with a button the agent holds sends only the move, and the button stays held, as Ego's does", async () => {
   const page = await homePage();
   await page.evaluate(() => {
     window.__m = [];
@@ -1270,7 +1269,7 @@ test("mouse.click with a button the agent holds sends only the move, and the but
   }
 });
 
-test("a lock key never stays locked for the agent's later keys, as with Ego (input-gaps 23)", async () => {
+test("a lock key never stays locked for the agent's later keys, as with Ego", async () => {
   const page = await homePage();
   await page.evaluate(() => {
     const field = document.createElement("input");
@@ -1288,7 +1287,7 @@ test("a lock key never stays locked for the agent's later keys, as with Ego (inp
   assert.equal(await page.evaluate(() => document.querySelector("#locks").value), "abc");
 });
 
-test("two files on a one-file input keep the first, by setInputFiles and by a chooser's setFiles, as Ego's do (input-gaps 12, 13)", async () => {
+test("two files on a one-file input keep the first, by setInputFiles and by a chooser's setFiles, as Ego's do", async () => {
   const page = await homePage();
   await page.evaluate(() => {
     const input = document.createElement("input");
@@ -1311,7 +1310,7 @@ test("two files on a one-file input keep the first, by setInputFiles and by a ch
   await h.assertRejects(() => chooser.setFiles([b]), "this file chooser was already handled", "a second answer");
 });
 
-test("page.waitForFileChooser fails at once when its page closes, as Ego's does (input-gaps 16)", async () => {
+test("page.waitForFileChooser fails at once when its page closes, as Ego's does", async () => {
   const page = await h.newPageAt(task, `${h.baseUrl}/?chooserclose=${Date.now()}`);
   const start = Date.now();
   const waiting = page.waitForFileChooser({ timeout: 10_000 }).then(
@@ -1331,7 +1330,7 @@ test("page.waitForFileChooser fails at once when its page closes, as Ego's does 
   assert.equal(late.code, "ZEN_FILE_CHOOSER_TIMEOUT");
 });
 
-test("a chooser of a file input the page never attached is answered at once, as Ego's is (input-gaps 14)", async () => {
+test("a chooser of a file input the page never attached is answered at once, as Ego's is", async () => {
   const page = await homePage();
   await page.evaluate(() => {
     // A common pattern: an input made for the click, never attached, so
@@ -1362,7 +1361,7 @@ test("a chooser of a file input the page never attached is answered at once, as 
   assert.ok(took < 1500, `setFiles returned after ${took} ms, not at the end of a 2 s wait`);
 });
 
-test("a user's own tab gets Gecko's file picker as it is: zenius's picker in content wraps only an agent tab's (input-gaps 14)", async () => {
+test("a user's own tab gets Gecko's file picker as it is: zenius's picker in content wraps only an agent tab's", async () => {
   const page = await homePage();
   const chrome = (code, arg) => h.call("dev.evalChrome", { code, arg });
   const SERVICE = 'const { ZeniusService } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/service.sys.mjs");';
@@ -1451,7 +1450,7 @@ test("refs from page.snapshot reach their element; stale refs say so", async t =
   assert.equal(unknown.code, "ZEN_REF_NOT_FOUND");
 });
 
-test("a ref to an element the page removed is retried while it's out and acted on once it's back, as Ego's is (input-gaps 11)", async () => {
+test("a ref to an element the page removed is retried while it's out and acted on once it's back, as Ego's is", async () => {
   // Ego's live run (2026-11-20): rejected after the timeout with "element
   // is not connected", then resolved after the put-back and during a retry.
   const page = track(await h.newPageAt(task, `${h.baseUrl}/?reattach11=${Date.now()}`));
@@ -1519,8 +1518,7 @@ test("a dialog opened by an action comes back as receipt.dialog", async () => {
   assert.equal(receipt.dialog?.type, "alert");
   assert.equal(receipt.dialog?.message, "hi there");
   // While it's open, raw input is dropped silently, as Ego's code drops it,
-  // and actions fail at once, where Ego's wait for the answer
-  // (docs/research/input-gaps.md, E).
+  // and actions fail at once, where Ego's wait for the answer.
   assert.deepEqual(await page.mouse.move(5, 5), {});
   assert.deepEqual(await page.keyboard.insertText("x"), {});
   const blocked = await h.assertRejects(() => page.mouse.click(5, 5), "cannot run while a JavaScript alert dialog", "mouse.click with a dialog open");
@@ -1728,7 +1726,7 @@ test("I1: a dialog with input sent behind it, then dismissed, leaves the user's 
 
 /**
  * Counts calls to every browser window's focus(), which raises Zen over the
- * app the user is in (requirement 3). Firefox's openLinkIn calls it on the
+ * app the user is in (I1). Firefox's openLinkIn calls it on the
  * window it loads in, even for a tab in the background. Returns the calls'
  * callers once stopped; the spy calls the real focus meanwhile.
  */
@@ -1764,7 +1762,7 @@ async function spyOnWindowFocus() {
     });
 }
 
-test("D3: a middle click on a link opens it as a new page of the task, as on Ego, and leaves the user's view alone", async () => {
+test("a middle click on a link opens it as a new page of the task, as on Ego, and leaves the user's view alone", async () => {
   // The manager's decision (2026-11-20): Ego's result, a new page in the
   // task listed in receipt.popups, but nothing outside the task and no
   // PRIMARY paste: zenius opens the link itself, in the background.
@@ -1824,7 +1822,7 @@ test("D3: a middle click on a link opens it as a new page of the task, as on Ego
     await task.page(raw.popups[0].label).close();
     await h.sleep(300);
     assert.deepEqual(await labels(), [...pagesBefore, popup.label], "nothing else joined the task");
-    // Requirement 3: no window was raised over the app the user is in.
+    // I1: no window was raised over the app the user is in.
     assert.deepEqual(await focusCalls(), [], "a middle click raised a Zen window (its focus() was called)");
   } finally {
     await focusCalls().catch(() => {});
@@ -1836,7 +1834,7 @@ test("a wheel in one tab neither waits for nor reaches another tab of its conten
   // Gecko keeps one wheel transaction per content process, and every tab of
   // a window covers the same screen rectangle. So a wheel right after
   // another tab's went to that tab's page, and waited 1.6 s for the
-  // transaction to end (docs/research/load-clicks.md).
+  // transaction to end.
   const pidOf = p =>
     h.call("dev.evalChrome", {
       code: "return ctx.resolvePage(arg).browser.browsingContext.currentWindowGlobal.osPid",
@@ -1910,7 +1908,7 @@ test("a missing target fails fast on a quiet page, and waits on a page that keep
 test("a chooser or a wait that a script left goes with its connection, as in Ego", { timeout: 60_000 }, async () => {
   // A script that took a chooser and ended without answering left its input
   // blocked (Gecko allows one chooser per input), and one that ended with a
-  // wait armed took the next script's chooser (docs/research/input-gaps.md, 7).
+  // wait armed took the next script's chooser.
   const page = await homePage();
   const where = { space: page.spaceId, page: page.label };
   await page.evaluate(() => {
@@ -1965,8 +1963,8 @@ test("a chooser or a wait that a script left goes with its connection, as in Ego
 });
 
 test("text= leaves out the text of scripts, styles, noscripts and the title, as Playwright's text does", { timeout: 60_000 }, async () => {
-  // Ego reads textContent, so text that only a script held matched <body>
-  // (zen-sdk's report): a wait passed at once and a click hit the body.
+  // Ego reads textContent, so text that only a script held matched <body>:
+  // a wait passed at once and a click hit the body.
   const page = await homePage();
   await page.evaluate(() => {
     const add = (tag, text, parent = document.body) => parent.append(Object.assign(document.createElement(tag), { textContent: text }));
@@ -2009,8 +2007,8 @@ test("text= leaves out the text of scripts, styles, noscripts and the title, as 
 test("dragAndDrop on a page with a cross-site frame waits for its ends, and drags inside that frame, as in Ego", { timeout: 60_000 }, async () => {
   // A cross-site frame on the page made the drag fail in a few ms with
   // ZEN_UNSUPPORTED when an end wasn't ready at once, and a drag inside
-  // such a frame could never run (docs/research/input-gaps.md, 8). The home
-  // page's #fixture-frame is cross-site.
+  // such a frame could never run. The home page's #fixture-frame is
+  // cross-site.
   const page = await homePage();
   await page.evaluate(() => {
     const frame = document.querySelector("#fixture-frame");
@@ -2057,9 +2055,8 @@ test("dragAndDrop on a page with a cross-site frame waits for its ends, and drag
   assert.deepEqual(await h.frameJs(page, "/frame.html", "return window.__dragLog"), ["mousedown:fsrc:true", "mouseup:fdst:true"]);
   assert.deepEqual(await page.evaluate(() => window.__dragLog), ["mousedown:dsrc", "mouseup:ddst"], "the top document heard nothing more");
 
-  // Between the top document and the frame: Ego's drag in page coordinates
-  // (input-gaps 10). The top document hears the press, the frame's target
-  // the release.
+  // Between the top document and the frame: Ego's drag in page coordinates.
+  // The top document hears the press, the frame's target the release.
   const across = await page.dragAndDrop("#dsrc", "#fdst");
   assert.equal(across?.dialog, undefined);
   assert.deepEqual(await page.evaluate(() => window.__dragLog), ["mousedown:dsrc", "mouseup:ddst", "mousedown:dsrc"], "the top document heard the press");
@@ -2070,14 +2067,14 @@ test("dragAndDrop on a page with a cross-site frame waits for its ends, and drag
   );
 });
 
-test("the cursor's label is Ego's for a click or dblclick that names none, and on screen a drag flies the cursor to its source before the press and to its target before the release (input-gaps C 25, 26)", { timeout: 60_000 }, async () => {
+test("the cursor's label is Ego's for a click or dblclick that names none, and on screen a drag flies the cursor to its source before the press and to its target before the release", { timeout: 60_000 }, async () => {
   await h.bothViews(task, `${h.baseUrl}/?c26=${Date.now()}`, async (page, how) => {
     await page.evaluate(async src => {
       const add = (doc, tag, id, css) => doc.body.appendChild(Object.assign(doc.createElement(tag), { id, textContent: id, style: `position:fixed;${css}` }));
       add(document, "button", "btn", "left:60px;top:20px");
       add(document, "div", "src", "left:60px;top:120px;width:80px;height:80px;background:#ddd");
       add(document, "div", "dst", "left:420px;top:120px;width:80px;height:80px;background:#bbd");
-      // A same-origin frame, for the drag between documents (input-gaps 10).
+      // A same-origin frame, for the drag between documents.
       const frame = add(document, "iframe", "frame", "left:420px;top:240px;width:200px;height:120px;border:0");
       frame.src = src;
       await new Promise(resolve => frame.addEventListener("load", resolve, { once: true }));
@@ -2133,7 +2130,7 @@ test("the cursor's label is Ego's for a click or dblclick that names none, and o
   });
 });
 
-test("dragAndDrop between the top document and a same-origin frame runs in page coordinates, as Ego's does (input-gaps 10)", { timeout: 60_000 }, async () => {
+test("dragAndDrop between the top document and a same-origin frame runs in page coordinates, as Ego's does", { timeout: 60_000 }, async () => {
   // Ego's live run (2026-11-20) logged top:mousemove, top:mousedown,
   // top:mousemove, frame:mouseup:dst: Chromium keeps a pressed mouse's
   // moves in the frame of the press, and the release goes where it lands.
@@ -2218,7 +2215,7 @@ test("dragAndDrop between the top document and a same-origin frame runs in page 
   assert.deepEqual(await h.frameJs(page, "//localhost", "return window.__dragLog"), ["mouseup:xdst"], "the cross-site frame's target got the release");
 });
 
-test("Tab, Shift+Tab, F6 and Shift+F6 at the page's edge leave the window's focus alone (zen-snapshot's audit, 1), and the window's own shortcuts never act for the agent", { timeout: 120_000 }, async () => {
+test("Tab, Shift+Tab, F6 and Shift+F6 at the page's edge leave the window's focus alone, and the window's own shortcuts never act for the agent", { timeout: 120_000 }, async () => {
   // Gecko hands focus that tabs off a page's top document to the browser
   // window. The agent's Tab at its last element focused the user's tab,
   // Shift+Tab the Agents strip, and Shift+F6 the address bar, where the
@@ -2400,8 +2397,8 @@ test("a Tab past a cross-site frame's last field goes on in the page around it, 
   assert.equal(await topFocus(), "body");
 });
 
-// ---- Input state Gecko shares between a process's tabs (zen-snapshot's
-// audit, 2, 3 and 4): mouse capture, pointer capture, IME composition
+// ---- Input state Gecko shares between a process's tabs: mouse capture,
+// pointer capture, IME composition
 
 const CAPTURE_SERVICE = 'const { ZeniusService } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/service.sys.mjs");';
 const LAB_PAGE = who => `
@@ -2421,8 +2418,8 @@ const LAB_PAGE = who => `
 
 /**
  * Open each new tab of a site in one content process while `fn` runs, as
- * zen-snapshot's probes do: with one process allowed, Gecko's MinTabSelector
- * always picks the site's first.
+ * tests/snapshot/tools/process-input-probe.mjs does: with one process
+ * allowed, Gecko's MinTabSelector always picks the site's first.
  */
 async function inOneProcess(fn) {
   const was = await h.call("dev.evalChrome", {
@@ -2516,7 +2513,7 @@ const LOG_WHEELS = `document.body.style.minHeight = "6000px";
   addEventListener("wheel", e => window.__wheels.push(Math.round(e.deltaY)), true);
   return true;`;
 
-/** The user's IME, on the chrome window, as zen-core's probe drives it: "start", "commit", "cancel" or "state". */
+/** The user's IME, on the chrome window: "start", "commit", "cancel" or "state". */
 function userIme(op) {
   return h.call("dev.evalChrome", {
     arg: op,
@@ -2592,7 +2589,7 @@ async function until(what, fn, ms = 5000) {
 }
 
 test("the input guard listens only in processes where a task page lives, and leaves with the last one (I4)", { timeout: 60_000 }, async () => {
-  // zen-core's I4 report: ZeniusInput's capture listeners were on every
+  // In an earlier version, ZeniusInput's capture listeners were on every
   // tab's chrome event handler from the start, and with no agent connected
   // they handled every mouse, pointer and wheel event of the user's tabs.
   // Only the guard adds these two in the capture phase.
@@ -2659,7 +2656,7 @@ test("a press the agent holds keeps the user's mouse in the user's tab: a select
   assert.deepEqual(await h.call("dev.viewState"), before, "the user's view is back as it was");
 });
 
-test("a press the agent holds on its text leaves the user's press and release in their tab (F8)", { timeout: 90_000 }, async () => {
+test("a press the agent holds on its text leaves the user's press and release in their tab", { timeout: 90_000 }, async () => {
   // zen-snapshot's replay: Gecko's press on text captures the mouse for
   // the whole process, so the user's press, their first event there, went
   // to the agent's page, where the guard dropped it. Their page got the
@@ -2765,7 +2762,7 @@ test("one task's held press doesn't take another task's click in its process", {
 
 test("an agent's press waits while the user composes text in a tab of its process, and never commits their word", { timeout: 90_000 }, async () => {
   // One IMEStateManager per process: any mouse button event zenius sent
-  // there committed the user's composition (docs/research/ime-commit.md).
+  // there committed the user's composition.
   const before = await h.call("dev.viewState");
   try {
     const { page, same } = await labPair(`${h.baseUrl}/?user=${Date.now()}`);
@@ -2829,7 +2826,7 @@ test("a press the agent holds isn't let go while the user composes, and goes onc
     // None of the user's events reach the agent's page while the release
     // waits. Gecko's own handling of the first one still steps the press's
     // selection drag (selectstart): ending the drag first, as when nobody
-    // composes, would commit the word (a known limit, input-gaps.md F).
+    // composes, would commit the word (a known limit).
     const during = await page.evaluate(() => window.__log.splice(0));
     assert.deepEqual(during.filter(e => !e.startsWith("selectstart@")), [], "while the release waits, none of the user's input reaches the agent's page");
     const up = await outcome(page.mouse.up());
@@ -2850,7 +2847,7 @@ test("a press the agent holds isn't let go while the user composes, and goes onc
 
 test("movementX counts from each pointer's own last point, not from the other's in another tab of the process", { timeout: 60_000 }, async () => {
   // Gecko counts a move's movementX/Y from the process's last move,
-  // whatever tab it was in (zen-snapshot's audit, 5): the agent's first move
+  // whatever tab it was in: the agent's first move
   // read the user's pointer in another tab, and the user's next move jumped
   // by the distance to the agent's.
   const LOG_MOVES = `window.__moves = [];
@@ -2910,7 +2907,7 @@ test("movementX counts from each pointer's own last point, not from the other's 
   }
 });
 
-test("the user's wheel during an agent's wheel motion stays in the user's page, and the agent's in the agent's (F7)", { timeout: 60_000 }, async t => {
+test("the user's wheel during an agent's wheel motion stays in the user's page, and the agent's in the agent's", { timeout: 60_000 }, async t => {
   // Gecko keeps one wheel transaction per content process. On the Mac (the
   // user's hands-on stretch), the tail of the user's momentum scroll went to
   // the agent's hidden page during an agent's motion: the user's page
@@ -2952,7 +2949,7 @@ test("the user's wheel during an agent's wheel motion stays in the user's page, 
 const delayedShown = page =>
   h.until(() => page.evaluate(() => getComputedStyle(document.querySelector("#delayed")).display === "block"), "the page's own delayed line");
 
-test("an agent's wheel motion keeps scrolling what its first event scrolled, as one gesture does (F7)", async () => {
+test("an agent's wheel motion keeps scrolling what its first event scrolled, as one gesture does", async () => {
   // Gecko sends a gesture's events to its first one's target, so a page
   // keeps scrolling when a scroll box comes under the pointer. zenius ends
   // its gesture after each event, so the user's wheel can't join it.
@@ -3008,11 +3005,11 @@ test("a click doesn't wait out frames its hidden tab can't get (back-to-back cli
   }
 });
 
-test("an agent's wheel motion that scrolls a same-site frame under the pointer keeps scrolling the page, and never stalls (F7)", async () => {
+test("an agent's wheel motion that scrolls a same-site frame under the pointer keeps scrolling the page, and never stalls", async () => {
   // zenius ends its gesture after each event, so an event of the motion
   // lands in whatever is under the pointer, a same-site frame's document
   // too. zenius's check that the event went out didn't see that document:
-  // each such step waited 1.6 s as if lost (zen-input's frame probe).
+  // each such step waited 1.6 s as if lost.
   const page = track(await h.newPageAt(task, `${h.baseUrl}/?latchframe=${Date.now()}`));
   await delayedShown(page);
   await page.evaluate(
@@ -3046,7 +3043,7 @@ test("an agent's wheel motion that scrolls a same-site frame under the pointer k
   assert.ok(took < 1000, `no step waited as if lost: ${took} ms`);
 });
 
-test("an agent's wheel waits while the user scrolls in a tab of its process, and fails with user_scrolling past its deadline (F7)", { timeout: 60_000 }, async t => {
+test("an agent's wheel waits while the user scrolls in a tab of its process, and fails with user_scrolling past its deadline", { timeout: 60_000 }, async t => {
   // It stalled for 1.6 s a lost event, and three calls ended 8 s later with
   // ZEN_PAGE_UNRESPONSIVE (the hands-on stretch).
   if (h.platform !== "linux") {
@@ -3100,7 +3097,7 @@ test("an agent's wheel waits while the user scrolls in a tab of its process, and
   }
 });
 
-test("a reflow re-hovers neither page at the other's pointer: the agent's pointer leaves its tab after each call (audit, 5b)", { timeout: 60_000 }, async () => {
+test("a reflow re-hovers neither page at the other's pointer: the agent's pointer leaves its tab after each call", { timeout: 60_000 }, async () => {
   // Gecko re-hit-tests a page the pointer is in after a reflow, and puts
   // pointerover/out and :hover at the process's last pointer point. After
   // an agent's move, a reflow in the user's same-site tab moved their :hover
@@ -3186,8 +3183,8 @@ test("an action the page can't return from fails past its deadline, instead of h
 });
 
 test("a refusal at an add-on's frame doesn't name the add-on's URL, whose host is its id in this profile", { timeout: 60_000 }, async () => {
-  // zen-observe's add-on checks (docs/research/addons.md, section 2): a
-  // page that frames an add-on's page, as a password manager's inline menu.
+  // zen-observe's add-on checks: a page that frames an add-on's page, as a
+  // password manager's inline menu.
   const dir = mkdtempSync(join(tmpdir(), "zenius-input-addon-"));
   writeFileSync(
     join(dir, "manifest.json"),

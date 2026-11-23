@@ -1,6 +1,5 @@
-// The typing guard (content/typing.sys.mjs, input/typing.sys.mjs; the
-// manager's owners note, 2026-11-20), on evidence only (the user's call,
-// 2026-11-21; docs/briefs/defenses-evidence.md, A1 and A5). In a page the
+// The typing guard (content/typing.sys.mjs, input/typing.sys.mjs;
+// 2026-11-20), on evidence only (the user's call, 2026-11-21). In a page the
 // agent's code left something hooked in (zen-observe's evidence), the user's
 // first press or key is stopped before any listener of the page, and so is
 // their typing there until the page's top document is replaced, and zen-core
@@ -463,7 +462,7 @@ test("a page the agent made keeps the user's typing on: no trigger, nothing stop
     assert.deepEqual(await cleanCalls(), []);
   }));
 
-test("a page the agent's code wrote into, leaving nothing hooked, keeps the user's input on: no trigger, nothing stopped (A1)", () =>
+test("a page the agent's code wrote into, leaving nothing hooked, keeps the user's input on: no trigger, nothing stopped", () =>
   inWatchedPage(formsUrl("unhooked"), async page => {
     // The agent's own page code, as in the Cloudflare case: a value, an
     // attribute, text, a class and a style on elements already there, an
@@ -497,7 +496,7 @@ test("a page the agent's code wrote into, leaving nothing hooked, keeps the user
     assert.deepEqual(await cleanCalls(), [], "no clean copy");
   }));
 
-test("only hooked evidence holds the user's input: a listed or flagged page leaves it on, for zen-ux's warning (A1, the manager's call)", async () => {
+test("only hooked evidence holds the user's input: a listed or flagged page leaves it on, for zen-ux's warning (the manager's call)", async () => {
   for (const [reason, detail] of [
     ["listed", "goog-phish-proto"],
     ["flagged", "it asks for the card's PIN"],
@@ -527,7 +526,7 @@ test("only hooked evidence holds the user's input: a listed or flagged page leav
   });
 });
 
-test("the agent's paste of plain markup leaves the user's input on; a paste whose markup carries a form holds it (A5)", () =>
+test("the agent's paste of plain markup leaves the user's input on; a paste whose markup carries a form holds it", () =>
   inWatchedPage(formsUrl("paste-evidence"), async page => {
     await page.click("#editor");
     await page.keyboard.paste({ text: "bold", html: "<p>Dear <b>team</b>, <a href='https://example.com/'>the notes</a></p>" });

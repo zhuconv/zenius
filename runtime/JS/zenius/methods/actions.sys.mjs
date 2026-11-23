@@ -10,8 +10,8 @@
 // other processes, the agent cursor, and the receipt (popups, dialog, file
 // chooser). Content (content/actions.sys.mjs) resolves, checks, scrolls and
 // dispatches in the target frame's own process, normally in one call.
-// Semantics, defaults and messages follow Ego Lite; see
-// docs/research/background-input.md for the input mechanisms.
+// Semantics, defaults and messages follow Ego Lite. content/input.sys.mjs
+// has the input mechanisms, and why each.
 
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
 import {
@@ -160,8 +160,8 @@ function clipboardFor(ctx, rp) {
  * it still counts as the agent's code there, as page.evaluate does, and as
  * written, as the agent's world's writes do (zen-observe's flags), until
  * written retires once every defense reads the evidence flag. Evidence comes
- * from content only when the markup carries something hooked (the defenses
- * brief's A5, content/actions.sys.mjs): the typing guard then holds the
+ * from content only when the markup carries something hooked
+ * (content/actions.sys.mjs): the typing guard then holds the
  * user's first press there and has the page reloaded clean (zen-core's
  * cleanOnDemand).
  */
@@ -463,7 +463,7 @@ const POINTER = new Set(["page.click", "page.dblclick", "page.hover"]);
 /**
  * Actions Ego performs on the element as it is, wherever its frame sits:
  * no frame owner has to be visible, and none is scrolled to
- * (input-gaps.md 17; Ego's setInputFilesInPage and selectOptionInPage).
+ * (Ego's setInputFilesInPage and selectOptionInPage).
  * Their frames are still measured, for the cursor.
  */
 const NO_FRAME_VIEW = new Set(["page.setInputFiles", "page.selectOption"]);
@@ -577,7 +577,7 @@ async function attempt(ctx, rp, method, parsed, base, state) {
 }
 
 /**
- * D3: open the links an agent's middle click hit as new pages of its task,
+ * Open the links an agent's middle click hit as new pages of its task,
  * in the background, with what Firefox's ClickHandlerParent gives a user's
  * (the frame's principals, the link's referrer and policy container). Its
  * openerBrowser makes the wrapped addTab adopt each tab into the task as a
@@ -586,9 +586,8 @@ async function attempt(ctx, rp, method, parsed, base, state) {
  *
  * It does what openLinkIn does for a tab, but for one thing: openLinkIn
  * raises its window first (w.focus(), even for a background tab), which
- * brings Zen in front of the app the user is in (requirement 3, zen-eval's
- * headed probe on 9abcd8e). So the same window, the same principals and the
- * same addTab, and no focus.
+ * brings Zen in front of the app the user is in (I1). So the
+ * same window, the same principals and the same addTab, and no focus.
  *
  * @param {object} rp the resolved page
  * @param {{bcId?: number, openLinks?: {href: string, referrerInfo: string, policyContainer: string|null}[]}} r the content call's result
@@ -922,9 +921,8 @@ const OBSERVED_RAW_INPUT = new Set(["page.mouse.click", "page.keyboard.press", "
 /**
  * While a JavaScript dialog is open, Ego's code drops raw input silently.
  * The raw input that runs as an action fails at once, as every action does
- * here, where Ego's actions wait for the answer
- * (docs/research/input-gaps.md, E). zen-observe's page gate leaves both to
- * us.
+ * here, where Ego's actions wait for the answer. zen-observe's page gate
+ * leaves both to us.
  *
  * @returns {boolean} whether to return without sending
  */
@@ -1019,8 +1017,7 @@ async function keyboard(ctx, params) {
       // The agent's html is the agent's code, as page.evaluate's is: a
       // page's paste handler may insert it with innerHTML, where it runs as
       // script. So the document gets zen-observe's mark first, as for
-      // page.evaluate (the manager's decision for closed groups,
-      // docs/research/user-tab-reach.md).
+      // page.evaluate (the manager's decision for closed groups).
       if (content.html) {
         // So in a page that shares a window group with a window outside the
         // task, where zenius runs none of the agent's code (closed groups),
@@ -1148,7 +1145,7 @@ async function runMouse(ctx, rp, st, steps, extra = {}, method = "page.mouse") {
 
 /**
  * Carry a wheel's scroll on past an out-of-process frame that had nothing
- * left to scroll that way (input-gaps.md 18). Gecko's own wheel chains out
+ * left to scroll that way. Gecko's own wheel chains out
  * of such a frame through APZ, which zenius's synthesized one skips. The
  * frame's page heard the wheel; the rest scrolls from the frame's element
  * in the embedding document, and on past that one if it is another
@@ -1250,7 +1247,7 @@ async function mouseAction(ctx, rp, st, params) {
           const steps = moveSteps(st, to, 1);
           // A button the agent already holds can't be pressed again: Ego
           // (Chromium) sends neither its press nor its release, so the page
-          // hears only the move and the button stays held (input-gaps.md 22).
+          // hears only the move and the button stays held.
           const held = st.buttons.has(button);
           for (let cc = 1; !held && cc <= clickCount; cc++) {
             steps.push(buttonStep(st, "down", button, cc));
@@ -1336,8 +1333,8 @@ function elementMethod(method) {
   };
 }
 
-// Gate classes (docs/research/method-boundary.md): access for the control
-// gate (I3), i5 for the web-content gate (I5).
+// Gate classes: access for the control gate (I3), i5 for the web-content
+// gate (I5).
 export const access = {
   "page.click": "mutate",
   "page.dblclick": "mutate",
@@ -1467,7 +1464,7 @@ export const methods = {
         const deadline = start + timeout + held;
         // On screen, the cursor flies to the source with the label before the
         // press, and on to the target before the release, as Ego's cursor
-        // follows each of its events (input-gaps C 26). Returns the gate's ms.
+        // follows each of its events. Returns the gate's ms.
         const flyToSource = async point => {
           const ms = await cursorThenGate(ctx, rp, point, "drag", options);
           held += ms;
@@ -1489,8 +1486,8 @@ export const methods = {
             dstBc = r.bc;
           }
           const mods = [...st.mods];
-          // Ends in two frames: Ego's drag in page coordinates (input-gaps
-          // 10; content/actions.sys.mjs's dragAim).
+          // Ends in two frames: Ego's drag in page coordinates
+          // (content/actions.sys.mjs's dragAim).
           const across = async (whereSrc, whereDst) => {
             if (!whereSrc || !whereDst) {
               throw new ZenError("ZEN_SELECTOR_NOT_FOUND", "page.dragAndDrop: an end's frame went away", { transient: true });
@@ -1701,7 +1698,7 @@ export const methods = {
       return receipt.dialog ? { dialog: receipt.dialog } : {};
     }
     // A one-file chooser takes the first, as Chromium's does: Ego's agent
-    // gets {} and the page one file (input-gaps.md 13).
+    // gets {} and the page one file.
     const files = multiple ? sent : sent.slice(0, 1);
     checkChooserFiles(params.chooser, files.length);
     const onDisk = await writeUploadFiles(browser, files);
