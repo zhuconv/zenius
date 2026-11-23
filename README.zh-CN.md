@@ -132,7 +132,7 @@ zen(ius) 没有账号，没有自己的服务器，也没有遥测。Agent 通�
 
 很多工具都能让 Agent 操控浏览器。真正的区别在于：Agent 用的是哪个浏览器，你能不能在旁边照常工作，以及哪些 Agent 能用它。下表每一列是同类工具中的一个产品。
 
-| | zen(ius) | Ego Lite | Claude in Chrome<br><sub>浏览器扩展</sub> | Claude Cowork<br><sub>内置浏览器</sub> | Browserbase<br><sub>云浏览器</sub> | playwright-cli<br><sub>浏览器 CLI</sub> | Comet<br><sub>AI 浏览器</sub> |
+| | zen(ius) | [Ego Lite](https://github.com/citrolabs/ego-lite) | [Claude in Chrome](https://claude.com/claude-in-chrome)<br><sub>浏览器扩展</sub> | [Claude Cowork](https://support.claude.com/en/articles/16607400-use-the-built-in-browser-in-claude-cowork)<br><sub>内置浏览器</sub> | [Browserbase](https://docs.browserbase.com/welcome/introduction)<br><sub>云浏览器</sub> | [playwright-cli](https://github.com/microsoft/playwright-cli)<br><sub>浏览器 CLI</sub> | [Comet](https://www.perplexity.ai/hub/blog/comet-is-now-available-to-everyone-worldwide)<br><sub>AI 浏览器</sub> |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | 适用于任何 Agent：Claude Code、Codex、脚本 | ✓ | ✓ | Claude 自家的应用 | Claude 自家的应用 | ✓ | ✓ | 它自带的助手 |
 | 就在你已经在用的浏览器里工作 | Zen | — | Chrome¹ | — | — | Chrome、Edge² | — |
@@ -155,7 +155,7 @@ zen(ius) 以 MIT 许可证开源，运行在 Zen 里的那部分也包括在内�
 
 ## 基准测试
 
-在基准测试里两边都计时的每一项操作上，zen(ius) 都比 Ego Lite 快；Ego Lite 自己的端到端测试中，适用于 zen(ius) 的用例它全部通过；两轮实测任务它也全部完成；每轮用的 CPU 和内存也更少。下面每个数字都链接到 [`docs/eval/`](docs/eval/) 里的报告，报告里写明了每次运行用的构建。
+在基准测试里两边都计时的每一项操作上，zen(ius) 都比 [Ego Lite](https://github.com/citrolabs/ego-lite) 快；Ego Lite 自己的端到端测试中，适用于 zen(ius) 的用例它全部通过；两轮实测任务它也全部完成；每轮用的 CPU 和内存也更少。下面每个数字都链接到 [`docs/eval/`](docs/eval/) 里的报告，报告里写明了每次运行用的构建。
 
 <div align="center">
 

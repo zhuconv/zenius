@@ -195,7 +195,7 @@ Many tools let an agent drive a browser. What differs is which browser the
 agent gets, whether you can keep working beside it, and which agents can use
 it. Each column below is one product of its kind.
 
-| | zen(ius) | Ego Lite | Claude in Chrome<br><sub>extension</sub> | Claude Cowork<br><sub>built-in browser</sub> | Browserbase<br><sub>cloud browser</sub> | playwright-cli<br><sub>browser CLI</sub> | Comet<br><sub>AI browser</sub> |
+| | zen(ius) | [Ego Lite](https://github.com/citrolabs/ego-lite) | [Claude in Chrome](https://claude.com/claude-in-chrome)<br><sub>extension</sub> | [Claude Cowork](https://support.claude.com/en/articles/16607400-use-the-built-in-browser-in-claude-cowork)<br><sub>built-in browser</sub> | [Browserbase](https://docs.browserbase.com/welcome/introduction)<br><sub>cloud browser</sub> | [playwright-cli](https://github.com/microsoft/playwright-cli)<br><sub>browser CLI</sub> | [Comet](https://www.perplexity.ai/hub/blog/comet-is-now-available-to-everyone-worldwide)<br><sub>AI browser</sub> |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | Works with any agent: Claude Code, Codex, a script | ✓ | ✓ | Claude's apps | Claude's apps | ✓ | ✓ | its assistant |
 | Works in the browser you already use | Zen | — | Chrome¹ | — | — | Chrome, Edge² | — |
@@ -363,7 +363,7 @@ lite browser is a separate, free download."
 
 ## Benchmarks
 
-zen(ius) is faster than Ego Lite on every operation the bench timed on both,
+zen(ius) is faster than [Ego Lite](https://github.com/citrolabs/ego-lite) on every operation the bench timed on both,
 passes every case of Ego Lite's own end-to-end suite that applies to it,
 did every live task in both rounds, and used less CPU and memory per round.
 Each number below links to its report in [`docs/eval/`](docs/eval/), which
