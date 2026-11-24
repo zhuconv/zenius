@@ -283,7 +283,7 @@ test("a restart brings tasks back from their tabs, unloaded; a call loads a page
   const e = await task("restart closing", ["/api/text?e1", "/api/text?e2"]);
   await h.chrome(
     `${SS} ${TAB}
-     SessionStore.setCustomTabValue(t, "zenius", JSON.stringify({ v: 1, task: arg.space, openedBy: "agent", closing: true }));
+     SessionStore.setCustomTabValue(t, "zenius", JSON.stringify({ v: 1, task: arg.space, openedBy: "agent", closing: true, sync: t.id }));
      return true;`,
     { space: e.space, page: e.labels[1] }
   );

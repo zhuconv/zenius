@@ -5,7 +5,7 @@
 import { ErrorCodes, ZenError, toWireError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
 import { RpcServer } from "chrome://userscripts/content/zenius/modules/server.sys.mjs";
 import { Spaces, newLedger } from "chrome://userscripts/content/zenius/modules/spaces.sys.mjs";
-import { Pages, defaultPageBudget, readTabValue } from "chrome://userscripts/content/zenius/modules/pages.sys.mjs";
+import { Pages, defaultPageBudget, ownValue, readTabValue } from "chrome://userscripts/content/zenius/modules/pages.sys.mjs";
 import {
   addingAgentTab,
   allTabs,
@@ -286,6 +286,7 @@ class Service {
     this.pages.spaces = this.spaces;
     this.pages.onDeferred = (tab, info) => this.#onDeferredClose(tab, info);
     this.pages.onMoved = (page, from, to) => this.#onPageMoved(page, from, to);
+    this.pages.onTaskValue = () => this.#watchRestores();
     this.spaces.onEvent = (name, params) => this.#onSpaceEvent(name, params);
     this.spaces.onLocalEvent = (name, params) => this.emitLocal(name, params);
     this.#store = new JsonStore(paths.stateDir, "spaces.json", () => this.spaces.serialize());
@@ -487,6 +488,9 @@ class Service {
     }
     win.addEventListener("unload", () => this.#windows.delete(win), { once: true });
     win.addEventListener("TabClose", e => this.#onTabClose(e));
+    if (this.#watchingRestores) {
+      win.addEventListener("SSTabRestoring", this.#onRestoring);
+    }
     // Window sync: Zen moves a page's docShell between windows' copies of
     // its tab, firing this on both browsers. The page follows once the swap
     // is done (Zen puts the permanentKeys back after Firefox's swap).
@@ -1430,6 +1434,39 @@ class Service {
   }
 
   /**
+   * Firefox puts a tab's session values back when it restores the tab: at a
+   * restart, and when the user makes a tab from another's state (Duplicate
+   * Tab, Reopen Closed Tab or Window). A tab that comes back with a task's
+   * value that no task holds is one the user made: it's theirs, and keeps
+   * no task's value for a later restart to find. The restart rebuild reads
+   * the values it restores itself.
+   */
+  #onTabRestoring(tab) {
+    if (this.#rebuilding || !readTabValue(tab) || this.pages.holderOf(tab) !== null) {
+      return;
+    }
+    this.pages.forgetTask(tab);
+  }
+
+  #onRestoring = event => this.#onTabRestoring(event.target);
+
+  /**
+   * Whether each window listens for its tabs' restores: from the first
+   * task value the session writes on, the restart rebuild's included (I4).
+   */
+  #watchingRestores = false;
+
+  #watchRestores() {
+    if (this.#watchingRestores) {
+      return;
+    }
+    this.#watchingRestores = true;
+    for (const win of this.#windows) {
+      win.addEventListener("SSTabRestoring", this.#onRestoring);
+    }
+  }
+
+  /**
    * An agent close of a tab a window shows waits (SPEC §3.5): the page has
    * ended for the agent, and zen-ux's "Task finished" pill follows
    * `tabClosing {space, tab}`, an in-process event (it carries the element).
@@ -1477,6 +1514,7 @@ class Service {
   async #rebuild() {
     const t0 = now();
     let restored = 0;
+    let notOwn = 0;
     try {
       await Promise.race([
         lazy.SessionStore.promiseAllWindowsRestored.then(() =>
@@ -1504,6 +1542,13 @@ class Service {
       for (const tab of [...uniqueTabs()]) {
         const value = readTabValue(tab);
         if (!value) {
+          continue;
+        }
+        if (!ownValue(tab, value)) {
+          // Firefox copied it from a task's tab into one the user made, or
+          // an older runtime wrote it: the tab is the user's.
+          this.pages.forgetTask(tab);
+          notOwn++;
           continue;
         }
         if (value.closing) {
@@ -1559,7 +1604,8 @@ class Service {
       this.#endRebuild = null;
       end?.();
     }
-    log(`restart rebuild: ${restored} task tabs back in ${(now() - t0).toFixed(0)}ms`);
+    const users = notOwn ? `; ${notOwn} carrying a value that isn't theirs are the user's` : "";
+    log(`restart rebuild: ${restored} task tabs back${users} in ${(now() - t0).toFixed(0)}ms`);
     this.autoCloseIdleTasks();
   }
 

@@ -534,11 +534,32 @@ carries the session value `zenius` (`TAB_VALUE_KEY`), written with
 in `modules/pages.sys.mjs` reads it:
 
 ```json
-{"v": 1, "task": 7, "label": "p2", "openedBy": "agent", "opener": "p1"}
+{"v": 1, "task": 7, "label": "p2", "openedBy": "agent", "opener": "p1", "sync": "1795510523071-6046f761-..."}
 ```
 
 - Only tasks (`kind: "task"`) write it: a workspace's tabs are its by
   where they are.
+- `sync` is the tab's Zen sync id (`tab.id`) when the value was written,
+  or null before Zen gave the tab one: Zen gives it from a queue of its
+  own, after `TabOpen`. Once Zen has, the value of a tab a task holds
+  names it. With window sync off, Zen still gives every tab a sync id,
+  and the session keeps it across restarts.
+- **A tab the user makes from a task's tab is theirs.** Firefox copies a
+  tab's session values into the tabs made from it: Duplicate Tab, Reopen
+  Closed Tab, Reopen Closed Window. Zen gives a duplicate and a reopened
+  tab a sync id of their own (Duplicate Tab clears the saved one, and
+  Reopen Closed Tab doesn't restore it). So:
+  - when a tab restores (`SSTabRestoring`) carrying a task's value and no
+    task holds it (`pages.holderOf(tab)`: a page, a tab a ledger keeps, or
+    a close that waits), the service deletes the value and the tag;
+  - the restart rebuild counts a value only on the tab whose sync id it
+    names (`ownValue(tab, value)`, below).
+  - Each window listens for `SSTabRestoring` only once the session has a
+    task's tab: from the first task value written (`pages.onTaskValue`),
+    the rebuild's for the tabs it brings back included. So a Zen without
+    tasks holds nothing more (I4). A tab restored before that, such as one closed in
+    an earlier session, keeps its value until the next restart, whose
+    rebuild drops it: nothing else reads a value to find a task's tabs.
 - `pages.register` writes it, for pages, popups (`adoptPopup`) and
   adopted tabs.
 - `pages.addUnmanaged(rec, tab, openedBy)` writes it without `label`: a
@@ -564,7 +585,9 @@ in `modules/pages.sys.mjs` reads it:
   with it (release, `finish`'s keep, `dropSpace`). zen-ux writes
   `zenius-task-state` beside it.
 - A tab moving to another window is a new element there: `TabClose` with
-  `adoptedBy` copies the value and the tag (`pages.carryOver`).
+  `adoptedBy` copies the value and the tag (`pages.carryOver`). The value
+  names the new tab's sync id once Zen gives it one, while a task holds
+  the tab.
 - The value moves with the tab: a tab the user drags to another Space stays
   the task's.
 - Tab ids (`t12`) still don't survive a restart; the value does.
@@ -795,6 +818,13 @@ Then:
    page (`pages.reattach`), else as an unmanaged tab of its origin. A tab
    marked `closing` closes, or waits if a window shows it, as §3.5's closes
    do. A value naming a task that's gone is deleted.
+   - A value counts only on the tab whose sync id it names
+     (`ownValue(tab, value)`). On any other tab, it's one Firefox copied
+     into a tab the user made, and it's deleted: the tab is the user's.
+   - A value that names no sync id, as the runtime wrote before 0.1.5,
+     can't show which tab it was written for, so it's deleted too. Tasks
+     running at the update to 0.1.5 end at its restart, and their tabs
+     stay the user's.
 3. Tasks none of whose tabs came back are removed, which frees their names.
    Their ids go into a list in `spaces.json` (the last 64). A call naming
    one fails at once with `ZEN_TASK_SPACE_NOT_FOUND`,

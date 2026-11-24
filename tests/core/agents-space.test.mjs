@@ -83,12 +83,16 @@ const taskTabs = space =>
     space
   );
 /** A tab's session value and zen-ux's tag, by page label or tab id. */
+// A value that names its tab's sync id, as each should, without that id
+// (a value naming another is returned whole, so the check fails).
+const OWN = `const own = (P, t) => { const v = P.readTabValue(t); if (v && v.sync === (t.id || null)) delete v.sync; return v; };`;
 const marks = (space, ref) =>
   h.chrome(
     `const P = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/pages.sys.mjs");
+     ${OWN}
      const rec = ctx.spaces.peek(arg.space);
      const tab = arg.page ? ctx.pages.tabFor(ctx.pages.get(rec, arg.page)) : ctx.pages.findTab(rec, arg.tab);
-     return { value: P.readTabValue(tab), tag: tab.getAttribute("zenius-task") };`,
+     return { value: own(P, tab), tag: tab.getAttribute("zenius-task") };`,
     { space, ...ref }
   );
 /** A tab by tab id, wherever it is: open, its tag and session value, and whether its close waits. */
@@ -96,8 +100,9 @@ const tabState = id =>
   h.chrome(
     `${W}
      const P = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/pages.sys.mjs");
+     ${OWN}
      const t = [...W.allTabs()].find(x => !x.closing && ctx.pages.tabId(x) === arg);
-     return t ? { open: true, selected: t.selected, tag: t.getAttribute("zenius-task"), value: P.readTabValue(t), waits: ctx.pages.isDeferred(t) } : { open: false };`,
+     return t ? { open: true, selected: t.selected, tag: t.getAttribute("zenius-task"), value: own(P, t), waits: ctx.pages.isDeferred(t) } : { open: false };`,
     id
   );
 /** The user opens the Agents Space and selects a task's page. */

@@ -51,8 +51,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 /**
- * The session value tying a tab to its task: `{v: 1, task, openedBy}`, plus
- * `label` and `opener` while it's a page (SPI "Which tabs are a task's").
+ * The session value tying a tab to its task: `{v: 1, task, openedBy, sync}`,
+ * plus `label` and `opener` while it's a page (SPI "Which tabs are a
+ * task's"). `sync` is the tab's Zen sync id, or null before Zen gives it one.
  */
 export const TAB_VALUE_KEY = "zenius";
 /** The task id on a task's pages that aren't the user's: zen-ux's tag reads it. */
@@ -111,6 +112,21 @@ export function readTabValue(tab) {
     } catch {}
   }
   return null;
+}
+
+/**
+ * Is a session value its tab's own? Firefox copies a tab's session values
+ * into the tabs the user makes from it (Duplicate Tab, Reopen Closed Tab),
+ * and Zen gives each of those a sync id of its own. So a task's value names
+ * the sync id of the tab it was written for, and only that tab is the
+ * task's. A value that names none (an older runtime's) can't show which tab
+ * it was written for: the tab is the user's.
+ *
+ * @param {Element} tab
+ * @param {object} value  readTabValue(tab)
+ */
+export function ownValue(tab, value) {
+  return !!value && Object.hasOwn(value, "sync") && value.sync === syncId(tab);
 }
 
 /** Ego's default page budget (EGO_BROWSER_PAGE_BUDGET). */
@@ -172,6 +188,8 @@ export class Pages {
   onChange = null;
   /** (page, from, to) after a page's live copy changed: the service emits pageMoved. */
   onMoved = null;
+  /** () once a task's session value is written: the service then watches tab restores. */
+  onTaskValue = null;
 
   // ---------------------------------------------------------------------------
   // Tab ids
@@ -584,12 +602,15 @@ export class Pages {
       if (tag && tab.getAttribute(TASK_ATTR) !== tag) {
         tab.setAttribute(TASK_ATTR, tag);
       }
+      this.#refreshSync(tab);
     }
   }
 
   /**
    * A tab moving to another window is a new element there, with the same
-   * browser: its tag and session value go with it.
+   * browser: its tag and session value go with it. The value names the old
+   * tab's sync id until Zen gives the new one its own, while the task holds
+   * it: a page that ended in the move doesn't come back at a restart.
    */
   carryOver(from, to) {
     // A "Task finished" tab the user takes to another window is theirs.
@@ -603,6 +624,11 @@ export class Pages {
     writeTabValue(to, value);
     if (from.hasAttribute(TASK_ATTR)) {
       to.setAttribute(TASK_ATTR, from.getAttribute(TASK_ATTR));
+    }
+    if (syncId(to)) {
+      this.#refreshSync(to);
+    } else {
+      this.#syncSoon(to);
     }
   }
 
@@ -630,8 +656,53 @@ export class Pages {
         value.opener = opener;
       }
     }
+    value.sync = syncId(tab);
     writeTabValue(tab, value);
     writeTag(tab, label && openedBy !== "user" ? space.id : null);
+    this.#syncSoon(tab);
+    this.onTaskValue?.();
+  }
+
+  /**
+   * Which task holds this tab, as a page, a tab its ledger keeps, or a close
+   * that waits: its id, else null. A tab carrying a task's session value
+   * that no task holds is the user's.
+   *
+   * @param {Element} tab  any copy
+   * @returns {number|null}
+   */
+  holderOf(tab) {
+    const page = this.forTab(tab);
+    if (page) {
+      return page.spaceId;
+    }
+    const rec = this.#holderOf(this.tabId(tab));
+    if (rec) {
+      return rec.id;
+    }
+    return this.#deferred.get(deferKey(tab))?.spaceId ?? null;
+  }
+
+  /**
+   * Zen gives a new tab its sync id after TabOpen, from a queue of its own:
+   * once it has, the value of a tab its task holds names it.
+   */
+  #syncSoon(tab) {
+    if (!syncId(tab)) {
+      syncedSoon(tab).then(() => this.#refreshSync(tab));
+    }
+  }
+
+  /** Name the tab's sync id in its value, if a task holds it and the value doesn't yet. */
+  #refreshSync(tab) {
+    const sync = syncId(tab);
+    if (!sync || tab.closing) {
+      return;
+    }
+    const value = readTabValue(tab);
+    if (value && value.sync !== sync && this.holderOf(tab) === value.task) {
+      writeTabValue(tab, { ...value, sync });
+    }
   }
 
   /**
@@ -868,6 +939,7 @@ export class Pages {
       }
       page.syncId = sync;
       this.#bySync.set(sync, page);
+      this.#refreshSync(tab);
     }
   }
 
@@ -1086,7 +1158,8 @@ export class Pages {
     releaseKeepAlive(liveCopy(tab) ?? tab);
     writeTag(tab, null);
     if (space?.kind === "task") {
-      writeTabValue(tab, { v: 1, task: space.id, openedBy, closing: true });
+      writeTabValue(tab, { v: 1, task: space.id, openedBy, closing: true, sync: syncId(tab) });
+      this.#syncSoon(tab);
     }
     this.#deferred.set(deferKey(tab), { tab, spaceId: space?.id ?? null });
     this.onDeferred?.(tab, { space, page, tabId: id });
