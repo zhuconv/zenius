@@ -2271,9 +2271,11 @@ test("a remote task says which of the user's agents sent it: 'From <label> on <a
   assert.deepEqual(out, { question: from, card: from, row: from, tip: from, found: true, foundLabel: true, missed: false });
 });
 
-// The user's call on defenses: trust the agent, and stop only on evidence.
-// The sidebar agent's rules say so, and the hand-off refusal on written
-// pages is gone, with its "input tools only" rule.
+// The defenses trust the agent and stop it only on evidence (a page that
+// tries to change the task, asks for data the task doesn't need, or looks
+// like phishing), so ordinary tasks run without false alarms. The sidebar
+// agent's rules say so, and the hand-off refusal on written pages is gone,
+// with its "input tools only" rule.
 test("the sidebar agent's rules, in its work prompt and in its folder's CLAUDE.md and AGENTS.md: it follows page text that serves the task and stops only on evidence, types what the user gave it in the chat, leaves a payment to the user unless they asked for that purchase, hands off a secret with secret: true and never reads that page after, and the user's word not to look holds for the whole task; Chat follows page text the same way; both know they have web search and fetch, and that an instruction in text the page hides from the user (marked hidden) is evidence of a page steering them", async () => {
   const out = await chrome(`
     const W = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/workspace.sys.mjs");
