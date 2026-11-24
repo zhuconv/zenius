@@ -35,7 +35,13 @@ export class ZeniusInputParent extends JSWindowActorParent {
     } else if (name === "typingHeldKey") {
       // The user's input that a hold dropped, for the clean copy's replay.
       noteHeldInput(this.manager?.browsingContext?.top?.embedderElement ?? null, data, this.manager?.domProcess?.childID ?? null);
+    } else if (name === "heard") {
+      // A release in the tab (content/capture.sys.mjs). The answer leaves
+      // after every message its process sent before, the release of its
+      // page's pointer capture included.
+      return true;
     }
+    return undefined;
   }
 }
 

@@ -578,6 +578,10 @@ function pointerEvent(win, type, x, y, { button = "left", buttons = 0, clickCoun
       C.pressWithoutCapture(win, send);
     } else {
       send();
+      if (type === "mouseup" && !buttons) {
+        // A pointer capture the page took ends here, and the parent hears so a moment later.
+        C.holdUntilParentHears(I.processTopWindow(win));
+      }
     }
     if (type === "mousedown") {
       I.emulateFocusChange(prev, I.focusedElement(win));
@@ -658,6 +662,7 @@ function sendHiddenRelease(win, x, y, button, mods) {
       root.removeEventListener(type, stop, true);
     }
   }
+  C.holdUntilParentHears(I.processTopWindow(win));
 }
 
 function maskOf(names) {

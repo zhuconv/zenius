@@ -90,6 +90,21 @@ let userPress = null;
 const USER_PRESS_STALE_MS = 30000;
 /** Process-top windows whose press the guard ended inside the user's current event. */
 const ending = new Set();
+/**
+ * Process-top document → zenius's releases in it that the parent hasn't
+ * heard yet. A page's pointer capture is the parent's too: it sends that
+ * pointer's input to the capturing page's process until a message from
+ * there says the capture is gone. So for a moment after each release, the
+ * user's input in their own tab still comes here, and the guard drops it
+ * as it did while the press was held. The hold is its document's, not the
+ * window's: a page that navigates after the agent's click commits long
+ * after the parent heard the release, so the new document needs no hold,
+ * and the old one's frames, which would end it, stop.
+ */
+const settling = new Map();
+// A parent that never answers, or a page whose frames stop, mustn't hold the
+// user's input here for long.
+const SETTLE_MAX_MS = 1000;
 
 let releaser = null;
 let polling = false;
@@ -126,6 +141,64 @@ export function leaveCall(top) {
 /** How a held press ends unseen by its page (content/actions.sys.mjs sets it). */
 export function setReleaser(fn) {
   releaser = fn;
+}
+
+/**
+ * After zenius released a press in `top`, drop the user's input in its
+ * document until everything the parent sent here by the old capture has
+ * come, in three steps:
+ * - The parent answers the query after the capture's release, which went
+ *   before it on the process's one channel. After the answer it sends
+ *   nothing more here by that capture.
+ * - Input the parent sent before its answer may still wait in this
+ *   process's input queue, which runs apart from the answer. A task queued
+ *   there at input priority runs after it.
+ * - Mouse moves wait for the next refresh tick, where Gecko dispatches the
+ *   last of the moves it coalesced. By the second animation frame after the
+ *   input task, that tick is past.
+ * A parent that doesn't answer, or a page whose frames stop, ends the hold
+ * after SETTLE_MAX_MS.
+ *
+ * @param {Window} top  the tab's process-top window
+ */
+export function holdUntilParentHears(top) {
+  let actor = null;
+  try {
+    actor = top.windowGlobalChild?.getActor("ZeniusInput") ?? null;
+  } catch {}
+  if (!actor) {
+    return;
+  }
+  const doc = top.document;
+  settling.set(doc, (settling.get(doc) ?? 0) + 1);
+  let held = true;
+  const done = () => {
+    if (held) {
+      held = false;
+      const n = (settling.get(doc) ?? 1) - 1;
+      if (n > 0) {
+        settling.set(doc, n);
+      } else {
+        settling.delete(doc);
+      }
+    }
+  };
+  lazy.setTimeout(done, SETTLE_MAX_MS);
+  const afterFrames = () => {
+    try {
+      top.requestAnimationFrame(() => top.requestAnimationFrame(done));
+    } catch {
+      done();
+    }
+  };
+  const afterInput = () => {
+    try {
+      Services.tm.dispatchToMainThread(afterFrames, Ci.nsIRunnablePriority.PRIORITY_INPUT_HIGH);
+    } catch {
+      done();
+    }
+  };
+  actor.sendQuery("heard").then(afterInput, afterInput);
 }
 
 function processTop(win) {
@@ -641,8 +714,9 @@ function guardEvent(root, e) {
   const top = win && processTop(win);
   const press = top && presses.get(top);
   if (!press) {
-    // The rest of the user's event whose start ended the press here.
-    if (top && ending.has(top)) {
+    // The rest of the user's event whose start ended the press here, and
+    // what the parent still sent here by a capture just released.
+    if (top && (ending.has(top) || settling.has(top.document))) {
       drop(e);
     }
     return;
