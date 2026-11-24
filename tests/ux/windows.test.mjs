@@ -245,36 +245,56 @@ test("the takeover prompt goes with the page into the other window", async () =>
 
 test("a claim prompt shows in every window, and answered in one it goes from every window", async () => {
   const space = await h.userSpace(`zen-ux two windows claim ${run}`);
-  // Both windows show the same tab: each has a prompt on its own copy.
-  await h.chrome(`${W()}
-    await focusWin(1);
-    const copy = copyOf(nth(0).gBrowser.selectedTab, 1);
-    await show(1, copy.getAttribute("zen-workspace-id"));
-    nth(1).gBrowser.selectedTab = copy;
+  // Both windows show the same tab: each has a prompt on its own copy. It's
+  // a tab of the test's own, which window sync copies to the second window.
+  // The first window's selected tab may have no copy: in a fresh profile
+  // it's Zen's empty tab, and each window has its own.
+  const tabId = await h.chrome(`${W()}
     await focusWin(0);
-    return true;
+    await show(0, userWs);
+    const tab = nth(0).gBrowser.addTab(${JSON.stringify(`${h.base}/`)}, { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+    try {
+      nth(0).gBrowser.selectedTab = tab;
+      await wait(() => Win.syncId(tab) && copyOf(tab, 1));
+      await focusWin(1);
+      const copy = copyOf(tab, 1);
+      await show(1, copy.getAttribute("zen-workspace-id"));
+      nth(1).gBrowser.selectedTab = copy;
+      await focusWin(0);
+      return Win.syncId(tab);
+    } catch (e) {
+      // A tab left behind would stay in the user's Space for every later test.
+      nth(0).gBrowser.removeTab(tab, { animate: false });
+      throw e;
+    }
   `);
-  const pending = h.call("spaces.claim", { space, client: "Trip planner", timeout: 30000 }).then(
-    value => ({ value }),
-    error => ({ error })
-  );
-  const out = await h.chrome(`${W()}
-    const askFor = s => ctx.service.spaces.pendingClaims().find(a => a.space === s);
-    await wait(() => askFor(${space}));
-    const id = "zenius-claim:" + askFor(${space}).id;
-    const shownIn = () => [0, 1].filter(n => N.noticeElement(nth(n).gBrowser.selectedTab, id));
-    await wait(() => shownIn().length === 2);
-    const res = { sameTab: Win.sameTab(nth(0).gBrowser.selectedTab, nth(1).gBrowser.selectedTab), shown: shownIn() };
-    await focusWin(1);
-    await press(N.noticeElement(nth(1).gBrowser.selectedTab, id), "Deny");
-    await wait(() => shownIn().length === 0);
-    res.after = shownIn();
-    await focusWin(0);
-    return res;
-  `);
-  const { error } = await pending;
-  assert.deepEqual(out, { sameTab: true, shown: [0, 1], after: [] });
-  assert.equal(error?.code, "ZEN_TASK_SPACE_CLAIM_DENIED", error?.message);
+  try {
+    const pending = h.call("spaces.claim", { space, client: "Trip planner", timeout: 30000 }).then(
+      value => ({ value }),
+      error => ({ error })
+    );
+    const out = await h.chrome(`${W()}
+      const askFor = s => ctx.service.spaces.pendingClaims().find(a => a.space === s);
+      await wait(() => askFor(${space}));
+      const id = "zenius-claim:" + askFor(${space}).id;
+      const shownIn = () => [0, 1].filter(n => N.noticeElement(nth(n).gBrowser.selectedTab, id));
+      await wait(() => shownIn().length === 2);
+      const res = { sameTab: Win.sameTab(nth(0).gBrowser.selectedTab, nth(1).gBrowser.selectedTab), shown: shownIn() };
+      await focusWin(1);
+      await press(N.noticeElement(nth(1).gBrowser.selectedTab, id), "Deny");
+      await wait(() => shownIn().length === 0);
+      res.after = shownIn();
+      await focusWin(0);
+      return res;
+    `);
+    const { error } = await pending;
+    assert.deepEqual(out, { sameTab: true, shown: [0, 1], after: [] });
+    assert.equal(error?.code, "ZEN_TASK_SPACE_CLAIM_DENIED", error?.message);
+  } finally {
+    await h
+      .chrome(`${W()} const t = nth(0).document.getElementById(${JSON.stringify(tabId)}); if (t) nth(0).gBrowser.removeTab(t, { animate: false }); return true;`)
+      .catch(() => {});
+  }
   await userLeaves();
 });
 
