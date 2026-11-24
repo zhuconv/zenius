@@ -461,8 +461,10 @@ export async function countLinks(actor, args) {
   the service re-emits it with `space` and `page` filled in. A content
   process is the untrusted side, so the service takes only the names in
   `CONTENT_EVENTS` (`modules/service.sys.mjs`: `observe.console`,
-  `observe.refused`, `observe.sound`), only from a page of an agent task,
-  and drops the rest. A new content event needs its name added there.
+  `observe.media`, `observe.refused`, `observe.sound`), only from a page of
+  an agent task, and drops the rest. `observe.guardFailed` is listed too,
+  from any web-content document: the parent only logs and keeps it, and no
+  agent hears it. A new content event needs its name added there.
 - Running code in the page's own world: `pageWorldSandbox(win)` and
   `evalFunction()` / `evalAsync()` in `modules/sandbox.sys.mjs`. Results come
   back through an exported callback, so awaiting page promises is safe.
@@ -3117,6 +3119,38 @@ lives:
     a Proxy whose construct throws NotAllowedError by the `devices` rule
     (Zen has no moz- or webkit- alias). WebRTC's own list of the browser's peer connections
     (`WebrtcGlobalInformation.getStatsHistoryPcIds`) is the test's counter.
+  - Failing closed (`failClosed`). Notification, RTCPeerConnection,
+    SharedWorker and BroadcastChannel get their wrappers from a script in
+    the page-principal sandbox. Gecko holds that script to the page's own
+    stack limit, and stops it in a content process that is shutting down.
+    A page can spend its stack and then make a same-origin frame, whose
+    guards install inside its `appendChild`.
+    - When a wrapper's script fails, or anything before it in the install,
+      the constructor refuses instead. It's the page's own Proxy over the
+      native, built in chrome with no script, whose construct trap throws
+      the error a blocked call gives, and `prototype.constructor` is set to
+      it. The agent's worlds get the same (`mirrorRefusal`).
+    - If even that can't go in, the install's end takes the document out
+      of reach before the page's call returns. A frame's element is removed
+      through an Xray, on chrome's stack limit; a popup is closed. A tab's
+      own document keeps the native.
+    - Each failure is logged with its cause (the page's stack, Gecko
+      stopping the script, or the error) and sent as `observe.guardFailed`.
+      The parent logs it and keeps the last 32 (`noteGuardFailure`,
+      `recentGuardFailures` in `observe/refusals.sys.mjs`).
+    - The integer preferences `zenius.test.failPageGuard.<name>` make a
+      guard fail, for `tests/observe/guardfailclosed.test.mjs`.
+  - The agent's worlds take a new document's guards in steps of zenius's
+    own (`adopt` in `content/agentworld.sys.mjs`, run through
+    `asOwnStep`). The world's native hook ends only the agent's code
+    (`ownStep`), so a page whose one turn runs past the world's limit for
+    code outside a call (`IDLE_LIMIT_MS`, 1 s) can't cut a new frame's
+    guards short. The adopter's descriptors have no prototype, so the
+    agent's code can't break them by changing the world's built-ins. The
+    actor hands a new document to the worlds last, after every page-side
+    guard (`adoptLast` in `actors/ZeniusChild.sys.mjs`), so a step of
+    theirs cut short could cost only the worlds' view of it. The test-only
+    `zenius.test.cutOwnSteps` brings the hook's cut back to show that.
 - **The local network.** `observe/localnet.sys.mjs` cancels a task page's
   requests to private and link-local addresses and `.local` names, unless
   the host is in `zenius.agentTabs.allowPrivateNetworks`

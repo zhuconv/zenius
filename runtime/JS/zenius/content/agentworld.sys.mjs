@@ -91,7 +91,10 @@ const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL,
     ours[ours.length] = fn;
     return fn;
   };
-  const fixed = (value, enumerable) => ({ value, writable: false, enumerable, configurable: false });
+  // Descriptors here have no prototype: one would inherit a get or a value
+  // that the agent's code gave the world's Object.prototype (the adopter
+  // below must hold however the agent's code changed the world's built-ins).
+  const fixed = (value, enumerable) => ({ __proto__: null, value, writable: false, enumerable, configurable: false });
 
   // Behind the window's own properties, in the world's view of the window:
   // the world's own prototype stays the sandbox's, where Gecko's slow-script
@@ -217,7 +220,7 @@ const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL,
     const tracked = new ProxyCtor(Ctor, {
       construct(t, args, nt) {
         const w = reflectConstruct(t, args, nt === tracked ? t : nt);
-        defineProperty(workers, workers.length, { value: [kind, w], writable: true, enumerable: true, configurable: true });
+        defineProperty(workers, workers.length, { __proto__: null, value: [kind, w], writable: true, enumerable: true, configurable: true });
         // A shared worker lives as long as the page's document does: the
         // page is written, so it is reloaded before the user types there and
         // at the task's end.
@@ -278,7 +281,10 @@ const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL,
   // the agent's code changed the world's built-ins meanwhile.
   const adopter = {
     dataset(xw) {
-      for (const name of ["HTMLElement", "SVGElement", "MathMLElement"]) {
+      // By index: the agent's code may have given Array a new iterator.
+      const names = ["HTMLElement", "SVGElement", "MathMLElement"];
+      for (let i = 0; i < names.length; i++) {
+        const name = names[i];
         const proto = xw[name] && xw[name].prototype;
         const d = proto && getOwnPropertyDescriptor(proto, "dataset");
         if (!d || typeof d.get !== "function" || d.configurable === false) {
@@ -286,6 +292,7 @@ const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL,
         }
         const nativeGet = d.get;
         defineProperty(proto, "dataset", {
+          __proto__: null,
           get: {
             dataset() {
               return datasetProxy(apply(nativeGet, this, []));
@@ -333,7 +340,7 @@ const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL,
       if (!d || typeof d.get !== "function" || d.configurable === false) {
         return false;
       }
-      defineProperty(target, name, { get: fn, set: d.set, enumerable: d.enumerable, configurable: false });
+      defineProperty(target, name, { __proto__: null, get: fn, set: d.set, enumerable: d.enumerable, configurable: false });
       return true;
     },
     build(xw, name, source, helpers, previous) {
@@ -344,9 +351,9 @@ const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL,
       }
       const names = ownKeys(helpers);
       for (let i = 0; i < names.length; i++) {
-        defineProperty(globalThis, names[i], { value: helpers[names[i]], writable: true, configurable: true });
+        defineProperty(globalThis, names[i], { __proto__: null, value: helpers[names[i]], writable: true, configurable: true });
       }
-      defineProperty(globalThis, "__zeniusNative", { value: Native, writable: true, configurable: true });
+      defineProperty(globalThis, "__zeniusNative", { __proto__: null, value: Native, writable: true, configurable: true });
       try {
         return indirectEval(source);
       } finally {
@@ -1007,9 +1014,45 @@ function stopAsked(world, turnMs) {
   return !answers?.length || answers.some(answer => answer === true);
 }
 
+/**
+ * Is the built-in about to run called by a step of zenius's own in the world
+ * (asOwnStep), not by the agent's code? Its newest frame in the world is then
+ * one of the adopter's functions, which only chrome holds, or there's none:
+ * chrome calls a built-in of the world itself. The agent's code is always
+ * the newest frame when it calls one, also when one of zenius's steps runs
+ * it (a getter it left), so its deadline still holds.
+ *
+ * Such a step isn't the agent's code: no deadline ends it, and what it does
+ * isn't the agent's writes. Ending it would end, as by an uncatchable error,
+ * the actor's handling of the new document it adopts: the guards still to go
+ * in after it never would. A page whose own turn runs past IDLE_LIMIT_MS and
+ * then makes a frame could do that at will.
+ */
+function ownStep(world) {
+  try {
+    const frame = world.dbg.getNewestFrame();
+    return !frame || world.steps.has(frame.callee);
+  } catch {
+    return false;
+  }
+}
+
+/** Run `fn`, a step of zenius's own in `world` (ownStep). */
+function asOwnStep(world, fn) {
+  world.ownSteps++;
+  try {
+    return fn();
+  } finally {
+    world.ownSteps--;
+  }
+}
+
 const RUNAWAY_TEXT = `a callback the agent's code left in the page (a timer, a listener or a promise's continuation) ran past ${IDLE_LIMIT_MS} ms at once, and zenius stopped it, since the page's process waits on it.`;
 
 function onNative(world, callee, reason) {
+  if (world.ownSteps && !world.cutOwnSteps && ownStep(world)) {
+    return undefined;
+  }
   if (pastDeadline(world)) {
     return null;
   }
@@ -1574,6 +1617,13 @@ export function worldFor(win) {
     // Debugger.Object → its kind (SAFE, WRITE, …), and our wrappers.
     kinds: new WeakMap(),
     ours: new WeakSet(),
+    // zenius's own steps in the world: how many run now, and the functions
+    // they run there (ownStep).
+    ownSteps: 0,
+    steps: new WeakSet(),
+    // Tests only: the hook ends zenius's own steps too, as before they were
+    // exempt (zenius.test.cutOwnSteps), to show what a cut can cost.
+    cutOwnSteps: Services.prefs.getBoolPref("zenius.test.cutOwnSteps", false),
     // innerWindowId → how many of its method shims this world has (adopt).
     adopted: new Map(),
     // Our constructors, made once from this document's guards (adopt).
@@ -1634,6 +1684,10 @@ export function worldFor(win) {
   for (let i = 0; i < api.ours.length; i++) {
     world.ours.add(dS.makeDebuggeeValue(api.ours[i]));
   }
+  // Only chrome holds the adopter: the agent's code can't reach its functions.
+  for (const key of Object.keys(api.adopter)) {
+    world.steps.add(dS.makeDebuggeeValue(api.adopter[key]));
+  }
   world.takeWorkers = api.takeWorkers;
   world.track = api.track;
   world.adopter = api.adopter;
@@ -1643,7 +1697,7 @@ export function worldFor(win) {
   watchDestroyed();
   worlds.set(id, world);
   try {
-    buildConstructors(world, win);
+    asOwnStep(world, () => buildConstructors(world, win));
     // Our guards, as the page's world has them: in the world's view of its
     // own window and of every other window of its group it can reach.
     for (const other of windowsOfGroup(win.browsingContext)) {
@@ -1765,6 +1819,41 @@ export function mirrorConstructor(win, name, source, helpers) {
 }
 
 /**
+ * A constructor whose page guard failed and refuses in the page instead
+ * (content/refusals.sys.mjs, failClosed), with `refuse` as its construct
+ * trap. The worlds get one that refuses the same way, made in chrome from
+ * each world's own Proxy, with no script (refusingIn).
+ */
+export function mirrorRefusal(win, name, refuse) {
+  mirrorsOf(win)?.ctors.push({ name, refuse });
+}
+
+/**
+ * The world's `name` that refuses with `refuse` (mirrorRefusal): a Proxy, made
+ * from the world's own Proxy and Object, over the one the world has. Its
+ * prototype's constructor is the Proxy too, as a guard's source makes it.
+ */
+function refusingIn(world, win, name, refuse) {
+  const Native = world.ctors.get(name) ?? world.adopter.native(win, name);
+  if (typeof Native !== "function") {
+    return null;
+  }
+  const realm = Cu.waiveXrays(world.sandbox);
+  const handler = realm.Object.create(null);
+  handler.construct = world.exported(refuse);
+  const made = new realm.Proxy(Native, handler);
+  const proto = realm.Reflect.get(Native, "prototype");
+  if (proto) {
+    const desc = realm.Object.create(null);
+    desc.value = made;
+    desc.writable = true;
+    desc.configurable = true;
+    realm.Reflect.defineProperty(proto, "constructor", desc);
+  }
+  return made;
+}
+
+/**
  * The world's constructors, made once, from its own document's guards and
  * before any of the agent's code runs: every window it reaches gets these,
  * so a window that comes later can't be handed one made from built-ins the
@@ -1772,8 +1861,15 @@ export function mirrorConstructor(win, name, source, helpers) {
  */
 function buildConstructors(world, win) {
   const table = mirrors.get(world.id);
-  for (const { name, source, helpers } of table?.ctors ?? []) {
+  for (const { name, source, helpers, refuse } of table?.ctors ?? []) {
     try {
+      if (refuse) {
+        const made = refusingIn(world, win, name, refuse);
+        if (made) {
+          world.ctors.set(name, made);
+        }
+        continue;
+      }
       const given = Cu.createObjectIn(world.sandbox);
       for (const [key, fn] of Object.entries(helpers)) {
         Cu.waiveXrays(given)[key] = world.exported(fn);
@@ -1796,6 +1892,11 @@ function buildConstructors(world, win) {
 
 /** The shims of `win`'s document that `world` hasn't got yet, in its view of `win`. */
 function adopt(world, win) {
+  asOwnStep(world, () => adoptNow(world, win));
+}
+
+/** adopt's work, run as zenius's own step (asOwnStep). */
+function adoptNow(world, win) {
   const id = win?.windowGlobalChild?.innerWindowId;
   if (!id) {
     return;

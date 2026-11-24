@@ -68,7 +68,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   mirrorMethod: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
   mirrorGetter: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
   mirrorConstructor: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
-  adoptIntoWorlds: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
+  mirrorRefusal: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
   worldSandboxOf: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
 });
 
@@ -85,6 +85,8 @@ const guarded = new WeakSet();
  * Install the guards in the actor's document, once. zen-core's page guards
  * call it for each new document of an agent tab, and for the documents a
  * tab already has when it becomes the agent's (ZeniusService.installGuards).
+ * The caller hands the document to the agent's worlds afterwards
+ * (adoptIntoWorlds), once all its page-side guards are in.
  *
  * @param {JSWindowActorChild} actor  the Zenius actor of the document
  */
@@ -95,6 +97,38 @@ export function installRefusalGuards(actor) {
     return;
   }
   guarded.add(doc);
+  // Each constructor guard ends with its wrapper or, if that failed, with
+  // the refusing constructor failClosed puts in (`done`). An exception before
+  // one of them (the page's stack can run out anywhere here) leaves it to
+  // the catch, so none keeps the native.
+  const done = new Set();
+  /** Guards whose refusing constructor couldn't go in either (failClosed). */
+  const missed = [];
+  const closed = (name, error) => {
+    done.add(name);
+    failClosed(actor, win, name, error, missed);
+  };
+  try {
+    installAll(actor, win, doc, { done, closed });
+  } catch (e) {
+    for (const name of Object.keys(FAILED_CLOSED)) {
+      if (!done.has(name)) {
+        closed(name, e);
+      }
+    }
+    throw e;
+  } finally {
+    // Still inside the call that made the document: the page that made it
+    // gets control back only after this.
+    if (missed.length) {
+      takeOutOfReach(actor, missed);
+    }
+  }
+}
+
+/** installRefusalGuards' work; `done` and `closed` are its constructor guards' (failClosed). */
+function installAll(actor, win, doc, { done, closed }) {
+  simulateFailure("install");
   const page = Cu.waiveXrays(win);
   const bc = actor.browsingContext;
   const agent = () => isAgentDriven(bc);
@@ -348,8 +382,8 @@ export function installRefusalGuards(actor) {
   const devices = () => evident() || agentNow();
   const why = () => (evident() ? { evidence: evidenceWords(bc) } : { agent: true });
   guardDevices(page, win, { report, later, guard, worldGuard, devices, prompts: evident, why });
-  guardNotifications(win, page, { report, guard, applies: evident, why });
-  guardPeerConnections(win, page, { report, applies: devices, why });
+  guardNotifications(win, page, { report, guard, applies: evident, why, done, closed });
+  guardPeerConnections(win, page, { report, applies: devices, why, done, closed });
   watchWorkers();
   guardSharedWorkers(
     win,
@@ -360,17 +394,15 @@ export function installRefusalGuards(actor) {
         "localNetwork",
         "The page tried to start a shared worker from a data: URL. Its requests would name neither a page nor a site, so zenius couldn't keep them from the local network: a task's pages start shared workers from the site's scripts or from blob: URLs. zenius refused it (SecurityError).",
         "dataSharedWorker"
-      )
+      ),
+    { done, closed }
   );
   guardBroadcastChannels(
     win,
     () => channelScope(bc),
-    channel => noteChannel(doc, "channel", channel)
+    channel => noteChannel(doc, "channel", channel),
+    { done, closed }
   );
-  // The agent's worlds already in this document's group see it through
-  // Xrays, past every guard above: they get the same ones now, before any of
-  // their code can reach the new document.
-  lazy.adoptIntoWorlds(win);
 }
 
 /**
@@ -809,13 +841,221 @@ function exportHelpers(sandbox, helpers) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Failing closed. The four constructor guards below build their wrappers with
+// a script in the page's sandbox, which Gecko holds to the page's own stack
+// limit. A page that spends its stack and then makes a same-origin frame runs
+// the frame's install inside its appendChild with little of it left, and the
+// script throws "too much recursion". Gecko also stops it in a content process
+// that is shutting down. A failed guard must not leave the native: the page
+// gets a constructor that refuses, built here in chrome with no script in the
+// sandbox, the agent's worlds get one too, and the parent is told. If even
+// that can't go in, a frame is taken out of the page that made it.
+
+/** Per constructor: its guard's words, and what its refusing constructor throws. */
+const FAILED_CLOSED = {
+  Notification: { guard: "notification", error: "TypeError", message: "Permission to show Notification denied." },
+  RTCPeerConnection: {
+    guard: "WebRTC",
+    error: "NotAllowedError",
+    message: "The request is not allowed by the user agent or the platform in the current context.",
+  },
+  SharedWorker: { guard: "shared worker", error: "SecurityError", message: "The operation is insecure." },
+  BroadcastChannel: { guard: "broadcast channel", error: "SecurityError", message: "The operation is insecure." },
+};
+
+/**
+ * Why a guard's install threw. Gecko stopped its script: Cu.evalInSandbox then
+ * throws NS_ERROR_OUT_OF_MEMORY with no exception of the script's, and since
+ * the navigation cancel never stops a sandbox's script, in a content process
+ * that means the process is shutting down. Or the page's stack ran out, or
+ * another error.
+ *
+ * @returns {{kind: "stopped"|"stack"|"error", words: string}}
+ */
+function failureCause(e) {
+  if (e?.result === Cr.NS_ERROR_OUT_OF_MEMORY) {
+    return { kind: "stopped", words: "Gecko stopped its script, as it does in a content process that is shutting down" };
+  }
+  let name = "";
+  let message = "";
+  try {
+    name = String(e?.name ?? "");
+    message = String(e?.message ?? e);
+  } catch {}
+  if (name === "InternalError" && message.includes("too much recursion")) {
+    return { kind: "stack", words: "the page's stack was nearly spent (too much recursion)" };
+  }
+  return { kind: "error", words: message.slice(0, 200) || "an error" };
+}
+
+/**
+ * The guard of constructor `name` failed with `error`. The page gets a `name`
+ * that refuses, and the agent's worlds too, and the parent hears of it. Those
+ * steps enter the page's realm, which has the page's stack limit too. If even
+ * they fail, the guard joins `missed`, and the install's end takes the
+ * document out of reach (takeOutOfReach).
+ */
+function failClosed(actor, win, name, error, missed) {
+  const what = FAILED_CLOSED[name];
+  const cause = failureCause(error);
+  let outcome;
+  try {
+    if (simulated(name)?.fallback) {
+      throw new Error("zenius.test.failPageGuard");
+    }
+    const refuse = refusal(win, what);
+    outcome = refuseInPage(win, name, refuse) ? "refusing" : "absent";
+    lazy.mirrorRefusal(win, name, refuse);
+  } catch (e) {
+    missed.push({ name, cause, error, why: failureCause(e).words });
+    return;
+  }
+  const words = outcome === "refusing" ? `The page's ${name} refuses.` : `The page has no ${name}.`;
+  console.error(`[zenius] the ${what.guard} guard failed: ${cause.words}. ${words}`, error);
+  tellGuardFailed(actor, name, cause.kind, outcome);
+}
+
+/**
+ * The guards in `missed` couldn't even put a refusing constructor in: take
+ * the document out of reach (outOfReach), once, after its whole install.
+ * The parent hears first, since a frame taken out takes its actor along.
+ */
+function takeOutOfReach(actor, missed) {
+  const last = outOfReach(actor);
+  const words = {
+    removed: "the frame is taken out of its page",
+    closed: "the window is closed",
+    native: "the document keeps the native",
+  }[last.outcome];
+  for (const { name, cause, error, why } of missed) {
+    console.error(
+      `[zenius] the ${FAILED_CLOSED[name].guard} guard failed: ${cause.words}. Its refusing ${name} couldn't go in either (${why}), so ${words}.`,
+      error
+    );
+    tellGuardFailed(actor, name, cause.kind, last.outcome);
+  }
+  try {
+    last.act?.();
+  } catch (e) {
+    console.error("[zenius] a document whose guard failed couldn't be taken out", e);
+    for (const { name, cause } of missed) {
+      tellGuardFailed(actor, name, cause.kind, "native");
+    }
+  }
+}
+
+/** Tell the parent (observe.guardFailed) how the guard of `name` failed and what the document has now. */
+function tellGuardFailed(actor, name, cause, outcome) {
+  try {
+    // The URL through the document's Xray, which runs in chrome's realm: the
+    // page's location would enter the page's, on its spent stack.
+    const url = lazy.cut(String(actor.document?.documentURIObject?.spec ?? ""), lazy.STRING_TEXT);
+    actor.emit("observe.guardFailed", { guard: name, cause, outcome, url });
+  } catch (e) {
+    console.error("[zenius] the parent couldn't be told that a guard failed", e);
+  }
+}
+
+/** A refusing constructor's construct trap: it throws `what`'s error, made in the page's realm. */
+function refusal(win, what) {
+  return () => {
+    const page = Cu.waiveXrays(win);
+    throw what.error === "TypeError" ? new page.TypeError(what.message) : new page.DOMException(what.message, what.error);
+  };
+}
+
+/**
+ * Put a `name` that refuses (`refuse`, its trap) in the page, over the one it
+ * has. As zen-ux's notification guard builds its own: the page's Proxy, with a
+ * handler that has no prototype and a trap from here, so its statics,
+ * prototype and instanceof stay. Returns false when the page has no `name`.
+ */
+function refuseInPage(win, name, refuse) {
+  const page = Cu.waiveXrays(win);
+  const Native = page[name];
+  if (typeof Native !== "function") {
+    return false;
+  }
+  const handler = page.Object.create(null);
+  handler.construct = Cu.exportFunction(refuse, win);
+  const refusing = new page.Proxy(Native, handler);
+  Object.defineProperty(page, name, { value: refusing, writable: true, enumerable: false, configurable: true });
+  // Nor through the prototype: X.prototype.constructor would be the native.
+  Object.defineProperty(Native.prototype, "constructor", { value: refusing, writable: true, enumerable: false, configurable: true });
+  return true;
+}
+
+/**
+ * The last step, when not even a refusing constructor could go in: take the
+ * document out of reach of the page that made it. A frame's element leaves
+ * its parent through an Xray, a call that runs in chrome's realm and so on
+ * chrome's stack limit; the frame's window is made inside the page's
+ * appendChild, so the page finds none when that returns. A popup, which the
+ * page that opened it can reach, is closed; that takes effect only when the
+ * parent closes its tab, after the opener's script yields. Any other
+ * top-level document, a tab's own, keeps the native: closing a tab the user
+ * or the task opened would cost more than it saves. Returns the outcome, and
+ * the act that takeOutOfReach runs once the parent is told.
+ *
+ * @returns {{outcome: "removed"|"closed"|"native", act?: () => void}}
+ */
+function outOfReach(actor) {
+  try {
+    const bc = actor.browsingContext;
+    const frame = bc?.embedderElement;
+    if (frame) {
+      return { outcome: "removed", act: () => frame.remove() };
+    }
+    if (bc && !bc.parent && bc.opener) {
+      return { outcome: "closed", act: () => actor.contentWindow?.close() };
+    }
+  } catch (e) {
+    console.error("[zenius] a document whose guard failed couldn't be taken out", e);
+  }
+  return { outcome: "native" };
+}
+
+/**
+ * Tests only: integer preference zenius.test.failPageGuard.<name> makes the
+ * guard of constructor <name> fail as if its script had: 1 with an error, 2
+ * as when Gecko stops the script, 3 with too much recursion, plus 8 when the
+ * refusing constructor can't go in either. <name> "install" fails the whole
+ * install before any guard. Integers, since Gecko blanks a string preference
+ * of no default in a web content process. zenius never sets these.
+ *
+ * @returns {{kind: "error"|"stopped"|"stack", fallback: boolean}|null}
+ */
+function simulated(name) {
+  let n = 0;
+  try {
+    n = Services.prefs.getIntPref(`zenius.test.failPageGuard.${name}`, 0);
+  } catch {}
+  if (!n) {
+    return null;
+  }
+  return { kind: { 2: "stopped", 3: "stack" }[n & 3] ?? "error", fallback: (n & 8) !== 0 };
+}
+
+/** Throw as constructor `name`'s guard script would have, when the tests ask (simulated). */
+function simulateFailure(name) {
+  const how = simulated(name);
+  if (!how) {
+    return;
+  }
+  if (how.kind === "stopped") {
+    throw Components.Exception("zenius.test.failPageGuard", Cr.NS_ERROR_OUT_OF_MEMORY);
+  }
+  throw how.kind === "stack" ? new InternalError("too much recursion") : new Error("zenius.test.failPageGuard");
+}
+
 /**
  * Notifications, refused while `applies()` (on evidence of danger), even
  * where the site has the user's grant: one would show on the user's desktop.
  * While the agent drives, zen-ux's guard keeps a granted site's quiet
  * (ui/systemui/ZeniusSystemUiChild.sys.mjs).
  */
-function guardNotifications(win, page, { report, guard, applies, why }) {
+function guardNotifications(win, page, { report, guard, applies, why, done, closed }) {
   const refused = api =>
     `The page tried to show a notification (${api}). The page shows evidence of danger (${why().evidence ?? "evidence"}), so zenius refused it (${api === "showNotification" ? "a TypeError" : "an error event"}, as where notifications are blocked), during the user's hold too.`;
   guard(
@@ -831,6 +1071,7 @@ function guardNotifications(win, page, { report, guard, applies, why }) {
     return;
   }
   try {
+    simulateFailure("Notification");
     const sandbox = pageSandbox(win);
     const helper = () => {
         if (!applies()) {
@@ -866,8 +1107,9 @@ function guardNotifications(win, page, { report, guard, applies, why }) {
     const wrapped = Cu.evalInSandbox(source, sandbox);
     Object.defineProperty(page, "Notification", { value: wrapped, writable: true, enumerable: false, configurable: true });
     lazy.mirrorConstructor(win, "Notification", source, { zeniusNotificationRefused: helper });
+    done.add("Notification");
   } catch (e) {
-    console.error("[zenius] the notification guard failed", e);
+    closed("Notification", e);
   }
 }
 
@@ -877,11 +1119,12 @@ function guardNotifications(win, page, { report, guard, applies, why }) {
  * macOS's Local Network prompt, whose answer covers the user's whole
  * browser. Fingerprinting scripts make one on many sites.
  */
-function guardPeerConnections(win, page, { report, applies, why }) {
+function guardPeerConnections(win, page, { report, applies, why, done, closed }) {
   if (typeof page.RTCPeerConnection !== "function") {
     return;
   }
   try {
+    simulateFailure("RTCPeerConnection");
     const sandbox = pageSandbox(win);
     const helper = () => {
         if (!applies()) {
@@ -918,8 +1161,9 @@ function guardPeerConnections(win, page, { report, applies, why }) {
     const wrapped = Cu.evalInSandbox(source, sandbox);
     Object.defineProperty(page, "RTCPeerConnection", { value: wrapped, writable: true, enumerable: false, configurable: true });
     lazy.mirrorConstructor(win, "RTCPeerConnection", source, { zeniusPeerConnectionRefused: helper });
+    done.add("RTCPeerConnection");
   } catch (e) {
-    console.error("[zenius] the WebRTC guard failed", e);
+    closed("RTCPeerConnection", e);
   }
 }
 
@@ -960,12 +1204,13 @@ const SCOPED_MARKS = ["zenius-task-", "zenius-held-"];
  * the local-network refusal couldn't place them. A blob: one's name its
  * site (observe/localnet.sys.mjs, blobWorkerSite).
  */
-function guardSharedWorkers(win, ownerNow, noted, refusedData) {
+function guardSharedWorkers(win, ownerNow, noted, refusedData, { done, closed }) {
   const page = Cu.waiveXrays(win);
   if (typeof page.SharedWorker !== "function") {
     return;
   }
   try {
+    simulateFailure("SharedWorker");
     const sandbox = pageSandbox(win);
     const helpers = {
       // The script URL to start the worker with: the task's own, null for
@@ -1033,8 +1278,9 @@ function guardSharedWorkers(win, ownerNow, noted, refusedData) {
     const wrapped = Cu.evalInSandbox(source, sandbox);
     Object.defineProperty(page, "SharedWorker", { value: wrapped, writable: true, enumerable: false, configurable: true });
     lazy.mirrorConstructor(win, "SharedWorker", source, helpers);
+    done.add("SharedWorker");
   } catch (e) {
-    console.error("[zenius] the shared worker guard failed", e);
+    closed("SharedWorker", e);
   }
 }
 
@@ -1139,12 +1385,13 @@ const CHANNEL_GUARD = `function zeniusChannelGuard(Native, scopeOf, noted) {
  * Proxy made in a sandbox with the page's principal, and the page reads its
  * own names back.
  */
-function guardBroadcastChannels(win, scopeNow, noted) {
+function guardBroadcastChannels(win, scopeNow, noted, { done, closed }) {
   const page = Cu.waiveXrays(win);
   if (typeof page.BroadcastChannel !== "function") {
     return;
   }
   try {
+    simulateFailure("BroadcastChannel");
     const sandbox = pageSandbox(win);
     const helpers = {
       zeniusChannelScope: () => scopeNow(),
@@ -1163,8 +1410,9 @@ function guardBroadcastChannels(win, scopeNow, noted) {
       Object.defineProperty(page, "BroadcastChannel", { value: wrapped, writable: true, enumerable: false, configurable: true });
       lazy.mirrorConstructor(win, "BroadcastChannel", source, helpers);
     }
+    done.add("BroadcastChannel");
   } catch (e) {
-    console.error("[zenius] the broadcast channel guard failed", e);
+    closed("BroadcastChannel", e);
   }
 }
 

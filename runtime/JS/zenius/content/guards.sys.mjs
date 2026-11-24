@@ -15,7 +15,6 @@ export {
 // Loaded with a task's first guarded document, never in the user's own tabs (I4).
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  adoptIntoWorlds: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
   mirrorMethod: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
 });
 
@@ -38,7 +37,8 @@ const guarded = new WeakSet();
  * The actor calls this at DOMWindowCreated in every page of an agent task
  * (isAgentTaskPage), and the parent asks for it ("installGuards") in the
  * documents a tab already had when it became a task's page. Each document
- * gets the guards once.
+ * gets the guards once. The actor hands the document to the agent's worlds
+ * after this and every other page-side guard (adoptIntoWorlds).
  *
  * @param {JSWindowActorChild} actor
  * @returns {boolean} whether the guards went in now
@@ -74,7 +74,6 @@ export function installPageGuards(actor) {
   Cu.exportFunction(open, win, { defineAs: "open" });
   // zen-observe's glue: the agent's worlds see the native open through Xrays.
   lazy.mirrorMethod(win, "", "open", open);
-  lazy.adoptIntoWorlds(win);
   return true;
 }
 

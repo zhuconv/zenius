@@ -78,6 +78,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   releaseHolds: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
   // The parent backstops load with a task's first page, not at startup (I4).
   setBackstops: "chrome://userscripts/content/zenius/modules/backstops.sys.mjs",
+  noteGuardFailure: "chrome://userscripts/content/zenius/observe/refusals.sys.mjs",
   // The sign-in rules' parent side loads with the first connection (I4).
   checkSignInCall: "chrome://userscripts/content/zenius/observe/signin.sys.mjs",
   publishTestPages: "chrome://userscripts/content/zenius/observe/signin.sys.mjs",
@@ -2582,6 +2583,11 @@ class Service {
     if (!wgp || notWebContent(wgp)) {
       return;
     }
+    if (name === "observe.guardFailed") {
+      // Logged for any tab's document: it goes to no agent.
+      lazy.noteGuardFailure(msg.params);
+      return;
+    }
     const browser = actor.browsingContext?.top?.embedderElement;
     const page = browser ? this.pages.forBrowser(browser) : null;
     const space = page ? this.spaces.peek(page.spaceId) : null;
@@ -2657,10 +2663,10 @@ function hasDocument(tab) {
 
 /**
  * The events content modules send: content/refusals.sys.mjs (refused,
- * sound), content/media.sys.mjs (media) and content/console.sys.mjs
- * (console).
+ * sound, guardFailed), content/media.sys.mjs (media) and
+ * content/console.sys.mjs (console).
  */
-const CONTENT_EVENTS = new Set(["observe.console", "observe.refused", "observe.sound", "observe.media"]);
+const CONTENT_EVENTS = new Set(["observe.console", "observe.refused", "observe.sound", "observe.media", "observe.guardFailed"]);
 
 /**
  * Run the control check, then `gates[i…]`, synchronously until one returns a

@@ -9,6 +9,7 @@
 // Other owners: reportRefused(browser, kind, message) for a surface you
 // refuse; watchRefusals(browser) for an action's receipt (docs/SPI.md).
 
+import { log } from "chrome://userscripts/content/zenius/modules/util.sys.mjs";
 import { pushEvent } from "chrome://userscripts/content/zenius/observe/events.sys.mjs";
 import { cut, STRING_TEXT } from "chrome://userscripts/content/zenius/observe/textcap.sys.mjs";
 
@@ -29,6 +30,42 @@ const watchers = new Set();
 let isAgent = _browser => false;
 let installed = false;
 const PATCHED = Symbol("zenius.refusals");
+
+/**
+ * The page guards that failed lately (content/refusals.sys.mjs, failClosed),
+ * newest last, for the log and the tests.
+ */
+const guardFailures = [];
+const GUARD_WORDS = {
+  guard: new Set(["Notification", "RTCPeerConnection", "SharedWorker", "BroadcastChannel"]),
+  cause: new Set(["stopped", "stack", "error"]),
+  outcome: new Set(["refusing", "absent", "removed", "closed", "native"]),
+};
+
+/**
+ * A page guard failed and its document's process put a refusing constructor
+ * in its place, or took the document out of reach (the content event
+ * observe.guardFailed). Logged, and kept among the last few. The content
+ * process is the untrusted side, so only the words it can send pass.
+ *
+ * @param {object} params  {guard, cause, outcome, url}
+ */
+export function noteGuardFailure(params) {
+  const entry = { url: cut(String(params?.url ?? ""), STRING_TEXT) };
+  for (const [field, known] of Object.entries(GUARD_WORDS)) {
+    entry[field] = known.has(params?.[field]) ? params[field] : "unknown";
+  }
+  guardFailures.push(entry);
+  if (guardFailures.length > 32) {
+    guardFailures.shift();
+  }
+  log(`a page guard failed (${entry.guard}, ${entry.cause}): ${entry.outcome}, in ${entry.url}`);
+}
+
+/** The last page guards that failed (noteGuardFailure), oldest first. */
+export function recentGuardFailures() {
+  return guardFailures.map(entry => ({ ...entry }));
+}
 
 /**
  * Tell the agent that its page asked for something zenius refused.

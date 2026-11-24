@@ -12,6 +12,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   watchReuse: "chrome://userscripts/content/zenius/content/signinguard.sys.mjs",
   installPageGuards: "chrome://userscripts/content/zenius/content/guards.sys.mjs",
   installRefusalGuards: "chrome://userscripts/content/zenius/content/refusals.sys.mjs",
+  adoptIntoWorlds: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
   pendingSignIn: "chrome://userscripts/content/zenius/content/signinguard.sys.mjs",
   refuseSignIn: "chrome://userscripts/content/zenius/content/signinguard.sys.mjs",
   toWireError: "chrome://userscripts/content/zenius/modules/errors.sys.mjs",
@@ -51,6 +52,7 @@ export class ZeniusChild extends JSWindowActorChild {
           }
         });
       }
+      adoptLast(this);
     } else if (needsRefusals(this.browsingContext)) {
       // zen-observe: a popup a task's page opened, before the parent makes
       // it a page of the task, or a document of a tab whose page ran the
@@ -61,6 +63,7 @@ export class ZeniusChild extends JSWindowActorChild {
         lazy.assessSignIn(this, true);
         lazy.watchReuse(this);
       });
+      adoptLast(this);
     }
   }
 
@@ -72,7 +75,11 @@ export class ZeniusChild extends JSWindowActorChild {
         return false;
       }
       guard("sign-in pages", () => lazy.assessSignIn(this));
-      return lazy.installPageGuards(this);
+      try {
+        return lazy.installPageGuards(this);
+      } finally {
+        adoptLast(this);
+      }
     }
     if (msg.name !== "call") {
       return undefined;
@@ -118,6 +125,22 @@ export class ZeniusChild extends JSWindowActorChild {
       // The actor is being torn down with its document; nobody is listening.
     }
   }
+}
+
+/**
+ * The agent's worlds of the document's group take it (adoptIntoWorlds), after
+ * every page-side guard: a step of theirs that fails, or is cut short as by
+ * an uncatchable error, can then cost only the worlds' view of it, never a
+ * guard of the page's. They still take it before the call that made the
+ * document returns to the page.
+ */
+function adoptLast(actor) {
+  guard("agent worlds", () => {
+    const win = actor.contentWindow;
+    if (win) {
+      lazy.adoptIntoWorlds(win);
+    }
+  });
 }
 
 /** One guard's install: a failure is logged and doesn't keep the others out. */

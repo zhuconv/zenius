@@ -480,6 +480,178 @@ test("the deadline stops the agent's code that runs past it: a loop that calls n
     assert.ok(quick < 2500, `the page waited ${quick} ms on the left-over loop`);
   }));
 
+// The page's own guards in its frames zo-a and zo-b, told by how they behave,
+// with nothing opened, written, asked for or shown:
+// - open: zenius's ignores this, so an unparsable URL fails first
+//   (SyntaxError); the native refuses a foreign this (TypeError).
+// - clipboard: zenius's refuses for want of a gesture while the agent drives
+//   (NotAllowedError); the native refuses a foreign this (TypeError).
+// - passkeys: zenius's reads the request's signal first; the native refuses a
+//   foreign this before it reads any of the request.
+// - quiet notifications: zenius's is a Proxy over the refusals' constructor,
+//   which stays its prototype's constructor.
+const PAGE_GUARDS = `const out = {};
+  for (const id of ["zo-a", "zo-b"]) {
+    const w = document.getElementById(id).contentWindow;
+    let open;
+    try {
+      Reflect.apply(w.open, {}, ["http://[", "_blank"]);
+      open = "returned";
+    } catch (e) {
+      open = e.name;
+    }
+    const clipboard = await Reflect.apply(w.Clipboard.prototype.writeText, {}, ["zo"]).then(() => "resolved", e => e.name);
+    const read = [];
+    const request = {
+      get signal() {
+        read.push("signal");
+        return undefined;
+      },
+      get publicKey() {
+        read.push("publicKey");
+        return undefined;
+      },
+    };
+    try {
+      await Reflect.apply(w.CredentialsContainer.prototype.get, {}, [request]);
+    } catch {}
+    out[id] = { open, clipboard, passkeys: read[0] ?? "unread", quiet: w.Notification !== w.Notification.prototype.constructor };
+  }
+  return out;`;
+const PAGE_GUARDED = { open: "SyntaxError", clipboard: "NotAllowedError", passkeys: "signal", quiet: true };
+
+test("the deadline ends only the agent's code: a frame a page makes more than a second into its own turn still gets every guard, and the world none of its natives", () =>
+  env.inSpace("world long turn", async page => {
+    await page.goto(`${env.base}/nav-target?long-turn`);
+    // The world is there before the page's turn: frame a's install runs its
+    // first step of that turn, frame b's runs one more than a second later.
+    assert.equal(await page.evaluate("1 + 1"), 2);
+    await page.call("page.events");
+    const made = await pageWorld(
+      page.P,
+      `const a = document.createElement("iframe");
+       a.id = "zo-a";
+       document.body.append(a);
+       const end = performance.now() + 1100;
+       while (performance.now() < end) {}
+       const b = document.createElement("iframe");
+       b.id = "zo-b";
+       document.body.append(b);
+       return !!a.contentWindow && !!b.contentWindow;`
+    );
+    assert.equal(made, true);
+    assert.deepEqual(await pageWorld(page.P, PAGE_GUARDS), { "zo-a": PAGE_GUARDED, "zo-b": PAGE_GUARDED });
+    // In the world, a frame's guards are fixed properties over the natives:
+    // its constructors from the world's own, its methods from the shims the
+    // page's guards leave as they go in. The open guard and the clipboard
+    // guards are the last to go in.
+    const seen = await page.evaluate(`(() => {
+      const out = {};
+      const fixed = (o, n) => Object.getOwnPropertyDescriptor(o, n)?.configurable === false;
+      for (const id of ["zo-a", "zo-b"]) {
+        const w = document.getElementById(id).contentWindow;
+        out[id] = {
+          SharedWorker: fixed(w, "SharedWorker"),
+          requestFullscreen: fixed(w.Element.prototype, "requestFullscreen"),
+          open: fixed(w, "open"),
+          clipboard: fixed(w.Clipboard.prototype, "writeText"),
+        };
+        try {
+          new w.RTCPeerConnection().close();
+          out[id].peer = "made";
+        } catch (e) {
+          out[id].peer = e.name;
+        }
+      }
+      return out;
+    })()`);
+    const guarded = { SharedWorker: true, requestFullscreen: true, open: true, clipboard: true, peer: "NotAllowedError" };
+    assert.deepEqual(seen, { "zo-a": guarded, "zo-b": guarded });
+    // Nor is zenius's own step reported as the agent's runaway code.
+    const runaway = (await page.call("page.events")).filter(e => e.method === "Zenius.refused" && e.params.kind === "agentCode");
+    assert.deepEqual(runaway, []);
+  }));
+
+test("the worlds take a new document after all its page-side guards: were their step cut short, every guard of the page's would still be in", () =>
+  env.inSpace("world cut last", async page => {
+    await env.chrome(`Services.prefs.setBoolPref("zenius.test.cutOwnSteps", true); return true;`);
+    try {
+      await page.goto(`${env.base}/nav-target?cut-last`);
+      // A world made now lets its hook end zenius's own steps too, as before
+      // they were spared: frame b's comes past the limit.
+      assert.equal(await page.evaluate("1 + 1"), 2);
+      const made = await pageWorld(
+        page.P,
+        `const a = document.createElement("iframe");
+         a.id = "zo-a";
+         document.body.append(a);
+         const end = performance.now() + 1100;
+         while (performance.now() < end) {}
+         const b = document.createElement("iframe");
+         b.id = "zo-b";
+         document.body.append(b);
+         return !!a.contentWindow && !!b.contentWindow;`
+      );
+      assert.equal(made, true);
+      // Every guard of the page's is in, in both frames.
+      assert.deepEqual(await pageWorld(page.P, PAGE_GUARDS), { "zo-a": PAGE_GUARDED, "zo-b": PAGE_GUARDED });
+      // The cut did happen: the world reaches frame b's native.
+      const world = await page.evaluate(`(() => {
+        const out = {};
+        for (const id of ["zo-a", "zo-b"]) {
+          const w = document.getElementById(id).contentWindow;
+          try {
+            new w.RTCPeerConnection().close();
+            out[id] = "made";
+          } catch (e) {
+            out[id] = e.name;
+          }
+        }
+        return out;
+      })()`);
+      assert.deepEqual(world, { "zo-a": "NotAllowedError", "zo-b": "made" });
+    } finally {
+      await env.chrome(`Services.prefs.clearUserPref("zenius.test.cutOwnSteps"); return true;`);
+    }
+  }));
+
+test("a frame the world reaches after its own code changed its built-ins still has every guard there: a get or set on Object.prototype, a new Array iterator", () =>
+  env.inSpace("world tampered", async page => {
+    await page.goto(`${env.base}/nav-target?tampered`);
+    const seen = await page.evaluate(`(() => {
+      const iterator = Array.prototype[Symbol.iterator];
+      Object.prototype.get = undefined;
+      Object.prototype.set = undefined;
+      Array.prototype[Symbol.iterator] = function () {
+        throw new Error("the agent's own iterator");
+      };
+      try {
+        const f = document.createElement("iframe");
+        document.body.append(f);
+        const w = f.contentWindow;
+        const fixed = (o, n) => Object.getOwnPropertyDescriptor(o, n)?.configurable === false;
+        const out = {
+          SharedWorker: fixed(w, "SharedWorker"),
+          requestFullscreen: fixed(w.Element.prototype, "requestFullscreen"),
+          clipboard: fixed(w.Clipboard.prototype, "writeText"),
+          dataset: fixed(w.HTMLElement.prototype, "dataset"),
+        };
+        try {
+          new w.RTCPeerConnection().close();
+          out.peer = "made";
+        } catch (e) {
+          out.peer = e.name;
+        }
+        return out;
+      } finally {
+        delete Object.prototype.get;
+        delete Object.prototype.set;
+        Array.prototype[Symbol.iterator] = iterator;
+      }
+    })()`);
+    assert.deepEqual(seen, { SharedWorker: true, requestFullscreen: true, clipboard: true, dataset: true, peer: "NotAllowedError" });
+  }));
+
 test("the loop counter changes nothing the agent's code sees: a function's text, its results, and where an error is", () =>
   env.inSpace("world counter", async page => {
     await page.goto(`${env.base}/nav-target?counter`);
