@@ -2942,6 +2942,11 @@ test("an answer in parts, with thoughts between them, gets one copy and save row
     };
     const downloads = PathUtils.join(PathUtils.tempDir, "zs-parts-" + Date.now());
     await IOUtils.makeDirectory(downloads);
+    // The prefs as found, put back after: a dev profile sets its own downloads folder (zen-dev.sh).
+    const found = ["browser.download.useDownloadDir", "browser.download.folderList", "browser.download.dir"].map(name => [
+      name,
+      Services.prefs.prefHasUserValue(name) ? Services.prefs.getPrefType(name) : 0,
+    ]).map(([name, type]) => [name, type, type === Services.prefs.PREF_BOOL ? Services.prefs.getBoolPref(name) : type === Services.prefs.PREF_INT ? Services.prefs.getIntPref(name) : type ? Services.prefs.getStringPref(name) : null]);
     Services.prefs.setBoolPref("browser.download.useDownloadDir", true);
     Services.prefs.setIntPref("browser.download.folderList", 2);
     Services.prefs.setStringPref("browser.download.dir", downloads);
@@ -2967,8 +2972,11 @@ test("an answer in parts, with thoughts between them, gets one copy and save row
       return { during, ended, copied, saved };
     } finally {
       A.removeTask(conv);
-      for (const pref of ["browser.download.useDownloadDir", "browser.download.folderList", "browser.download.dir"]) {
-        Services.prefs.clearUserPref(pref);
+      for (const [name, type, value] of found) {
+        if (!type) Services.prefs.clearUserPref(name);
+        else if (type === Services.prefs.PREF_BOOL) Services.prefs.setBoolPref(name, value);
+        else if (type === Services.prefs.PREF_INT) Services.prefs.setIntPref(name, value);
+        else Services.prefs.setStringPref(name, value);
       }
       await IOUtils.remove(downloads, { recursive: true, ignoreAbsent: true });
     }

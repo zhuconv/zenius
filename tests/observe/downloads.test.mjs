@@ -21,6 +21,8 @@ const userDownloads = () =>
   env.chrome(`
     const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
     const dir = await Downloads.getPreferredDownloadsDirectory();
+    // The profile's own folder (zen-dev.sh), never the account's Downloads.
+    if (!dir.startsWith(PathUtils.profileDir + "/")) throw new Error("the downloads folder isn't the profile's own: " + dir);
     const files = await IOUtils.getChildren(dir).catch(() => []);
     const list = await (await Downloads.getList(Downloads.ALL)).getAll();
     return { files: files.length, list: list.length, panel: !!win.DownloadsPanel?.isPanelShowing };

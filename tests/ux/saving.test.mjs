@@ -25,8 +25,21 @@ function newVictim(name) {
   return path;
 }
 
+/** The saving prefs' own values, as found before the tests, to put back after. */
+const SAVING_PREFS = ["browser.download.useDownloadDir", "browser.download.folderList", "browser.download.dir", "browser.download.lastDir"];
+let found;
+
 before(async () => {
   h = await setup();
+  // A dev profile sets its own downloads folder (zen-dev.sh): it stays after.
+  found = await h.chrome(`
+    const prefs = Services.prefs;
+    return Object.fromEntries(${JSON.stringify(SAVING_PREFS)}.map(name => {
+      if (!prefs.prefHasUserValue(name)) return [name, null];
+      const type = prefs.getPrefType(name);
+      return [name, type === prefs.PREF_BOOL ? prefs.getBoolPref(name) : type === prefs.PREF_INT ? prefs.getIntPref(name) : prefs.getStringPref(name)];
+    }));
+  `);
   root = mkdtempSync(join(tmpdir(), "zen-ux-saving-"));
   downloads = join(root, "Downloads");
   mkdirSync(downloads);
@@ -36,8 +49,13 @@ before(async () => {
 after(async () => {
   await h
     ?.chrome(`
-      for (const pref of ["browser.download.useDownloadDir", "browser.download.folderList", "browser.download.dir", "browser.download.lastDir"]) {
-        Services.prefs.clearUserPref(pref);
+      const found = ${JSON.stringify(found ?? {})};
+      for (const pref of ${JSON.stringify(SAVING_PREFS)}) {
+        const value = found[pref];
+        if (value === undefined || value === null) Services.prefs.clearUserPref(pref);
+        else if (typeof value === "boolean") Services.prefs.setBoolPref(pref, value);
+        else if (typeof value === "number") Services.prefs.setIntPref(pref, value);
+        else Services.prefs.setStringPref(pref, value);
       }
       const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
       const list = await Downloads.getList(Downloads.PUBLIC);

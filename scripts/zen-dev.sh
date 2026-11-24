@@ -13,10 +13,21 @@
 #                                     unless ZENIUS_FRESH=1
 #   scripts/zen-dev.sh <name> updates where Gecko keeps updates for this Zen's install, and
 #                                     whether one is waiting there (then exit 3); starts nothing
+#   scripts/zen-dev.sh --app path|status|remove
+#                                     the Mac's dev copy of Zen.app: make it if needed and print
+#                                     its zen binary; list the copies; remove every copy that no
+#                                     Zen runs from
+#
+# On the Mac a dev Zen never runs the user's Zen.app itself, but a copy with
+# an identity of its own, made once per Zen version under
+# ~/.zenius-dev/app.noindex/ (see ensure_dev_app). ZEN_APP=<app> copies
+# another Zen.app than /Applications/Zen.app; ZEN_BIN=<binary> runs that
+# binary as it is, with no copy, on either system.
 #
 # start refuses (exit 3) while an update is waiting in the install's update
 # folder: every Zen started from the install applies it first, before it reads
-# a profile or a pref, and on the Mac that install is the user's own Zen.app.
+# a profile or a pref, and on the Mac, with ZEN_BIN at the user's own Zen.app,
+# that install is theirs.
 # See refuse_waiting_update. Behind that guard, every dev Zen starts with
 # MOZ_DISABLE_UPDATE_PROCESSING=1, which leaves a waiting update alone: an
 # update that arrives after the check still isn't applied by a dev Zen.
@@ -55,11 +66,18 @@
 # Never point this at the user's daily profile: it always uses ~/.zenius-dev/profiles/<name>.
 set -euo pipefail
 
-NAME=${1:?usage: zen-dev.sh <name> start|stop|quit|restart|status|log|path|reset|fresh|updates}
-CMD=${2:-start}
-shift 2 || shift $#
-[[ $NAME =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo "name must match [a-z0-9][a-z0-9_-]*" >&2; exit 2; }
-[[ $NAME == default ]] && { echo "'default' is reserved for the user's daily browser" >&2; exit 2; }
+if [[ ${1:-} == --app ]]; then
+  # No profile: a name can't start with "-".
+  NAME=
+  CMD=--app
+  shift
+else
+  NAME=${1:?usage: zen-dev.sh <name> start|stop|quit|restart|status|log|path|reset|fresh|updates, or zen-dev.sh --app path|status|remove}
+  CMD=${2:-start}
+  shift 2 || shift $#
+  [[ $NAME =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo "name must match [a-z0-9][a-z0-9_-]*" >&2; exit 2; }
+  [[ $NAME == default ]] && { echo "'default' is reserved for the user's daily browser" >&2; exit 2; }
+fi
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 # A ZENIUS_DEV_HOME whose real path isn't ~/.zenius-dev's gives a Zen without
@@ -75,7 +93,8 @@ CRASH_SIGNAL=
 CRASH_WHAT=
 STALL_FILE=
 if [[ $(uname) == Darwin ]]; then
-  ZEN=${ZEN_BIN:-/Applications/Zen.app/Contents/MacOS/zen}
+  # Empty: the dev copy of Zen.app, made when a command needs it (need_zen).
+  ZEN=${ZEN_BIN:-}
 else
   ZEN=${ZEN_BIN:-$HOME/opt/zen-1.24.2b/zen}
 fi
@@ -187,8 +206,10 @@ profile_pid() {
 }
 
 ensure_program_files() {
-  # fx-autoconfig needs two files next to the Zen binary. The Mac app already has
-  # them (and we must not modify it); a Linux tarball install gets them here.
+  # fx-autoconfig needs two files next to the Zen binary. The Mac's dev copy
+  # has this checkout's (make_dev_app); the user's own Zen.app, which ZEN_BIN
+  # may name, has the user's, and we never modify it. A Linux tarball install
+  # gets them here.
   local appdir; appdir=$(dirname "$ZEN")
   [[ $(uname) == Darwin ]] && appdir=$(cd "$appdir/../Resources" && pwd)
   if [[ ! -f $appdir/config.js ]]; then
@@ -292,6 +313,7 @@ refuse_waiting_update() {
 
 updates() {
   local root what
+  need_zen
   root=$(update_root "$(uname)" "$ZEN") || { echo "can't find the folder of $ZEN" >&2; return 3; }
   echo "Zen: $ZEN"
   echo "update folder: $root/updates/0"
@@ -300,6 +322,368 @@ updates() {
     return 3
   fi
   echo "nothing waiting (start goes ahead)"
+}
+
+# The Mac's dev copy of Zen.app. A Zen started from /Applications/Zen.app is,
+# to macOS, the user's own Zen: while one runs, even headless, opening Zen
+# from the Dock only brings it forward (see other_zens in install.sh), and it
+# shares Zen's macOS settings and privacy grants. So on the Mac a dev Zen
+# runs a copy of the app with an identity of its own:
+# - its own bundle id and name, and no claim on web links or files, so macOS
+#   never takes it for the user's Zen or offers it as a browser;
+# - its own Profile and RemotingName in application.ini, so even a start
+#   without --profile never opens the user's profiles;
+# - this checkout's fx-autoconfig program files, and an update policy;
+# - an ad hoc signature on its top level only. --deep would rewrite every
+#   binary in the app, and under the hardened runtime the ad hoc main binary
+#   couldn't load Zen's XUL (another Team ID). The nested code keeps Zen's
+#   signatures, so web content runs in Zen's own plugin-container.
+# The copy is an APFS clone, which shares the app's blocks: only the files an
+# edit or the signature rewrites take space, a few MB. Each Zen version gets
+# its own copy, and a copy that no process runs from goes.
+DEV_APP_ID=io.github.zhuconv.zenius.zen-dev
+DEV_APP_NAME="zenius Dev Zen"
+DEV_APP_PROFILE=zen-dev
+# Raise it when make_dev_app makes the copy differently, so that each Mac
+# makes it again.
+DEV_APP_RECIPE=1
+DEV_APP_SOURCE=${ZEN_APP:-/Applications/Zen.app}
+# Spotlight leaves out a folder named *.noindex, so the copy isn't offered as
+# an app.
+DEV_APPS=$DEV/app.noindex
+DEV_APP=
+DEV_APP_TMP=
+DEV_APP_LOCKED=
+
+# The Zen binary to run: ZEN_BIN's, Linux's default, or on the Mac this Zen
+# version's dev copy, made now if it isn't there yet.
+need_zen() {
+  if [[ -z $ZEN ]]; then
+    ensure_dev_app
+    ZEN=$DEV_APP/Contents/MacOS/zen
+  fi
+}
+
+sha256() { if command -v shasum >/dev/null; then shasum -a 256; else sha256sum; fi | cut -d' ' -f1; }
+
+# The copy's folder name: the app's BuildID, and a hash of what else makes
+# the copy, so that a new Zen version, a new recipe or new loader files make a
+# new one.
+dev_app_key() {
+  local ini=$DEV_APP_SOURCE/Contents/Resources/application.ini build hash
+  build=$(sed -n 's/^BuildID=\([0-9]*\).*/\1/p' "$ini" 2>/dev/null | head -1 || true)
+  if [[ ! $build =~ ^[0-9]{8,20}$ ]]; then
+    echo "zen-dev.sh: no BuildID in $ini; is $DEV_APP_SOURCE a Zen app? (ZEN_APP names another, ZEN_BIN runs a Zen binary as it is)" >&2
+    return 1
+  fi
+  hash=$({
+    printf '%s\n' "$DEV_APP_RECIPE" "$DEV_APP_ID" "$DEV_APP_NAME" "$DEV_APP_PROFILE"
+    cat "$ROOT/runtime/vendor/fx-autoconfig/program/config.js" "$ROOT/runtime/vendor/fx-autoconfig/program/defaults/pref/config-prefs.js"
+  } | sha256)
+  echo "$build-${hash:0:12}"
+}
+
+# Sets DEV_APP to this Zen version's dev copy, made now if it isn't there yet,
+# and removes the copies of other versions that no process runs from.
+ensure_dev_app() {
+  if [[ ! -d $DEV_APP_SOURCE/Contents/MacOS ]]; then
+    echo "zen-dev.sh: no Zen app at $DEV_APP_SOURCE to copy for dev Zens (ZEN_APP names another, ZEN_BIN runs a Zen binary as it is)" >&2
+    exit 1
+  fi
+  local key copies
+  key=$(dev_app_key)
+  DEV_APP=$DEV_APPS/$key/zenius-dev-zen.app
+  copies=("$DEV_APPS"/*/ready)
+  if [[ -f $DEV_APPS/$key/ready && ${#copies[@]} == 1 ]]; then return 0; fi
+  (umask 077 && mkdir -p "$DEV_APPS")
+  chmod 700 "$DEV_APPS"
+  trap dev_app_unlock EXIT
+  dev_app_lock
+  [[ -f $DEV_APPS/$key/ready ]] || make_dev_app "$key"
+  remove_dev_apps "$key" || true
+  dev_app_unlock
+  trap - EXIT
+}
+
+# One start makes the copy while the others wait: a test run starts several
+# dev Zens at once. A lock whose maker is gone, killed while it made the
+# copy, is taken over.
+dev_app_lock() {
+  local lock=$DEV_APPS/.lock pid=
+  for _ in $(seq 1 1200); do
+    if mkdir "$lock" 2>/dev/null; then
+      echo $$ >"$lock/pid"
+      DEV_APP_LOCKED=1
+      return 0
+    fi
+    pid=$(cat "$lock/pid" 2>/dev/null || true)
+    if [[ -n $pid ]] && ! alive "$pid"; then
+      rm -rf "$lock"
+      continue
+    fi
+    sleep 0.25
+  done
+  echo "zen-dev.sh: $lock has been held for 5 minutes (pid ${pid:-unknown}); remove it if no zen-dev.sh is making the dev copy" >&2
+  exit 1
+}
+
+dev_app_unlock() {
+  if [[ -n $DEV_APP_TMP ]]; then rm -rf "$DEV_APP_TMP"; fi
+  DEV_APP_TMP=
+  if [[ -n $DEV_APP_LOCKED ]]; then rm -rf "$DEV_APPS/.lock"; fi
+  DEV_APP_LOCKED=
+}
+
+avail_kb() { df -Pk "$1" | awk 'NR == 2 { print $4 }'; }
+
+# Makes the copy for key $1: in a folder of its own beside the others, which
+# takes the key's name only once the copy is whole.
+make_dev_app() {
+  local key=$1 src app before after plist ini res k
+  src=$(cd -P "$DEV_APP_SOURCE" && pwd -P)
+  # The maker's pid in the folder's name, from the start: remove_dev_apps
+  # leaves the half-made copy of a maker that still runs.
+  DEV_APP_TMP=$(mktemp -d "$DEV_APPS/.make.$$.XXXXXX")
+  app=$DEV_APP_TMP/zenius-dev-zen.app
+  echo "zen-dev.sh: making the dev copy of $src for this Zen version, in $DEV_APPS/$key" >&2
+  before=$(avail_kb "$DEV_APPS")
+  cp -cR "$src" "$app"
+  after=$(avail_kb "$DEV_APPS")
+  # A clone takes no space; a real copy takes the app's whole size (about
+  # 0.6 GB), again for each Zen version.
+  if ((before - after > 200 * 1024)); then
+    echo "zen-dev.sh: the copy of $src took $(((before - after) / 1024)) MB, so it isn't an APFS clone (another volume, or not APFS); not keeping it. ZEN_BIN runs a Zen binary as it is" >&2
+    exit 3
+  fi
+  # Every write below goes into the copy, never through a link into the app:
+  # the copy is a folder of its own, and nothing below writes or removes in
+  # it through a link, at the path or in a folder on the way there.
+  if [[ -L $app || $(cd -P "$app" && pwd -P) != "$(cd -P "$DEV_APP_TMP" && pwd -P)/zenius-dev-zen.app" ]]; then
+    echo "zen-dev.sh: the copy at $app isn't a folder of its own; not touching it" >&2
+    exit 1
+  fi
+  for k in "$app"/Contents{,/Info.plist,/embedded.provisionprofile,/_CodeSignature,/_CodeSignature/CodeResources,/MacOS,/MacOS/zen,/Resources,/Resources/application.ini,/Resources/config.js,/Resources/defaults,/Resources/defaults/pref,/Resources/defaults/pref/config-prefs.js,/Resources/distribution,/Resources/distribution/policies.json} "$app"/Contents/Resources/*.lproj; do
+    if [[ -L $k ]]; then
+      echo "zen-dev.sh: ${k#"$app"/} in $src is a link, so a write in the copy could reach what it points to; not copying it" >&2
+      exit 1
+    fi
+  done
+  # Gatekeeper checks an app that carries the quarantine attribute, and would
+  # refuse the now ad hoc copy.
+  # -s: on a link's own entry, never on what it points to.
+  xattr -drs com.apple.quarantine "$app" 2>/dev/null || true
+  if xattr -p com.apple.quarantine "$app" >/dev/null 2>&1; then
+    echo "zen-dev.sh: can't take the quarantine attribute off $app" >&2
+    exit 1
+  fi
+  # Its own identity, and a name that says whose copy it is in any prompt or
+  # list. A localized name would stand in for it.
+  plist=$app/Contents/Info.plist
+  plutil -replace CFBundleIdentifier -string "$DEV_APP_ID" "$plist"
+  plutil -replace CFBundleName -string "$DEV_APP_NAME" "$plist"
+  plutil -replace CFBundleDisplayName -string "$DEV_APP_NAME" "$plist"
+  rm -f "$app"/Contents/Resources/*.lproj/InfoPlist.strings
+  # No claim on web links, files or services: macOS never offers the copy as
+  # a browser or as an app to open a file with.
+  for k in CFBundleURLTypes CFBundleDocumentTypes UTExportedTypeDeclarations UTImportedTypeDeclarations NSServices; do
+    if plutil -extract "$k" xml1 -o - "$plist" >/dev/null 2>&1; then plutil -remove "$k" "$plist"; fi
+  done
+  # Zen's provisioning profile backs Zen's own restricted entitlement (macOS
+  # passkeys). The ad hoc copy claims no entitlement, so it has no use for it.
+  rm -f "$app/Contents/embedded.provisionprofile"
+  # Its own folder for profiles under ~/Library/Application Support and its
+  # own name for remote commands: even a start without --profile never opens
+  # the user's profiles, and a launch of one app never reaches the other.
+  ini=$app/Contents/Resources/application.ini
+  awk -v v="$DEV_APP_PROFILE" '
+    function add() { if (app && !p) print "Profile=" v; if (app && !r) print "RemotingName=" v }
+    /^\[/ { add(); app = ($0 == "[App]"); p = r = 0; print; next }
+    app && /^Profile=/ { print "Profile=" v; p = 1; next }
+    app && /^RemotingName=/ { print "RemotingName=" v; r = 1; next }
+    { print }
+    END { add() }' "$ini" >"$ini.new"
+  mv "$ini.new" "$ini"
+  if ! grep -qx "Profile=$DEV_APP_PROFILE" "$ini" || ! grep -qx "RemotingName=$DEV_APP_PROFILE" "$ini"; then
+    echo "zen-dev.sh: $ini has no [App] section to give the copy a profile folder of its own" >&2
+    exit 1
+  fi
+  # This checkout's fx-autoconfig program files, as on Linux: dev Zens don't
+  # wait for the user to put config.js back after a Zen update.
+  res=$app/Contents/Resources
+  mkdir -p "$res/defaults/pref" "$res/distribution"
+  rm -f "$res/config.js" "$res/defaults/pref/config-prefs.js"
+  cp "$ROOT/runtime/vendor/fx-autoconfig/program/config.js" "$res/config.js"
+  cp "$ROOT/runtime/vendor/fx-autoconfig/program/defaults/pref/config-prefs.js" "$res/defaults/pref/config-prefs.js"
+  # No update checks, as on Linux, beside any policy Zen ships. The copy's
+  # update folder is its own anyway: update_root names it after the copy's
+  # path.
+  command -v node >/dev/null || { echo "zen-dev.sh: making the dev copy needs node on PATH" >&2; exit 1; }
+  node -e '
+    const fs = require("fs");
+    const [file] = process.argv.slice(1);
+    let json = {};
+    try {
+      json = JSON.parse(fs.readFileSync(file, "utf8"));
+    } catch {}
+    json.policies = { ...(json.policies ?? {}), DisableAppUpdate: true };
+    fs.writeFileSync(`${file}.new`, `${JSON.stringify(json, null, 2)}\n`);
+  ' "$res/distribution/policies.json"
+  mv "$res/distribution/policies.json.new" "$res/distribution/policies.json"
+  # codesign refuses a bundle that carries Finder information or a resource
+  # fork ("resource fork, Finder information, or similar detritus not
+  # allowed"). The clone keeps the Finder information of Zen.app's folder and
+  # of its Icon\r file, and that file's resource fork. Each attribute goes
+  # from those by name first, so that neither rests on how xattr -r goes on
+  # past a file without it, then from the whole copy.
+  for k in com.apple.FinderInfo com.apple.ResourceFork; do
+    xattr -ds "$k" "$app" 2>/dev/null || true
+    if [[ -e $app/Icon$'\r' ]]; then xattr -ds "$k" "$app/Icon"$'\r' 2>/dev/null || true; fi
+    xattr -drs "$k" "$app" 2>/dev/null || true
+  done
+  if ! codesign --force --sign - "$app"; then
+    echo "zen-dev.sh: codesign refused the copy at $app; xattr -lr on it shows what the copy carries" >&2
+    exit 1
+  fi
+  codesign --verify --deep --strict "$app"
+  # Time Machine would back up each version's copy as a whole app.
+  if command -v tmutil >/dev/null && ! tmutil addexclusion "$DEV_APPS" >/dev/null 2>&1; then
+    echo "zen-dev.sh: couldn't keep $DEV_APPS out of Time Machine (tmutil addexclusion)" >&2
+  fi
+  printf 'source=%s\nkey=%s\nmade=%s\n' "$src" "$key" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$DEV_APP_TMP/ready"
+  if [[ -f $DEV_APPS/$key/ready ]]; then
+    # Another start made this version's copy meanwhile, as two starts can
+    # when both took over a dead start's lock: keep that one, which a dev
+    # Zen may already run from.
+    rm -rf "$DEV_APP_TMP"
+  else
+    rm -rf "${DEV_APPS:?}/$key"
+    mv "$DEV_APP_TMP" "$DEV_APPS/$key"
+  fi
+  DEV_APP_TMP=
+}
+
+# Does a process run from copy folder $1? A dev Zen and its content
+# processes all run binaries inside its copy.
+dev_app_in_use() {
+  local dir real args
+  dir=$1
+  real=$(cd -P "$dir" 2>/dev/null && pwd -P) || real=$dir
+  while IFS= read -r args; do
+    args=${args#"${args%%[![:space:]]*}"}
+    [[ $args == "$dir/"* || $args == "$real/"* ]] && return 0
+  done < <(ps -axo args= 2>/dev/null)
+  return 1
+}
+
+# Removes every copy but key $1's that no process runs from (a dev Zen keeps
+# its copy until it stops), with LaunchServices's records of it and Gecko's
+# update folder for it. Says which it keeps, and returns 1 if it kept any.
+remove_dev_apps() {
+  local keep=${1:-} dir tool real app made pid kept=0
+  tool=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+  [[ -x $tool ]] || tool=$(command -v lsregister || true)
+  real=$(cd -P "$DEV_APPS" 2>/dev/null && pwd -P) || real=
+  for dir in "$DEV_APPS"/*/; do
+    dir=${dir%/}
+    [[ -d $dir && ${dir##*/} != "$keep" ]] || continue
+    if dev_app_in_use "$dir"; then
+      echo "zen-dev.sh: keeping $dir while a Zen runs from it" >&2
+      kept=1
+      continue
+    fi
+    # LaunchServices keeps a record of the copy, and one of each app inside
+    # it that has run: plugin-container.app, under Zen's own id, once content
+    # processes start. -u on the copy leaves the others, so each goes by its
+    # own path, the copy's included, while the files are there.
+    if [[ -n $tool && -d $dir/zenius-dev-zen.app ]]; then
+      while IFS= read -r -d '' app; do
+        "$tool" -u "$app" >/dev/null 2>&1 || true
+      done < <(find "$dir/zenius-dev-zen.app" -type d -name '*.app' -print0 2>/dev/null)
+    fi
+    rm -rf "$dir"
+    remove_update_folders "$real" "${dir##*/}"
+  done
+  # Half-made copies of starts that were killed. Each folder's name holds its
+  # maker's pid (make_dev_app), and one whose maker still runs stays: two
+  # starts can both hold the lock when both took over a dead start's.
+  for made in "$DEV_APPS"/.make.*; do
+    [[ -d $made ]] || continue
+    pid=${made##*/.make.}
+    pid=${pid%%.*}
+    if [[ $pid =~ ^[0-9]+$ && $pid != "$$" ]] && kill -0 "$pid" 2>/dev/null; then
+      continue
+    fi
+    rm -rf "$made"
+  done
+  return "$kept"
+}
+
+# Gecko makes an update folder for each install it runs from, even with
+# updates off: ~/Library/Caches/<Vendor>/updates/ plus the install's real
+# path, cut at its last ".app" (update_root). So the copy at
+# <copies>/<key>/zenius-dev-zen.app has .../updates/<copies>/<key>/zenius-dev-zen.
+# Removes key $2's under the copies' real folder $1, or every copy's with no
+# $2, then the folders above it left empty, up to updates/.
+remove_update_folders() {
+  local real=$1 key=${2:-} top upd
+  [[ $real == /*/app.noindex ]] || return 0
+  for top in "$HOME"/Library/Caches/*/updates; do
+    upd=$top$real${key:+/$key}
+    [[ -d $upd ]] || continue
+    rm -rf "$upd"
+    upd=${upd%/*}
+    while [[ $upd == "$top"/* ]] && rmdir "$upd" 2>/dev/null; do upd=${upd%/*}; done
+  done
+}
+
+dev_app_command() {
+  if [[ $(uname) != Darwin ]]; then
+    echo "zen-dev.sh --app: only the Mac runs a dev copy of Zen.app; dev Zens here run $ZEN" >&2
+    exit 2
+  fi
+  local dir key
+  case ${1:-path} in
+    path)
+      ensure_dev_app
+      echo "$DEV_APP/Contents/MacOS/zen"
+      ;;
+    status)
+      key=$(dev_app_key 2>/dev/null || true)
+      for dir in "$DEV_APPS"/*/; do
+        dir=${dir%/}
+        [[ -f $dir/ready ]] || continue
+        printf '%s' "$dir/zenius-dev-zen.app"
+        if [[ ${dir##*/} == "$key" ]]; then printf ' (this Zen version'"'"'s)'; fi
+        if dev_app_in_use "$dir"; then printf ', in use'; fi
+        printf '\n'
+      done
+      ;;
+    remove)
+      [[ -d $DEV_APPS ]] || { echo "no dev copy of Zen.app"; return 0; }
+      trap dev_app_unlock EXIT
+      dev_app_lock
+      local status=0 real
+      real=$(cd -P "$DEV_APPS" && pwd -P)
+      remove_dev_apps "" || status=$?
+      dev_app_unlock
+      trap - EXIT
+      if ((status)); then exit 1; fi
+      rmdir "$DEV_APPS" 2>/dev/null || true
+      # Update folders left by copies removed some other way.
+      remove_update_folders "$real"
+      # The copy's settings and saved windows, which macOS keeps by its id.
+      # defaults delete empties the settings, and cfprefsd leaves their file
+      # behind, empty.
+      defaults delete "$DEV_APP_ID" >/dev/null 2>&1 || true
+      rm -f "$HOME/Library/Preferences/$DEV_APP_ID.plist"
+      rm -rf "$HOME/Library/Saved Application State/$DEV_APP_ID.savedState"
+      echo "dev copies of Zen.app removed"
+      ;;
+    *)
+      echo "usage: zen-dev.sh --app path|status|remove" >&2
+      exit 2
+      ;;
+  esac
 }
 
 ensure_profile() {
@@ -368,8 +752,8 @@ user_pref("browser.tabs.warnOnClose", false);
 // Update checks. About 30 s after start Firefox checks for an update and,
 // with app.update.auto false, opens an "update available" doorhanger over the
 // window's top-left that swallows clicks there (zen-eval's Mac takeover
-// failures). Only an enterprise policy turns the check off (the Linux server has one, see
-// ensure_program_files; the Mac app is the user's), and app.update.enabled
+// failures). Only an enterprise policy turns the check off (the Linux server's install
+// and the Mac's dev copy have one: ensure_program_files, make_dev_app), and app.update.enabled
 // has been dead since Firefox 63. So restart the check timer at every start:
 // it then waits app.update.interval, which the timer caps at a day. Never set
 // app.update.auto to true: on the Mac it would download an update into the
@@ -385,8 +769,8 @@ user_pref("app.update.suppressPrompts", true);
 // headless Zens never reach). On the Mac that check raised zen-eval's
 // "update available" doorhanger within 6 s.
 user_pref("app.update.checkInstallTime", false);
-// Nothing downloads into the install's update folder, which on the Mac is the
-// user's own Zen's: app.update.auto false
+// Nothing downloads into the install's update folder, which on the Mac, with
+// ZEN_BIN at the user's Zen.app, is the user's own Zen's: app.update.auto false
 // above (off Windows a plain pref: UpdateUtils' PER_INSTALLATION_PREFS_PLATFORMS),
 // and nothing staged, no background update task, and no restart to apply an
 // update once the last window closes (macOS).
@@ -405,6 +789,21 @@ EOF
   # Suggest and add-on updates all stay off. Before ZENIUS_DEV_PREFS, so a
   # test that needs one of them can turn it back on.
   cat "$ROOT/scripts/dev/no-outside-traffic.js" >>"$PROFILE/user.js"
+  # Downloads go to a folder of the profile's own, never the account's
+  # Downloads: on the Mac that is the user's real folder, which a test
+  # listing it would read, and which macOS may guard with a prompt for the
+  # dev copy, headless too.
+  local downloads=$PROFILE/downloads
+  mkdir -p -m 700 "$downloads"
+  downloads=${downloads//\\/\\\\}
+  downloads=${downloads//\"/\\\"}
+  printf 'user_pref("browser.download.folderList", 2);\nuser_pref("browser.download.dir", "%s");\n' "$downloads" >>"$PROFILE/user.js"
+  if [[ $(uname) == Darwin ]]; then
+    # macOS asks the user before an app's first notification, and the dev copy
+    # is an app of its own: Gecko's own notification windows instead. A test
+    # that needs macOS's sets this itself.
+    echo 'user_pref("alerts.useSystemBackend", false);' >>"$PROFILE/user.js"
+  fi
   if [[ -n ${ZENIUS_DEV_PREFS:-} ]]; then
     [[ -f $ZENIUS_DEV_PREFS ]] || { echo "zen-dev.sh: ZENIUS_DEV_PREFS: no file $ZENIUS_DEV_PREFS" >&2; exit 1; }
     { echo "// From ZENIUS_DEV_PREFS ($ZENIUS_DEV_PREFS)."; cat "$ZENIUS_DEV_PREFS"; } >> "$PROFILE/user.js"
@@ -549,6 +948,7 @@ start() {
   local pid
   pid=$(our_pid)
   if [[ -n $pid ]]; then echo "$NAME already running (pid $pid)"; return; fi
+  need_zen
   [[ -x $ZEN ]] || { echo "Zen not found at $ZEN (set ZEN_BIN)" >&2; exit 1; }
   refuse_waiting_update
   local profile_state=kept
@@ -662,7 +1062,7 @@ case $CMD in
   expire) expire "$@" ;;
   quit) quit ;;
   # Checked before the stop too, so a waiting update doesn't leave it stopped.
-  restart) refuse_waiting_update; stop; start "$@" ;;
+  restart) need_zen; refuse_waiting_update; stop; start "$@" ;;
   status) pid=$(our_pid); if [[ -n $pid ]]; then echo "$NAME running (pid $pid)"; else echo "$NAME not running"; exit 1; fi ;;
   log) if [[ ${1:-} == -f ]]; then tail -f "$LOG"; else cat "$LOG"; fi ;;
   path) echo "$PROFILE" ;;
@@ -687,5 +1087,6 @@ case $CMD in
       echo "$NAME profile kept (Mac; ZENIUS_FRESH=1 removes it)"
     fi
     ;;
+  --app) dev_app_command "$@" ;;
   *) echo "unknown command: $CMD" >&2; exit 2 ;;
 esac
