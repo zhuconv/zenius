@@ -1,6 +1,6 @@
 {
   "name": "zenius",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Node SDK and CLI for zenius (Agentic Zen). Bring your agent to your browser.",
   "type": "module",
   "private": true,
