@@ -289,7 +289,7 @@ stable, and a change to one is announced to zen-eval first.
 | `agent-sidebar/AgentSidebarPicture{Parent,Child}.sys.mjs` | The live card's pictures, painted in the agent page's own process |
 | `agent-sidebar/AgentSidebar{Parent,Child}.sys.mjs` | The JSWindowActor that reads a tab's selection and text |
 | `agent-sidebar/attachments.mjs`, `saving.mjs` | Attached files; copying and saving answers |
-| `agent-sidebar/feedback.mjs` | The problem report card: a report from `zenius feedback`, sent, copied or discarded only on the user's click (below) |
+| `agent-sidebar/feedback.mjs` | The problem report card: a report from `zenius feedback` or a Work task's `report_problem`, sent, copied or discarded only on the user's click (below) |
 | `agent-sidebar/pencil.svg` | The question's Edit icon, zenius's own drawing (outline strokes, painted as a mask in the text's color) |
 | `agent-sidebar/send.svg` | Send's small up arrow, in the question box and the edit box: zenius's own drawing (a stem and a chevron, round strokes, painted as a mask in the button's text color) |
 | `agent-sidebar/vendor/marked.esm.js` | marked, MIT (THIRD_PARTY.md) |
@@ -396,10 +396,20 @@ scoped task's error never carries the user's agent's last exit.
 ## The problem report card
 
 `feedback.mjs`, in every browser window's panel, never in the self-check's.
-An agent's `zenius feedback "<one line>"` has the runtime compose a problem
+An agent's `zenius feedback "<one line>"`, or a Work task's call to
+zenius's MCP tool `report_problem`, has the runtime compose a problem
 report for zenius's GitHub issues and propose it (`feedback.compose` and
 `feedback.propose`, PROTOCOL.md). The card shows it above the chat, in
 either mode:
+
+- **Who wrote it.** The card's first line names the task whose agent wrote
+  the report, by the agent's name and the task's name as the sidebar shows
+  them, when the report's source names one of the sidebar's Work chats
+  (`AgentService.feedbackAuthor`). That source is `feedback.compose`'s
+  `source.sidebar`, the task's uid, which the task's zenius server sends.
+  Any other report, from `zenius feedback` or with an unknown uid, says "An
+  agent wrote this." The source is the caller's claim: any local caller
+  that knows such a task's uid could send it.
 
 - **The text, as it would be posted.** The title and the body are both
   editable. The title is one line, wrapped to the card's width so all of
@@ -443,8 +453,9 @@ How the card and the runtime meet:
   fails at once (`ZEN_UNSUPPORTED`, `data.reason: "no_sidebar"`), and the
   CLI writes the report to a draft file instead.
 - On each notice, and as a panel opens, `AgentService.feedbackSync()` reads
-  `service.feedback.pending()`, `{id, title, body, canPost, repo}` or null,
-  through `feedbackOf`, and tells the panels (`subscribeFeedback`).
+  `service.feedback.pending()`, `{id, title, body, canPost, repo, source?}`
+  or null, through `feedbackOf`, which keeps of the source only a
+  well-formed `sidebar` uid, and tells the panels (`subscribeFeedback`).
 - The card's clicks go through `AgentService.feedbackAction(action, id,
   ...)` to `service.feedback`'s `send`, `postNew`, `comment`, `copyAndOpen`
   and `discard`. A second action while one runs answers `{busy: true}`: in
@@ -688,10 +699,14 @@ read.
   (`chrome/JS/agent-sidebar/…/zenius-only.mjs`) and is never copied into a
   workspace. settings.json names it by its absolute path, quoted, and the
   command ends in `|| exit 2`.
-- Claude Code gets the zenius MCP server through ACP's `mcpServers`, always,
-  as its only server. Its session `_meta` sets `settingSources: ["project"]`,
-  `strictMcpConfig: true`, and disallows Bash, Edit, MultiEdit, Write,
-  NotebookEdit, Read, Glob, Grep and Task.
+- Claude Code's Work session gets the zenius MCP server through ACP's
+  `mcpServers`, as its only server; its Chat session gets none. The server
+  brings zenius's browser tools and `report_problem`, which shows a problem
+  report in the card (The problem report card), and the zenius-only hook
+  lets Work call any of them (`mcp__zenius__*`). Each session's `_meta`
+  sets `settingSources: ["project"]`, `strictMcpConfig: true`, and
+  disallows Bash, Edit, MultiEdit, Write, NotebookEdit, Read, Glob, Grep
+  and Task.
 - Web search and fetch are on in Chat and Work, since they only read and an
   answer often needs more than the page: Claude Code's WebSearch and
   WebFetch, allowed without asking, are Chat's only tools. The user's own

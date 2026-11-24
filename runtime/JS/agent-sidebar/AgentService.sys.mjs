@@ -945,9 +945,11 @@ export function oneLine(text, max = 120) {
  * card shows the text exactly as it would be posted, so a report it couldn't
  * show that way is never shown: a hidden, control or line-separator
  * character (in the body, line breaks and tabs aside), a title of more than
- * one line, or text past GitHub's limits.
+ * one line, or text past GitHub's limits. Of its source (feedback.compose's,
+ * kept beside the report and never posted), the card takes only `sidebar`:
+ * the uid of the sidebar's task whose zenius server sent it, when it's one.
  *
- * @returns {{id: string, title: string, body: string, canPost: boolean, repo: string} | null}
+ * @returns {{id: string, title: string, body: string, canPost: boolean, repo: string, sidebar: string|null} | null}
  */
 export function feedbackOf(report) {
   if (!report || typeof report !== "object") {
@@ -967,7 +969,8 @@ export function feedbackOf(report) {
   ) {
     return null;
   }
-  return { id, title, body, canPost: report.canPost === true, repo };
+  const sidebar = report.source?.sidebar;
+  return { id, title, body, canPost: report.canPost === true, repo, sidebar: typeof sidebar === "string" && /^[A-Za-z0-9-]{1,64}$/.test(sidebar) ? sidebar : null };
 }
 
 function quoted(text, max = 60) {
@@ -3675,6 +3678,25 @@ export const AgentService = {
   subscribeFeedback(listener) {
     this.feedbackListeners.add(listener);
     return () => this.feedbackListeners.delete(listener);
+  },
+
+  /**
+   * Who the card says wrote a report whose source names the sidebar's task
+   * `uid` (feedbackOf's sidebar): that task's agent and the name the task
+   * shows (taskName), while the sidebar has that Work chat, else null. Any
+   * local caller could send such a task's uid, so this is the report's own
+   * claim, which the card states plainly.
+   *
+   * @param {string|null} uid
+   * @returns {{agent: string, title: string} | null}
+   */
+  feedbackAuthor(uid) {
+    const conv = typeof uid === "string" ? this.tasks.get(uid) : null;
+    if (!conv || conv.kind !== "work") {
+      return null;
+    }
+    const agent = this.harnessList().find(h => h.id === conv.harness)?.name ?? conv.harness;
+    return { agent: String(agent || "An agent"), title: taskName(conv) };
   },
 
   /**

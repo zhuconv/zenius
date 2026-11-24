@@ -1,9 +1,10 @@
 /* The problem report card (docs/agent-sidebar.md, "The problem report
- * card"). An agent's `zenius feedback` has zenius's runtime compose a report
- * for zenius's GitHub issues and propose it. Each open agent sidebar then
- * shows it here, above the chat: the title and the body exactly as they'd be
- * posted, and the user can edit both. Nothing goes out before the user's own
- * click: Send (gh posts it as them), Copy and open GitHub, or Discard.
+ * card"). An agent's `zenius feedback`, or a Work task's report_problem
+ * (zenius's MCP tool), has zenius's runtime compose a report for zenius's
+ * GitHub issues and propose it. Each open agent sidebar then shows it here,
+ * above the chat: the title and the body exactly as they'd be posted, and
+ * the user can edit both. Nothing goes out before the user's own click: Send
+ * (gh posts it as them), Copy and open GitHub, or Discard.
  *
  * The card is chrome. No zenius method reaches it, since they act in web
  * pages only, and no page does. Its buttons take only trusted clicks inside
@@ -23,6 +24,23 @@ const oneLine = (text, max = 300) => {
   return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 };
 const isNumber = n => Number.isSafeInteger(n) && n > 0;
+// Bidi controls in a title the lead quotes go, so the title can't end its
+// isolate early or carry its direction past it.
+const BIDI_CONTROLS = /[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
+
+/**
+ * Who wrote the report, as the lead says first: the task its source names,
+ * by the name the task shows, while the sidebar has that Work chat
+ * (AgentService.feedbackAuthor), else an agent.
+ */
+function writer(service, report) {
+  const by = service.feedbackAuthor?.(report.sidebar);
+  if (!by) {
+    return "An agent wrote this.";
+  }
+  const title = oneLine(by.title.replace(BIDI_CONTROLS, ""), 60);
+  return title ? `${by.agent} wrote this in your task “\u2068${title}\u2069”.` : `${by.agent} wrote this in one of your tasks.`;
+}
 
 /**
  * Builds the card in `el` and keeps it in step with the waiting report.
@@ -178,9 +196,10 @@ export function mountFeedback({ el, service, openLink }) {
     lead.hidden = title.hidden = body.hidden = done;
     title.readOnly = body.readOnly = !["review", "duplicate", "error"].includes(phase);
     if (report) {
+      const who = writer(service, report);
       lead.textContent = report.canPost
-        ? `An agent wrote this. Nothing is sent until you press Send, which posts it as you, as a public issue on github.com/${report.repo}.`
-        : `An agent wrote this. Nothing is sent from here: Copy and open GitHub copies the body and opens a public issue form on github.com/${report.repo}.`;
+        ? `${who} Nothing is sent until you press Send, which posts it as you, as a public issue on github.com/${report.repo}.`
+        : `${who} Nothing is sent from here: Copy and open GitHub copies the body and opens a public issue form on github.com/${report.repo}.`;
     }
     status.textContent = statusText();
     status.hidden = !status.textContent;

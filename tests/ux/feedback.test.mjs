@@ -216,7 +216,80 @@ test("a waiting report shows in the open sidebar exactly as it would be posted, 
   assert.deepEqual(out.v.buttons, ["*Send", "Discard"]);
   assert.equal(out.v.status, null);
   assert.ok(out.focusKept, "the card took the focus");
-  assert.deepEqual(out.report, REPORT);
+  assert.deepEqual(out.report, { ...REPORT, sidebar: null });
+});
+
+test("the lead names the task whose agent wrote the report, by the report's source and the names the sidebar shows, only while the sidebar has that Work chat; anything else says an agent wrote it", async () => {
+  const out = await chrome(
+    `
+    const M = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentService.sys.mjs");
+    // A task is the sidebar's once its first question goes (addTask), as
+    // its zenius server, and so the report tool, runs only from then on.
+    const conv = A.createTask();
+    A.addTask(conv, "Find flights to Tokyo");
+    // The agent by the name the sidebar gives its harness, not by its id.
+    const harnessList = A.harnessList;
+    A.harnessList = () => [{ id: conv.harness, name: "Stand-in Agent" }];
+    let n = 0;
+    // Each report a new id, so the card shows it afresh; the lead up to its
+    // second sentence, which says what Send does.
+    const leadFor = async source => {
+      const report = { ...arg, id: arg.id + "-by" + n++, source };
+      const s = stub();
+      if (s?.restore) {
+        s.report = report;
+        Services.obs.notifyObservers(null, "zenius-feedback", "asked");
+      } else {
+        install({ report });
+      }
+      await until(() => A.feedbackReport?.id === report.id && shown(), "the card for " + report.id);
+      return view().lead.split(" Nothing is sent")[0];
+    };
+    try {
+      conv.title = "Tokyo \\u202eflights";
+      const named = await leadFor({ sidebar: conv.uid, terminal: "devbox/t1" });
+      // The user's name for the task wins, as everywhere the task shows.
+      A.renameTask(conv, "Our trip");
+      const renamed = await leadFor({ sidebar: conv.uid });
+      A.renameTask(conv, "");
+      conv.title = "";
+      const untitled = await leadFor({ sidebar: conv.uid });
+      const unknown = await leadFor({ sidebar: "0000-not-a-task" });
+      const external = await leadFor({ agent: "claude-code", terminal: "devbox/t5", folder: "/work" });
+      const none = await leadFor(undefined);
+      A.removeTask(conv);
+      const removed = await leadFor({ sidebar: conv.uid });
+      return {
+        named,
+        renamed,
+        untitled,
+        unknown,
+        external,
+        none,
+        removed,
+        pure: {
+          kept: M.feedbackOf({ ...arg, source: { sidebar: "abc-123" } })?.sidebar,
+          bad: ["../x", "a".repeat(65), 7, null].map(sidebar => M.feedbackOf({ ...arg, source: { sidebar } })?.sidebar),
+          shownAnyway: M.feedbackOf({ ...arg, source: "not an object" })?.sidebar,
+        },
+      };
+    } finally {
+      A.harnessList = harnessList;
+      if (A.tasks.has(conv.uid)) A.removeTask(conv);
+    }
+  `,
+    REPORT
+  );
+  // The title's bidi control is gone, and the title sits in an isolate.
+  assert.equal(out.named, "Stand-in Agent wrote this in your task “\u2068Tokyo flights\u2069”.");
+  assert.equal(out.renamed, "Stand-in Agent wrote this in your task “\u2068Our trip\u2069”.");
+  assert.equal(out.untitled, "Stand-in Agent wrote this in one of your tasks.");
+  for (const k of ["unknown", "external", "none", "removed"]) {
+    assert.equal(out[k], "An agent wrote this.", k);
+  }
+  // Of the source, feedbackOf keeps only a well-formed sidebar uid; a bad
+  // source never hides the report, since it isn't posted.
+  assert.deepEqual(out.pure, { kept: "abc-123", bad: [null, null, null, null], shownAnyway: null });
 });
 
 test("the title shows all of itself, wrapped, and stays one line: Enter adds none, and a pasted line break becomes a space", async () => {
