@@ -18,6 +18,24 @@ set -uo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 [[ -d $HOME/opt/node-v24.22.2-linux-x64/bin ]] && export PATH=$HOME/opt/node-v24.22.2-linux-x64/bin:$PATH
 suffix=$(basename "$ROOT" | sed 's/^zenius-\{0,1\}//' | tr 'A-Z' 'a-z' | tr -c 'a-z0-9_\n-' '-')
+# On Linux each suite's temporary folder sits right in TMPDIR (see "lane"
+# below), and a test's Unix socket path inside it must fit in 108 bytes. The
+# deepest, the input lane's keyring control socket, ends 61 bytes below
+# TMPDIR. A longer TMPDIR, such as a tool's scratch folder, fails the
+# socket tests in ways that don't name it, so it stops the run here, before
+# anything is written there.
+TMPDIR_MAX=40
+if [[ $(uname) == Linux ]]; then
+  base=${TMPDIR:-/tmp}
+  base=${base%/}
+  # Bytes, as the socket limit counts them: in a UTF-8 locale ${#base}
+  # counts characters.
+  bytes=$(printf '%s' "$base" | LC_ALL=C wc -c)
+  if ((bytes > TMPDIR_MAX)); then
+    echo "test-all: TMPDIR is $((bytes)) bytes long, too long for the tests' Unix sockets (108 bytes). Use one of at most $TMPDIR_MAX bytes, or unset it for /tmp." >&2
+    exit 1
+  fi
+fi
 LOGS=${TMPDIR:-/tmp}/zenius-test-all/${suffix:-main}
 # Owner-only, both levels: on a shared machine, /tmp is open to every account.
 # A level that another account made first (after /tmp was emptied) is
