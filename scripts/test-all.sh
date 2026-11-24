@@ -43,7 +43,10 @@ unset GITHUB_TOKEN GITHUB_ENTERPRISE_TOKEN
 # temporary folder of its own (TMPDIR), which mktemp makes right in the base
 # temporary folder: owner-only, kept from other accounts by /tmp's sticky
 # bit, and short whatever the checkout's name, since a test's Unix socket
-# path inside it must fit in 108 bytes. A passing suite's folder goes when
+# path inside it must fit in 108 bytes. Its name, zt-<suite>-XXXXXX, has no
+# dot: with one, a random part of only letters reads as a host and path to
+# zenius feedback's cleaning (zt-sdk-unit.qtZmxi/...), which turns a
+# feedback test's home folder into <link>. A passing suite's folder goes when
 # the suite ends, with whatever it left there: what a test killed before its
 # after hooks couldn't remove, or an install test's folders. The summary says
 # how much that was, the by-design caches aside, so a leak shows. A failing
@@ -84,10 +87,10 @@ lane() {
     # after it), and it's a folder of this account's, not a link.
     if [[ -f $LOGS/$1.tmpdir ]]; then
       kept=$(<"$LOGS/$1.tmpdir")
-      if [[ $kept =~ ^"$TMPBASE/zt-$1."[A-Za-z0-9]{6}$ && -d $kept && ! -L $kept && -O $kept ]]; then rm -rf -- "$kept"; fi
+      if [[ $kept =~ ^"$TMPBASE/zt-$1-"[A-Za-z0-9]{6}$ && -d $kept && ! -L $kept && -O $kept ]]; then rm -rf -- "$kept"; fi
       rm -f -- "$LOGS/$1.tmpdir"
     fi
-    if ! tmp=$(mktemp -d "$TMPBASE/zt-$1.XXXXXX" 2>"$LOGS/$1.log"); then echo "FAIL 0 0" >"$LOGS/$1.result"; return; fi
+    if ! tmp=$(mktemp -d "$TMPBASE/zt-$1-XXXXXX" 2>"$LOGS/$1.log"); then echo "FAIL 0 0" >"$LOGS/$1.result"; return; fi
     echo "$tmp" >"$LOGS/$1.tmpdir"
   fi
   # A subshell, so that a serial run's next suite doesn't inherit the folder.
