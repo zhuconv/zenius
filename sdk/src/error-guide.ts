@@ -56,7 +56,7 @@ export const CODE_GUIDE: Record<string, CodeGuide> = {
   },
   ZEN_INTERNAL: {
     what: "Something inside zenius or the browser failed in a way it didn't expect.",
-    next: "Retry the call once. If it fails again, stop and tell the user, quoting this error.",
+    next: 'Retry the call once. If it fails again, report it with `zenius feedback "<what you were doing, without URLs or page text>"`: it shows the user a report in Zen\'s sidebar to send, copy or discard, and prints what they chose. Then finish the task another way with zenius\'s other calls if there is one, and otherwise stop and tell the user what failed, quoting this error.',
   },
   ZEN_BROWSER_UNAVAILABLE: {
     ego: "EGO_BROWSER_UNAVAILABLE",
@@ -290,6 +290,19 @@ export const CODE_GUIDE: Record<string, CodeGuide> = {
   ZEN_SELFCHECK_UNAVAILABLE: {
     what: "This Zen can't run the self-check: its agent sidebar has none, or its instance name isn't a plain one.",
     next: "Run `zenius doctor`: its sidebar line says what's missing.",
+    owned: true,
+    unlisted: true,
+  },
+  // Only `zenius feedback` calls feedback.propose, and it words these itself.
+  ZEN_FEEDBACK_PENDING: {
+    what: "Another problem report waits for the user in Zen's agent sidebar; one waits at a time.",
+    next: "Don't send another: tell the user it's there.",
+    owned: true,
+    unlisted: true,
+  },
+  ZEN_FEEDBACK_DECLINED: {
+    what: "The user discarded a problem report less than 10 minutes ago.",
+    next: "Don't send another before then.",
     owned: true,
     unlisted: true,
   },

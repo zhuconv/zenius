@@ -113,6 +113,11 @@ export const methods = {
 - Every call is timed and logged as `[zenius] rpc <method> <ms>ms <ok|code>`,
   plus `(held <ms>ms)` when the control gate held it.
   `dev.stats` returns count, p50, p95 and max per method, without held time.
+- The service also keeps the last 20 client calls as method, duration and
+  outcome only, and the last one that failed, for `zenius feedback`'s report
+  ("zenius feedback" below). Params, results and messages stay out of it,
+  since they can quote a page or what the agent typed. `feedback.*` calls
+  and doctor's status reads stay out too, so the list is the agent's own.
 
 ## Dispatch
 
@@ -3608,6 +3613,76 @@ the agent's steps from `input/steps.sys.mjs`.
   await c.call("…", {…})`. It sends `progress: true`, so a held call's timer
   pauses (`c.onProgress(f => …)` sees the frames), and it decodes
   `unserializable` results.
+
+## zenius feedback (zen-core)
+
+A problem report about zenius itself, which the user sends, copies or
+discards in the agent sidebar's card (PROTOCOL, "Problem reports").
+
+- `modules/feedbacktext.sys.mjs` renders the report and checks what a
+  client sends. It has no imports, so Node's unit tests load it too
+  (`tests/unit/feedback-text.test.mjs`), and the CLI's draft
+  (`sdk/src/feedback.ts`) has the same sections. Both follow the issue
+  template, `.github/ISSUE_TEMPLATE/zenius-problem.md`.
+- `modules/feedback.sys.mjs` keeps the reports and runs the card's actions.
+  It loads with the first `feedback.compose`. Until then
+  `ZeniusService.feedback` is a stand-in whose `pending()` is null, so the
+  sidebar's reads load nothing.
+- `methods/feedback.sys.mjs` serves `feedback.compose`, `feedback.propose`
+  and `dev.answerFeedback`.
+
+**The card's interface.** The agent sidebar observes the topic
+`zenius-feedback`. It's told `"asked"` when a report starts waiting for the
+user, and `"settled"` when the user answered. `feedback.propose` fails at
+once with `no_sidebar` when nothing observes the topic. The card reads
+`ZeniusService.feedback.pending()`: null, or `{id, title, body, canPost,
+repo}`, where `canPost` says whether a `gh` was found (none runs for it)
+and `repo` is where the report would go. Each button calls an action in
+process, with the report's `id` and the title and body as the user left
+them:
+
+| Action | Result |
+|---|---|
+| `send(id, {title, body})` | `{duplicate: {number, title, url}}` when an open issue has exactly this title, for the card to ask: comment there, or post a new one. Otherwise the issue is posted: `{posted: {number, url}}` |
+| `postNew(id, {title, body})` | `{posted: {number, url}}` |
+| `comment(id, number, {body})` | `{commented: {number, url}}`, on an issue this report's own search found, and no other |
+| `copyAndOpen(id, {title, body}, win)` | `{}`: the body goes to the clipboard, and a new tab in `win` opens GitHub's form with the template and the title. The body never goes in the link |
+| `discard(id)` | `{}`, and for 10 minutes `feedback.propose` fails with `ZEN_FEEDBACK_DECLINED` |
+
+- Any action can return `{error}` instead, with `signedOut: true` when gh
+  needs a sign-in, or `{busy: true}` while another action on the report
+  runs. One action runs at a time, only on the report the card shows.
+- The title and body are checked first against GitHub's limits (256 and
+  65536 characters), with the title on one line and nothing hidden in
+  either.
+- An answered report's outcome goes to every waiting `feedback.propose`:
+  the outcome, and an issue's number and address. Never the edited text or
+  gh's messages: those show in the card only, and the log keeps only each
+  gh command's name, exit code and time.
+
+**gh.** The actions run `gh` from Zen's parent process through Subprocess,
+as the user, with their own sign-in:
+- `gh issue list --search` for the title, `gh issue create`, and `gh issue
+  comment`, each with `--repo=github.com/zhuconv/zenius` (with the host, so a
+  `GH_HOST` in Zen's environment can't send it elsewhere) and fixed arguments. The body
+  goes on stdin.
+- `GH_PROMPT_DISABLED`, `GH_NO_UPDATE_NOTIFIER` and `NO_COLOR` are set,
+  and each command has 60 s.
+- The user's Zen runs the first `gh` on its PATH, then in
+  `/opt/homebrew/bin`, `/usr/local/bin` and `/usr/bin`. A Zen started from
+  the Dock gets a PATH without them.
+- A dev profile runs only the `gh` that the pref `zenius.feedback.gh` names,
+  and opens the form at the pref `zenius.feedback.issuesUrl`. Both are read
+  only under `devMode()`, so no test reaches GitHub.
+
+**The CLI.** `zenius feedback` sends `feedback.compose` its line, its
+version and commit, Node's version and `zenius doctor`'s check ids and
+statuses. Then it proposes the report with a 100 s wait (`--wait`, at most
+600) and prints the outcome. When no card can open (`no_sidebar`, a runtime
+without `feedback.*`, or Zen not answering), it writes the report as a
+draft for the user: `~/.zenius/feedback/<UTC time>.md`, 0600 in a 0700
+folder, or the sandboxed run's output folder. It also prints GitHub's form
+with the title only.
 
 ## Install layout (zen-core)
 

@@ -1017,7 +1017,7 @@ async function keyboard(ctx, params) {
       // The agent's html is the agent's code, as page.evaluate's is: a
       // page's paste handler may insert it with innerHTML, where it runs as
       // script. So the document gets zen-observe's mark first, as for
-      // page.evaluate (the manager's decision for closed groups).
+      // page.evaluate.
       if (content.html) {
         // So in a page that shares a window group with a window outside the
         // task, where zenius runs none of the agent's code (closed groups),

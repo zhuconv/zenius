@@ -19,6 +19,7 @@ import { dirname, join } from "node:path";
 import { after, before, describe, it, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { socketPath } from "../../src/instance.ts";
 import { answerClaims, needs, unique, useContext, zeniusJson, type Context } from "./context.ts";
 import { FIXTURE_PNG, noted } from "./fixtures.ts";
 
@@ -502,6 +503,28 @@ console.log(JSON.stringify({ ...stored, refused }));${FINISH}`;
       // The events buffered before the example are read away first.
       const run = ok(await r.script(`${opened("/ex-storage").code}${seeded}await page.events();\n${block.code}${counts}`));
       assert.deepEqual(lastJson(run), { local: 0, session: 0, databases: 0, refused: [] });
+    },
+  },
+
+  // references/feedback.md: the report. This lane's profile has no agent
+  // sidebar (zen-dev.sh leaves its scripts out), so no card can open and the
+  // command writes a draft: in a zenius home of the check's own for the plain
+  // CLI, never the user's, and in the run's output folder in the sandbox.
+  // tests/core/feedback.test.mjs answers the card itself.
+  'zenius feedback "clicking a button inside a shadow root failed twice with ZEN_INTERNAL"': {
+    run: async (r, block, t) => {
+      if (!needs(t, context, "feedback.compose", "feedback.propose")) return;
+      const home = join(root, `feedback-${r.mode}`);
+      const command = r.sandboxed ? block.code : `ZENIUS_HOME='${home}' ZENIUS_SOCKET='${socketPath(context.instance)}' ${block.code}`;
+      const run = ok(await r.shell(command));
+      const [first, , link] = run.stdout.split("\n");
+      const file = /^No agent sidebar can show the report, so zenius feedback wrote the report as a draft: (.+)$/.exec(first!)?.[1];
+      assert.ok(file?.startsWith(`${r.sandboxed ? outputs : join(home, "feedback")}/`), run.stdout);
+      const draft = readFileSync(file!, "utf8");
+      assert.ok(draft.includes("\n    clicking a button inside a shadow root failed twice with ZEN_INTERNAL\n"), draft);
+      const form = new URL(link!);
+      assert.equal(`${form.origin}${form.pathname}`, "https://github.com/zhuconv/zenius/issues/new");
+      assert.deepEqual([...form.searchParams.keys()], ["template", "title"]);
     },
   },
 

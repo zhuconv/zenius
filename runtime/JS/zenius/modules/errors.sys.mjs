@@ -79,6 +79,10 @@ export const ErrorCodes = Object.freeze(
       // run is already going, or this profile can't run one.
       "ZEN_SELFCHECK_BUSY",
       "ZEN_SELFCHECK_UNAVAILABLE",
+      // zenius feedback's card (zen-core), which Ego doesn't have: another
+      // report waits for the user, or the user discarded one a moment ago.
+      "ZEN_FEEDBACK_PENDING",
+      "ZEN_FEEDBACK_DECLINED",
     ].map(c => [c, c])
   )
 );

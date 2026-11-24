@@ -15,4 +15,5 @@ export const methodModules = [
   "actions", // zen-input
   "ui", // zen-ux
   "sidebar", // zen-observe: remote tasks, in zen-ux's sidebar
+  "feedback", // zen-core: zenius feedback's report, for the sidebar's card
 ];

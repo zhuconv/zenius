@@ -308,6 +308,8 @@ export class MockRuntime {
     };
     const handlers: Record<string, Handler> = {
       "browser.version": () => ({ zenVersion: "1.24.2b", runtimeVersion: "0.0.0-mock", updateAvailable: false }),
+      "feedback.compose": () => ({ id: "{00000000-0000-4000-8000-000000000000}", title: "zenius 0.0.0-mock: a problem report", body: "From `zenius feedback`.\n" }),
+      "feedback.propose": () => ({ outcome: "pending" }),
       "browser.health": () => ({
         ok: true,
         windows: 1,

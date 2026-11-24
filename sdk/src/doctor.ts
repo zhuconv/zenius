@@ -222,7 +222,7 @@ export function formatReport(report: DoctorReport, home = os.homedir()): string 
 function cliCheck(o: Resolved): Check {
   const entry = check("cli", "zenius CLI");
   const node = process.versions.node;
-  const origin = cliOrigin(o);
+  const origin = cliOrigin(o.checkoutRoot);
   let where = "";
   if (origin.kind === "copy") {
     const from = origin.commit ? ` from commit ${showCommit(origin.commit)}` : "";
@@ -242,9 +242,9 @@ function cliCheck(o: Resolved): Check {
 }
 
 /** Where this CLI runs from: a copy install-cli.sh made (it has install.json), or a checkout. */
-function cliOrigin(o: Resolved): { kind: "copy" | "checkout" | "unknown"; commit?: Commit; installedAt?: string } {
-  if (!o.checkoutRoot) return { kind: "unknown" };
-  const record = readJson<{ commit?: unknown; installedAt?: unknown }>(path.join(o.checkoutRoot, "install.json")).value;
+function cliOrigin(checkoutRoot: string | undefined): { kind: "copy" | "checkout" | "unknown"; commit?: Commit; installedAt?: string } {
+  if (!checkoutRoot) return { kind: "unknown" };
+  const record = readJson<{ commit?: unknown; installedAt?: unknown }>(path.join(checkoutRoot, "install.json")).value;
   if (record) {
     return {
       kind: "copy",
@@ -252,7 +252,13 @@ function cliOrigin(o: Resolved): { kind: "copy" | "checkout" | "unknown"; commit
       ...optional("installedAt", typeof record.installedAt === "string" ? record.installedAt : undefined),
     };
   }
-  return { kind: "checkout", ...optional("commit", parseCommit(gitHead(o.checkoutRoot))) };
+  return { kind: "checkout", ...optional("commit", parseCommit(gitHead(checkoutRoot))) };
+}
+
+/** The commit this CLI runs from, as doctor's first line shows it, for zenius feedback's draft. */
+export function cliCommit(checkoutRoot: string | undefined = defaultCheckoutRoot()): string | undefined {
+  const commit = cliOrigin(checkoutRoot).commit;
+  return commit ? showCommit(commit) : undefined;
 }
 
 type Commit = { hash: string; dirty: boolean };
@@ -427,7 +433,7 @@ function runtimeCheck(o: Resolved, profileDir: string): { check: Check; install?
   if (typeof install.profile === "string" && !samePath(install.profile, profileDir)) {
     warn(entry, [`install.json says it was installed into ${install.profile}, not this profile: reinstall with scripts/install.sh.`]);
   }
-  const ours = cliOrigin(o).commit;
+  const ours = cliOrigin(o.checkoutRoot).commit;
   if (commit && ours && !sameCommit(commit, ours)) {
     entry.details.push(`Installed from commit ${showCommit(commit)}; this CLI is from ${showCommit(ours)}.`);
   }

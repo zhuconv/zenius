@@ -169,6 +169,30 @@ console.log(await task.page("p1").snapshot());`);
     if (health && "webdriver" in health) assert.equal(health.webdriver, false);
   });
 
+  it("feedback.compose's report names the failed call and its code, and nothing of the page", async (t) => {
+    if (!needs(t, context, "feedback.compose", "browser.version", "spaces.create", "page.goto")) return;
+    const name = unique("it feedback");
+    const failed = await run(`const task = await taskSpace(${JSON.stringify(name)});
+await task.page("p1").goto("http://127.0.0.1:9/feedback-secret-path?token=s3cret");`);
+    assert.equal(failed.code, 1);
+    const { zenVersion } = await context.rpc.call<{ zenVersion: string }>("browser.version");
+
+    // Straight to the runtime, without propose: the report itself, with no
+    // sidebar needed to show it.
+    const params = { line: "page.goto to a closed port failed", cli: { version: "9.9.9", protocol: 1 }, node: process.versions.node };
+    const report = await context.rpc.call<{ id: string; title: string; body: string }>("feedback.compose", params);
+    assert.ok(report.id, "the report's id");
+    const code = /^zenius 9\.9\.9: (ZEN_[A-Z_]+) in page\.goto$/.exec(report.title)?.[1];
+    assert.ok(code, report.title);
+    assert.ok(report.body.includes("\n    page.goto to a closed port failed\n"), report.body);
+    assert.ok(report.body.includes(`\npage.goto: ${code} after `), report.body);
+    assert.match(report.body, new RegExp(`\\n\\| page\\.goto \\| \\d+ \\| ${code} \\|\\n`));
+    assert.ok(report.body.includes(`\n- Zen ${zenVersion}\n`), report.body);
+    for (const text of ["feedback-secret", "s3cret", "127.0.0.1", context.base, name]) {
+      assert.ok(!report.title.includes(text) && !report.body.includes(text), `the report holds ${text}`);
+    }
+  });
+
   it("click follows a link and waitForURL sees it", async (t) => {
     if (!needs(t, context, "spaces.create", "page.goto", "page.click", "page.waitForURL")) return;
     const result = await run(`const task = await taskSpace(${JSON.stringify(unique("it click"))});

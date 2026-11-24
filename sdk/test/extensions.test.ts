@@ -83,7 +83,7 @@ describe("commands a build adds (src/extensions/)", () => {
     const bin = join(sdk, "bin/zenius");
     const help = zenius(bin, ["--help"], work);
     assert.equal(help.code, 0, help.stderr);
-    assert.match(help.stdout, /remote tasks in the sidebar: zenius sidebar --help\n {2}zenius --version\n/);
+    assert.match(help.stdout, /\(zenius feedback --help\)\n {2}zenius --version\n/);
     assert.doesNotMatch(help.stdout, /zenius remote/);
     const remote = zenius(bin, ["remote", "bridge"], work);
     assert.equal(remote.code, 2);

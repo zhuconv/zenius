@@ -30,6 +30,8 @@ const NO_PAGE_CODE = [
   "ui.cursor", "ui.state", "ui.sidebarStatus",
   // Remote tasks: the sidebar's agent acts through the methods above.
   "sidebar.start", "sidebar.send", "sidebar.status", "sidebar.list", "sidebar.stop",
+  // zenius feedback: a report of zenius's own data and the agent's line, shown in the sidebar's card.
+  "feedback.compose", "feedback.propose",
 ];
 
 let env;

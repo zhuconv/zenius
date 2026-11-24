@@ -98,6 +98,12 @@ function agentWorld() {
 
 const ACTOR_NAME = "Zenius";
 const STATS_WINDOW = 512;
+/** How many of the last client calls a zenius feedback report lists. */
+const RECENT_CALLS = 20;
+const FEEDBACK_MODULE = "chrome://userscripts/content/zenius/modules/feedback.sys.mjs";
+const NO_FEEDBACK = Object.freeze({ pending: () => null });
+/** zenius doctor's calls, which a report's list of calls leaves out (#noteCall). */
+const STATUS_READS = new Set(["browser.version", "browser.health", "browser.methods"]);
 /** The restart rebuild waits at most this long for Zen's session restore, or for a first window. */
 const REBUILD_WAIT_MS = 30_000;
 /** How long an unloaded tab's insert waits for Zen to put its history back. */
@@ -179,6 +185,10 @@ class Service {
   #pageGates = [];
   /** @type {Map<string, number[]>} method → recent durations (ms) */
   #stats = new Map();
+  /** @type {{method: string, ms: number, code: string, at: number}[]} the last client calls, oldest first (#noteCall) */
+  #calls = [];
+  /** @type {{method: string, ms: number, code: string, at: number}|null} */
+  #lastFailure = null;
   #eventListeners = new Set();
   /** The clean load running for a hooked page, by <browser> (#cleanCopy). */
   #cleanLoads = new WeakMap();
@@ -213,6 +223,16 @@ class Service {
 
   get dev() {
     return this.settings.dev;
+  }
+
+  /**
+   * zenius feedback's reports, for the sidebar's card (zen-sidebar): pending()
+   * and the actions it takes on the user's own click. Until a client
+   * composes a report, the module isn't loaded and pending() is null, so the
+   * sidebar's reads load nothing.
+   */
+  get feedback() {
+    return Cu.isESModuleLoaded(FEEDBACK_MODULE) ? ChromeUtils.importESModule(FEEDBACK_MODULE).feedback : NO_FEEDBACK;
   }
 
   get paths() {
@@ -2048,6 +2068,7 @@ class Service {
       log(`rpc ${method} ${ms.toFixed(1)}ms ${outcome}${held}${conn ? "" : " (internal)"}`);
       if (conn) {
         this.#noteStep("endCall", step, { method, params, outcome, ms, at: startedAt, found: ctx?.step });
+        this.#noteCall(method, ms, outcome);
       }
     };
     return promise.then(
@@ -2211,6 +2232,43 @@ class Service {
     return {
       pageGates: this.#pageGates.map(({ gate }) => gate),
       content: this.#makeCtx("page.click", null).content,
+    };
+  }
+
+  /**
+   * Keep a client's call for zenius feedback's report: its method's name,
+   * how long it took and its outcome ("ok" or the error's code). Never its
+   * parameters, result or message, which can quote a page or what the agent
+   * typed: a report holds only zenius's own data. A name the runtime doesn't
+   * know is the client's text, so it's kept as "unknown". The feedback.*
+   * calls stay out, and so do the status reads zenius doctor makes just
+   * before a report, so a report lists the agent's own calls.
+   */
+  #noteCall(method, ms, outcome) {
+    if (method.startsWith("feedback.") || STATUS_READS.has(method)) {
+      return;
+    }
+    const call = { method: this.#methods.has(method) ? method : "unknown", ms: Math.round(ms), code: outcome, at: now() };
+    this.#calls.push(call);
+    if (this.#calls.length > RECENT_CALLS) {
+      this.#calls.shift();
+    }
+    if (outcome !== "ok") {
+      this.#lastFailure = call;
+    }
+  }
+
+  /**
+   * The last client calls, oldest first, and the last that failed since Zen
+   * started, with how many seconds ago it ended: feedback.compose puts them
+   * in a report.
+   */
+  recentCalls() {
+    const shown = ({ method, ms, code }) => ({ method, ms, code });
+    const failure = this.#lastFailure;
+    return {
+      calls: this.#calls.map(shown),
+      lastFailure: failure ? { ...shown(failure), ago: Math.round((now() - failure.at) / 1000) } : null,
     };
   }
 

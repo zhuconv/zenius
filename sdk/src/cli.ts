@@ -6,6 +6,8 @@
 //   zenius status               list Zen instances and whether they answer
 //   zenius doctor               check Zen, the zenius install and the instance
 //   zenius sidebar <verb> …     remote tasks in the sidebar (sidebar.ts)
+//   zenius feedback "<line>"    a problem report about zenius, which the user
+//                               sends, copies or discards in the sidebar (feedback.ts)
 //   zenius selfcheck            the post-install self-check, from the user's
 //                               own shell only (selfcheck.ts); not in --help
 //
@@ -49,6 +51,8 @@ export function usage(): string {
                                  see docs/mcp.md for registering it
   zenius sidebar start|send|status|list|stop
                                  remote tasks in the sidebar: zenius sidebar --help
+  zenius feedback "<one line>"   when zenius itself fails: show the user a problem report in the
+                                 sidebar, to send, copy or discard (zenius feedback --help)
 ${extra}  zenius --version
 
 Options:
@@ -92,7 +96,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
 export type LaunchTimes = { launcherAt?: number; loadedAt?: number };
 
 /** The commands that reach an instance, and so take only a name the launcher would (instance.ts). */
-const INSTANCE_COMMANDS = new Set(["nodejs", "status", "doctor", "mcp", "sidebar", "selfcheck"]);
+const INSTANCE_COMMANDS = new Set(["nodejs", "status", "doctor", "mcp", "sidebar", "selfcheck", "feedback"]);
 
 export async function main(argv: string[], launch: LaunchTimes = {}): Promise<number> {
   const args = parseArgs(argv);
@@ -138,6 +142,11 @@ export async function main(argv: string[], launch: LaunchTimes = {}): Promise<nu
       // Loaded on demand, like doctor and mcp.
       const { sidebarCommand } = await import("./sidebar.ts");
       return sidebarCommand(args.rest, args.instance);
+    }
+    case "feedback": {
+      // Loaded on demand, like doctor, which it runs.
+      const { feedbackCommand } = await import("./feedback.ts");
+      return feedbackCommand(args.rest, args.instance);
     }
     case "selfcheck": {
       // Loaded on demand. Left out of usage(), which agents read: the

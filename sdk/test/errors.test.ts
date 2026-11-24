@@ -93,12 +93,14 @@ describe("help(\"errors\")", () => {
     }
   });
 
-  it("lists every code and refused kind, each with what to do next, and prints one code alone; the self-check's codes stay out", () => {
+  it("lists every code and refused kind, each with what to do next, and prints one code alone; the codes only a command meets stay out", () => {
     const text = helpText("errors");
     for (const [code, guide] of Object.entries(CODE_GUIDE)) {
       assert.ok(guide.what.length > 0 && guide.next.length > 0);
       if (guide.unlisted) {
-        // Only `zenius selfcheck` meets these, and agents never run it.
+        // Only `zenius selfcheck` and `zenius feedback` meet these, and each
+        // words them itself: agents never run the first, and the second
+        // says what to do.
         assert.doesNotMatch(text, new RegExp(`^${code}\\b`, "m"), code);
         assert.equal(codeHelp(code), undefined, code);
         continue;
@@ -108,7 +110,7 @@ describe("help(\"errors\")", () => {
     }
     assert.deepEqual(
       Object.entries(CODE_GUIDE).filter(([, guide]) => guide.unlisted).map(([code]) => code),
-      ["ZEN_SELFCHECK_BUSY", "ZEN_SELFCHECK_UNAVAILABLE"],
+      ["ZEN_SELFCHECK_BUSY", "ZEN_SELFCHECK_UNAVAILABLE", "ZEN_FEEDBACK_PENDING", "ZEN_FEEDBACK_DECLINED"],
     );
     assert.doesNotMatch(text, /self-?check/i);
     for (const kind of Object.keys(REFUSAL_GUIDE)) assert.match(text, new RegExp(`^${kind}\\n  .+\\n  Next: .+$`, "m"), kind);

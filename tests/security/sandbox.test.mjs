@@ -506,6 +506,26 @@ test("zenius --version and zenius doctor say they run in the sandbox, and doctor
   assert.match(report.checks.find((check) => check.id === "instance").summary, /^running, pid \d+, /);
 });
 
+test("zenius feedback in the sandbox writes its draft only in the run's output folder, and the draft holds no path or secret of the user's", async () => {
+  const drafts = join(ZHOME, "feedback");
+  const before = existsSync(drafts) ? readdirSync(drafts) : [];
+  // A draft comes only when no card can open. This lane's profile has no
+  // agent sidebar (zen-dev.sh leaves its scripts out), so none can.
+  const result = await launch(["feedback", "--instance", INSTANCE, `page.click failed on https://bank.example/acct for jane@example.com, see ${HOME}/notes.txt`]);
+  assert.equal(result.code, 0, `${result.stdout}\n${result.stderr}`);
+  const file = /^No agent sidebar can show the report, so zenius feedback wrote the report as a draft: (.+)$/.exec(result.stdout.split("\n")[0])?.[1];
+  assert.ok(file?.startsWith(`${OUT_ROOT}/`), result.stdout);
+  const draft = readFileSync(file, "utf8");
+  assert.match(draft, /\n {4}page\.click failed on <link> for <email>, see ~\/notes\.txt\n/);
+  assert.match(draft, /\n- zenius \d+\.\d+\.\d+ \(protocol 1, sandboxed\)/);
+  // The instance answered from inside the sandbox.
+  assert.match(draft, /\n- Zen \d/);
+  for (const text of [HOME, work, task, CANARY, "bank.example", "jane@"]) {
+    assert.ok(!draft.includes(text), `the draft holds ${text}`);
+  }
+  assert.deepEqual(existsSync(drafts) ? readdirSync(drafts) : [], before, "nothing new in the zenius home's feedback folder");
+});
+
 test("the launcher grants no working folder that holds more than a task: home, temp, credentials, zenius, its node", async () => {
   // A home of the test's own, so the credentials cases never touch the real ones.
   const fake = join(work, "home");

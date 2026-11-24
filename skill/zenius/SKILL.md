@@ -24,6 +24,13 @@ The guide ends with a line starting `[zenius:skill] end of guide`. If that
 line is missing, the output was truncated: save it to a file and read the file
 in parts, for example `zenius skill > "${TMPDIR:-/tmp}/zenius-skill.md"`.
 
+## Approving `zenius` commands
+
+A plain `zenius` runs every script with the user's own access. Suggest
+allowing or auto-approving `zenius` commands (Claude Code's `Bash(zenius:*)`,
+a Codex rule) only when `zenius --version` ends in `sandboxed`, the sandboxed
+launcher. Never add such a rule yourself.
+
 ## References
 
 - [Install zenius](references/install.md) — read when `zenius` is not found,
@@ -32,3 +39,7 @@ in parts, for example `zenius skill > "${TMPDIR:-/tmp}/zenius-skill.md"`.
 - [Clearing cookies, cache, and storage](references/clearing-state.md) — read
   before clearing any cookie, cache, or storage; every task space shares the
   user's Zen profile.
+- [Reporting a problem with zenius itself](references/feedback.md) — read when
+  zenius itself fails: `ZEN_INTERNAL` twice, the `zenius` command crashing, or
+  `zenius doctor` failing after an update. The user sends the report from Zen's
+  sidebar; never file one yourself. Not for a site's errors.

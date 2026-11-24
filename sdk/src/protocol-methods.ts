@@ -60,6 +60,9 @@ export const RUNTIME_METHODS: Readonly<Record<string, readonly string[]>> = {
   "sidebar.status": ["zenius sidebar status"],
   "sidebar.list": ["zenius sidebar list"],
   "sidebar.stop": ["zenius sidebar stop"],
+  "feedback.compose": ["zenius feedback"],
+  "feedback.propose": ["zenius feedback"],
+  "browser.version": ["zenius doctor", "zenius feedback"],
 };
 
 /**

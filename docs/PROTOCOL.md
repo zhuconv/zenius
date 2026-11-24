@@ -1210,6 +1210,7 @@ cut: return it in parts.
 | `dev.viewState` | none | each window's selected tab, active workspace and focused element, for I1 checks |
 | `dev.registry` | none | `[{method, module, access, accessDeclared, i5, i5Declared}]`, sorted by method: each method's access level and I5 class, and whether its module declared them |
 | `dev.answerClaim` | `{space?, allow?, timeout?}` | `{id, space, verdict}`: answers the claim prompt for `space` (any, without it) as the user would, `allow` default true, waiting up to `timeout` ms (15000) for the ask; `{verdict: null}` when the claim needed none. Send it alongside the `spaces.claim`. |
+| `dev.answerFeedback` | `{action, title?, body?, number?, timeoutMs?}` | the user's answer on the feedback card, as its buttons give it: `action` is `send`, `postNew`, `comment` (on the issue `number`, which the report's search found), `copyAndOpen` or `discard`, with the card's `title` and `body` (by default the report's). It waits up to `timeoutMs` (10000) for a report to show, then returns the action's result (SPI "zenius feedback"), or `{answered: false}` if none showed. Send it alongside the `feedback.propose`. |
 
 ### Events (zen-core)
 
@@ -1264,6 +1265,19 @@ method, and the sandboxed CLI can't reach this socket.
   `error` is a failure outside the checks, such as a window that didn't open,
   and null otherwise.
 
+### Problem reports (zen-core)
+
+`zenius feedback` reports a problem with zenius itself. The runtime composes
+the report from the client's fields and its own data, and the agent
+sidebar's card shows it to the user, who sends it to zenius's GitHub issues
+with their own `gh`, copies it to GitHub's form, or discards it. Nothing
+goes out before the user's click, and the caller gets only the outcome.
+
+| Method | Params | Result |
+|---|---|---|
+| `feedback.compose` | `{line, cli: {version, protocol, commit?, sandboxed?}, node, doctor?}` | `{id, title, body}`: the report, kept under `id` for an hour, 20 at most. Each field is held to a narrow shape, and any other is left out. `line` is the one free text: its first 2,000 characters are cleaned to one line of at most 300, with links, email addresses and the home folder's path taken out. `doctor` is at most 40 `{id, status}`. The runtime adds its own version and install commit, Zen's version, the OS, whether the instance is the default one, its last 20 calls from clients, oldest first, and the last one that failed since Zen started. A call keeps only its method's name, its time and its outcome (`"ok"` or the error's code): no params, results or messages. `feedback.*` calls and the status reads `zenius doctor` makes (`browser.version`, `browser.health`, `browser.methods`) aren't kept. The title is `zenius <cli.version>: <code> in <method>` for the last failed call, or `zenius <cli.version>: a problem report`. A field that doesn't fit: `ZEN_INVALID_ARGUMENT`, naming it |
+| `feedback.propose` | `{id, waitMs?}` | `{outcome, number?, url?}`: shows the report in the card and waits for the user's answer, for `waitMs` at most (default and limit 600000). `outcome` is `"posted"` or `"commented"` with the issue's `number` and `url` in zenius's repository, `"copied"` or `"discarded"`; `"pending"` when the wait ends first or the caller's connection closes. The card stays until the user answers; proposing the same `id` again waits again, and once answered it returns that outcome at once. No sidebar to show the card: `ZEN_UNSUPPORTED` at once, with `data.reason: "no_sidebar"`. Another report waits for the user: `ZEN_FEEDBACK_PENDING`. The user discarded one less than 10 minutes ago: `ZEN_FEEDBACK_DECLINED` |
+
 ## Errors
 
 `error.code` takes one of the values below. They mirror Ego's codes one for
@@ -1311,6 +1325,8 @@ ZEN_DIALOG_NOT_FOUND        ZEN_DOWNLOAD_FAILED
 - `ZEN_SIDEBAR_UNAVAILABLE` (zen-observe): the sidebar can't run a remote task; `data.reason` is `no_sidebar`, `no_agents` or `agent_unavailable` (with `data.harness`).
 - `ZEN_SELFCHECK_BUSY` (zen-core): `selfcheck.run` while a run is going; one runs at a time.
 - `ZEN_SELFCHECK_UNAVAILABLE` (zen-core): this profile's agent sidebar has no self-check, or the instance's name isn't a plain one.
+- `ZEN_FEEDBACK_PENDING` (zen-core): `feedback.propose` while another report waits for the user's answer in the card; one waits at a time.
+- `ZEN_FEEDBACK_DECLINED` (zen-core): `feedback.propose` less than 10 minutes after the user discarded a report; `data.retryAfterMs`.
 
 `ZEN_TASK_SPACE_USER_IN_CONTROL` uses Ego's reason keys in `data.reason`:
 `manual_takeover` (the user's Take over), and from a task's pages
