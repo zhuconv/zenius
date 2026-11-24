@@ -129,6 +129,11 @@ const STATE_WORDS = {
   user: "You're in control",
 };
 
+/** The words a state always shows: "Agent needs you". */
+export function stateWords(state) {
+  return STATE_WORDS[state] ?? "";
+}
+
 /**
  * The status's words: the state's own (STATE_WORDS), then a space and the
  * rest, its parts after a comma: "Agent working Finding a table for 2, Click

@@ -9,9 +9,9 @@
 
 import {
   applyWindow as applyBadges,
-  describe as describeBadge,
   setSpaceBadge,
   spaceBadge,
+  stateWords,
 } from "chrome://userscripts/content/zenius/ui/badges.sys.mjs";
 import {
   cursorState,
@@ -3681,7 +3681,7 @@ class UiController {
         id: rec.id,
         name: rec.name,
         state: badge.state,
-        detail: describeBadge(badge),
+        detail: rowDetail(badge),
         ownership: rec.ownership,
         paused: this.#userPaused.has(rec.id),
         tabs: this.#tabsOf(rec).map(tab => ({
@@ -3869,8 +3869,36 @@ export function controlCard(rec, source, promptWhat) {
   // The state text is the agent's own words, and the card says so: a bare
   // "Log in to continue" doesn't say who asks. They go in the small
   // text, uncapped, which the '?' opens; the title row names the task.
-  const said = isolate(rec.stateText);
-  return { title: "Agent needs you", detail: isolate(rec.name), note: said ? `The agent says: “${said}”${ENDS_SENTENCE.test(said) ? "" : "."}` : undefined, tone: "attention" };
+  return { title: "Agent needs you", detail: isolate(rec.name), note: agentSays(rec.stateText) || undefined, tone: "attention" };
+}
+
+/**
+ * The agent's own words, said to be theirs, as the hold card and the tasks
+ * panel put them: 'The agent says: "Log in to continue".' Empty for none.
+ *
+ * @param {string|undefined} text
+ */
+function agentSays(text) {
+  const said = isolate(text);
+  return said ? `The agent says: “${said}”${ENDS_SENTENCE.test(said) ? "" : "."}` : "";
+}
+
+/**
+ * A tasks panel row's line: the state's words, then the rest after a dot,
+ * "Agent working · Finding a table for 2 · Click Submit". A task that
+ * waits for the user quotes its agent as the hold card does, 'Agent needs
+ * you. The agent says: "Sign in to Accounts."', with no action: beside that
+ * state, the agent's last action would read as the user's to do.
+ *
+ * @param {{state: string, text?: string, action?: string}} badge
+ */
+function rowDetail(badge) {
+  const words = stateWords(badge.state);
+  if (badge.state === "needs-user") {
+    const said = agentSays(badge.text);
+    return said ? `${words}. ${said}` : words;
+  }
+  return [words, badge.state === "paused" ? "waiting for you" : "", isolate(badge.text), isolate(badge.action)].filter(Boolean).join(" · ");
 }
 
 /**

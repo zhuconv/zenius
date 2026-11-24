@@ -271,7 +271,7 @@ SCENARIOS = {
     "trip": [
         ("say", "I'll look at your saved trips first."),
         ("tool", "open", {"url": f"{WWW}/signin.html", "task": "Trip planner"}),
-        ("tool", "hand_off", {"message": "Sign in to Accounts so I can see your saved trips."}),
+        ("tool", "hand_off", {"message": "Sign in to Accounts so I can see your saved trips.", "reason": "sign_in"}),
         ("tool", "wait", {"user": True, "seconds": 600}),
         ("say", "Thanks, I'm in."),
     ],

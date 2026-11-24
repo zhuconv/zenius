@@ -370,7 +370,7 @@ test("the agent's hand-off reads needs_user, send waits as busy, and the user's 
     const s = await status(taskId);
     return s.state === "needs_user" && s;
   }, 30000, "the hand-off");
-  assert.deepEqual(s.needs, { reason: "other", kind: "handoff", message: "Sign in to Accounts so I can see your saved trips." });
+  assert.deepEqual(s.needs, { reason: "sign_in", kind: "handoff", message: "Sign in to Accounts so I can see your saved trips." });
   assert.deepEqual(await viewOf(), view, "the remote task's tabs moved the user's view (I1)");
   const busy = await env.fail("sidebar.send", { taskId, text: "skip it" });
   assert.equal(busy.code, "ZEN_REMOTE_TASK_BUSY");

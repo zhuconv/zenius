@@ -196,7 +196,7 @@ test("the tasks panel's Open is a watch: the strip says 'Watching <task> [Ctrl+T
   assert.equal(out.back.name, null);
   assert.equal(out.back.label, null);
   // The strip's own line again: a count, or the one waiting task named.
-  assert.match(out.back.text, /agent|needs |waits for you|hit an error|was interrupted|handed you its tab/);
+  assert.match(out.back.text, /agent|needs |waits for you|hit an error|was interrupted/);
   assert.deepEqual(out.ended, [null]);
   assert.deepEqual(out.after, { stopped: false, atUser: true }, "Ctrl+Tab after the watch is Zen's");
 });
@@ -379,7 +379,7 @@ test("a watched task's end keeps the way back: the window stays on its page, the
   assert.equal(out.back.atUser, true);
   assert.equal(out.back.watching, null);
   // The strip's own line again: a count, or the one waiting task named.
-  assert.match(out.back.text, /agent|needs |waits for you|hit an error|was interrupted|handed you its tab/);
+  assert.match(out.back.text, /agent|needs |waits for you|hit an error|was interrupted/);
   assert.deepEqual(out.events, [
     { space: c, done: false },
     { space: null, done: true },

@@ -45,7 +45,9 @@ export function idleText(hours) {
  * @property {number} id  task-space id
  * @property {string} name
  * @property {string} state  badge state (working, idle, paused, needs-user, user)
- * @property {string} detail  "Agent working · <text> · <action>"
+ * @property {string} detail  "Agent working · <text> · <action>", or for
+ *   a task that waits for the user, 'Agent needs you. The agent says:
+ *   "<text>".'
  * @property {"agent"|"agentDelegatedToUser"} ownership
  * @property {boolean} paused
  * @property {{id: string, title: string}[]} [tabs]  the task's tabs (SPEC §3.8)
@@ -231,9 +233,12 @@ function waitLine(item) {
   return `${isolate(item.name) || "A task"} ${waitText(item.kind)}`;
 }
 
+/** Each named line → the waiting task it names, for its fit when the width changes. */
+const namedItems = new WeakMap();
+
 /**
- * The strip names the one task that waits, then what it waits for. Where
- * the strip is narrow, the name is cut, never what it waits for.
+ * The strip names the one task that waits, then what it waits for, as
+ * much as fits (fitNamed). Its tooltip and accessible name say it all.
  */
 function renderNamed(strip, label, item) {
   if (!strip.hasAttribute("named")) {
@@ -252,12 +257,66 @@ function renderNamed(strip, label, item) {
   // Only the name is on its line, so it can take its own direction: a cut
   // right-to-left name keeps its start.
   setAttr(nameEl, "dir", isOneIsolate(task) ? "auto" : "ltr");
-  setText(label.querySelector(".zenius-strip-what"), ` ${waitText(item.kind)}`);
+  setAttr(strip, "aria-label", waitLine(item));
+  namedItems.set(label, item);
+  fitNamed(label);
+}
+
+/**
+ * Fit the named line to the strip's width. The name comes first, whole,
+ * cut with an ellipsis only when it alone is too long. What the task waits
+ * for follows whole or not at all: its own words, else "needs you", else
+ * nothing, never cut short.
+ *
+ * @param {Element} label
+ */
+function fitNamed(label) {
+  const item = namedItems.get(label);
+  const who = label.querySelector(":scope > .zenius-strip-who");
+  const what = label.querySelector(":scope > .zenius-strip-what");
+  if (!item || !who || !what) {
+    return;
+  }
+  const own = waitText(item.kind);
+  for (const words of own === NEEDS_YOU ? [own] : [own, NEEDS_YOU]) {
+    setText(what, ` ${words}`);
+    what.hidden = false;
+    // Laid out only where the strip's text shows (not in a collapsed
+    // sidebar): it fits again when it does (watchFit).
+    if (!label.isConnected || label.clientWidth < 1) {
+      return;
+    }
+    if (who.scrollWidth <= who.clientWidth + 1 && label.scrollWidth <= label.clientWidth + 1) {
+      return;
+    }
+  }
+  what.hidden = true;
+}
+
+/**
+ * Fit the window's named line again whenever its strip's row changes width:
+ * the sidebar's width, or the sidebar expanding. The row's width follows
+ * the sidebar, not its text, so a fit doesn't set it off again.
+ *
+ * @param {Window} win
+ * @param {Element} row
+ * @param {Element} label
+ */
+function watchFit(win, row, label) {
+  const ro = new win.ResizeObserver(() => {
+    if (label.parentElement?.hasAttribute("named")) {
+      fitNamed(label);
+    }
+  });
+  ro.observe(row);
+  return ro;
 }
 
 function clearNamed(strip, label) {
   if (strip.hasAttribute("named")) {
     strip.removeAttribute("named");
+    strip.removeAttribute("aria-label");
+    namedItems.delete(label);
     label.textContent = "";
   }
 }
@@ -341,11 +400,8 @@ export function stripText(total, attention, working, paused = 0) {
  */
 const WAITS = new Map([
   ["sign_in", "needs a sign-in"],
-  ["irreversible", "needs a confirmation"],
+  ["irreversible", "needs your OK"],
   ["human_check", "needs a human check"],
-  ["other", "handed you its tab"],
-  ["handoff", "handed you its tab"],
-  ["wait", "handed you its tab"],
   ["permission", "needs your permission"],
   ["choice", "needs a choice"],
   ["zenius", "needs a choice"],
@@ -356,14 +412,18 @@ const WAITS = new Map([
   ["takeover", "waits for you"],
 ]);
 
+/** What any waiting task waits for, where nothing more is known or fits. */
+const NEEDS_YOU = "needs you";
+
 /**
  * "needs a sign-in": what a task that needs the user waits for, said after
- * its name. An unknown kind says only that it needs the user.
+ * its name. Any other kind, a hand-off's other reason or none among them,
+ * says only that it needs the user.
  *
  * @param {string|null} kind
  */
 export function waitText(kind) {
-  return WAITS.get(kind) ?? "needs you";
+  return WAITS.get(kind) ?? NEEDS_YOU;
 }
 
 /**
@@ -674,7 +734,9 @@ function ensureWindow(win, actions) {
   strip.addEventListener("keydown", open);
   row.append(strip, all);
   foot.parentElement.insertBefore(row, foot);
-  w = { strip, row, all, one: null, panel: w?.panel ?? null, rows: w?.rows ?? [], els: w?.els ?? new Map(), actions };
+  w?.fit?.disconnect();
+  const fit = watchFit(win, row, text);
+  w = { strip, row, all, fit, one: null, panel: w?.panel ?? null, rows: w?.rows ?? [], els: w?.els ?? new Map(), actions };
   windows.set(win, w);
   return w;
 }

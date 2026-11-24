@@ -1003,8 +1003,9 @@ zen-workspace > .zenius-space-status {
   display: none;
 }
 
-/* One task waits: "<task> needs a sign-in". The name is cut, never what it
- * waits for. */
+/* One task waits: "<task> needs a sign-in". The name comes first, cut only
+ * when it alone is too long; what it waits for shows whole or not at all
+ * (panel.sys.mjs's fitNamed). */
 #zenius-agents-strip[named] > .zenius-strip-text {
   display: flex;
   min-width: 0;

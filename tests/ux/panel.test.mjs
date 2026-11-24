@@ -93,10 +93,10 @@ test("the strip's line for one waiting task says what it waits for, after the ta
   `);
   assert.deepEqual(out, [
     "needs a sign-in",
-    "needs a confirmation",
+    "needs your OK",
     "needs a human check",
-    "handed you its tab",
-    "handed you its tab",
+    "needs you",
+    "needs you",
     "needs your permission",
     "needs a choice",
     "needs an answer",
@@ -115,7 +115,8 @@ test("the strip counts agent tasks and opens the panel, which lists them", async
     await openPanel();
     const r = row();
     const info = {
-      strip: strip.textContent,
+      // Its accessible name: a named line's words in full, whatever fits.
+      strip: strip.getAttribute("aria-label") ?? strip.textContent,
       row: strip.parentElement.id,
       inSidebar: strip.parentElement.parentElement.id,
       name: r?.querySelector(".zenius-task-name").textContent,
@@ -128,7 +129,7 @@ test("the strip counts agent tasks and opens the panel, which lists them", async
     await closePanel();
     return info;
   `);
-  assert.match(out.strip, /^(\d+ agents? (task|tasks|working)|\d+ agents need you|.+ (needs .+|hit an error|was interrupted|handed you its tab|waits for you))$/);
+  assert.match(out.strip, /^(\d+ agents? (task|tasks|working)|\d+ agents need you|.+ (needs .+|hit an error|was interrupted|waits for you))$/);
   assert.equal(out.row, "zenius-strip-row", "the strip and All agent tasks share a row");
   assert.equal(out.inSidebar, "TabsToolbar");
   assert.equal(out.name, iso(NAME));
@@ -152,7 +153,8 @@ test("the agent sidebar's word on a task its chat drives: a running turn counts 
       res.ended = state();
       UI.noteSidebarTask(r.id, { needs: "question" });
       await until(() => /need/.test(strip.textContent));
-      res.needs = { state: state(), strip: strip.textContent, attr: strip.getAttribute("state") };
+      // Its accessible name: a named line's words in full, whatever fits.
+      res.needs = { state: state(), strip: strip.getAttribute("aria-label") ?? strip.textContent, attr: strip.getAttribute("state") };
       UI.noteSidebarTask(r.id, { needs: null });
       res.answered = state();
       return res;
@@ -261,8 +263,8 @@ test("handOff shows the agent's request in its page and badge, and no OS notific
     return { alerts: UI.alertsService.calls.length, strip: strip.textContent };
   `);
   assert.equal(out.alerts, 0);
-  // The one waiting task is named; a hand-off with no reason handed a tab.
-  assert.match(out.strip, /(needs? you|handed you its tab)$/);
+  // The one waiting task is named; a hand-off with no reason needs you.
+  assert.match(out.strip, /needs? you$/);
   const s = await state();
   assert.equal(s.taskBadge.state, "needs-user");
   assert.equal(s.taskBadge.text, "Log in to continue");

@@ -132,8 +132,10 @@ test("the tasks panel's Open goes to the chat that drives the task: the waiting 
 const STRIP = `
   const strip = win.document.getElementById("zenius-agents-strip");
   const all = win.document.getElementById("zenius-strip-all");
+  // What the strip says: a named line's accessible name has its words in
+  // full (the width test checks what of them shows), a count's its text.
   const shown = () => ({
-    text: strip.querySelector(".zenius-strip-text").textContent,
+    says: strip.getAttribute("aria-label") ?? strip.querySelector(".zenius-strip-text").textContent,
     title: strip.getAttribute("title"),
     named: strip.hasAttribute("named"),
     all: !all.hidden,
@@ -201,7 +203,7 @@ test("one waiting task: the strip names it and what it waits for, and its click 
       { chats, second: second.id }
     );
     const name = iso(`zen-ux strip two ${run}`);
-    assert.deepEqual(one.one, { text: `${name} needs a sign-in`, title: `${name} needs a sign-in`, named: true, all: true });
+    assert.deepEqual(one.one, { says: `${name} needs a sign-in`, title: `${name} needs a sign-in`, named: true, all: true });
     assert.deepEqual(one.clicked, { sidebar: true, chat: chats.second, watching: second.id, panel: "closed", all: false }, "straight to the task and its chat; watching, the strip says so and All agent tasks goes");
     assert.equal(one.allOpens, null, "All agent tasks opens the panel and goes nowhere");
     assert.deepEqual(one.collapsed, { allSeen: false, title: `${name} needs a sign-in`, watching: null });
@@ -219,8 +221,8 @@ test("one waiting task: the strip names it and what it waits for, and its click 
     `
     );
     assert.deepEqual(two.two, {
-      text: "2 agents need you",
-      title: `2 agents need you\n${iso(`zen-ux strip one ${run}`)} needs a confirmation\n${name} needs a sign-in`,
+      says: "2 agents need you",
+      title: `2 agents need you\n${iso(`zen-ux strip one ${run}`)} needs your OK\n${name} needs a sign-in`,
       named: false,
       all: false,
     });
@@ -281,7 +283,113 @@ test("a chat that needs the user before its agent opened a zenius task: the stri
   );
   const name = iso("Third errand");
   assert.equal(out.why, "question");
-  assert.deepEqual(out.one, { text: `${name} needs an answer`, title: `${name} needs an answer`, named: true, all: true });
+  assert.deepEqual(out.one, { says: `${name} needs an answer`, title: `${name} needs an answer`, named: true, all: true });
   assert.deepEqual(out.clicked, { sidebar: true, chat: true, watching: null }, "the chat in the sidebar; no Space to watch");
   assert.deepEqual(out.row, { label: name, name, detail: "Needs an answer in the agent sidebar", buttons: ["Open"] });
+});
+
+test("one waiting task at any sidebar width: the name comes first, and what it waits for shows whole or not at all; a name too long alone is cut with an ellipsis; the tooltip and the strip's name say it all", async t => {
+  const name = `Trip ${run}`;
+  const long = `Trip ${run} for the whole family, a summer in Kyoto, Osaka and Nara with the grandparents`;
+  const space = await h.createSpace({ name });
+  await h.call("page.goto", { space: space.id, page: "p1", url: `${h.base}/` });
+  try {
+    assert.equal(await chrome(`return UI.needsCount();`), 0, "no task waits as the test starts");
+    await h.call("spaces.handOff", { space: space.id, reason: "sign_in" });
+    const out = await chrome(
+      `${STRIP}
+      await until(() => strip.hasAttribute("named"), "the strip naming the waiting task");
+      const doc = win.document;
+      const tb = doc.getElementById("navigator-toolbox");
+      const width0 = tb.style.width;
+      const row = doc.getElementById("zenius-strip-row");
+      const label = strip.querySelector(".zenius-strip-text");
+      const who = label.querySelector(".zenius-strip-who");
+      const what = label.querySelector(".zenius-strip-what");
+      const frames = () => new Promise(r => win.requestAnimationFrame(() => win.requestAnimationFrame(r)));
+      const measure = () => {
+        const seen = what.checkVisibility();
+        return {
+          what: seen ? what.textContent : null,
+          whoWhole: who.scrollWidth <= who.clientWidth + 1,
+          whoWidth: Math.round(who.getBoundingClientRect().width),
+          lineWhole: label.scrollWidth <= label.clientWidth + 1 && (!seen || what.getBoundingClientRect().right <= label.getBoundingClientRect().right + 0.5),
+          label: strip.getAttribute("aria-label"),
+          title: strip.getAttribute("title"),
+          row: Math.round(row.getBoundingClientRect().width),
+        };
+      };
+      const errors = [];
+      const onError = e => errors.push(String(e.message));
+      win.addEventListener("error", onError);
+      const res = { usualWidth: Math.round(tb.getBoundingClientRect().width), usual: measure(), up: {}, down: {} };
+      try {
+        // Only the row's ResizeObserver fits the line again: nothing renders
+        // the strip while the sidebar's width changes.
+        for (let width = 152; width <= 340; width += 4) {
+          tb.style.width = width + "px";
+          await frames();
+          await sleep(30);
+          res.up[width] = measure();
+        }
+        for (let width = 336; width >= 152; width -= 8) {
+          tb.style.width = width + "px";
+          await frames();
+          await sleep(30);
+          res.down[width] = measure();
+        }
+        tb.style.width = width0;
+        await frames();
+        await spaces.rename(spaces.peek(arg.id), arg.long);
+        await until(() => who.textContent.includes(arg.long), "the long name");
+        await frames();
+        const got = measure();
+        res.long = { what: got.what, whoCut: who.scrollWidth > who.clientWidth + 1, lineWhole: got.lineWhole, label: got.label };
+      } finally {
+        win.removeEventListener("error", onError);
+        tb.style.width = width0;
+      }
+      res.errors = errors;
+      return res;
+    `,
+      { id: space.id, long }
+    );
+    const line = `${iso(name)} needs a sign-in`;
+    const LEVEL = new Map([
+      [" needs a sign-in", 0],
+      [" needs you", 1],
+      [null, 2],
+    ]);
+    t.diagnostic(`usual ${out.usualWidth}px: ${JSON.stringify(out.usual.what)}; ` + Object.entries(out.up).map(([w, g]) => `${w}:${LEVEL.get(g.what)}`).join(" "));
+    for (const [way, sweep] of Object.entries({ up: out.up, down: out.down })) {
+      let last = 2;
+      for (const width of Object.keys(sweep).map(Number).sort((a, b) => a - b)) {
+        const got = sweep[width];
+        const at = `${width}px, ${way}: ${JSON.stringify(got)}`;
+        assert.ok(LEVEL.has(got.what), `${at}: what it waits for in whole words`);
+        assert.ok(got.lineWhole && got.whoWidth > 0, `${at}: the name shows, and nothing is clipped`);
+        assert.ok(got.what === null || got.whoWhole, `${at}: what it waits for shows only after the whole name`);
+        assert.deepEqual([got.label, got.title], [line, line], `${at}: the tooltip and the strip's name say it all`);
+        assert.ok(LEVEL.get(got.what) <= last, `${at}: a wider strip says no less`);
+        last = LEVEL.get(got.what);
+      }
+    }
+    for (const width of Object.keys(out.down)) {
+      assert.deepEqual(out.down[width], out.up[width], `${width}px: the same line, whichever way the sidebar got there`);
+    }
+    assert.equal(out.up[340].what, " needs a sign-in", "a wide sidebar shows the whole line");
+    assert.ok(out.usual.whoWhole, `the usual width (${out.usualWidth}px) shows the whole name`);
+    assert.deepEqual(out.long, { what: null, whoCut: true, lineWhole: true, label: `${iso(long)} needs a sign-in` }, "a name too long alone takes the line, cut");
+    assert.deepEqual(out.errors, [], "no ResizeObserver loop");
+  } finally {
+    await chrome(
+      `
+      const rec = spaces.peek(arg);
+      if (rec && !rec.gone && rec.ownership !== "agent") spaces.setOwnership(rec, "agent", { source: "user" });
+      return true;
+    `,
+      space.id
+    ).catch(() => {});
+    await h.call("spaces.finish", { space: space.id, keep: [] }).catch(() => {});
+  }
 });

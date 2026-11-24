@@ -552,7 +552,7 @@ The window while watching (browser.xhtml):
 |---|---|
 | `#main-window[data-zenius-watching="<uid>"]` | The task the window watches, when a chat follows it |
 | `#zenius-agents-strip[watching]` | zenius's strip while the window watches: "Watching <task> [⌃Tab]", the key a keycap (`<kbd>`), the name in `.zenius-strip-name`. Once the watched task ended there, `[watching="done"]`: "Task done, [⌃Tab] back to your tabs", with "back to your tabs" in `.zenius-strip-rest`, until the user presses ⌃Tab or picks another tab or Space. A hint: a click opens the tasks panel |
-| `#zenius-agents-strip[named]` | zenius's strip while one task waits: "<task> needs a sign-in", the name in `.zenius-strip-who`, cut first, then what it waits for in `.zenius-strip-what` |
+| `#zenius-agents-strip[named]` | zenius's strip while one task waits: "<task> needs a sign-in", the name in `.zenius-strip-who`, then what it waits for in `.zenius-strip-what`, whole or `hidden`: where the line doesn't fit, "needs you", then the name alone |
 | `#zenius-strip-all` | All agent tasks, at the strip's end in `#zenius-strip-row`, shown while the strip's click goes to the one waiting task |
 | `#zenius-watch-pill` | zenius's chip, in the page area's top left corner, only while the window watches and the strip can't be read (a collapsed sidebar, compact mode): "Watching <task> [⌃Tab]", or once the task ended there, `[done]`: "Task done, [⌃Tab] back to your tabs", with "back to your tabs" in `.zenius-watch-rest`. Every click passes through it to the page |
 | ⌃Tab | Goes back while watching (stopped before Zen's tab box and ctrlTab see it); Zen's otherwise. Only trusted key events count. Tests send it through nsITextInputProcessor |

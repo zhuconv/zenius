@@ -2220,6 +2220,47 @@ test("the mock's held step ends on Stop as claude-agent-acp ends a call a cancel
   assert.deepEqual(out, { result: "The turn was cancelled before this tool call returned a result.", cut: true, stopped: true, mark: "stopped" });
 });
 
+test("a Work chat's hand-off through zenius's MCP tool carries its reason: the strip names the task and what it waits for, and the tasks panel's row quotes the agent", async () => {
+  await useMock();
+  const out = await chrome(`
+    const g = win.ucAgentSidebar;
+    const AS = g.AgentService;
+    const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;
+    await S.openPanel();
+    const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
+    // The trip scene opens a sign-in page, then calls hand_off with reason
+    // sign_in through the zenius MCP server, as a real agent does.
+    const uid = await startWorkChat(win, { text: "SCENARIO:trip", source: "urlbar" });
+    const conv = AS.tasks.get(uid);
+    const res = { space: null };
+    let rec = null;
+    try {
+      await S.until(() => AS.zenRecord(conv)?.ownership === "agentDelegatedToUser", 60000);
+      rec = AS.zenRecord(conv);
+      res.space = rec.id;
+      const row = () => UI.tasks().find(r => r.id === rec.id);
+      await S.until(() => row()?.waitsFor === "sign_in", 10000);
+      res.row = { waitsFor: row().waitsFor, detail: row().detail };
+      const strip = win.document.getElementById("zenius-agents-strip");
+      await S.until(() => strip.hasAttribute("named"), 5000);
+      res.strip = { label: strip.getAttribute("aria-label"), title: strip.getAttribute("title"), who: strip.querySelector(".zenius-strip-who").textContent };
+    } finally {
+      AS.cancel(conv);
+      await S.until(() => !conv.busy, 10000);
+      // The user's Resume agent, so the task can finish.
+      if (rec && rec.ownership !== "agent") ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+      g.setMode("chat");
+    }
+    return res;
+  `);
+  if (out.space) {
+    await h.call("spaces.finish", { space: out.space, keep: [] }).catch(() => {});
+  }
+  const name = iso("Trip planner");
+  assert.deepEqual(out.row, { waitsFor: "sign_in", detail: `Agent needs you. The agent says: \u201c${iso("Sign in to Accounts so I can see your saved trips.")}\u201d` });
+  assert.deepEqual(out.strip, { label: `${name} needs a sign-in`, title: `${name} needs a sign-in`, who: name });
+});
+
 test("a remote task says which of the user's agents sent it: 'From <label> on <address>' over its question, on its live card and on its directory row, whose search finds it by the address", async () => {
   await useMock();
   const out = await chrome(`
@@ -4012,7 +4053,12 @@ test("zenius's strip says what the sidebar does: a task is working while its cha
     try {
       ${START_CHAT}
       const g = win.ucAgentSidebar;
-      const strip = () => win.document.querySelector("#zenius-agents-strip .zenius-strip-text")?.textContent ?? null;
+      // What the strip says: a named line's accessible name has its words in
+      // full, whatever of them the sidebar's width shows.
+      const strip = () => {
+        const el = win.document.getElementById("zenius-agents-strip");
+        return el?.getAttribute("aria-label") ?? el?.querySelector(".zenius-strip-text")?.textContent ?? null;
+      };
       const mine = () => calls.filter(c => c.id === rec?.id).map(c => ({ running: c.running, needs: c.needs }));
       const res = { linked: !!rec };
       res.asked = { state: conv.task.state, why: conv.task.why, badge: UI.badgeFor(rec)?.state ?? null, strip: strip(), calls: mine() };
