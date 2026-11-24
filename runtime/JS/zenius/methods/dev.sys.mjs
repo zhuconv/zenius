@@ -1,5 +1,7 @@
-// dev.* methods (zen-core). Registered only when pref zenius.dev is true,
-// which scripts/zen-dev.sh sets; a daily profile never has them.
+// dev.* methods (zen-core). Registered only on a dev profile (readSettings in
+// modules/util.sys.mjs): pref zenius.dev, which scripts/zen-dev.sh sets, in a
+// profile under ~/.zenius-dev/profiles/. A daily profile never has them, even
+// with the pref.
 
 import { evalAsync, systemSandbox } from "chrome://userscripts/content/zenius/modules/sandbox.sys.mjs";
 import { hostWindow, viewState } from "chrome://userscripts/content/zenius/modules/windows.sys.mjs";

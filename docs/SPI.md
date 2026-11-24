@@ -103,7 +103,13 @@ export const methods = {
   result is converted by itself; `undefined` only through the marker.
 - A module may also export `access` (how the control gate treats its
   methods) and `pageGates` (readiness checks); see "Dispatch".
-- Methods named `dev.*` register only when pref `zenius.dev` is true.
+- Methods named `dev.*`, and methods of I5 class `dev`, register only on a
+  dev profile: pref `zenius.dev` is true, and the profile's real path, links
+  resolved, is under the real `~/.zenius-dev/profiles/`, where
+  `scripts/zen-dev.sh` makes its profiles (`readSettings` in
+  `modules/util.sys.mjs`). The pref alone turns nothing on, since anything
+  that can save a file into the user's own profile could write it in a
+  `user.js` there.
 - Every call is timed and logged as `[zenius] rpc <method> <ms>ms <ok|code>`,
   plus `(held <ms>ms)` when the control gate held it.
   `dev.stats` returns count, p50, p95 and max per method, without held time.
@@ -3731,8 +3737,10 @@ Rules `install.sh` keeps:
   start. `tests/core/install.test.mjs` checks it every run, so `install.sh`
   leaves `compatibility.ini` and the caches alone.
 
-Never in a daily profile: pref `zenius.dev` (the `dev.*` methods), or a link
-into a checkout.
+Never in a daily profile: pref `zenius.dev`, or a link into a checkout. The
+pref turns on nothing outside `~/.zenius-dev/profiles/` (see "Adding
+methods"), but nothing of zenius's writes it there either, so `zenius doctor`
+reports it.
 
 While Zen runs, as instance `default` (pref `zenius.instance`, unset on a
 daily profile):

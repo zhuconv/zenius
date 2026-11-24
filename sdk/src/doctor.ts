@@ -1001,7 +1001,7 @@ function dailyCheck(o: Resolved, profileDir: string | undefined, live: Live): Ch
       }
     }
     const dev = ["prefs.js", "user.js"].find((name) => readPrefs(path.join(profileDir, name)).get("zenius.dev") === "true");
-    if (dev) problems.push(`The profile's ${dev} sets pref zenius.dev, which turns on the dev.* methods. Reset it in about:config (and remove it from user.js, if it's there); then the user quits and reopens Zen.`);
+    if (dev) problems.push(`The profile's ${dev} sets pref zenius.dev, which only the dev launcher's profiles use: zenius ignores it in this profile, but nothing of zenius's writes it there. Reset it in about:config (and remove it from user.js, if it's there); then the user quits and reopens Zen.`);
     else checked.push("no zenius.dev pref");
     const links = linksIn(profileDir);
     for (const link of links) {

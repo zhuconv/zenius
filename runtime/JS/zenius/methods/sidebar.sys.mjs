@@ -11,6 +11,7 @@
 // call's method, time and outcome, and no message here quotes the text.
 
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
+import { devMode } from "chrome://userscripts/content/zenius/modules/util.sys.mjs";
 import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
 const SIDEBAR = "chrome://userscripts/content/agent-sidebar/";
@@ -153,7 +154,7 @@ function limit(key) {
 }
 
 function windowMs() {
-  if (!Services.prefs.getBoolPref("zenius.dev", false)) {
+  if (!devMode()) {
     return HOUR;
   }
   let s = 3600;

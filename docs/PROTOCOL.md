@@ -1177,7 +1177,7 @@ lists it. Setting it to false turns remote tasks off:
 For tests, prefs can lower the limits but never raise them:
 `zenius.agentSidebar.remote.maxRunning`, `.maxPerHour` and
 `.maxTaskSeconds`. `.windowSeconds`, the span the hourly limit counts, is
-read only where `zenius.dev` is true.
+read only on a dev profile, as the `dev.*` methods are (see "Dev only").
 
 A remote task's agent is told that its messages come from another of the
 user's agents (the source), not from the user. Steps that can't be undone
@@ -1192,8 +1192,10 @@ task's agent can't reach them: its MCP tools don't, and it has no shell.
 
 ### Dev only (zen-core)
 
-Registered only when pref `zenius.dev` is true (dev profiles); a daily
-profile doesn't have them.
+Registered only on a dev profile: pref `zenius.dev` is true, and the
+profile's real path, links resolved, is under the real
+`~/.zenius-dev/profiles/`, where `scripts/zen-dev.sh` makes its profiles. A
+daily profile doesn't have them, even with the pref set in its `user.js`.
 
 A result of `dev.evalChrome` or `dev.evalContent` carries at most 1000 items
 in each array, Set, Map, typed array or object. One with more fails the call

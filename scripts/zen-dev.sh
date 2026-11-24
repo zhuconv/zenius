@@ -62,6 +62,9 @@ shift 2 || shift $#
 [[ $NAME == default ]] && { echo "'default' is reserved for the user's daily browser" >&2; exit 2; }
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+# A ZENIUS_DEV_HOME whose real path isn't ~/.zenius-dev's gives a Zen without
+# the dev.* methods: the runtime turns them on only in a profile under the
+# real ~/.zenius-dev/profiles/ (readSettings in modules/util.sys.mjs).
 DEV=${ZENIUS_DEV_HOME:-$HOME/.zenius-dev}
 PROFILE=$DEV/profiles/$NAME
 PIDFILE=$DEV/run/$NAME.pid

@@ -26,12 +26,56 @@ export function safeStringify(value) {
   }
 }
 
-/** Instance settings, read once at startup. */
+/**
+ * Instance settings, read once at startup. `dev` turns on the dev.* methods
+ * and every method of I5 class "dev". It needs pref zenius.dev and a profile
+ * of the dev launcher's (devProfile), because the pref alone can come from a
+ * user.js that anything able to save a file into the user's own profile
+ * could write.
+ */
 export function readSettings() {
   return {
     instance: Services.prefs.getStringPref("zenius.instance", "default"),
-    dev: Services.prefs.getBoolPref("zenius.dev", false),
+    dev: devMode(),
   };
+}
+
+let devModeOn;
+
+/** readSettings' `dev`, decided once: a profile doesn't move while Zen runs. */
+export function devMode() {
+  devModeOn ??= Services.prefs.getBoolPref("zenius.dev", false) && devProfile();
+  return devModeOn;
+}
+
+/**
+ * Whether a profile is one of scripts/zen-dev.sh's: its real path, links
+ * resolved, is under the real <home>/.zenius-dev/profiles/. The user's own
+ * profile never is, whatever its prefs say. By default, Zen's own profile
+ * and home folder.
+ *
+ * @param {string} [profile]
+ * @param {string} [home]
+ */
+export function devProfile(profile, home) {
+  try {
+    const root = realPath(PathUtils.join(home ?? Services.dirsvc.get("Home", Ci.nsIFile).path, ".zenius-dev", "profiles"));
+    const real = realPath(profile ?? PathUtils.profileDir);
+    return root !== null && real !== null && real.startsWith(`${root}/`);
+  } catch {
+    return false;
+  }
+}
+
+/** `path` with every link resolved, or null when it doesn't exist. */
+function realPath(path) {
+  const file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+  file.initWithPath(path);
+  if (!file.exists()) {
+    return null;
+  }
+  file.normalize();
+  return file.path;
 }
 
 /**

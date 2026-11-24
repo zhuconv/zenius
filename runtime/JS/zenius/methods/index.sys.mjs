@@ -7,7 +7,7 @@ export const methodModules = [
   "spaces", // zen-core
   "pages", // zen-core
   "events", // zen-core
-  "dev", // zen-core: dev.* (only with pref zenius.dev)
+  "dev", // zen-core: dev.* (only on a dev profile: readSettings)
   "navigation", // zen-observe
   "observe", // zen-observe
   "io", // zen-observe
