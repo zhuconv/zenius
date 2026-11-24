@@ -5,7 +5,7 @@
 // with the prefs it needs.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
@@ -74,7 +74,7 @@ async function restart(prefs, opts) {
  * kill.
  */
 function devZenPid() {
-  const home = process.env.ZENIUS_DEV_HOME ?? join(homedir(), ".zenius-dev");
+  const home = process.env.ZENIUS_DEV_HOME || join(homedir(), ".zenius-dev");
   const profile = join(home, "profiles", h.instance);
   const commandOf = pid => {
     try {
@@ -514,9 +514,21 @@ test("an empty Agents Space a kill brings back goes at the start, and a Space th
   await h.call("spaces.finish", { space: t, keep: [] });
   assert.equal(await h.chrome(`return ctx.spaces.agentsSpace.uuid;`), null);
   assert.ok(await zenFileHas(agents), "Zen's own file still has the Agents Space at the kill");
+  const zenFile = join(process.env.ZENIUS_DEV_HOME || join(homedir(), ".zenius-dev"), "profiles", h.instance, "zen-sessions.jsonlz4");
+  const checked = statSync(zenFile).mtimeMs;
   await killAndStart(KILL_PREFS_NO_TABS);
 
   const spaces = await zenSpaces();
+  if (!h.instanceLog(/restart: /).length) {
+    // Once seen under load: the start healed nothing. Say whether Zen's file
+    // lost the Space before the kill, or the heal ran before Zen listed it.
+    const changed = statSync(zenFile).mtimeMs !== checked;
+    assert.fail(
+      `the start healed no marked Space. Zen's file ${changed ? "changed" : "didn't change"} since the check before the kill, ` +
+        `and has the Agents Space now: ${await zenFileHas(agents)}. Zen's Spaces now: ${JSON.stringify(await zenSpaces())}. ` +
+        `The rebuild: ${JSON.stringify(h.instanceLog(/restart rebuild/))}`
+    );
+  }
   assert.ok(!spaces.some(([uuid]) => uuid === agents), "the empty marked Space went at the start");
   assert.ok(spaces.some(([uuid, name, mark]) => uuid === mine && name === "Agents" && mark === null), "the user's own Agents stayed");
   assert.equal(await h.chrome(`return ctx.spaces.agentsSpace.uuid;`), null);
