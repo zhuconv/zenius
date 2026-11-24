@@ -275,6 +275,29 @@ test("mcp: a failure comes back readable, from the error guide, and the server g
   );
 });
 
+test("mcp: hand_off's reason is the task's, which Zen's strip reads", async () => {
+  const name = unique("it mcp reason");
+  const agent = await started();
+  try {
+    await agent.ok("open", { url: `${context.base}/form`, task: name });
+    await agent.ok("hand_off", { message: "Sign in to Accounts", reason: "sign_in" });
+    const space = await spaceNamed(name);
+    assert.deepEqual(
+      await chrome(
+        `const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;
+         return { reason: ctx.spaces.get(arg).reason ?? null, waitsFor: UI.tasks().find((row) => row.id === arg)?.waitsFor ?? null };`,
+        space.id,
+      ),
+      { reason: "sign_in", waitsFor: "sign_in" },
+    );
+    await resumeByUser(space.id);
+    await agent.ok("wait", { user: true, seconds: 5 });
+    await agent.ok("finish", { keep: "none" });
+  } finally {
+    await agent.close();
+  }
+});
+
 test("mcp: hand_off with secret: true says zenius clears the tab at Resume, and wait says it did", async () => {
   const name = unique("it mcp secret");
   const agent = await started();

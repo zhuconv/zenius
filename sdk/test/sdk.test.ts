@@ -531,6 +531,30 @@ describe("TaskSpace", () => {
       assert.deepEqual(mock.requests.findLast((request) => request.method === "spaces.handOff")!.params, { space: task.id });
     }));
 
+  it("handOff({ reason }) passes the reason on, refuses another before anything reaches the runtime, and sends none without one", () =>
+    withMock(async ({ mock }) => {
+      const task = await taskSpace("reason");
+      await task.handOff({ message: "Sign in to Accounts", reason: "sign_in" });
+      assert.deepEqual(mock.requests.findLast((request) => request.method === "spaces.handOff")!.params, { space: task.id, reason: "sign_in" });
+      mock.spaces.get(task.id)!.ownership = "agent";
+      await task.handOff({ secret: true, reason: "irreversible" });
+      assert.deepEqual(mock.requests.findLast((request) => request.method === "spaces.handOff")!.params, { space: task.id, secret: true, reason: "irreversible" });
+      mock.spaces.get(task.id)!.ownership = "agent";
+
+      const before = mock.requests.length;
+      await assert.rejects(
+        () => task.handOff({ message: "Sign in", reason: "login" as never }),
+        (error: unknown) =>
+          error instanceof TypeError &&
+          error.message ===
+            "task.handOff reason must be one of sign_in, irreversible, human_check, other. Expected: await task.handOff({ message?, secret?, reason? })",
+      );
+      assert.equal(mock.requests.length, before, "nothing reaches the runtime, not even the message");
+
+      await task.handOff({ message: "Check the total" });
+      assert.deepEqual(mock.requests.findLast((request) => request.method === "spaces.handOff")!.params, { space: task.id });
+    }));
+
   it("a refused hand-off takes its message back off the card, and a message must name the step", () =>
     withMock(async ({ mock }) => {
       const task = await taskSpace("refused");

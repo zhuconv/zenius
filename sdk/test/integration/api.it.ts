@@ -36,6 +36,14 @@ const page = task.page("p1");
 await page.goto(${JSON.stringify(`${context.base}${path}`)});
 `;
 const json = (value: string) => JSON.stringify(value);
+const chrome = (code: string, arg: unknown) => context.rpc.call("dev.evalChrome", { code, arg });
+/** The task's reason, and what Zen's strip and tasks panel read it as (ZeniusUI.tasks()). */
+const waitsFor = (space: number) =>
+  chrome(
+    `const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;
+     return { reason: ctx.spaces.get(arg).reason ?? null, waitsFor: UI.tasks().find((row) => row.id === arg)?.waitsFor ?? null };`,
+    space,
+  );
 
 describe("task spaces and profiles", () => {
   verified("a user Space's name is not a task space name", ["spaces.list"], async (t) => {
@@ -113,6 +121,23 @@ console.log(JSON.stringify({ value, ownership: entry.ownership, userPage: userPa
       assert.equal(resumed.value, 42);
       assert.equal(resumed.ownership, "agent");
       assert.ok(resumed.userPage, "takeOverTaskSpace() captures the tab the user left active");
+    },
+  );
+
+  verified(
+    "handOff({ reason }) gives the task its reason, which Zen's strip reads, and one without keeps the default",
+    ["spaces.create", "spaces.setState", "spaces.handOff", "spaces.takeOver", "spaces.finish"],
+    async () => {
+      const id = Number(
+        (await zeniusJson(
+          context,
+          `const task = await taskSpace(${json(unique("it handoff reason"))}); await task.handOff({ message: "Sign in to Accounts", reason: "sign_in" }); console.log(task.spaceId);`,
+        )) as number,
+      );
+      assert.deepEqual(await waitsFor(id), { reason: "sign_in", waitsFor: "sign_in" });
+      await zenius(context, `const task = await takeOverTaskSpace(${id}); await task.handOff({ message: "Look at the total" });`);
+      assert.deepEqual(await waitsFor(id), { reason: "manual_takeover", waitsFor: "handoff" });
+      await zenius(context, `const task = await takeOverTaskSpace(${id}); await task.finish({ keep: [] });`);
     },
   );
 

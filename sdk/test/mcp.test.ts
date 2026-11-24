@@ -123,6 +123,37 @@ describe("zenius mcp report_problem", () => {
   });
 });
 
+describe("zenius mcp hand_off", () => {
+  it("passes the agent's reason on to the task's hand-off, and leaves out one that isn't one of the four", async () => {
+    const handOffs: unknown[] = [];
+    const session = {
+      connect() {},
+      async resume() {},
+      drop() {},
+      ended() {},
+      task: {
+        async handOff(options: unknown) {
+          handOffs.push(options);
+        },
+      },
+    } as unknown as Parameters<typeof callTool>[0];
+    const handOff = async (args: Record<string, unknown>) => {
+      const result = await callTool(session, "hand_off", args);
+      assert.equal(result.isError, undefined, result.content[0]!.text);
+      return handOffs.at(-1);
+    };
+    assert.deepEqual(await handOff({ message: "Sign in to Accounts", reason: "sign_in" }), { message: "Sign in to Accounts", reason: "sign_in" });
+    assert.deepEqual(await handOff({ message: "Copy your new API token", reason: "other", secret: true }), {
+      message: "Copy your new API token",
+      secret: true,
+      reason: "other",
+    });
+    assert.deepEqual(await handOff({ message: "Solve the puzzle" }), { message: "Solve the puzzle" });
+    // The user's step goes ahead without a label rather than fail over it.
+    assert.deepEqual(await handOff({ message: "Log in", reason: "login" }), { message: "Log in" });
+  });
+});
+
 describe("zenius mcp hard stops", () => {
   it("say which browser prompt paused the task, by the runtime's reason key", async () => {
     const paused = async (reason: string) => {

@@ -5,7 +5,7 @@
 // ledger (labels, origins, budget); this class names requests and shapes
 // results the way Ego's TaskSpace does.
 
-import { validateOptions } from "./api-schema.ts";
+import { type HandOffReason, validateOptions } from "./api-schema.ts";
 import { CODE_GUIDE } from "./error-guide.ts";
 import { unsupportedCdpError, ZeniusError } from "./errors.ts";
 import { CONSTRUCT, EXPLAIN_PAGE_ERROR, NOTE_ENTRY, SEED_PAGES } from "./internal.ts";
@@ -175,7 +175,7 @@ export class TaskSpace {
     await clearHandOffMessage(this.id, "task.waitForControl");
   }
 
-  async handOff(options: { message?: string; secret?: boolean } = {}): Promise<void> {
+  async handOff(options: { message?: string; secret?: boolean; reason?: HandOffReason } = {}): Promise<void> {
     validateOptions("TaskSpace.handOff", options);
     const message = options.message?.trim();
     if (options.message !== undefined && !message) {
@@ -186,7 +186,11 @@ export class TaskSpace {
     if (message) await this.#call("spaces.setState", "task.handOff", { text: message });
     try {
       // secret: zenius blanks the held tab at the hand back (zen-core).
-      await this.#call("spaces.handOff", "task.handOff", options.secret ? { secret: true } : {});
+      // reason: why the step is the user's, which Zen's strip names.
+      await this.#call("spaces.handOff", "task.handOff", {
+        ...(options.secret ? { secret: true } : {}),
+        ...(options.reason ? { reason: options.reason } : {}),
+      });
     } catch (error) {
       // Refused, the task stays the agent's: the message mustn't linger as
       // its progress text in the panel.

@@ -31,7 +31,7 @@ await page.reload();
 
 ## A sign-in wall is no reason to clear
 
-A sign-in wall, a CAPTCHA, or an account the user did not ask you to use: call `task.handOff()` and let the user act. Do not clear state to get past it.
+A sign-in wall, a CAPTCHA, or an account the user did not ask you to use: call `task.handOff()` with its reason (`sign_in`, or `human_check` for a CAPTCHA) and let the user act. Do not clear state to get past it.
 
 ## HttpOnly cookies and whole-site clears need the user
 

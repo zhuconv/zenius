@@ -41,6 +41,10 @@ const option = (
   values?: readonly string[],
 ): ApiOption => (values ? { kind, description, values } : { kind, description });
 
+/** Why a hand-off's step is the user's, which Zen's strip names. */
+export const HAND_OFF_REASONS = ["sign_in", "irreversible", "human_check", "other"] as const;
+export type HandOffReason = (typeof HAND_OFF_REASONS)[number];
+
 const timeout = option("positiveMilliseconds", "Maximum duration in milliseconds.");
 const actionTimeout = option(
   "positiveMilliseconds",
@@ -163,11 +167,16 @@ export const API_SCHEMA: readonly ApiEntry[] = [
   },
   {
     name: "TaskSpace.handOff",
-    signature: "await task.handOff({ message?, secret? })",
+    signature: "await task.handOff({ message?, secret?, reason? })",
     summary:
-      "Give control of this space to the user. The hold card in your tab shows message as your words (\"The agent says: …\"): say briefly what the user must do, such as \"Open 10.0.0.1 in this tab\". The user presses Resume agent when done; the SDK clears the message when you take the task back.",
+      "Give control of this space to the user. The hold card in your tab shows message as your words (\"The agent says: …\"): say briefly what the user must do, such as \"Open 10.0.0.1 in this tab\". reason says why the step is theirs, and Zen names it where it shows that the task waits for them: sign_in, irreversible, human_check or other. The user presses Resume agent when done; the SDK clears the message when you take the task back.",
     options: {
       message: option("string", "What the user should do, shown on the hold card in your tab."),
+      reason: option(
+        "string",
+        "Why the step is the user's: sign_in (signing in), irreversible (paying, sending a message or post as the user, deleting, or changing account or security settings), human_check (a captcha or another check only a person can pass), or other.",
+        HAND_OFF_REASONS,
+      ),
       secret: option(
         "boolean",
         "True when the user's step will show a secret, such as a new API token or recovery codes: zenius empties the tab at their Resume, before you get control back.",

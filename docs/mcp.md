@@ -24,7 +24,7 @@ the same words (zen-sdk's error guide).
 | `scroll` | `Scroll down`, `Scroll to "<element>"` | Scrolls by screens, or until an element is in view. |
 | `select` | `Select "<option>" in "<element>"` | Chooses options of a select element. |
 | `wait` | `Wait for "<text>"`, `Wait for the tab to reach example.com/done`, `Wait for the page to load`, `Wait 1 second`, `Wait for the user to resume the agent` | Waits for text, an element, a URL, a load state, a time, or the user. |
-| `hand_off` | `Ask the user: "<message>"` | Hands the task to the user, for signing in, paying or a captcha. Zen's card in the tab shows the message. |
+| `hand_off` | `Ask the user: "<message>"` | Hands the task to the user, for signing in, paying or a captcha. Zen's card in the tab shows the message, and Zen names the reason (`sign_in`, `irreversible`, `human_check` or `other`) where the task waits for the user. |
 | `finish` | `Finish, keeping 1 tab`, then each kept tab's title and host; `Finish, closing the task's tabs` | Ends the task, keeping the tabs the user should see. |
 | `evaluate` | `Run code in the page` | Runs JavaScript in the agent's isolated world, which sees the page's DOM but not its scripts. From the first update, the user's page-code setting decides whether it's offered. |
 | `report_problem` | `Report a problem with zenius: "<line>"` | Shows the user a problem report about zenius itself in Zen's agent sidebar, for them to send, copy or discard (below). |

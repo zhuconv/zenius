@@ -11,6 +11,7 @@
 // and no upload: only the tools below, and only http and https pages
 // (docs/mcp.md).
 
+import { HAND_OFF_REASONS } from "./api-schema.ts";
 import { ZeniusError } from "./errors.ts";
 import { cleanLine, composeFacts, MAX_LINE, outcomeText, showReport, type Shown } from "./feedback.ts";
 import { taskSpace, startTaskSpace, clientLabel } from "./globals.ts";
@@ -695,11 +696,12 @@ const TOOLS: Tool[] = [
       type: "object",
       properties: {
         message: { type: "string", description: "What the user should do, shown to them." },
-        // Read by the sidebar from the tool call, for a remote task's needs.reason
-        // (PROTOCOL "Remote tasks: the sidebar"); handOff() doesn't take it.
+        // Kept as the task's reason, which Zen's strip names. The sidebar also
+        // reads it from the tool call, for a remote task's needs.reason
+        // (PROTOCOL "Remote tasks: the sidebar").
         reason: {
           type: "string",
-          enum: ["sign_in", "irreversible", "human_check", "other"],
+          enum: [...HAND_OFF_REASONS],
           description:
             "Why the step is the user's: sign_in (signing in), irreversible (paying, sending a message or post as the user, deleting, or changing account or security settings), human_check (a captcha or another check only a person can pass), or other.",
         },
@@ -716,7 +718,10 @@ const TOOLS: Tool[] = [
     step: (args) => `Ask the user: ${quoted(args.message, 80)}`,
     run: async (args, session) => {
       const secret = args.secret === true;
-      await session.task.handOff({ message: str(args, "message")!, ...(secret ? { secret: true } : {}) });
+      // A reason that isn't one of the four is left out, not refused: the
+      // user's step matters more than its label.
+      const reason = HAND_OFF_REASONS.find((value) => value === args.reason);
+      await session.task.handOff({ message: str(args, "message")!, ...(secret ? { secret: true } : {}), ...(reason ? { reason } : {}) });
       return [
         "Zen shows the user your message, and the task is theirs until they press Resume agent. Call wait with user: true to wait for that.",
         ...(secret ? ["When they resume, zenius clears that tab first: ask the user for anything you need from what it showed."] : []),
