@@ -2975,6 +2975,32 @@ agent loses the Space: `{paused: true}`, or `{error}` with the gate's error.
 `page.waitForFunction` cancels its content poll (`evaluate#cancelWait`) and
 holds; `page.evaluate` fails and stops a script still running.
 
+**Stopping the page's own script.** `methods/observe.sys.mjs`'s
+`stopUntilAnswered(ctx, browser)` stops a busy tab's script with Gecko's
+stop for a navigation (`maybeCancelContentJSExecution`, which
+`stopPageScript` sends once). It sends the stop again every 1 ms until the
+page answers, for at most 5 s.
+
+- Gecko acts on a stop only when the interrupt it asks for finds the page's
+  own code running. Chrome code or a sandbox passes it over and leaves it
+  waiting. Such code includes zenius's guards, where a page that makes
+  frames in a loop spends most of its time.
+- Once the page answers, one more stop, with epoch 0, takes the place of any
+  stop still waiting. The page never acts on that one. A stop left waiting
+  would end whatever script of the page's the next interrupt finds, even on
+  a page the tab shows later, since zenius's epochs are above every
+  navigation's.
+- `page.evaluate`'s recovery waits 500 ms for the page to answer. A
+  Space's lost control doesn't wait. The stops go on either way.
+- A content process keeps one waiting stop. While zenius's stops go on, one
+  can replace a stop Gecko sent for another tab of the same process, where
+  the user is leaving a busy page. A task's tab can share a process with the
+  user's own tabs of its site. Each stop names its tab, so zenius's never
+  ends another tab's script. The user's navigation then waits as it would
+  without Gecko's stop, until the page's script yields or the user stops it
+  from Gecko's slow-script notice. Their next navigation after zenius's
+  stops end gets its stop as usual.
+
 **Agents stay in web content (SPEC §3.9 I5).** `observe/webcontent.sys.mjs`
 holds the rules; use it rather than your own checks:
 

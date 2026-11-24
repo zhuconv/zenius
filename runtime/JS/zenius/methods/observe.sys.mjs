@@ -46,6 +46,18 @@ const SELECTOR_STATES = new Set(["attached", "detached", "visible", "hidden"]);
 // far above the navigation epochs Gecko itself uses.
 let cancelEpoch = 1_000_000;
 
+// Gecko acts on a stop only when the interrupt it asks for finds the page's
+// own code running. One that finds chrome code or a sandbox, such as
+// zenius's guards, which a page making frames in a loop spends most of its
+// time in, is passed over and left waiting, and no new interrupt is asked
+// for. So the stop goes again every RESEND_MS until the page answers, for at
+// most RESEND_LIMIT_MS.
+const RESEND_MS = 1;
+const RESEND_LIMIT_MS = 5000;
+
+/** Per tab, the stops being sent again: whether its page answered. */
+const resending = new WeakMap();
+
 /**
  * Stop the script running in the tab's content process right now, through
  * the hang monitor's "navigating away" path. It terminates only script
@@ -55,15 +67,60 @@ let cancelEpoch = 1_000_000;
 export function stopPageScript(browser) {
   // The agent's world, which Gecko's stop skips, stops at its next check.
   stopWorldScripts(browser);
-  const remoteTab = browser.frameLoader?.remoteTab;
-  if (!remoteTab) {
+  return sendStop(browser, ++cancelEpoch);
+}
+
+/** One stop for the tab, unless its process is gone. */
+function sendStop(browser, epoch) {
+  try {
+    const remoteTab = browser.frameLoader?.remoteTab;
+    if (!remoteTab) {
+      return false;
+    }
+    remoteTab.maybeCancelContentJSExecution(Ci.nsIRemoteTab.NAVIGATE_URL, {
+      uri: Services.io.newURI("about:blank"),
+      epoch,
+    });
+    return true;
+  } catch {
+    // The tab is going away: no stop to send.
     return false;
   }
-  remoteTab.maybeCancelContentJSExecution(Ci.nsIRemoteTab.NAVIGATE_URL, {
-    uri: Services.io.newURI("about:blank"),
-    epoch: ++cancelEpoch,
-  });
-  return true;
+}
+
+/**
+ * stopPageScript, sent again until the tab's page answers (RESEND_MS,
+ * RESEND_LIMIT_MS). Then one more stop with epoch 0, which takes the place
+ * of any still waiting and is never acted on: a stop left waiting would end
+ * whatever script of the page's an interrupt next finds, even on a page the
+ * tab shows later, since zenius's epochs are above every navigation's.
+ * Resolves to whether the page answered. A tab has one such run at a time.
+ */
+export function stopUntilAnswered(ctx, browser) {
+  let run = resending.get(browser);
+  if (!run) {
+    run = resendStops(ctx, browser).finally(() => resending.delete(browser));
+    resending.set(browser, run);
+  }
+  return run;
+}
+
+async function resendStops(ctx, browser) {
+  if (!stopPageScript(browser)) {
+    return false;
+  }
+  let answered = null;
+  const asked = answers(ctx, browser.browsingContext, RESEND_LIMIT_MS).then(yes => (answered = yes));
+  const end = ChromeUtils.now() + RESEND_LIMIT_MS;
+  while (answered === null && ChromeUtils.now() < end) {
+    await Promise.race([sleep(RESEND_MS), asked]);
+    if (answered === null && !sendStop(browser, ++cancelEpoch)) {
+      break;
+    }
+  }
+  await asked;
+  sendStop(browser, 0);
+  return answered;
 }
 
 /** Does the page's process answer within `ms`? Ego's Runtime.evaluate("1") probe. */
@@ -216,7 +273,8 @@ async function runEvaluation(ctx, target, args, params, apiName) {
  */
 async function stopIfRunning(ctx, { browser }) {
   if (!(await answers(ctx, browser.browsingContext, 50))) {
-    stopPageScript(browser);
+    // The stops go on after the call fails, until the page answers.
+    stopUntilAnswered(ctx, browser);
   }
 }
 
@@ -240,9 +298,9 @@ async function recoverEvaluation(ctx, { browser, page }, call, outcome, timing) 
       throw msg.evaluationPending({ apiName, timeoutMs: transportMs });
     }
   }
-  // The page is busy: stop whatever script it runs.
-  stopPageScript(browser);
-  const responsive = await answers(ctx, bc(), 2 * PROBE_MS);
+  // The page is busy: stop whatever script it runs, until it answers. The
+  // stops go on past this wait, up to their own limit.
+  const responsive = await Promise.race([stopUntilAnswered(ctx, browser), sleep(2 * PROBE_MS).then(() => false)]);
   // The process answers in order: once the probe answered, a stopped
   // evaluation's reply has arrived too.
   const settled = await beforeDeadline(
