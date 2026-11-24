@@ -170,6 +170,33 @@ test("Send posts exactly the card's title and body, to the repository the card s
   assert.deepEqual(await propose(id, 1000), { outcome: "posted", number: 41, url: ISSUE(41) }, "an answered report's id gives its outcome");
 });
 
+test("a report keeps who wrote it beside it, cleaned as a task's source, for the card, and never in its text", async () => {
+  await sidebar.on();
+  answer({ "issue list": { stdout: "[]" }, "issue create": { stdout: `${ISSUE(42)}\n` } });
+  const chat = "0b1c2d3e-0000-4000-8000-00000000000b";
+  const source = { agent: "Codex", folder: "FOLDER-MARKER", terminal: "t9z", sidebar: chat };
+  const { id, title, body } = await compose({ ...FIELDS, source: { ...source, extra: "SOURCE-MARKER" } });
+  for (const text of ["Codex", "FOLDER-MARKER", "t9z", chat, "SOURCE-MARKER"]) {
+    assert.ok(!title.includes(text) && !body.includes(text), `the report's text has ${text}`);
+  }
+  const proposal = propose(id);
+  assert.deepEqual(await shown(), { id, title, body, canPost: true, repo: REPO, source });
+  assert.deepEqual(await card({ action: "send" }), { posted: { number: 42, url: ISSUE(42) } });
+  assert.deepEqual(await proposal, { outcome: "posted", number: 42, url: ISSUE(42) });
+
+  // Fields outside a task source's set are left out, and the report still
+  // composes; with none left, it has no source, and the card names no chat.
+  const odd = await compose({ ...FIELDS, source: { sidebar: "not a chat id!", agent: "Codex <b>" } });
+  const second = propose(odd.id);
+  const oddShown = await shown();
+  assert.equal(oddShown.id, odd.id);
+  assert.ok(!("source" in oddShown), JSON.stringify(oddShown));
+  assert.deepEqual(await card({ action: "send" }), { posted: { number: 42, url: ISSUE(42) } });
+  await second;
+  // A source that isn't an object is left out the same way.
+  assert.match((await compose({ ...FIELDS, source: "Codex" })).id, /^\{[0-9a-f-]{36}\}$/);
+});
+
 test("an open issue with the same title: comment there, only on a number the search found", async () => {
   const { id, title, body } = await compose();
   answer({

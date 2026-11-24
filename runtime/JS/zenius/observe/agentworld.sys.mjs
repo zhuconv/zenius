@@ -1,13 +1,10 @@
-// The agent's code in an isolated world, parent side (zen-observe; the
-// user's decision, 2026-11-20).
+// The agent's code in an isolated world, parent side (zen-observe).
 //
 // The hooks the others call:
 // - isWritten(target): did the agent's world write into the page, its top
 //   document or a frame? zen-core reloads a written page before the user
 //   types there; zen-ux and zen-core decide refusals after the task by it.
 // - onWritten(fn): a document of a page became written.
-// - urlBefore(target): the URL a clean load of the page should go to, if
-//   the agent's code changed the top document's URL in place.
 // - discard(target): end the agent's worlds that could reach the page (its
 //   group, every process), or every world of a task, and the workers they
 //   started. zen-core calls it at a hand-off and at the task's end.

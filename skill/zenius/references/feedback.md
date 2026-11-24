@@ -25,6 +25,8 @@ The command waits up to 100 seconds for the user's answer, then prints it. In Co
 - that the user discarded it;
 - that it still waits in the sidebar. Tell the user it's there.
 
+With zenius's MCP tools and no shell, such as in a Work chat of Zen's agent sidebar, the `report_problem` tool does the same, with the same line, card, answers and rules. It writes no draft.
+
 Run `zenius feedback` once per problem. If it says another report already waits, or that the user discarded one less than 10 minutes ago, don't run it again.
 
 Then finish the task another way with zenius's other calls if there is one, and otherwise stop and tell the user what failed.

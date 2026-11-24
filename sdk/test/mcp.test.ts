@@ -8,7 +8,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { ZeniusError } from "../src/errors.ts";
-import { callTool, stepFor } from "../src/mcp.ts";
+import { settleWithin } from "../src/feedback.ts";
+import { callTool, reportWaitS, stepFor, toolList } from "../src/mcp.ts";
 
 describe("zenius mcp steps", () => {
   it("name the kind of a secret field and never show what was typed into it", () => {
@@ -83,6 +84,42 @@ describe("zenius mcp steps", () => {
     } finally {
       Object.defineProperty(process, "platform", platform);
     }
+  });
+});
+
+describe("zenius mcp report_problem", () => {
+  it("shows the user the line as the report keeps it: no links, email addresses or home folder", () => {
+    const home = process.env.HOME ?? "/home/someone";
+    assert.equal(
+      stepFor("report_problem", { line: `Clicking https://shop.example/cart?card=4111 failed for jane@example.com in ${home}/x\u202e` }),
+      'Report a problem with zenius: "Clicking <link> failed for <email> in ~/x"',
+    );
+    assert.equal(stepFor("report_problem", {}), 'Report a problem with zenius: ""');
+  });
+
+  it("answers within 50 s of its start unless the agent asks for longer, with at least 10 s for the user", () => {
+    assert.equal(reportWaitS(undefined, 0), 50);
+    assert.equal(reportWaitS(undefined, 1500), 48, "doctor's 1.5 s come off the user's wait");
+    assert.equal(reportWaitS(undefined, 15_000 + 400), 34, "doctor's 15 s at most, and composing");
+    assert.equal(reportWaitS(undefined, 45_000), 10);
+    assert.equal(reportWaitS(30, 45_000), 30, "the agent's own wait, as asked");
+  });
+
+  it("leaves doctor's checks out when doctor takes longer than its time", async () => {
+    assert.deepEqual(await settleWithin(Promise.resolve([1]), 1000), [1]);
+    const started = performance.now();
+    assert.equal(await settleWithin(new Promise(() => {}), 50), undefined);
+    assert.ok(performance.now() - started < 1000);
+  });
+
+  it("tells its whole rule in one sentence, as each tool does", () => {
+    const tool = toolList().find((entry) => entry.name === "report_problem")!;
+    assert.match(String(tool.description), /^[A-Z][^.]*\.$/);
+    for (const words of ["ZEN_INTERNAL twice", "never a site's errors", "once per problem", "never send or file a report yourself", "stop and tell the user"]) {
+      assert.ok(String(tool.description).includes(words), words);
+    }
+    assert.deepEqual((tool.inputSchema as { required: string[] }).required, ["line"]);
+    assert.deepEqual(tool.annotations, { title: "Report a problem with zenius", readOnlyHint: false, destructiveHint: false, openWorldHint: false });
   });
 });
 

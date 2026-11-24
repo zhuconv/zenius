@@ -12,6 +12,7 @@
 // (docs/mcp.md).
 
 import { ZeniusError } from "./errors.ts";
+import { cleanLine, composeFacts, MAX_LINE, outcomeText, showReport, type Shown } from "./feedback.ts";
 import { taskSpace, startTaskSpace, clientLabel } from "./globals.ts";
 import { instanceName, socketPath } from "./instance.ts";
 import type { Page, PageActionReceipt } from "./page.ts";
@@ -39,6 +40,22 @@ const WAIT_DEFAULT_S = 10;
 const WAIT_MAX_S = 50;
 const WAIT_USER_MAX_S = 600;
 const WAIT_USER_DEFAULT_S = 50;
+/**
+ * report_problem answers within 50 s of its start unless the agent asks for
+ * a longer wait, as wait does: past Codex's 60 s the agent would get a
+ * timeout instead of "still waiting". doctor's checks get 15 s at most (on
+ * the daily instance, its probe of the sidebar's zenius mcp alone may take
+ * 10 s), and the user what's left once the report is composed, at least
+ * 10 s. The card stays up when the wait ends.
+ */
+const REPORT_CALL_S = 50;
+const REPORT_DOCTOR_MS = 15_000;
+const REPORT_WAIT_MIN_S = 10;
+
+/** report_problem's wait for the user, in seconds: what the agent asked for, or what's left of the call's 50 s after `spentMs`, at least 10. */
+export function reportWaitS(asked: number | undefined, spentMs: number): number {
+  return asked ?? Math.max(REPORT_WAIT_MIN_S, Math.floor(REPORT_CALL_S - spentMs / 1000));
+}
 
 type Json = Record<string, unknown>;
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
@@ -297,6 +314,12 @@ class Session {
     const instance = instanceName(undefined);
     this.#client = new RpcClient({ socketPath: socketPath(instance), instance });
     setRound(new Round({ client: this.#client }));
+  }
+
+  /** The connection itself, for zenius's own calls (report_problem's). Every tool's call connects first. */
+  get client(): RpcClient {
+    if (!this.#client) throw new CallError("zenius isn't connected to Zen yet");
+    return this.#client;
   }
 
   /** Zen quit or restarted: the next call opens a new connection. */
@@ -808,7 +831,64 @@ const TOOLS: Tool[] = [
       return text.length > MAX_RESULT_CHARS ? `${text.slice(0, MAX_RESULT_CHARS)}\n(cut at ${MAX_RESULT_CHARS} characters)` : text;
     },
   },
+  {
+    name: "report_problem",
+    title: "Report a problem with zenius",
+    description:
+      "Show the user a report of a failure in zenius itself, such as a tool failing with ZEN_INTERNAL twice or zenius's tools not answering (never a site's errors, a refused action or a missing element), for them to send to zenius's GitHub issues, copy or discard in Zen's agent sidebar: call it once per problem, never send or file a report yourself, and then finish with zenius's other tools if you can, or stop and tell the user what failed.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        line: {
+          type: "string",
+          description: `One line, up to ${MAX_LINE} characters: what you were doing when zenius failed, in general terms: the tool, the kind of page or element, and what you expected. Leave out the task's details: URLs, page text, names, addresses, accounts, and anything the user typed or asked you to keep private. Links, email addresses and the home folder's path are taken out.`,
+        },
+        wait: {
+          type: "number",
+          description: `Seconds to wait for the user's answer, at most ${WAIT_USER_MAX_S}. Without it, the call answers within ${REPORT_CALL_S} s, inside the 60 s some clients, such as Codex, give a call. The report stays in the sidebar after.`,
+        },
+      },
+      required: ["line"],
+    },
+    // It only shows a card: anything that goes out is the user's own click.
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    // The line as the report keeps it, so the user sees what the agent wrote there.
+    step: (args) => `Report a problem with zenius: ${quoted(cleanLine(typeof args.line === "string" ? args.line : ""), 80)}`,
+    run: async (args, session) => {
+      const line = cleanLine(str(args, "line")!);
+      if (!line) throw new CallError("line must say, in one line, what you were doing when zenius failed");
+      // Checked before doctor runs, so a bad wait fails at once.
+      const asked = args.wait === undefined || args.wait === null ? undefined : seconds(args, "wait", REPORT_WAIT_MIN_S, WAIT_USER_MAX_S);
+      const started = performance.now();
+      // The CLI's own facts and card: zenius feedback (src/feedback.ts), without its draft, which an agent here couldn't point the user to.
+      const facts = await composeFacts(instanceName(undefined), REPORT_DOCTOR_MS);
+      const waitS = () => reportWaitS(asked, performance.now() - started);
+      return reportText(await showReport(session.client, line, facts, waitS, "zenius mcp report_problem"));
+    },
+  },
 ];
+
+/** What comes after a report, whatever the user chose: the skill's rule, on its own line, after a URL can end the first. */
+const AFTER_REPORT = "Then finish the task with zenius's other tools if you can; otherwise stop and tell the user what failed.";
+
+/**
+ * report_problem's answer: what the user chose, or why no card showed. None
+ * is an error: each is final, and a retry would only ask the user again.
+ * Zen not answering goes the usual way of a failed call.
+ */
+function reportText(shown: Shown): string {
+  switch (shown.kind) {
+    case "answered":
+      return `${outcomeText(shown.outcome)}\n${AFTER_REPORT}`;
+    case "busy":
+      return `Another problem report already waits for the user in Zen's agent sidebar, so this one wasn't shown. Don't send another: tell the user it's there.\n${AFTER_REPORT}`;
+    case "declined":
+      return `The user discarded a problem report less than 10 minutes ago, so this one wasn't shown. Don't send another before then.\n${AFTER_REPORT}`;
+    case "no_card":
+      if (shown.error.code === "ZEN_BROWSER_UNAVAILABLE") throw shown.error;
+      return `${shown.report ? "Zen has no agent sidebar to show the report in" : "This Zen's zenius is older than problem reports"}, so nothing was shown, saved or sent.\n${AFTER_REPORT}`;
+  }
+}
 
 /** What the client gets for tools/list. */
 export function toolList(): Json[] {

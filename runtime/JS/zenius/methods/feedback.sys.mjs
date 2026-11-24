@@ -6,6 +6,7 @@
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
 import { feedback, WAIT_MAX_MS } from "chrome://userscripts/content/zenius/modules/feedback.sys.mjs";
 import { clientFacts, reportBody, reportTitle } from "chrome://userscripts/content/zenius/modules/feedbacktext.sys.mjs";
+import { cleanSource } from "chrome://userscripts/content/zenius/modules/spaces.sys.mjs";
 import { RUNTIME_VERSION, zenVersion } from "chrome://userscripts/content/zenius/modules/util.sys.mjs";
 import { setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
@@ -53,6 +54,10 @@ export const methods = {
   // The client's fields (feedbacktext's clientFacts), plus the runtime's
   // own data: its version and install, Zen's, the OS, and its last calls.
   "feedback.compose": async (ctx, params) => {
+    // Who wrote it, as a task's source says who drives the task: the card
+    // names the sidebar's chat from it. It stays beside the report, never in
+    // its text, which may go to GitHub.
+    const source = cleanSource(params?.source, "a problem report's source");
     let client;
     try {
       client = clientFacts(params, home());
@@ -69,7 +74,7 @@ export const methods = {
       calls,
       lastFailure,
     };
-    return feedback.compose({ title: reportTitle(facts), body: reportBody(facts) });
+    return feedback.compose({ title: reportTitle(facts), body: reportBody(facts), source });
   },
 
   "feedback.propose": async (ctx, params) => {

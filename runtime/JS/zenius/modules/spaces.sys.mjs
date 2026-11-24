@@ -127,15 +127,16 @@ const ENDED_FEED_KEPT = 50;
 const ENDED_FEED_MS = 24 * 60 * 60 * 1000;
 
 /**
- * @param {unknown} raw  spaces.create's or spaces.claim's source
- * @returns {{terminal?: string, agent?: string, folder?: string}|null}
+ * @param {unknown} raw  spaces.create's or spaces.claim's source, or feedback.compose's
+ * @param {string} [what]  whose source it is, for the log
+ * @returns {{terminal?: string, agent?: string, folder?: string, sidebar?: string}|null}
  */
-export function cleanSource(raw) {
+export function cleanSource(raw, what = "a task's source") {
   if (raw === undefined || raw === null) {
     return null;
   }
   if (typeof raw !== "object" || Array.isArray(raw)) {
-    log("a task's source isn't an object, so it's left out");
+    log(`${what} isn't an object, so it's left out`);
     return null;
   }
   const out = {};
@@ -145,12 +146,12 @@ export function cleanSource(raw) {
       if (typeof raw.sidebar === "string" && SIDEBAR_FIELD.test(raw.sidebar)) {
         out.sidebar = raw.sidebar;
       } else {
-        log("a task's source.sidebar isn't a conversation id, so it's left out");
+        log(`${what}'s sidebar field isn't a conversation id, so it's left out`);
       }
     } else if (SOURCE_KEYS.includes(key) && value && SOURCE_FIELD.test(value)) {
       out[key] = value;
     } else {
-      log(`a task's source.${SOURCE_KEYS.includes(key) ? key : "<other field>"} isn't in the label set, so it's left out`);
+      log(`${what}'s ${SOURCE_KEYS.includes(key) ? key : "<other field>"} isn't in the label set, so it's left out`);
     }
   }
   return Object.keys(out).length ? out : null;

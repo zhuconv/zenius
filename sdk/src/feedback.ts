@@ -13,6 +13,7 @@
 import { cliCommit, doctor } from "./doctor.ts";
 import { ZeniusError } from "./errors.ts";
 import { sandboxOutputDir } from "./files.ts";
+import { taskSource, type TaskSource } from "./globals.ts";
 import { instanceName, socketPath, zeniusHome } from "./instance.ts";
 import { fs, inSandbox, os, path } from "./node.ts";
 import { writeStderr, writeStdout } from "./output.ts";
@@ -73,6 +74,21 @@ export type Facts = {
 type Report = { id: string; title: string; body: string };
 export type Outcome = { outcome: string; number?: number; url?: string };
 
+/**
+ * What feedback.compose gets besides the line: zenius's own facts, and who
+ * writes the report, as a task's source says who drives the task. The
+ * runtime keeps the source beside the report, for the card, and out of its
+ * text.
+ */
+export type ComposeFacts = { cli: Facts["cli"]; node: string; doctor?: Facts["doctor"]; source: TaskSource };
+
+/** How showing a report went: the user's answer, a refusal, or no card at all, with the report when compose made one. */
+export type Shown =
+  | { kind: "answered"; outcome: Outcome }
+  | { kind: "busy" }
+  | { kind: "declined" }
+  | { kind: "no_card"; error: ZeniusError; report?: Report };
+
 const CODE = /^(?:ok|[A-Z][A-Z0-9_]{1,62})$/;
 const VERSION_TEXT = /^[0-9A-Za-z][0-9A-Za-z.+-]{0,31}$/;
 const COMMIT = /^([0-9a-f]{4,40})(-dirty)?$/i;
@@ -104,49 +120,92 @@ export async function feedbackCommand(rest: string[], instanceFlag: string | und
   const line = cleanLine(words.join(" "));
   if (!line) return usage("zenius feedback needs one line saying what you were doing when zenius failed");
   const instance = instanceName(instanceFlag);
+  const facts = await composeFacts(instance);
+  const client = new RpcClient({ socketPath: socketPath(instance), instance });
+  try {
+    const shown = await showReport(client, line, facts, waitS, "zenius feedback");
+    switch (shown.kind) {
+      case "answered":
+        writeStdout(`${outcomeText(shown.outcome)}\n`);
+        return 0;
+      case "busy":
+        writeStderr("zenius feedback: another problem report waits for the user in Zen's agent sidebar. Don't send another: tell the user it's there.\n");
+        return 1;
+      case "declined":
+        writeStderr("zenius feedback: the user discarded a problem report less than 10 minutes ago. Don't send another before then.\n");
+        return 1;
+      case "no_card": {
+        if (shown.report) return draft(`${DRAFT_HEAD}\n\n${shown.report.body}`, shown.report.title, "no agent sidebar can show the report");
+        const runtime = shown.error.code === "ZEN_BROWSER_UNAVAILABLE" ? { code: shown.error.code } : await runtimeFacts(client);
+        const known: Facts = {
+          cli: facts.cli,
+          node: facts.node,
+          os: { platform: os.platform(), release: os.release(), arch: os.arch() },
+          defaultInstance: instance === "default",
+          runtime,
+          ...optional("doctor", facts.doctor),
+        };
+        return draft(draftText(line, known), issueTitle(known), runtime.code ? "Zen isn't answering" : "this Zen's zenius is older than zenius feedback's card");
+      }
+    }
+  } finally {
+    client.close();
+  }
+}
+
+/**
+ * zenius's own facts for feedback.compose, the CLI's and the MCP server's
+ * alike. With `doctorWithinMs`, doctor's checks are left out when doctor
+ * takes longer, as when it fails: the MCP server must answer within a
+ * client's time for a call.
+ */
+export async function composeFacts(instance: string, doctorWithinMs?: number): Promise<ComposeFacts> {
   const cli = { version: VERSION, protocol: PROTOCOL_VERSION, ...optional("commit", cliCommit()), sandboxed: inSandbox() };
   // doctor first: the runtime leaves its status reads out of the report's
   // list of calls, which stays the agent's.
-  const checks = await doctorChecks(instance);
-  const client = new RpcClient({ socketPath: socketPath(instance), instance });
+  const checks = doctorWithinMs === undefined ? await doctorChecks(instance) : await settleWithin(doctorChecks(instance), doctorWithinMs);
+  return { cli, node: process.versions.node, ...optional("doctor", checks), source: taskSource() };
+}
+
+/** `promise`'s value, or undefined when it takes longer than `ms`. It isn't stopped: it ends in its own time. */
+export async function settleWithin<T>(promise: Promise<T>, ms: number): Promise<T | undefined> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<undefined>((resolve) => {
+    timer = setTimeout(resolve, ms, undefined);
+  });
   try {
-    let report: Report;
-    try {
-      const params = { line, cli, node: process.versions.node, ...optional("doctor", checks) };
-      report = readReport(await client.call<unknown>("feedback.compose", params, { op: "zenius feedback", safetyTimeoutMs: CALL_TIMEOUT_MS }));
-    } catch (error) {
-      if (!(error instanceof ZeniusError && NO_CARD.includes(error.code))) throw error;
-      const runtime = error.code === "ZEN_BROWSER_UNAVAILABLE" ? { code: error.code } : await runtimeFacts(client);
-      const facts: Facts = {
-        cli,
-        node: process.versions.node,
-        os: { platform: os.platform(), release: os.release(), arch: os.arch() },
-        defaultInstance: instance === "default",
-        runtime,
-        ...optional("doctor", checks),
-      };
-      return draft(draftText(line, facts), issueTitle(facts), runtime.code ? "Zen isn't answering" : "this Zen's zenius is older than zenius feedback's card");
-    }
-    let outcome: Outcome;
-    try {
-      const params = { id: report.id, waitMs: waitS * 1000 };
-      outcome = readOutcome(await client.call<unknown>("feedback.propose", params, { op: "zenius feedback", safetyTimeoutMs: waitS * 1000 + 15000 }));
-    } catch (error) {
-      if (error instanceof ZeniusError && error.code === "ZEN_FEEDBACK_PENDING") {
-        writeStderr("zenius feedback: another problem report waits for the user in Zen's agent sidebar. Don't send another: tell the user it's there.\n");
-        return 1;
-      }
-      if (error instanceof ZeniusError && error.code === "ZEN_FEEDBACK_DECLINED") {
-        writeStderr("zenius feedback: the user discarded a problem report less than 10 minutes ago. Don't send another before then.\n");
-        return 1;
-      }
-      if (!(error instanceof ZeniusError && NO_CARD.includes(error.code))) throw error;
-      return draft(`${DRAFT_HEAD}\n\n${report.body}`, report.title, "no agent sidebar can show the report");
-    }
-    writeStdout(`${outcomeText(outcome)}\n`);
-    return 0;
+    return await Promise.race([promise, late]);
   } finally {
-    client.close();
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Compose the report from the line and the facts, and show it in the card,
+ * waiting for the user's answer up to `waitS` seconds, or up to what
+ * `waitS()` says once the report is composed: the one way to a report, for
+ * the CLI and the MCP server. Errors other than the card's own refusals and
+ * a missing card are thrown.
+ */
+export async function showReport(client: RpcClient, line: string, facts: ComposeFacts, waitS: number | (() => number), op: string): Promise<Shown> {
+  let report: Report;
+  try {
+    report = readReport(await client.call<unknown>("feedback.compose", { line, ...facts }, { op, safetyTimeoutMs: CALL_TIMEOUT_MS }));
+  } catch (error) {
+    if (error instanceof ZeniusError && NO_CARD.includes(error.code)) return { kind: "no_card", error };
+    throw error;
+  }
+  try {
+    const waitMs = (typeof waitS === "function" ? waitS() : waitS) * 1000;
+    const outcome = readOutcome(await client.call<unknown>("feedback.propose", { id: report.id, waitMs }, { op, safetyTimeoutMs: waitMs + 15000 }));
+    return { kind: "answered", outcome };
+  } catch (error) {
+    if (error instanceof ZeniusError) {
+      if (error.code === "ZEN_FEEDBACK_PENDING") return { kind: "busy" };
+      if (error.code === "ZEN_FEEDBACK_DECLINED") return { kind: "declined" };
+      if (NO_CARD.includes(error.code)) return { kind: "no_card", error, report };
+    }
+    throw error;
   }
 }
 

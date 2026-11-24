@@ -124,10 +124,10 @@ before(async () => {
 });
 after(() => client?.close());
 
-test("mcp: the tools are the browser's steps, each told in one sentence, and nothing else", async () => {
+test("mcp: the tools are the browser's steps and a problem report, each told in one sentence, and nothing else", async () => {
   const { result } = await client.request("tools/list");
   const names = result.tools.map((tool: { name: string }) => tool.name);
-  assert.deepEqual(names, ["open", "goto", "read_page", "click", "fill", "press", "scroll", "select", "wait", "hand_off", "flag_page", "finish", "evaluate"]);
+  assert.deepEqual(names, ["open", "goto", "read_page", "click", "fill", "press", "scroll", "select", "wait", "hand_off", "flag_page", "finish", "evaluate", "report_problem"]);
   for (const tool of result.tools) {
     assert.match(tool.description, /^[A-Z][^.]*\.$/, `${tool.name}: one sentence`);
     assert.equal(tool.inputSchema.type, "object");
@@ -135,6 +135,18 @@ test("mcp: the tools are the browser's steps, each told in one sentence, and not
   }
   // No dev.* method, setting, shell, file or upload tool.
   assert.ok(!names.some((name: string) => /dev|setting|shell|exec|file|upload|screenshot|fetch/i.test(name)));
+});
+
+test("mcp: report_problem has Zen compose the report, and with no sidebar here to show it says so plainly", async () => {
+  // This lane's dev profile has no agent sidebar (zen-dev.sh leaves its scripts
+  // out), so the runtime composes the report, with the server's source, and
+  // refuses to propose it.
+  const text = await client.ok("report_problem", { line: "page.click failed twice with ZEN_INTERNAL on a button in a shadow root", wait: 1 });
+  assert.deepEqual(text.split("\n"), [
+    'Report a problem with zenius: "page.click failed twice with ZEN_INTERNAL on a button in a shadow root"',
+    "Zen has no agent sidebar to show the report in, so nothing was shown, saved or sent.",
+    "Then finish the task with zenius's other tools if you can; otherwise stop and tell the user what failed.",
+  ]);
 });
 
 test("mcp: open, type, select, press, read, click, wait, scroll and run code read as steps and work", async () => {

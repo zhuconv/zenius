@@ -3679,10 +3679,13 @@ discards in the agent sidebar's card (PROTOCOL, "Problem reports").
 user, and `"settled"` when the user answered. `feedback.propose` fails at
 once with `no_sidebar` when nothing observes the topic. The card reads
 `ZeniusService.feedback.pending()`: null, or `{id, title, body, canPost,
-repo}`, where `canPost` says whether a `gh` was found (none runs for it)
-and `repo` is where the report would go. Each button calls an action in
-process, with the report's `id` and the title and body as the user left
-them:
+repo, source?}`. `canPost` says whether a `gh` was found (none runs for
+it), and `repo` is where the report would go. `source` is the writer's,
+from `feedback.compose`, cleaned as a task's (`cleanSource` in
+`modules/spaces.sys.mjs`); the card names the Work chat whose uid is
+`source.sidebar`. Like a task's, it's the writer's own claim. Each button
+calls an action in process, with the report's `id` and the title and body
+as the user left them:
 
 | Action | Result |
 |---|---|
@@ -3719,13 +3722,22 @@ as the user, with their own sign-in:
   only under `devMode()`, so no test reaches GitHub.
 
 **The CLI.** `zenius feedback` sends `feedback.compose` its line, its
-version and commit, Node's version and `zenius doctor`'s check ids and
-statuses. Then it proposes the report with a 100 s wait (`--wait`, at most
+version and commit, Node's version, `zenius doctor`'s check ids and
+statuses, and its source, as a task's. Then it proposes the report with a 100 s wait (`--wait`, at most
 600) and prints the outcome. When no card can open (`no_sidebar`, a runtime
 without `feedback.*`, or Zen not answering), it writes the report as a
 draft for the user: `~/.zenius/feedback/<UTC time>.md`, 0600 in a 0700
 folder, or the sandboxed run's output folder. It also prints GitHub's form
 with the title only.
+
+**The MCP server.** `zenius mcp`'s `report_problem` sends the same, through
+the same code (`sdk/src/feedback.ts`'s `showReport`). Unless the agent
+gives a `wait` (at most 600), the call answers within 50 s, inside Codex's
+60 s for a call: doctor's checks get 15 s at most, and are left out when
+doctor takes longer, and the proposal waits for what's left, at least
+10 s. It writes
+no draft: with no card, it says so, since its agent has no folder to point
+the user to (`docs/mcp.md`).
 
 ## Install layout (zen-core)
 

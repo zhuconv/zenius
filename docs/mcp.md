@@ -27,6 +27,7 @@ the same words (zen-sdk's error guide).
 | `hand_off` | `Ask the user: "<message>"` | Hands the task to the user, for signing in, paying or a captcha. Zen's card in the tab shows the message. |
 | `finish` | `Finish, keeping 1 tab`, then each kept tab's title and host; `Finish, closing the task's tabs` | Ends the task, keeping the tabs the user should see. |
 | `evaluate` | `Run code in the page` | Runs JavaScript in the agent's isolated world, which sees the page's DOM but not its scripts. From the first update, the user's page-code setting decides whether it's offered. |
+| `report_problem` | `Report a problem with zenius: "<line>"` | Shows the user a problem report about zenius itself in Zen's agent sidebar, for them to send, copy or discard (below). |
 
 `element` is required wherever a tool takes a target. It's the element's
 visible text, or a short description, and it is what the step shows. Each
@@ -118,6 +119,37 @@ that tab the current one. `wait` gives a page condition 10 s, at most 50.
 With `user: true` it waits 50 s unless given `seconds` (at most 600). If the
 user hasn't pressed Resume agent by then, it says so, not as a failure, and
 the agent calls it again.
+
+## Reporting a problem with zenius
+
+`report_problem` is `zenius feedback` for an agent without a shell, such
+as a Work chat in Zen's agent sidebar. It takes one `line`, what the agent
+was doing when zenius failed, and an optional `wait` in seconds, at most
+600. Without it, the call answers within 50 s, inside the 60 s Codex gives
+a call: zenius's own checks get 15 s at most, and the user the rest, at
+least 10 s. Zen composes the same report as for the CLI
+(PROTOCOL.md, "Problem reports") and shows it in the sidebar's card. There
+the user sends it to zenius's GitHub issues with their own gh, copies it,
+or discards it. Nothing goes out before their click, and the agent hears
+only their choice: the issue's number and address, copied, discarded, or
+still waiting.
+
+- The report's last calls and last failed call are the Zen instance's, not
+  the session's: every client's calls count, so another chat's or a
+  script's calls can sit among this session's.
+- Every answer from the card is a plain result, a refusal included
+  (another report waits, or the user discarded one less than 10 minutes
+  ago): asking again would only ask the user again. Only Zen not
+  answering, an empty line, or a `wait` that isn't a positive number
+  fails as a call does.
+- When the wait ends before the user answers, the card stays up, and the
+  agent hears that the report still waits.
+- With no sidebar to show the card, it says so and saves nothing. Unlike
+  the CLI, it writes no draft, since its agent has no folder to point the
+  user to.
+- The report carries the server's source, as a task does, and the card
+  names the Work chat that wrote it from it. Like a task's, the source is
+  the server's own claim.
 
 ## What it never offers
 

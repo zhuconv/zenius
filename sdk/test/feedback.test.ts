@@ -1,7 +1,8 @@
 // `zenius feedback`: the CLI sends the runtime only the agent's line, cleaned,
-// with its own versions and doctor's results, and shows the agent only the
-// user's choice. When no card can open, it writes a draft of zenius's own
-// data, and a link that carries only a title.
+// with its own versions, doctor's results and who writes the report, and
+// shows the agent only the user's choice. When no card can open, it writes a
+// draft of zenius's own data, and a link that carries only a title.
+// zenius mcp's report_problem goes the same way, without the draft.
 
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
@@ -36,6 +37,8 @@ const REPORT = {
   title: "zenius 0.1.4: ZEN_INTERNAL in page.click",
   body: "From `zenius feedback`.\n\n## What went wrong, in the agent's words\n\n    a line\n",
 };
+const SIDEBAR_TASK = "0b1c2d3e-0000-4000-8000-00000000000a";
+const AFTER_REPORT = "Then finish the task with zenius's other tools if you can; otherwise stop and tell the user what failed.";
 const DRAFT_SAYS = "zenius sends nothing. Show the user the file and this link. To file the report, they read the draft, open the link and paste the draft into the form:";
 
 let mock: MockRuntime;
@@ -82,14 +85,18 @@ describe("zenius feedback", () => {
     const { dir, zhome, env } = home("posted");
     const line = `Clicking Pay on https://shop.example/cart?card=4111 failed twice for jane@example.com;\nsaved to ${dir}/receipt.pdf`;
     const from = mock.requests.length;
-    const result = await runCli(["feedback", line], { socketPath: mock.socketPath, env });
+    const result = await runCli(["feedback", line], { socketPath: mock.socketPath, env: { ...env, ZENIUS_CLIENT: "Test Agent", ZENIUS_SIDEBAR_TASK: SIDEBAR_TASK } });
     assert.equal(result.code, 0, result.stderr);
     assert.equal(result.stdout, `The user sent the report: issue #41, ${ISSUE}\n`);
 
     const requests = mock.requests.slice(from);
     assert.deepEqual(requests.slice(-2).map((request) => request.method), ["feedback.compose", "feedback.propose"], "doctor's reads come first");
     const params = requests.at(-2)!.params;
-    assert.deepEqual(Object.keys(params).sort(), ["cli", "doctor", "line", "node"]);
+    assert.deepEqual(Object.keys(params).sort(), ["cli", "doctor", "line", "node", "source"]);
+    // Who writes it, as a task's source: the runtime keeps it beside the report, for the card.
+    assert.equal(params.source.agent, "Test Agent");
+    assert.equal(params.source.sidebar, SIDEBAR_TASK);
+    for (const key of Object.keys(params.source)) assert.ok(["terminal", "agent", "folder", "sidebar"].includes(key), key);
     assert.equal(params.line, "Clicking Pay on <link> failed twice for <email>; saved to ~/receipt.pdf");
     const { commit, ...cli } = params.cli;
     assert.deepEqual(cli, { version: VERSION, protocol: 1, sandboxed: false });
@@ -329,5 +336,130 @@ describe("feedback's parts", () => {
     const template = headings(readFileSync(TEMPLATE_FILE, "utf8"));
     assert.ok(template.length >= 5, "the template's sections");
     assert.deepEqual(headings(draftText("x", facts)), template);
+  });
+});
+
+type ToolResult = { content: Array<{ type: string; text: string }>; isError?: boolean };
+
+/** zenius mcp on the mock runtime, as Claude Code: initialize, then each tool call in turn, and each one's result. */
+async function mcpCalls(calls: Array<[string, Record<string, unknown>]>, env: Record<string, string>): Promise<ToolResult[]> {
+  const messages = [
+    { jsonrpc: "2.0", id: 0, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "claude-code", version: "1" } } },
+    ...calls.map(([name, args], i) => ({ jsonrpc: "2.0", id: i + 1, method: "tools/call", params: { name, arguments: args } })),
+  ];
+  const run = await runCli(["mcp"], {
+    stdin: `${messages.map((message) => JSON.stringify(message)).join("\n")}\n`,
+    socketPath: mock.socketPath,
+    env: { ZENIUS_CLIENT: "", ...env },
+  });
+  assert.equal(run.code, 0, run.stderr);
+  const replies = run.stdout
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line) as { id: number; result: ToolResult });
+  return calls.map((_, i) => replies.find((reply) => reply.id === i + 1)!.result);
+}
+
+describe("zenius mcp's report_problem", () => {
+  it("shows the CLI's report, with who wrote it, and gives the agent only the user's choice and what comes next", async () => {
+    cardRuntime(() => ({ outcome: "posted", number: 41, url: ISSUE }));
+    const { dir, zhome, env } = home("mcp-posted");
+    const from = mock.requests.length;
+    const [result] = await mcpCalls([["report_problem", { line: `Clicking Pay on https://shop.example/cart failed twice for jane@example.com\nin ${dir}/x` }]], {
+      ...env,
+      ZENIUS_SIDEBAR_TASK: SIDEBAR_TASK,
+    });
+    assert.ok(!result!.isError, result!.content[0]!.text);
+    const [step, text, next, rest] = result!.content[0]!.text.split("\n");
+    assert.equal(step, 'Report a problem with zenius: "Clicking Pay on <link> failed twice for <email> in ~/x"', "the user sees the line as the report keeps it");
+    assert.equal(text, `The user sent the report: issue #41, ${ISSUE}`);
+    assert.equal(next, AFTER_REPORT);
+    assert.equal(rest, undefined);
+
+    const requests = mock.requests.slice(from);
+    assert.deepEqual(requests.slice(-2).map((request) => request.method), ["feedback.compose", "feedback.propose"], "doctor's reads come first");
+    const params = requests.at(-2)!.params;
+    assert.deepEqual(Object.keys(params).sort(), ["cli", "doctor", "line", "node", "source"]);
+    assert.equal(params.line, "Clicking Pay on <link> failed twice for <email> in ~/x");
+    assert.deepEqual({ version: params.cli.version, protocol: params.cli.protocol, sandboxed: params.cli.sandboxed }, { version: VERSION, protocol: 1, sandboxed: false });
+    assert.equal(params.node, process.versions.node);
+    assert.deepEqual(params.doctor[0], { id: "cli", status: "ok" });
+    assert.equal(params.source.agent, "Claude Code", "the client's name, as its tasks get it");
+    assert.equal(params.source.sidebar, SIDEBAR_TASK);
+    const proposal = requests.at(-1)!.params;
+    assert.equal(proposal.id, REPORT.id);
+    // By default the call answers within 50 s of its start, inside Codex's 60 s (mcp.test.ts has the sums).
+    assert.ok(Number.isInteger(proposal.waitMs / 1000) && proposal.waitMs >= 10_000 && proposal.waitMs <= 50_000, String(proposal.waitMs));
+    assert.throws(() => statSync(join(zhome, "feedback")), { code: "ENOENT" }, "no draft");
+  });
+
+  it("waits as long as wait says, at most ten minutes", async () => {
+    cardRuntime(() => ({ outcome: "pending" }));
+    const { env } = home("mcp-wait");
+    const from = mock.requests.length;
+    const [short, long] = await mcpCalls(
+      [
+        ["report_problem", { line: "a page's snapshot is empty", wait: 5 }],
+        ["report_problem", { line: "a page's snapshot is empty", wait: 3600 }],
+      ],
+      env,
+    );
+    assert.deepEqual(short!.content[0]!.text.split("\n").slice(1), [outcomeText({ outcome: "pending" }), AFTER_REPORT]);
+    assert.ok(!long!.isError);
+    const proposals = mock.requests.slice(from).filter((request) => request.method === "feedback.propose");
+    assert.deepEqual(proposals.map((request) => request.params.waitMs), [5000, 600_000]);
+  });
+
+  it("another waiting report, a recent discard, no sidebar and an older runtime are plain answers, and nothing is written", async () => {
+    const { zhome, env } = home("mcp-refused");
+    const cases: Array<[string, () => void, string]> = [
+      [
+        "another waits",
+        () => cardRuntime(() => {
+          throw new MockError("ZEN_FEEDBACK_PENDING", "another problem report waits");
+        }),
+        "Another problem report already waits for the user in Zen's agent sidebar, so this one wasn't shown. Don't send another: tell the user it's there.",
+      ],
+      [
+        "a recent discard",
+        () => cardRuntime(() => {
+          throw new MockError("ZEN_FEEDBACK_DECLINED", "the user discarded a problem report", { retryAfterMs: 1000 });
+        }),
+        "The user discarded a problem report less than 10 minutes ago, so this one wasn't shown. Don't send another before then.",
+      ],
+      [
+        "no sidebar",
+        () => cardRuntime(() => {
+          throw new MockError("ZEN_UNSUPPORTED", "no agent sidebar can show the report", { reason: "no_sidebar" });
+        }),
+        "Zen has no agent sidebar to show the report in, so nothing was shown, saved or sent.",
+      ],
+      [
+        "an older runtime",
+        () =>
+          mock.handle("feedback.compose", () => {
+            throw new MockError("ZEN_UNSUPPORTED", "mock runtime has no method feedback.compose");
+          }),
+        "This Zen's zenius is older than problem reports, so nothing was shown, saved or sent.",
+      ],
+    ];
+    for (const [what, runtime, says] of cases) {
+      runtime();
+      const [result] = await mcpCalls([["report_problem", { line: "page.click failed twice with ZEN_INTERNAL" }]], env);
+      assert.ok(!result!.isError, `${what}: final, not a failure to retry`);
+      assert.deepEqual(result!.content[0]!.text.split("\n").slice(1), [says, AFTER_REPORT], what);
+    }
+    assert.throws(() => statSync(join(zhome, "feedback")), { code: "ENOENT" }, "no draft");
+  });
+
+  it("an empty line is the call's mistake, and Zen not answering fails as any call does", async () => {
+    cardRuntime(() => ({ outcome: "pending" }));
+    const { dir, env } = home("mcp-failed");
+    const [empty] = await mcpCalls([["report_problem", { line: " \u200b " }]], env);
+    assert.ok(empty!.isError);
+    assert.equal(empty!.content[0]!.text, 'Report a problem with zenius: "" failed.\nline must say, in one line, what you were doing when zenius failed');
+    const [gone] = await mcpCalls([["report_problem", { line: "every call times out" }]], { ...env, ZENIUS_SOCKET: join(dir, "no.sock") });
+    assert.ok(gone!.isError);
+    assert.match(gone!.content[0]!.text, /^Report a problem with zenius: "every call times out" failed\.\nZEN_BROWSER_UNAVAILABLE: /);
   });
 });

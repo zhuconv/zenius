@@ -169,22 +169,23 @@ async function runGh(gh, args, input = "") {
 const notify = verdict => Services.obs.notifyObservers(null, TOPIC, verdict);
 
 class Feedback {
-  /** @type {Map<string, {id: string, title: string, body: string, at: number, outcome: object|null, found: Set<number>, busy: boolean, waiters: Set<object>}>} */
+  /** @type {Map<string, {id: string, title: string, body: string, source: object|null, at: number, outcome: object|null, found: Set<number>, busy: boolean, waiters: Set<object>}>} */
   #reports = new Map();
   /** The report the card shows: proposed, and not answered yet. */
   #shown = null;
   #declinedUntil = 0;
 
   /**
-   * Keep a report's text under a new id. The text is fixed from here on.
+   * Keep a report's text, and who wrote it, under a new id. Both are fixed
+   * from here on: a later proposal of the id can't relabel the report.
    *
-   * @param {{title: string, body: string}} text
+   * @param {{title: string, body: string, source?: object|null}} text  source: spaces' cleanSource's
    * @returns {{id: string, title: string, body: string}}
    */
-  compose({ title, body }) {
+  compose({ title, body, source = null }) {
     this.#prune();
     const id = Services.uuid.generateUUID().toString();
-    this.#reports.set(id, { id, title, body, at: Date.now(), outcome: null, found: new Set(), busy: false, waiters: new Set() });
+    this.#reports.set(id, { id, title, body, source, at: Date.now(), outcome: null, found: new Set(), busy: false, waiters: new Set() });
     return { id, title, body };
   }
 
@@ -258,13 +259,26 @@ class Feedback {
 
   /**
    * The report the card shows, or null: its id, its text as composed, whether
-   * a gh was found to Send with (no gh runs for it), and where it would go.
+   * a gh was found to Send with (no gh runs for it), where it would go, and
+   * who wrote it when the writer said: the source as a task's (cleanSource),
+   * whose sidebar field the card matches to its own chats. Like a task's,
+   * the source is the writer's own claim.
    *
-   * @returns {{id: string, title: string, body: string, canPost: boolean, repo: string} | null}
+   * @returns {{id: string, title: string, body: string, canPost: boolean, repo: string, source?: object} | null}
    */
   pending() {
     const report = this.#shown;
-    return report ? { id: report.id, title: report.title, body: report.body, canPost: findGh() !== null, repo: REPO } : null;
+    if (!report) {
+      return null;
+    }
+    return {
+      id: report.id,
+      title: report.title,
+      body: report.body,
+      canPost: findGh() !== null,
+      repo: REPO,
+      ...(report.source ? { source: report.source } : {}),
+    };
   }
 
   /**
