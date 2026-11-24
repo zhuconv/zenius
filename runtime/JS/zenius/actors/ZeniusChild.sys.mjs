@@ -8,8 +8,11 @@ import { guardActorNames, isAgentTaskPage, needsRefusals } from "chrome://usersc
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  assessSignIn: "chrome://userscripts/content/zenius/content/signinguard.sys.mjs",
+  watchReuse: "chrome://userscripts/content/zenius/content/signinguard.sys.mjs",
   installPageGuards: "chrome://userscripts/content/zenius/content/guards.sys.mjs",
   installRefusalGuards: "chrome://userscripts/content/zenius/content/refusals.sys.mjs",
+  refuseSignIn: "chrome://userscripts/content/zenius/content/signinguard.sys.mjs",
   toWireError: "chrome://userscripts/content/zenius/modules/errors.sys.mjs",
   ZenError: "chrome://userscripts/content/zenius/modules/errors.sys.mjs",
 });
@@ -28,6 +31,13 @@ export class ZeniusChild extends JSWindowActorChild {
     }
     if (isAgentTaskPage(this.browsingContext)) {
       guard("page guards", () => lazy.installPageGuards(this));
+      // The sign-in rules: is this document a sign-in page? Asked now,
+      // while its URL is still its load's, and for the document an initial
+      // about:blank's window is reused for.
+      guard("sign-in pages", () => {
+        lazy.assessSignIn(this, true);
+        lazy.watchReuse(this);
+      });
       // zen-ux's guard actors (ZeniusClipboard, ZeniusSystemUi) have no
       // DOMWindowCreated of their own: they're made here, in a task's
       // documents only, top and frames, before the page's scripts. An actor
@@ -46,6 +56,10 @@ export class ZeniusChild extends JSWindowActorChild {
       // agent's code. Its documents get the storage refusals from the
       // first, frames too, so the opener can't take their natives.
       guard("refusals", () => lazy.installRefusalGuards(this));
+      guard("sign-in pages", () => {
+        lazy.assessSignIn(this, true);
+        lazy.watchReuse(this);
+      });
     }
   }
 
@@ -53,22 +67,35 @@ export class ZeniusChild extends JSWindowActorChild {
     // The parent asks for the guards in documents a tab already had when it
     // became a task's page (ZeniusService.installGuards).
     if (msg.name === "installGuards") {
-      return isAgentTaskPage(this.browsingContext) && lazy.installPageGuards(this);
+      if (!isAgentTaskPage(this.browsingContext)) {
+        return false;
+      }
+      guard("sign-in pages", () => lazy.assessSignIn(this));
+      return lazy.installPageGuards(this);
     }
     if (msg.name !== "call") {
       return undefined;
     }
-    const { module, fn, args } = msg.data;
+    const { module, fn, args, gate } = msg.data;
     try {
       if (!MODULE_RE.test(module)) {
         throw new lazy.ZenError("ZEN_INVALID_ARGUMENT", `bad content module name ${JSON.stringify(module)}`);
+      }
+      // An agent method's call (the parent says which kind): the sign-in
+      // rules are checked here, at entry and before the result goes out.
+      if (gate) {
+        lazy.refuseSignIn(this, gate.kind, gate.method);
       }
       const mod = ChromeUtils.importESModule(`${CONTENT_BASE}${module}.sys.mjs`);
       const f = mod[fn];
       if (typeof f !== "function") {
         throw new lazy.ZenError("ZEN_INTERNAL", `content module ${module} has no exported function ${fn}`);
       }
-      return { ok: true, value: await f(this, args) };
+      const value = await f(this, args);
+      if (gate) {
+        lazy.refuseSignIn(this, gate.kind, gate.method);
+      }
+      return { ok: true, value };
     } catch (e) {
       return { ok: false, error: lazy.toWireError(e) };
     }

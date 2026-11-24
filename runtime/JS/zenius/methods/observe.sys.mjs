@@ -18,6 +18,8 @@ import { trackerFor } from "chrome://userscripts/content/zenius/observe/navtrack
 import * as msg from "chrome://userscripts/content/zenius/observe/messages.sys.mjs";
 import { stoppedError, watchControl } from "chrome://userscripts/content/zenius/observe/control.sys.mjs";
 import { checkPaintable, inWebProcess, notWebContent } from "chrome://userscripts/content/zenius/observe/webcontent.sys.mjs";
+import { showsSignInResult, signInResultInTab } from "chrome://userscripts/content/zenius/observe/signin.sys.mjs";
+import { signInRefusal } from "chrome://userscripts/content/zenius/content/signin.sys.mjs";
 import {
   WAIT_TIMEOUT_MS,
   POLL_MS,
@@ -298,7 +300,8 @@ async function waitForFunction(ctx, params) {
       timeoutMs,
       label: page.label,
       lastUrl: url ?? browser.currentURI?.spec ?? "",
-      lastTitle: title ?? browser.contentTitle ?? "",
+      // A sign-in result's title is the user's (content/signin.sys.mjs).
+      lastTitle: title ?? (showsSignInResult(browser) ? "" : (browser.contentTitle ?? "")),
       popup,
     });
   };
@@ -786,6 +789,22 @@ function cropOf(bitmap, cut, scale) {
 }
 
 /**
+ * Ask each frame of the page to assess its document for the sign-in rules
+ * (content/signinguard.sys.mjs). A frame that can't answer (not web content,
+ * or gone) is the web-content checks' to refuse.
+ *
+ * @param {object} service  ZeniusService
+ * @param {BrowsingContext} top
+ */
+async function assessFrames(service, top) {
+  let contexts = [];
+  try {
+    contexts = top.getAllBrowsingContextsInSubtree().filter(bc => bc !== top);
+  } catch {}
+  await Promise.all(contexts.map(bc => service.content(bc, "signinguard#assess", {}, { timeout: 2000 }).catch(() => false)));
+}
+
+/**
  * Ego's captureScreenshot: CSS pixels whatever the devicePixelRatio; the
  * viewport at its scroll offset, the whole document for fullPage, or a clip
  * in document coordinates (its `scale` multiplies device pixels, as CDP's).
@@ -823,10 +842,29 @@ async function screenshot(ctx, params) {
     const m = await metrics();
     rect = new win.DOMRect(0, 0, m.pw, m.ph);
   }
+  // The sign-in rules: the page's process assesses the document and refuses
+  // a sign-in result (the call's gate); a viewport shot makes no other call
+  // before its paint. Every frame is asked to assess its own document too,
+  // so the parent knows each sign-in result the paint would show.
+  await ctx.content(browsingContext, "signinguard#check", {});
+  await assessFrames(ctx.service, browsingContext);
   const wgp = browsingContext.currentWindowGlobal;
   if (!wgp) {
     throw new ZenError("ZEN_PAGE_UNRESPONSIVE", "the page has no document to capture", { reason: "no_window_global" });
   }
+  // The paint covers every frame: a sign-in result in any of them refuses
+  // the shot, checked before the paint and after it, and the paint must be
+  // of the document that was checked.
+  const signInChecked = () => {
+    const found = signInResultInTab(browsingContext);
+    if (found) {
+      const { message, data } = signInRefusal("page.screenshot", found.flag, found.frame);
+      throw new ZenError("ZEN_SIGN_IN_PAGE", message, data);
+    }
+    if (browsingContext.currentWindowGlobal !== wgp) {
+      throw new ZenError("ZEN_PAGE_UNRESPONSIVE", "the page changed while the screenshot was painted: take it again", { reason: "context_destroyed" });
+    }
+  };
   // I5: drawSnapshot paints the page's frames too, and the metrics above
   // waited: check the document it paints and every frame, then again after.
   // An add-on's frames are painted over, placed before, during and after
@@ -854,6 +892,7 @@ async function screenshot(ctx, params) {
   };
   for (let tries = 1; ; tries++) {
     const frames = paintable();
+    signInChecked();
     const before = await addonAreas(ctx, browsingContext, frames);
     if (!before) {
       throw refused("zenius couldn't find where it paints, to paint over it");
@@ -865,6 +904,7 @@ async function screenshot(ctx, params) {
     const bitmap = await painting;
     let still = false;
     try {
+      signInChecked();
       const mid = await during;
       const after = await addonAreas(ctx, browsingContext, paintable());
       if (!mid || !after) {

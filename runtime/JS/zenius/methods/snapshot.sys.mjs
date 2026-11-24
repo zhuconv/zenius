@@ -7,6 +7,8 @@
 // package/ego-browser/src/page-model.ts.
 
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
+import { redactText } from "chrome://userscripts/content/zenius/content/signin.sys.mjs";
+import { showsSignInResult } from "chrome://userscripts/content/zenius/observe/signin.sys.mjs";
 import { Refs } from "chrome://userscripts/content/zenius/snapshot/refs.sys.mjs";
 
 const SIGNATURE = "await page.snapshot({ scope?, root?, includeActionMarks?, includeStableLocator? })";
@@ -84,14 +86,19 @@ function compactTitle(value) {
   return compact.length > 80 ? `${compact.slice(0, 77)}...` : compact;
 }
 
-/** What Chromium shows as a tab's title: the document title, else the URL without its scheme. */
+/**
+ * What Chromium shows as a tab's title: the document title, else the URL
+ * without its scheme. A sign-in result's title is the user's, and a URL that
+ * carries a sign-in's code is cut before it's shortened or loses its scheme:
+ * the socket's own cut needs the whole URL (content/signin.sys.mjs).
+ */
 function tabTitle(browser) {
-  const title = browser?.contentTitle;
+  const title = browser && !showsSignInResult(browser) ? browser.contentTitle : "";
   if (title) {
-    return compactTitle(title);
+    return compactTitle(redactText(title));
   }
   const url = browser?.currentURI?.spec;
-  return compactTitle(url ? url.replace(/^https?:\/\//, "") : "untitled");
+  return compactTitle(url ? redactText(url).replace(/^https?:\/\//, "") : "untitled");
 }
 
 /** Ego's snapshotSourceHeader (§1.1). */

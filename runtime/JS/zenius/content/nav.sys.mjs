@@ -7,6 +7,12 @@ import { watchConsole } from "chrome://userscripts/content/zenius/content/consol
 import { elementsIn, diagnostics } from "chrome://userscripts/content/zenius/content/resolve.sys.mjs";
 import { resolveRef } from "chrome://userscripts/content/zenius/content/snapshot/registry.sys.mjs";
 import { watchHidden, isStale } from "chrome://userscripts/content/zenius/content/evaluate.sys.mjs";
+import { inSignInResult } from "chrome://userscripts/content/zenius/content/signinguard.sys.mjs";
+
+/** A document's title for the agent: a sign-in result's is "", since a page that shows the code may show it there too. */
+function titleOf(actor, doc) {
+  return inSignInResult(actor.manager) ? "" : (doc?.title ?? "");
+}
 
 const { setTimeout, clearTimeout } = ChromeUtils.importESModule("resource://gre/modules/Timer.sys.mjs");
 
@@ -130,7 +136,7 @@ export function certificateError(actor) {
 
 export function documentState(actor) {
   const doc = actor.document;
-  return { readyState: doc?.readyState ?? null, url: doc?.URL ?? null, title: doc?.title ?? "" };
+  return { readyState: doc?.readyState ?? null, url: doc?.URL ?? null, title: titleOf(actor, doc) };
 }
 
 /**
@@ -143,7 +149,7 @@ export function metrics(actor) {
   const root = doc.documentElement;
   return {
     url: win.location.href,
-    title: doc.title,
+    title: titleOf(actor, doc),
     w: win.innerWidth,
     h: win.innerHeight,
     sx: win.scrollX,

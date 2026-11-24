@@ -77,6 +77,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
   releaseHolds: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
   // The parent backstops load with a task's first page, not at startup (I4).
   setBackstops: "chrome://userscripts/content/zenius/modules/backstops.sys.mjs",
+  // The sign-in rules' parent side loads with the first connection (I4).
+  checkSignInCall: "chrome://userscripts/content/zenius/observe/signin.sys.mjs",
+  publishDevicePages: "chrome://userscripts/content/zenius/observe/signin.sys.mjs",
+  signInGateFor: "chrome://userscripts/content/zenius/content/signin.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -1818,6 +1822,13 @@ class Service {
     }
     this.#methodsLoaded = true;
     const t0 = now();
+    // The tests' device-login pages, on a dev profile, before any document
+    // of a task is assessed (observe/signin.sys.mjs).
+    try {
+      lazy.publishDevicePages();
+    } catch (e) {
+      log("the sign-in rules' device pages:", e.message);
+    }
     this.#loadMethods();
     log(`loaded ${this.#methods.size} methods in ${(now() - t0).toFixed(1)}ms (${why})`);
   }
@@ -2312,7 +2323,15 @@ class Service {
           throw new ZenError("ZEN_INTERNAL", `${method} made a content call (${spec}) that its I5 class, ${i5 ?? "none declared"}, doesn't allow`);
         }
         checkContentCall(method, bc, i5);
-        return this.content(bc, spec, args, opts);
+        // The sign-in rules (content/signin.sys.mjs): the parent's own check
+        // first, then the page's process checks at the call's entry and
+        // before its result.
+        const kind = lazy.signInGateFor(i5, this.accessOf(method));
+        if (!kind) {
+          return this.content(bc, spec, args, opts);
+        }
+        lazy.checkSignInCall(method, bc, kind);
+        return this.content(bc, spec, args, { ...opts, gate: { kind, method } });
       },
       // Nested calls keep the request's budget.
       call: (m, p) => this.dispatch(m, p, null, { pageBudget }),
@@ -2361,7 +2380,8 @@ class Service {
    * @param {BrowsingContext} bc
    * @param {string} spec  "module#fn"
    * @param {any} args
-   * @param {{timeout?: number}} [opts]
+   * @param {{timeout?: number, gate?: {kind: "read"|"act", method: string}}} [opts]
+   *   gate: an agent method's call, which the sign-in rules check in the page
    */
   async content(bc, spec, args, opts = {}) {
     const hash = spec.indexOf("#");
@@ -2380,7 +2400,7 @@ class Service {
     } catch (e) {
       throw new ZenError("ZEN_UNSUPPORTED", `cannot reach this document (${wg.documentURI?.spec}): ${e.message}`);
     }
-    const call = actor.call(module, fn, args);
+    const call = actor.call(module, fn, args, opts.gate);
     if (!opts.timeout) {
       return call;
     }

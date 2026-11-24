@@ -224,6 +224,12 @@ export const CODE_GUIDE: Record<string, CodeGuide> = {
     // page.screenshot's refusal for an add-on's frame says page.snapshot still works.
     said: /Load one with page\.goto|act elsewhere|page\.snapshot still works/,
   },
+  ZEN_SIGN_IN_PAGE: {
+    what: "The page is the user's sign-in (data.reason, data.page). \"authorization_response\": its address, or the address it came from, carries the code of a sign-in, which with the right key is the user's account, so zenius reads and does nothing there: no snapshot, text, screenshot, code or input, and its title, console and requests aren't reported. \"device_login\": a provider's page for typing a device code, which you may read but not type into or click.",
+    next: "Hand the page to the user with task.handOff() if they need to finish there, or wait for the site to move on (most send you back to the app at once), or go to the app's own URL again with page.goto(). Never type a device code for the user.",
+    // The runtime's two messages each say to hand off or go elsewhere.
+    said: /task\.handOff\(\)/,
+  },
   ZEN_AGENT_CODE_REFUSED: {
     what: "zenius ran none of the agent's code in this page, or stopped it (data.method, data.reason). \"group\": the page shares a window group with a window outside the task, which code here could reach (data.windows); that covers page.evaluate(), page.waitForFunction(), page.goto() to a data: or blob: URL or to another site, and page.keyboard.paste() with html. \"hold\": the user holds a page in its window group after your handOff().",
     next: "Clicks, typing, snapshots and screenshots still work here. To run code on this site, or to load another site, open it in a new Page (task.newPage(), then goto()); to paste, pass the text alone.",

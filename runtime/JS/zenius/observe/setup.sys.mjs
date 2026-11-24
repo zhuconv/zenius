@@ -40,6 +40,8 @@ import {
   serviceWorkerBypassActive,
 } from "chrome://userscripts/content/zenius/observe/swbypass.sys.mjs";
 import { pushEvent, sweepEvents, cdpTime } from "chrome://userscripts/content/zenius/observe/events.sys.mjs";
+import { fromSignInResult, tabTopIsSignInResult } from "chrome://userscripts/content/zenius/observe/signin.sys.mjs";
+import { redactReferences } from "chrome://userscripts/content/zenius/content/signin.sys.mjs";
 import { trackerFor } from "chrome://userscripts/content/zenius/observe/navtracker.sys.mjs";
 import { stopCapture } from "chrome://userscripts/content/zenius/observe/capture.sys.mjs";
 import {
@@ -205,10 +207,17 @@ export function browserOf(spaceId, label) {
 
 function headersOf(channel, response) {
   const headers = {};
+  // A Location (or Refresh, Link) can name a sign-in's callback relative to
+  // the request, which the socket's redaction of absolute URLs can't see.
+  let base = "";
+  try {
+    base = channel.URI?.spec ?? "";
+  } catch {}
   const visitor = {
     visitHeader(name, value) {
       const key = name.toLowerCase();
-      headers[key] = key in headers ? `${headers[key]}, ${value}` : value;
+      const seen = redactReferences(value, base);
+      headers[key] = key in headers ? `${headers[key]}, ${seen}` : seen;
     },
   };
   try {
@@ -223,6 +232,15 @@ function headersOf(channel, response) {
 
 /** Network.* events for page.events(), shaped as CDP sends them. */
 function networkEvent(event, browserId, info, channel) {
+  // The sign-in rules: what a sign-in result's document requests is the
+  // user's (a beacon can carry the page's address, code and all).
+  let windowId = 0;
+  try {
+    windowId = channel.loadInfo?.innerWindowID ?? 0;
+  } catch {}
+  if (fromSignInResult(windowId)) {
+    return;
+  }
   const time = cdpTime();
   switch (event) {
     case "request":
@@ -341,14 +359,18 @@ export function setupObserve() {
   onAgentCodeMarks(syncHooks);
   onHolds(syncHooks);
   syncHooks();
-  onDownload(entry =>
+  onDownload(entry => {
+    // A download a sign-in result starts is the user's, as its page is.
+    if (tabTopIsSignInResult(entry.browserId)) {
+      return;
+    }
     pushEvent(entry.browserId, "Page.downloadWillBegin", {
       frameId: "",
       guid: entry.id,
       url: entry.url,
       suggestedFilename: entry.suggestedFilename,
-    })
-  );
+    });
+  });
   service.addEventListener((event, params) => {
     if (event === "taskBrowsers") {
       syncHooks();

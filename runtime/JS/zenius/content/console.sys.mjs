@@ -3,6 +3,7 @@
 // process; it costs a lookup per console call in tabs the agent doesn't drive.
 
 import { isAgentDriven } from "chrome://userscripts/content/zenius/content/guards.sys.mjs";
+import { inSignInResult } from "chrome://userscripts/content/zenius/content/signinguard.sys.mjs";
 import { capText, cut, STRING_TEXT } from "chrome://userscripts/content/zenius/observe/textcap.sys.mjs";
 
 const LEVELS = { warn: "warning", log: "log", info: "info", error: "error", debug: "debug", trace: "trace" };
@@ -55,6 +56,10 @@ function onLogEvent(message) {
   }
   const wgc = WindowGlobalChild.getByInnerWindowId(innerID);
   if (!wgc || !isAgentDriven(wgc.browsingContext)) {
+    return;
+  }
+  // A sign-in result's console is the user's: its text can hold the code.
+  if (inSignInResult(wgc)) {
     return;
   }
   let args = [];

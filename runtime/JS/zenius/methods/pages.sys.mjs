@@ -7,6 +7,7 @@ import { keepAlive } from "chrome://userscripts/content/zenius/modules/guards.sy
 import { clearAdopted } from "chrome://userscripts/content/zenius/input/handback.sys.mjs";
 import { displayURL } from "chrome://userscripts/content/zenius/observe/navtracker.sys.mjs";
 import { noteAdopted } from "chrome://userscripts/content/zenius/observe/agentcode.sys.mjs";
+import { showsSignInResult } from "chrome://userscripts/content/zenius/observe/signin.sys.mjs";
 import { hostWindow, sameTab } from "chrome://userscripts/content/zenius/modules/windows.sys.mjs";
 
 const lazy = {};
@@ -21,7 +22,9 @@ const FLAG_REASON_BAD = /[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u2
 
 function tabInfo(tab, current) {
   return {
-    title: tab.label ?? "",
+    // A sign-in result's title is the user's (content/signin.sys.mjs), in
+    // their own tabs too: a page that shows the code may show it there.
+    title: showsSignInResult(tab.linkedBrowser) ? "" : (tab.label ?? ""),
     // As page.url() reads it: a popup still loading its first document lists
     // the URL it's loading (zen-observe's displayURL).
     url: tab.linkedBrowser ? displayURL(tab.linkedBrowser) : "",

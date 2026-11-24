@@ -3,6 +3,13 @@
 
 import { log } from "chrome://userscripts/content/zenius/modules/util.sys.mjs";
 
+const lazy = {};
+// The sign-in rules' redaction: it loads with the first frame a client gets,
+// not at startup (I4).
+ChromeUtils.defineESModuleGetters(lazy, {
+  redactText: "chrome://userscripts/content/zenius/content/signin.sys.mjs",
+});
+
 let nextConnectionId = 1;
 
 export class RpcServer {
@@ -127,7 +134,14 @@ export class Connection {
     }
   }
 
-  /** @param {object} frame */
+  /**
+   * Every frame a client gets goes out here: results, errors and events.
+   * A URL that carries a sign-in's code (content/signin.sys.mjs) is cut at
+   * its query in all of them, wherever it sits: a field, a header, a title,
+   * a page's text.
+   *
+   * @param {object} frame
+   */
   send(frame) {
     if (this.closed) {
       return false;
@@ -141,6 +155,7 @@ export class Connection {
         error: { code: "ZEN_INTERNAL", message: `result is not JSON-serializable: ${e.message}` },
       });
     }
+    text = lazy.redactText(text);
     try {
       this.#out.writeString(text + "\n");
       this.#out.flush();

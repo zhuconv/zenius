@@ -22,6 +22,7 @@ import { pushEvent } from "chrome://userscripts/content/zenius/observe/events.sy
 import { reportRefused } from "chrome://userscripts/content/zenius/observe/refusals.sys.mjs";
 import { cut, STRING_TEXT } from "chrome://userscripts/content/zenius/observe/textcap.sys.mjs";
 import { notWebContent } from "chrome://userscripts/content/zenius/observe/webcontent.sys.mjs";
+import { fromSignInResult } from "chrome://userscripts/content/zenius/observe/signin.sys.mjs";
 import { isBrowserVisible } from "chrome://userscripts/content/zenius/ui/visibility.sys.mjs";
 
 const { PromptParent } = ChromeUtils.importESModule("resource:///actors/PromptParent.sys.mjs");
@@ -113,9 +114,11 @@ function takeOver(actor, message) {
   // such as a password manager's menu) is never the agent's: no event, no
   // answer. If the user is looking at the tab, Firefox shows it to them as
   // in any tab; otherwise it's dismissed unseen (confirm false, prompt null).
+  // So is a sign-in result's (content/signin.sys.mjs): its text can hold the
+  // code.
   let foreign = true;
   try {
-    foreign = !actor.manager || !!notWebContent(actor.manager);
+    foreign = !actor.manager || !!notWebContent(actor.manager) || fromSignInResult(actor.manager.innerWindowId);
   } catch {}
   if (foreign) {
     return isBrowserVisible(browser) ? null : Promise.resolve(answerArgs(args, type, false));

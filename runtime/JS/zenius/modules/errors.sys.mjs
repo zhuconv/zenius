@@ -83,6 +83,10 @@ export const ErrorCodes = Object.freeze(
       // report waits for the user, or the user discarded one a moment ago.
       "ZEN_FEEDBACK_PENDING",
       "ZEN_FEEDBACK_DECLINED",
+      // The sign-in rules (content/signin.sys.mjs), which Ego doesn't have:
+      // a sign-in result or a device-login page is the user's (data.reason
+      // authorization_response or device_login, and data.page).
+      "ZEN_SIGN_IN_PAGE",
     ].map(c => [c, c])
   )
 );

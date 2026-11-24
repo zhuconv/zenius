@@ -23,6 +23,8 @@ import { watchRefusals } from "chrome://userscripts/content/zenius/observe/refus
 import { syncAudio } from "chrome://userscripts/content/zenius/observe/audio.sys.mjs";
 import { agentLoadRefusal } from "chrome://userscripts/content/zenius/observe/localnet.sys.mjs";
 import { checkOwnPageLoad } from "chrome://userscripts/content/zenius/observe/pagecode.sys.mjs";
+import { showsSignInResult, signInPageGate } from "chrome://userscripts/content/zenius/observe/signin.sys.mjs";
+import { redactText } from "chrome://userscripts/content/zenius/content/signin.sys.mjs";
 import { noteAgentCode } from "chrome://userscripts/content/zenius/observe/agentcode.sys.mjs";
 import { noteMade } from "chrome://userscripts/content/zenius/observe/agentworld.sys.mjs";
 import { OUTSIDE_DOCUMENT, agentLoadOptions, checkAgentLoad, checkWebContent, inWebProcess } from "chrome://userscripts/content/zenius/observe/webcontent.sys.mjs";
@@ -664,7 +666,9 @@ export function webContentGate(ctx, params, method) {
   return undefined;
 }
 
-export const pageGates = [pageReadyGate, webContentGate];
+// The sign-in rules' gate runs last, on the document a pending navigation
+// led to.
+export const pageGates = [pageReadyGate, webContentGate, signInPageGate];
 
 // ---------------------------------------------------------------------------
 // Methods
@@ -711,15 +715,17 @@ export const methods = {
     // The parent's copy of the title lags a fresh commit (it comes with
     // DOMTitleChanged), and right after a click it's what the agent reads.
     // Under a dialog the page answers nothing; its title is settled there.
+    // A sign-in result's title is the user's (content/signin.sys.mjs).
+    const parentTitle = () => (showsSignInResult(browser) ? "" : (browser.contentTitle ?? ""));
     if (currentDialog(browser)) {
-      return browser.contentTitle ?? "";
+      return parentTitle();
     }
     try {
       const state = await ctx.content(browsingContext, "nav#documentState", {}, { timeout: responseTimeout(params) });
       return state?.title ?? "";
     } catch (e) {
-      if (e?.data?.reason) {
-        return browser.contentTitle ?? "";
+      if (e?.code !== "ZEN_SIGN_IN_PAGE" && e?.data?.reason) {
+        return parentTitle();
       }
       throw e;
     }
@@ -840,7 +846,12 @@ export const methods = {
   },
 };
 
-/** The SDK's URL matcher: a glob compiled to `regex` (anchored), or a RegExp (unanchored). */
+/**
+ * The SDK's URL matcher: a glob compiled to `regex` (anchored), or a RegExp
+ * (unanchored). It sees a URL as the agent does: one that carries a
+ * sign-in's code is cut at its query first (content/signin.sys.mjs), so the
+ * agent's own pattern can't read the code a character at a time.
+ */
 function compileMatcher(m) {
   let re;
   let description;
@@ -853,7 +864,7 @@ function compileMatcher(m) {
       re = new RegExp(m.value, flags);
       description = re.toString();
     } else if (m?.type === "string" && typeof m.value === "string") {
-      return { test: url => url === m.value, description: JSON.stringify(m.value) };
+      return { test: url => redactText(url) === m.value, description: JSON.stringify(m.value) };
     }
   } catch (e) {
     throw new ZenError("ZEN_INVALID_ARGUMENT", `page.waitForURL matcher is not a valid pattern: ${e.message}`);
@@ -867,7 +878,7 @@ function compileMatcher(m) {
   return {
     test(url) {
       re.lastIndex = 0;
-      return re.test(url);
+      return re.test(redactText(url));
     },
     description,
   };

@@ -160,6 +160,27 @@ export const methods = {
    - A method declared `dev` exists only in dev profiles, as `dev.*` ones
      do.
    - `ctx.i5` is the method's class, for gates and handlers.
+
+   The sign-in rules (`content/signin.sys.mjs`) ride on the same content
+   calls. After `checkContentCall`, `ctx.content` gives each call of a
+   `document` or `frames` method a gate: `act` for a `mutate` method,
+   `read` for any other.
+   - The parent checks first, against the sign-in pages the Zenius actor
+     has reported (`observe/signin.sys.mjs`).
+   - The page's process checks the gate again when the call enters, and
+     once more before its result goes out (`content/signinguard.sys.mjs`).
+     It assesses the document and its tab's top document itself, so a
+     document the parent hasn't heard of yet is covered.
+   - A sign-in result refuses both kinds, in its frames too, and a
+     device-login page refuses `act`: `ZEN_SIGN_IN_PAGE`.
+   - Content calls the runtime makes for itself, outside `ctx.content`,
+     carry no gate.
+   - A screenshot, which the parent paints, makes a gated
+     `signinguard#check` call to the page and asks each frame to assess its
+     own document, so a sign-in result in any frame refuses the shot.
+   - `Connection.send` passes every frame a client gets through
+     `redactText`, which cuts a URL that carries an authorization response
+     at its query.
 2. **Page gates**, for methods declared `document` or `outside`. The
    dispatcher's own comes first: it loads an unloaded tab ("Unloaded
    pages", above). Then each function in a module's

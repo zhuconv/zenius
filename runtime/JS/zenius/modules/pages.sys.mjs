@@ -45,6 +45,9 @@ import { log } from "chrome://userscripts/content/zenius/modules/util.sys.mjs";
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
+  // Load with the first agent call that needs them, not at startup (I4).
+  redactText: "chrome://userscripts/content/zenius/content/signin.sys.mjs",
+  showsSignInResult: "chrome://userscripts/content/zenius/observe/signin.sys.mjs",
 });
 
 /**
@@ -961,7 +964,11 @@ export class Pages {
     }
     const lines = pages.map(page => {
       const tab = this.tabFor(page);
-      const title = compactTitle(tab?.label || tab?.linkedBrowser?.currentURI?.spec || "untitled");
+      // A sign-in result's title is the user's (content/signin.sys.mjs), and
+      // a URL that carries a sign-in's code is cut before it's shortened:
+      // the socket's own cut needs the whole URL.
+      const label = tab?.linkedBrowser && lazy.showsSignInResult(tab.linkedBrowser) ? "" : tab?.label;
+      const title = compactTitle(lazy.redactText(label || tab?.linkedBrowser?.currentURI?.spec || "untitled"));
       return `  ${page.label.padEnd(6)} ${JSON.stringify(title)}`;
     });
     const suggestion = pages[0]?.label ?? "p1";

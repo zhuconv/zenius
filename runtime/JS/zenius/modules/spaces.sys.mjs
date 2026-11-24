@@ -29,6 +29,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ContextualIdentityService: "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   SessionSaver: "moz-src:///browser/components/sessionstore/SessionSaver.sys.mjs",
+  // Loads with the first agent call that needs it, not at startup (I4).
+  showsSignInResult: "chrome://userscripts/content/zenius/observe/signin.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -1009,7 +1011,8 @@ export class Spaces {
     return tabs
       .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))
       .slice(0, limit)
-      .map(tab => tab.label);
+      // A sign-in result's title is the user's (content/signin.sys.mjs).
+      .map(tab => (lazy.showsSignInResult(tab.linkedBrowser) ? "" : tab.label));
   }
 
   get windowCount() {
