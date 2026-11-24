@@ -11,8 +11,10 @@ import {
   allTabs,
   copiesOf,
   fillCopies,
+  followWindowSync,
   KEPT_REFUSAL_KINDS,
   KEPT_TEXT_MAX,
+  markLiveCopy,
   noteKeptRefused,
   stopFollowingWindowSync,
   stripTabs,
@@ -1595,6 +1597,10 @@ class Service {
       // Zen restores one state per tab into every window's copy: whatever
       // marks any copy has, every copy gets (the user's own tab above all).
       this.pages.markCopies([...allTabs()]);
+      if (restored) {
+        // Their pages' copies get the pages' icons as they load (copyIcon).
+        followWindowSync();
+      }
       this.publishAgentBrowsers();
       // A tab a window showed at the quit can be loaded already
       // (zen.workspaces.continue-where-left-off): its documents get their
@@ -1646,6 +1652,9 @@ class Service {
       return null;
     }
     if (!isUnloaded(tab)) {
+      // A page Zen restored loaded, before a window marked the copy that
+      // shows it (markLiveCopy).
+      markLiveCopy(tab);
       return null;
     }
     if (method === "page.goto") {
@@ -1706,6 +1715,8 @@ class Service {
         log(`an unloaded tab's history wasn't back ${INSERT_WAIT_MS}ms after its insert`);
       }
     }
+    // The copy the page loads in holds its docShell (markLiveCopy).
+    markLiveCopy(tab);
     // Its browser has a browserId now: its documents get the guards.
     this.publishAgentBrowsers();
   }

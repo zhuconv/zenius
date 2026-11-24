@@ -827,3 +827,65 @@ test("after a restart with two windows, each tab is one page again, and every co
   await h.call("spaces.finish", { space, keep: [] });
   await h.remove(own);
 });
+
+const SVG = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='4' fill='#0b8043'/></svg>";
+
+test("after a restart, the copy a call loads a page in is the one Zen shows: its title and icon reach both windows, and a window that selects it shows the agent's document", async () => {
+  const { space, p2 } = await task("restart load");
+  // Neither window shows the task's pages at the quit: they come back unloaded.
+  await h.chrome("await ctx.service.flushState(); return true");
+  await h.restart({ "browser.startup.page": 3 });
+  const restored = await h.chrome(
+    `${W}
+     await SessionStore.promiseAllWindowsRestored;
+     await Promise.all(wins().map(w => w.gZenWorkspaces?.promiseInitialized));
+     await sleep(1000);
+     const copies = Win.copiesOf(liveOf(arg.space, arg.p2));
+     return { windows: wins().length, copies: copies.length, unloaded: copies.every(c => !c.linkedPanel || c.hasAttribute("pending")) };`,
+    { space, p2 }
+  );
+  assert.deepEqual(restored, { windows: 2, copies: 2, unloaded: true });
+  try {
+    // The agent's call loads the page in one copy, which then gets the
+    // page's own title and an SVG icon, the kind window sync can't pass on.
+    await h.call("page.goto", { space, page: p2, url: `${h.base}/?restart-load` });
+    await h.call("page.evaluate", {
+      space,
+      page: p2,
+      isFunction: false,
+      fn: `(() => {
+        document.title = "Restarted page";
+        const l = document.createElement("link");
+        l.rel = "icon";
+        l.href = "data:image/svg+xml;base64," + btoa(${JSON.stringify(SVG)});
+        document.head.append(l);
+        document.body.dataset.agentMark = "the agent's";
+        return 1;
+      })()`,
+    });
+    const copies = await h.chrome(
+      `${W}
+       const live = liveOf(arg.space, arg.p2);
+       const copies = Win.copiesOf(live);
+       const ok = fn => until(fn, 5000).then(() => true, () => false);
+       const titled = await ok(() => copies.every(c => c.getAttribute("label") === "Restarted page"));
+       const iconed = await ok(() => !!live.linkedBrowser.mIconURL && copies.every(c => c.linkedBrowser?.mIconURL === live.linkedBrowser.mIconURL));
+       return { titled, iconed, labels: copies.map(c => c.getAttribute("label")) };`,
+      { space, p2 }
+    );
+    assert.deepEqual(copies, { titled: true, iconed: true, labels: ["Restarted page", "Restarted page"] }, "both windows' copies show the page's title and icon");
+    // The user opens the page in the other window: Zen moves the agent's
+    // document there (userSelects waits for it), and doesn't load one of
+    // its own beside it.
+    const selected = await userSelects(1, space, p2, { focused: true });
+    assert.deepEqual(selected, { live: 1, selected: true });
+    assert.deepEqual(
+      await h.call("page.evaluate", { space, page: p2, isFunction: false, fn: "[location.search, document.body.dataset.agentMark]" }),
+      ["?restart-load", "the agent's"],
+      "the page is still the document the agent loaded and marked"
+    );
+  } finally {
+    await userLeaves(1).catch(() => {});
+    await h.call("spaces.finish", { space, keep: [] }).catch(() => {});
+  }
+});

@@ -781,10 +781,18 @@ zenius treats a tab's copies as one tab:
     show gives each copy its browser's `mIconURL`, the `data:` URL.
     `fillCopies` calls it too, after its own direct call to that
     handler, which `afterWindowSync` doesn't see. The user's own tabs
-    stay as Zen leaves them. After a restart, Zen marks no copy of a
-    task's restored background page as the one showing it until one is
-    selected. Till then window sync passes on none of its icon or title
-    changes, and `copyIcon` waits too.
+    stay as Zen leaves them.
+  - After a restart, Zen marks no copy of a restored background tab as
+    the one showing it until a window selects one. Till then Zen takes no
+    title for any copy, and window sync passes on none of the tab's icon
+    or title changes. A window that then selects a copy loads a document
+    of its own there, beside the one the agent drives. So the restore gate
+    marks the copy a call loads a page in, as window sync marks a selected
+    copy, when no copy has the mark (`markLiveCopy`). The page's title and
+    icon then reach every copy, and a window that selects another copy
+    gets this one's docShell. Once task tabs are back, the rebuild also
+    has window sync call `afterWindowSync` (`followWindowSync`), so
+    `copyIcon` covers restored pages too.
 - `pages.keepView(fn)` runs every strip change zenius makes and returns
   its value: `addTab` from the add on (which passes through the window's
   active Space), a popup's add and move, `closeTab`'s `removeTab`, and

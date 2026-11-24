@@ -125,6 +125,29 @@ export function liveCopy(tab, browserId = 0) {
   return copies.find(copy => copy._zenContentsVisible) ?? (copies.includes(tab) ? tab : copies[0]);
 }
 
+/**
+ * Mark `tab` as the copy that holds its tab's docShell, as window sync marks
+ * the copy a window selects (Zen's _zenContentsVisible), when no copy of the
+ * tab has the mark. After a restart, Zen marks no copy of a restored
+ * background tab until a window selects one. Till then it takes no title
+ * for any copy, window sync passes on none of the tab's icon or title
+ * changes, and a window that selects a copy loads a document of its own
+ * there, beside the one the agent drives. zenius marks the copy it loads a
+ * restored page in: then the page's title and icon reach every copy, and a
+ * window that selects another copy gets this one's docShell, as for a tab
+ * opened since the start.
+ *
+ * @param {Element} tab  a copy with its browser inserted
+ * @returns {boolean} whether it marked it
+ */
+export function markLiveCopy(tab) {
+  if (!tab?.linkedPanel || tab._zenContentsVisible || copiesOf(tab).some(copy => copy._zenContentsVisible)) {
+    return false;
+  }
+  tab._zenContentsVisible = true;
+  return true;
+}
+
 /** Are these the same tab: the same element, or two copies of one tab? */
 export function sameTab(a, b) {
   if (!a || !b) {
@@ -600,8 +623,14 @@ export function repairCopiesSoon(tab) {
   }
 }
 
-/** Have window sync call afterWindowSync after each event its queue handles, if it can. */
-function followWindowSync() {
+/**
+ * Have window sync call afterWindowSync after each event its queue handles,
+ * if it can: when zenius places a tab, and when the restart rebuild brings
+ * task tabs back, whose copies get their icons from copyIcon too.
+ *
+ * @returns {boolean} whether window sync calls it
+ */
+export function followWindowSync() {
   if (following === null) {
     following = false;
     try {
