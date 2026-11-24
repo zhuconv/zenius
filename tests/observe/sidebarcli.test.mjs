@@ -93,7 +93,7 @@ function steps(kind) {
   const local = { tool: { name: "WebFetch", input: { url: "https://10.0.0.7/", prompt: "the title" } } };
   const fetch = url => ({ tool: { name: "WebFetch", input: { url, prompt: "the title" } } });
   if (kind === "chat") {
-    // Chat fetches only URLs from its sources (the user's call). Every
+    // Chat fetches only URLs from its sources. Every
     // address here is a private one, so a fetch the list lets through meets
     // the local-network rule, and nothing leaves the machine.
     return [

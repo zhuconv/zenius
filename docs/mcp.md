@@ -132,7 +132,7 @@ the agent calls it again.
 
 The daily Zen, instance `default`, unless `ZENIUS_INSTANCE` or
 `zenius mcp --instance <name>` names another (a dev Zen's name). The try Zen
-is retired (the user, 2026-11-21): a registration from its days with
+is retired: a registration from its days with
 `ZENIUS_INSTANCE=try` reaches nothing, so drop that setting.
 
 ## Registering it

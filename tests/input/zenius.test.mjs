@@ -1763,7 +1763,7 @@ async function spyOnWindowFocus() {
 }
 
 test("a middle click on a link opens it as a new page of the task, as on Ego, and leaves the user's view alone", async () => {
-  // The manager's decision (2026-11-20): Ego's result, a new page in the
+  // Ego's result, a new page in the
   // task listed in receipt.popups, but nothing outside the task and no
   // PRIMARY paste: zenius opens the link itself, in the background.
   const page = await homePage();
@@ -2302,8 +2302,7 @@ test("Tab, Shift+Tab, F6 and Shift+F6 at the page's edge leave the window's focu
     await press("Control+Tab", "mid");
     await press("Control+Shift+Tab", "mid");
     // The window's own shortcuts never act for the agent: they would take
-    // the user's focus, open, close or switch tabs and windows, or navigate
-    // (the manager's check for the local-address card, 2026-11-20).
+    // the user's focus, open, close or switch tabs and windows, or navigate.
     const windowState = () => chrome(`return { tabs: win.gBrowser.tabs.length, windows: [...Services.wm.getEnumerator(null)].length };`);
     const windows = await windowState();
     const url = await page.url();

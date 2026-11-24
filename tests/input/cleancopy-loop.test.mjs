@@ -1,5 +1,5 @@
 // zen-core's clean copy on demand beside a hooked window of its group, on
-// evidence since the user's call of 2026-11-21. A popup on the page's site
+// evidence. A popup on the page's site
 // that the agent's code opened shares the page's group. In an earlier
 // version, each new document of the
 // page came in marked for being beside such a popup, the clean copy's

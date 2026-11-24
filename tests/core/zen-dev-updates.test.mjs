@@ -158,7 +158,7 @@ function bundle(at, ini) {
 
 test("on the Mac the update folder is ~/Library/Caches/<Vendor>/updates/<the app's path, without .app>", () => {
   const zen = bundle(join(root, "Applications", "Zen.app"), "[App]\nVendor=Mozilla\nName=Zen\n");
-  // /Applications/Zen.app's is .../updates/Applications/Zen (the relay's find on the Mac).
+  // /Applications/Zen.app's is .../updates/Applications/Zen (found on the Mac).
   assert.equal(updateRootOn("Darwin", zen, home), `${home}/Library/Caches/Mozilla/updates/${root.slice(1)}/Applications/Zen`);
   // Through a link, the app's real path.
   const link = join(root, "zen-link");

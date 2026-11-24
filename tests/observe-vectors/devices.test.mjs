@@ -1,5 +1,5 @@
 // The user's devices and location in an agent task's pages
-// (content/refusals.sys.mjs; the user's call, 2026-11-21). While the agent
+// (content/refusals.sys.mjs). While the agent
 // drives a task's page, getUserMedia, mozGetUserMedia, getDisplayMedia,
 // selectAudioOutput and speech recognition get the answer a page gets when
 // the user says no, and enumerateDevices() lists none, in every document of

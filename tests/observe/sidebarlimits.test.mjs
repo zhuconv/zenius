@@ -41,7 +41,7 @@ let zenEnv = {}; // the canaries' values in Zen before the test
 const chrome = (code, arg) => env.chrome(PRELUDE + code, arg);
 const lines = file => (existsSync(file) ? readFileSync(file, "utf8").trim().split("\n").filter(Boolean).map(l => JSON.parse(l)) : []);
 const requests = (file, method) => lines(file).filter(e => e.event === "request" && e.method === method).map(e => e.params);
-// Web search and fetch, on in Chat and Work (the user's call).
+// Web search and fetch, on in Chat and Work.
 const WEB = ["WebSearch", "WebFetch"];
 // A session's options neither deny the web tools nor carry a rule against them.
 function allowsWeb(options) {
@@ -161,7 +161,7 @@ test("a Claude Code session's limits are set in memory over config.json's: setti
   const [chatParams, workParams] = requests(join(dir, "claude.log"), "session/new");
   const ws = join(chat.profile, "agent-sidebar-workspace", "claude");
 
-  // Chat: web search and fetch (the user's call), nothing else.
+  // Chat: web search and fetch, nothing else.
   assert.equal(chatParams.cwd, join(ws, "chat"));
   assert.deepEqual(chatParams.mcpServers, []);
   const c = chatParams._meta.claudeCode.options;
@@ -178,7 +178,7 @@ test("a Claude Code session's limits are set in memory over config.json's: setti
   assert.equal(c.settings.permissions.defaultMode, "dontAsk");
   assert.deepEqual(c.settings.permissions.allow, WEB);
   // Chat's hooks name the folder of its sessions' lists of URLs it may
-  // fetch (the user's call on Chat's fetch), and its PostToolUse hook adds
+  // fetch, and its PostToolUse hook adds
   // search hits to them.
   const lists = join(chat.profile, "agent-sidebar-allow");
   assert.ok(c.settings.hooks.PreToolUse[0].hooks[0].command.endsWith(`zenius-only.mjs' chat '${lists}' || exit 2`), c.settings.hooks.PreToolUse[0].hooks[0].command);
@@ -382,7 +382,7 @@ test("the zenius-only hook and what each mode offers can't drift apart: every bu
   }
 });
 
-test("Chat's WebFetch opens only URLs on its session's list (the user's call: from its search results, the page or the user's words): http, https and a fragment count as one, another path or query doesn't; an unlisted host isn't even looked up; no list, no fetch; Work fetches any URL", () => {
+test("Chat's WebFetch opens only URLs on its session's list (from its search results, the page or the user's words): http, https and a fragment count as one, another path or query doesn't; an unlisted host isn't even looked up; no list, no fetch; Work fetches any URL", () => {
   hookFiles();
   const lists = join(dir, "lists-chat");
   mkdirSync(lists, { recursive: true });
@@ -500,7 +500,7 @@ test("the user's own config can keep the web tools narrower: Claude Code's own d
     oldOff: ["disabled", false],
   });
   // A live search opens pages at OpenAI, where no hook holds Chat to the
-  // URLs of its sources (the user's call on Chat's fetch).
+  // URLs of its sources.
   assert.deepEqual(out.codex.chat, {
     disabled: ["disabled", false],
     cached: ["cached", true],

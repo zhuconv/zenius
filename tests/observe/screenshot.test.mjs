@@ -38,7 +38,7 @@ test("the viewport and the full page in CSS pixels", () =>
 
 // Classic scrollbars: macOS's overlay thumb shows on the first scroll and
 // then fades, so the viewport shot and the same clip taken after it could
-// differ by the thumb (zen-eval's Mac runs, 3 of 7; 24 of 24 with classic).
+// differ by the thumb (on the Mac, in 3 runs of 7; 24 of 24 with classic).
 test("a clip is in document coordinates, scaled as CDP's", () =>
   env.inSpace("screenshot clip", page => classicScrollbars(async () => {
     await page.goto(TALL);

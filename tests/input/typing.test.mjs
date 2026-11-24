@@ -1,5 +1,5 @@
-// The typing guard (content/typing.sys.mjs, input/typing.sys.mjs;
-// 2026-11-20), on evidence only (the user's call, 2026-11-21). In a page the
+// The typing guard (content/typing.sys.mjs, input/typing.sys.mjs), on
+// evidence only. In a page the
 // agent's code left something hooked in (zen-observe's evidence), the user's
 // first press or key is stopped before any listener of the page, and so is
 // their typing there until the page's top document is replaced, and zen-core
@@ -7,8 +7,7 @@
 // wrote text into has no evidence, and neither has one it pasted plain
 // markup into: the user's input goes in. A listed or flagged page doesn't
 // hold it either, since a clean copy can't remove the page's own danger
-// (zen-ux warns there; the manager's call, 2026-11-21). A page the agent
-// made keeps the user's typing on (the user's decision).
+// (zen-ux warns there). A page the agent made keeps the user's typing on.
 // The page's own listeners stand for code the agent left in it. zen-core's
 // cleanOnDemand is stubbed here, since its reload is zen-core's to test,
 // except in the replay's cases at the end: their keys go into its clean
@@ -266,7 +265,7 @@ test("in a page with evidence, the user's press into a field is stopped whole, t
     assert.deepEqual(await heard(page), [], "nor any key after it, wherever it went");
     assert.deepEqual(await h.asUser(page, "return [email.value, document.querySelector('[name=nickname]').value]"), ["agent@example.com", ""]);
     // Nor a press on what isn't a text field: nothing of the user's reaches
-    // the page until its clean copy is in (the manager's change).
+    // the page until its clean copy is in.
     await h.userClick(page, "#mixed");
     await userMoved(page);
     assert.deepEqual(await heard(page), [], "nor a click after it");
@@ -449,7 +448,7 @@ test("the hold ends with the document: the next one is unflagged, and the user's
     assert.equal((await triggers()).length, 1, "the new document set off nothing");
   }));
 
-test("a page the agent made keeps the user's typing on: no trigger, nothing stopped (the user's decision)", () =>
+test("a page the agent made keeps the user's typing on: no trigger, nothing stopped", () =>
   inWatchedPage(formsUrl("made"), async page => {
     await page.goto("data:text/html,<input id=f>");
     await h.until(async () => (await pageFlag(page)) === "drop", "zen-observe's made flag");
@@ -698,8 +697,8 @@ test("zen-core's failed release keeps the user's typing out of the document the 
 
 // ------------------------------------------------- the clean copy's replay
 // The keys the user types while a page with evidence loads afresh are typed again
-// into its clean copy, in the field they went for (the manager's rule,
-// 2026-11-20). zen-core's real clean copy, from a site whose second load of
+// into its clean copy, in the field they went for. zen-core's real clean
+// copy, from a site whose second load of
 // a page is slow: the user's keys come while it loads.
 
 const REPLAY_FIELD_USER = `<input id="user" name="user" autocomplete="off">`;

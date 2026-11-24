@@ -167,8 +167,7 @@ docs/                        SPEC, PROTOCOL, SPI, PARITY, the install and sideba
   background timer. A pref changes the 72 hours or turns this off. The tasks
   panel marks idle tasks and offers a one-click close. The closing follows
   §3.5. This deviates from Ego, which keeps task spaces until finished,
-  because zenius lives in the user's daily browser (the user's decision,
-  2026-11-20).
+  because zenius lives in the user's daily browser.
 - **Restarts.**
   - Each task tab carries its task, label, origin and opener in a session
     value, which Zen saves with the tab.
@@ -193,7 +192,7 @@ docs/                        SPEC, PROTOCOL, SPI, PARITY, the install and sideba
     Zen 1.24.2b saves every 40 s (`browser.sessionstore.interval` 40000).
     So a crash can lose a task up to about 40 s old: it fails as
     `not_restored`, at once, and the agent starts over. zenius doesn't force
-    saves (the manager, 2026-11-20).
+    saves.
   - A task none of whose tabs came back is removed, freeing its name. The
     agent's next call on it fails at once with `ZEN_TASK_SPACE_NOT_FOUND`,
     Ego's code for a task space that's gone, with `data.reason:
@@ -477,7 +476,7 @@ came from a cold run and is superseded by the table above.
 | `zen-sdk` | Linux | `sdk/`, `skill/`; `tests/security/` (the escape suite for I5, in `scripts/test-all.sh`) |
 | `zen-ux` | Linux, then Mac | `ui/`; `methods/ui.sys.mjs` (cursor, takeover, panel, badges, notifications); `clipboard/`, the per-Space agent clipboard's parent side and store (zen-input builds the synthesized chords and `keyboard.paste` on it) |
 | `zen-eval` | Mac | `tests/`, `docs/eval/`; Ego Lite baseline and golden snapshots; comparison reports |
-| `zen-ux`, with `zen-sidebar` | Linux; zen-sidebar on the Mac | The in-browser agent (the user's decision, 2026-11-21): `runtime/JS/agent-sidebar.uc.js` and `runtime/JS/agent-sidebar/` (its `vendor/` listed in `THIRD_PARTY.md`), and the '>' dispatch, `runtime/JS/agent-urlbar.uc.js` and `runtime/JS/agent-urlbar/`. zen-sidebar builds on `zen-sidebar/` branches and pushes branches only; zen-ux reviews, adds the headless tests, and merges after test-all |
+| `zen-ux`, with `zen-sidebar` | Linux; zen-sidebar on the Mac | The in-browser agent: `runtime/JS/agent-sidebar.uc.js` and `runtime/JS/agent-sidebar/` (its `vendor/` listed in `THIRD_PARTY.md`), and the '>' dispatch, `runtime/JS/agent-urlbar.uc.js` and `runtime/JS/agent-urlbar/`. zen-sidebar builds on `zen-sidebar/` branches and pushes branches only; zen-ux reviews, adds the headless tests, and merges after test-all |
 | `zen-core` | Linux | The MCP server's own files under `sdk/` (`zenius mcp`); `cli.ts` stays zen-sdk's |
 
 Each worker also owns `tests/<area>/` for its own runtime-level tests

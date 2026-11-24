@@ -1,4 +1,4 @@
-// The evidence flag (the user's call of 2026-11-21): one flag per document,
+// The evidence flag: one flag per document,
 // with its reasons (hooked, made, listed, flagged), which the defenses read
 // instead of written.
 // observe/evidence.sys.mjs (markEvident, isEvident, evidenceOf, onEvident) and

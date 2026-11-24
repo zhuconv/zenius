@@ -165,7 +165,7 @@ export const VECTORS = {
       .finally(() => f.remove());`,
   "devices-cross-frame": crossDevicesFrame("devices"),
   // The same without MIDI, which has no fake device: for the Mac, where only
-  // fake devices may run (the user's rule, 2026-11-20).
+  // fake devices may run.
   "devices-cross-frame-no-midi": crossDevicesFrame("devices no-midi"),
   // A popup's first document, before the parent routes the popup: its
   // natives, grabbed at once. Needs a click.
@@ -330,7 +330,7 @@ addEventListener("message", async e => {
  * their query, and WebSocket upgrades as "ws".
  */
 /**
- * The recorder for the local-network vectors (the user's rule, 2026-11-20).
+ * The recorder for the local-network vectors.
  * Tests make it the profile's HTTP proxy for everything but loopback
  * (recorderProxyPrefs), so a request the refusal missed lands here and
  * never on a real network: on the Mac, the user's LAN. It answers every

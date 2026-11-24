@@ -6,7 +6,7 @@
 // is a flag or a list, which zen-ux warns of instead. zen-core's parts: the
 // quiet load (a new GET entry, the form and the focus carried over), the
 // two-step replacement of a site's marked windows, the hold's refusal of new
-// windows, the discard of the agent's sandboxes (the user's decision (A)),
+// windows, the discard of the agent's sandboxes,
 // and what the hand back tells the agent. zen-observe's guards
 // (tests/observe) cover the rest.
 import assert from "node:assert/strict";
@@ -216,7 +216,7 @@ const discards = () => h.chrome(`return ctx.service.hoDiscards;`);
 const freshDiscards = () => h.chrome(`ctx.service.hoDiscards.length = 0; ctx.service.hoDiscardFail = null; return true;`);
 const taskOf = space => h.chrome(`return "task " + ctx.spaces.get(arg).id;`, space);
 
-/** The group switch is gone (the user's pass on the defenses, 2026-11-21), but a profile may still set its pref. */
+/** The group switch is gone, but a profile may still set its pref. */
 const leftoverGroupSwitch = on =>
   h.chrome(
     on ? `Services.prefs.setBoolPref("zenius.handoff.groupSwitch", true); return true;` : `Services.prefs.clearUserPref("zenius.handoff.groupSwitch"); return true;`
@@ -337,7 +337,7 @@ test("a page where the agent's code never ran is held, not loaded again", async 
   }
 });
 
-test("a page the agent's code only filled and focused is held as it is, with what the agent typed: that's no evidence (the user's call, 2026-11-21), and nor is a flag or a list", async () => {
+test("a page the agent's code only filled and focused is held as it is, with what the agent typed: that's no evidence, and nor is a flag or a list", async () => {
   const space = await h.space("ho filled");
   await freshDiscards();
   try {
@@ -939,8 +939,8 @@ test("a page that sends itself to another site with its own script as it loads a
   }
 });
 
-// Landing (2): zenius's clean loads under the isolated world, on evidence
-// since the user's call (A1, A3). zen-observe's world records the URL the
+// Landing (2): zenius's clean loads under the isolated world, on evidence.
+// zen-observe's world records the URL the
 // agent's code set in place (observe/agentworld.sys.mjs noteWritten), and
 // marks what its code left hooked; these tests set both through those hooks,
 // as content would.

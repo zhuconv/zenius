@@ -351,8 +351,8 @@ test("a one-time code the user typed while they held the tab is cleared on Resum
   }));
 
 // ---------------------------------------------------------------------------
-// onSecretTyped (zen-ux's line on the hold card, the manager's decision
-// 2026-11-20): the user's own input first changing a field Resume clears,
+// onSecretTyped (zen-ux's line on the hold card): the user's own input
+// first changing a field Resume clears,
 // once per document.
 
 /** onSecretTyped's calls from now on, as browserIds. */
@@ -728,8 +728,8 @@ test("hand back empties the card details the user typed, in every frame, and kee
 // ---------------------------------------------------------------------------
 // The user's saved card. Its number is encrypted with the OS keystore, which
 // on Linux is the session's Secret Service: tests/input/keyring.sh runs this
-// on a Zen of its own, with a private D-Bus session and a throwaway keyring
-// (the manager, 2026-11-20). Anywhere else it skips, and touches no keystore.
+// on a Zen of its own, with a private D-Bus session and a throwaway keyring.
+// Anywhere else it skips, and touches no keystore.
 
 const KEYRING_BUS = process.env.ZENIUS_KEYRING_BUS ?? "";
 const SAVED_CARD = { "cc-name": "Saved Cardholder", "cc-number": "4111111111111111", "cc-exp-month": 12, "cc-exp-year": 2031 };

@@ -1,4 +1,4 @@
-// Red-teaming the isolated world (the user's decision (A), 2026-11-20): the
+// Red-teaming the isolated world: the
 // agent's page code runs only in a sandbox, one world per document; page code
 // that tries to run while the agent's code is on the stack is refused; writes
 // flag the page; string timers are refused and page globals fail loudly;

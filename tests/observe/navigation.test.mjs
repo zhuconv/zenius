@@ -192,7 +192,7 @@ test("a pending navigation that commits in time lets the call run on the new doc
     assert.equal(await page.evaluate("location.pathname + location.search", undefined), "/slow-page?ms=700");
   }));
 
-test("goto to another fragment of the page is a same-document navigation: it returns at once, and the next call runs at once on that document (zen-eval's Mac run)", () =>
+test("goto to another fragment of the page is a same-document navigation: it returns at once, and the next call runs at once on that document (found on the Mac)", () =>
   env.inSpace("goto fragment", async page => {
     const tall = `data:text/html,<title>fragments</title><p id=a>a</p><div style="height:3000px"></div><p id=b>b</p>`;
     for (const url of [`${env.base}/nav-target`, tall]) {

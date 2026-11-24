@@ -948,7 +948,7 @@ in its place: the hook gets the same `params` for a form's POST as for a
 GET, and a POST never becomes a GET. While `AGENT_CODE_DOCS_KEY` is empty
 the check returns at once, without loading `agentcode.sys.mjs` (I4).
 
-Popup windows (items 2 and 3 for windows; zen-eval's Mac finding). A
+Popup windows (items 2 and 3 for windows, found on the Mac). A
 feature popup (`window.open` with a size or position) opens as a window
 under Firefox's default `browser.link.open_newwindow.restriction` (2), on
 the Mac and on Linux alike, and a window never reaches the tab hooks above.
@@ -988,9 +988,9 @@ Two layers:
 each open it refuses, with `reopened: false`; zen-ux's pill listens and
 says the page can't open windows until it reloads, with Reload.
 
-Kept pages' refusals, for zen-ux. Under the user's decision (A), a page
-whose top document holds the agent's code keeps the task's refusals after
-the task, and zen-ux's handler is how
+Kept pages' refusals, for zen-ux. A page whose top document holds the
+agent's code keeps the task's refusals after the task, and zen-ux's
+handler is how
 one there, right after the user's own click or key, reloads the page
 quietly (`cleanLoad`); it also feeds the card of a page the agent made.
 `onKeptRefused(fn)` (returns a remover) and `noteKeptRefused({browser,
@@ -1113,9 +1113,8 @@ Entry points (`modules/service.sys.mjs`):
 - Every end of a hold (an ownership change away from
   `agentDelegatedToUser`: Resume, the agent's takeOver, Stop, finish)
   releases the task's held pages (`releaseHolds`).
-- `discardAgentCode(target)`: zen-observe's `discard` (the user's decision
-  (A)), the agent's sandboxes and the workers they started, in every
-  process. `holdFor` calls it with `{task}` at every hand-off and Take
+- `discardAgentCode(target)`: zen-observe's `discard`, the agent's
+  sandboxes and the workers they started, in every process. `holdFor` calls it with `{task}` at every hand-off and Take
   over, and `#onSpaceEvent` at the task's end (its ownership becomes
   `user`: Stop, finish, its last tab closed), before `publishAgentBrowsers`
   takes the task's pages out of the list zen-observe reads.
@@ -1141,8 +1140,8 @@ The remedy (`holdFor`):
   copy comes in clean: H keeps its group and opener, and each history
   keeps its length.
 - H never moves into a group of its own at the hand-off. The group switch
-  that did (`zenius.handoff.groupSwitch`) is gone, by the user's pass on the
-  defenses (2026-11-21), and a profile's leftover pref does nothing.
+  that did (`zenius.handoff.groupSwitch`) is gone, and a profile's leftover
+  pref does nothing.
 - Then the check again: anything left loads afresh once more, and if even
   that leaves something, the hold is released and the hand-off refused
   (`reachable`). A load that brings no new document in 15 s is
@@ -1242,9 +1241,9 @@ Residuals:
   agent's site) leaves H in that group unless that window has evidence of
   the agent's code: the discard ended the agent's code there, and what's
   left is the site's own.
-- What evidence can't see stays, under the user's call (the brief's
-  list): what the agent's code filled in, a hidden input's value too,
-  stays in a page handed off as it is (the Cloudflare case).
+- What evidence can't see stays: what the agent's code filled in, a
+  hidden input's value too, stays in a page handed off as it is (the
+  Cloudflare case).
 - Page code the agent left in a hooked window may already have scripted a
   window of its site that the agent's code never wrote into; that window
   isn't loaded afresh (the rubric's rule 3).
@@ -3299,9 +3298,8 @@ sidebar". They're cross-owner: zen-observe's code in zen-ux's sidebar.
 
 ### The evidence flag
 
-The defenses act only on evidence of phishing or danger (the user's call,
-2026-11-21). It replaces written as their trigger. Written stays until no
-defense reads it.
+The defenses act only on evidence of phishing or danger. It replaces
+written as their trigger. Written stays until no defense reads it.
 - Each document (innerWindowId) may have reasons, each with a detail of one
   line, at most 200 characters:
   - `hooked`: the agent's code left something that outlives the discard of
@@ -3461,9 +3459,9 @@ A payload's `relativePath` makes a folder upload.
     cap is only a backstop.
 - **Firefox's folder question.** Gecko asks before any folder pick reaches
   a page (`nsIPromptCollection.confirmFolderUpload`, Bug 1338637). In an
-  agent tab, zen-observe's handler answers Cancel. With the manager's go
-  (2026-11-21), `content/filepicker.sys.mjs` puts a prompt collection in
-  front of Firefox's in each content process that holds a task page:
+  agent tab, zen-observe's handler answers Cancel.
+  `content/filepicker.sys.mjs` puts a prompt collection in front of
+  Firefox's in each content process that holds a task page:
   - The parent arms a token on its own actor message, for one frame and the
     folder it staged (`expectOwnFolder`, from `awaitFileInput` and
     `setInputFolder`).
@@ -3489,14 +3487,13 @@ A payload's `relativePath` makes a folder upload.
   - both routes, and each refusal;
   - a chooser opened by an input the page never attached, timed;
   - a planted link, and cleanup;
-  - the folder question in every case the manager named;
+  - the folder question in every case above;
   - the Mac's name collisions.
 
 ### The typing guard and the paste, on evidence
 
-The user's call of 2026-11-21: the guard acts only on evidence against a
-page, zen-observe's evidence flag, and of its reasons only on hooked (the
-manager's call, the same day). Written doesn't count.
+The guard acts only on evidence against a page, zen-observe's evidence
+flag, and of its reasons only on hooked. Written doesn't count.
 
 - **The guard.** `content/typing.sys.mjs` holds the user's first press or
   key in a page that has hooked evidence, in its top document or a frame
@@ -3534,8 +3531,8 @@ manager's call, the same day). Written doesn't count.
 
 ### Each task's steps
 
-Every zenius task shows in the sidebar, whoever drives it (the user's ask,
-2026-11-21). Its view lists the agent's steps from `input/steps.sys.mjs`.
+Every zenius task shows in the sidebar, whoever drives it. Its view lists
+the agent's steps from `input/steps.sys.mjs`.
 
 - **Recording.** zen-core's dispatcher calls `beginCall` as a client's call
   begins and `endCall` as it ends. A handler's own calls (`ctx.call`)

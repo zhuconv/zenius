@@ -4,7 +4,7 @@
 # which on Linux is the session's Secret Service (libsecret). So this Zen
 # gets a private D-Bus session and a throwaway gnome-keyring in a temp dir,
 # unlocked with an empty password, and nothing reaches the user's own
-# keyring (the manager, 2026-11-20). Linux only: on the Mac it would be the
+# keyring. Linux only: on the Mac it would be the
 # login Keychain, which no test uses. tests/input/run.sh runs this after
 # the suite, where the test skips.
 #
