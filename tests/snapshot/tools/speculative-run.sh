@@ -1,7 +1,8 @@
 #!/bin/bash
 # Runs speculative-probe.mjs against a
-# dev Zen with Gecko's own network defaults, in namespaces that keep every
-# packet and lookup on this machine:
+# dev Zen with Gecko's own network defaults (speculative-prefs.js puts back
+# what dev profiles turn off), in namespaces that keep every packet and
+# lookup on this machine:
 # - network: lo only, with 192.168.77.1 (the private target) and 203.0.113.10
 #   (a public site) added to it, so connects to either land on the probe's
 #   listeners;
@@ -31,6 +32,9 @@ printf 'passwd: files\ngroup: files\nshadow: files\nhosts: files\nnetworks: file
   for n in zs-pc1 zs-pc2 zs-eh1 zs-dp1 zs-dp2 zs-dp3 zs-dp4 zs-dp5; do echo "192.168.77.1 $n.local"; done
 } >"$ns/hosts"
 echo "nameserver 127.0.0.1" >"$ns/resolv.conf"
+# Zen's own defaults for what dev profiles turn off, then the caller's prefs.
+cat "$here/tests/snapshot/tools/speculative-prefs.js" ${ZENIUS_DEV_PREFS:+"$ZENIUS_DEV_PREFS"} >"$out/prefs.js"
+export ZENIUS_DEV_PREFS="$out/prefs.js"
 export ZEN_BIN=$zen SPEC_NAME=$name SPEC_OUT=$out SPEC_NS=$ns SPEC_HERE=$here
 exec unshare -rnm sh -c '
   mount --bind "$SPEC_NS/nsswitch.conf" /etc/nsswitch.conf &&

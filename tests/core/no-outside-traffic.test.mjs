@@ -49,6 +49,7 @@ test("it covers each kind of outside service the rule names", () => {
     "network.connectivity-service.enabled",
     "dom.push.connection.enabled",
     "network.dns.localDomains",
+    "network.http.speculative-parallel-limit",
     "browser.safebrowsing.provider.google4.updateURL",
     "network.trr.mode",
     "browser.search.suggest.enabled",

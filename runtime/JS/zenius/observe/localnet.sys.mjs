@@ -1,7 +1,9 @@
 // A task's pages and the local network (zen-observe). They may not reach
 // private-network addresses or .local names: an app's first reach into the
 // local network raises macOS 15's Local Network prompt, whose answer covers
-// the whole Zen.app, the user's own Zen included. Loopback stays open, for
+// the whole Zen.app, the user's own Zen included. A lookup alone raises it
+// for a Zen that was never asked: a .local name's, on the paths below that
+// this refusal can't stop ("Not caught here"). Loopback stays open, for
 // dev servers and the tests' fixtures. The user can open hosts and ranges,
 // such as servers on a private network, in the
 // zenius.agentTabs.allowPrivateNetworks pref, which agents can't reach: they
@@ -17,8 +19,8 @@
 // tab), so it isn't cancelled silently.
 //
 // The parent cancels a task page's request as it opens
-// (http-on-opening-request), before the channel looks the host up or
-// connects; a redirect's new request, which that topic skips, at
+// (http-on-opening-request), before the channel itself looks the host up
+// or connects; a redirect's new request, which that topic skips, at
 // http-on-modify-request, before it connects. page.goto refuses before
 // loading (agentLoadRefusal). A task's shared worker's requests, and those
 // of the workers it starts from a URL, name no tab: the mark in their
@@ -31,6 +33,14 @@
 // Not caught here:
 // - a DNS name that resolves to a private address;
 // - connection hints, which make no request: preconnect, and DNS prefetch;
+// - the lookups Gecko makes around a refused load, though nothing connects
+//   after them (a .local name's go to the system resolver, mDNS on the
+//   Mac): its speculative connection, as a link is hovered or focused (the
+//   agent's pointer and focus as the user's) and as a load from the browser
+//   starts; the DNS prefetch of a redirect's new host, and of a link's host
+//   that page script focuses or mouses over, which the task document's
+//   X-DNS-Prefetch-Control doesn't stop; and the HTTPS record it asks for
+//   once a refused top-level load stops;
 // - the site's service worker's own requests;
 // - WebRTC, which content/refusals.sys.mjs refuses in the page.
 

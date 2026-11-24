@@ -9,9 +9,11 @@
 // The task pages are served from 203.0.113.10, a public address, so Gecko's
 // Local Network Access, as shipped, would see public-to-private.
 //
-// Gecko's own network defaults: the probe changes no pref. Run it only
-// through speculative-run.sh, which builds the namespaces (network: lo only;
-// mount: hosts from files only); the probe checks them.
+// Gecko's own network defaults: the probe changes no pref, and
+// speculative-run.sh puts back what dev profiles turn off
+// (speculative-prefs.js). Run it only through speculative-run.sh, which
+// builds the namespaces (network: lo only; mount: hosts from files only);
+// the probe checks them.
 import fs from "node:fs";
 import http from "node:http";
 import net from "node:net";

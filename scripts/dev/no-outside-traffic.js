@@ -67,6 +67,12 @@ user_pref("doh-rollout.disable-heuristics", true);
 // Firefox's own pages included (about:compat links to hundreds of Bugzilla
 // bugs), though nothing loads them.
 user_pref("network.dns.disablePrefetch", true);
+// Speculative connections: Gecko looks a link's host up, and may connect to
+// it, as the link is hovered or focused, and as a load from the browser
+// starts. A .local name's lookup alone raises macOS's Local Network prompt
+// for an app that was never asked, a Mac dev copy included. A bench run can
+// turn them back on through ZENIUS_DEV_PREFS.
+user_pref("network.http.speculative-parallel-limit", 0);
 // Search suggestions, Firefox Suggest, and the region lookup that picks
 // the default engines.
 user_pref("browser.search.suggest.enabled", false);

@@ -375,8 +375,10 @@ test("end to end, on zen-observe's refusal: in the user's hold, an address they 
       ctx.spaces.setOwnership(rec, "agentDelegatedToUser", { reason: "manual_takeover", source: "agent" });
       const b = tabOf(${bid}).linkedBrowser;
       const was = b.browsingContext.currentWindowGlobal.innerWindowId;
-      // As the address bar loads it. zen-observe refuses a .local name before
-      // any lookup (http-on-opening-request): nothing leaves the machine.
+      // As the address bar loads it. zen-observe refuses the load as it opens
+      // (http-on-opening-request), so nothing connects. Gecko would look the
+      // name up first for its speculative connection (observe/localnet.sys.mjs,
+      // "Not caught here"), which dev profiles turn off.
       b.loadURI(Services.io.newURI("http://lan.local/zenius-e2e"), { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
       await until(() => noticeOf(${bid}));
       // Whatever the refused load shows next, the notice stays.
