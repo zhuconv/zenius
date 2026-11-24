@@ -166,6 +166,50 @@ export function zenVersion() {
   return Services.appinfo.version;
 }
 
+/**
+ * The site of an http(s) URL as the user knows it, zenius's one rule for a
+ * site: its registrable domain ("accounts.google.com.evil.co" is evil.co;
+ * an IP address or a one-label host is itself), shown as Firefox's address
+ * bar shows it. An IDN is Unicode when it's safe, and punycode when its
+ * letters could spoof another name, as for a Latin and Cyrillic mix.
+ *
+ * @param {nsIURI} uri  http(s)
+ * @returns {string}
+ */
+export function siteName(uri) {
+  let host;
+  try {
+    host = Services.eTLD.getBaseDomain(uri);
+  } catch {
+    host = uri.asciiHost;
+  }
+  try {
+    return Services.io.newURI(`${uri.scheme}://${host.includes(":") ? `[${host}]` : host}/`).displayHost;
+  } catch {
+    return host;
+  }
+}
+
+/**
+ * The site (siteName) of the top document a <browser> shows, by the
+ * document's own principal; null for anything but an http(s) page: about:,
+ * file:, an error page, or no document yet.
+ *
+ * @param {object} browser
+ * @returns {string|null}
+ */
+export function documentSite(browser) {
+  const principal = browser?.browsingContext?.currentWindowGlobal?.documentPrincipal;
+  if (!principal?.isContentPrincipal || !(principal.schemeIs("http") || principal.schemeIs("https"))) {
+    return null;
+  }
+  try {
+    return siteName(principal.URI);
+  } catch {
+    return null;
+  }
+}
+
 /** Milliseconds with sub-ms precision, monotonic. */
 export const now = () => ChromeUtils.now();
 

@@ -332,6 +332,48 @@ workspace of the user's, or of an ended task, waits in `askClaim` below.
   timeout?}`, sent alongside the claim on any connection. It answers
   `{verdict: null}` when the claim needed no ask.
 
+**A send as Resume agent** (zen-core's part). The agent sidebar may let
+the user's send in a task's Work chat count as Resume agent on the page
+they're watching. zen-core gives it these, in process:
+- `spaces.takeoverSiteOf(rec, browser)`: the site of the page `browser`
+  shows, or null, and then the hold stays. It's a site only when all of
+  these hold:
+  - the user holds `rec` by their own Take over (`heldBy` "user", reason
+    `manual_takeover`), never an agent's hand-off or a permission hold;
+  - `browser` shows one of `rec`'s managed pages, any window's copy
+    (`pages.forBrowser`), not a tab of the user's own;
+  - its top document, by its own principal, is on a site one of `rec`'s
+    pages was on when the user took over.
+- `rec.takeoverSites`: those sites. `setOwnership` notes them when the
+  user's Take over starts the hold, and forgets them at any change away
+  from `agentDelegatedToUser`. They live in memory only, so after a
+  restart there are none, and `takeoverSiteOf` is null.
+- `siteName(uri)` and `documentSite(browser)` in `modules/util.sys.mjs`:
+  the site rule. A site is an http(s) URL's registrable domain, with an IP
+  address or a one-label host as itself, shown as the address bar shows it
+  (punycode for a name that could spoof another). zen-ux's cards name
+  sites by the same rule.
+- `spaces.takeHandBackNotes(rec)`, given once: the task's pages zenius
+  loaded afresh since the agent last had control (`reloaded`: at the Take
+  over, at the user's first press in a hooked page, or at the hand back),
+  the secret steps' tabs it blanked (`blanked`), and whether the held page
+  lost its opener (`openerCut`). The turn's note carries them, so the
+  agent reads those pages again.
+
+The sidebar checks the rest itself, and only then hands back:
+- only the user's own press in the composer counts, never a message
+  queued during the hold, a steer turned question, a remote task's
+  `sidebar.send`, `submit()` or the self-check;
+- only for the chat's own task, held by Take over (`isHeld(conv) ===
+  "takeover"`), and not while a permission or passkey prompt is open on
+  the task's pages;
+- it hands back through the hold card's own entry, ZeniusUI's
+  `#beforeAgentRuns(rec, run, {handBack: true})`, as Resume agent does:
+  the quiet reload of each page whose document holds a secret the user
+  typed and evidence of the agent's code, `noteReloaded`, the hand-back
+  guard's clear and the resume token. It sends the prompt only once that
+  resolves, so the agent's first call finds the task its own.
+
 ### The task feed (zen-core, for zen-ux's sidebar)
 
 Every task's life for the sidebar's directory, whoever drives it.

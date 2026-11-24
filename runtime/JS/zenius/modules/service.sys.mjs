@@ -280,6 +280,8 @@ class Service {
     const paths = this.paths;
     this.pages.onChange = () => this.publishAgentBrowsers();
     this.spaces.tabsOf = rec => this.pages.tabsOf(rec);
+    this.spaces.pageBrowsersOf = rec => this.pages.list(rec.id).map(page => this.pages.tabFor(page)?.linkedBrowser).filter(Boolean);
+    this.spaces.pageOfBrowser = browser => this.pages.forBrowser(browser);
     this.pages.spaces = this.spaces;
     this.pages.onDeferred = (tab, info) => this.#onDeferredClose(tab, info);
     this.pages.onMoved = (page, from, to) => this.#onPageMoved(page, from, to);

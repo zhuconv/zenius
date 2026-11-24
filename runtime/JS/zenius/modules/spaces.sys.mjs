@@ -23,7 +23,7 @@
 
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
 import { hostWindow, tabsInWorkspace, workspaceWindows } from "chrome://userscripts/content/zenius/modules/windows.sys.mjs";
-import { log } from "chrome://userscripts/content/zenius/modules/util.sys.mjs";
+import { documentSite, log } from "chrome://userscripts/content/zenius/modules/util.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -98,6 +98,7 @@ export function clientLabel(text) {
  * @property {Ledger} ledger
  * @property {Window|null} window    transient: where its agent tabs live
  * @property {boolean} [gone]        transient: the workspace no longer exists
+ * @property {string[]|null} [takeoverSites]  transient: the sites its pages were on at the user's Take over, while that hold lasts (takeoverSiteOf)
  */
 
 export function newLedger() {
@@ -338,6 +339,10 @@ export class Spaces {
   }
   /** (rec) => tabs: a task's tabs, from the service (Pages.tabsOf). */
   tabsOf = null;
+  /** (rec) => the <browser>s of a task's managed pages, from the service (Pages.list). */
+  pageBrowsersOf = null;
+  /** (browser) => the managed page a <browser> shows, any window's copy, or null, from the service (Pages.forBrowser). */
+  pageOfBrowser = null;
 
   /** (event, params) => void; the service forwards to listeners and subscribers. */
   onEvent = null;
@@ -1101,9 +1106,16 @@ export class Spaces {
       rec.handedToUser = true;
       // A new handoff: the last hand back's via is spent.
       rec.handBackVia = null;
-    } else if (ownership === "agent" && source === "user") {
-      // The agent learns it from its next takeOver or waitForControl.
-      rec.handBackVia = typeof via === "string" && via ? via : null;
+      // The user's Take over notes the sites the task's pages are on, which
+      // a send in its Work chat may hand the task back on (takeoverSiteOf).
+      // An agent's hand-off or a permission hold notes none.
+      rec.takeoverSites = source === "user" && nextReason === "manual_takeover" ? this.#pageSites(rec) : null;
+    } else {
+      rec.takeoverSites = null;
+      if (ownership === "agent" && source === "user") {
+        // The agent learns it from its next takeOver or waitForControl.
+        rec.handBackVia = typeof via === "string" && via ? via : null;
+      }
     }
     this.#persist();
     const held = ownership === "agentDelegatedToUser";
@@ -1159,6 +1171,45 @@ export class Spaces {
       rec.handBackBlanked = [];
       this.#persist();
     }
+  }
+
+  /** The sites (siteName) of a task's managed pages' top documents, http(s) ones only. */
+  #pageSites(rec) {
+    const sites = new Set();
+    for (const browser of this.pageBrowsersOf?.(rec) ?? []) {
+      const site = documentSite(browser);
+      if (site) {
+        sites.add(site);
+      }
+    }
+    return [...sites];
+  }
+
+  /**
+   * The site of the page a <browser> shows when a send in the task's Work
+   * chat may count as Resume agent on it (docs/SPI.md, "A send as Resume
+   * agent"), else null, and the hold stays. All of these must hold:
+   * - the user holds the task by their own Take over (not an agent's
+   *   hand-off or a permission hold);
+   * - `browser` shows one of the task's managed pages, in any window;
+   * - its top document is on a site (siteName) one of the task's pages was
+   *   on when the user took over.
+   * The sites noted at the Take over live in memory only: after a restart
+   * there are none, and this is null.
+   *
+   * @param {SpaceRecord} rec
+   * @param {object} browser
+   * @returns {string|null}
+   */
+  takeoverSiteOf(rec, browser) {
+    if (!rec || rec.gone || rec.ownership !== "agentDelegatedToUser" || rec.heldBy !== "user" || rec.reason !== "manual_takeover") {
+      return null;
+    }
+    if (!rec.takeoverSites?.length || this.pageOfBrowser?.(browser)?.spaceId !== rec.id) {
+      return null;
+    }
+    const site = documentSite(browser);
+    return site && rec.takeoverSites.includes(site) ? site : null;
   }
 
   /**
