@@ -225,6 +225,128 @@ test("finish waits for a tab another window shows, and no window's view moves", 
   }
 });
 
+/**
+ * Where each window has the copies of the task's pages: in its Agents
+ * Space's strip, in order, with nothing in the Space the window shows.
+ */
+const copiesPlaced = (space, labels) =>
+  h.chrome(
+    `${W}
+     const agents = ctx.spaces.agentsSpace.uuid;
+     return wins().map((w, n) => {
+       const box = w.gZenWorkspaces.workspaceElement(agents)?.tabsContainer;
+       const shown = w.gZenWorkspaces.workspaceElement(w.gZenWorkspaces.activeWorkspace)?.tabsContainer;
+       const copies = arg.labels.map(l => copyOf(liveOf(arg.space, l), n));
+       return {
+         inAgents: copies.map(c => !!c && !!box && box.contains(c) && c.getAttribute("zen-workspace-id") === agents),
+         inOrder: copies.every((c, i) => i === 0 || c?.previousElementSibling === copies[i - 1]),
+         inShown: copies.filter(c => c && shown !== box && shown?.contains(c)).length,
+       };
+     });`,
+    { space, labels }
+  );
+
+/** Another task in the Agents Space: running, or stopped by the user, who keeps its tab. */
+async function otherTask(stopped) {
+  const space = await h.space(stopped ? "stopped" : "running");
+  const { label } = await h.call("pages.new", { space, url: `${h.base}/api/text?other` });
+  const B = `const s = ctx.spaces.get(arg.space); const b = ctx.pages.tabFor(ctx.pages.get(s, arg.label)).linkedBrowser;`;
+  await h.until(async () => (await h.chrome(`${B} return b.currentURI.spec;`, { space, label })).includes("text?other"), 10000);
+  const id = await h.chrome(`${W} return Win.syncId(liveOf(arg.space, arg.label));`, { space, label });
+  if (stopped) {
+    await h.chrome(`${B} await ctx.service.userTakeOver(s, b); ctx.spaces.setOwnership(s, "user", { source: "user" }); return true;`, { space, label });
+    await h.call("spaces.finish", { space, keep: [] }).catch(() => {});
+  }
+  return {
+    async end() {
+      await h.call("spaces.finish", { space, keep: [] }).catch(() => {});
+      // The tab a stop left is the user's: closed here as they would.
+      await h.chrome(
+        `${W}
+         const tab = nth(0).document.getElementById(arg);
+         if (tab && !tab.closing) nth(0).gBrowser.removeTab(tab, { animate: false });
+         await until(() => wins().every(w => !w.document.getElementById(arg)));
+         return true;`,
+        id
+      );
+    },
+  };
+}
+
+test("a task's pages started as another's page closes get their copies in each window's Agents Space, with a task running or stopped", async () => {
+  // The other task keeps the Agents Space. The second window shows a page
+  // of a task that ends, and leaves it: its close goes ahead as the next
+  // task starts. Window sync puts each copy after the copy of the tab
+  // before the original, and the closing tab's copy is gone first.
+  for (const stopped of [false, true]) {
+    const other = await otherTask(stopped);
+    let space;
+    try {
+      const ended = await task(`ended ${stopped ? "stopped" : "running"}`);
+      await userSelects(1, ended.space, ended.p2, { focused: true });
+      await userLeaves(1);
+      const view = await h.view();
+      await h.call("spaces.finish", { space: ended.space, keep: [] });
+      let p2;
+      ({ space, p2 } = await task(`after a close ${stopped ? "stopped" : "running"}`));
+      await h.chrome(`${W} await sleep(300); return true;`);
+      assert.deepEqual(
+        await copiesPlaced(space, ["p1", p2]),
+        [0, 1].map(() => ({ inAgents: [true, true], inOrder: true, inShown: 0 })),
+        `${stopped}: each window's Agents Space has the task's copies, in order, and the Space it shows none`
+      );
+      assert.deepEqual(await h.view(), view, `${stopped}: I1, no window's view changed`);
+      // The second window shows the page, so finish waits for it.
+      await userSelects(1, space, p2, { focused: false });
+      const done = await h.call("spaces.finish", { space, keep: [] });
+      space = null;
+      assert.equal(done.pendingCloseCount, 1, `${stopped}: p2 waits, since the second window shows it`);
+      await userLeaves(1);
+    } finally {
+      await userLeaves(1).catch(() => {});
+      if (space) await h.call("spaces.finish", { space, keep: [] }).catch(() => {});
+      await other.end();
+    }
+  }
+});
+
+test("copies window sync left in the Space a window shows go to its Agents Space with the task's next page, in order", async () => {
+  // As window sync leaves them when the copy of the tab before the
+  // original is missing: the copy where it opened, in the Space the
+  // window shows, and each later page's copy after it there. Window sync
+  // doesn't see this move: it ignores a closing window's events.
+  const { space, p2 } = await task("stray copies");
+  try {
+    const strayed = await h.chrome(
+      `${W}
+       const w = nth(1);
+       const copy = copyOf(liveOf(arg.space, arg.p2), 1);
+       const shown = w.gZenWorkspaces.workspaceElement(w.gZenWorkspaces.activeWorkspace).tabsContainer;
+       w._zenClosingWindow = true;
+       try {
+         w.gBrowser.zenHandleTabMove(copy, () => shown.insertBefore(copy, shown.querySelector(":scope > #tabbrowser-arrowscrollbox-periphery")));
+       } finally {
+         w._zenClosingWindow = false;
+       }
+       await sleep(100);
+       return { inShown: shown.contains(copy), space: copy.getAttribute("zen-workspace-id") === ctx.spaces.agentsSpace.uuid };`,
+      { space, p2 }
+    );
+    assert.deepEqual(strayed, { inShown: true, space: true }, "the second window's copy of p2 is in the Space it shows");
+    const view = await h.view();
+    const { label } = await h.call("pages.new", { space });
+    await h.chrome(`${W} await until(() => copyOf(liveOf(arg.space, arg.label), 1)); await sleep(300); return true;`, { space, label });
+    assert.deepEqual(
+      await copiesPlaced(space, ["p1", p2, label]),
+      [0, 1].map(() => ({ inAgents: [true, true, true], inOrder: true, inShown: 0 })),
+      "both windows' Agents Spaces have every page's copy, in order"
+    );
+    assert.deepEqual(await h.view(), view, "I1: no window's view changed");
+  } finally {
+    await h.call("spaces.finish", { space, keep: [] }).catch(() => {});
+  }
+});
+
 test("lists count each tab once, whatever the number of windows", async () => {
   const { space, p2 } = await task("count");
   const tabs = await h.call("tabs.list", { space });

@@ -14,6 +14,7 @@ import {
   KEPT_REFUSAL_KINDS,
   KEPT_TEXT_MAX,
   noteKeptRefused,
+  stopFollowingWindowSync,
   stripTabs,
   syncedSoon,
   syncId,
@@ -447,6 +448,7 @@ class Service {
   }
 
   shutdown() {
+    stopFollowingWindowSync();
     this.selfCheckServer?.close();
     this.selfCheckServer = null;
     this.server?.close();

@@ -683,10 +683,28 @@ zenius treats a tab's copies as one tab:
     So `registerWindow` makes a new window's missing copies of agent
     pages (the Agents Space's and claimed workspaces'), once its window
     sync is ready (`fillCopies(tabs, win)`; made as Zen's `on_TabOpen`
-    makes one). After each placement, `repairCopiesSoon(tab)` makes the
-    copies a window's strip lacks up to the tab. `fillCopies` runs only
-    in a promise job: Zen's queued `TabOpen` handler must find the copy's
-    sync id set, or it would copy the copy into every window.
+    makes one). `fillCopies` runs only in a promise job: Zen's queued
+    `TabOpen` handler must find the copy's sync id set, or it would copy
+    the copy into every window.
+  - A tab before the original whose copy is gone already, a closing tab's,
+    leaves the copy where it opened too. So `placeTab` never puts a tab
+    right after a closing one (`closing`, or in Tabbrowser's removing
+    tabs), but before them; a close that waits for the user (Closing
+    tabs, below) is an open tab still.
+  - After each placement, `repairCopiesSoon(tab)` checks every window's
+    copies of the tab's strip up to the tab: it makes those a window
+    lacks, and moves those outside the strip of the tab's Space in that
+    window into it, each after the nearest copy already there, else
+    first, as window sync places one (`zenHandleTabMove`, with
+    `notePlacing`). It runs in a promise job when the tab has its sync
+    id, and again each time window sync has handled the tab's `TabOpen`
+    or `TabMove` in the next 10 s (`ZenWindowSync.addSyncHandler`,
+    removed at shutdown). A new tab gets its sync id, copies and their
+    first place in window sync's queued `TabOpen` handler, which may run
+    after the tab's add and move; the check right after it runs before
+    the view keeper puts each window's view back. A Zen without
+    `addSyncHandler` gets the check once the tab has its id
+    (`syncedSoon`).
 - `pages.keepView(fn)` runs every strip change zenius makes and returns
   its value: `addTab` from the add on (which passes through the window's
   active Space), a popup's add and move, `closeTab`'s `removeTab`, and

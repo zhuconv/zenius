@@ -330,7 +330,21 @@ export function placeTab(tab, uuid, after) {
       ? items.at(-1).nextSibling
       : container.querySelector(":scope > #tabbrowser-arrowscrollbox-periphery");
   }
+  // Never right after a tab on its way out: window sync puts each copy
+  // after the copy of the tab before it, and a closing tab's copies may be
+  // gone already, which leaves the new tab's copies in the Space each
+  // window shows. Before the closing tabs, the order is the same once
+  // they're gone. (A close that waits for the user is an open tab still.)
+  for (
+    let prev = ref ? ref.previousElementSibling : container.lastElementChild;
+    prev && prev !== tab && leaving(gBrowser, prev);
+    prev = prev.previousElementSibling
+  ) {
+    ref = prev;
+  }
   if (!entering && (ref === tab || tab.nextSibling === ref)) {
+    // In place already; window sync copies a new tab after this all the same.
+    repairCopiesSoon(tab);
     return;
   }
   let synced = false;
@@ -353,6 +367,18 @@ export function placeTab(tab, uuid, after) {
     syncCopies(tab);
   }
   repairCopiesSoon(tab);
+}
+
+/**
+ * Is `el` a tab on its way out? Tabbrowser marks a tab closing, and adds it
+ * to its removing tabs, from the start of its removal, its animation
+ * included, until it leaves the strip.
+ *
+ * @param {object} gBrowser
+ * @param {Element} el
+ */
+function leaving(gBrowser, el) {
+  return gBrowser.isTab(el) && (!!el.closing || !!gBrowser._removingTabs?.has?.(el));
 }
 
 /** Have Zen's window sync move every other window's copy of `tab` to where it is. */
@@ -526,34 +552,131 @@ export function fillCopies(tabs, win) {
 }
 
 /**
- * Once window sync has moved `tab`'s copies, check that each synced window
- * has its copy in `tab`'s Space, and repair one that hasn't: make the
- * copies its strip lacks up to `tab` (fillCopies), then have window sync
- * place them. A promise job after the move, which is when Zen's queued
- * TabMove handler runs, and where fillCopies may run.
+ * Tabs zenius placed lately → until when (Date.now() ms) repairCopies runs
+ * each time window sync has handled one's TabOpen or TabMove.
+ *
+ * @type {WeakMap<Element, number>}
+ */
+const repairing = new WeakMap();
+// Window sync handles a new tab's TabOpen within a few ms, unless its queue
+// holds a slower handler first, such as a docShell swap's.
+const REPAIRING_MS = 10000;
+/** Does window sync call afterWindowSync? null until first asked; false after shutdown. */
+let following = null;
+
+/**
+ * Check that each synced window has `tab`'s copy in `tab`'s Space, and
+ * repair what window sync left (repairCopies): in a promise job after this
+ * when the tab has its sync id, which is when Zen's queued TabMove handler
+ * runs and where fillCopies may run, and again each time window sync has
+ * handled the tab's TabOpen or TabMove in the next few seconds. A new tab
+ * gets its sync id, its copies and their first place in window sync's
+ * TabOpen handler, which may run only after the tab's add and move. A Zen
+ * whose window sync has no handlers to follow gets the check once the
+ * tab has its id.
  *
  * @param {Element} tab
  */
 export function repairCopiesSoon(tab) {
-  if (!syncId(tab) || !syncsTab(tab)) {
+  if (!tab) {
     return;
   }
-  Promise.resolve().then(() => {
-    try {
-      repairCopies(tab);
-    } catch (e) {
-      console.error("[zenius] repairing a tab's copies failed", e);
+  repairing.set(tab, Date.now() + REPAIRING_MS);
+  const follows = followWindowSync();
+  if (syncId(tab)) {
+    if (syncsTab(tab)) {
+      Promise.resolve().then(() => repairNow(tab));
     }
-  });
+  } else if (!follows) {
+    syncedSoon(tab).then(() => {
+      if (syncId(tab) && syncsTab(tab)) {
+        repairNow(tab);
+      }
+    });
+  }
 }
 
+/** Have window sync call afterWindowSync after each event its queue handles, if it can. */
+function followWindowSync() {
+  if (following === null) {
+    following = false;
+    try {
+      // Inside the try: the lazy getter throws on a Zen without the module.
+      const sync = lazy.ZenWindowSync;
+      if (typeof sync?.addSyncHandler === "function" && typeof sync.removeSyncHandler === "function") {
+        sync.addSyncHandler(afterWindowSync);
+        following = true;
+      }
+    } catch (e) {
+      console.error("[zenius] can't follow window sync's handlers", e);
+    }
+  }
+  return following;
+}
+
+/** At shutdown: leave nothing of zenius in window sync. */
+export function stopFollowingWindowSync() {
+  if (following) {
+    try {
+      lazy.ZenWindowSync.removeSyncHandler(afterWindowSync);
+    } catch (e) {
+      console.error("[zenius] can't stop following window sync's handlers", e);
+    }
+  }
+  following = false;
+}
+
+/**
+ * Window sync calls this with each event its queue handled (not those it
+ * handles at once, as TabSelect), right after the event's handler, in the
+ * next promise job. For a new agent tab, that's right after the TabOpen
+ * handler that made and placed the tab's copies: before the window paints,
+ * and before the view keeper, which waits for the tab's sync id, puts each
+ * window's view back. So a copy that passed through the Space a window
+ * shows leaves it unseen. Any other tab's event costs a type check or one
+ * lookup.
+ *
+ * @param {Event} event
+ */
+function afterWindowSync(event) {
+  if (event?.type !== "TabOpen" && event?.type !== "TabMove") {
+    return;
+  }
+  const tab = event.target;
+  const until = tab ? repairing.get(tab) : undefined;
+  if (!until) {
+    return;
+  }
+  if (until < Date.now()) {
+    repairing.delete(tab);
+    return;
+  }
+  if (syncId(tab) && syncsTab(tab)) {
+    repairNow(tab);
+  }
+}
+
+function repairNow(tab) {
+  try {
+    repairCopies(tab);
+  } catch (e) {
+    console.error("[zenius] repairing a tab's copies failed", e);
+  }
+}
+
+/**
+ * Give each synced window the copies of `tab`'s strip, up to `tab`, that
+ * it lacks (fillCopies), and move those that sit outside the strip of
+ * `tab`'s Space in that window into it (moveCopiesInto).
+ *
+ * @param {Element} tab
+ */
 function repairCopies(tab) {
-  if (tab.closing || !tab.isConnected) {
+  if (tab.closing || !tab.isConnected || tab.group || tab.splitview) {
     return;
   }
   const win = tab.ownerDocument.defaultView;
   const uuid = tab.getAttribute("zen-workspace-id");
-  let moved = false;
   for (const other of workspaceWindows()) {
     if (other === win || !syncsInto(other)) {
       continue;
@@ -565,16 +688,65 @@ function repairCopies(tab) {
     }
     const strip = stripTabs(win, uuid);
     const upTo = strip.indexOf(tab);
-    const made = fillCopies(upTo < 0 ? [tab] : strip.slice(0, upTo + 1), other);
+    const tabs = upTo < 0 ? [tab] : strip.slice(0, upTo + 1);
+    const made = fillCopies(tabs, other);
+    const moved = moveCopiesInto(tabs, other, box, uuid);
     console.warn(
-      `[zenius] a window had ${copy ? "its copy of tab " + tab.id + " outside the tab's Space" : "no copy of tab " + tab.id} after window sync; made ${made.length} cop${made.length === 1 ? "y" : "ies"} there`
+      `[zenius] a window had ${copy ? "its copy of tab " + tab.id + " outside the tab's Space" : "no copy of tab " + tab.id} after window sync; made ${made.length} and moved ${moved} into the Space there`
     );
-    moved = true;
   }
-  if (moved) {
+}
+
+/**
+ * Move the copies in `win` of `tabs` (one window's strip, in order) that
+ * sit outside `box`, the strip of their Space in `win`, into it: each
+ * after the copy of the nearest tab before it whose copy is there, else
+ * first, as window sync places a copy. Window sync leaves a copy where it
+ * opened, in the Space `win` shows, when the tab before the original has
+ * no copy in `win` (a closing tab's may be gone already), and then puts
+ * each later page's copy after that one, there too.
+ *
+ * @param {Element[]} tabs
+ * @param {Window} win
+ * @param {Element} box
+ * @param {string} uuid
+ * @returns {number} the copies moved
+ */
+function moveCopiesInto(tabs, win, box, uuid) {
+  const { gBrowser } = win;
+  let before = null;
+  let moved = 0;
+  for (const tab of tabs) {
+    const copy = copyInWindow(win, syncId(tab));
+    if (!copy || copy.closing) {
+      continue;
+    }
+    if (box.contains(copy)) {
+      before = topLevelIn(box, copy);
+      continue;
+    }
+    if (copy.pinned || copy.group || copy.splitview || copy.hasAttribute("zen-essential") || copy === gBrowser.selectedTab) {
+      // Not a strip's own tab, or the one the window shows: left as it is.
+      continue;
+    }
+    const ref = before ? before.nextSibling : box.firstChild;
     notePlacing(tab);
-    syncCopies(tab);
+    gBrowser.zenHandleTabMove(copy, () => {
+      copy.setAttribute("zen-workspace-id", uuid);
+      box.insertBefore(copy, ref);
+    });
+    before = copy;
+    moved++;
   }
+  return moved;
+}
+
+/** The child of `box` that holds `el`: a folder, a split view, or `el`. */
+function topLevelIn(box, el) {
+  while (el && el.parentElement !== box) {
+    el = el.parentElement;
+  }
+  return el;
 }
 
 /** Tabbrowsers zenius is adding an agent tab to → adds under way, until window sync has copied each tab. */
@@ -747,8 +919,9 @@ export function addBackgroundTab(win, workspaceUuid, { userContextId = 0, addTab
   if (tab.getAttribute("zen-workspace-id") !== workspaceUuid) {
     notePlacing(tab);
     gZenWorkspaces.moveTabToWorkspace(tab, workspaceUuid);
-    repairCopiesSoon(tab);
   }
+  // Moved or not, window sync copies the new tab after this.
+  repairCopiesSoon(tab);
   return tab;
 }
 
