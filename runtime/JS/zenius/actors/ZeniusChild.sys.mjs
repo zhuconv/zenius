@@ -12,6 +12,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   watchReuse: "chrome://userscripts/content/zenius/content/signinguard.sys.mjs",
   installPageGuards: "chrome://userscripts/content/zenius/content/guards.sys.mjs",
   installRefusalGuards: "chrome://userscripts/content/zenius/content/refusals.sys.mjs",
+  pendingSignIn: "chrome://userscripts/content/zenius/content/signinguard.sys.mjs",
   refuseSignIn: "chrome://userscripts/content/zenius/content/signinguard.sys.mjs",
   toWireError: "chrome://userscripts/content/zenius/modules/errors.sys.mjs",
   ZenError: "chrome://userscripts/content/zenius/modules/errors.sys.mjs",
@@ -82,8 +83,16 @@ export class ZeniusChild extends JSWindowActorChild {
         throw new lazy.ZenError("ZEN_INVALID_ARGUMENT", `bad content module name ${JSON.stringify(module)}`);
       }
       // An agent method's call (the parent says which kind): the sign-in
-      // rules are checked here, at entry and before the result goes out.
+      // rules are checked here, at entry and before the result goes out. An
+      // act on a page that only its parsed settings tell apart (Microsoft's
+      // consent prompt) waits for that check first.
       if (gate) {
+        if (gate.kind === "act") {
+          const pending = lazy.pendingSignIn(this);
+          if (pending) {
+            await pending;
+          }
+        }
         lazy.refuseSignIn(this, gate.kind, gate.method);
       }
       const mod = ChromeUtils.importESModule(`${CONTENT_BASE}${module}.sys.mjs`);

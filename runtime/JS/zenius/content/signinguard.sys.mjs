@@ -5,13 +5,18 @@
 // when the guards install. An agent call into a sign-in page is refused
 // here, in the page's process, at its entry and again before its result
 // goes out, so a call can't read a page that the check let through.
+// Microsoft's work and school consent prompt shares its addresses with the
+// sign-in page, so a document on that host is checked again once it is
+// parsed, from its own settings; an act waits for that check.
 //
 // Only a task's documents load this module: the Zenius actor imports it
 // lazily (I4).
 
 import {
-  DEVICE_PAGES_KEY,
   SIGN_IN_DOCS_KEY,
+  TEST_PAGES_KEY,
+  configShowsConsent,
+  consentByConfig,
   signInPageOf,
   signInRefusal,
 } from "chrome://userscripts/content/zenius/content/signin.sys.mjs";
@@ -26,14 +31,88 @@ import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys
  */
 const assessed = new WeakMap();
 
-/** The tests' extra device-login pages, which the parent publishes on dev profiles only. */
-function extraDevicePages() {
+/**
+ * The consent checks that wait for their document to be parsed: Document to
+ * a promise that settles once the check has run.
+ *
+ * @type {WeakMap<Document, Promise<void>>}
+ */
+const configChecks = new WeakMap();
+
+/** The tests' extra pages ({device, consent, consentConfig}), which the parent publishes on dev profiles only. */
+function testPages() {
   try {
-    const pages = Services.cpmm.sharedData.get(DEVICE_PAGES_KEY);
-    return Array.isArray(pages) ? pages : [];
+    const pages = Services.cpmm.sharedData.get(TEST_PAGES_KEY);
+    const list = key => (Array.isArray(pages?.[key]) ? pages[key] : []);
+    return { device: list("device"), consent: list("consent"), consentConfig: list("consentConfig") };
   } catch {
-    return [];
+    return { device: [], consent: [], consentConfig: [] };
   }
+}
+
+function report(actor, flag) {
+  try {
+    actor.sendAsyncMessage("signIn", flag);
+  } catch {
+    // The document is going away with its actor.
+  }
+}
+
+/** The inline script that sets a Microsoft sign-in page's settings, or "". */
+function settingsOf(doc) {
+  for (const script of doc.scripts) {
+    if (!script.src && script.text.includes("$Config=")) {
+      return script.text;
+    }
+  }
+  return "";
+}
+
+/** Check a parsed document's own settings: a consent prompt gets its flag now. */
+function checkConfig(actor, doc, label) {
+  let consent = false;
+  try {
+    consent = configShowsConsent(settingsOf(doc));
+  } catch (e) {
+    console.error("[zenius] reading a sign-in page's settings failed", e);
+  }
+  if (consent && !assessed.get(doc)) {
+    const flag = { reason: "consent", page: label };
+    assessed.set(doc, flag);
+    report(actor, flag);
+  }
+}
+
+/**
+ * Check `doc` (on a host whose consent prompt only its page tells apart)
+ * once it is parsed: now if it is, else at its DOMContentLoaded, which an
+ * act waits for (pendingSignIn).
+ */
+function watchConfig(actor, doc, label) {
+  if (doc.readyState !== "loading") {
+    checkConfig(actor, doc, label);
+    return;
+  }
+  const win = doc.defaultView;
+  if (!win) {
+    return;
+  }
+  const opts = { capture: true, mozSystemGroup: true };
+  configChecks.set(
+    doc,
+    new Promise(resolve => {
+      const onParsed = event => {
+        if (event.target !== doc) {
+          return;
+        }
+        win.removeEventListener("DOMContentLoaded", onParsed, opts);
+        configChecks.delete(doc);
+        checkConfig(actor, doc, label);
+        resolve();
+      };
+      win.addEventListener("DOMContentLoaded", onParsed, opts);
+    })
+  );
 }
 
 /**
@@ -67,20 +146,62 @@ export function assessSignIn(actor, early = false) {
     } catch {}
   }
   let flag = null;
+  let byConfig = null;
   try {
-    flag = signInPageOf(url ?? doc.documentURIObject, doc.referrer, extraDevicePages());
+    const pages = testPages();
+    flag = signInPageOf(url ?? doc.documentURIObject, doc.referrer, pages);
+    byConfig = flag ? null : consentByConfig(url ?? doc.documentURIObject, pages.consentConfig);
   } catch (e) {
     console.error("[zenius] assessing a document for the sign-in rules failed", e);
   }
   assessed.set(doc, flag);
   if (flag) {
-    try {
-      actor.sendAsyncMessage("signIn", flag);
-    } catch {
-      // The document is going away with its actor.
-    }
+    report(actor, flag);
+  } else if (byConfig) {
+    watchConfig(actor, doc, byConfig);
   }
-  return flag;
+  return assessed.get(doc);
+}
+
+/**
+ * A promise while the actor's document waits to be parsed for its consent
+ * check, else undefined. An act on such a document waits for it, so the
+ * agent's call can't land on the prompt before the check has seen it.
+ *
+ * @param {JSWindowActorChild} actor
+ * @returns {Promise<void>|undefined}
+ */
+export function pendingSignIn(actor) {
+  let doc = null;
+  try {
+    doc = actor.document;
+  } catch {}
+  if (!doc) {
+    return undefined;
+  }
+  if (!assessed.has(doc)) {
+    assessSignIn(actor);
+  }
+  return configChecks.get(doc);
+}
+
+/**
+ * For the parent's page gate before an act on a page that only its
+ * settings tell apart: wait for the document's check, then give its flag
+ * and which document it is.
+ *
+ * @returns {Promise<{flag: {reason: string, page: string}|null, innerWindowId: number}>}
+ */
+export async function settle(actor) {
+  const pending = pendingSignIn(actor);
+  if (pending) {
+    await pending;
+  }
+  let innerWindowId = 0;
+  try {
+    innerWindowId = actor.manager.innerWindowId;
+  } catch {}
+  return { flag: assessSignIn(actor), innerWindowId };
 }
 
 /**
@@ -185,7 +306,8 @@ export function check() {
 /**
  * Throw ZEN_SIGN_IN_PAGE unless agent method `method`, a call of kind
  * `gate`, may run in the actor's document. A sign-in result refuses reads
- * and acts, in its frames too; a device-login page refuses acts.
+ * and acts, in its frames too; a device-login page and a consent screen
+ * refuse acts.
  *
  * @param {JSWindowActorChild} actor
  * @param {"read"|"act"} gate
@@ -205,10 +327,10 @@ export function refuseSignIn(actor, gate, method) {
     refuse(top, true);
   }
   if (gate === "act") {
-    if (own?.reason === "device_login") {
+    if (own?.reason === "device_login" || own?.reason === "consent") {
       refuse(own, false);
     }
-    if (top?.reason === "device_login") {
+    if (top?.reason === "device_login" || top?.reason === "consent") {
       refuse(top, true);
     }
   }

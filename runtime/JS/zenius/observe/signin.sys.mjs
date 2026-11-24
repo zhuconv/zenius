@@ -8,22 +8,40 @@
 // - for the events a sign-in result's document makes, which are dropped;
 // - for the titles the lists and page.info report.
 // It publishes them as sharedData too, for a frame whose top document is in
-// another process. It loads with the first report or the first agent call,
-// not at startup (I4).
+// another process. A page that only its own settings show to be a consent
+// prompt (Microsoft's work and school sign-in host) is checked in its
+// process once parsed; an act there waits for that check (signInPageGate).
+// An act is checked against its tab's current address too, for a page that
+// moves to a device-login page or a consent screen in place.
+// It loads with the first report or the first agent call, not at startup
+// (I4).
 
 import {
-  DEVICE_PAGES_KEY,
   SIGN_IN_DOCS_KEY,
   SIGN_IN_REASONS,
+  TEST_PAGES_KEY,
   carriesAuthorizationResponse,
+  consentByConfig,
+  listedPageOf,
   signInGateFor,
   signInRefusal,
 } from "chrome://userscripts/content/zenius/content/signin.sys.mjs";
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
 import { devMode } from "chrome://userscripts/content/zenius/modules/util.sys.mjs";
 
-/** The tests' device-login pages: URL prefixes, read on a dev launcher's profile only. */
-const DEVICE_PAGES_PREF = "zenius.signIn.devicePages";
+/**
+ * The tests' pages, URL prefixes read on a dev launcher's profile only:
+ * device-login pages, consent screens, and consent screens told apart by
+ * their own settings as Microsoft's are. A loopback mock under one of them
+ * meets the rule as the provider's page would.
+ */
+const TEST_PAGE_PREFS = {
+  device: "zenius.signIn.devicePages",
+  consent: "zenius.signIn.consentPages",
+  consentConfig: "zenius.signIn.consentConfigPages",
+};
+const NO_TEST_PAGES = Object.freeze({ device: [], consent: [], consentConfig: [] });
+let testPages = NO_TEST_PAGES;
 
 /**
  * The sign-in pages the actor reported, while their documents live.
@@ -69,36 +87,44 @@ function watch() {
   }
 }
 
-/** The tests' device-login pages from the pref, on a dev launcher's profile; none elsewhere. */
-function readDevicePages() {
+/** The tests' pages from the prefs, on a dev launcher's profile; none elsewhere. */
+function readTestPages() {
   if (!devMode()) {
-    return [];
+    return NO_TEST_PAGES;
   }
-  try {
-    return Services.prefs
-      .getStringPref(DEVICE_PAGES_PREF, "")
-      .split(/[\s,]+/)
-      .filter(prefix => /^https?:\/\/[^/]+\//.test(prefix));
-  } catch {
-    return [];
-  }
+  const read = pref => {
+    try {
+      return Services.prefs
+        .getStringPref(pref, "")
+        .split(/[\s,]+/)
+        .filter(prefix => /^https?:\/\/[^/]+\//.test(prefix));
+    } catch {
+      return [];
+    }
+  };
+  return {
+    device: read(TEST_PAGE_PREFS.device),
+    consent: read(TEST_PAGE_PREFS.consent),
+    consentConfig: read(TEST_PAGE_PREFS.consentConfig),
+  };
 }
 
-function publishDevicePagesNow() {
+function publishTestPagesNow() {
+  testPages = readTestPages();
   try {
-    Services.ppmm.sharedData.set(DEVICE_PAGES_KEY, readDevicePages());
+    Services.ppmm.sharedData.set(TEST_PAGES_KEY, testPages);
     Services.ppmm.sharedData.flush();
   } catch (e) {
-    console.error("[zenius] publishing the tests' device-login pages failed", e);
+    console.error("[zenius] publishing the tests' sign-in pages failed", e);
   }
 }
 
 /**
- * Publish the tests' extra device-login pages, on a dev launcher's profile
- * only (devMode()): a user.js line in the user's own profile adds none. At
- * the first connection, and again when a test changes the pref.
+ * Publish the tests' extra pages, on a dev launcher's profile only
+ * (devMode()): a user.js line in the user's own profile adds none. At the
+ * first connection, and again when a test changes a pref.
  */
-export function publishDevicePages() {
+export function publishTestPages() {
   if (published) {
     return;
   }
@@ -106,8 +132,10 @@ export function publishDevicePages() {
   if (!devMode()) {
     return;
   }
-  publishDevicePagesNow();
-  Services.prefs.addObserver(DEVICE_PAGES_PREF, publishDevicePagesNow);
+  publishTestPagesNow();
+  for (const pref of Object.values(TEST_PAGE_PREFS)) {
+    Services.prefs.addObserver(pref, publishTestPagesNow);
+  }
 }
 
 /**
@@ -159,34 +187,84 @@ export function signInRuleFor(bc) {
     top = bc?.top && bc.top !== bc ? flagOfContext(bc.top) : null;
   } catch {}
   const pick = reason => (own?.reason === reason ? { flag: own, frame: false } : top?.reason === reason ? { flag: top, frame: true } : null);
-  return pick("authorization_response") ?? pick("device_login");
+  return pick("authorization_response") ?? pick("device_login") ?? pick("consent");
+}
+
+/**
+ * The rule the tab's current address gives an act in `bc`: a device-login
+ * page's or a consent screen's, matched as each document's own address is.
+ * A page can move to such an address in place (history.pushState), which
+ * no document's load shows; the top's address is the one its tab shows.
+ * Only acts ask: reads, and a sign-in result, follow each document's load.
+ *
+ * @param {BrowsingContext} bc
+ * @returns {{flag: {reason: string, page: string}, frame: boolean}|null}
+ */
+function addressRuleFor(bc) {
+  let top = null;
+  let uri = null;
+  try {
+    top = bc?.top ?? null;
+    uri = top?.currentURI ?? null;
+  } catch {}
+  const flag = uri ? listedPageOf(uri, testPages) : null;
+  return flag ? { flag, frame: top !== bc } : null;
 }
 
 /**
  * Throw ZEN_SIGN_IN_PAGE if agent method `method`'s content call of kind
- * `gate` may not run in `bc`'s document, by what the parent knows. The
- * page's process checks again (content/signinguard.sys.mjs): this is only
- * the first check, which covers a frame whose top is in another process
- * before that process has heard.
+ * `gate` may not run in `bc`'s document, by what the parent knows: its
+ * documents' flags, and for an act its tab's current address. The page's
+ * process checks again (content/signinguard.sys.mjs): this is only the
+ * first check, which covers a frame whose top is in another process before
+ * that process has heard.
  *
  * @param {string} method
  * @param {BrowsingContext} bc
  * @param {"read"|"act"} gate
  */
 export function checkSignInCall(method, bc, gate) {
-  const rule = signInRuleFor(bc);
-  if (!rule || (rule.flag.reason === "device_login" && gate !== "act")) {
+  const rule = signInRuleFor(bc) ?? (gate === "act" ? addressRuleFor(bc) : null);
+  if (!rule || (rule.flag.reason !== "authorization_response" && gate !== "act")) {
     return;
   }
   const { message, data } = signInRefusal(method, rule.flag, rule.frame);
   throw new ZenError("ZEN_SIGN_IN_PAGE", message, data);
 }
 
+/** The address of `bc`'s current document, or null. */
+function documentURIOf(bc) {
+  try {
+    return bc?.currentWindowGlobal?.documentURI ?? bc?.currentURI ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** `bc` and its top, where their documents are pages only their own settings can show to be a consent prompt. */
+function pagesToSettle(bc) {
+  const out = [];
+  let top = null;
+  try {
+    top = bc?.top ?? null;
+  } catch {}
+  for (const context of top && top !== bc ? [bc, top] : [bc]) {
+    if (context && consentByConfig(documentURIOf(context), testPages.consentConfig)) {
+      out.push(context);
+    }
+  }
+  return out;
+}
+
 /**
  * A page gate (methods/navigation.sys.mjs's pageGates): a method that reads
  * or acts in documents is refused on a sign-in page at dispatch, before its
  * handler runs, by what the parent knows. The page's process checks each of
- * its content calls again.
+ * its content calls again. An act on a page that only its own settings can
+ * show to be a consent prompt waits for the page's process to have checked
+ * them, which the page's parsing may hold, so no act lands on the prompt
+ * before its check, input from the parent (page.mouse, page.keyboard)
+ * included.
  *
  * @param {object} ctx  the call's context
  * @param {object} params
@@ -194,11 +272,28 @@ export function checkSignInCall(method, bc, gate) {
  */
 export function signInPageGate(ctx, params, method) {
   const kind = signInGateFor(ctx.i5, ctx.service.accessOf(method));
-  if (!kind || !docs.size) {
+  if (!kind) {
     return undefined;
   }
   const { browsingContext } = ctx.resolvePage(params);
-  checkSignInCall(method, browsingContext, kind);
+  const settle = kind === "act" ? pagesToSettle(browsingContext) : [];
+  if (settle.length) {
+    return Promise.all(
+      settle.map(bc =>
+        ctx.service.content(bc, "signinguard#settle", {}).then(({ flag, innerWindowId } = {}) => {
+          // The page's process reports the flag too; this one is in hand,
+          // for the document it checked, if that is still the current one.
+          if (flag && innerWindowId && bc.currentWindowGlobal?.innerWindowId === innerWindowId) {
+            noteSignInPage(bc.currentWindowGlobal, flag);
+          }
+        })
+      )
+    ).then(() => checkSignInCall(method, browsingContext, kind));
+  }
+  // An act is checked against its tab's address whatever the documents.
+  if (docs.size || kind === "act") {
+    checkSignInCall(method, browsingContext, kind);
+  }
   return undefined;
 }
 

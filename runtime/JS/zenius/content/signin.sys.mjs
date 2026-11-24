@@ -1,4 +1,4 @@
-// The two sign-in rules: pages that stay the user's, whoever drives the tab.
+// The three sign-in rules: pages that stay the user's, whoever drives the tab.
 //
 // 1. A sign-in result. A document whose URL carries an OAuth authorization
 //    response, or whose referrer did, is off-limits to agent methods: no
@@ -16,8 +16,16 @@
 // 2. A device-login page. On a major provider's page for typing a device
 //    code, agents may read but not act, so an attacker's code can't be typed
 //    or clicked through (device-code phishing).
+// 3. A consent screen. On a major provider's page where the user grants an
+//    app access to their account (Google's OAuth consent, Microsoft's
+//    consent prompt, GitHub's Authorize page), agents may read but not act,
+//    so an attacker's own app can't be approved through the agent (consent
+//    phishing): the provider would send that app the code, and its token is
+//    the account. Account choosers, sign-in pages and Google's identity step
+//    stay the agent's, so a "Sign in with ..." the user already consented
+//    to still goes through.
 //
-// Both refuse with ZEN_SIGN_IN_PAGE. Wherever such a URL travels to the
+// All three refuse with ZEN_SIGN_IN_PAGE. Wherever such a URL travels to the
 // agent (lists, events, headers, titles, errors), the socket cuts it to its
 // scheme, host and path (redactText).
 //
@@ -59,6 +67,30 @@ const DEVICE_PAGES = [
   { host: /^(?:www\.)?twitch\.tv$/, path: "/activate", label: "Twitch's device sign-in page" },
 ];
 
+/**
+ * Consent screens: a host, and a path as for device-login pages. Google's
+ * account chooser (/signin/oauth/oauthchooseaccount) and its identity step
+ * (/signin/oauth/id, "Sign in to <app>", which goes on to the consent page
+ * only for more than the user's name and address) aren't listed; the scope
+ * grant, granular or not, and the unverified-app warning before it are.
+ * GitHub shows /login/oauth/authorize only while an app waits for its first
+ * grant or for more scopes; its account picker is
+ * /login/oauth/select_account. Microsoft's admin consent and its personal
+ * accounts' consent have addresses of their own; its work and school
+ * accounts' prompt doesn't (consentByConfig).
+ */
+const MICROSOFT_CONSENT = "Microsoft's consent prompt";
+const CONSENT_PAGES = [
+  {
+    host: /^accounts\.google\.com$/,
+    path: /^\/signin\/oauth\/(?:(?:v\d+|legacy)\/)?(?:consent|consentsummary|danger|warning)(?:\/|$)/,
+    label: "Google's consent page",
+  },
+  { host: /^github\.com$/, path: "/login/oauth/authorize", label: "GitHub's Authorize page" },
+  { host: MICROSOFT_LOGIN, path: /^\/[^/]+\/(?:v2\.0\/)?adminconsent(?:\/|$)/, label: MICROSOFT_CONSENT },
+  { host: /^account\.live\.com$/, path: "/consent", label: MICROSOFT_CONSENT },
+];
+
 /** Does `path` (normalPath's) start with `prefix` by whole segments? "/" matches every path. */
 function underPath(path, prefix) {
   if (typeof prefix !== "string") {
@@ -94,11 +126,14 @@ function normalPath(pathname) {
 }
 
 /**
- * sharedData: the tests' extra device-login pages, as URL prefixes. The
- * parent publishes it only in a dev launcher's profile (zenius.dev with
- * devMode()), from pref zenius.signIn.devicePages.
+ * sharedData: the tests' extra pages, as URL prefixes:
+ * {device, consent, consentConfig}, from prefs zenius.signIn.devicePages,
+ * zenius.signIn.consentPages and zenius.signIn.consentConfigPages. A
+ * consentConfig page is told apart by its own settings, as Microsoft's
+ * sign-in host is. The parent publishes it only in a dev launcher's profile
+ * (zenius.dev with devMode()).
  */
-export const DEVICE_PAGES_KEY = "zenius:signInDevicePages";
+export const TEST_PAGES_KEY = "zenius:signInTestPages";
 
 /**
  * sharedData: the sign-in pages the Zenius actor found, published by the
@@ -109,14 +144,15 @@ export const DEVICE_PAGES_KEY = "zenius:signInDevicePages";
 export const SIGN_IN_DOCS_KEY = "zenius:signInDocs";
 
 /** The reasons a document is a sign-in page: ZEN_SIGN_IN_PAGE's data.reason. */
-export const SIGN_IN_REASONS = Object.freeze(["authorization_response", "device_login"]);
+export const SIGN_IN_REASONS = Object.freeze(["authorization_response", "device_login", "consent"]);
 
 /**
  * How the sign-in rules check agent method calls, by the method's declared
  * classes (SPI.md, "Dispatch"): "read" or "act" for a method that reads or
  * acts in documents (I5 class document or frames; act when its access is
  * mutate, page.evaluate and page.fetch among them), null for the rest. A
- * sign-in result refuses reads and acts; a device-login page refuses acts.
+ * sign-in result refuses reads and acts; a device-login page and a consent
+ * screen refuse acts.
  * Navigation (class outside), the hand-off and closing (class none) stay
  * open on both, and a method added later is covered by its classes.
  *
@@ -146,6 +182,12 @@ export function signInRefusal(method, flag, frame = false) {
   const data = { reason: flag.reason, page: flag.page, method };
   if (frame) {
     data.frame = true;
+  }
+  if (flag.reason === "consent") {
+    return {
+      message: `${method} refused: this is ${where}, where only the user grants an app access to their account. Reading the page, going elsewhere and handing it to the user (task.handOff()) still work.`,
+      data,
+    };
   }
   if (flag.reason === "device_login") {
     return {
@@ -237,13 +279,31 @@ export function cutURL(url) {
 
 /**
  * The device-login page `url` is, by its label, or null. `extra` holds the
- * tests' URL prefixes (DEVICE_PAGES_KEY).
+ * tests' URL prefixes (TEST_PAGES_KEY's `device`).
  *
  * @param {string|nsIURI|URL} url
  * @param {string[]} [extra]
  * @returns {string|null}
  */
 export function deviceLoginPage(url, extra = []) {
+  return listedPage(url, DEVICE_PAGES, extra, "a device sign-in page");
+}
+
+/**
+ * Which provider's consent screen `url` is, by its address, or null: a page
+ * of CONSENT_PAGES, matched as device-login pages are, or one under a
+ * tests' prefix (`extra`, dev profiles only).
+ *
+ * @param {string|nsIURI|URL} url
+ * @param {string[]} [extra]
+ * @returns {string|null}
+ */
+export function consentPage(url, extra = []) {
+  return listedPage(url, CONSENT_PAGES, extra, "a consent page");
+}
+
+/** The label of the page of `list` that `url` is (https, no port), or `extraLabel` under a prefix of `extra`, or null. */
+function listedPage(url, list, extra, extraLabel) {
   const u = parse(url);
   if (!u || (u.protocol !== "https:" && u.protocol !== "http:")) {
     return null;
@@ -252,7 +312,7 @@ export function deviceLoginPage(url, extra = []) {
     // One trailing dot names the same host (github.com.).
     const host = u.hostname.replace(/\.$/, "");
     const path = normalPath(u.pathname);
-    for (const page of DEVICE_PAGES) {
+    for (const page of list) {
       if (page.host.test(host) && underPath(path, page.path)) {
         return page.label;
       }
@@ -260,10 +320,81 @@ export function deviceLoginPage(url, extra = []) {
   }
   for (const prefix of extra) {
     if (typeof prefix === "string" && prefix && u.href.startsWith(prefix)) {
-      return "a device sign-in page";
+      return extraLabel;
     }
   }
   return null;
+}
+
+/**
+ * Microsoft's work and school sign-in host serves its consent prompt at the
+ * addresses of its sign-in page and account chooser (the authorize
+ * endpoint, or /login after a password), so only the page tells them
+ * apart. This is the label to give a document there, which the page's
+ * process checks once it is parsed (configShowsConsent), or null for every
+ * other document. `extra` holds the tests' prefixes (dev profiles only).
+ *
+ * @param {string|nsIURI|URL} url
+ * @param {string[]} [extra]
+ * @returns {string|null}
+ */
+export function consentByConfig(url, extra = []) {
+  const u = parse(url);
+  if (!u || (u.protocol !== "https:" && u.protocol !== "http:")) {
+    return null;
+  }
+  if (u.protocol === "https:" && !u.port && MICROSOFT_LOGIN.test(u.hostname.replace(/\.$/, ""))) {
+    return MICROSOFT_CONSENT;
+  }
+  for (const prefix of extra) {
+    if (typeof prefix === "string" && prefix && u.href.startsWith(prefix)) {
+      return "a consent page";
+    }
+  }
+  return null;
+}
+
+// A page's id or its form's target that names consent, in the settings.
+const CONFIG_CONSENT = /"(?:pgid|urlPost)"\s*:\s*"[^"]*consent/i;
+
+/**
+ * Does the inline script that holds a Microsoft sign-in page's settings
+ * (`$Config={...}`) show the consent prompt? Each of its pages names
+ * itself there (pgid) and the address its form posts to (urlPost). The
+ * sign-in page and the chooser are ConvergedSignIn posting to /login, and
+ * their settings name consent nowhere. A page whose id or form target
+ * names consent (as .../Consent/Set would) counts as the prompt; a prompt
+ * that named it in neither wouldn't be caught.
+ *
+ * @param {string} scriptText
+ */
+export function configShowsConsent(scriptText) {
+  const text = String(scriptText ?? "");
+  const at = text.indexOf("$Config=");
+  return at !== -1 && CONFIG_CONSENT.test(text.slice(at));
+}
+
+/**
+ * The flag that the address `url` alone gives: a device-login page's or a
+ * consent screen's, by their lists (and the tests' prefixes in `extra`),
+ * or null. A sign-in result isn't here: that flag stays with the document
+ * that loaded the response.
+ *
+ * @param {string|nsIURI|URL} url
+ * @param {{device?: string[], consent?: string[]}} [extra]  the tests' prefixes
+ * @returns {{reason: "device_login"|"consent", page: string}|null}
+ */
+export function listedPageOf(url, extra = {}) {
+  const u = parse(url);
+  if (!u) {
+    return null;
+  }
+  const device = deviceLoginPage(u, extra.device ?? []);
+  if (device) {
+    return { reason: "device_login", page: device };
+  }
+  const consent = consentPage(u, extra.consent ?? []);
+  return consent ? { reason: "consent", page: consent } : null;
 }
 
 /**
@@ -273,10 +404,10 @@ export function deviceLoginPage(url, extra = []) {
  *
  * @param {string|nsIURI|URL} url  the document's URL at load: its channel's, after redirects
  * @param {string} [referrer]  document.referrer at load
- * @param {string[]} [extra]  the tests' device-login prefixes
- * @returns {{reason: "authorization_response"|"device_login", page: string}|null}
+ * @param {{device?: string[], consent?: string[]}} [extra]  the tests' prefixes
+ * @returns {{reason: "authorization_response"|"device_login"|"consent", page: string}|null}
  */
-export function signInPageOf(url, referrer = "", extra = []) {
+export function signInPageOf(url, referrer = "", extra = {}) {
   const u = parse(url);
   if (!u || (u.protocol !== "https:" && u.protocol !== "http:")) {
     return null;
@@ -289,8 +420,7 @@ export function signInPageOf(url, referrer = "", extra = []) {
   if (referrer && carriesAuthorizationResponse(referrer)) {
     return { reason: "authorization_response", page: "the page right after a sign-in result" };
   }
-  const device = deviceLoginPage(u, extra);
-  return device ? { reason: "device_login", page: device } : null;
+  return listedPageOf(u, extra);
 }
 
 // URLs in a frame's JSON text: a scheme, then anything up to a quote,

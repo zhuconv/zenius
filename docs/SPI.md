@@ -172,7 +172,23 @@ export const methods = {
      It assesses the document and its tab's top document itself, so a
      document the parent hasn't heard of yet is covered.
    - A sign-in result refuses both kinds, in its frames too, and a
-     device-login page refuses `act`: `ZEN_SIGN_IN_PAGE`.
+     device-login page or a consent screen refuses `act`:
+     `ZEN_SIGN_IN_PAGE`.
+   - For an `act`, the parent also matches the tab's current address
+     against the device-login pages and consent screens, at dispatch and
+     again before each of the act's content calls. So an act on a page
+     that moved to one in place (`history.pushState`), the parent's own
+     input included, is refused, and so is an act that was waiting when
+     it moved.
+   - Microsoft's work and school consent prompt shares its addresses with
+     its sign-in page and account chooser, so only the parsed document can
+     tell it apart: it counts as the prompt where its page settings name
+     consent (its page id or its form's target). Before an `act` on those
+     hosts, the third page gate (`signInPageGate`) waits for the page's
+     process to check the document (`signinguard#settle`), and the page's
+     process waits for that check at the call's entry too. So no input,
+     the parent's own (`page.mouse`, `page.keyboard`) included, reaches a
+     document on those hosts before its check has run.
    - Content calls the runtime makes for itself, outside `ctx.content`,
      carry no gate.
    - A screenshot, which the parent paints, makes a gated

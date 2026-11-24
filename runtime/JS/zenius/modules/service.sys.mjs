@@ -79,7 +79,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   setBackstops: "chrome://userscripts/content/zenius/modules/backstops.sys.mjs",
   // The sign-in rules' parent side loads with the first connection (I4).
   checkSignInCall: "chrome://userscripts/content/zenius/observe/signin.sys.mjs",
-  publishDevicePages: "chrome://userscripts/content/zenius/observe/signin.sys.mjs",
+  publishTestPages: "chrome://userscripts/content/zenius/observe/signin.sys.mjs",
   signInGateFor: "chrome://userscripts/content/zenius/content/signin.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -1822,12 +1822,13 @@ class Service {
     }
     this.#methodsLoaded = true;
     const t0 = now();
-    // The tests' device-login pages, on a dev profile, before any document
-    // of a task is assessed (observe/signin.sys.mjs).
+    // The tests' sign-in pages (device-login and consent), on a dev
+    // profile, before any document of a task is assessed
+    // (observe/signin.sys.mjs).
     try {
-      lazy.publishDevicePages();
+      lazy.publishTestPages();
     } catch (e) {
-      log("the sign-in rules' device pages:", e.message);
+      log("the sign-in rules' test pages:", e.message);
     }
     this.#loadMethods();
     log(`loaded ${this.#methods.size} methods in ${(now() - t0).toFixed(1)}ms (${why})`);

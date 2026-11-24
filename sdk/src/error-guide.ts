@@ -225,9 +225,9 @@ export const CODE_GUIDE: Record<string, CodeGuide> = {
     said: /Load one with page\.goto|act elsewhere|page\.snapshot still works/,
   },
   ZEN_SIGN_IN_PAGE: {
-    what: "The page is the user's sign-in (data.reason, data.page). \"authorization_response\": its address, or the address it came from, carries the code of a sign-in, which with the right key is the user's account, so zenius reads and does nothing there: no snapshot, text, screenshot, code or input, and its title, console and requests aren't reported. \"device_login\": a provider's page for typing a device code, which you may read but not type into or click.",
-    next: "Hand the page to the user with task.handOff() if they need to finish there, or wait for the site to move on (most send you back to the app at once), or go to the app's own URL again with page.goto(). Never type a device code for the user.",
-    // The runtime's two messages each say to hand off or go elsewhere.
+    what: "The page is the user's sign-in (data.reason, data.page). \"authorization_response\": its address, or the address it came from, carries the code of a sign-in, which with the right key is the user's account, so zenius reads and does nothing there: no snapshot, text, screenshot, code or input, and its title, console and requests aren't reported. \"device_login\": a provider's page for typing a device code, which you may read but not type into or click. \"consent\": a provider's consent screen, where only the user grants an app access to their account: you may read it, but not click or type there.",
+    next: "Hand the page to the user with task.handOff() if they need to finish there, or wait for the site to move on (most send you back to the app at once), or go to the app's own URL again with page.goto(). Never type a device code or grant an app access for the user.",
+    // The runtime's three messages each say to hand off or go elsewhere.
     said: /task\.handOff\(\)/,
   },
   ZEN_AGENT_CODE_REFUSED: {

@@ -1,6 +1,6 @@
 // The sign-in rules (content/signin.sys.mjs; PROTOCOL.md, Errors,
-// ZEN_SIGN_IN_PAGE): a sign-in result and a device-login page stay the
-// user's, whoever drives the tab.
+// ZEN_SIGN_IN_PAGE): a sign-in result, a device-login page and a consent
+// screen stay the user's, whoever drives the tab.
 //
 // 1. A document whose address carries an OAuth authorization response, or
 //    whose referrer did, refuses every agent method that reads or acts in
@@ -9,11 +9,14 @@
 //    verifier would otherwise read the code after the user's approval.
 // 2. A device-login page refuses every action, so an attacker's device code
 //    can't be typed or clicked through; reading it still works.
+// 3. A consent screen refuses every action too, so an attacker's own app
+//    can't be approved through the agent; account choosers, sign-in pages
+//    and Google's identity step stay the agent's.
 //
 // Wherever such a URL travels to the agent, every frame it gets shows it cut
 // at its query. Everything here is local: a loopback server plays the
-// provider and the app, and the device page is the tests' own, added by
-// a dev-only pref.
+// provider and the app, and the device and consent pages are the tests'
+// own, added by dev-only prefs.
 import assert from "node:assert/strict";
 import http from "node:http";
 import net from "node:net";
@@ -163,15 +166,108 @@ describe("the rules' tests on URLs (no browser)", () => {
     assert.equal(L.deviceLoginPage("http://127.0.0.1:9/dev-device", ["http://127.0.0.1:9/dev-device"]), "a device sign-in page");
   });
 
-  test("a document's flag: its own address first, then its referrer, then the device list; only http(s) documents count", () => {
+  test("consent screens: each provider's page where the user grants an app access, by host and path; account choosers, sign-in pages and Google's identity step aren't", () => {
+    const pages = {
+      "https://accounts.google.com/signin/oauth/v3/consent?authuser=0&part=x&client_id=y": "Google's consent page",
+      "https://accounts.google.com/signin/oauth/consent?authuser=0": "Google's consent page",
+      "https://accounts.google.com/signin/oauth/v2/consentsummary?authuser=0": "Google's consent page",
+      "https://accounts.google.com/signin/oauth/legacy/consent": "Google's consent page",
+      "https://accounts.google.com/signin/oauth/danger?authuser=0": "Google's consent page",
+      "https://accounts.google.com/signin/oauth/warning": "Google's consent page",
+      "https://github.com/login/oauth/authorize?client_id=x&scope=repo": "GitHub's Authorize page",
+      "https://login.microsoftonline.com/common/adminconsent?client_id=x": "Microsoft's consent prompt",
+      "https://login.microsoftonline.com/contoso.onmicrosoft.com/v2.0/adminconsent?client_id=x&scope=y": "Microsoft's consent prompt",
+      "https://login.microsoft.com/organizations/adminconsent": "Microsoft's consent prompt",
+      "https://account.live.com/Consent/Update?mkt=en-US": "Microsoft's consent prompt",
+      // The same pages however their address is spelled.
+      "https://ACCOUNTS.GOOGLE.COM/signin/oauth/V3/Consent": "Google's consent page",
+      "https://accounts.google.com.//signin/oauth/v3/%63onsent": "Google's consent page",
+      "https://github.com/login/oauth/%61uthorize?client_id=x": "GitHub's Authorize page",
+      "https://github.com//login//oauth/authorize": "GitHub's Authorize page",
+    };
+    for (const [url, label] of Object.entries(pages)) {
+      assert.equal(L.consentPage(url), label, url);
+    }
+    // Account choosers, sign-in pages, the authorize endpoints (which only
+    // redirect), Google's identity step and other pages near them.
+    for (const url of [
+      "https://accounts.google.com/o/oauth2/v2/auth?client_id=x&scope=openid",
+      "https://accounts.google.com/o/oauth2/auth/oauthchooseaccount?client_id=x",
+      "https://accounts.google.com/signin/oauth/oauthchooseaccount?client_id=x",
+      "https://accounts.google.com/v3/signin/accountchooser?continue=x",
+      "https://accounts.google.com/v3/signin/identifier?continue=https%3A%2F%2Faccounts.google.com%2Fsignin%2Foauth%2Fv3%2Fconsent",
+      "https://accounts.google.com/signin/oauth/id?authuser=0&client_id=x",
+      "https://accounts.google.com/signin/oauth/consentful",
+      "https://github.com/login?client_id=x&return_to=%2Flogin%2Foauth%2Fauthorize%3Fclient_id%3Dx",
+      "https://github.com/login/oauth/select_account?client_id=x",
+      "https://github.com/login/oauth/access_token",
+      "https://github.com/login/oauth/authorized_apps",
+      "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=x&scope=openid",
+      "https://login.microsoftonline.com/common/login",
+      "https://login.live.com/oauth20_authorize.srf?client_id=x",
+      "http://github.com/login/oauth/authorize",
+      "https://github.com:8443/login/oauth/authorize",
+      "https://evil.example/github.com/login/oauth/authorize",
+    ]) {
+      assert.equal(L.consentPage(url), null, url);
+    }
+    assert.equal(L.consentPage("http://127.0.0.1:9/dev-consent", ["http://127.0.0.1:9/dev-consent"]), "a consent page");
+  });
+
+  test("Microsoft's work and school prompt shares its addresses with the sign-in page and the chooser: its own settings tell it apart", () => {
+    for (const url of [
+      "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=x",
+      "https://login.microsoftonline.com/common/login",
+      "https://login.microsoft.com/organizations/oauth2/v2.0/authorize",
+      "https://login.windows.net/common/oauth2/authorize",
+      "https://login.microsoftonline.com./common/login",
+    ]) {
+      assert.equal(L.consentByConfig(url), "Microsoft's consent prompt", url);
+    }
+    for (const url of ["http://login.microsoftonline.com/common/login", "https://login.microsoftonline.com:444/common/login", "https://login.live.com/oauth20_authorize.srf", "https://example.com/common/login"]) {
+      assert.equal(L.consentByConfig(url), null, url);
+    }
+    assert.equal(L.consentByConfig("http://127.0.0.1:9/ms/authorize", ["http://127.0.0.1:9/ms/"]), "a consent page");
+    // The sign-in page's settings as Microsoft serves them signed out
+    // (shortened), which its account chooser shares: no consent.
+    const signIn = `//<![CDATA[\n$Config={"fShowPersistentCookiesWarning":false,"urlMsaSignUp":"https://login.live.com/oauth20_authorize.srf","pgid":"ConvergedSignIn","urlPost":"https://login.microsoftonline.com/common/login","sFT":"x"};\n//]]>`;
+    assert.equal(L.configShowsConsent(signIn), false);
+    // A page whose settings name consent in its page id or its form's
+    // target counts as the prompt.
+    assert.equal(L.configShowsConsent(`$Config={"pgid":"ConvergedConsent","urlPost":"https://login.microsoftonline.com/common/login"};`), true);
+    assert.equal(L.configShowsConsent(`$Config={"pgid":"Permissions","urlPost":"https://login.microsoftonline.com/common/Consent/Set"};`), true);
+    assert.equal(L.configShowsConsent(`$Config={"pgid":"Permissions","urlPost":"https:\\/\\/login.microsoftonline.com\\/common\\/Consent\\/Set"};`), true);
+    // Consent elsewhere in the settings, or no settings: not the prompt.
+    assert.equal(L.configShowsConsent(`$Config={"pgid":"ConvergedSignIn","urlPost":"/common/login","sHelp":"admin consent"};`), false);
+    assert.equal(L.configShowsConsent(`var consent = { "pgid": "x" };`), false);
+    assert.equal(L.configShowsConsent(""), false);
+  });
+
+  test("a document's flag: its own address first, then its referrer, then the device list, then the consent list; only http(s) documents count", () => {
     assert.deepEqual(L.signInPageOf(`https://app.example/cb?code=${CODE}`), { reason: "authorization_response", page: "a sign-in result" });
     assert.deepEqual(L.signInPageOf("https://app.example/home", `https://app.example/cb?code=${CODE}`), {
       reason: "authorization_response",
       page: "the page right after a sign-in result",
     });
     assert.deepEqual(L.signInPageOf("https://github.com/login/device"), { reason: "device_login", page: "GitHub's device sign-in page" });
+    assert.deepEqual(L.signInPageOf("https://github.com/login/oauth/authorize?client_id=x"), { reason: "consent", page: "GitHub's Authorize page" });
+    assert.deepEqual(L.signInPageOf("http://127.0.0.1:9/c", "", { consent: ["http://127.0.0.1:9/c"] }), { reason: "consent", page: "a consent page" });
+    assert.deepEqual(L.signInPageOf("http://127.0.0.1:9/d", "", { device: ["http://127.0.0.1:9/d"] }), { reason: "device_login", page: "a device sign-in page" });
+    // The prompt Microsoft shares an address with is checked in the page, not by its address.
+    assert.equal(L.signInPageOf("https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=x"), null);
     assert.equal(L.signInPageOf("https://app.example/home", "https://app.example/"), null);
     assert.equal(L.signInPageOf(`about:neterror?u=http%3A//x/cb%3Fcode%3D${CODE}`), null);
+  });
+
+  test("an act's flag by the tab's current address: device-login pages and consent screens only, as each document's address; a sign-in result stays with its document's load", () => {
+    assert.deepEqual(L.listedPageOf("https://github.com/login/device"), { reason: "device_login", page: "GitHub's device sign-in page" });
+    assert.deepEqual(L.listedPageOf("https://accounts.google.com/signin/oauth/v3/consent?authuser=0"), { reason: "consent", page: "Google's consent page" });
+    assert.deepEqual(L.listedPageOf("http://127.0.0.1:9/c/2", { consent: ["http://127.0.0.1:9/c"] }), { reason: "consent", page: "a consent page" });
+    assert.deepEqual(L.listedPageOf("http://127.0.0.1:9/d?x=1", { device: ["http://127.0.0.1:9/d"] }), { reason: "device_login", page: "a device sign-in page" });
+    assert.equal(L.listedPageOf(`https://app.example/cb?code=${CODE}`), null);
+    assert.equal(L.listedPageOf("https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=x"), null);
+    assert.equal(L.listedPageOf("about:blank"), null);
+    assert.equal(L.listedPageOf("not a url"), null);
   });
 
   test("methods are checked by their declared classes: reads and acts in documents and frames, nothing outside them", () => {
@@ -245,6 +341,40 @@ ${q.has("go") ? `setTimeout(() => { location.href = "/landing"; }, 200);` : ""}
       case "/promo":
         html(`<title>Promo ${q.get("code")}</title><p>promo</p>`);
         return;
+      // The tests' consent screen, and the account chooser before it.
+      case "/chooser":
+        html(`<title>Choose an account</title><a id=account href="/consent">user@example.com</a>`);
+        return;
+      case "/consent":
+        html(`<title>Consent</title><p>An app wants to access your account</p>
+<label>Note <input id=note></label><button id=accept onclick="document.title = 'accepted'">Allow</button>`);
+        return;
+      // A sign-in host whose consent prompt shares its address with its
+      // sign-in page and chooser, as Microsoft's does: the page's own
+      // settings tell them apart. ?slow holds the page's end back, so a
+      // call can land while it is still loading, its button already there.
+      case "/ms/authorize": {
+        const consent = q.get("step") === "consent";
+        const config = consent
+          ? `{"pgid":"ConvergedConsent","urlPost":"https://login.microsoftonline.com/common/Consent/Set"}`
+          : `{"pgid":"ConvergedSignIn","urlPost":"https://login.microsoftonline.com/common/login"}`;
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+        res.write(`<!doctype html><meta charset=utf-8><title>${consent ? "Permissions requested" : "Pick an account"}</title>
+<script>//<![CDATA[
+$Config=${config};
+//]]></script>
+<button id=go style="position:fixed;left:0;top:0;width:240px;height:120px" onclick="document.title = 'clicked'">${consent ? "Accept" : "user@example.com"}</button>`);
+        if (q.has("slow")) {
+          setTimeout(() => res.end("<p>loaded</p>"), 1500);
+        } else {
+          res.end("<p>loaded</p>");
+        }
+        return;
+      }
+      // An app that moves to another address in place (history.pushState).
+      case "/spa":
+        html(`<title>App</title><button id=go style="position:fixed;left:0;top:0;width:240px;height:120px" onclick="document.title = 'clicked'">Go</button>`);
+        return;
       // The tests' device-login page.
       case "/device":
         html(`<title>Device</title><label>Code <input id=code></label>
@@ -271,7 +401,9 @@ ${q.has("go") ? `setTimeout(() => { location.href = "/landing"; }, 200);` : ""}
   });
 
   after(async () => {
-    await h?.chrome(`Services.prefs.clearUserPref("zenius.signIn.devicePages"); return true;`).catch(() => {});
+    await h
+      ?.chrome(`for (const pref of ["devicePages", "consentPages", "consentConfigPages"]) Services.prefs.clearUserPref("zenius.signIn." + pref); return true;`)
+      .catch(() => {});
     await h?.close();
     server.closeAllConnections?.();
     await new Promise(r => server.close(r));
@@ -540,6 +672,103 @@ ${q.has("go") ? `setTimeout(() => { location.href = "/landing"; }, 200);` : ""}
       assert.equal(await outcome("page.click", { ...p, target: "body" }), "ok");
     } finally {
       await h.chrome(`Services.prefs.clearUserPref("zenius.signIn.devicePages"); return true;`);
+      await h.remove(space);
+    }
+  });
+
+  test("on a consent screen reads work and every action is refused; the account chooser before it stays the agent's", async () => {
+    await h.chrome(`Services.prefs.setStringPref("zenius.signIn.consentPages", arg); return true;`, `${base}/consent`);
+    const { space, p } = await task("signin consent");
+    try {
+      // The chooser is the agent's: picking the account works.
+      await h.call("page.goto", { ...p, url: `${base}/chooser` });
+      await h.call("page.click", { ...p, target: "#account" });
+      await h.until(async () => (await h.call("page.url", p)) === `${base}/consent`, 5000);
+      assert.match((await h.call("page.snapshot", p)).text, /Allow/);
+      assert.equal((await h.call("page.screenshot", p)).mimeType, "image/png");
+      assert.equal(await h.call("page.title", p), "Consent");
+      const registry = await h.call("dev.registry");
+      const acts = registry.filter(m => (m.i5 === "document" || m.i5 === "frames") && m.access === "mutate").map(m => m.method);
+      const atContentCall = new Set(registry.filter(m => m.i5 === "frames").map(m => m.method));
+      const notRefused = [];
+      for (const method of acts) {
+        if (atContentCall.has(method)) {
+          continue;
+        }
+        const code = await outcome(method, { ...p, target: "#accept", value: "x", fn: "1", isFunction: false });
+        if (code !== "ZEN_SIGN_IN_PAGE") {
+          notRefused.push(`${method}: ${code}`);
+        }
+      }
+      assert.deepEqual(notRefused, [], "actions not refused on the consent screen");
+      const e = await failure("page.click", { ...p, target: "#accept" });
+      assert.equal(e.data?.reason, "consent");
+      assert.equal(e.data?.page, "a consent page");
+      assert.match(e.message, /task\.handOff\(\)/);
+      assert.equal(await h.call("page.title", p), "Consent", "an action reached the page");
+      // Navigation still works, and the next page is the agent's.
+      await h.call("page.goto", { ...p, url: `${base}/page` });
+      assert.equal(await outcome("page.click", { ...p, target: "body" }), "ok");
+    } finally {
+      await h.chrome(`Services.prefs.clearUserPref("zenius.signIn.consentPages"); return true;`);
+      await h.remove(space);
+    }
+  });
+
+  test("a consent prompt at its sign-in page's address (Microsoft's) is told by its own settings: the sign-in page stays the agent's, and an act sent while the prompt loads waits for the check and is refused", async () => {
+    await h.chrome(`Services.prefs.setStringPref("zenius.signIn.consentConfigPages", arg); return true;`, `${base}/ms/`);
+    const { space, p } = await task("signin consent settings");
+    try {
+      // The sign-in page and its chooser: the agent picks the account.
+      await h.call("page.goto", { ...p, url: `${base}/ms/authorize?step=signin` });
+      await h.call("page.click", { ...p, target: "#go" });
+      assert.equal(await h.call("page.title", p), "clicked");
+      // The prompt at the same address: reads work, acts are refused.
+      await h.call("page.goto", { ...p, url: `${base}/ms/authorize?step=consent` });
+      assert.match((await h.call("page.snapshot", p)).text, /Accept/);
+      const e = await failure("page.click", { ...p, target: "#go" });
+      assert.equal(e.data?.reason, "consent");
+      assert.equal(e.data?.page, "a consent page");
+      // Sent while the prompt is still loading, its button already parsed:
+      // each act waits for the page's settings to be checked, then is
+      // refused, in the page's process (page.evaluate) and from the parent
+      // (page.mouse) alike.
+      await h.call("page.goto", { ...p, url: `${base}/ms/authorize?step=consent&slow=1`, options: { waitUntil: "commit" } });
+      const [click, evaluate, mouse] = await Promise.all([
+        outcome("page.click", { ...p, target: "#go" }),
+        outcome("page.evaluate", { ...p, fn: "document.title = 'evaluated'", isFunction: false }),
+        outcome("page.mouse", { ...p, action: "click", x: 60, y: 60 }),
+      ]);
+      assert.deepEqual({ click, evaluate, mouse }, { click: "ZEN_SIGN_IN_PAGE", evaluate: "ZEN_SIGN_IN_PAGE", mouse: "ZEN_SIGN_IN_PAGE" });
+      assert.equal(await h.call("page.title", p), "Permissions requested", "an action reached the prompt");
+    } finally {
+      await h.chrome(`Services.prefs.clearUserPref("zenius.signIn.consentConfigPages"); return true;`);
+      await h.remove(space);
+    }
+  });
+
+  test("a page that moves in place (history.pushState) to a consent screen's or a device-login page's address refuses actions there, by the tab's address; reads still work", async () => {
+    await h.chrome(`Services.prefs.setStringPref("zenius.signIn.consentPages", arg); return true;`, `${base}/consent`);
+    await h.chrome(`Services.prefs.setStringPref("zenius.signIn.devicePages", arg); return true;`, `${base}/device`);
+    const { space, p } = await task("signin in place");
+    try {
+      for (const [to, reason] of [
+        ["/consent?step=2", "consent"],
+        ["/device?step=2", "device_login"],
+      ]) {
+        await h.call("page.goto", { ...p, url: `${base}/spa` });
+        assert.equal(await outcome("page.click", { ...p, target: "#go" }), "ok", "the app's own page");
+        await h.call("page.evaluate", { ...p, fn: `document.title = 'app'; history.pushState(null, '', '${to}')`, isFunction: false });
+        assert.equal(await h.call("page.url", p), `${base}${to}`);
+        const e = await failure("page.click", { ...p, target: "#go" });
+        assert.equal(e.data?.reason, reason, to);
+        assert.equal(await outcome("page.mouse", { ...p, action: "click", x: 60, y: 60 }), "ZEN_SIGN_IN_PAGE", to);
+        assert.equal(await outcome("page.evaluate", { ...p, fn: "document.title = 'evaluated'", isFunction: false }), "ZEN_SIGN_IN_PAGE", to);
+        assert.equal(await h.call("page.title", p), "app", `an action reached the page at ${to}`);
+        assert.match((await h.call("page.snapshot", p)).text, /Go/, "reads still work");
+      }
+    } finally {
+      await h.chrome(`for (const pref of ["devicePages", "consentPages"]) Services.prefs.clearUserPref("zenius.signIn." + pref); return true;`);
       await h.remove(space);
     }
   });
