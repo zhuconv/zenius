@@ -44,6 +44,7 @@ import { log } from "chrome://userscripts/content/zenius/modules/util.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   // Load with the first agent call that needs them, not at startup (I4).
   redactText: "chrome://userscripts/content/zenius/content/signin.sys.mjs",
@@ -608,20 +609,52 @@ export class Pages {
 
   /**
    * A tab moving to another window is a new element there, with the same
-   * browser: its tag and session value go with it. The value names the old
-   * tab's sync id until Zen gives the new one its own, while the task holds
-   * it: a page that ended in the move doesn't come back at a restart.
+   * browser: its tag and session value go with it.
+   *
+   * A page goes with its document. When the tab that moved held it (a drag
+   * to another window, or a tear-off into a new one, after which Zen closes
+   * the copies left behind), the page is that tab now, and its value names
+   * that tab's sync id, or none until Zen gives it one. A copy that moved
+   * without the document (another window's copy of the page) takes
+   * nothing: the page stays with its document, or ends with it, and the new
+   * tab is the user's. Firefox has already moved the old tab's session
+   * values to the new one by then, so that tab loses the task's.
+   *
+   * This runs at the old tab's TabClose, before Firefox swaps the browsers:
+   * the old tab's permanentKey and docShell go to the new tab after it.
+   *
+   * @returns {PageRecord|null} the page that moved, if one did
    */
   carryOver(from, to) {
+    if (!to) {
+      return null;
+    }
     // A "Task finished" tab the user takes to another window is theirs.
     if (this.#deferred.delete(deferKey(from))) {
-      return;
+      writeTabValue(to, null);
+      return null;
     }
-    const value = readTabValue(from);
-    if (!value || !to) {
-      return;
+    const value = readTabValue(from) ?? readTabValue(to);
+    if (!value) {
+      return null;
+    }
+    const key = from.linkedBrowser?.permanentKey;
+    const page = value.label && key ? (this.#byKey.get(key) ?? null) : null;
+    if (value.label && page?.spaceId !== value.task) {
+      writeTabValue(to, null);
+      writeTag(to, null);
+      return null;
     }
     writeTabValue(to, value);
+    if (page) {
+      writeTag(to, page.openedBy !== "user" ? page.spaceId : null);
+      this.#rehome(page, to, key);
+      if (from.undiscardable) {
+        // Once the swap has given it the page's browser.
+        Promise.resolve().then(() => keepAlive(to));
+      }
+      return page;
+    }
     if (from.hasAttribute(TASK_ATTR)) {
       to.setAttribute(TASK_ATTR, from.getAttribute(TASK_ATTR));
     }
@@ -630,6 +663,7 @@ export class Pages {
     } else {
       this.#syncSoon(to);
     }
+    return null;
   }
 
   /** The space's tabs with their origins, pages included: what a task keeps when its labels end. */
@@ -693,12 +727,12 @@ export class Pages {
     }
   }
 
-  /** Name the tab's sync id in its value, if a task holds it and the value doesn't yet. */
+  /** Name the tab's sync id, or none, in its value, if a task holds it and the value names another. */
   #refreshSync(tab) {
-    const sync = syncId(tab);
-    if (!sync || tab.closing) {
+    if (tab.closing) {
       return;
     }
+    const sync = syncId(tab);
     const value = readTabValue(tab);
     if (value && value.sync !== sync && this.holderOf(tab) === value.task) {
       writeTabValue(tab, { ...value, sync });
@@ -943,18 +977,43 @@ export class Pages {
     }
   }
 
-  /** Make `live` the page's tab in the lookups. */
-  #rehome(page, live) {
+  /**
+   * Make `live` the page's tab in the lookups.
+   *
+   * @param {PageRecord} page
+   * @param {Element} live
+   * @param {object} [key]  the browser's permanentKey: carryOver gives the
+   *   one the swap after it brings
+   */
+  #rehome(page, live, key = live.linkedBrowser?.permanentKey) {
+    const space = this.spaces?.peek(page.spaceId);
+    // frontKey() of the page's tab until now.
+    const wasFront = !!space && this.#front.get(space) === (page.syncId ?? page.key);
     if (this.#byKey.get(page.key) === page) {
       this.#byKey.delete(page.key);
     }
-    page.key = live.linkedBrowser?.permanentKey ?? page.key;
+    page.key = key ?? page.key;
     this.#byKey.set(page.key, page);
-    page.syncId = syncId(live) ?? page.syncId;
-    if (page.syncId) {
-      this.#bySync.set(page.syncId, page);
-    }
     page.tab = live;
+    const sync = syncId(live);
+    if (sync !== page.syncId) {
+      // Not a copy of the tab the page was: the tab that took its document
+      // in another window (carryOver). The page is that tab now, by its
+      // sync id or by none, and its value says which.
+      if (page.syncId && this.#bySync.get(page.syncId) === page) {
+        this.#bySync.delete(page.syncId);
+      }
+      page.syncId = sync;
+      if (sync) {
+        this.#bySync.set(sync, page);
+      }
+      this.#refreshSync(live);
+      this.#syncSoon(live);
+    }
+    // The task's front tab stays this page, by its new tab's key.
+    if (wasFront) {
+      this.#front.set(space, page.syncId ?? page.key);
+    }
   }
 
   /**
@@ -1265,10 +1324,17 @@ export class Pages {
     }
     // A task's tab a window shows, its front tab first; else its front tab.
     // A window shows a copy of one of `mine` (window sync): answer with ours.
+    // A window without Spaces shows only the tabs it holds: one a task's
+    // tab was torn off into (Move to New Window) shows that tab.
     const mine = this.tabsOf(space);
     const front = this.frontTab(space, mine);
+    const synced = workspaceWindows();
+    const holding = new Set(mine.map(tab => tab.ownerDocument?.defaultView));
     let shown = null;
-    for (const win of workspaceWindows()) {
+    for (const win of lazy.BrowserWindowTracker.orderedWindows) {
+      if (win.closed || !(holding.has(win) || synced.includes(win))) {
+        continue;
+      }
       for (const tab of shownTabs(win)) {
         if (sameTab(tab, front)) {
           return front;

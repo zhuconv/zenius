@@ -1399,9 +1399,14 @@ class Service {
   #onTabClose(event) {
     const tab = event.target;
     // A tab moving to another window closes here but lives on there; its
-    // permanentKey carries over, so keep the page.
+    // permanentKey carries over, so keep the page. What zen-ux shows on it
+    // goes with it, once this close is done.
     if (event.detail?.adoptedBy) {
-      this.pages.carryOver(tab, event.detail.adoptedBy);
+      const to = event.detail.adoptedBy;
+      const page = this.pages.carryOver(tab, to);
+      if (page) {
+        Promise.resolve().then(() => this.emitLocal("pageMoved", { space: page.spaceId, page: page.label, from: tab, to }));
+      }
       return;
     }
     // One window's copy closing while another's stays open isn't the tab
@@ -1416,6 +1421,11 @@ class Service {
     const inAgentsSpace = this.spaces.isAgentsSpace(tab.getAttribute("zen-workspace-id"));
     let task = null;
     if (page) {
+      // Its document went on in another tab: Zen closes the copies a
+      // tear-off into a new window leaves behind. The page is that tab now.
+      if (this.pages.tabFor(page)) {
+        return;
+      }
       this.pages.remove(page);
       this.emit("pageClosed", { space: page.spaceId, page: page.label, tab: id });
       task = this.spaces.peek(page.spaceId);

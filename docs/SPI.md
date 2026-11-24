@@ -588,6 +588,14 @@ in `modules/pages.sys.mjs` reads it:
   `adoptedBy` copies the value and the tag (`pages.carryOver`). The value
   names the new tab's sync id once Zen gives it one, while a task holds
   the tab.
+  - A page goes with its document. When the tab that moved held it, the
+    page is the new tab, and `pageMoved` goes out. carryOver runs at the
+    old tab's `TabClose`, before Firefox swaps the browsers, so it goes by
+    the old tab's permanentKey, which the swap brings to the new tab.
+  - A copy that moved without the document (another window's copy of a
+    page) takes nothing. Firefox has already moved the old tab's session
+    values into the new tab, so carryOver deletes the task's: the new tab
+    is the user's. The page stays with its document, or ends with it.
 - The value moves with the tab: a tab the user drags to another Space stays
   the task's.
 - Tab ids (`t12`) still don't survive a restart; the value does.
@@ -627,6 +635,23 @@ zenius treats a tab's copies as one tab:
 - **Restart.** Zen restores every window with its copies, one state per
   tab (measured with two windows). The rebuild finds one page per tab and
   gives every copy the marks any copy has.
+- **Tear-off.** Move to New Window, or a drag out of the strip, makes an
+  unsynced window: Zen gives its tabs no sync id, keeps none for them
+  across a restart, and closes the copies the torn-off tab leaves in the
+  other windows.
+  - Torn off with its document, a page stays the task's in the new window
+    (by its permanentKey; its value names no sync id). The close of the
+    last copy left behind keeps the page when `tabFor` finds its document
+    in another tab. The restart brings it back there.
+  - The new window has no Spaces, so `workspaceWindows()` leaves it out.
+    `pages.userTab`, the page a hand-off or Take over holds, also looks
+    at each window that holds one of the task's tabs: the page the user
+    sees there is the one they get, and the hand-off's clean load covers
+    its document. The task's front tab follows the page into its new tab
+    (`#rehome`).
+  - Torn off from another window's copy, a page loses its document too:
+    Zen closes the live copy with the others, so the page ends
+    (`pageClosed`), and the new window's tab is the user's.
 - **Compare with `sameTab(a, b)`** (`modules/windows.sys.mjs`), not `===`:
   two copies of a tab are the same tab.
 - **`pageMoved`.** When a page's live copy changes, the service emits
