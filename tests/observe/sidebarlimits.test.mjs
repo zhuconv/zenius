@@ -312,6 +312,10 @@ test("the zenius-only hook: web search and fetch run in Chat and Work, but WebFe
   assert.equal(hook("work", "mcp__zenius__open", { url: "https://example.com/" }), "runs");
   assert.equal(hook("work", "ToolSearch", { query: "select:WebFetch" }), "runs");
   assert.match(hook("chat", "mcp__zenius__open"), /whose only tools are web search and web fetch/);
+  // zenius's problem report tool comes with its server: a Work session's to
+  // call, and never Chat's, whose only tools are web search and web fetch.
+  assert.equal(hook("work", "mcp__zenius__report_problem", { line: "page.click timed out on a visible button" }), "runs");
+  assert.match(hook("chat", "mcp__zenius__report_problem", { line: "x" }), /whose only tools are web search and web fetch/);
   assert.match(hook("chat", "ToolSearch"), /isn't available in the sidebar's Chat/);
   // Work offers its model AskUserQuestion (CLAUDE_WORK_TOOLS). Past the hook,
   // the call goes on to canUseTool and the sidebar's card (elicitation/create).
