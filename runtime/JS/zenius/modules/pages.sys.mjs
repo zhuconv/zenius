@@ -55,6 +55,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
  * The session value tying a tab to its task: `{v: 1, task, openedBy, sync}`,
  * plus `label` and `opener` while it's a page (SPI "Which tabs are a
  * task's"). `sync` is the tab's Zen sync id, or null before Zen gives it one.
+ * A tab moved to another window adds `movedFrom` (movedValue).
  */
 export const TAB_VALUE_KEY = "zenius";
 /** The task id on a task's pages that aren't the user's: zen-ux's tag reads it. */
@@ -73,6 +74,27 @@ function writeTabValue(tab, value) {
       log("writing a tab's session value failed", e.message);
     }
   }
+}
+
+/**
+ * The value of a tab moved to another window: the task's, naming the sync
+ * id the old tab had (`movedFrom`). Zen closes the old tab's copies in the
+ * other windows from a queue of its own, and a quit before it has can keep
+ * them in the session. They come back blank, with that sync id and the
+ * task's value, and only this tells them from the task's tabs: the restart
+ * closes them (Pages.closeLeftBehind). Zen never gives a sync id twice, so
+ * only those copies have it. A tab with no sync id left none behind.
+ *
+ * @param {object} value  the task's value, as the old tab had it
+ * @param {string|null} from  the old tab's sync id
+ */
+function movedValue(value, from) {
+  const moved = { ...value };
+  delete moved.movedFrom;
+  if (from) {
+    moved.movedFrom = from;
+  }
+  return moved;
 }
 
 /** zen-ux's tag on every copy of a tab: the task id, or none (null). */
@@ -651,6 +673,8 @@ export class Pages {
    * by which the task's ledger holds it. Its copy that holds the document
    * is the one whose contents show (window sync); with none shown, as for
    * a tab no window has selected since a restart, the moving copy is it.
+   * Either way, the moved tab's value names the old tab's sync id
+   * (movedValue): a restart closes the copies left behind that a quit kept.
    *
    * This runs at the old tab's TabClose, before Firefox swaps the browsers:
    * the old tab's permanentKey and docShell go to the new tab after it.
@@ -684,7 +708,7 @@ export class Pages {
       writeTag(to, null);
       return null;
     }
-    writeTabValue(to, value);
+    writeTabValue(to, movedValue(value, syncId(from)));
     if (page) {
       writeTag(to, page.openedBy !== "user" ? page.spaceId : null);
       this.#rehome(page, to, key);
@@ -1240,6 +1264,49 @@ export class Pages {
         closeWindowWithLastTab: false,
       })
     );
+  }
+
+  /**
+   * The restart's first step with tabs: close the copies a moved tab left
+   * in the other windows that a quit kept before Zen had closed them. Only
+   * a tab whose sync id is, whole, the `movedFrom` of a tab's own value
+   * (movedValue) closes, whatever value it carries, and never the moved tab
+   * itself. Every window's copy closes here, at once and unanimated: Zen
+   * would close the others later, from its own event queue and with an
+   * animation, and a window's session state lists every tab still in its
+   * strip, closing ones too. A quit meanwhile would bring them back again.
+   *
+   * @param {Element[]} tabs  one copy of each tab (uniqueTabs)
+   * @returns {Set<Element>} those of `tabs` it closed
+   */
+  closeLeftBehind(tabs) {
+    /** @type {Map<string, Element>} a moved tab's old sync id -> the moved tab */
+    const moved = new Map();
+    for (const tab of tabs) {
+      const value = readTabValue(tab);
+      if (ownValue(tab, value) && typeof value.movedFrom === "string" && value.movedFrom) {
+        moved.set(value.movedFrom, tab);
+      }
+    }
+    const closed = new Set();
+    for (const tab of tabs) {
+      const sync = syncId(tab);
+      const mover = sync === null ? undefined : moved.get(sync);
+      if (!mover || sameTab(mover, tab)) {
+        continue;
+      }
+      for (const copy of copiesOf(tab)) {
+        this.keepView(() =>
+          copy.ownerDocument.defaultView.gBrowser.removeTab(copy, {
+            animate: false,
+            skipPermitUnload: true,
+            closeWindowWithLastTab: false,
+          })
+        );
+      }
+      closed.add(tab);
+    }
+    return closed;
   }
 
   /**

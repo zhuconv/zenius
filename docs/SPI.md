@@ -546,6 +546,19 @@ in `modules/pages.sys.mjs` reads it:
   own, after `TabOpen`. Once Zen has, the value of a tab a task holds
   names it. With window sync off, Zen still gives every tab a sync id,
   and the session keeps it across restarts.
+- `movedFrom`, on a tab moved to another window, is the sync id its old
+  tab had (`pages.carryOver`).
+  - Zen closes the old tab's copies in the other windows later, from its
+    own event queue and with an animation. A window's session state lists
+    every tab still in its strip (`gZenWorkspaces.allStoredTabs`),
+    closing ones too.
+  - So a quit right after a move can bring those copies back. They come
+    back blank, with their own sync id and the task's value, which names
+    them as the task's.
+  - The restart rebuild closes them before anything else (below). Zen
+    never gives a sync id twice, so only those copies have it.
+  - Putting the moved tab back writes its value afresh, without
+    `movedFrom`, so a later restart has nothing to act on.
 - **A tab the user makes from a task's tab is theirs.** Firefox copies a
   tab's session values into the tabs made from it: Duplicate Tab, Reopen
   Closed Tab, Reopen Closed Window. Zen gives a duplicate and a reopened
@@ -589,7 +602,7 @@ in `modules/pages.sys.mjs` reads it:
 - A tab moving to another window is a new element there: `TabClose` with
   `adoptedBy` copies the value and the tag (`pages.carryOver`). The value
   names the new tab's sync id once Zen gives it one, while a task holds
-  the tab.
+  the tab, and the old tab's as `movedFrom`.
   - A page goes with its document. When the tab that moved held it, the
     page is the new tab, and `pageMoved` goes out. carryOver runs at the
     old tab's `TabClose`, before Firefox swaps the browsers, so it goes by
@@ -666,6 +679,9 @@ zenius treats a tab's copies as one tab:
     (`pages.movedTab`), so the task doesn't end. Its value names no sync
     id, and the restart brings it back there. Torn off from another
     window's copy, it ends with the copies Zen closes.
+  - A quit before Zen has closed the copies a torn-off tab left behind
+    can keep them in the session. The restart closes them by the moved
+    tab's `movedFrom`, whether the tab was a page or not.
 - **Compare with `sameTab(a, b)`** (`modules/windows.sys.mjs`), not `===`:
   two copies of a tab are the same tab.
 - **`pageMoved`.** When a page's live copy changes, the service emits
@@ -879,7 +895,14 @@ Zen's `allStoredTabs` lists only part of its tabs (a flake under load).
 Then:
 1. `spaces.healAgentsSpace()` sorts out the Agents Spaces Zen brought back,
    by zenius's mark (below).
-2. Each tab's value puts it back in its task: under its label if it was a
+2. The copies a move left behind close (`pages.closeLeftBehind`).
+   - A copy closes only when its sync id is, whole, the `movedFrom` of
+     another tab's own value. Whatever value it carries makes no
+     difference. The moved tab itself never closes this way.
+   - Every window's copy closes at once, with no animation, so a quit
+     right after the rebuild can't keep one either.
+   - The rest of the rebuild skips them.
+3. Each tab's value puts it back in its task: under its label if it was a
    page (`pages.reattach`), else as an unmanaged tab of its origin. A tab
    marked `closing` closes, or waits if a window shows it, as §3.5's closes
    do. A value naming a task that's gone is deleted.
@@ -890,15 +913,15 @@ Then:
      can't show which tab it was written for, so it's deleted too. Tasks
      running at the update to 0.1.5 end at its restart, and their tabs
      stay the user's.
-3. Tasks none of whose tabs came back are removed, which frees their names.
+4. Tasks none of whose tabs came back are removed, which frees their names.
    Their ids go into a list in `spaces.json` (the last 64). A call naming
    one fails at once with `ZEN_TASK_SPACE_NOT_FOUND`,
    `data.reason: "not_restored"`.
-4. `publishAgentBrowsers()` runs, and documents restored tabs already have
+5. `publishAgentBrowsers()` runs, and documents restored tabs already have
    get their guards. With `zen.workspaces.continue-where-left-off`, a
    window on the Agents Space at the quit loads its selected agent page at
    start, before the rebuild.
-5. `maybeRemoveAgentsSpace()` runs, then the auto-close.
+6. `maybeRemoveAgentsSpace()` runs, then the auto-close.
 
 `dispatch()` holds every call until the rebuild ends, in arrival order. The
 rebuild reads no network and no page.

@@ -70,7 +70,11 @@ const W = `
   const value = t => { try { return JSON.parse(SessionStore.getCustomTabValue(t, "zenius") || "null"); } catch { return null; } };
   const agentSet = () => [...(Services.ppmm.sharedData.get(AGENT_BROWSERS_KEY) ?? [])];
   // Tear a tab off into a new window, and wait until Zen has closed its
-  // copies in the other windows.
+  // copies in the other windows. A copy Zen closes stays in its window,
+  // closing, until its animation ends, and the window's session state
+  // keeps it until then: a restart could bring it back. The torn-off tab
+  // itself is the tear-off's to remove: torn off from a copy without the
+  // document, it can stay in its window, closing, after the rest are gone.
   const tearOff = async tab => {
     const n = wins().length;
     const sync = Win.syncId(tab);
@@ -79,7 +83,7 @@ const W = `
     const w = wins().at(-1);
     await until(() => w.gBrowser?.tabs?.length > 0 && w.document.readyState === "complete");
     // Every Space's tabs: gBrowser.tabs has only the shown Space's.
-    await until(() => !wins().slice(0, n).some(x => (x.gZenWorkspaces?.allStoredTabs ?? [...x.gBrowser.tabs]).some(t => t.isConnected && !t.closing && Win.syncId(t) === sync)));
+    await until(() => !wins().slice(0, n).some(x => (x.gZenWorkspaces?.allStoredTabs ?? [...x.gBrowser.tabs]).some(t => t !== tab && t.isConnected && Win.syncId(t) === sync)));
     await sleep(500);
     return w;
   };
@@ -124,7 +128,7 @@ test("Move to New Window on a task's page: the page stays the task's in the new 
     const out = await h.chrome(
       `${W}
        const t = liveOf(arg.space, arg.page);
-       const before = { bc: t.linkedBrowser.browsingContext.id, bid: t.linkedBrowser.browserId };
+       const before = { bc: t.linkedBrowser.browsingContext.id, bid: t.linkedBrowser.browserId, sync: Win.syncId(t) };
        const w = await tearOff(t);
        const page = pageOf(arg.space, arg.page);
        const now = page ? ctx.pages.tabFor(page) : null;
@@ -134,6 +138,8 @@ test("Move to New Window on a task's page: the page stays the task's in the new 
          sameDocument: now?.linkedBrowser?.browsingContext?.id === before.bc,
          label: value(now)?.label ?? null,
          valueNamesItsTab: !!now && value(now)?.sync === Win.syncId(now),
+         // The whole id: two made in one millisecond share its time part.
+         namesOldTab: typeof before.sync === "string" && value(now)?.movedFrom === before.sync,
          tag: now?.getAttribute("zenius-task") ?? null,
          guarded: agentSet().includes(now?.linkedBrowser?.browserId ?? before.bid),
          // What Take over and the hold card ask of a tab.
@@ -147,6 +153,7 @@ test("Move to New Window on a task's page: the page stays the task's in the new 
       sameDocument: true,
       label: labels[0],
       valueNamesItsTab: true,
+      namesOldTab: true,
       tag: String(space),
       guarded: true,
       control: labels[0],
@@ -331,6 +338,7 @@ test("a tab its task keeps that isn't a page, torn off into a new window, stays 
   try {
     const out = await h.chrome(
       `${W}
+       const old = Win.syncId(ctx.pages.findTab(recOf(arg.space), arg.id));
        const w = await tearOff(ctx.pages.findTab(recOf(arg.space), arg.id));
        const t = ctx.pages.findTab(recOf(arg.space), arg.id);
        return {
@@ -339,11 +347,13 @@ test("a tab its task keeps that isn't a page, torn off into a new window, stays 
          holder: t ? ctx.pages.holderOf(t) : null,
          task: t ? value(t)?.task ?? null : null,
          sync: t ? value(t)?.sync : "no tab",
+         namesOldTab: typeof old === "string" && !!t && value(t)?.movedFrom === old,
        };`,
       { space, id }
     );
-    // Its value names the tab's own sync id: none, in a torn-off window.
-    assert.deepEqual(out, { found: true, inNewWindow: true, holder: space, task: space, sync: null });
+    // Its value names the tab's own sync id: none, in a torn-off window. And
+    // the old tab's, whose copies Zen closes.
+    assert.deepEqual(out, { found: true, inNewWindow: true, holder: space, task: space, sync: null, namesOldTab: true });
     assert.deepEqual(await listedIds(space), [id], "the agent's code lists it under the same id");
   } finally {
     await closeNewWindows();
@@ -369,11 +379,101 @@ test("a tab its task keeps, torn off into a new window, comes back after a resta
     const out = await h.chrome(
       `${W}
        const t = ctx.pages.findTab(recOf(arg.space), arg.tab);
-       return { task: value(t)?.task ?? null, valueNamesItsTab: value(t)?.sync === Win.syncId(t) };`,
+       return {
+         task: value(t)?.task ?? null,
+         valueNamesItsTab: value(t)?.sync === Win.syncId(t),
+         movedFrom: value(t)?.movedFrom ?? null,
+       };`,
       { space, tab: listed[0].tab }
     );
-    assert.deepEqual(out, { task: space, valueNamesItsTab: true });
+    // The rebuild wrote its value afresh: the old tab's id is gone from it.
+    assert.deepEqual(out, { task: space, valueNamesItsTab: true, movedFrom: null });
   } finally {
+    await closeNewWindows();
+  }
+});
+
+test("a tab its task keeps, torn off and Zen quit at once, comes back alone: the copies it left behind close, and the user's tabs stay", async () => {
+  const { space, id } = await keptTab("kept tab torn off, quit at once", "kto-4");
+  const urls = { plain: `${h.base}/api/text?kto-4-plain`, own: `${h.base}/api/text?kto-4-own` };
+  /** The sync ids of two tabs of the user's: a plain one, and one marked as their own. */
+  let users = { plain: null, own: null };
+  try {
+    users = await h.chrome(
+      `${W}
+       const open = async url => {
+         const t = nth(0).gBrowser.addTab(url, { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+         await until(() => t.linkedBrowser.currentURI?.spec === url && !t.hasAttribute("busy"));
+         await until(() => Win.syncId(t) && Win.copyIn(t, nth(1)));
+         return t;
+       };
+       const plain = await open(arg.plain);
+       const own = await open(arg.own);
+       if (!ctx.pages.markUserOwn(own)) throw new Error("not marked");
+       return { plain: Win.syncId(plain), own: Win.syncId(own) };`,
+      urls
+    );
+    // The tear-off, and no wait for Zen to close the copies left behind.
+    const torn = await h.chrome(
+      `${W}
+       const t = ctx.pages.findTab(recOf(arg.space), arg.id);
+       const old = Win.syncId(t);
+       const n = wins().length;
+       t.ownerDocument.defaultView.gBrowser.replaceTabWithWindow(t);
+       await until(() => wins().length > n);
+       const w = wins().at(-1);
+       const moved = () => ctx.pages.findTab(recOf(arg.space), arg.id);
+       await until(() => moved() && wid(moved().ownerDocument.defaultView) === wid(w));
+       return { old, movedFrom: value(moved())?.movedFrom ?? null, task: value(moved())?.task ?? null };`,
+      { space, id }
+    );
+    assert.equal(typeof torn.old, "string");
+    // The whole id: two made in one millisecond share its time part.
+    assert.deepEqual(
+      { movedFrom: torn.movedFrom, task: torn.task },
+      { movedFrom: torn.old, task: space },
+      "the moved tab's value names the sync id its old tab had"
+    );
+    await h.chrome(`await ctx.service.flushState(); return true`);
+    const file = join(dir, "prefs.js");
+    writeFileSync(file, 'user_pref("browser.startup.page", 3);\nuser_pref("zen.workspaces.continue-where-left-off", false);\n');
+    process.env.ZENIUS_DEV_PREFS = file;
+    try {
+      await h.restart({});
+    } finally {
+      delete process.env.ZENIUS_DEV_PREFS;
+    }
+    const listed = await h.call("tabs.list", { space });
+    assert.deepEqual(listed.map(t => [t.label ?? null, t.url]), [[null, `${h.base}/api/text?kto-4`]], "the task has its one tab, and no blank one left behind");
+    const out = await h.chrome(
+      `${W}
+       const t = ctx.pages.findTab(recOf(arg.space), arg.tab);
+       // Every window's tab with this sync id, closing or not.
+       const withId = s => wins().flatMap(w => [w.document.getElementById(s)].filter(x => x?.localName === "tab"));
+       const open = s => withId(s).filter(x => !x.closing);
+       return {
+         task: value(t)?.task ?? null,
+         valueNamesItsTab: value(t)?.sync === Win.syncId(t),
+         movedFrom: value(t)?.movedFrom ?? null,
+         leftBehind: withId(arg.old).length,
+         plain: open(arg.plain).length > 0,
+         own: open(arg.own).length > 0 && ctx.pages.isUserOwn(open(arg.own)[0]),
+       };`,
+      { space, tab: listed[0].tab, old: torn.old, ...users }
+    );
+    assert.deepEqual(out, { task: space, valueNamesItsTab: true, movedFrom: null, leftBehind: 0, plain: true, own: true });
+  } finally {
+    await h
+      .chrome(
+        `${W}
+         for (const s of arg) {
+           const x = s && wins().map(w => w.document.getElementById(s)).find(e => e?.localName === "tab" && !e.closing);
+           if (x) x.ownerDocument.defaultView.gBrowser.removeTab(x, { animate: false });
+         }
+         return true;`,
+        [users.plain, users.own]
+      )
+      .catch(() => {});
     await closeNewWindows();
   }
 });

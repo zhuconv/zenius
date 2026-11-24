@@ -1583,7 +1583,19 @@ class Service {
       const found = new Set();
       // Each tab once, as its live copy: window sync restores a copy in each
       // window, and readTabValue reads any copy's value.
-      for (const tab of [...uniqueTabs()]) {
+      const tabs = [...uniqueTabs()];
+      // A quit while Zen was closing the copies a tab moved to another
+      // window left behind brings them back, blank, with the task's value:
+      // they close rather than go back to the task. Putting the moved tab
+      // back writes its value afresh, without the sync id that named them.
+      const leftBehind = this.pages.closeLeftBehind(tabs);
+      if (leftBehind.size) {
+        log(`restart: closed ${leftBehind.size} tab(s) a move to another window left behind`);
+      }
+      for (const tab of tabs) {
+        if (leftBehind.has(tab)) {
+          continue;
+        }
         const value = readTabValue(tab);
         if (!value) {
           continue;
