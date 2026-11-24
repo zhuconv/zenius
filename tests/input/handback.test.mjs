@@ -909,3 +909,89 @@ test("a Space the agent claims back after the user stopped it has their password
     await claimAllowed(space(page));
     assert.deepEqual(await page.evaluate(() => [pass.value, agentpass.value]), ["", "agent-own-secret"]);
   }));
+
+/**
+ * The hold card's Resume agent, the entry the agent sidebar's send counts as
+ * (docs/SPI.md, "A send as Resume agent"): a case on the task's page held by
+ * the user's Take over, with zen-core's quiet loads on, as in a real profile.
+ */
+async function onHeldPage(fn) {
+  await chrome(`Services.prefs.clearUserPref("zenius.handoff.quietReload"); return true;`);
+  try {
+    await inWatchedPage("/handback", async page => {
+      const at = { space: page.spaceId, page: page.label };
+      const innerId = () => chrome(`${SERVICE} return ZeniusService.resolvePage(arg).browser.browsingContext.currentWindowGlobal?.innerWindowId ?? 0;`, at);
+      const notes = () => chrome(`${SERVICE} return ZeniusService.spaces.takeHandBackNotes(ZeniusService.spaces.peek(arg));`, page.spaceId);
+      const takeOver = () => chrome(`${SERVICE} ${UI} await UI.takeOverByUser(ZeniusService.spaces.peek(arg)); return true;`, page.spaceId);
+      const type = async () => {
+        await h.userClick(page, "#pass");
+        await h.userPress(page, ..."typed");
+        await h.until(() => h.asUser(page, "return document.querySelector('#pass').value.length === 5"), "the user's typing");
+      };
+      /** The user's press on the card's Resume agent; the page's document when the agent has control again, read in that moment. */
+      const pressResume = async () => {
+        // The card's buttons arm 400 ms after it shows.
+        await new Promise(resolve => setTimeout(resolve, 450));
+        return chrome(
+          `${SERVICE}
+           const { setTimeout } = ChromeUtils.importESModule("resource://gre/modules/Timer.sys.mjs");
+           const N = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/notices.sys.mjs");
+           const rec = ZeniusService.spaces.peek(arg.space);
+           const { browser } = ZeniusService.resolvePage(arg);
+           const tab = browser.ownerDocument.defaultView.gBrowser.getTabForBrowser(browser);
+           const button = [...(N.noticeElement(tab, "zenius-control")?.querySelectorAll("button") ?? [])].find(b => b.textContent.trim() === "Resume agent");
+           if (!button) throw new Error("the hold card shows no Resume agent");
+           button.click();
+           for (let i = 0; i < 2000 && rec.ownership !== "agent"; i++) await new Promise(r => setTimeout(r, 5));
+           return rec.ownership === "agent" ? (browser.browsingContext.currentWindowGlobal?.innerWindowId ?? 0) : null;`,
+          at
+        );
+      };
+      await fn({ page, at, innerId, notes, takeOver, type, pressResume });
+    });
+  } finally {
+    await chrome(`Services.prefs.setBoolPref("zenius.handoff.quietReload", false); return true;`).catch(() => {});
+  }
+}
+
+test("Resume agent on the hold card: a page holding a password the user typed, and evidence of the agent's code, loads afresh before the agent has control; the notes name it once, and the agent's next call works", () =>
+  onHeldPage(async ({ page, at, innerId, notes, takeOver, type, pressResume }) => {
+    const before = await innerId();
+    await takeOver();
+    assert.equal(await innerId(), before, "a clean page: the Take over had nothing to load afresh");
+    await type();
+    const typedIn = await innerId();
+    // zen-observe's flag on the document the user typed in, as when something
+    // of the agent's code reached it during the hold.
+    const marked = await chrome(
+      `${SERVICE}
+       const EV = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/evidence.sys.mjs");
+       return EV.markEvident(ZeniusService.resolvePage(arg).browser, "hooked", "a script element");`,
+      at
+    );
+    assert.equal(marked, true);
+    const atControl = await pressResume();
+    assert.ok(atControl, "the agent has control");
+    assert.notEqual(atControl, typedIn, "the page loaded afresh before the agent had control");
+    assert.deepEqual(await notes(), { reloaded: [page.label] }, "the hand back's notes name it");
+    assert.deepEqual(await notes(), {}, "once");
+    assert.equal(await page.evaluate(() => document.querySelector("#pass").value), "", "the agent's next call works, and finds no password");
+  }));
+
+test("Resume agent on the hold card after a Take over that loaded a hooked page afresh: the notes name that page once, and the agent's next call works", () =>
+  onHeldPage(async ({ page, at, innerId, notes, takeOver, type, pressResume }) => {
+    // A script element the agent's code, in its own world, left in the page.
+    await h.call("page.evaluate", {
+      ...at,
+      fn: `const script = document.createElement("script"); script.textContent = "window.hooked = 1;"; document.head.append(script); 1`,
+      isFunction: false,
+    });
+    const hooked = await innerId();
+    await takeOver();
+    assert.notEqual(await innerId(), hooked, "the user holds a clean copy");
+    await type();
+    assert.ok(await pressResume(), "the agent has control");
+    assert.deepEqual(await notes(), { reloaded: [page.label] }, "the hand back's notes name the page loaded afresh at the Take over");
+    assert.deepEqual(await notes(), {}, "once");
+    assert.equal(await page.evaluate(() => document.querySelector("#pass").value), "", "the agent's next call works, and finds no password");
+  }));
