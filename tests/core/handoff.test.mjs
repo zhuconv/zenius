@@ -10,6 +10,7 @@
 // and what the hand back tells the agent. zen-observe's guards
 // (tests/observe) cover the rest.
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import http from "node:http";
 import { after, before, test } from "node:test";
 import { setup } from "./lib.mjs";
@@ -1111,6 +1112,85 @@ test("landing (2): at the task's end, a hooked page that stays open loads afresh
     await cleanUp(space);
   }
 });
+
+// Gecko lowers a process whose tabs are all background tabs at once, and on a
+// busy Mac a background process can wait seconds for the CPU: a kept page's
+// form record then missed its limit, and the typing wasn't carried over. On
+// Linux a content process's priority shows in its oom_score_adj.
+test(
+  "landing (2): at the task's end, a kept page's process keeps a shown tab's priority from the finish through its clean load, and drops only after",
+  { skip: process.platform !== "linux" && "the process priority is read from /proc" },
+  async () => {
+    const space = await h.space("ho prio");
+    let id = null;
+    try {
+      const { label } = await h.call("pages.new", { space, url: site("/form?ho=prio") });
+      await loaded(space, label, "ho=prio");
+      await h.call("page.evaluate", { space, page: label, isFunction: false, fn: FILL });
+      const before = await info(space, label);
+      const tab = await h.chrome(`${BROWSER} return { id: b.browserId, pid: b.frameLoader.remoteTab.osPid };`, { space, label });
+      id = tab.id;
+      await markPage(space, label);
+      const priority = () => {
+        try {
+          return Number(readFileSync(`/proc/${tab.pid}/oom_score_adj`, "utf8"));
+        } catch {
+          return null;
+        }
+      };
+      // The agent's page is kept alive, so its process is up as a shown tab's.
+      const shown = priority();
+      assert.equal(typeof shown, "number", `no priority for process ${tab.pid}`);
+      const state = () =>
+        h.chrome(
+          `const W = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/windows.sys.mjs");
+           const t = [...W.allTabs()].find(t => t.linkedBrowser.browserId === arg);
+           const bc = t.linkedBrowser.browsingContext;
+           const read = await ctx.content(bc, "dev#evalContent", { privileged: false, code: ${JSON.stringify(READ)} }).catch(e => "ERR " + e.message);
+           return { inner: bc.currentWindowGlobal?.innerWindowId ?? 0, pid: t.linkedBrowser.frameLoader?.remoteTab?.osPid ?? 0, read };`,
+          id
+        );
+      // Every 2 ms, from just before the finish until the fresh document has
+      // the form back.
+      const samples = [];
+      let sampling = true;
+      const sampler = (async () => {
+        while (sampling) {
+          samples.push(priority());
+          await new Promise(resolve => setTimeout(resolve, 2));
+        }
+      })();
+      let now = null;
+      try {
+        await h.call("spaces.finish", { space, keep: [label] });
+        await h.until(async () => (now = await state()).inner !== before.inner && /\|t$/.test(now.read), 10000).catch(() => {});
+      } finally {
+        sampling = false;
+        await sampler;
+      }
+      assert.notEqual(now.inner, before.inner, `the page loaded afresh (${JSON.stringify(now)}, ${await quietNote()})`);
+      assert.equal(now.read, "typed,orig,,true,b,area|t", await quietNote());
+      assert.equal(now.pid, tab.pid, "the fresh document came in the page's process");
+      assert.deepEqual([...new Set(samples)], [shown], `${samples.length} samples from the finish to the form's return`);
+      // Then it is the user's background tab, and drops as any does.
+      let after = shown;
+      await h.until(async () => (after = priority()) !== shown, 5000).catch(() => {});
+      assert.ok(after > shown, `after the clean load: ${after}; while kept alive: ${shown}`);
+    } finally {
+      if (id !== null) {
+        await h
+          .chrome(
+            `const W = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/windows.sys.mjs");
+             for (const t of [...W.allTabs()].filter(t => t.linkedBrowser.browserId === arg)) t.ownerDocument.defaultView.gBrowser.removeTab(t);
+             return true;`,
+            id
+          )
+          .catch(() => {});
+      }
+      await cleanUp(space);
+    }
+  }
+);
 
 test("landing (2): onKeptRefused and onOpenRefused say evident, with the page's evidence, when it has what a clean copy clears (hooked or made), and never written", async () => {
   const space = await h.space("ho flags");

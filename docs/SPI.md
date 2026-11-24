@@ -1296,6 +1296,17 @@ Entry points (`modules/service.sys.mjs`):
     included. Then each tab that stays open and needs a clean copy loads
     afresh the same way, each on its own (`reloadHookedAfterTask`). One
     whose load brings no new document keeps its evidence.
+    - The ownership event stops keeping the task's pages alive in the same
+      turn, so a kept page that isn't shown is a background tab before its
+      discard answers, and Gecko lowers a process whose tabs are all
+      background at once. So each page that stays has its content process
+      held up from before its discard until its clean load ends, or until
+      the discard for one with nothing to load (`holdPriority` in
+      `modules/guards.sys.mjs`). The hold is `nsIRemoteTab.priorityHint`,
+      the tab switcher's knob for a tab it is about to show: it raises only
+      the process, and the page stays a background tab to its own code.
+    - The record there gets `TASK_END_RECORD_TIMEOUT_MS` (10 s), since
+      nothing waits on it; a hand-off's gets 3 s.
   - One clean load runs per page at a time: the user's press during the
     task's-end reload (`cleanOnDemand`) shares it.
   - `onOpenRefused` and `onKeptRefused` events carry `evident: true` and
@@ -1467,7 +1478,10 @@ Residuals:
   rAF at the display rate, fires timers on time, renders, reports
   `document.hidden === false`, and is never unloaded for low memory. The tab
   switcher deactivates a tab it switched away from; the guards re-activate it,
-  and `ctx.resolvePage()` re-checks before every page method.
+  and `ctx.resolvePage()` re-checks before every page method. An active
+  browsing context also keeps the tab's content process, and its frames'
+  processes, at a shown tab's priority: Gecko raises a process for one, or
+  for `nsIRemoteTab.priorityHint`.
 - Popups from a page the agent drives (`target=_blank`, `window.open()`, and
   `window.open()` with size features, which a content guard turns into a tab
   instead of a window) open in the background in the same space under the

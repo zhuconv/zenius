@@ -43,7 +43,13 @@ Object.defineProperties(lazy, {
 const LOAD_TIMEOUT_MS = 15000;
 /** How long every process gets to end the agent's sandboxes (zen-observe's discard). */
 const DISCARD_TIMEOUT_MS = 10000;
+/** How long a form's record may take: the user waits on a hand-off's. */
 const RECORD_TIMEOUT_MS = 3000;
+/**
+ * At a task's end nothing waits on the record, and its page is a background
+ * tab by then (service.sys.mjs, reloadHookedAfterTask).
+ */
+export const TASK_END_RECORD_TIMEOUT_MS = 10000;
 /** fill() waits for the new document's load event, up to 5 s, first. */
 const FILL_TIMEOUT_MS = 8000;
 /** How long a secret step's tab gets to show about:blank at the hand back. */
@@ -451,7 +457,7 @@ const responseHook = {
  *
  * @param {object} svc  ZeniusService
  * @param {Element} browser
- * @param {{sameSite?: boolean, evidentFails?: boolean}} [opts]
+ * @param {{sameSite?: boolean, evidentFails?: boolean, recordMs?: number}} [opts]
  *   sameSite: the load must end on the page's site (the page the user is
  *   about to hold): a redirect off it, or a load of another site that the
  *   new document starts, is stopped before it's sent. The site's own router
@@ -466,7 +472,7 @@ const responseHook = {
  *   how: "get" when a POST result was loaded again by GET; loadedFrom: the
  *   URL that brought the document, when the load went there instead
  */
-export async function cleanLoad(svc, browser, { sameSite = false, evidentFails = false } = {}) {
+export async function cleanLoad(svc, browser, { sameSite = false, evidentFails = false, recordMs = RECORD_TIMEOUT_MS } = {}) {
   service = svc;
   const bc = browser?.browsingContext;
   const windowGlobal = bc?.currentWindowGlobal;
@@ -483,7 +489,7 @@ export async function cleanLoad(svc, browser, { sameSite = false, evidentFails =
   let form = null;
   let trouble = null;
   try {
-    form = await within(svc.content(bc, "forms#record", {}), RECORD_TIMEOUT_MS, "recording the form");
+    form = await within(svc.content(bc, "forms#record", {}), recordMs, "recording the form");
   } catch (e) {
     trouble = `record: ${e.message}`;
     log("the quiet load carries no form over:", e.message);

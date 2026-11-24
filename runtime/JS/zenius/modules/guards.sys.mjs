@@ -38,6 +38,51 @@ export function keepAlive(tab) {
   }
 }
 
+/**
+ * Keep `browser`'s content process at a shown tab's priority while zenius
+ * still works in the page after its task (the discard, then the clean load's
+ * form record, load and fill), though by then the page is the user's
+ * background tab. Gecko lowers a process whose tabs are all background at
+ * once, and on a busy Mac a background process can wait seconds for the CPU:
+ * the record missed its limit there, and the user's typing wasn't carried
+ * over. This sets the tab switcher's own knob, nsIRemoteTab.priorityHint,
+ * which raises only the process: the page stays a background tab to its own
+ * code (document.visibilityState, timers, autoplay, wake locks), as the
+ * user's other background tabs are. A tab whose hint is already up (the
+ * switcher's, for a tab the user shows) is left to the switcher. Returns the
+ * release, which runs once.
+ *
+ * The hint belongs to the page's current process: a load that moved the page
+ * to another would leave that one unheld. A clean load stays on the page's
+ * site, and so in its process.
+ *
+ * @param {Element} browser
+ * @returns {() => void}
+ */
+export function holdPriority(browser) {
+  let remoteTab = null;
+  try {
+    remoteTab = browser?.frameLoader?.remoteTab ?? null;
+    if (!remoteTab || remoteTab.priorityHint) {
+      return () => {};
+    }
+    remoteTab.priorityHint = true;
+  } catch (e) {
+    log("raising a page's process failed:", e.message);
+    return () => {};
+  }
+  let held = true;
+  return () => {
+    if (!held) {
+      return;
+    }
+    held = false;
+    try {
+      remoteTab.priorityHint = false;
+    } catch {}
+  };
+}
+
 /** Undo keepAlive when a tab goes back to the user. */
 export function releaseKeepAlive(tab) {
   const browser = tab?.linkedBrowser;

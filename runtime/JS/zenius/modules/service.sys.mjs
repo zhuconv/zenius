@@ -27,6 +27,7 @@ import {
 import { JsonStore } from "chrome://userscripts/content/zenius/modules/store.sys.mjs";
 import { Unserializable } from "chrome://userscripts/content/zenius/modules/serialize.sys.mjs";
 import {
+  holdPriority,
   installWindowGuards,
   keepAlive,
   releaseKeepAlive,
@@ -69,6 +70,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   markEvident: "chrome://userscripts/content/zenius/observe/evidence.sys.mjs",
   // The hold's module loads with a task's first hold, not at startup (I4).
   cleanLoad: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
+  TASK_END_RECORD_TIMEOUT_MS: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
   cleanable: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
   evidenceOf: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
   needsCleanCopy: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
@@ -1080,15 +1082,16 @@ class Service {
    * CLEAN_COPY_CAP: past it, it throws before any load.
    *
    * @param {Element} browser
-   * @param {{onDemand?: boolean}} [opts]
+   * @param {{onDemand?: boolean, recordMs?: number}} [opts]  recordMs: the
+   *   form record's limit (handoff.sys.mjs cleanLoad)
    */
-  #cleanCopy(browser, { onDemand = false } = {}) {
+  #cleanCopy(browser, { onDemand = false, recordMs } = {}) {
     let running = this.#cleanLoads.get(browser);
     if (!running) {
       if (onDemand) {
         this.#countCleanCopy(browser);
       }
-      running = lazy.cleanLoad(this, browser, { sameSite: true, evidentFails: onDemand }).finally(() => this.#cleanLoads.delete(browser));
+      running = lazy.cleanLoad(this, browser, { sameSite: true, evidentFails: onDemand, recordMs }).finally(() => this.#cleanLoads.delete(browser));
       this.#cleanLoads.set(browser, running);
     }
     return running;
@@ -1121,6 +1124,11 @@ class Service {
    * world kept running in a kept page and heard the user's clicks and keys
    * (zen-snapshot's kept group, 2026-11-20).
    *
+   * Each page that stays has its process held up (holdPriority) from before
+   * its discard until zenius is done with it: the callers release keepAlive
+   * right after this starts, and the discard and a clean load then run in a
+   * page that is a background tab.
+   *
    * @param {object} rec  the task
    * @param {Set<Element>} [closing]  tabs finish() closes: discarded, never reloaded
    * @returns {Promise<void>}
@@ -1142,12 +1150,18 @@ class Service {
     const failed = e => log("discarding the agent's code at the task's end failed:", e.message);
     const discards = [{ task: rec.id }, ...groups.values()].map(target => this.discardAgentCode(target).catch(failed));
     const stays = tabs.filter(tab => !closing.has(tab)).map(tab => tab.linkedBrowser);
+    const held = new Map(stays.map(browser => [browser, holdPriority(browser)]));
     return Promise.all(discards)
-      .then(() => this.reloadHookedAfterTask(stays))
+      .then(() => this.reloadHookedAfterTask(stays, held))
       .then(
         () => {},
         e => log("reloading the hooked pages at the task's end failed:", e.message)
-      );
+      )
+      .finally(() => {
+        for (const release of held.values()) {
+          release();
+        }
+      });
   }
 
   /**
@@ -1157,20 +1171,33 @@ class Service {
    * evidence, and what such a page keeps.
    *
    * @param {Element[]} browsers  the task's pages that stay open
+   * @param {Map<Element, () => void>} [held]  their process holds
+   *   (endTaskCode): each is released once its page is done with
    * @returns {Promise<number>} how many were to load afresh
    */
-  async reloadHookedAfterTask(browsers) {
+  async reloadHookedAfterTask(browsers, held = new Map()) {
+    const done = browser => {
+      held.get(browser)?.();
+      held.delete(browser);
+    };
     // Tests of the other layers keep what the agent put in a page (the
     // hand-off's and Resume's loads skip too; never off otherwise).
     if (!Services.prefs.getBoolPref("zenius.handoff.quietReload", true)) {
+      browsers.forEach(done);
       return 0;
     }
     const hooked = browsers.filter(b => b?.isConnected && b.browsingContext?.currentWindowGlobal && this.needsCleanCopy(b));
+    for (const browser of browsers) {
+      if (!hooked.includes(browser)) {
+        done(browser);
+      }
+    }
     await Promise.all(
       hooked.map(b =>
-        this.#cleanCopy(b)
+        this.#cleanCopy(b, { recordMs: lazy.TASK_END_RECORD_TIMEOUT_MS })
           .then(() => log("a hooked page reloaded at its task's end"))
           .catch(e => log("a hooked page didn't reload at its task's end, so it keeps its evidence:", e.message))
+          .finally(() => done(b))
       )
     );
     return hooked.length;
