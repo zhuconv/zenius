@@ -758,6 +758,19 @@ zenius treats a tab's copies as one tab:
     the view keeper puts each window's view back. A Zen without
     `addSyncHandler` gets the check once the tab has its id
     (`syncedSoon`).
+  - The same handler gives an agent's page's copies its icon
+    (`copyIcon`). Window sync sets each copy's icon from the page's
+    image attribute, which for an SVG favicon Gecko has made a
+    `moz-remote-image:` URL, and `setIcon` refuses that as remote: the
+    copies of a new page kept no icon. So after window sync's
+    `ZenTabIconChanged` handler, a page with zen-ux's tag whose contents
+    show gives each copy its browser's `mIconURL`, the `data:` URL.
+    `fillCopies` calls it too, after its own direct call to that
+    handler, which `afterWindowSync` doesn't see. The user's own tabs
+    stay as Zen leaves them. After a restart, Zen marks no copy of a
+    task's restored background page as the one showing it until one is
+    selected. Till then window sync passes on none of its icon or title
+    changes, and `copyIcon` waits too.
 - `pages.keepView(fn)` runs every strip change zenius makes and returns
   its value: `addTab` from the add on (which passes through the window's
   active Space), a popup's add and move, `closeTab`'s `removeTab`, and

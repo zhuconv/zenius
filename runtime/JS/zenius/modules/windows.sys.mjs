@@ -487,9 +487,10 @@ export function stripTabs(win, uuid) {
  * page's copy where it opened: in the Space the window shows, the user's.
  *
  * Each copy is made as Zen's on_TabOpen makes one, then window sync places
- * it, names it and gives it its icon. Call this from a promise job: Zen's
- * own TabOpen handler for a copy is queued, and must find the sync id set,
- * or it would take the copy for a new tab and copy it into every window.
+ * it, names it and gives it its icon, or copyIcon does where window sync
+ * can't. Call this from a promise job: Zen's own TabOpen handler for a
+ * copy is queued, and must find the sync id set, or it would take the
+ * copy for a new tab and copy it into every window.
  *
  * @param {Element[]} tabs
  * @param {Window} win
@@ -547,6 +548,9 @@ export function fillCopies(tabs, win) {
     } catch (e) {
       console.error("[zenius] window sync didn't name a copy", e);
     }
+    // Window sync's icon call above fails for an SVG favicon, and
+    // afterWindowSync doesn't see a direct call.
+    copyIcon(live);
   }
   return made;
 }
@@ -633,12 +637,17 @@ export function stopFollowingWindowSync() {
  * handler that made and placed the tab's copies: before the window paints,
  * and before the view keeper, which waits for the tab's sync id, puts each
  * window's view back. So a copy that passed through the Space a window
- * shows leaves it unseen. Any other tab's event costs a type check or one
- * lookup.
+ * shows leaves it unseen. After an icon change, an agent's page's copies
+ * get its icon (copyIcon). Any other event costs a type check, and a
+ * lookup or an attribute check.
  *
  * @param {Event} event
  */
 function afterWindowSync(event) {
+  if (event?.type === "ZenTabIconChanged") {
+    copyIcon(event.target);
+    return;
+  }
   if (event?.type !== "TabOpen" && event?.type !== "TabMove") {
     return;
   }
@@ -653,6 +662,42 @@ function afterWindowSync(event) {
   }
   if (syncId(tab) && syncsTab(tab)) {
     repairNow(tab);
+  }
+}
+
+/** pages.sys.mjs's TASK_ATTR, on every copy of an agent's page. pages imports this module. */
+const TASK_TAG = "zenius-task";
+
+/**
+ * Give the copies of an agent's page the icon it shows, once window sync
+ * has tried. Window sync sets each copy's icon from the page's image
+ * attribute, which for an SVG favicon Gecko has made a moz-remote-image:
+ * URL (its remote SVG decoding). setIcon refuses that as a remote URL, so
+ * each copy keeps the icon it had: for a new page none, a gray square.
+ * The browser's mIconURL still holds the data: URL that setIcon takes.
+ * Like window sync, this follows only the copy whose contents show. A
+ * copy with the icon already (window sync passes on other favicons) costs
+ * a comparison. The user's own tabs stay as Zen leaves them.
+ *
+ * @param {Element} tab
+ */
+function copyIcon(tab) {
+  if (!tab?._zenContentsVisible || !tab.hasAttribute?.(TASK_TAG)) {
+    return;
+  }
+  const icon = tab.linkedBrowser?.mIconURL;
+  if (!icon) {
+    return;
+  }
+  for (const copy of copiesOf(tab)) {
+    if (copy === tab || copy.closing || copy.linkedBrowser?.mIconURL === icon) {
+      continue;
+    }
+    try {
+      copy.ownerDocument.defaultView.gBrowser.setIcon(copy, icon);
+    } catch (e) {
+      console.error("[zenius] can't give a copy its page's icon", e);
+    }
   }
 }
 
