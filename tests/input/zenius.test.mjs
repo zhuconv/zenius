@@ -2671,9 +2671,31 @@ test("a press the agent holds keeps the user's mouse in the user's tab: a select
   assert.deepEqual(await h.call("dev.viewState"), before, "the user's view is back as it was");
 });
 
-// Past the longest a release holds the user's input in a tab (its 1 s cap),
-// so input that comes after the hold shows in the agent's log too.
-const PAST_HOLD_MS = 1300;
+/**
+ * Resolve once `page`'s document has drawn `n` frames after this request
+ * reaches it, or fail after `ms`. A request sent after the user's input
+ * reaches the page's process behind that input, which runs there at input
+ * priority, so the moves it coalesced are already waiting. Gecko sends them
+ * out at the next refresh tick, before that tick's animation frames. By the
+ * first frame, then, every move the user sent there has come: dropped by a
+ * hold still on, or heard after one, wherever the hold ended. Ask the
+ * document whose process got the input, the agent tab's top document: a
+ * frame in another process draws on its own ticks and could read too early.
+ * Frames that stop fail here instead of passing unseen.
+ */
+async function afterFrames(page, n = 3, ms = 5000) {
+  const drew = await page.evaluate(
+    ([n, ms]) =>
+      new Promise(resolve => {
+        const timer = setTimeout(() => resolve(false), ms);
+        let left = n;
+        const frame = () => (--left > 0 ? requestAnimationFrame(frame) : (clearTimeout(timer), resolve(true)));
+        requestAnimationFrame(frame);
+      }),
+    [n, ms]
+  );
+  assert.ok(drew, `the agent's page drew no ${n} frames in ${ms} ms, so the read can't show input that came after the hold`);
+}
 
 for (const [when, release] of [
   ["as the user's first event ends the agent's press", null],
@@ -2721,7 +2743,9 @@ for (const [when, release] of [
 // at its next frame; only a button event sends them out sooner. So input
 // that ends in moves tests the hold past the parent's answer: none of it may
 // reach the agent's page either. Every run is recorded, so a failure shows
-// how often the user's input got through.
+// how often the user's input got through. Each run reads the agent's log
+// three frames after the input (afterFrames), by when any move its process
+// coalesced has gone out; the test after these checks that order.
 const USER_MOVES = [["mousemove", 60, 30, 0], ["mousemove", 90, 40, 0], ["mousemove", 100, 50, 0]];
 const USER_CLICK_THEN_MOVES = [...USER_CLICK, ["mousemove", 100, 50, 0], ["mousemove", 110, 60, 0]];
 for (const [when, release] of [
@@ -2748,7 +2772,8 @@ for (const [when, release] of [
           const agentCall = release?.(page);
           await userMouse(steps, -1);
           await agentCall;
-          await h.sleep(PAST_HOLD_MS);
+          // Counted from a request sent once the user's input and the agent's call are done.
+          await afterFrames(page);
           // Its own release and click are on its pad; the user's input would come at their point.
           const events = (await page.evaluate(() => window.__log.splice(0))).filter(e => !e.endsWith("@agentpad"));
           if (events.length) heard.push(`run ${run}: ${events.join(" ")}`);
@@ -2766,6 +2791,34 @@ for (const [when, release] of [
     });
   }
 }
+
+test("the user's moves that a tab's process coalesced reach its page by the first frame after a later request, as the moves cases' read needs", { timeout: 60_000 }, async () => {
+  // afterFrames rests on two things: the user's input reaches a page's
+  // process ahead of a request sent after it, and Gecko sends out the moves
+  // it coalesced at the next refresh tick, before that tick's animation
+  // frames. The user's own tab, with no hold, shows both: by the first frame
+  // after the request, their page has had their last move (coalesced moves
+  // arrive as one event, at the last point). Should Gecko ever send it
+  // later, this fails, and the moves cases' read must wait longer.
+  const before = await h.call("dev.viewState");
+  const [, lastX, lastY] = USER_MOVES.at(-1);
+  try {
+    await openUserLab(`${h.crossUrl}/?user=${Date.now()}`);
+    await inUserLab("addEventListener('mousemove', e => (window.__lastMove = [e.clientX, e.clientY]), true); return true;");
+    for (let run = 1; run <= 5; run++) {
+      await inUserLab("window.__lastMove = null; return true;");
+      await userMouse(USER_MOVES, -1);
+      const seen = await inUserLab("return await new Promise(resolve => requestAnimationFrame(() => resolve(window.__lastMove)));");
+      assert.ok(
+        Array.isArray(seen) && Math.abs(seen[0] - lastX) <= 1 && Math.abs(seen[1] - lastY) <= 1,
+        `run ${run}: the user's last move, at ${lastX},${lastY}, was in their page by the first frame (its last move: ${JSON.stringify(seen)})`
+      );
+    }
+  } finally {
+    await closeUserLab();
+  }
+  assert.deepEqual(await h.call("dev.viewState"), before, "the user's view is back as it was");
+});
 
 /** Show the agent's page to the user, as when they open its tab: its Space's workspace, the tab selected, focus in it. */
 function showAgentPage(page) {
