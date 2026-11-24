@@ -557,6 +557,9 @@ in `modules/pages.sys.mjs` reads it:
     them as the task's.
   - The restart rebuild closes them before anything else (below). Zen
     never gives a sync id twice, so only those copies have it.
+  - The moved tab's `sync` is its own from the move: none in a torn-off
+    window, or none until Zen gives it one. So a quit at any point finds a
+    value the moved tab owns.
   - Putting the moved tab back writes its value afresh, without
     `movedFrom`, so a later restart has nothing to act on.
 - **A tab the user makes from a task's tab is theirs.** Firefox copies a
@@ -601,8 +604,8 @@ in `modules/pages.sys.mjs` reads it:
   `zenius-task-state` beside it.
 - A tab moving to another window is a new element there: `TabClose` with
   `adoptedBy` copies the value and the tag (`pages.carryOver`). The value
-  names the new tab's sync id once Zen gives it one, while a task holds
-  the tab, and the old tab's as `movedFrom`.
+  names the new tab's own sync id from the move, none until Zen gives it
+  one, while a task holds the tab, and the old tab's as `movedFrom`.
   - A page goes with its document. When the tab that moved held it, the
     page is the new tab, and `pageMoved` goes out. carryOver runs at the
     old tab's `TabClose`, before Firefox swaps the browsers, so it goes by
@@ -897,8 +900,11 @@ Then:
    by zenius's mark (below).
 2. The copies a move left behind close (`pages.closeLeftBehind`).
    - A copy closes only when its sync id is, whole, the `movedFrom` of
-     another tab's own value. Whatever value it carries makes no
+     another tab's task value. Whatever value the copy carries makes no
      difference. The moved tab itself never closes this way.
+   - The value that names it needn't be its tab's own. A Duplicate Tab of
+     the moved tab carries it too, and either way only the old tab's
+     copies can have that id.
    - Every window's copy closes at once, with no animation, so a quit
      right after the rebuild can't keep one either.
    - The rest of the rebuild skips them.

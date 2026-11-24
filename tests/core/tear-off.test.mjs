@@ -338,8 +338,26 @@ test("a tab its task keeps that isn't a page, torn off into a new window, stays 
   try {
     const out = await h.chrome(
       `${W}
-       const old = Win.syncId(ctx.pages.findTab(recOf(arg.space), arg.id));
-       const w = await tearOff(ctx.pages.findTab(recOf(arg.space), arg.id));
+       const from = ctx.pages.findTab(recOf(arg.space), arg.id);
+       const old = Win.syncId(from);
+       // The new tab's value as the move wrote it, before anything later
+       // could: this listener runs right after zenius's own, at the old
+       // tab's TabClose.
+       const before = from.ownerDocument.defaultView;
+       let atMove = "no move";
+       const onClose = e => {
+         if (e.target === from) {
+           const v = value(e.detail?.adoptedBy);
+           atMove = v && { sync: v.sync, namesOldTab: v.movedFrom === old };
+         }
+       };
+       before.addEventListener("TabClose", onClose);
+       let w;
+       try {
+         w = await tearOff(from);
+       } finally {
+         before.removeEventListener("TabClose", onClose);
+       }
        const t = ctx.pages.findTab(recOf(arg.space), arg.id);
        return {
          found: !!t,
@@ -348,12 +366,22 @@ test("a tab its task keeps that isn't a page, torn off into a new window, stays 
          task: t ? value(t)?.task ?? null : null,
          sync: t ? value(t)?.sync : "no tab",
          namesOldTab: typeof old === "string" && !!t && value(t)?.movedFrom === old,
+         atMove,
        };`,
       { space, id }
     );
-    // Its value names the tab's own sync id: none, in a torn-off window. And
-    // the old tab's, whose copies Zen closes.
-    assert.deepEqual(out, { found: true, inNewWindow: true, holder: space, task: space, sync: null, namesOldTab: true });
+    // Its value names the tab's own sync id, from the move on: none, in a
+    // torn-off window, never the old tab's. And the old tab's as movedFrom,
+    // whose copies Zen closes.
+    assert.deepEqual(out, {
+      found: true,
+      inNewWindow: true,
+      holder: space,
+      task: space,
+      sync: null,
+      namesOldTab: true,
+      atMove: { sync: null, namesOldTab: true },
+    });
     assert.deepEqual(await listedIds(space), [id], "the agent's code lists it under the same id");
   } finally {
     await closeNewWindows();
@@ -476,6 +504,40 @@ test("a tab its task keeps, torn off and Zen quit at once, comes back alone: the
       .catch(() => {});
     await closeNewWindows();
   }
+});
+
+test("the restart's close of copies left behind takes the id from any task value, compares it whole, and closes no other tab, nor the one that names it", async () => {
+  const out = await h.chrome(
+    `${W}
+     await focus(0);
+     const g = nth(0).gBrowser;
+     const open = async () => {
+       const t = g.addTab("about:blank", { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+       await until(() => Win.syncId(t) && Win.copyIn(t, nth(1)));
+       return t;
+     };
+     const tabs = { left: await open(), prefix: await open(), mover: await open(), self: await open(), other: await open() };
+     const ids = Object.fromEntries(Object.entries(tabs).map(([k, t]) => [k, Win.syncId(t)]));
+     const mark = (t, v) => SessionStore.setCustomTabValue(t, "zenius", JSON.stringify({ v: 1, task: 999999, openedBy: "agent", ...v }));
+     // A moved tab whose value isn't its own names a copy left behind.
+     mark(tabs.mover, { sync: "not its own", movedFrom: ids.left });
+     // Part of an id names nothing: two made in one millisecond share it.
+     mark(tabs.other, { sync: ids.other, movedFrom: ids.prefix.slice(0, -1) });
+     // A value naming its own tab's id doesn't close that tab.
+     mark(tabs.self, { sync: ids.self, movedFrom: ids.self });
+     const closed = ctx.pages.closeLeftBehind(Object.values(tabs));
+     // Any copy left, closing or not.
+     const present = s => wins().some(w => w.document.getElementById(s)?.localName === "tab");
+     const result = { closed: [...closed].map(t => Object.keys(tabs).find(k => tabs[k] === t)), present: Object.fromEntries(Object.entries(ids).map(([k, s]) => [k, present(s)])) };
+     for (const t of Object.values(tabs)) {
+       if (t.isConnected && !t.closing) g.removeTab(t, { animate: false });
+     }
+     return result;`
+  );
+  assert.deepEqual(out, {
+    closed: ["left"],
+    present: { left: false, prefix: true, mover: true, self: true, other: true },
+  });
 });
 
 test("Move to New Window on another window's copy of a tab its task keeps: the tab ends with the copies Zen closes, and the new window's tab is the user's", async () => {

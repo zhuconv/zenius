@@ -85,11 +85,16 @@ function writeTabValue(tab, value) {
  * closes them (Pages.closeLeftBehind). Zen never gives a sync id twice, so
  * only those copies have it. A tab with no sync id left none behind.
  *
+ * Its `sync` is the new tab's own from the start: none in a torn-off
+ * window, or none yet in a synced one, until Zen gives it one (#syncSoon).
+ * A quit before then finds a value its tab owns, never the old tab's id.
+ *
  * @param {object} value  the task's value, as the old tab had it
  * @param {string|null} from  the old tab's sync id
+ * @param {string|null} to  the new tab's sync id
  */
-function movedValue(value, from) {
-  const moved = { ...value };
+function movedValue(value, from, to) {
+  const moved = { ...value, sync: to };
   delete moved.movedFrom;
   if (from) {
     moved.movedFrom = from;
@@ -708,7 +713,7 @@ export class Pages {
       writeTag(to, null);
       return null;
     }
-    writeTabValue(to, movedValue(value, syncId(from)));
+    writeTabValue(to, movedValue(value, syncId(from), syncId(to)));
     if (page) {
       writeTag(to, page.openedBy !== "user" ? page.spaceId : null);
       this.#rehome(page, to, key);
@@ -1269,12 +1274,15 @@ export class Pages {
   /**
    * The restart's first step with tabs: close the copies a moved tab left
    * in the other windows that a quit kept before Zen had closed them. Only
-   * a tab whose sync id is, whole, the `movedFrom` of a tab's own value
+   * a tab whose sync id is, whole, the `movedFrom` of a tab's task value
    * (movedValue) closes, whatever value it carries, and never the moved tab
-   * itself. Every window's copy closes here, at once and unanimated: Zen
-   * would close the others later, from its own event queue and with an
-   * animation, and a window's session state lists every tab still in its
-   * strip, closing ones too. A quit meanwhile would bring them back again.
+   * itself. The value that names it needn't be its tab's own (ownValue):
+   * whichever tab carries it, a Duplicate Tab of the moved one included,
+   * only the copies the old tab left can have that id. Every window's copy
+   * closes here, at once and unanimated: Zen would close the others later,
+   * from its own event queue and with an animation, and a window's session
+   * state lists every tab still in its strip, closing ones too. A quit
+   * meanwhile would bring them back again.
    *
    * @param {Element[]} tabs  one copy of each tab (uniqueTabs)
    * @returns {Set<Element>} those of `tabs` it closed
@@ -1284,7 +1292,7 @@ export class Pages {
     const moved = new Map();
     for (const tab of tabs) {
       const value = readTabValue(tab);
-      if (ownValue(tab, value) && typeof value.movedFrom === "string" && value.movedFrom) {
+      if (typeof value?.movedFrom === "string" && value.movedFrom) {
         moved.set(value.movedFrom, tab);
       }
     }
