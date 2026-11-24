@@ -636,9 +636,10 @@ export async function codexEnvironment(env, kind, userServers, task = {}) {
   }
   // Web search: live in Work, unless the user's own config turns it off
   // (web_search "disabled", or older versions' feature) or keeps it to the
-  // cached index. Chat keeps to the cached index: a live search opens pages
-  // at OpenAI, where no hook can hold Chat to the URLs of its sources (the
-  // user's call on Chat's fetch).
+  // cached index. Chat keeps to the cached index: Chat may open only a URL
+  // from its sources (fetchable.sys.mjs), so an injected line can't send the
+  // chat's content out in a URL it builds, and a live search opens pages at
+  // OpenAI, where no hook can hold Chat to that rule.
   const ownSearch = own.features?.web_search_request === false ? "disabled" : own.web_search;
   const webSearch =
     ownSearch === "disabled" ? "disabled" : ownSearch === "cached" || kindOf(kind) === "chat" ? "cached" : "live";
