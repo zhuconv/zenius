@@ -18,8 +18,8 @@
 // /proc.
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { after, before, test } from "node:test";
@@ -72,7 +72,6 @@ const ALLOWED = {
 const linux = process.platform === "linux";
 const skip = !linux && "Linux only: the I4 tool reads /proc";
 const root = fileURLToPath(new URL("../../..", import.meta.url));
-const out = mkdtempSync(join(tmpdir(), "zenius-i4guard-"));
 // Profiles of its own, named after the checkout, as tests/core/run.sh names its instance.
 const suffix =
   basename(root)
@@ -81,6 +80,12 @@ const suffix =
     .replace(/[^a-z0-9_-]/g, "-") || "main";
 const prefix = `i4guard-${suffix}`;
 const dev = process.env.ZENIUS_DEV_HOME ?? join(homedir(), ".zenius-dev");
+// The I4 tool's results: one folder per checkout, which each run empties
+// first, so a failed run's stay for a look until the next run instead of
+// piling up in the temporary folder.
+const out = join(dev, "i4guard", suffix);
+rmSync(out, { recursive: true, force: true });
+mkdirSync(out, { recursive: true, mode: 0o700 });
 let a;
 let b;
 /** The tests that passed: unless all did, `out` stays for a look. */

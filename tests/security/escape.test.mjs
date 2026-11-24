@@ -214,6 +214,8 @@ console.log(JSON.stringify(out));`,
   assert.equal(ok("shot"), A.shot);
   assert.equal(readFileSync(A.shot).subarray(0, 8).toString("hex"), png, "screenshot({ path }) wrote a PNG");
   assert.equal(ok("defaultShot").head, png, "screenshot() wrote a PNG where it said");
+  // Its default place is the CLI's temporary folder, outside the test's own.
+  rmSync(ok("defaultShot").file, { force: true });
   assert.deepEqual(ok("download"), { name: "report.bin", copy: sha256(S.REPORT) });
   assert.equal(sha256(readFileSync(A.download)), sha256(S.REPORT), "download.saveAs() wrote the download's bytes");
   assert.deepEqual(ok("fetch"), { ok: true, status: 200, savedPath: A.fetched });

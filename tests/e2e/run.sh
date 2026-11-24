@@ -39,8 +39,9 @@ cleanup() {
   if [[ -n $watchdog ]]; then pkill -P "$watchdog"; kill "$watchdog"; fi 2>/dev/null
   if [[ -n $run ]]; then pkill -P "$run"; kill "$run"; fi 2>/dev/null
   "$DEV" "$NAME" stop >/dev/null 2>&1
-  # A failed run's results stay; the CLI copy, and a folder with no results, go.
-  rm -rf -- "$WORK/cli"
+  # A failed run's results stay; the CLI copy, the temporary files, and a
+  # folder with no results, go.
+  rm -rf -- "$WORK/cli" "$WORK/tmp"
   [[ -s $WORK/results.json ]] || rm -rf -- "$WORK"
 }
 trap cleanup EXIT
@@ -73,8 +74,11 @@ export ZENIUS_CLI="$NODE $WORK/cli/bin/zenius"
 # ZENIUS_FRESH=1, as for the other suites.
 "$DEV" "$NAME" fresh >/dev/null
 "$DEV" "$NAME" start
+# The runner's files, and the cases' screenshots without a path (Ego's
+# default, the CLI's temporary folder), go in a folder the run removes.
+(umask 077; mkdir "$WORK/tmp")
 # In the background, so the watchdog's TERM ends the wait at once.
-node "$ROOT/tests/e2e/runner.mjs" --target zenius --instance "$NAME" --results "$WORK/results.json" ${1+"$@"} &
+TMPDIR=$WORK/tmp node "$ROOT/tests/e2e/runner.mjs" --target zenius --instance "$NAME" --results "$WORK/results.json" ${1+"$@"} &
 run=$!
 status=0
 wait "$run" || status=$?

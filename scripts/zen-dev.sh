@@ -78,6 +78,14 @@ else
 fi
 READY_MARK="[zenius] window loaded, instance=$NAME"
 mkdir -p "$DEV/profiles" "$DEV/run" "$DEV/logs"
+# On Linux, Zen's temporary folder is one of this instance's own, emptied
+# before each launch and removed at stop. Tests stop Zen at any moment, and
+# what it was downloading then (the intermediate certificates, 4 MB, soon
+# after a fresh profile starts) would otherwise stay in the machine's shared
+# /tmp. The Mac keeps Zen's own: a per-user folder that the system empties,
+# and the one Zen's content sandbox there allows.
+ZEN_TMP=
+[[ $(uname) == Linux ]] && ZEN_TMP=$DEV/tmp/$NAME
 
 # Is the pid file's process alive? Only for the launch, which wrote it a
 # moment ago: anything that signals a pid asks ours/our_pid first.
@@ -391,6 +399,13 @@ user_pref("datareporting.healthreport.uploadEnabled", false);
 user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);
 user_pref("browser.newtabpage.enabled", false);
 user_pref("extensions.autoDisableScopes", 15);
+// No media plugins: a fresh profile otherwise downloads Widevine (22 MB) and
+// OpenH264 into the temporary folder soon after startup, and a Zen stopped
+// before it unpacks them leaves the download there. No test plays DRM media.
+// (The intermediate certificates stay: without them a site that sends an
+// incomplete chain fails here and not in the daily. ZEN_TMP takes their
+// download's leftovers.)
+user_pref("media.gmp-manager.updateEnabled", false);
 EOF
   if [[ -n ${ZENIUS_DEV_PREFS:-} ]]; then
     [[ -f $ZENIUS_DEV_PREFS ]] || { echo "zen-dev.sh: ZENIUS_DEV_PREFS: no file $ZENIUS_DEV_PREFS" >&2; exit 1; }
@@ -418,13 +433,19 @@ launch() {
   [[ -n ${ZENIUS_INSTALLED:-} ]] || args+=(-purgecaches)
   [[ ${1:-} == --headed ]] || args+=(--headless)
   : > "$LOG"
+  local tmp=()
+  if [[ -n $ZEN_TMP ]]; then
+    rm -rf "$ZEN_TMP"
+    (umask 077; mkdir -p "$ZEN_TMP")
+    tmp=(TMPDIR="$ZEN_TMP")
+  fi
   # MOZ_DISABLE_UPDATE_PROCESSING: the second layer behind refuse_waiting_update.
   if [[ ${1:-} == --headed ]]; then
-    MOZ_DISABLE_UPDATE_PROCESSING=1 MOZ_CRASHREPORTER_DISABLE=1 nohup "$ZEN" "${args[@]}" >>"$LOG" 2>&1 &
+    MOZ_DISABLE_UPDATE_PROCESSING=1 MOZ_CRASHREPORTER_DISABLE=1 nohup env ${tmp[@]+"${tmp[@]}"} "$ZEN" "${args[@]}" >>"$LOG" 2>&1 &
   else
     # MOZ_HEADLESS too: a relaunched Zen drops --headless but keeps the
     # environment.
-    MOZ_HEADLESS=1 MOZ_DISABLE_UPDATE_PROCESSING=1 MOZ_CRASHREPORTER_DISABLE=1 nohup "$ZEN" "${args[@]}" >>"$LOG" 2>&1 &
+    MOZ_HEADLESS=1 MOZ_DISABLE_UPDATE_PROCESSING=1 MOZ_CRASHREPORTER_DISABLE=1 nohup env ${tmp[@]+"${tmp[@]}"} "$ZEN" "${args[@]}" >>"$LOG" 2>&1 &
   fi
   local launched=$!
   echo "$launched" > "$PIDFILE"
@@ -590,8 +611,9 @@ clear_watchdog() {
 clean_instance_files() {
   local zhome=${ZENIUS_HOME:-$HOME/.zenius}
   local reg=$zhome/instances/$NAME.json sock=$zhome/run/$NAME.sock owner
-  [[ -e $reg || -e $sock ]] || return 0
   [[ -z $(our_pid 2>/dev/null) ]] || return 0
+  [[ -z $ZEN_TMP ]] || rm -rf "$ZEN_TMP"
+  [[ -e $reg || -e $sock ]] || return 0
   if [[ -f $reg ]]; then
     owner=$(sed -n 's/.*"profileDir": *"\([^"]*\)".*/\1/p' "$reg" | head -1)
     if [[ $owner != "$PROFILE" ]]; then

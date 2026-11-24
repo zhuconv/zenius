@@ -27,6 +27,9 @@ export async function withMock(body: (context: MockContext) => Promise<void>): P
     setRound(undefined);
     resetOutput();
     await mock.stop();
+    // As the CLI does when a script ends: a download makes the round a
+    // folder in the temporary folder.
+    round.removeDownloadsFolder();
   }
 }
 
