@@ -606,7 +606,7 @@ function pointerEvent(win, type, x, y, { button = "left", buttons = 0, clickCoun
   }
 }
 
-const HIDDEN_RELEASE_TYPES = ["pointerup", "mouseup", "click", "auxclick", "contextmenu"];
+const HIDDEN_RELEASE_TYPES = ["pointerup", "mouseup", "click", "auxclick", "dblclick", "contextmenu"];
 const HIDDEN_MOVE_TYPES = [
   "pointerrawupdate",
   "pointermove",
@@ -631,8 +631,9 @@ const heldButtons = new WeakMap();
  * once this document is gone (bfcache), every real mouse event in this
  * content process is dropped, in every tab it hosts. So send it, and stop it
  * at the tab's chrome event handler, ahead of every page listener; Gecko's
- * own handling still runs. A release on the pressed element makes a click:
- * its default (a link's navigation, a checkbox's toggle) is cancelled too.
+ * own handling still runs. A release on the pressed element makes a click,
+ * and after a second press a dblclick: their defaults (a link's
+ * navigation, a checkbox's toggle) are cancelled too.
  */
 function releaseHiddenly(win, x, y, button, mods) {
   // While the user composes in another tab, or holds a press there, the

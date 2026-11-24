@@ -646,10 +646,106 @@ export const GUARDED_EVENTS = [
   ...OBSERVED,
 ];
 
+/** The event the guard dropped last, while it handles that event. */
+let lastDropped = null;
+
 function drop(e) {
   e.stopImmediatePropagation();
   if (e.cancelable) {
     e.preventDefault();
+  }
+  lastDropped = e;
+}
+
+// Gecko makes a click of each release on what its press's target and the
+// release's own have in common, or on the element that holds the pointer
+// capture at the release. It keeps the last press of each button per
+// document, a press the guard dropped too. So after the releaser ended
+// zenius's press, the user's press that the parent still sent here came
+// at the user's point, and zenius's next release made a click of it on
+// the page's body, at the agent's point: a page that closes a dialog on a
+// click outside it closed it.
+const RELEASE_CLICKS = new Set(["click", "auxclick", "dblclick"]);
+/** The user's press the guard dropped, as a document's last press of its button. */
+const DROPPED = Symbol("dropped");
+/**
+ * Document -> button -> the last press Gecko holds there for that button's
+ * next release: zenius's own ({target}), DROPPED, or a press whose
+ * dispatch is still running ({pending: event}).
+ */
+let lastPresses = new WeakMap();
+
+/**
+ * A press is Gecko's last before the page or the guard hears it, and a
+ * release the guard sends while handling it (the releaser's) uses it up:
+ * record it now, and settle what it was once the guard is done
+ * (settlePress).
+ *
+ * @param {Event} e  a trusted mousedown
+ * @returns {{doc: Document, byButton: Map, was: *}|null}
+ */
+function notePressStart(e) {
+  const doc = windowOf(e)?.document;
+  if (!doc) {
+    return null;
+  }
+  let byButton = lastPresses.get(doc);
+  if (!byButton) {
+    lastPresses.set(doc, (byButton = new Map()));
+  }
+  const was = byButton.get(e.button);
+  byButton.set(e.button, { pending: e });
+  return { doc, byButton, was };
+}
+
+/**
+ * What a press was, once the guard is done with it. The user's press that
+ * the guard dropped, at a target other than zenius's own press's, makes
+ * zenius's next release there no click, unless the page holds the pointer
+ * capture then (followRelease).
+ */
+function settlePress(e, { byButton, was }, mine, dropped) {
+  if (byButton.get(e.button)?.pending !== e) {
+    // A release used it up meanwhile.
+    return;
+  }
+  if (mine) {
+    byButton.set(e.button, { target: e.originalTarget });
+  } else if (!dropped) {
+    // The page heard it: the user's own press in this tab.
+    byButton.delete(e.button);
+  } else if (was?.target && was.target === e.originalTarget) {
+    byButton.set(e.button, was);
+  } else {
+    byButton.set(e.button, DROPPED);
+  }
+}
+
+/**
+ * A release uses up its button's press. zenius's own, on the user's
+ * dropped press, makes no click (guardEvent): the capture that brought the
+ * press in had ended, so the press came at the user's point. While the page
+ * still holds the pointer capture, the click goes to the capturing element,
+ * which the page chose at zenius's own press, as without the user's press.
+ */
+function followRelease(e, mine) {
+  const doc = windowOf(e)?.document;
+  const byButton = doc && lastPresses.get(doc);
+  if (!byButton) {
+    return;
+  }
+  if (mine && byButton.get(e.button) === DROPPED && !dispatching.captured) {
+    (dispatching.unpaired ??= new Set()).add(e.button);
+  }
+  byButton.delete(e.button);
+}
+
+/** Whether the page holds the pointer capture at this pointerup: then it has the click. */
+function captured(e) {
+  try {
+    return !!(e.originalTarget ?? e.target)?.hasPointerCapture?.(e.pointerId);
+  } catch {
+    return false;
   }
 }
 
@@ -674,6 +770,12 @@ function windowOf(e) {
 }
 
 function guardEvent(root, e) {
+  if (e.isTrusted && RELEASE_CLICKS.has(e.type) && dispatching?.root === root && dispatching.unpaired?.has(e.button)) {
+    // Gecko's click of zenius's release and the user's dropped press (a
+    // page's own click() during the release still runs).
+    drop(e);
+    return;
+  }
   if (e.isSynthesized) {
     if (dispatching?.mode && dispatching.root === root) {
       if (dispatching.mode === "park" || MOVES.has(e.type)) {
@@ -749,10 +851,26 @@ let guardedRoots = new WeakSet();
 const rootRefs = new Set();
 
 function onGuardEvent(e) {
+  const root = e.currentTarget;
+  // A release the guard sends runs inside the event it handles.
+  const outerDropped = lastDropped;
+  lastDropped = null;
   try {
-    guardEvent(e.currentTarget, e);
+    const press = e.isTrusted && e.type === "mousedown" ? notePressStart(e) : null;
+    guardEvent(root, e);
+    const mine = e.isSynthesized && dispatching?.root === root;
+    if (press) {
+      settlePress(e, press, mine, lastDropped === e);
+    } else if (e.isTrusted && e.type === "mouseup") {
+      followRelease(e, mine);
+    } else if (e.isTrusted && e.type === "pointerup" && dispatching?.root === root) {
+      // Gecko's pointerup of zenius's release, before the capture goes.
+      dispatching.captured = captured(e);
+    }
   } catch (err) {
     console.error("[zenius] input guard failed", err);
+  } finally {
+    lastDropped = outerDropped;
   }
 }
 
@@ -795,6 +913,7 @@ function disarm() {
   ending.clear();
   unparked.clear();
   lastMoves = new WeakMap();
+  lastPresses = new WeakMap();
   userPress = null;
   lastMover = null;
   userMoveStale = false;

@@ -2792,6 +2792,124 @@ for (const [when, release] of [
   }
 }
 
+// Gecko keeps each document's last press of each button, a press the guard
+// dropped too, and makes a click of the next release there on what that
+// press's target and the release's have in common. The user's press that a
+// capture brought to the agent's page, dropped there, came before the
+// agent's own release: the agent's release made a trusted click on the
+// page's body, at the agent's point, where a page that closes a dialog on a
+// click outside it closed it.
+for (const [when, agentClick, clicks] of [
+  // The user's first move ended the agent's press out of the page's sight,
+  // so its release has no click of its own. The user's press reaches the
+  // agent's process ahead of the release: input comes ahead of a request
+  // sent after it (as the next test shows).
+  [
+    "between its calls",
+    async (page, userPress) => {
+      await page.mouse.move(60, 140);
+      await page.mouse.down();
+      await userPress();
+      await page.mouse.up();
+    },
+    [],
+  ],
+  // The guard leaves a press inside a call to that call. The page's pointer
+  // capture, still on, brings the user's press to the agent's own target,
+  // so the agent's click is the one its own press makes.
+  [
+    "inside its click",
+    async (page, userPress) => {
+      const click = outcome(page.mouse.click(60, 140, { delay: 800 }));
+      await until("the agent's press", () => page.evaluate(() => window.__log.includes("mousedown@agentpad")));
+      await userPress();
+      assert.equal(await click, "ok");
+    },
+    ["click@agentpad"],
+  ],
+]) {
+  test(`the agent's release ${when}, after the user's press that the guard dropped in its page, makes no click but its own`, { timeout: 120_000 }, async () => {
+    const before = await h.call("dev.viewState");
+    for (let run = 1; run <= 3; run++) {
+      let page = null;
+      let userHeld = false;
+      try {
+        const pair = await labPair(`${h.crossUrl}/?user=${Date.now()}`);
+        page = pair.page;
+        assert.ok(!pair.same, "the user's tab is in another process");
+        await page.evaluate(() => {
+          window.__clicks = [];
+          for (const type of ["click", "auxclick", "dblclick"]) {
+            addEventListener(type, e => window.__clicks.push(`${type}@${e.target.id || e.target.nodeName}`), true);
+          }
+        });
+        await agentClick(page, async () => {
+          assert.ok(await page.evaluate(() => window.__captured?.el.hasPointerCapture(window.__captured.id)), "the agent's page holds the pointer");
+          await page.evaluate(() => window.__log.splice(0));
+          userHeld = true;
+          await userMouse([["mousemove", 60, 30, 0], ["mousemove", 90, 40, 0], ["mousedown", 90, 40, 1]], -1);
+          await page.evaluate(() => 1);
+        });
+        userHeld = false;
+        await userMouse([["mouseup", 90, 40, 0]], -1);
+        await afterFrames(page);
+        const got = await page.evaluate(() => ({ log: window.__log.filter(e => !e.startsWith("mousemove")), clicks: window.__clicks }));
+        assert.deepEqual(got.clicks, clicks, `run ${run}: the agent's release made no click but its own`);
+        assert.deepEqual(got.log, ["mouseup@agentpad", ...clicks], `run ${run}: the page heard the agent's release, and none of the user's input`);
+      } finally {
+        if (userHeld) {
+          await userMouse([["mouseup", 90, 40, 0]], -1).catch(() => {});
+        }
+        await page?.mouse.up().catch(() => {});
+        await closeUserLab();
+        if (page) {
+          await page.close().catch(() => {});
+          if (opened.includes(page)) opened.splice(opened.indexOf(page), 1);
+        }
+      }
+    }
+    assert.deepEqual(await h.call("dev.viewState"), before, "the user's view is back as it was");
+  });
+}
+
+test("the release that ends the agent's double press unseen makes no click or dblclick in its page", { timeout: 120_000 }, async () => {
+  // Gecko makes a dblclick of a release whose press counted two clicks, and
+  // the hidden release stopped only the click.
+  const before = await h.call("dev.viewState");
+  for (let run = 1; run <= 3; run++) {
+    let page = null;
+    try {
+      const pair = await labPair(`${h.crossUrl}/?user=${Date.now()}`);
+      page = pair.page;
+      assert.ok(!pair.same, "the user's tab is in another process");
+      await page.evaluate(() => {
+        window.__clicks = [];
+        for (const type of ["click", "auxclick", "dblclick"]) {
+          addEventListener(type, e => window.__clicks.push(`${type}@${e.target.id || e.target.nodeName}`), true);
+        }
+      });
+      await page.mouse.move(60, 140);
+      await page.mouse.down({ clickCount: 2 });
+      assert.ok(await page.evaluate(() => window.__captured?.el.hasPointerCapture(window.__captured.id)), "the agent's page holds the pointer");
+      await page.evaluate(() => window.__log.splice(0));
+      // The user's first move ends the press.
+      await userMouse([["mousemove", 60, 30, 0], ["mousemove", 90, 40, 0]], -1);
+      await afterFrames(page);
+      const got = await page.evaluate(() => ({ log: window.__log.filter(e => !e.startsWith("mousemove")), clicks: window.__clicks }));
+      assert.deepEqual(got.clicks, [], `run ${run}: no click from the hidden release`);
+      assert.deepEqual(got.log, [], `run ${run}: the page heard nothing of the release, nor of the user's input`);
+    } finally {
+      await page?.mouse.up().catch(() => {});
+      await closeUserLab();
+      if (page) {
+        await page.close().catch(() => {});
+        if (opened.includes(page)) opened.splice(opened.indexOf(page), 1);
+      }
+    }
+  }
+  assert.deepEqual(await h.call("dev.viewState"), before, "the user's view is back as it was");
+});
+
 test("the user's moves that a tab's process coalesced reach its page by the first frame after a later request, as the moves cases' read needs", { timeout: 60_000 }, async () => {
   // afterFrames rests on two things: the user's input reaches a page's
   // process ahead of a request sent after it, and Gecko sends out the moves

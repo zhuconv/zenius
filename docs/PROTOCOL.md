@@ -902,6 +902,14 @@ goes away or the element is garbage-collected.
     page, and the user's next events go to their own tab. The event that
     ended it is lost to the user's page too, even a press or a release. A
     release that waits for the user's word goes once they finish.
+  - Gecko makes a release's click on what its press's target and the
+    release's own have in common, and it counts a press the guard dropped.
+    So the agent's release makes no click when its press, for Gecko, is
+    such a press of the user's at another point: after the user's input
+    ended the agent's held press, the agent's `page.mouse.up` reaches the
+    page as a release with no click. While the page holds the pointer
+    capture, the click goes to the capturing element, as it would without
+    the user's press, and stays.
   - Gecko counts `movementX/Y` from the process's last move, so the
     agent's moves count from the agent's own last point in the page (its
     first move there counts 0), never from the user's pointer.
