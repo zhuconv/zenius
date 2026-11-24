@@ -9,12 +9,30 @@ import { after, before, test } from "node:test";
 import { setup } from "./lib.mjs";
 
 let h;
+/** The Agents Space, when the first window showed it as the file began. */
+let startedOnAgents = null;
 before(async () => {
   h = await setup();
+  // The tests start with the first window on a Space of the user's, where
+  // a user mostly is, and a second window opens on it too. A file before
+  // this one may have left the Agents Space shown, as a user who looked at
+  // it last would; the test that needs it shown shows it.
+  startedOnAgents = await h.chrome(`
+    const agents = ctx.spaces.agentsSpace?.uuid;
+    if (!agents || win.gZenWorkspaces.activeWorkspace !== agents) return null;
+    // A task's own Space isn't the user's; zenius's record of the user's Space is.
+    const ours = new Set(ctx.spaces.records().filter(rec => rec.kind === "task" && !rec.gone).map(rec => rec.uuid));
+    const user = win.gZenWorkspaces.getWorkspaces().find(ws => ws.uuid !== agents && !ours.has(ws.uuid));
+    if (!user) return null;
+    await win.gZenWorkspaces.changeWorkspace(user);
+    return agents;`);
   await openWindow();
 });
 after(async () => {
   await h?.chrome(`${W} for (const w of wins().slice(1)) w.close(); return true;`).catch(() => {});
+  if (startedOnAgents) {
+    await h?.chrome(`${W} await show(0, arg); return true;`, startedOnAgents).catch(() => {});
+  }
   await h?.close();
 });
 
@@ -699,6 +717,62 @@ test("a page whose window lacks the copy of the page before it still gets its co
     );
     assert.deepEqual(placed, { inAgents: [true, true, true], order: true }, "the second window's Agents Space has every page's copy, in order");
   } finally {
+    await h.call("spaces.finish", { space, keep: [] }).catch(() => {});
+  }
+});
+
+test("a page whose windows show the Agents Space, where one lacks the copy of the page before it, gets that copy again there, and its own after it, in the strip's order", async () => {
+  // As above, with both windows on the Agents Space, as while the user
+  // watches the agent in each. The task's next page opens in that strip
+  // without a move, and window sync leaves its copy in the second window
+  // where it opens: in the Agents Space's strip already, at its end.
+  const { space, p2 } = await task("lacking copy, Agents shown");
+  const userWs = await h.chrome(`${W} return nth(0).gZenWorkspaces.activeWorkspace;`);
+  try {
+    const removed = await h.chrome(
+      `${W}
+       const uuid = ctx.spaces.agentsSpace.uuid;
+       await show(0, uuid);
+       await show(1, uuid);
+       await focus(0);
+       const w = nth(1);
+       const copy = copyOf(liveOf(arg.space, arg.p2), 1);
+       w._zenClosingWindow = true;
+       try {
+         w.gBrowser.removeTab(copy, { animate: false });
+       } finally {
+         w._zenClosingWindow = false;
+       }
+       await until(() => !copyOf(liveOf(arg.space, arg.p2), 1), 5000).catch(() => {});
+       return { shown: wins().map(w => w.gZenWorkspaces.activeWorkspace === uuid), gone: !copyOf(liveOf(arg.space, arg.p2), 1) };`,
+      { space, p2 }
+    );
+    assert.deepEqual(removed, { shown: [true, true], gone: true });
+    const view = await h.view();
+    const { label } = await h.call("pages.new", { space });
+    const placed = await h.chrome(
+      `${W}
+       const tab = liveOf(arg.space, arg.label);
+       await until(() => copyOf(tab, 1));
+       await sleep(300);
+       const uuid = ctx.spaces.agentsSpace.uuid;
+       const agents = nth(1).gZenWorkspaces.workspaceElement(uuid).tabsContainer;
+       const originals = ["p1", arg.p2, arg.label].map(l => liveOf(arg.space, l));
+       const copies = originals.map(t => copyOf(t, 1));
+       // The task's pages in each window's Agents Space strip: the second's in the first's order.
+       const ids = originals.map(t => Win.syncId(t));
+       const pages = n => Win.stripTabs(nth(n), uuid).map(t => Win.syncId(t)).filter(id => ids.includes(id));
+       return {
+         inAgents: copies.map(c => !!c && agents.contains(c)),
+         order: copies.every((c, i) => i === 0 || c?.previousElementSibling === copies[i - 1]),
+         sameOrder: pages(0).length === 3 && JSON.stringify(pages(1)) === JSON.stringify(pages(0)),
+       };`,
+      { space, p2, label }
+    );
+    assert.deepEqual(placed, { inAgents: [true, true, true], order: true, sameOrder: true }, "the second window's Agents Space has every page's copy, in the first's order");
+    assert.deepEqual(await h.view(), view, "I1: no window's view changed");
+  } finally {
+    await h.chrome(`${W} await show(0, arg); await show(1, arg); await focus(0); return true;`, userWs).catch(() => {});
     await h.call("spaces.finish", { space, keep: [] }).catch(() => {});
   }
 });

@@ -744,8 +744,13 @@ zenius treats a tab's copies as one tab:
     lacks, and moves those outside the strip of the tab's Space in that
     window into it, each after the nearest copy already there, else
     first, as window sync places one (`zenHandleTabMove`, with
-    `notePlacing`). It runs in a promise job when the tab has its sync
-    id, and again each time window sync has handled the tab's `TabOpen`
+    `notePlacing`). A copy window sync put in that strip already stays,
+    unless the window lacks the copy of the item before the tab
+    (`lacksItemBefore`): in a window that shows the Space, window sync
+    leaves the copy at the strip's end then. Once the copies it lacked
+    are made, window sync puts it after them (`syncCopies`). It runs in
+    a promise job when the tab has its sync id, and again each time
+    window sync has handled the tab's `TabOpen`
     or `TabMove` in the next 10 s (`ZenWindowSync.addSyncHandler`,
     removed at shutdown). A new tab gets its sync id, copies and their
     first place in window sync's queued `TabOpen` handler, which may run

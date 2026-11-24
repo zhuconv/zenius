@@ -667,7 +667,10 @@ function repairNow(tab) {
 /**
  * Give each synced window the copies of `tab`'s strip, up to `tab`, that
  * it lacks (fillCopies), and move those that sit outside the strip of
- * `tab`'s Space in that window into it (moveCopiesInto).
+ * `tab`'s Space in that window into it (moveCopiesInto). A copy already in
+ * that strip is where window sync put it, unless the window lacks the copy
+ * of the item before `tab` (lacksItemBefore): then the copies made go in
+ * place, and window sync puts `tab`'s after them.
  *
  * @param {Element} tab
  */
@@ -683,7 +686,11 @@ function repairCopies(tab) {
     }
     const copy = copyInWindow(other, tab.id);
     const box = other.gZenWorkspaces.workspaceElement(uuid)?.tabsContainer;
-    if (!box || (copy && box.contains(copy))) {
+    if (!box) {
+      continue;
+    }
+    const inBox = !!copy && box.contains(copy);
+    if (inBox && !lacksItemBefore(tab, other)) {
       continue;
     }
     const strip = stripTabs(win, uuid);
@@ -691,9 +698,14 @@ function repairCopies(tab) {
     const tabs = upTo < 0 ? [tab] : strip.slice(0, upTo + 1);
     const made = fillCopies(tabs, other);
     const moved = moveCopiesInto(tabs, other, box, uuid);
-    console.warn(
-      `[zenius] a window had ${copy ? "its copy of tab " + tab.id + " outside the tab's Space" : "no copy of tab " + tab.id} after window sync; made ${made.length} and moved ${moved} into the Space there`
-    );
+    if (inBox && made.length) {
+      // fillCopies had window sync place each copy it made. If one is the
+      // item before the tab's, window sync puts the tab's after it now.
+      notePlacing(tab);
+      syncCopies(tab);
+    }
+    const what = !copy ? "no copy of tab " + tab.id : inBox ? "no copy of the item before tab " + tab.id : "its copy of tab " + tab.id + " outside the tab's Space";
+    console.warn(`[zenius] a window had ${what} after window sync; made ${made.length} and moved ${moved} into the Space there`);
   }
 }
 
@@ -739,6 +751,29 @@ function moveCopiesInto(tabs, win, box, uuid) {
     moved++;
   }
   return moved;
+}
+
+/**
+ * Does `win` lack the copy of the item before `tab`, after which window sync
+ * puts `tab`'s copy? Zen 1.24's #moveItemToMatchOriginal puts a copy after
+ * the copy of the original's previous tab or folder, first when there's
+ * none (or it has no id, or it's the empty tab), and where the copy opened
+ * when that item has no copy in the window. In a window that shows `tab`'s
+ * Space, where it opened is that Space's strip already, at its end.
+ *
+ * @param {Element} tab
+ * @param {Window} win
+ */
+function lacksItemBefore(tab, win) {
+  const { gBrowser } = tab.ownerDocument.defaultView;
+  let prev = tab.previousElementSibling;
+  if (prev?.classList.contains("space-fake-collapsible-start")) {
+    prev = prev.previousElementSibling;
+  }
+  if (!(gBrowser.isTab(prev) || gBrowser.isTabGroup(prev)) || !prev.hasAttribute("id") || prev.hasAttribute("zen-empty-tab")) {
+    return false;
+  }
+  return !win.document.getElementById(prev.id);
 }
 
 /** The child of `box` that holds `el`: a folder, a split view, or `el`. */
