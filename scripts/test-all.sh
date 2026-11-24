@@ -12,14 +12,24 @@
 # parallel: a run then takes about as long as the longest suite instead of the
 # sum, and main moves less while a merge check runs. ZENIUS_SERIAL=1 runs them
 # one after another, which is the default on the Mac (the user's laptop).
-# Logs go to $TMPDIR/zenius-test-all/.
+# Logs go to $TMPDIR/zenius-test-all/. On Linux each suite also gets a
+# temporary folder of its own (see "lane" below).
 set -uo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 [[ -d $HOME/opt/node-v24.22.2-linux-x64/bin ]] && export PATH=$HOME/opt/node-v24.22.2-linux-x64/bin:$PATH
 suffix=$(basename "$ROOT" | sed 's/^zenius-\{0,1\}//' | tr 'A-Z' 'a-z' | tr -c 'a-z0-9_\n-' '-')
 LOGS=${TMPDIR:-/tmp}/zenius-test-all/${suffix:-main}
 # Owner-only, both levels: on a shared machine, /tmp is open to every account.
+# A level that another account made first (after /tmp was emptied) is
+# refused, not used: its owner could swap what's inside.
 (umask 077; mkdir -p "$LOGS")
+for level in "${LOGS%/*}" "$LOGS"; do
+  if [[ -L $level || ! -d $level || ! -O $level ]]; then
+    echo "test-all: $level isn't a folder of this account's own. Remove it, or set TMPDIR to a private folder." >&2
+    exit 1
+  fi
+  chmod 700 "$level"
+done
 # A developer's gh may be signed in, with a token that can post wherever they
 # can. No suite reaches GitHub (a test that needs gh uses a fake), so every
 # lane runs with an empty gh config and a placeholder token: gh takes GH_TOKEN
@@ -29,6 +39,23 @@ LOGS=${TMPDIR:-/tmp}/zenius-test-all/${suffix:-main}
 export GH_CONFIG_DIR=$LOGS/gh-config GH_PROMPT_DISABLED=1
 export GH_TOKEN=zenius-test-all-signed-out GH_ENTERPRISE_TOKEN=zenius-test-all-signed-out
 unset GITHUB_TOKEN GITHUB_ENTERPRISE_TOKEN
+# On Linux, where /tmp is open to every account, each suite runs with a
+# temporary folder of its own (TMPDIR), which mktemp makes right in the base
+# temporary folder: owner-only, kept from other accounts by /tmp's sticky
+# bit, and short whatever the checkout's name, since a test's Unix socket
+# path inside it must fit in 108 bytes. A passing suite's folder goes when
+# the suite ends, with whatever it left there: what a test killed before its
+# after hooks couldn't remove, or an install test's folders. The summary says
+# how much that was, the by-design caches aside, so a leak shows. A failing
+# suite's folder stays for a look (the e2e runner keeps a failed run's
+# results there) until that suite's next run; $LOGS/<suite>.tmpdir names it.
+# The Mac keeps its per-user temporary folder: no other account can read it,
+# and it's the one Zen's content sandbox there allows.
+TMPBASE=
+if [[ $(uname) == Linux ]]; then
+  TMPBASE=${TMPDIR:-/tmp}
+  TMPBASE=${TMPBASE%/}
+fi
 cd "$ROOT"
 
 serial=${ZENIUS_SERIAL:-}
@@ -37,6 +64,7 @@ serial=${ZENIUS_SERIAL:-}
 wanted() { ((${#ONLY[@]} == 0)) && return 0; local s; for s in "${ONLY[@]}"; do [[ $s == "$1" ]] && return 0; done; return 1; }
 ONLY=("$@")
 now() { node -e 'console.log(Date.now())'; }
+entries() { if (($1 == 1)); then echo "1 entry"; else echo "$1 entries"; fi; }
 
 suite() {
   case $1 in
@@ -46,11 +74,37 @@ suite() {
     *) "tests/$1/run.sh" ;;
   esac
 }
-# Runs one suite and leaves "PASS|FAIL <ms>" in its .result file.
+# Runs one suite and leaves "PASS|FAIL <ms> <entries left in its temporary
+# folder>" in its .result file.
 lane() {
-  local t0; t0=$(now)
-  if suite "$1" >"$LOGS/$1.log" 2>&1; then echo "PASS $(($(now) - t0))" >"$LOGS/$1.result"
-  else echo "FAIL $(($(now) - t0))" >"$LOGS/$1.result"; fi
+  local t0 tmp= kept entry verdict=FAIL left=0; local -a leftovers=(); t0=$(now)
+  if [[ -n $TMPBASE ]]; then
+    # The folder a failing run of this suite kept: removed only if its path
+    # is exactly one that mktemp makes for this suite (no "..", nothing
+    # after it), and it's a folder of this account's, not a link.
+    if [[ -f $LOGS/$1.tmpdir ]]; then
+      kept=$(<"$LOGS/$1.tmpdir")
+      if [[ $kept =~ ^"$TMPBASE/zt-$1."[A-Za-z0-9]{6}$ && -d $kept && ! -L $kept && -O $kept ]]; then rm -rf -- "$kept"; fi
+      rm -f -- "$LOGS/$1.tmpdir"
+    fi
+    if ! tmp=$(mktemp -d "$TMPBASE/zt-$1.XXXXXX" 2>"$LOGS/$1.log"); then echo "FAIL 0 0" >"$LOGS/$1.result"; return; fi
+    echo "$tmp" >"$LOGS/$1.tmpdir"
+  fi
+  # A subshell, so that a serial run's next suite doesn't inherit the folder.
+  if (if [[ -n $tmp ]]; then export TMPDIR=$tmp; fi; suite "$1") >"$LOGS/$1.log" 2>&1; then verdict=PASS; fi
+  if [[ -n $tmp ]]; then
+    # Node's compile cache (the CLI turns it on) and the sandboxed CLI's own
+    # folder are made there by design. Anything else is a suite's leftover.
+    while IFS= read -r entry; do
+      case $entry in node-compile-cache | zenius-sandbox-*) ;; *) leftovers+=("$entry") ;; esac
+    done < <(ls -A "$tmp" 2>/dev/null)
+    left=${#leftovers[@]}
+    if ((left)); then
+      { echo "test-all: the suite left $(entries "$left") in its temporary folder:"; printf '  %s\n' "${leftovers[@]:0:20}"; } >>"$LOGS/$1.log"
+    fi
+    if [[ $verdict == PASS ]]; then rm -rf -- "$tmp" && rm -f -- "$LOGS/$1.tmpdir"; fi
+  fi
+  echo "$verdict $(($(now) - t0)) $left" >"$LOGS/$1.result"
 }
 
 names=()
@@ -90,11 +144,17 @@ else
 fi
 
 for name in ${names[@]+"${names[@]}"} ${sdk[@]+"${sdk[@]}"}; do
-  result=$(cat "$LOGS/$name.result" 2>/dev/null || echo "FAIL ?")
-  if [[ $result == PASS* ]]; then
-    echo "PASS $name (${result#PASS } ms)"
+  verdict=FAIL ms='?' left=0
+  read -r verdict ms left 2>/dev/null <"$LOGS/$name.result"
+  if [[ $verdict == PASS ]]; then
+    note=
+    ((${left:-0} > 0)) && note="; it left $(entries "$left") in its temporary folder, listed at the end of its log"
+    echo "PASS $name ($ms ms$note)"
   else
-    echo "FAIL $name, log $LOGS/$name.log:"
+    note= kept=
+    [[ -n $TMPBASE && -f $LOGS/$name.tmpdir ]] && kept=$(<"$LOGS/$name.tmpdir")
+    [[ -n $kept && -d $kept ]] && note="; its temporary folder stays at $kept"
+    echo "FAIL $name, log $LOGS/$name.log$note:"
     tail -20 "$LOGS/$name.log" | sed 's/^/    /'
     failed+=("$name")
   fi
