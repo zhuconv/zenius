@@ -971,6 +971,32 @@ describe("Page", () => {
       assert.equal(existsSync(left), false);
     }));
 
+  it("screenshots, saved bodies and downloads are new files only the user can read", () =>
+    withMock(async ({ mock, round }) => {
+      const page = (await taskSpace("private files")).page("p1");
+      const mode = (file: string) => statSync(file).mode & 0o777;
+      // The default one lands in the system's temporary folder, shared on Linux.
+      const shot = await page.screenshot();
+      try {
+        assert.equal(mode(shot), 0o600);
+      } finally {
+        rmSync(shot, { force: true });
+      }
+      const named = join(mock.dir, "shots", "named.png");
+      await page.screenshot({ path: named });
+      assert.equal(mode(named), 0o600);
+      const body = join(mock.dir, "fetched", "body.bin");
+      await page.fetch("/file", { saveAs: body });
+      assert.equal(mode(body), 0o600);
+      mock.downloadBodies.set("d1", Buffer.from("downloaded"));
+      const [download] = (await Promise.all([page.waitForEvent("download"), page.click("a.download")])) as [Download, unknown];
+      const target = join(mock.dir, "downloads", "file.bin");
+      await download.saveAs(target);
+      assert.equal(mode(target), 0o600);
+      assert.equal(mode(await download.path()), 0o600, "the run's own copy");
+      await round.disposeDownloads();
+    }));
+
   // With I5 the CLI does the file I/O, so a sandbox around it covers uploads.
   it("under node --permission, an upload outside the grants fails in the CLI with a clear message", { skip: !process.allowedNodeEnvironmentFlags.has("--permission") }, () => {
     const sdk = fileURLToPath(new URL("..", import.meta.url));

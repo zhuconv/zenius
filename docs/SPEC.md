@@ -366,6 +366,9 @@ without taking focus from the user.
   - The runtime never reads or writes a file path that an agent names.
     Uploads arrive as bytes; downloads, fetch bodies and screenshots leave as
     bytes. The CLI does all file I/O an agent asks for.
+    - The files it creates (screenshots, saved bodies, downloads) are
+      readable only by the user (mode 600). A screenshot without a path goes
+      in the system's temporary folder, which every account shares on Linux.
     - In the sandboxed CLI, an upload's real path must lie in the script's
       read grants, as well as the path it names. Node's permission model
       checks only the path named, and follows a link in it anywhere. This

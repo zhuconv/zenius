@@ -384,12 +384,20 @@ export function reportWritten(path: string): void {
 }
 
 /**
+ * A new output file's mode: only the user can read it. A page's screenshot,
+ * body or download can hold what the user sees signed in, and a screenshot
+ * without a path goes in the system's temporary folder, which on Linux every
+ * account shares. A file that's already there keeps its own mode.
+ */
+const OUTPUT_MODE = 0o600;
+
+/**
  * Writes bytes the runtime sent back to a path the agent named, making its
  * folders first, as Ego does for screenshots and fetch's saveAs.
  */
 export async function writeOutput(path: string, bytes: Uint8Array): Promise<void> {
   await fs.promises.mkdir(nodePath.dirname(path), { recursive: true });
-  await fs.promises.writeFile(path, bytes);
+  await fs.promises.writeFile(path, bytes, { mode: OUTPUT_MODE });
 }
 
 /** The bytes in a runtime answer's base64 field, or ZEN_INTERNAL naming what was missing. */
@@ -413,7 +421,7 @@ type DownloadChunk = { base64?: unknown; size?: unknown; eof?: unknown };
 export async function writeDownload(read: (offset: number, length: number) => Promise<unknown>, path: string): Promise<void> {
   let chunk = (await read(0, DOWNLOAD_CHUNK_BYTES)) as DownloadChunk | null;
   await fs.promises.mkdir(nodePath.dirname(path), { recursive: true });
-  const handle = await fs.promises.open(path, "w");
+  const handle = await fs.promises.open(path, "w", OUTPUT_MODE);
   let offset = 0;
   let complete = false;
   try {
