@@ -192,6 +192,7 @@ before(async () => {
   dir = mkdtempSync(join(tmpdir(), "zen-ux-sidebar-"));
   config = join(dir, "config.json");
   execFileSync(process.execPath, [join(FIX, "config.mjs"), "--instance", process.env.ZENIUS_INSTANCE, "--out", config, "--www", www(), "--logs", join(dir, "logs")]);
+  zenHome = await chrome(`return Services.dirsvc.get("Home", Ci.nsIFile).path;`);
   // A kept profile (as on the Mac) restores earlier runs' tasks, whose
   // questions count as needing the user: the counts start from none.
   await chrome(`
@@ -238,6 +239,10 @@ const www = () => `http://127.0.0.1:${server.address().port}`;
 const VIEW = `const V = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/sidebarview.sys.mjs").sidebarView(win, { frameMs: null });`;
 /** Chrome JS with zen-sidebar's scene helpers (`S`) and the sidebar's view (`V`) first; `arg` is bound to `arg`. */
 const chrome = (code, arg) => h.call("dev.evalChrome", { code: `${SCENE}\n${VIEW}\n${code}`, arg });
+/** Zen's home folder (before), which the sidebar's messages write as ~. */
+let zenHome = null;
+/** A path as the sidebar's messages write it: in Zen's home folder, as `~/...`. A test's temporary folder can be there (TMPDIR). */
+const typed = path => (zenHome && (path === zenHome || path.startsWith(zenHome + "/")) ? "~" + path.slice(zenHome.length) : path);
 /** The prompt the mock agents got with `question` in it: its text, and the
  * text of each resource (the page) that came with it. */
 function promptWith(question) {
@@ -332,7 +337,7 @@ test("ui.sidebarStatus names the config it reads, and says when it's missing; wh
         node: null,
         clis: { claude: null, codex: null },
         adapters: { claude: false, codex: false },
-        missing: `No agent to offer: install Claude Code (claude) or Codex (codex); run zenius's installer again, for its agent adapters in ${empty.root}.`,
+        missing: `No agent to offer: install Claude Code (claude) or Codex (codex); run zenius's installer again, for its agent adapters in ${typed(empty.root)}.`,
       },
     });
   } finally {
@@ -479,8 +484,8 @@ test("without a config.json, what's missing is one line: no CLI, no adapters, No
     out.unreadable = await chrome(USE_BUILTIN, { ...full, config: bad });
     out.none = await chrome(USE_BUILTIN, { ...full, config: "none" });
     assert.deepEqual(out.noCli, { error: "No agent to offer: install Claude Code (claude) or Codex (codex).", config: null, builtin: false });
-    assert.deepEqual(out.noAdapters, { error: `No agent to offer: run zenius's installer again, for its agent adapters in ${machines.noAdapters.root}.`, config: null, builtin: false });
-    assert.deepEqual(out.broken, { error: `No agent to offer: run zenius's installer again, since its link to Node (${join(machines.broken.root, "node")}) is missing or broken.`, config: null, builtin: false });
+    assert.deepEqual(out.noAdapters, { error: `No agent to offer: run zenius's installer again, for its agent adapters in ${typed(machines.noAdapters.root)}.`, config: null, builtin: false });
+    assert.deepEqual(out.broken, { error: `No agent to offer: run zenius's installer again, since its link to Node (${typed(join(machines.broken.root, "node"))}) is missing or broken.`, config: null, builtin: false });
     assert.equal(out.codexOnly.config.default, "codex");
     assert.deepEqual(Object.keys(out.codexOnly.config.agents), ["codex"], "only the agent whose CLI is there");
     assert.deepEqual(Object.keys(out.own.config.agents), ["mock", "mockclaude"], "the user's own config wins");
