@@ -146,7 +146,7 @@ export function reportTitle(facts) {
 export function reportBody(facts) {
   const { cli, runtime } = facts;
   return [
-    "From `zenius feedback`. It holds only what zenius collects about itself: no URLs, page text, arguments or screenshots.",
+    "A zenius problem report, from `zenius feedback` or the MCP tool `report_problem`. It holds only what zenius collects about itself: no URLs, page text, arguments or screenshots.",
     "",
     "## What went wrong, in the agent's words",
     "",

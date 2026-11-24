@@ -62,6 +62,13 @@ test("the runtime's body has the issue template's sections, in its order", () =>
   assert.deepEqual(headings(reportBody(facts())), headings(template));
 });
 
+test("the body's first line is true whichever of the two wrote it, the CLI or the MCP tool", () => {
+  assert.equal(
+    reportBody(facts()).split("\n")[0],
+    "A zenius problem report, from `zenius feedback` or the MCP tool `report_problem`. It holds only what zenius collects about itself: no URLs, page text, arguments or screenshots."
+  );
+});
+
 test("cleanLine keeps one line, without links, email addresses or the home folder", () => {
   assert.equal(cleanLine("clicking\nfailed\ttwice\u2028again"), "clicking failed twice again");
   assert.equal(cleanLine("hidden\u202echaracters\u200bgo"), "hidden characters go");
