@@ -790,7 +790,9 @@ zenius treats a tab's copies as one tab:
     after the tab's add and move; the check right after it runs before
     the view keeper puts each window's view back. A Zen without
     `addSyncHandler` gets the check once the tab has its id
-    (`syncedSoon`).
+    (`syncedSoon`). The strip it checks leaves out Zen's empty tab, which
+    Zen puts first in the strip of the Space a window shows, and glance
+    tabs (`stripTabs`).
   - The same handler gives an agent's page's copies its icon
     (`copyIcon`). Window sync sets each copy's icon from the page's
     image attribute, which for an SVG favicon Gecko has made a

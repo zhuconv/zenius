@@ -780,6 +780,51 @@ test("a page whose windows show the Agents Space, where one lacks the copy of th
   }
 });
 
+test("a strip's tabs, as zenius reads them, leave out Zen's empty tab, which Zen puts first in the strip of the Space a window shows, and a glance tab", async () => {
+  // Neither is a page's tab: each window has an empty tab of its own, with
+  // an id no other window has. A new window's missing copies come from the
+  // other window whose strip has the most tabs, so an empty tab counted
+  // there would tip that choice by one.
+  const { space, p2 } = await task("strip's own tabs");
+  const userWs = await h.chrome(`${W} return nth(0).gZenWorkspaces.activeWorkspace;`);
+  try {
+    const out = await h.chrome(
+      `${W}
+       const uuid = ctx.spaces.agentsSpace.uuid;
+       await show(1, uuid);
+       await focus(0);
+       const w2 = nth(1);
+       const empty = w2.gZenWorkspaces._emptyTab;
+       const tabs = [...w2.gZenWorkspaces.workspaceElement(uuid).tabsContainer.children].filter(el => w2.gBrowser.isTab(el) && !el.closing);
+       const strip = Win.stripTabs(w2, uuid);
+       // A glance tab, for one read: the attribute comes off before anything else runs.
+       const copy = copyOf(liveOf(arg.space, arg.p2), 1);
+       copy.setAttribute("zen-glance-tab", "true");
+       let glance;
+       try {
+         glance = !Win.stripTabs(w2, uuid).includes(copy);
+       } finally {
+         copy.removeAttribute("zen-glance-tab");
+       }
+       return {
+         emptyFirst: tabs[0] === empty,
+         strip: strip.length === tabs.length - 1 && strip.every((t, i) => t === tabs[i + 1]),
+         glance,
+         counts: [0, 1].map(n => Win.stripTabs(nth(n), uuid).length),
+       };`,
+      { space, p2 }
+    );
+    assert.deepEqual(
+      { emptyFirst: out.emptyFirst, strip: out.strip, glance: out.glance, sameCount: out.counts[0] === out.counts[1] },
+      { emptyFirst: true, strip: true, glance: true, sameCount: true },
+      `the second window's Agents Space strip is its tabs after the empty tab, without a glance tab, as many as the first window's (${out.counts})`
+    );
+  } finally {
+    await h.chrome(`${W} await show(1, arg); await focus(0); return true;`, userWs).catch(() => {});
+    await h.call("spaces.finish", { space, keep: [] }).catch(() => {});
+  }
+});
+
 test("after a restart with two windows, each tab is one page again, and every copy is marked", async () => {
   const { space, p2 } = await task("restart");
   const own = await h.userSpace("restart own", `${h.base}/api/text?own-restart`);

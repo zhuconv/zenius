@@ -492,10 +492,19 @@ function syncsTab(tab) {
   );
 }
 
-/** The tabs of `uuid`'s strip in `win`, in order: not those in folders or split views. */
+/**
+ * The tabs of `uuid`'s strip in `win`, in order: not those in folders or
+ * split views, and not Zen's empty tab or a glance tab, which are no
+ * page's. Zen puts a window's empty tab first in the strip of the Space
+ * the window shows.
+ */
 export function stripTabs(win, uuid) {
   const container = win?.gZenWorkspaces?.workspaceElement(uuid)?.tabsContainer;
-  return container ? [...container.children].filter(el => win.gBrowser.isTab(el) && !el.closing) : [];
+  return container
+    ? [...container.children].filter(
+        el => win.gBrowser.isTab(el) && !el.closing && !el.hasAttribute("zen-empty-tab") && !el.hasAttribute("zen-glance-tab")
+      )
+    : [];
 }
 
 /**
