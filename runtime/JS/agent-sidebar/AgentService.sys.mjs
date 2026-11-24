@@ -3342,8 +3342,9 @@ export const AgentService = {
   /**
    * Tell zenius which of the sidebar's tasks need the user where its strip
    * can't see it: a chat's question, error or permission before its agent
-   * opened a zenius task, or a need its task's badge doesn't show. The strip
-   * counts those too (ZeniusUI.noteSidebarWaiting). Sent on a change only.
+   * opened a zenius task, or a need its task's badge doesn't show, and why
+   * each waits. The strip counts those too, and names one that waits alone
+   * (ZeniusUI.noteSidebarWaiting). Sent on a change only.
    */
   noteWaiting() {
     const ui = this.zeniusUI();
@@ -3363,7 +3364,7 @@ export const AgentService = {
       }
       const rec = conv.task.state === "needs" ? this.zenRecord(conv) : null;
       if (conv.task.state === "needs" && !(rec && counted.has(rec.id))) {
-        waiting.push({ uid: conv.uid, name: oneLine(taskName(conv) || "New task", 80) });
+        waiting.push({ uid: conv.uid, name: oneLine(taskName(conv) || "New task", 80), why: conv.task.why ?? null });
       }
     }
     const sent = JSON.stringify(waiting);

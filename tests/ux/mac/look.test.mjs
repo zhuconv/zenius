@@ -272,7 +272,8 @@ for (const theme of ["light", "dark"]) {
         await showSpace(userWs);
         return doc.getElementById("zenius-agents-strip")?.textContent;
       `);
-      assert.match(strip, /needs you/);
+      // One task waits: the strip names it and what it waits for.
+      assert.match(strip, /needs |handed you its tab/);
       shots.push(await shot(`L5-sidebar-strip-${theme}`));
 
       // L6: the tasks panel: the real popup on a screen capture, else drawn

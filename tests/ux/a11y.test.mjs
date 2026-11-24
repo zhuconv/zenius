@@ -395,7 +395,9 @@ test("the tasks panel names each row after its task, so its buttons say which ta
   const out = await h.chrome(`${P}
     const strip = doc.getElementById("zenius-agents-strip");
     const panel = () => doc.getElementById("zenius-tasks-panel");
-    strip.click();
+    // With one task waiting, the strip's click goes to it, and All agent tasks opens the panel.
+    const allTasks = strip.ownerDocument.getElementById("zenius-strip-all");
+    (allTasks && !allTasks.hidden ? allTasks : strip).click();
     await until(() => panel()?.state === "open");
     try {
       const row = panel().querySelector('.zenius-task[data-space="' + rec.id + '"]');
@@ -684,7 +686,10 @@ test("each pill's buttons are described by the pill, and each panel row's by the
         }
         // The tasks panel's row: its buttons and tabs, described by the row.
         const panel = () => doc.getElementById("zenius-tasks-panel");
-        doc.getElementById("zenius-agents-strip").click();
+        const strip = doc.getElementById("zenius-agents-strip");
+        // With one task waiting, the strip's click goes to it, and All agent tasks opens the panel.
+        const allTasks = strip.ownerDocument.getElementById("zenius-strip-all");
+        (allTasks && !allTasks.hidden ? allTasks : strip).click();
         await until(() => panel()?.state === "open");
         try {
           const row = panel().querySelector('.zenius-task[data-space="' + rec.id + '"]');

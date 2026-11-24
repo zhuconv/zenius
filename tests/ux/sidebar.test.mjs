@@ -3462,7 +3462,7 @@ test("the strip's count and Work's are one number: a task another agent drives t
   assert.equal(out.both.work, out.both.ui, "and the other agent's hand-off");
   assert.equal(out.both.ui, out.before.ui + 2);
   assert.match(out.both.strip, new RegExp(`^${out.both.ui} agents need you$`));
-  assert.match(out.line, /^1 more task needs you in the agent sidebar$/);
+  assert.match(out.line, /Needs an answer in the agent sidebar$/, "the chat's row says what it waits for");
   assert.equal(out.shown, true, "Open shows the chat in the sidebar");
 });
 
@@ -3782,7 +3782,7 @@ test("with the agent sidebar closed, a remote task's start shows the same card o
     text,
     label: text,
     buttons: ["Watch", "Stop", "✕"],
-    over: out.over === "zenius-agents-strip" ? "zenius-agents-strip" : "zen-sidebar-foot-buttons",
+    over: out.over === "zenius-strip-row" ? "zenius-strip-row" : "zen-sidebar-foot-buttons",
     moved: false,
     look: { chip: { text: "devbox/t5", lines: 1, set: true }, dot: true, whole: true, top: true, right: true, buttons: true },
     width: out.width,
@@ -3791,7 +3791,7 @@ test("with the agent sidebar closed, a remote task's start shows the same card o
     gone: true,
     watched: { open: true, mode: "work", shown: true, gone: true },
   });
-  assert.ok(["zenius-agents-strip", "zen-sidebar-foot-buttons"].includes(out.over), out.over);
+  assert.ok(["zenius-strip-row", "zen-sidebar-foot-buttons"].includes(out.over), out.over);
   t.diagnostic(`the arrival card over the strip: ${out.width} px wide, its text in ${out.lines} lines`);
 });
 
@@ -4073,7 +4073,7 @@ test("zenius's strip says what the sidebar does: a task is working while its cha
     state: "needs",
     why: "question",
     badge: "needs-user",
-    strip: "An agent needs you",
+    strip: `${iso(`strip check ${run}`)} needs an answer`,
     calls: [{ running: true, needs: null }, { running: false, needs: "question" }],
   });
   assert.equal(out.answered.state, "done");
@@ -4098,18 +4098,23 @@ test("a question the agent ends with puts its task under Needs you, and Work's s
     const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
     const uid = await startWorkChat(win, { text: "QUESTION", source: "urlbar" });
     const conv = win.ucAgentSidebar.AgentService.tasks.get(uid);
-    await S.until(() => conv && !conv.busy && conv.messages.length > 1, 60000);
-    const doc = S.panelDoc();
-    const needs = doc.getElementById("needs");
-    // The count follows the task's state a moment after the answer ends.
-    await S.until(() => needs && !needs.hidden && Number(needs.textContent) >= 1, 5000);
-    win.ucAgentSidebar.toggleDirectory();
-    const drawer = V.drawer();
-    await S.until(() => drawer && !drawer.hidden);
-    const row = await S.until(() => V.row(uid), 5000);
-    const res = { group: V.groupOf(row), count: needs && !needs.hidden ? Number(needs.textContent) : 0, inWork: !!needs?.closest("#to-work") };
-    win.ucAgentSidebar.closeDirectory();
-    return res;
+    try {
+      await S.until(() => conv && !conv.busy && conv.messages.length > 1, 60000);
+      const doc = S.panelDoc();
+      const needs = doc.getElementById("needs");
+      // The count follows the task's state a moment after the answer ends.
+      await S.until(() => needs && !needs.hidden && Number(needs.textContent) >= 1, 5000);
+      win.ucAgentSidebar.toggleDirectory();
+      const drawer = V.drawer();
+      await S.until(() => drawer && !drawer.hidden);
+      const row = await S.until(() => V.row(uid), 5000);
+      const res = { group: V.groupOf(row), count: needs && !needs.hidden ? Number(needs.textContent) : 0, inWork: !!needs?.closest("#to-work") };
+      win.ucAgentSidebar.closeDirectory();
+      return res;
+    } finally {
+      // A chat left waiting would stay in zenius's strip for every later test.
+      if (conv) win.ucAgentSidebar.AgentService.removeTask(conv);
+    }
   `);
   assert.equal(out.group, "needs");
   assert.ok(out.count >= 1, "the count shows");

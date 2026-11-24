@@ -1662,13 +1662,31 @@ deadline += await ctx.gate();
 
 **Tasks panel.** `ui/panel.sys.mjs`.
 - A strip above Zen's sidebar foot buttons appears while agent tasks exist
-  ("An agent needs you", "2 agents working", "1 agent task"). It's a static
+  ("2 agents need you", "2 agents working", "1 agent task"). It's a static
   child of `#TabsToolbar`, not a CustomizableUI widget, so it changes no
   pref (I4).
-- Clicking the strip opens a panel listing each task's Space, state, state
-  text and current action, and its tabs by name (four, then "+N more"; a
-  name opens that tab). Its rows are built as it opens (`actions.rows`):
-  titles and idleness change without a badge event. Its buttons:
+- **One task waits:** the strip names it and what it waits for ("<task>
+  needs a sign-in", `waitText`): the agent's hand-off reason, a page's
+  permission prompt, a choice (the takeover prompt's pause, or a Take over
+  that couldn't begin), or why the agent sidebar's chat waits
+  (`TaskRow.waitsFor`, `noteSidebarWaiting`'s `why`). A narrow strip cuts
+  the name, never what it waits for.
+  - Its click goes straight there: to the task as the panel's Open goes
+    (`goToTask`), or, for a chat no zenius task speaks for, to that chat in
+    the agent sidebar.
+  - All agent tasks (`#zenius-strip-all`), at the strip's end in the same
+    row (`#zenius-strip-row`), opens the panel.
+  - Where only the dot shows (a collapsed sidebar) and while watching, the
+    click opens the panel, and the tooltip names the task.
+  - With several waiting, the strip counts them, its tooltip has a line
+    for each, and its click opens the panel.
+- Clicking the strip otherwise opens a panel listing each task's Space,
+  state, state text and current action, and its tabs by name (four, then
+  "+N more"; a name opens that tab). Under them, each agent sidebar chat
+  that needs the user before a zenius task says so has a row, with what it
+  waits for and Open, which shows that chat. Its rows are built as it
+  opens (`actions.rows`): titles and idleness change without a badge
+  event. Its buttons:
   - **Open:** watches the task (below): shows the Space, on a page that
     needs the user (a permission prompt, a handOff's), else on the task's
     front tab (zen-core's `pages.frontTab`: the last the agent made

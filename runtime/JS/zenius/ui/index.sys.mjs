@@ -3628,8 +3628,37 @@ class UiController {
         clears: this.#panelClears(rec),
       });
       rows.at(-1).needs = needsUser(rows.at(-1));
+      rows.at(-1).waitsFor = rows.at(-1).needs ? this.#waitsFor(rec, badge.state) : null;
     }
     return rows;
+  }
+
+  /**
+   * What a task that needs the user waits for, for the strip's line
+   * (panel.sys.mjs's waitText): the agent's hand-off reason, a page's
+   * permission prompt, a choice (a Take over that couldn't begin, or the
+   * takeover prompt's pause), or why the agent sidebar's chat waits.
+   *
+   * @param {object} rec
+   * @param {string} state  the task's badge state
+   * @returns {string|null}
+   */
+  #waitsFor(rec, state) {
+    const ui = this.#ui(rec.id);
+    if (rec.ownership === "agentDelegatedToUser") {
+      if (ui.source === "permission") {
+        return "permission";
+      }
+      // A hand-off that gave no reason.
+      return rec.reason === "manual_takeover" ? "handoff" : (rec.reason ?? null);
+    }
+    if (ui.refusedTab) {
+      return "choice";
+    }
+    if (ui.sidebarNeeds) {
+      return ui.sidebarNeeds;
+    }
+    return state === "paused" ? "choice" : null;
   }
 
   /**
@@ -3648,16 +3677,21 @@ class UiController {
   /**
    * The agent sidebar's word on its tasks that need the user where no zenius
    * task says so: a chat's question, error or permission before its agent
-   * opened one (AgentService.noteWaiting). The strip counts them, and its
-   * panel has a line with Open, which shows the first in the sidebar.
+   * opened one (AgentService.noteWaiting), and why each waits. The strip
+   * counts them, and names one that waits alone; its panel has a row for
+   * each, with Open, which shows that chat in the sidebar.
    *
-   * @param {Array<{uid: string, name: string}>} waiting
+   * @param {Array<{uid: string, name: string, why?: string|null}>} waiting
    */
   noteSidebarWaiting(waiting) {
     const list = (Array.isArray(waiting) ? waiting : [])
       .filter(item => typeof item?.uid === "string" && item.uid)
       .slice(0, 50)
-      .map(item => ({ uid: item.uid.slice(0, 64), name: typeof item.name === "string" ? item.name.slice(0, 80) : "" }));
+      .map(item => ({
+        uid: item.uid.slice(0, 64),
+        name: typeof item.name === "string" ? item.name.slice(0, 80) : "",
+        why: typeof item.why === "string" && /^[a-z_]{1,24}$/.test(item.why) ? item.why : null,
+      }));
     if (JSON.stringify(list) === JSON.stringify(this.#sidebarWaiting)) {
       return;
     }

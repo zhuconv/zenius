@@ -67,7 +67,9 @@ before(async () => {
     const panelIn = async w => {
       const strip = w.document.getElementById("zenius-agents-strip");
       const panel = () => w.document.getElementById("zenius-tasks-panel");
-      strip.click();
+      // With one task waiting, the strip's click goes to it, and All agent tasks opens the panel.
+      const allTasks = strip.ownerDocument.getElementById("zenius-strip-all");
+      (allTasks && !allTasks.hidden ? allTasks : strip).click();
       try {
         await until(() => panel()?.state === "open");
         await sleep(100);
@@ -194,7 +196,9 @@ test("the tasks panel grows toward the window's middle and stays inside a window
     const open = async w => {
       const strip = w.document.getElementById("zenius-agents-strip");
       await until(() => strip && !strip.hidden);
-      strip.click();
+      // With one task waiting, the strip's click goes to it, and All agent tasks opens the panel.
+      const allTasks = strip.ownerDocument.getElementById("zenius-strip-all");
+      (allTasks && !allTasks.hidden ? allTasks : strip).click();
       const panel = w.document.getElementById("zenius-tasks-panel");
       try {
         await until(() => panel.state === "open", 8000);
@@ -280,7 +284,9 @@ test("the tasks panel still moves into its window when its screen rect says it's
     const panel = () => win.document.getElementById("zenius-tasks-panel");
     const open = async () => {
       await until(() => strip && !strip.hidden);
-      strip.click();
+      // With one task waiting, the strip's click goes to it, and All agent tasks opens the panel.
+      const allTasks = strip.ownerDocument.getElementById("zenius-strip-all");
+      (allTasks && !allTasks.hidden ? allTasks : strip).click();
       await until(() => panel()?.state === "open", 8000);
       await sleep(400);
       return panel().getBoundingClientRect();

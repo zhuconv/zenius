@@ -320,6 +320,12 @@ without taking focus from the user.
   work.
   - **The panel.** It shows each task with its state, state text and tabs,
     and Stop, Pause, Resume, Take over and Hand back.
+  - **The strip.** It says what matters most: who needs the user, else who
+    is working. When one task waits, it names the task and what it waits
+    for (a sign-in, a confirmation, a choice, an answer, a hand-off), and
+    its click goes straight to it, as Open does; a small button at its end
+    opens the panel. With several waiting, it shows the count, and its
+    tooltip names each.
   - **Open.** Open switches the user's window to the task's Space and
     selects its front tab. The user asked, so it may change their selection.
     When one of the agent sidebar's Work chats drives the task, Open also

@@ -73,7 +73,10 @@ before(async () => {
     const rowOf = id => panel()?.querySelector('.zenius-task[data-space="' + id + '"]');
     const openPanel = async () => {
       if (panel()?.state !== "open") {
-        strip.click();
+        // With one task waiting, the strip's click goes to it, and All agent
+        // tasks opens the panel.
+        const allTasks = doc.getElementById("zenius-strip-all");
+        (allTasks && !allTasks.hidden ? allTasks : strip).click();
         await until(() => panel()?.state === "open");
       }
     };
@@ -192,7 +195,8 @@ test("the tasks panel's Open is a watch: the strip says 'Watching <task> [Ctrl+T
   assert.equal(out.back.watching, null);
   assert.equal(out.back.name, null);
   assert.equal(out.back.label, null);
-  assert.match(out.back.text, /agent/);
+  // The strip's own line again: a count, or the one waiting task named.
+  assert.match(out.back.text, /agent|needs |waits for you|hit an error|was interrupted|handed you its tab/);
   assert.deepEqual(out.ended, [null]);
   assert.deepEqual(out.after, { stopped: false, atUser: true }, "Ctrl+Tab after the watch is Zen's");
 });
@@ -374,7 +378,8 @@ test("a watched task's end keeps the way back: the window stays on its page, the
   assert.equal(out.stopped, true, "the way back's Ctrl+Tab went no further");
   assert.equal(out.back.atUser, true);
   assert.equal(out.back.watching, null);
-  assert.match(out.back.text, /agent/);
+  // The strip's own line again: a count, or the one waiting task named.
+  assert.match(out.back.text, /agent|needs |waits for you|hit an error|was interrupted|handed you its tab/);
   assert.deepEqual(out.events, [
     { space: c, done: false },
     { space: null, done: true },

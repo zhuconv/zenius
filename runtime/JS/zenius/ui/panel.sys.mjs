@@ -12,6 +12,9 @@ import { isolate, isOneIsolate } from "chrome://userscripts/content/zenius/ui/te
 
 const XHTML_NS = "http://www.w3.org/1999/xhtml";
 const STRIP_ID = "zenius-agents-strip";
+/** The strip's row: the strip, and its All agent tasks button at the end. */
+const STRIP_ROW_ID = "zenius-strip-row";
+const STRIP_ALL_ID = "zenius-strip-all";
 const PANEL_ID = "zenius-tasks-panel";
 /** Tab names a row shows; the rest are counted. */
 const MAX_TABS = 4;
@@ -49,9 +52,12 @@ export function idleText(hours) {
  * @property {string|null} [idleFor]  "3 days" when the auto-close would take
  *   it (SPEC §3.4), else null
  * @property {boolean} [needs]  it waits for the user (needsUser)
+ * @property {string|null} [waitsFor]  what it waits for, while it does
+ *   (waitText)
  *
- * @typedef {{uid: string, name: string}} SidebarWaiting  an agent sidebar's
- *   task that needs the user with no zenius task saying so
+ * @typedef {{uid: string, name: string, why?: string|null}} SidebarWaiting
+ *   an agent sidebar's task that needs the user with no zenius task saying
+ *   so, and why (waitText)
  *  (ZeniusUI.noteSidebarWaiting)
  *
  * @typedef {object} PanelActions
@@ -173,20 +179,32 @@ export function stripSeen(win) {
 
 function renderStrip(win, w) {
   const rows = w.rows;
-  // The agent sidebar's tasks that need the user with no zenius task saying
-  // so count too, so the strip and the sidebar's Work count agree.
-  const waiting = w.waiting?.length ?? 0;
-  const attention = rows.filter(needsUser).length + waiting;
+  // Who waits for the user: zenius's tasks, then the agent sidebar's tasks
+  // that need the user with no zenius task saying so, which count too, so
+  // the strip and the sidebar's Work count agree.
+  const waiting = w.waiting ?? [];
+  const needs = [
+    ...rows.filter(needsUser).map(row => ({ id: row.id, name: row.name, kind: row.waitsFor ?? null })),
+    ...waiting.map(item => ({ uid: item.uid, name: item.name, kind: item.why ?? null })),
+  ];
+  const attention = needs.length;
   const working = rows.filter(r => r.state === "working").length;
   const paused = rows.filter(r => r.paused).length;
   const hint = watchHints.get(win);
-  w.strip.hidden = rows.length + waiting === 0 && !hint;
+  const shown = rows.length + waiting.length;
+  w.strip.hidden = shown === 0 && !hint;
+  w.row.hidden = w.strip.hidden;
   setAttr(w.strip, "state", attention ? "needs-user" : working ? "working" : paused ? "paused" : "idle");
-  const text = stripText(rows.length + waiting, attention, working, paused);
+  // One task waits: the strip names it and says what it waits for, and its
+  // click goes there (ensureWindow).
+  w.one = attention === 1 ? needs[0] : null;
+  const text = w.one ? waitLine(w.one) : stripText(shown, attention, working, paused);
   const label = w.strip.querySelector(".zenius-strip-text");
   if (hint) {
+    clearNamed(w.strip, label);
+    w.all.hidden = true;
     // Once the watched task is done there may be no tasks to count.
-    renderWatching(w.strip, label, hint, rows.length ? text : "");
+    renderWatching(w.strip, label, hint, shown ? text : "");
     return;
   }
   if (w.strip.hasAttribute("watching")) {
@@ -194,9 +212,54 @@ function renderStrip(win, w) {
     w.strip.removeAttribute("aria-label");
     label.textContent = "";
   }
-  setText(label, text);
-  // A collapsed sidebar shows only the dot: the tooltip carries the text.
-  setAttr(w.strip, "title", text);
+  if (w.one) {
+    renderNamed(w.strip, label, w.one);
+  } else {
+    clearNamed(w.strip, label);
+    setText(label, text);
+  }
+  // A collapsed sidebar shows only the dot: the tooltip carries the text,
+  // and with several waiting, a line for each.
+  setAttr(w.strip, "title", attention > 1 ? [text, ...needs.map(waitLine)].join("\n") : text);
+  // While the strip's click goes to the one waiting task, All agent tasks opens
+  // the panel.
+  w.all.hidden = !w.one;
+}
+
+/** "<task> needs a sign-in": the strip's line for one waiting task. */
+function waitLine(item) {
+  return `${isolate(item.name) || "A task"} ${waitText(item.kind)}`;
+}
+
+/**
+ * The strip names the one task that waits, then what it waits for. Where
+ * the strip is narrow, the name is cut, never what it waits for.
+ */
+function renderNamed(strip, label, item) {
+  if (!strip.hasAttribute("named")) {
+    strip.setAttribute("named", "true");
+    const doc = strip.ownerDocument;
+    // Classes of their own: the watch's line has a name and a rest too.
+    const who = doc.createElementNS(XHTML_NS, "span");
+    who.className = "zenius-strip-who";
+    const what = doc.createElementNS(XHTML_NS, "span");
+    what.className = "zenius-strip-what";
+    label.replaceChildren(who, what);
+  }
+  const task = isolate(item.name) || "A task";
+  const nameEl = label.querySelector(".zenius-strip-who");
+  setText(nameEl, task);
+  // Only the name is on its line, so it can take its own direction: a cut
+  // right-to-left name keeps its start.
+  setAttr(nameEl, "dir", isOneIsolate(task) ? "auto" : "ltr");
+  setText(label.querySelector(".zenius-strip-what"), ` ${waitText(item.kind)}`);
+}
+
+function clearNamed(strip, label) {
+  if (strip.hasAttribute("named")) {
+    strip.removeAttribute("named");
+    label.textContent = "";
+  }
 }
 
 /**
@@ -267,6 +330,40 @@ export function stripText(total, attention, working, paused = 0) {
     return paused === 1 ? "1 agent paused" : `${paused} agents paused`;
   }
   return total === 1 ? "1 agent task" : `${total} agent tasks`;
+}
+
+/**
+ * What a waiting task waits for, after its name. The kinds: an agent's
+ * hand-off reason (sign_in, irreversible, human_check, other), a page's
+ * permission prompt, a choice (the takeover prompt's pause, or a Take over
+ * that couldn't begin), or why an agent sidebar's chat waits (its task's
+ * `why`).
+ */
+const WAITS = new Map([
+  ["sign_in", "needs a sign-in"],
+  ["irreversible", "needs a confirmation"],
+  ["human_check", "needs a human check"],
+  ["other", "handed you its tab"],
+  ["handoff", "handed you its tab"],
+  ["wait", "handed you its tab"],
+  ["permission", "needs your permission"],
+  ["choice", "needs a choice"],
+  ["zenius", "needs a choice"],
+  ["question", "needs an answer"],
+  ["error", "hit an error"],
+  ["interrupted", "was interrupted"],
+  // The user's own Take over of a chat's task: the agent waits for them.
+  ["takeover", "waits for you"],
+]);
+
+/**
+ * "needs a sign-in": what a task that needs the user waits for, said after
+ * its name. An unknown kind says only that it needs the user.
+ *
+ * @param {string|null} kind
+ */
+export function waitText(kind) {
+  return WAITS.get(kind) ?? "needs you";
 }
 
 /**
@@ -526,6 +623,11 @@ function ensureWindow(win, actions) {
   if (!foot?.parentElement) {
     return null;
   }
+  // The strip and All agent tasks share a row, as siblings: a button inside the
+  // strip's role=button would be presentational to a screen reader.
+  const row = doc.createElementNS(XHTML_NS, "div");
+  row.id = STRIP_ROW_ID;
+  row.hidden = true;
   const strip = doc.createElementNS(XHTML_NS, "div");
   strip.id = STRIP_ID;
   strip.hidden = true;
@@ -537,17 +639,42 @@ function ensureWindow(win, actions) {
   const text = doc.createElementNS(XHTML_NS, "span");
   text.className = "zenius-strip-text";
   strip.append(dot, text);
+  const all = doc.createElementNS(XHTML_NS, "button");
+  all.id = STRIP_ALL_ID;
+  all.hidden = true;
+  all.setAttribute("title", "All agent tasks");
+  all.setAttribute("aria-label", "All agent tasks");
+  // The panel opens only at the user's click: the strip's, or All agent
+  // tasks'.
+  const showPanel = () => openTasksPanel(win, windows.get(win)?.actions ?? actions, strip);
+  all.addEventListener("click", showPanel);
   const open = event => {
     if (event.type === "keydown" && event.key !== "Enter" && event.key !== " ") {
       return;
     }
     event.preventDefault();
-    openTasksPanel(win, actions, strip);
+    const now = windows.get(win);
+    const act = now?.actions ?? actions;
+    // The one waiting task the strip names: straight there, to its Space
+    // and the chat that drives it, or to its chat in the agent sidebar.
+    // Where only the dot shows (a collapsed sidebar), and while watching,
+    // the panel opens, which names the tasks.
+    const one = now?.one;
+    if (one && !strip.hasAttribute("watching") && stripSeen(win)) {
+      if (one.uid) {
+        act.openSidebar?.(one.uid, win);
+      } else {
+        act.open?.(one.id, win);
+      }
+      return;
+    }
+    showPanel();
   };
   strip.addEventListener("click", open);
   strip.addEventListener("keydown", open);
-  foot.parentElement.insertBefore(strip, foot);
-  w = { strip, panel: w?.panel ?? null, rows: w?.rows ?? [], els: w?.els ?? new Map(), actions };
+  row.append(strip, all);
+  foot.parentElement.insertBefore(row, foot);
+  w = { strip, row, all, one: null, panel: w?.panel ?? null, rows: w?.rows ?? [], els: w?.els ?? new Map(), actions };
   windows.set(win, w);
   return w;
 }
@@ -617,8 +744,8 @@ export function showArrival(win, { text, watch, stop, ms }) {
     button("Stop", stop, "stop"),
     button("✕", null, "close", { title: "Dismiss", "aria-label": "Dismiss" })
   );
-  const strip = doc.getElementById(STRIP_ID);
-  foot.parentElement.insertBefore(card, strip?.parentElement === foot.parentElement ? strip : foot);
+  const row = doc.getElementById(STRIP_ROW_ID);
+  foot.parentElement.insertBefore(card, row?.parentElement === foot.parentElement ? row : foot);
   const arm = () => {
     card.zeniusTimer = win.setTimeout(() => (card.matches(":hover, :focus-within") ? arm() : hideArrival(win)), ms);
   };
@@ -926,38 +1053,69 @@ function renderPanel(win, w, actions) {
 
 /**
  * The agent sidebar's tasks that need the user before a zenius task says so
- * (a chat's question, error or permission): one line under the rows, with
- * Open, which shows the first in the sidebar. The strip counts them.
+ * (a chat's question, error or permission): a row each under zenius's, with
+ * what it waits for and Open, which shows that chat in the sidebar. The
+ * strip counts them.
  */
 function renderWaiting(doc, body, prev, w) {
   const waiting = w.waiting ?? [];
-  let line = body.querySelector(":scope > .zenius-tasks-waiting");
-  if (!waiting.length) {
-    line?.remove();
-    return;
+  const els = new Map([...body.querySelectorAll(":scope > .zenius-tasks-waiting")].map(el => [el.dataset.uid, el]));
+  const listed = new Set(waiting.map(item => item.uid));
+  for (const [uid, el] of els) {
+    if (!listed.has(uid)) {
+      el.remove();
+      els.delete(uid);
+    }
   }
-  if (!line) {
-    line = doc.createElementNS(XHTML_NS, "div");
-    line.className = "zenius-tasks-waiting";
-    const text = doc.createElementNS(XHTML_NS, "span");
-    text.className = "zenius-tasks-waiting-text";
-    const open = doc.createElementNS(XHTML_NS, "button");
-    open.className = "zenius-task-button";
-    open.textContent = "Open";
-    open.addEventListener("click", async () => {
-      const now = windows.get(doc.defaultView);
-      const uid = now?.waiting?.[0]?.uid;
-      if (uid) {
-        await hidePanel(now.panel);
-        now.actions?.openSidebar?.(uid, doc.defaultView);
-      }
-    });
-    line.append(text, open);
+  for (const item of waiting) {
+    let el = els.get(item.uid);
+    if (!el) {
+      el = waitingRow(doc, item.uid);
+      els.set(item.uid, el);
+    }
+    const name = isolate(item.name) || "New task";
+    // A screen reader names the row as it enters it, so its Open says which
+    // task it's for.
+    setAttr(el, "aria-label", name);
+    setText(el.querySelector(".zenius-task-name"), name);
+    const what = waitText(item.why ?? null);
+    setText(el.querySelector(".zenius-task-detail"), `${what[0].toUpperCase()}${what.slice(1)} in the agent sidebar`);
+    if (prev.nextElementSibling !== el) {
+      prev.after(el);
+    }
+    prev = el;
   }
-  const more = w.rows.length ? " more" : "";
-  const text = waiting.length === 1 ? `1${more} task needs you in the agent sidebar` : `${waiting.length}${more} tasks need you in the agent sidebar`;
-  setText(line.querySelector(".zenius-tasks-waiting-text"), text);
-  if (prev.nextElementSibling !== line) {
-    prev.after(line);
-  }
+}
+
+/** A row for one of the agent sidebar's waiting tasks, in a task row's look. */
+function waitingRow(doc, uid) {
+  const el = doc.createElementNS(XHTML_NS, "div");
+  el.className = "zenius-tasks-waiting";
+  el.dataset.uid = uid;
+  el.setAttribute("role", "group");
+  const div = className => {
+    const part = doc.createElementNS(XHTML_NS, "div");
+    part.className = className;
+    return part;
+  };
+  const dot = doc.createElementNS(XHTML_NS, "span");
+  dot.className = "zenius-task-dot";
+  const info = div("zenius-task-info zenius-tasks-waiting-text");
+  const name = div("zenius-task-name");
+  name.dir = "auto";
+  info.append(name, div("zenius-task-detail"));
+  const actions = div("zenius-task-actions");
+  const open = doc.createElementNS(XHTML_NS, "button");
+  open.className = "zenius-task-button";
+  open.textContent = "Open";
+  open.addEventListener("click", async () => {
+    const now = windows.get(doc.defaultView);
+    if (now) {
+      await hidePanel(now.panel);
+      now.actions?.openSidebar?.(el.dataset.uid, doc.defaultView);
+    }
+  });
+  actions.append(open);
+  el.append(dot, info, actions);
+  return el;
 }

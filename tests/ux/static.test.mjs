@@ -25,10 +25,11 @@ test("ui code never shows window-level toasts or opens a popup on its own (I1)",
     // Toasts show over whatever Space the user is in.
     assert.doesNotMatch(src, /showToast\s*\(/, file);
   }
-  // The tasks panel opens only from the strip's click handler or the
+  // The tasks panel opens only at the user's click on the strip or its All
+  // agent tasks button (one call, which both handlers share) or from the
   // controller's openTasksPanel(), which nothing in ui calls by itself.
   const panel = readFileSync(join(ROOT, "ui", "panel.sys.mjs"), "utf8");
   const index = readFileSync(join(ROOT, "ui", "index.sys.mjs"), "utf8");
-  assert.equal((panel.match(/openTasksPanel\(win, actions, strip\)/g) ?? []).length, 1);
+  assert.equal((panel.match(/openTasksPanel\(win, [^\n]*, strip\)/g) ?? []).length, 1);
   assert.doesNotMatch(index.replace(/openTasksPanel\(win\) \{[\s\S]*?\n  \}/, ""), /openTasksPanel\(/);
 });

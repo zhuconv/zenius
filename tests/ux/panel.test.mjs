@@ -30,7 +30,10 @@ before(async () => {
     const actionsOf = () => [...(row()?.querySelectorAll(".zenius-task-actions button") ?? [])].map(b => b.dataset.action);
     const openPanel = async () => {
       if (panel()?.state !== "open") {
-        strip.click();
+        // With one task waiting, the strip's click goes to it, and All agent
+        // tasks opens the panel.
+        const allTasks = doc.getElementById("zenius-strip-all");
+        (allTasks && !allTasks.hidden ? allTasks : strip).click();
         await until(() => panel()?.state === "open");
       }
     };
@@ -83,6 +86,29 @@ test("the strip's text fits a narrow sidebar", async () => {
   ]);
 });
 
+test("the strip's line for one waiting task says what it waits for, after the task's name", async () => {
+  const out = await h.chrome(`
+    const { waitText } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/panel.sys.mjs");
+    return ["sign_in", "irreversible", "human_check", "other", "handoff", "permission", "choice", "question", "error", "interrupted", "takeover", "constructor", "manual_takeover", null].map(waitText);
+  `);
+  assert.deepEqual(out, [
+    "needs a sign-in",
+    "needs a confirmation",
+    "needs a human check",
+    "handed you its tab",
+    "handed you its tab",
+    "needs your permission",
+    "needs a choice",
+    "needs an answer",
+    "hit an error",
+    "was interrupted",
+    "waits for you",
+    "needs you",
+    "needs you",
+    "needs you",
+  ]);
+});
+
 test("the strip counts agent tasks and opens the panel, which lists them", async () => {
   const out = await h.chrome(`${P}
     await until(() => !strip.hidden);
@@ -90,7 +116,8 @@ test("the strip counts agent tasks and opens the panel, which lists them", async
     const r = row();
     const info = {
       strip: strip.textContent,
-      inSidebar: strip.parentElement.id,
+      row: strip.parentElement.id,
+      inSidebar: strip.parentElement.parentElement.id,
       name: r?.querySelector(".zenius-task-name").textContent,
       detail: r?.querySelector(".zenius-task-detail").textContent,
       actions: actionsOf(),
@@ -101,7 +128,8 @@ test("the strip counts agent tasks and opens the panel, which lists them", async
     await closePanel();
     return info;
   `);
-  assert.match(out.strip, /^(\d+ agents? (task|tasks|working)|An agent needs you|\d+ agents need you)$/);
+  assert.match(out.strip, /^(\d+ agents? (task|tasks|working)|\d+ agents need you|.+ (needs .+|hit an error|was interrupted|handed you its tab|waits for you))$/);
+  assert.equal(out.row, "zenius-strip-row", "the strip and All agent tasks share a row");
   assert.equal(out.inSidebar, "TabsToolbar");
   assert.equal(out.name, iso(NAME));
   assert.match(out.detail, /^Agent/);
@@ -136,7 +164,7 @@ test("the agent sidebar's word on a task its chat drives: a running turn counts 
       needs: { state: "needs-user", strip: out.needs.strip, attr: "needs-user" },
       answered: "idle",
     });
-    assert.match(out.needs.strip, /^(An agent needs you|\d+ agents need you)$/);
+    assert.match(out.needs.strip, /^(.+ needs an answer|\d+ agents need you)$/);
   } finally {
     await h.call("spaces.finish", { space: fresh, keep: [] }).catch(() => {});
   }
@@ -233,7 +261,8 @@ test("handOff shows the agent's request in its page and badge, and no OS notific
     return { alerts: UI.alertsService.calls.length, strip: strip.textContent };
   `);
   assert.equal(out.alerts, 0);
-  assert.match(out.strip, /needs? you$/);
+  // The one waiting task is named; a hand-off with no reason handed a tab.
+  assert.match(out.strip, /(needs? you|handed you its tab)$/);
   const s = await state();
   assert.equal(s.taskBadge.state, "needs-user");
   assert.equal(s.taskBadge.text, "Log in to continue");

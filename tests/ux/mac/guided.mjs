@@ -252,7 +252,7 @@ cursor ("Waiting for you"). Bring that window to the front, then follow each ste
     win.PopupNotifications.show(browser, "storage-access", "Allow the sign-in frame to use its cookies here?", "storage-access-notification-icon",
       { label: "Allow", accessKey: "A", callback() {} }, [{ label: "Block", accessKey: "B", callback() {} }], {});
   `);
-  await step("G10a", "The sidebar strip should now say \"An agent needs you\". Open the panel and click \"Open\" on \"zen-ux guided check\". The browser's prompt asks to let a sign-in frame use its cookies, and the card says why the agent stopped.",
+  await step("G10a", "The sidebar strip should now say \"zen-ux guided check needs your permission\". Click it: it goes straight to the task. The browser's prompt asks to let a sign-in frame use its cookies, and the card says why the agent stopped.",
     s => s.ownership === "agentDelegatedToUser" && s.reason === "storage_access" && /asks for storage access/.test(s.controlNotice ?? ""));
   await step("G10b", "Click \"Block\" in the browser's prompt (not Allow). Control goes back to the agent.",
     s => s.ownership === "agent" && !s.controlNotice);

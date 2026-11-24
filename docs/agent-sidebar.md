@@ -150,8 +150,12 @@ stable, and a change to one is announced to zen-eval first.
   the user for the reasons only the sidebar knows (a permission, a
   question, an error, Zen quitting mid-task). zenius knows hand-offs and
   Take over itself. zenius's way to a task (its tasks panel's Open and tab
-  names, a notification's click) opens the sidebar on the Work chat that
-  drives the task, if one does (`openChatOfSpace`).
+  names, a notification's click, the strip's click while it names one
+  waiting task) opens the sidebar on the Work chat that drives the task,
+  if one does (`openChatOfSpace`). A chat that needs the user before any
+  zenius task says so goes to zenius with why it waits
+  (`AgentService.noteWaiting`): the strip names it when it waits alone, and
+  the tasks panel has a row for it with Open.
 - **Queue and steer**: while the agent works, Enter queues a message
   (`AgentService.enqueue`), which goes out when the turn ends, in order, in
   the same session; a queued Chat question reads its tab's page as it is
@@ -376,7 +380,7 @@ too, so both go by one set of the sidebar's ids and classes.
 What keeps the user's sidebar out of it is the scope
 (`AgentService.openScope`). A scope's tasks are in `scope.tasks`, never in
 `AgentService.tasks`, so they're never saved, never in `sidebar.status` or
-`list`, never in zenius's waiting line, and never listed in another window:
+`list`, never in zenius's waiting rows, and never listed in another window:
 `taskList`, `directoryList`, `archivedTasks`, `taskByUid`, `needsCount`,
 `subscribeTasks` and `harnessList` take the scope of the window they list
 for (`glue.scope`, null in a browser window). Its conversations
@@ -528,6 +532,8 @@ The window while watching (browser.xhtml):
 |---|---|
 | `#main-window[data-zenius-watching="<uid>"]` | The task the window watches, when a chat follows it |
 | `#zenius-agents-strip[watching]` | zenius's strip while the window watches: "Watching <task> [⌃Tab]", the key a keycap (`<kbd>`), the name in `.zenius-strip-name`. Once the watched task ended there, `[watching="done"]`: "Task done, [⌃Tab] back to your tabs", with "back to your tabs" in `.zenius-strip-rest`, until the user presses ⌃Tab or picks another tab or Space. A hint: a click opens the tasks panel |
+| `#zenius-agents-strip[named]` | zenius's strip while one task waits: "<task> needs a sign-in", the name in `.zenius-strip-who`, cut first, then what it waits for in `.zenius-strip-what` |
+| `#zenius-strip-all` | All agent tasks, at the strip's end in `#zenius-strip-row`, shown while the strip's click goes to the one waiting task |
 | `#zenius-watch-pill` | zenius's chip, in the page area's top left corner, only while the window watches and the strip can't be read (a collapsed sidebar, compact mode): "Watching <task> [⌃Tab]", or once the task ended there, `[done]`: "Task done, [⌃Tab] back to your tabs", with "back to your tabs" in `.zenius-watch-rest`. Every click passes through it to the page |
 | ⌃Tab | Goes back while watching (stopped before Zen's tab box and ctrlTab see it); Zen's otherwise. Only trusted key events count. Tests send it through nsITextInputProcessor |
 
