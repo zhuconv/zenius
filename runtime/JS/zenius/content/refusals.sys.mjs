@@ -18,7 +18,7 @@
 //   in the user's profile and run in their own tabs on the site. These
 //   hold for the task's whole life, the user's hold included, and in the
 //   workers the task's pages start (workerguard.js).
-// - the user's devices (the user's call, 2026-11-21): while the agent
+// - the user's devices: while the agent
 //   drives the page, the camera, microphone and screen (getUserMedia,
 //   mozGetUserMedia, getDisplayMedia, selectAudioOutput) and speech
 //   recognition get the denial a page gets
@@ -938,7 +938,7 @@ const SHARED_MARK = "zenius-agent";
  * The marks of the shared workers a task's documents start: "zenius-" and
  * the document's channel scope (channelScope), so each task, each hold, and
  * the pages kept with the agent's code after their tasks have workers of
- * their own (zen-snapshot's twoTasks probe, 2026-11-20).
+ * their own.
  */
 const SCOPED_MARKS = ["zenius-task-", "zenius-held-"];
 

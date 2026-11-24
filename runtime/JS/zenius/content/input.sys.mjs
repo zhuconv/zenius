@@ -1228,9 +1228,9 @@ export function pasteInto(win, data, { plain = false } = {}) {
  * editor get it. Gecko's own sanitizer drops scripts, event-handler
  * attributes and javascript: URLs, as Chromium does for a paste: Ego's
  * agents never see a pasted onerror run, and a page's paste handler that
- * inserts the html as is runs nothing of it here either (the manager's
- * layer, 2026-11-20). Styles and comments stay, so formatting and the
- * fragment markers editors read survive.
+ * inserts the html as is runs nothing of it here either. Styles and
+ * comments stay, so formatting and the fragment markers editors read
+ * survive.
  *
  * @param {string} html
  * @returns {string} a whole document's markup
@@ -1241,8 +1241,8 @@ export function sanitizePastedHtml(html) {
 }
 
 /**
- * What in the agent's pasted html counts as hooked, in a few words, or null
- * (on the user's call of 2026-11-21): code, a frame, a form, a field, an
+ * What in the agent's pasted html counts as hooked, in a few words, or null:
+ * code, a frame, a form, a field, an
  * editable area, a base, a meta refresh or a
  * style sheet, by zen-observe's hookedMarkup, which its world runs on what
  * the agent's code inserts, so the two count the same things. It reads the

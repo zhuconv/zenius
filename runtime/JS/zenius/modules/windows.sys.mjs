@@ -795,8 +795,7 @@ export function noteOpenRefused(info) {
 /**
  * The events add `evident: true` and the page's `evidence` ({reason:
  * detail}, zen-observe's) when the page has evidence a clean copy clears:
- * hooked or made, the defenses' trigger since the user's call
- * (2026-11-21). Otherwise they leave both out, and zen-ux reads the page.
+ * hooked or made, the defenses' trigger. Otherwise they leave both out, and zen-ux reads the page.
  * A caller's own value stands.
  */
 function withEvidence(info) {
@@ -812,7 +811,7 @@ function withEvidence(info) {
   }
 }
 
-// The reminders (zen-ux, 2026-11-20, as the user chose): after its task, a page whose top document holds the
+// The reminders (zen-ux): after its task, a page whose top document holds the
 // agent's code keeps the task's refusals (content/refusals.sys.mjs). zen-ux's
 // card tells the user when their own action there was refused.
 

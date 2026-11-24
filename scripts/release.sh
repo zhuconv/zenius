@@ -45,7 +45,7 @@
 #
 # Building the bundle needs this checkout's sdk/node_modules (npm ci in sdk/
 # first): release.sh itself never uses the network, and asks nothing. It
-# publishes nothing: the relay creates the release v<version> with gh,
+# publishes nothing: the maintainer creates the release v<version> with gh,
 # uploads every file in --out, and puts the SHA-256 line it prints in the
 # release's notes.
 

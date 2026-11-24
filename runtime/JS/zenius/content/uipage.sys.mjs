@@ -6,8 +6,7 @@ import { secretFields } from "chrome://userscripts/content/zenius/content/secret
 /**
  * The kinds of secret field in the frame's document: a password, a card's
  * details, a one-time code (zen-input's secretFields). The card a page the
- * agent made carries shows only when the page asks for one (the user's pass
- * on defenses, 2026-11-21, A6).
+ * agent made carries shows only when the page asks for one.
  *
  * @param {JSWindowActorChild} actor
  * @returns {Array<"password"|"card"|"code">}

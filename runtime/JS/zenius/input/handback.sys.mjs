@@ -1,7 +1,6 @@
 // Password fields, card details and one-time codes the user filled while
 // holding an agent tab are cleared before the agent gets the tab back
-// (zen-input; the manager's rules of 2026-11-20, hooked with zen-ux, which
-// owns hand back). Card details are a card's number, security code and
+// (zen-input, hooked with zen-ux, which owns hand back). Card details are a card's number, security code and
 // expiry; addresses stay, since the user fills them so the agent can go on. A tab the agent
 // takes over with pages.adopt gets the same clear before its first call.
 //

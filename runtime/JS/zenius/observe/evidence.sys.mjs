@@ -1,5 +1,4 @@
-// The evidence flag, parent side (zen-observe; the user's call of
-// 2026-11-21).
+// The evidence flag, parent side (zen-observe).
 //
 // The defenses (the typing hold, the clean-copy reloads, the hold's COOP and
 // muting, the task-end reload, the permission prompts' denial) act only on

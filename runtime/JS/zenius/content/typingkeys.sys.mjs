@@ -10,7 +10,7 @@ export const TYPING_HELD_DOCS_KEY = "zenius:typingHeldDocs";
 export const TYPING_HELD_TABS_KEY = "zenius:typingHeldTabs";
 
 /**
- * The clean copy's replay (the manager's rule, 2026-11-20): at most this
+ * The clean copy's replay: at most this
  * many of the user's keys, typed within this long of their trigger.
  */
 export const REPLAY_MAX_KEYS = 64;

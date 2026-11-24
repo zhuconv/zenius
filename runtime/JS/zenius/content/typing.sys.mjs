@@ -3,19 +3,19 @@
 // (zen-input). Only those tabs' roots get these listeners: the user's own
 // tabs never do (I4).
 //
-// - Take over (the user's decision, 2026-11-20): the user's first key
+// - Take over: the user's first key
 //   or press in a live task's tab discards the agent's worlds there
 //   (zen-observe's discard, content/agentworld.sys.mjs), synchronously,
 //   before any listener of the page sees it.
-// - The typing guard (2026-11-20), on evidence only (the user's call,
-//   2026-11-21). In a page the agent's code left something hooked in
-//   (zen-observe's evidence, reason hooked), the user's first press
+// - The typing guard, on evidence only. In a page the agent's code left
+//   something hooked in (zen-observe's evidence, reason hooked), the
+//   user's first press
 //   or key anywhere in the tab is stopped before any listener of the page,
 //   and so is every press and key of theirs after it, until the tab's top
 //   document is replaced: nothing the agent's code left runs on their input.
 //   A page the agent's code only filled, clicked or read has no evidence,
 //   and the user's input goes through as in any page. Nor does a listed or
-//   flagged page hold it (the manager's call, 2026-11-21): the danger there
+//   flagged page hold it: the danger there
 //   is the page itself, which a clean copy can't remove, so zen-ux warns
 //   instead. A
 //   stopped press is stopped whole, so the focus stays where it was. zen-core
@@ -23,7 +23,7 @@
 //   input/typing.sys.mjs) with the form carried over, and puts the focus on
 //   the field the user went for, if any (noteUserTarget). Scrolls and pointer
 //   moves pass. A page the agent made (flag "drop") keeps the user's input
-//   on: zen-ux reminds them instead (the user's decision, 2026-11-20).
+//   on: zen-ux reminds them instead.
 //   The keys the user types while the clean copy loads are typed again into
 //   it, in the field they went for, as the hold lifts (the replay, below).
 //   The replay's own keys never set off a hold.
@@ -319,9 +319,8 @@ function onUserEvent(e) {
     noteHeldInput(win, bc, e, false);
   }
   // The trigger: the user's first press or key anywhere in a hooked page,
-  // during its task or after (the manager's change, 2026-11-20). Never the
-  // replay's own keys, whatever the page's flag says (the manager's ask,
-  // 2026-11-21): a hold already took them once, and a clean copy born
+  // during its task or after. Never the replay's own keys, whatever the
+  // page's flag says: a hold already took them once, and a clean copy born
   // hooked would otherwise hold, load afresh and replay without end.
   if (replaying || !isHookedPage(bc)) {
     return;
@@ -345,7 +344,7 @@ function onUserEvent(e) {
 // ------------------------------------------------- the clean copy's replay
 //
 // The keys the user types while the clean copy of a hooked page loads
-// aren't lost (the manager's rule, 2026-11-20). This guard drops them as
+// aren't lost. This guard drops them as
 // before, and logs what it drops: here, for the tab's current top document,
 // and at the parent (input/typing.sys.mjs), which keeps them for the
 // documents the clean copy replaces. The parent also records the user's

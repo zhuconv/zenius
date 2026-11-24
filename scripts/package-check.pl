@@ -16,8 +16,8 @@
 # - each gzip member's header has no file name, comment, extra field or time.
 # Prints a line for each file that holds more, or that it can't read (a zip,
 # xz, bzip2 or zstd package among them: use .tar.gz). Exits 1 if there's one,
-# 2 on a bad argument, else 0. Perl and its core modules only: the relay runs
-# it on the Mac.
+# 2 on a bad argument, else 0. Perl and its core modules only: it runs on the
+# Mac too.
 use strict; use warnings;
 use IO::Uncompress::Gunzip qw($GunzipError);
 

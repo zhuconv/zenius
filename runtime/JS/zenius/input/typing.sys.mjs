@@ -1,5 +1,4 @@
-// The typing guard's parent half (zen-input; 2026-11-20, on evidence only
-// since the user's call of 2026-11-21).
+// The typing guard's parent half (zen-input), on evidence only.
 // content/typing.sys.mjs stops the user's first press or key anywhere in a
 // page the agent's code left something hooked in (zen-observe's evidence),
 // and tells this module, which:
@@ -13,8 +12,7 @@
 //   in the documents the clean copy replaces, and records the user's keys
 //   itself as it routes them to the tab, until the clean copy is in. Then
 //   it hands both to the clean copy, to be typed again there as its hold
-//   lifts (content/typing.sys.mjs's replay; the manager's rule,
-//   2026-11-20), and drops them (the manager's design, 2026-11-21).
+//   lifts (content/typing.sys.mjs's replay), and drops them.
 // zen-core also holds a tab's typing around a hand-off's quiet reload
 // (dropUserTyping), whether or not the user set anything off.
 

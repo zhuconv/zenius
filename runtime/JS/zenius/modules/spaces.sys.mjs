@@ -1296,8 +1296,7 @@ export class Spaces {
   }
 
   // ---------------------------------------------------------------------------
-  // The user's say over claims and takeovers (the manager's decisions on the
-  // method audit, item 6; SPEC §3.4)
+  // The user's say over claims and takeovers (SPEC §3.4)
 
   /**
    * The user's real input reached one of the record's tabs, whoever controls

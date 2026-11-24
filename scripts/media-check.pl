@@ -9,7 +9,7 @@
 #
 # Prints a line for each file that holds more, or that it can't read, and
 # exits 1 if there's one, 2 on a bad argument, else 0. Perl, which macOS and
-# Linux both have, and nothing else: the relay runs it on the Mac.
+# Linux both have, and nothing else: it runs on the Mac too.
 use strict; use warnings;
 
 # A PNG, GIF, JPEG or WebP: what it holds besides its pixels and the data to

@@ -1,5 +1,4 @@
-// The evidence flag, content side (zen-observe; the user's call of
-// 2026-11-21).
+// The evidence flag, content side (zen-observe).
 //
 // The defenses act only on evidence of phishing or danger: one flag per
 // document, with its reasons (hooked, made, listed, flagged). The parent

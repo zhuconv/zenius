@@ -44,7 +44,7 @@ let initing = null;
 // agent tab zen-observe's handler answers Cancel. When the folder is the
 // runtime's own (page.setInputFiles or fileChooser.setFiles with a folder:
 // the agent named every file, and its sandbox bounded what it read), the
-// question is answered yes, once, with the manager's go (2026-11-21):
+// question is answered yes, once:
 // - the parent arms a token for one frame and the folder it staged under
 //   <profile>/zenius-uploads (expectOwnFolder, on the runtime's own actor
 //   message, which no page reaches);

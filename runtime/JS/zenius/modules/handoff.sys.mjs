@@ -458,7 +458,7 @@ const responseHook = {
  *   can show its open redirect (zen-snapshot's siteRouterRedirect), so the
  *   load then goes once more, to the URL that brought the document
  *   (loadedFromURL), stopped off the site the same way; if there's no such
- *   URL, or it's stopped too, the load fails (the manager, 2026-11-21)
+ *   URL, or it's stopped too, the load fails
  *   evidentFails: the clean copy on demand. A load whose document comes in
  *   with evidence a clean copy clears fails (`stillEvident` and `evidence`
  *   on the error), the tab's typing held on it and nothing replayed
@@ -650,9 +650,8 @@ export async function cleanLoad(svc, browser, { sameSite = false, evidentFails =
  * shared-worker ports H's documents opened before the hold, in each of them
  * (zen-observe's content/refusals.sys.mjs, muteChannels). Opened in the
  * task's scope, they let H hear the task's pages, and them H, both ways;
- * what H opens from now on gets the held scope. Since the user's call on
- * evidence, only when something the agent's code left could be at the other
- * end (channelsReach). It runs after the agent-page check, so a hand-off
+ * what H opens from now on gets the held scope. This happens only when
+ * something the agent's code left could be at the other end (channelsReach). It runs after the agent-page check, so a hand-off
  * refused there leaves the site's channels open. A document that went away
  * meanwhile took its channels with it.
  */
@@ -739,9 +738,9 @@ export function heldWith(browser) {
  *   and left as it is (`agentPage`). With `refuseAgentPage` (the agent's
  *   own hand-off) nothing else happens, and the caller refuses it.
  * - Before any load, the agent's sandboxes go, with the workers they
- *   started, in every process (zen-observe's discard, the user's decision
- *   (A)): what the agent's code left running can't act on H or on the
- *   loads. H's channels are muted when channelsReach says so.
+ *   started, in every process (zen-observe's discard): what the agent's
+ *   code left running can't act on H or on the loads. H's channels are
+ *   muted when channelsReach says so.
  * - Each window of H's group that could reach it and that the agent's code
  *   left something in (markedReaching) loads afresh in place, one at a
  *   time; then H, if the agent's code left something in it. H keeps its
@@ -886,7 +885,7 @@ export async function holdFor(svc, rec, browser, { refuseAgentPage = false } = {
     if (!(e instanceof ZenError) && e?.offSite) {
       error.data = { ...error.data, offSite: e.offSite };
     }
-    // The manager's rule: the user never holds a page while a document
+    // The user never holds a page while a document
     // zenius meant to replace is still there, so a failed load refuses the
     // hand-off. The pages that did load afresh have lost the agent's state:
     // the refusal names them.

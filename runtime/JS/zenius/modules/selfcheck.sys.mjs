@@ -1,6 +1,6 @@
 // The post-install self-check's runs (zen-core; PROTOCOL.md, "Self-check").
 //
-// After an install, the relay or the user's own shell runs `zenius
+// After an install, a script or the user's own shell runs `zenius
 // selfcheck` outside zenius's sandbox. That front connects to a socket of the
 // self-check's own, ~/.zenius/selfcheck/<instance>.sock, which the service
 // serves (modules/service.sys.mjs) with selfcheck.run and nothing else. The

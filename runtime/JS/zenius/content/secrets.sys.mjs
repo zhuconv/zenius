@@ -1,9 +1,9 @@
 // Content side of the hand-back guard (input/handback.sys.mjs): a frame's
 // secret fields when the user gets control of an agent tab, and the ones to
 // empty when the agent gets it back. Secret means a password, a card's
-// number, security code or expiry, or a one-time code (the manager's
-// decision, 2026-11-20: the user submits secrets themselves, and a code the
-// agent could read is one it could use). Addresses stay: the user fills
+// number, security code or expiry, or a one-time code: the user submits
+// secrets themselves, and a code the agent could read is one it could use.
+// Addresses stay: the user fills
 // them so the agent can go on. Both run synchronously when their message arrives,
 // so nothing reaches the frame in between.
 

@@ -32,10 +32,9 @@
 # in sdk/) and works on Node 22.3 or later; without node_modules, a bundle
 # that is current with the sources is used. A failed build stops the install.
 #
-# It replaces only its own copy, and links that point to a zenius CLI or
-# Skill; never another file, directory or link. It never touches Zen:
-# installing the runtime into Zen is scripts/install.sh. On the user's Mac,
-# run it only when the manager says so. ZENIUS_CLI_DIR, ZENIUS_BIN_DIR and
+# It replaces only its own copy, and links that point to a zenius CLI or Skill;
+# never another file, directory or link. It never touches Zen: installing the
+# runtime into Zen is scripts/install.sh. ZENIUS_CLI_DIR, ZENIUS_BIN_DIR and
 # ZENIUS_SKILL_DIRS (space-separated) override the target directories.
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)

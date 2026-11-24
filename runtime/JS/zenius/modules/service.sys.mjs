@@ -881,7 +881,7 @@ class Service {
   /**
    * While the user holds a page of a task, a page of that task with
    * evidence a clean copy clears (what the agent's code left there, or a
-   * page the agent made: the user's call on evidence, A2) opens nothing,
+   * page the agent made) opens nothing,
    * with an opener or without: a look-alike of the held page could take
    * what the user types. The held page and the popups that joined its hold open as
    * usual, and so does a page where the agent's code only ran, since the
@@ -974,8 +974,8 @@ class Service {
 
   /**
    * zen-observe's discard: the agent's sandboxes, and the workers they
-   * started, in every process, at a hand-off, Take over and the task's end
-   * (the user's decision (A)). Resolves once every process has done it.
+   * started, in every process, at a hand-off, Take over and the task's end.
+   * Resolves once every process has done it.
    *
    * @param {Element|BrowsingContext|{task: number}} target
    * @returns {Promise<void>}
@@ -1001,7 +1001,7 @@ class Service {
   /**
    * Does the page get a clean copy before the user types there? Its
    * documents have what the agent's code left hooked in them (zen-observe's
-   * evidence; the user's call, 2026-11-21), and the agent didn't make it: a
+   * evidence), and the agent didn't make it: a
    * page the agent made comes back the same from a reload, so zen-input's
    * guard drops the typing there instead. A listed or flagged page gets
    * zen-ux's warning, not a clean copy.
@@ -1142,8 +1142,7 @@ class Service {
   /**
    * At the task's end, after the discard: every page of it that stays open
    * and has what the agent's code left hooked in it loads afresh, its form
-   * carried over (the user's approval of landing (2); needsCleanCopy since
-   * the user's call on evidence). One that doesn't load afresh keeps its
+   * carried over (needsCleanCopy). One that doesn't load afresh keeps its
    * evidence, and what such a page keeps.
    *
    * @param {Element[]} browsers  the task's pages that stay open
@@ -2183,7 +2182,7 @@ class Service {
   }
 
   /**
-   * The listed evidence (the user's pass on the defenses): a new document of
+   * The listed evidence: a new document of
    * a task page whose site Gecko's phishing or malware lists name is marked
    * listed, with the list, for zen-ux's warning. Gecko blocks such a page as
    * it loads, so this finds the one someone clicked through its warning to.

@@ -283,7 +283,7 @@ refuse_waiting_update() {
       echo "On the Mac that replaces the user's Zen.app and asks for an admin password."
       echo "The user applies it by quitting and reopening their own Zen. Start again once they have (zenius then runs on that version)."
     else
-      echo "That would change the install under every dev Zen that uses it: ask the manager whether to apply it or remove it."
+      echo "That would change the install under every dev Zen that uses it: ask its owner whether to apply it or remove it."
     fi
     echo "zen-dev.sh leaves that folder as it is."
   } >&2

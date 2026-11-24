@@ -1,5 +1,5 @@
 // A stream the user started in a task's tab ends when the agent drives the
-// tab again (zen-observe; the user's call, 2026-11-21).
+// tab again (zen-observe).
 //
 // During the user's hold (or Take over) a task's page may use the camera,
 // the microphone or the screen through Firefox's own prompt, as any site

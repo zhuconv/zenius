@@ -1,5 +1,4 @@
-// The agent's code in an isolated world, content side (zen-observe; the
-// user's decision, 2026-11-20).
+// The agent's code in an isolated world, content side (zen-observe).
 //
 // The agent's page code runs in a sandbox per document, never in the page's
 // own JavaScript. This module keeps the worlds of this process, discards
@@ -19,7 +18,7 @@
 // - onNewScript on the page's windows sees eval and Function compiled with
 //   no page frame on the stack, and a script element the world inserts.
 //
-// Hooked (the user's call on the defenses, 2026-11-21): what the agent's
+// Hooked: what the agent's
 // code leaves that outlives the discard of its world marks the page with
 // evidence (content/evidence.sys.mjs). Listeners, timers, observers and
 // workers end with the world, so they don't count.
@@ -1345,7 +1344,7 @@ export function endCall(world, call) {
 
 // A loop that calls no built-in never meets the hook, and nothing else can
 // stop a sandbox's script: the parent's cancel and the slow-script watchdog
-// look for a window's global (zen-eval's A/B, 2026-11-20). So each loop body
+// look for a window's global. So each loop body
 // in the agent's code gets a counter that calls a no-op built-in every 4096
 // turns, and the hook ends the loop at its deadline like any other code. The
 // engine's own parser finds the loops, so the rewrite matches what runs; a

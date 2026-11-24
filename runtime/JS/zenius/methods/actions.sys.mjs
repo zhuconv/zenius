@@ -131,7 +131,7 @@ export function inputState(ctx, rp) {
 }
 
 // The Space's clipboard: agent copy, cut and paste never touch the system
-// clipboard, which is the user's (manager decision 2026-11-19). zen-ux's
+// clipboard, which is the user's. zen-ux's
 // store, shared with the page guards: a page's own "Copy" button and these
 // chords use the same clipboard.
 function clipboardOf(space) {

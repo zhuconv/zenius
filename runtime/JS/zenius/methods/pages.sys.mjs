@@ -185,7 +185,7 @@ export const methods = {
 
   "pages.userPage": async (ctx, params) => ctx.pages.userPage(ctx.resolveSpace(params)),
 
-  // The agent's own evidence (the user's pass on the defenses, 2026-11-21):
+  // The agent's own evidence:
   // the page looks like phishing or wants what the task doesn't need. Its
   // document then gets every defense that reads evidence, and zen-ux's
   // notice tells the user the reason. Per document, as all evidence is: a

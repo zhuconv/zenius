@@ -1,4 +1,4 @@
-// Each task's recent steps (zen-input; the user's ask of 2026-11-21).
+// Each task's recent steps (zen-input).
 // Every zenius task shows in the sidebar, whoever
 // drives it (a Claude or Codex session in a terminal, a script, the sidebar's
 // own agents), and its view lists what the agent did there. zen-core's

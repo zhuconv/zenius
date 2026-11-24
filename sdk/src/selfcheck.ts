@@ -67,7 +67,7 @@ export async function selfcheckCommand(rest: string[], flag: string | undefined)
   const instance = instanceName(flag);
   if (!isInstanceName(instance)) return fail(instanceNameRule(instance));
   const socket = selfcheckSocket(instance);
-  // The manager's call: while the runtime holds the run, the caller sees why.
+  // While the runtime holds the run, the caller sees why.
   const outcome = await runSelfcheck(socket, instance, { onWait: (reason) => writeStderr(`zenius selfcheck: ${waitText(reason)}\n`) });
   if ("error" in outcome) return fail(failureText(outcome.error, socket, instance));
   const report = formatResult(outcome.result, instance);
