@@ -1,10 +1,10 @@
 // Permission prompts in agent pages (runtime/JS/zenius/ui/permissions.sys.mjs),
-// on evidence since the user's pass on defenses (2026-11-21). While the agent
-// drives, a page's prompt puts the Space under the user's control with Ego's
-// reason key, waits in the background for the user to open the Space, and gives
-// control back once answered. During the user's hold it's theirs. On evidence
-// of danger in the page it's cancelled, held or not; the camera, microphone and
-// screen's is cancelled while the agent drives.
+// on evidence only. While the agent drives, a page's prompt puts the Space
+// under the user's control with Ego's reason key, waits in the background for
+// the user to open the Space, and gives control back once answered. During the
+// user's hold it's theirs. On evidence of danger in the page it's cancelled,
+// held or not; the camera, microphone and screen's is cancelled while the agent
+// drives.
 //
 // The prompts that hand off need a cross-site frame, or a public page asking
 // for a private address, to come up for real, so these tests raise them from

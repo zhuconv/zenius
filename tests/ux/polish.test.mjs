@@ -108,7 +108,7 @@ test("the Space's status has a line of its own under its header: its state words
     assert.equal(got.roomKept, true, `${width}px: the name and the actions button keep their room`);
   }
   // Fonts decide how much is left at the narrowest: Linux's words fill the
-  // line, a Mac's left a stub of the rest (zen-eval, 2026-11-20). Either
+  // line, a Mac's left a stub of the rest. Either
   // way no stub shows: the next test sweeps the widths.
   assert.ok(out[152].more === 0 || out[152].more >= 5 * out[152].em, `at the narrowest, the words alone or at least five letters' room of the rest (${out[152].more}px)`);
   assert.ok(out[300].more > 40, `a wide sidebar shows the rest too (${out[300].more}px)`);

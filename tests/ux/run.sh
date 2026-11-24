@@ -13,8 +13,8 @@
 # relaunch itself there. Each test removes the Spaces it created.
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-# Node 24 first, where it's there: the Linux server's, and the Mac's Homebrew one (the
-# Mac's own node was 23.5 on 2026-11-22, and couldn't run the CLI's sources).
+# Node 24 first, where it's there: the Linux server's, and the Mac's Homebrew one (a
+# Mac's own node 23.5 couldn't run the CLI's sources).
 [[ -d $HOME/opt/node-v24.22.2-linux-x64/bin ]] && export PATH=$HOME/opt/node-v24.22.2-linux-x64/bin:$PATH
 [[ -d /opt/homebrew/opt/node@24/bin ]] && export PATH=/opt/homebrew/opt/node@24/bin:$PATH
 suffix=$(basename "$ROOT" | sed 's/^zenius-\{0,1\}//' | tr 'A-Z' 'a-z' | tr -c 'a-z0-9_\n-' '-')
@@ -52,7 +52,7 @@ fi
 if (($#)); then files=("$@"); else files=("$ROOT"/tests/ux/*.test.mjs); fi
 # A hung run mustn't keep Zen open: stop the tests after ZENIUS_UX_TIMEOUT seconds
 # (default 900). The whole suite took 596 s on the Linux server beside a test-all run
-# (2026-11-22, with the self-check's tests), so 600 left no room.
+# (with the self-check's tests), so 600 left no room.
 limit=${ZENIUS_UX_TIMEOUT:-900}
 ZENIUS_INSTANCE=$NAME node --test --test-concurrency=1 "${files[@]}" &
 pid=$!

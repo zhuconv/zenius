@@ -1,13 +1,13 @@
-// The hand-off and the user's Take over, made safe by zenius itself (the
-// user's direction and correction, 2026-11-20). The user always types in
-// the agent's own tab:
+// The hand-off and the user's Take over, made safe by zenius itself. The
+// user always types in the agent's own tab:
 // - zen-core reloads a page with evidence of danger before the hold
 //   begins, at a hand-off and at Take over (service.userTakeOver);
 // - a page that loaded afresh for the hold (the agent's hand-off, the
 //   user's Take over) or at the user's press (their first press or key in a
 //   page with evidence: zen-input's typing hook, zen-core's cleanOnDemand)
-//   says so, since a form there may be back at its defaults (the Cloudflare
-//   token form, 2026-11-21; zen-input's form tests found the hand-off's);
+//   says so, since a form there may be back at its defaults (as a
+//   Cloudflare token form was, and the hand-off's in zen-input's form
+//   tests);
 // - a Take over whose reload fails brings today's prompt back;
 // - on a page the agent made itself, the card says it might contain
 //   malicious code;
@@ -598,12 +598,11 @@ test("a Take over that loaded another page of the task afresh, by zen-core's lab
   }
 });
 
-// The user's pass on defenses (2026-11-21): a page reloads only on evidence
-// of danger, and the notice says which (zen-core's results carry what they
-// acted on: cleanOnDemand's evidence, holdForUser's by label). Only the
-// agent's code (hooked) and its own page (made) reload: a listed or flagged
-// page gets its warning instead, so those two never say why a page
-// reloaded.
+// A page reloads only on evidence of danger, and the notice says which
+// (zen-core's results carry what they acted on: cleanOnDemand's evidence,
+// holdForUser's by label). Only the agent's code (hooked) and its own page
+// (made) reload: a listed or flagged page gets its warning instead, so those
+// two never say why a page reloaded.
 test("the reload notice says why the page reloaded: the agent's code changed it, with what it left, or the agent made it; a list or the agent's flag isn't why; at the user's press, from zen-core's result or the hook's own read; at Take over and the agent's hand-off, by the page's label", async () => {
   const out = await h.chrome(`${P}
     try {
@@ -1001,11 +1000,10 @@ test("Resume agent first reloads each page with evidence of danger where the use
   assert.deepEqual(out, ["cleanLoad true", "noteReloaded 1 true", "agent"]);
 });
 
-// The user's pass on defenses (2026-11-21): without evidence of danger, a
-// page keeps what the user typed until zen-input's clear empties its secret
-// fields; only code the agent left there could have read it. A page on a
-// list or that the agent flagged stays too: a clean copy can't clear the
-// page itself.
+// Without evidence of danger, a page keeps what the user typed until
+// zen-input's clear empties its secret fields; only code the agent left there
+// could have read it. A page on a list or that the agent flagged stays too: a
+// clean copy can't clear the page itself.
 for (const [what, evidence] of [
   ["without evidence of danger", {}],
   ["on a phishing or malware list", { listed: "goog-phish-proto" }],
@@ -1143,9 +1141,8 @@ const NEW_PAGE = `
   };
 `;
 
-// The user's pass on defenses (2026-11-21): the line comes only when the
-// page asks for a password, a card's details or a one-time code, or the
-// agent flagged it.
+// The line comes only when the page asks for a password, a card's details or a
+// one-time code, or the agent flagged it.
 test("a page the agent made itself: the user's Take over keeps it as it is, and the card says, behind the '?', it might contain malicious code, only once the page asks for a password, card or code, or the agent flagged it", async () => {
   const { label } = await h.call("pages.new", { space });
   try {

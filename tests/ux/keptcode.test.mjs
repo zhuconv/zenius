@@ -1,4 +1,4 @@
-// Pages a task left open (the user's decision, 2026-11-20). The agent's code
+// Pages a task left open. The agent's code
 // runs in a sandbox that zenius discards at the task's end, so a kept page
 // shows nothing: no mark, no tooltip line, no card, nothing heard, and
 // nothing takes the focus or moves a view (I1). zenius makes it safe itself:
@@ -240,9 +240,8 @@ test("a kept page the agent made itself that asks for a password: as the user is
   }
 });
 
-// The user's pass on defenses (2026-11-21): the card comes only when the
-// page asks for a password, a card's details or a one-time code, or the
-// agent flagged it.
+// The card comes only when the page asks for a password, a card's details or a
+// one-time code, or the agent flagged it.
 test("a kept page the agent made that asks for no secret: the user's click into its field shows nothing, and the focus stays in the field", async () => {
   const { space, bids, labels } = await task("plain", {
     p1: `${h.base}/zoo/forms.html`,

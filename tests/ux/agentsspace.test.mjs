@@ -163,7 +163,7 @@ test("agent actions there leave the Agents Space's landing tab to the user", asy
   assert.equal(out.same, true);
 });
 
-test("the panel's Open lands on the task's page, which the user asked for", async () => {
+test("the panel's Open lands on the task's page", async () => {
   const out = await h.chrome(`${Q()}
     const userWs = ${JSON.stringify(userView.windows[0].activeWorkspace)};
     ctx.spaces.setOwnership(B.space, "agentDelegatedToUser", { source: "agent" });

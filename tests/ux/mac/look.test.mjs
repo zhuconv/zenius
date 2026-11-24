@@ -102,7 +102,7 @@ const THEME_PREFS = ["zen.view.window.scheme", "ui.systemUsesDarkTheme"];
  * What drawSnapshot paints under Zen's window. On a Mac the window is
  * transparent over the system's own material, which a snapshot can't draw. Over
  * white, Zen's dark chrome came out as grey: 153 in the sidebar, about 160 in
- * the content (2026-11-20). A probe on Linux reproduced both numbers with Zen's
+ * the content. A probe on Linux reproduced both numbers with Zen's
  * transparent window, and got 18 and 40 over a dark backdrop. So a dark theme's
  * shots get a dark stand-in for that material.
  */
@@ -397,7 +397,7 @@ for (const theme of ["light", "dark"]) {
           "zenius-localnet",
           `N.removeNotice(tab, "zenius-localnet");`,
         ],
-        // The same, its line opened by the '?' (the user's layout).
+        // The same, its line opened by the '?'.
         localTypedOpen: [
           `N.showNotice(tab, "zenius-localnet", ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").localNetCard({ host: "192.168.1.10", typed: true }, { allow: () => {} }));
            await until(() => N.noticeElement(tab, "zenius-localnet")?.hasAttribute("has-more"));
@@ -410,8 +410,8 @@ for (const theme of ["light", "dark"]) {
           "zenius-localnet",
           `N.removeNotice(tab, "zenius-localnet");`,
         ],
-        // A kept page the agent made (the user's decision keeps its card,
-        // whose form waits on the user's answer): the reminder as the user
+        // A kept page the agent made (it keeps its card, whose form waits
+        // on the user's answer): the reminder as the user
         // is about to type, and a refusal of what they just did there.
         madeReminder: [
           `N.showNotice(tab, "zenius-kept-code", ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").madePageCard());`,

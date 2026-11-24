@@ -210,7 +210,7 @@ cursor ("Waiting for you"). Bring that window to the front, then follow each ste
   {
     const sawUrlbar = await chrome(`
       const end = Date.now() + ${STEP_MS};
-      // Keys go to the active window only; the daily Zen looks the same.
+      // Keys go to the active window only, and another Zen window looks the same.
       while (Date.now() < end && Services.focus.activeWindow !== win) await sleep(100);
       while (Date.now() < end && !gURLBar.focused) await sleep(100);
       if (!gURLBar.focused) return false;

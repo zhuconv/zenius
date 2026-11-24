@@ -10,12 +10,11 @@
 //   task listeners that held every closed window before (the arrival
 //   card's, the directory's), with the panel's, and the window's chat
 //   listener (clearing history re-renders the way back).
-// - Doctor's ui.sidebarStatus reports each window. In the daily it kept only
-//   the first window's error, the popup's, and hid that the main window had
-//   loaded.
+// - Doctor's ui.sidebarStatus reports each window. Keeping only the first
+//   window's error, a popup's, would hide that the main window loaded.
 // Whether the closed window is then collected isn't checked: in a headless
 // dev Zen on the Linux server, no closed browser window was, even with none of our
-// scripts in it (60 s of forced collections, 2026-11-22). Its retaining
+// scripts in it (60 s of forced collections). Its retaining
 // paths went through Zen's own URL bar element and a callback held from C++.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
@@ -277,7 +276,7 @@ test("uninit, and a start that throws midway, undo everything the start did: no 
   assert.deepEqual(out.closed, { listeners: { tasks: 0, chats: 0 } }, "closed, nothing is left in AgentService");
 });
 
-test("ui.sidebarStatus reports each browser window: started, failed with its error, or skipped as a popup. A start that threw in one window doesn't hide that the others loaded (the user's daily, 2026-11-22), a popup counts in none of the totals, and only a failed or not-started window carries its kind, as doctor names those alone: no socket client learns that a private window is open", async () => {
+test("ui.sidebarStatus reports each browser window: started, failed with its error, or skipped as a popup. A start that threw in one window doesn't hide that the others loaded, a popup counts in none of the totals, and only a failed or not-started window carries its kind, as doctor names those alone: no socket client learns that a private window is open", async () => {
   /** ui.sidebarStatus, without what it says of the agents' config. */
   const status = async () => {
     const { config: _config, configPath: _path, builtin: _builtin, ...s } = await client.call("ui.sidebarStatus", {});
@@ -324,8 +323,7 @@ test("ui.sidebarStatus reports each browser window: started, failed with its err
         delete second.gBrowser.addProgressListener;
       }
       res.failed = await now();
-      // An older sidebar file started in popups and threw there, as in the
-      // user's daily.
+      // An older sidebar file started in popups and threw there.
       popup.zeniusSidebarStart = Object.freeze({ error: arg.old });
       res.oldPopup = await now();
       delete popup.zeniusSidebarStart;

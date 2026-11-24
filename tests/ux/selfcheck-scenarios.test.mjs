@@ -8,12 +8,11 @@
 // The user's side is set up first: a Work task of theirs, saved and shown in
 // their sidebar with All tasks open, and a zenius task in the strip. From a
 // run's start to the end of its cleanup, the user's side stays as it was:
-// AgentService's lists and counts, the strip in the user's window (the test
-// zen-observe asked of zen-sidebar), what the sidebar tells zenius waits,
-// and, after, the tasks, chats and options files byte for byte and every
-// uc.agent-sidebar. and zenius. pref. The run's own window lists only its
-// own tasks. That holds for a run that passes, one where a check fails, and
-// one cut short.
+// AgentService's lists and counts, the strip in the user's window, what the
+// sidebar tells zenius waits, and, after, the tasks, chats and options files
+// byte for byte and every uc.agent-sidebar. and zenius. pref. The run's own
+// window lists only its own tasks. That holds for a run that passes, one where
+// a check fails, and one cut short.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { setup } from "./lib.mjs";

@@ -1,12 +1,11 @@
-// The local-network notice (the user's design of 2026-11-20). zen-observe
-// refuses a load the user started to the local network in an agent's tab: a
-// task's tab, the user's hold included, or a kept page with the agent's
-// writes. It tells zen-ux through onUserLoadRefused. In a task's tab, the
-// tab says access was denied, and why. Open it yourself opens the address
-// in a tab of the user's own: the one they typed, or the home page of the
-// site the page chose. For an address they typed, Add to allowlist appends
-// that exact host to zenius.agentTabs.allowPrivateNetworks, on the user's
-// own click only, and loads it in the tab; what it does waits behind the
+// The local-network notice. zen-observe refuses a load the user started to the
+// local network in an agent's tab: a task's tab, the user's hold included, or a
+// kept page with the agent's writes. It tells zen-ux through onUserLoadRefused.
+// In a task's tab, the tab says access was denied, and why. Open it yourself
+// opens the address in a tab of the user's own: the one they typed, or the home
+// page of the site the page chose. For an address they typed, Add to allowlist
+// appends that exact host to zenius.agentTabs.allowPrivateNetworks, on the
+// user's own click only, and loads it in the tab; what it does waits behind the
 // '?'. The agent's synthesized clicks and keys can't press it. A kept page
 // shows nothing: it loads afresh, quietly. These tests call the hook's
 // listener the way zen-observe does.

@@ -42,8 +42,8 @@ export async function setup() {
   const fixture = await startFixtureServer("zen-ux");
   // Each file starts in the user's own Space. A kept profile (the Mac's)
   // comes back in the Space Zen showed when it last quit: after a quit in
-  // the Agents Space it starts there, with the user's Space empty (zen-eval's
-  // 79 failures on the Mac, 2026-11-21, reproduced on the Linux server). The tests take
+  // the Agents Space it starts there, with the user's Space empty (79
+  // failures in one Mac run, reproduced on the Linux server). The tests take
   // the view they find as the user's (dev.viewState), and Zen's switch to a
   // Space that's already active selects nothing, so every landOn-then-switch
   // would wait for a tab that never comes.
@@ -151,7 +151,7 @@ export async function setup() {
       // stop) before Firefox saves its prefs on its own. A pref a suite's
       // after() set back would be lost, and the next run would start with
       // the test's value: panel.test.mjs's systemNotification, on zen-eval's
-      // kept profile (2026-11-22).
+      // kept profile.
       await h.chrome("Services.prefs.savePrefFile(null); return true;").catch(() => {});
       client.close();
       await closeFixtureServer(fixture.server);

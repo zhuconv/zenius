@@ -1,9 +1,9 @@
-// The open tasks panel under agents' updates (found in a load test,
-// 2026-11-20). With agents reporting progress the panel re-renders about 12
-// times a second; it used to rebuild every row, so a focused button lost
-// focus and a press lost its click. Now rows stay the same elements and
-// change in place. The rows here are stand-ins that panel.sys.mjs draws
-// itself, with actions that record their calls.
+// The open tasks panel under agents' updates (found in a load test). With
+// agents reporting progress the panel re-renders about 12 times a second; it
+// used to rebuild every row, so a focused button lost focus and a press lost
+// its click. Now rows stay the same elements and change in place. The rows here
+// are stand-ins that panel.sys.mjs draws itself, with actions that record their
+// calls.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { setup } from "./lib.mjs";

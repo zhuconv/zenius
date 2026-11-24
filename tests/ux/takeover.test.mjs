@@ -42,7 +42,7 @@ before(async () => {
     // default in the middle of the page, away from the window's corners,
     // where Firefox anchors its doorhangers. It checks first that the point
     // reaches the page: on the Mac, Firefox's update doorhanger once took
-    // the clicks (2026-11-20).
+    // the clicks.
     const userClick = (x, y) => {
       const r = browser.getBoundingClientRect();
       const px = r.x + (x ?? r.width / 2);

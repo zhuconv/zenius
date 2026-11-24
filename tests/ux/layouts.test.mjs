@@ -173,7 +173,7 @@ test("a second window gets the strip, the panel and the claim prompt, and an age
   assert.deepEqual(out, { strip: "in the window", panel: "in the window", claimIn: [true, true], claimGone: true, i1: true });
 });
 
-// On a Mac (2026-11-20): a popup is a window of its own, which the system
+// On a Mac, a popup is a window of its own, which the system
 // keeps on the screen but not in the browser's window. With the sidebar on
 // the right the panel ran 62 px past the window's right edge, and in a second
 // window it started at x -13, Stop and Resume agent with it. Here the windows
@@ -183,8 +183,8 @@ test("a second window gets the strip, the panel and the claim prompt, and an age
 // Only a headless window fills its screen, so only a headless run resizes
 // and moves the windows. On a Mac they stay where they are: moved, the
 // window can end up under the user's front window, macOS gives a covered
-// window no frames, and a panel without a frame never opens (seen
-// 2026-11-20, and reproduced with a paused refresh driver). The margin's
+// window no frames, and a panel without a frame never opens (seen on a
+// Mac, and reproduced with a paused refresh driver). The margin's
 // push makes the overflow in any window.
 const HEADLESS = process.env.ZENIUS_UX_HEADED !== "1";
 test("the tasks panel grows toward the window's middle and stays inside a window that doesn't fill the screen: either sidebar side, a second window, and a margin that pushes it out", async () => {

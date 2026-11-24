@@ -18,12 +18,12 @@ stable, and a change to one is announced to zen-eval first.
   server gets it from `CODEX_CONFIG`, so each Codex Work chat has a codex-acp
   process of its own, and one from before the chat's task is replaced
   before the chat's next session.
-  - The header's ⋯ menu is short (the user's ask, 2026-11-22): New,
+  - The header's ⋯ menu is short, so it reads at a glance: New,
     Rename, Archive, and Close with its key, ⌘⇧A, each with a tooltip that
     says what it does. New is the mode's: a new chat for this tab in Chat,
     a new task in Work. Rename and Archive are Work's. Close stays: the
     sidebar hides the browser's own header, and its close button with it.
-  - The user can rename a task (the user's ask, 2026-11-22): the header's
+  - The user can rename a task: the header's
     ⋯ menu has Rename, and a double-click on the task's name does the
     same. The name turns into a field in place. Enter, or a click outside,
     keeps what it says, and an empty one gives the task its own title back;
@@ -41,18 +41,17 @@ stable, and a change to one is announced to zen-eval first.
     another program drives keeps its program's name, with no Rename: a
     script finds its task by that name (`taskSpace(name)`), and zenius
     shows it.
-  - The ⋯ menu's Archive (the user's ask, 2026-11-22, in place of Remove
-    task) moves the task out of the list to Archived, the directory's last
-    group, and the panel to the newest task, else a new one. Its tooltip
-    says what else happens. A turn that's running stops, as with Stop, and
-    the session is parked for a later question. The task's zenius tasks,
-    which nothing drives now, end as the strip's Stop ends one, and their
-    tabs stay open, the user's: the one the chat follows, and any its agent
-    started that the chat hasn't linked yet, by their `source.sidebar`,
-    such as the first open's while its page still loads, or one zenius
-    creates after the click from a call the Stop cut (`liveZenTasks`,
-    ended again at the turn's end and on zenius's `spaceCreated`). That
-    late pass ends only the tasks whose
+  - The ⋯ menu's Archive (in place of Remove task) moves the task out of the
+    list to Archived, the directory's last group, and the panel to the
+    newest task, else a new one. Its tooltip says what else happens. A turn
+    that's running stops, as with Stop, and the session is parked for a
+    later question. The task's zenius tasks, which nothing drives now, end
+    as the strip's Stop ends one, and their tabs stay open, the user's: the
+    one the chat follows, and any its agent started that the chat hasn't
+    linked yet, by their `source.sidebar`, such as the first open's while
+    its page still loads, or one zenius creates after the click from a call
+    the Stop cut (`liveZenTasks`, ended again at the turn's end and on
+    zenius's `spaceCreated`). That late pass ends only the tasks whose
     `source.sidebar` names the chat: the one it follows ended at the click,
     so if it runs again, a program claimed it on the user's yes, with a
     source of its own. Opened from Archived, a task reads as it was, without
@@ -93,8 +92,8 @@ stable, and a change to one is announced to zen-eval first.
   Archived, the tasks the user archived, last archived first: collapsed,
   with a count, and open on its own when the panel shows one of them. A
   search shows its matches there too.
-- **Pinned, and each row's menu** (the user's ask, 2026-11-22: a right-click
-  on a task should at least offer Pin and Rename): a right-click on a row, or
+- **Pinned, and each row's menu**, so a right-click on any task offers at
+  least Pin and Rename: a right-click on a row, or
   the context-menu key or Shift+F10 on the row the arrow keys are on,
   opens its menu, a XUL menu under that row for the keys: Pin or Unpin,
   Rename, then Archive or Unarchive, in the ⋯ menu's words and tooltips
@@ -118,10 +117,9 @@ stable, and a change to one is announced to zen-eval first.
   zenius's feed keeps the task, through a restart, and a new task given its
   id later takes neither (`pins.sys.mjs`, `AgentService.pinTask`,
   `unpinTask`, `labelTask`, `marks`).
-- **The agent's own ask** (zen-ux's card): Work's
-  agent asks with its own tool, Claude Code's AskUserQuestion or Codex's
-  request_user_input, which its adapter turns into ACP's
-  `elicitation/create`. The sidebar declares
+- **The agent's own ask**: Work's agent asks with its own tool, Claude
+  Code's AskUserQuestion or Codex's request_user_input, which its adapter
+  turns into ACP's `elicitation/create`. The sidebar declares
   form elicitation in `initialize`, never url mode, so no agent can have it
   open a link. An ask holds the turn as a message of role `ask` (the
   agent's tool step gives way to it) and the task needs the user, with its
@@ -139,7 +137,7 @@ stable, and a change to one is announced to zen-eval first.
   answer out the same way, and the card says in a fixed line that passwords
   and codes go into the site through Take over. A masked field comes right
   under its question, with the question's options after it as a row of
-  quiet pills, each one's description its tooltip (zen-ux's code card):
+  quiet pills, each one's description its tooltip:
   Claude Code's AskUserQuestion brings 2 to 4 options even for a code, and
   Work's rule offers options only for real choices. An MCP server's
   own form shows the same way, as that server's; url mode, a field the
@@ -152,18 +150,17 @@ stable, and a change to one is announced to zen-eval first.
   the user for the reasons only the sidebar knows (a permission, a
   question, an error, Zen quitting mid-task). zenius knows hand-offs and
   Take over itself.
-- **Queue and steer** (the user's ask, 2026-11-22; zen-ux's panel): while
-  the agent works, Enter queues a message (`AgentService.enqueue`), which
-  goes out when the turn ends, in order, in the same session; a queued
-  Chat question reads its tab's page as it is then. Cmd+Enter or Steer
-  (`steer`) sends one into the running turn at once: it shows in the chat
-  where it was sent (`steered: true`), the answer it cut closes, and the
-  agent's next message starts a new one. The cut answer's words still on
-  their way when the steer went (its `messageId`, which both adapters
-  stamp on each chunk) go on in its bubble, above the steer, where they
-  can't read as the answer to it (`conv.cutReply`). Both adapters take
-  `_session/steering` (claude-agent-acp 0.107.0, codex-acp 2.6.0), with
-  `idleBehavior: "promptRequired"`, so a steer
+- **Queue and steer**: while the agent works, Enter queues a message
+  (`AgentService.enqueue`), which goes out when the turn ends, in order, in
+  the same session; a queued Chat question reads its tab's page as it is
+  then. Cmd+Enter or Steer (`steer`) sends one into the running turn at
+  once: it shows in the chat where it was sent (`steered: true`), the answer
+  it cut closes, and the agent's next message starts a new one. The cut
+  answer's words still on their way when the steer went (its `messageId`,
+  which both adapters stamp on each chunk) go on in its bubble, above the
+  steer, where they can't read as the answer to it (`conv.cutReply`). Both
+  adapters take `_session/steering` (claude-agent-acp 0.107.0, codex-acp
+  2.6.0), with `idleBehavior: "promptRequired"`, so a steer
   that meets the turn's end goes as the next question. For an agent that
   doesn't steer, the turn stops for it (session/cancel, with no
   "Stopped."), and it goes next. A steer during a permission declines it
@@ -175,7 +172,7 @@ stable, and a change to one is announced to zen-eval first.
   `{type: "queue"}` on each change of `conv.queue`, its queued rows; a
   steer on its way waits in `conv.steers`, and one that never reached the
   agent leaves the chat when it goes back into the box.
-- **Sending follows the answer** (the user's ask, 2026-11-22): a message
+- **Sending follows the answer**: a message
   the user sends takes the chat to its end, even from an earlier answer
   they scrolled up to read, since they want the answer: Enter, Send,
   Cmd+Enter and Steer, a queued one (the list doesn't change, so at once,
@@ -185,8 +182,8 @@ stable, and a change to one is announced to zen-eval first.
   the next message grows), until the user scrolls up: from there it stays
   where they put it, as before (panel.js's `followUp`, `following`). The
   move is instant.
-- **What AgentService keeps holds no panel** (a leak fixed on
-  2026-11-22). An object a panel made keeps that panel's whole window, about
+- **What AgentService keeps holds no panel**, or the panel would leak. An
+  object a panel made keeps that panel's whole window, about
   0.9 MB, for as long as anything holds it. So AgentService keeps its own
   copies of what a panel hands it: a question's files and an ask's answers
   (`own`), and the box's draft with its files (`setDraft`). A file the user
@@ -220,7 +217,7 @@ stable, and a change to one is announced to zen-eval first.
     it go on in the same box.
   - **Why:** Codex at xhigh thought for 23 s before its first word, with
     only the box's "Thinking…" on screen, and then its first sentences came
-    in one piece. The user read this as a stall (2026-11-22).
+    in one piece, which looked like a stall.
 - **Copy and save**: a turn's answer gets one copy and save row, on its
   last part, once the turn has ended.
   - It copies or saves the Markdown of all the turn's parts, joined by a
@@ -265,7 +262,7 @@ stable, and a change to one is announced to zen-eval first.
   and cut past 280 px or 40 % of the page area. Every click on it reaches
   the page under it. ⌃Tab returns to the Space and tab the user watched
   from: while watching, the card shows "⌃Tab back to your tabs" where Watch was,
-  since ⌃Tab is the way back (the user's design), and keeps Take over.
+  since ⌃Tab is the way back, and keeps Take over.
   ⌃Tab does that only while watching; elsewhere it stays Zen's. Picking a
   tab outside the task, or another Space, ends the watch where the user
   went. Take over is zenius's (as its tasks panel does it), then a watch:
@@ -407,16 +404,16 @@ The panel (`panel.html`, its own document, so bare ids):
 | `#bar` > `#bar-start`, `#bar-end` | The row's two groups: `#attach` and `#switch`; then `#pickers`, `#stop` and `#send`. One row when both fit at their natural widths; otherwise `#bar-end` wraps whole to a second row, at the right, under `#bar-start`, and shrinks the pickers (an ellipsis) rather than run past `#box`. Nothing is hidden. In a box under 170 px the first group tightens, so it keeps one row with the count |
 | `#attach`, `#switch` > `#to-chat`, `#to-work` | '+' and the switch; the shown mode's button has `aria-pressed="true"` |
 | `#needs` | Inside `#to-work`: the tasks that need the user, hidden at 0; its orange is `var(--needs-color)` |
-| `#pickers` > `#pick` > `#pick-model`, `#pick-effort` | The chat's model and its effort ("Opus 5.5 Low", the effort in gray), one button (`aria-expanded` while the picker is open). It opens `#picker`, while the agent answers too (the user's ask, 2026-11-22): a pick then, of a model or an effort, shows here and is saved at once, with no note, and the running turn keeps its model, as a steer into it does. The session gets the pick when the turn ends, however it ends, before anything queued goes out, so the next answer runs with it (`AgentService.pickModel`, `modelToSession`; claude-agent-acp 0.107.0 would switch the running turn's model, codex-acp 2.6.0 keeps it for its next turn). One the agent refuses then says "Could not change the model", and the label goes back to the session's. There is no `#harness` |
-| `#picker` > `#pick-search`, `#pick-fam`, `#pick-list` | The model picker (the user's pick, 2026-11-21), an opaque card over the chat that opens upward from the composer. `#pick-search` (role `combobox`) keeps the focus and filters the open family; its `aria-activedescendant` is the active row or effort. `#pick-fam` (role `tablist`) has a `button[role=tab][data-harness]` per family: Claude (Claude Code's models), then GPT (Codex's), then other agents by name. It holds every agent that may run here (`AgentService.harnessAvailable(id)`) and the chat's own. It's hidden while only one family is left, as when the user sets `zenius.agentSidebar.allowCodex` to false. A task keeps its agent, so there the other families are disabled. So they are while the agent answers: another family's model starts a new chat, which would take the answer with it, so its tab says it waits for the answer to end |
-| `#pick-list` > `.pick-row[data-value][data-effort]` | The open family's models, role `option`, of the newest generation only: the major version in each name, read from the agent's own list, so a new generation replaces the old by itself. Claude Code's "Default (recommended)" isn't one (the user's call, 2026-11-21). A chat on it shows, and checks, the model the agent names for it (the entry's description, "Opus 5.5"), and where the agent names none it runs on the newest generation's first model, the one shown in its place (`concreteModel`, `applyPreferredOptions`). Models without a version come first, then a `.pick-rule`. Each row shows the effort its model runs with: `AgentService.effortFor`, each model's own, in `uc.agent-sidebar.<harness>.efforts`. `aria-selected="true"` and a ✓ mark the chat's model; `.active` is the row the keys or the pointer are on. A click picks the model with its own effort |
+| `#pickers` > `#pick` > `#pick-model`, `#pick-effort` | The chat's model and its effort ("Opus 5.5 Low", the effort in gray), one button (`aria-expanded` while the picker is open). It opens `#picker`, while the agent answers too: a pick then, of a model or an effort, shows here and is saved at once, with no note, and the running turn keeps its model, as a steer into it does. The session gets the pick when the turn ends, however it ends, before anything queued goes out, so the next answer runs with it (`AgentService.pickModel`, `modelToSession`; claude-agent-acp 0.107.0 would switch the running turn's model, codex-acp 2.6.0 keeps it for its next turn). One the agent refuses then says "Could not change the model", and the label goes back to the session's. There is no `#harness` |
+| `#picker` > `#pick-search`, `#pick-fam`, `#pick-list` | The model picker, an opaque card over the chat that opens upward from the composer. `#pick-search` (role `combobox`) keeps the focus and filters the open family; its `aria-activedescendant` is the active row or effort. `#pick-fam` (role `tablist`) has a `button[role=tab][data-harness]` per family: Claude (Claude Code's models), then GPT (Codex's), then other agents by name. It holds every agent that may run here (`AgentService.harnessAvailable(id)`) and the chat's own. It's hidden while only one family is left, as when the user sets `zenius.agentSidebar.allowCodex` to false. A task keeps its agent, so there the other families are disabled. So they are while the agent answers: another family's model starts a new chat, which would take the answer with it, so its tab says it waits for the answer to end |
+| `#pick-list` > `.pick-row[data-value][data-effort]` | The open family's models, role `option`, of the newest generation only: the major version in each name, read from the agent's own list, so a new generation replaces the old by itself. Claude Code's "Default (recommended)" isn't one, since it names no model. A chat on it shows, and checks, the model the agent names for it (the entry's description, "Opus 5.5"), and where the agent names none it runs on the newest generation's first model, the one shown in its place (`concreteModel`, `applyPreferredOptions`). Models without a version come first, then a `.pick-rule`. Each row shows the effort its model runs with: `AgentService.effortFor`, each model's own, in `uc.agent-sidebar.<harness>.efforts`. `aria-selected="true"` and a ✓ mark the chat's model; `.active` is the row the keys or the pointer are on. A click picks the model with its own effort |
 | `#pick-fly` > `.pick-eff[data-value]` | The efforts the agent offers, in a flyout beside the active row, role `listbox`. It opens when the pointer rests on a row or on → (← closes it). A click, or Enter, picks the row's model with that effort, which becomes the model's own. Esc closes the flyout, then the picker, with the focus back in `#input` |
 | `#stop`, `#send` | One shows at a time |
 | `#earlier` > `#earlier-text`, `#earlier-open` | In the empty Chat view, first: an earlier chat about this page, "Earlier chat about this page, 2 days ago", and Open; `title` is the chat's first question. Hidden when there's none |
 | `.steps > .step[data-status] > .label` | Steps; `data-status` is `done`, `running`, `failed`, `waiting` (for the user) or `stopped` |
 | `.msg.thought` (`.live`) > `summary` or `.line` > `.head`, `.time`; `details > .body` | A stretch of the agent's thinking: "Thinking for 12 s, <title>" while `.live`, then "Thought for 23 s". `.head` clamps to two lines, and the line's `title` is the whole title. With words, a `details` whose `.body` is what it thought. After a step, it's inside `.steps` |
 | `.msg.assistant > .actions` | Copy and save: one row per turn, on its last part, once the turn has ended |
-| `html[data-external="true"]`, `.ext-view[data-state]` | A task the sidebar doesn't drive (`external.sys.mjs`, the user's ask: every zenius task in the sidebar), opened: read-only, so the question box shows only `#ext-bar`. `data-state` is the task's `working`, `needs` or `done` |
+| `html[data-external="true"]`, `.ext-view[data-state]` | A task the sidebar doesn't drive (`external.sys.mjs`: every zenius task shows in the sidebar), opened: read-only, so the question box shows only `#ext-bar`. `data-state` is the task's `working`, `needs` or `done` |
 | `#ext-src` (`.addr`) | Where it's driven from: `Read-only, driven from <agent> on <terminal>`, the terminal a chip, or `Read-only, driven from <agent> in <folder>` without one |
 | `#ext-steps > .ext-step[data-step][data-outcome]` > `.ext-text` (`.ext-name`), `.ext-page`, `.ext-outcome`, `.ext-time` | Its steps from the runtime's record, in the box and with the marks of the sidebar's own `.steps`. `data-outcome` is `ok`, `running` or `failed`. A running step shows the needs dot while the task needs the user, and `–` once it ended. Each quoted name is an isolate (`.ext-name`, `dir="auto"`). `.ext-page` names the step's page once the task has more than one; `data-same-page="true"` hides it where it repeats the step before. A failed step's code (`.ext-outcome`) sits under its words. With no steps, `.ext-empty` says "No steps yet" |
 | `.ext-needs` > `.ext-needs-title`, `.ext-needs-text`, Watch | The agent's hand-off while the task needs the user, in the directory's Needs you tint (`--needs-bg`): "Needs you", its words, and Watch |
@@ -457,7 +454,7 @@ The window while watching (browser.xhtml):
 The address bar: both rows are `.urlbarView-row[dynamicType="zeniusAskAgent"]`,
 from providers `ZeniusAskAgent` (the '>' first row) and
 `ZeniusAskAgentSuggest` (second, on other input). Find them by these, never
-by the icon, which zen-ux will change. A test types '>' (the input field's
+by the icon, which may change. A test types '>' (the input field's
 value, then an `input` event): `gURLBar.search("> …")` reads '>' as
 Firefox's Actions restrict token and shows no row.
 
@@ -490,8 +487,8 @@ Firefox's Actions restrict token and shows no row.
   an older runtime reads the rest. A task saved while busy
   comes back as Needs you. It keeps no attached file's contents and no tool
   input or result, only what each step shows.
-- `agent-sidebar-chats.json` in the profile: each tab's Chat conversation
-  (the user's bug, 2026-11-22: an update's restart lost one).
+- `agent-sidebar-chats.json` in the profile: each tab's Chat conversation,
+  kept so that a restart, an update's included, loses none.
   `{ version: 1, chats: [...] }`, the
   newest first, each with its `uid`, agent, `createdAt`, `activeAt` (its
   last message), the page it was last asked about, its agent's session and
@@ -537,12 +534,11 @@ Firefox's Actions restrict token and shows no row.
     history as it closes, a file found at the start is dropped, as one a
     crash left. It leaves the agents' own transcripts, under `~/.claude`
     and `~/.codex`: they're Claude Code's and Codex's, which resuming a
-    session needs (the user's call, 2026-11-22).
+    session needs.
   - A file of another version is left unread, and the next save writes
     over it, as with the tasks file.
-  - An earlier chat is a saved one no tab shows, offered back in two places
-    (as the user picked on 2026-11-22). A
-    page matches it by its origin and path, a web page only: the query and
+  - An earlier chat is a saved one no tab shows, offered back in two places.
+    A page matches it by its origin and path, a web page only: the query and
     the fragment don't count.
     - The way back: the empty Chat view's first line offers the newest
       earlier chat about the tab's page, "Earlier chat about this page, 2
@@ -630,18 +626,19 @@ read.
   as its only server. Its session `_meta` sets `settingSources: ["project"]`,
   `strictMcpConfig: true`, and disallows Bash, Edit, MultiEdit, Write,
   NotebookEdit, Read, Glob, Grep and Task.
-- Web search and fetch are on in Chat and Work (the user's call,
-  2026-11-21): Claude Code's WebSearch and WebFetch, allowed
-  without asking, are Chat's only tools. The user's own denial of one in
-  config.json stays. WebFetch runs in the CLI, which Zen started, so macOS
-  counts its requests as Zen.app's: the zenius-only hook keeps it off the
-  local network as task pages are kept (private and link-local addresses in
-  any spelling, `.local` names; loopback stays open). Unlike the tabs, a
-  name also counts by the addresses it resolves to, and a lookup that fails
-  or takes over 3 s refuses; a name whose answer changes before the CLI
-  connects still gets through. A Work agent can open such a page in a tab
-  instead, where the user's own list applies.
-- Chat fetches only URLs from its sources (the user's call): the user's
+- Web search and fetch are on in Chat and Work, since they only read and an
+  answer often needs more than the page: Claude Code's WebSearch and
+  WebFetch, allowed without asking, are Chat's only tools. The user's own
+  denial of one in config.json stays. WebFetch runs in the CLI, which Zen
+  started, so macOS counts its requests as Zen.app's: the zenius-only hook
+  keeps it off the local network as task pages are kept (private and
+  link-local addresses in any spelling, `.local` names; loopback stays
+  open). Unlike the tabs, a name also counts by the addresses it resolves
+  to, and a lookup that fails or takes over 3 s refuses; a name whose answer
+  changes before the CLI connects still gets through. A Work agent can open
+  such a page in a tab instead, where the user's own list applies.
+- Chat fetches only URLs from its sources, so an injected line can't send
+  the chat's content out in a URL: the user's
   words, the page as read (its address, text and links) and its search
   results' hits, plus a redirect's target. Each Claude Code Chat session
   has a list, `<profile>/agent-sidebar-allow/<session id>.txt`:

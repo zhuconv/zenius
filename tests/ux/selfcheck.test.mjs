@@ -179,7 +179,7 @@ const USER_END = `
  * themselves or the runner finds the check its last shot was in. With
  * "needs", the first step of the last check first puts a new task of the
  * run's in Needs you, as a turn that failed leaves one, and samples the
- * user's window for half a second (zen-observe's review of these tests).
+ * user's window for half a second.
  *
  * A timer samples the user's window every 50 ms, from before the start to
  * after `done` settles, and the window's own deactivate and blur events are

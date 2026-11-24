@@ -1428,9 +1428,8 @@ deadline += await ctx.gate();
 **Permission prompts.** `ui/permissions.sys.mjs` wraps each window's
 `PopupNotifications.show()`.
 
-- The rules follow the page's evidence and who holds the task (the user's
-  pass on defenses, 2026-11-21; zen-observe's backstops follow the same
-  rules):
+- The rules follow the page's evidence and who holds the task
+  (zen-observe's backstops follow the same rules):
   - While the agent drives, a managed page's prompt puts the Space in
     `agentDelegatedToUser` with Ego's reason key (`REASONS`):
     `storage_access` (an embedded sign-in frame's requestStorageAccess()
@@ -1494,8 +1493,8 @@ deadline += await ctx.gate();
 `agent`:
 - The agent's page shows "Agent needs you" and "<task name> on <site>" with
   [Resume agent]. Its small text is the agent's words, whole, as its own:
-  "The agent says: “<state text>”." (the user's design, 2026-11-20; no cap,
-  the '?' opens what one line doesn't show). The pill follows later
+  "The agent says: “<state text>”." (no cap, the '?' opens what one line
+  doesn't show), so the user can tell who asks. The pill follows later
   state-text changes.
 - **The site** the user is on there: Zen's compact mode often hides the URL
   bar, and a sign-in may take the held page to another site on its own (a
@@ -1535,7 +1534,7 @@ deadline += await ctx.gate();
   `typedSecrets`, zen-observe's `evidenceOf` saying hooked or made, then
   zen-core's `cleanLoad`), tells zen-core (`noteReloaded`), then hands back.
   A page without such evidence keeps what the user typed until zen-input's
-  guard empties its secret fields (the user's pass on defenses, 2026-11-21).
+  guard empties its secret fields.
   zen-core's own ways back to the agent (`spaces.takeOver`, `spaces.claim`)
   await the same step through `service.beforeHandBack`, which zen-ux sets.
   The agent's calls wait out the reload: they're held while the task is
@@ -1589,10 +1588,10 @@ deadline += await ctx.gate();
     tabs stay as ordinary ones (keep-alive released), and the agent's calls
     fail with `ZEN_TASK_SPACE_INACTIVE` until it claims the Space again.
 - **Watching a task** (`ZeniusUI.watch(rec, win, {tab, tabId})`,
-  `ui/watch.sys.mjs`; the user's design of 2026-11-21). Every way the user
-  goes to an agent's task is a watch: the panel's Open, Take over and tab
-  names, a notification's click (`openSpace` is a watch), and the agent
-  sidebar's live card and directory, which call it.
+  `ui/watch.sys.mjs`). Every way the user goes to an agent's task is a
+  watch: the panel's Open, Take over and tab names, a notification's click
+  (`openSpace` is a watch), and the agent sidebar's live card and
+  directory, which call it.
   - The window remembers where the user was: their tab, or, from an
     agent's page or Space, their own Space (`#userWorkspace`). Watching
     another task keeps that.
@@ -1612,7 +1611,7 @@ deadline += await ctx.gate();
     the rest of that press is swallowed. Whenever the window doesn't watch,
     ⌃Tab is Zen's: the listeners are in only during a watch.
   - Picking a tab outside the task, or another Space, ends the watch where
-    the user went. There's no Back control (the user's decision).
+    the user went. There's no Back control.
   - The task's end doesn't end it (the user reaches for ⌃Tab right then).
     The window stays where it is: on the task's page, whose close waits
     until the user leaves it (SPEC §3.5), or on a page the task kept. The
@@ -1676,8 +1675,8 @@ deadline += await ctx.gate();
     not inside the browser's window.
   - On a Mac whose window didn't fill the screen, the panel ran 62 px past
     the window's right edge with the sidebar on the right. In a second
-    window it ran 13 px past the left edge. Stop and Resume agent went with it
-    (zen-eval, 2026-11-20).
+    window it ran 13 px past the left edge. Stop and Resume agent went
+    with it.
   - How far it overflows depends on its margin (Zen's 8 px shadow margin on
     a Mac, none on Linux) and the window's place on the screen.
   - So `keepInWindow` measures where it landed and moves the panel in by
@@ -1733,7 +1732,7 @@ detail, until, tone, note, more, buttons, stacked})`, `removeNotice`,
 `onClick` gets the click, for an action only the user's own click may take.
 - One compact line in a chrome layer over the tab's browser, like the
   cursor: never in page DOM or content screenshots, shown only with its tab
-  (I1). Bottom center, the user's pick.
+  (I1). Bottom center.
 - `detail` may hold `{s}`, the whole seconds left until `until`.
 - Buttons act on the first click, also right after the window gains focus.
   Clicks in the first 400 ms after a pill appears are ignored, so a double
@@ -1744,12 +1743,12 @@ detail, until, tone, note, more, buttons, stacked})`, `removeNotice`,
   live region (see "Accessibility" below). A countdown renames it as its
   text changes, so a screen reader hears the time left now.
 - A pill with a `note` shows it as one line of small text, 7 px under the
-  title row (the user's layout, 2026-11-20), cut off with a '?': a 14 px
-  circle holding an SVG question mark, not focusable and hidden from screen
-  readers, which have the whole text in the pill's name. A click on it
-  opens the rest; keyboard focus in the pill opens it too. `more` is text
-  that waits behind the '?' at any width, so the '?' always shows. A
-  ResizeObserver sets `note-cut` when the line runs over.
+  title row, cut off with a '?': a 14 px circle holding an SVG question
+  mark, not focusable and hidden from screen readers, which have the whole
+  text in the pill's name. A click on it opens the rest; keyboard focus in
+  the pill opens it too. `more` is text that waits behind the '?' at any
+  width, so the '?' always shows. A ResizeObserver sets `note-cut` when the
+  line runs over.
 - Its buttons sit beside the title, or under the note, at its end, when the
   card is `stacked`: one with three buttons always is, and on a page
   narrower than 480 px (a split view's half, a small window) every pill with
@@ -1992,8 +1991,8 @@ zen-core's tab code imports.
     column has no minimum).
   - The rest shows only with at least 5em of room, or whole. With less it
     hides (`[short]`), and the status's title keeps the whole text. On a
-    Mac's narrower system font, Zen's narrowest sidebar left it a few
-    pixels: "Agent needs you ·…" (zen-eval, 2026-11-20).
+    Mac's narrower system font, Zen's narrowest sidebar leaves it a few
+    pixels: "Agent needs you ·…".
     - `fitStatus` measures it when the text changes.
     - A ResizeObserver on each `zen-workspace` refits it when the
       sidebar's width changes. The status's own width follows its text,
@@ -2008,8 +2007,7 @@ zen-core's tab code imports.
   own last pick (SPEC §3.5), and a user's claimed workspace stays theirs.
   - `ui/pages.sys.mjs`'s `notePage` only tells the controller which page
     the agent acts on.
-  - The panel's Open, which the user asked for, lands on the task's page
-    through `landOn(tab)`.
+  - The panel's Open lands on the task's page through `landOn(tab)`.
 
 **The pill on a waiting close.** An agent's close of a tab a window shows
 waits for the user to leave it (zen-core, SPEC §3.5). On zen-core's
@@ -2026,7 +2024,7 @@ in-process `tabClosing {space, tab}`, ZeniusUI:
 - offers **Keep tab** (`service.keepDeferred(tab)`: the tab stays as the
   user's, nothing moves or is selected) and **Close now**
   (`service.closeDeferred(tab)`: now). Leaving the tab closes it, the pill
-  with it. It says nothing of the agent's code (the user's decision).
+  with it. It says nothing of the agent's code.
 - The buttons are chrome, so only the user's own clicks reach them, and
   they arm after 400 ms like every pill's.
 - A close that waited across a restart waits again: zen-core's rebuild
@@ -2035,11 +2033,11 @@ in-process `tabClosing {space, tab}`, ZeniusUI:
   a window's UI is up. So ZeniusUI also shows the pill at a window's start
   on any tab `service.pages.isDeferred(tab)` holds.
 
-**Pages a task leaves open** (the user's decision, 2026-11-20). The
-agent's code runs in a sandbox of its own (zen-observe's isolated world),
-which ends with the task, so a page the task leaves open (kept at the
-finish, left by the panel's Stop, kept from a waiting close) holds none of
-it, and shows nothing: no mark, no reminder, no card.
+**Pages a task leaves open.** The agent's code runs in a sandbox of its
+own (zen-observe's isolated world), which ends with the task, so a page
+the task leaves open (kept at the finish, left by the panel's Stop, kept
+from a waiting close) holds none of it, and shows nothing: no mark, no
+reminder, no card.
 - **Pages with evidence** (zen-observe's evidence flag, per document:
   `evidenceOf(browser)` gives `{reason: detail}` over the page's top
   document and frames). What reloads keys on the evidence a clean copy
@@ -2092,8 +2090,8 @@ it, and shows nothing: no mark, no reminder, no card.
   Close the popup or other window on this site, then reload.", and a screen
   reader hears it.
 - **A page that loaded afresh at the user's press or for a hold**
-  (`zenius-reloaded`, `reloadedCard({clickLost})`, since 2026-11-21, when a
-  React form came back at its defaults and was submitted): when
+  (`zenius-reloaded`, `reloadedCard({clickLost})`; a form there may be back
+  at its defaults while it looks filled in, where a press submits them): when
   `cleanOnDemand`'s result has a `how` (null: nothing to clean); at a Take over
   whose `userTakeOver` result has one (also on the task's other pages in its
   `reloaded`); and at the agent's hand-off whose `spaceChanged` has `reloaded`
@@ -2103,7 +2101,7 @@ it, and shows nothing: no mark, no reminder, no card.
   press there submitted the form's defaults with no word of the reload. The
   title is "Your click didn't go through", with "the page reloaded", when the
   press went nowhere (zen-input's `field` is false), else "This page reloaded".
-  It says why (`reloadReason`, the user's pass on defenses), from the evidence
+  It says why (`reloadReason`), from the evidence
   zen-core acted on (`cleanOnDemand`'s `evidence`, `userTakeOver`'s by label) or
   else the page's own as the press came: "the agent's code had changed it", with
   what it left behind the '?', or "the agent made it". The line: "A form here
@@ -2121,9 +2119,9 @@ it, and shows nothing: no mark, no reminder, no card.
   sensitive information out.", with ✕, once per document. A refusal there
   says what it took: "Camera blocked", "The agent made this page, and it
   might contain malicious code, so it can't use your camera." (likewise
-  microphone, screen, location, notifications, windows). Typing stays on
-  (the user's decision, 2026-11-20). A pill comes up on the page's live
-  copy only, announced, with no focus taken; ✕ hides it for that document.
+  microphone, screen, location, notifications, windows). Typing stays on.
+  A pill comes up on the page's live copy only, announced, with no focus
+  taken; ✕ hides it for that document.
 - **The note.** When the task ends (finish or the panel's Stop) and when
   the agent closes a page the user views, zen-ux notes the pages the agent
   made (`agentMadePage`, while zen-observe's record of the task exists),
@@ -2137,8 +2135,7 @@ it, and shows nothing: no mark, no reminder, no card.
 
 **The hand-off and Take over.** The user always types in the agent's own
 tab; zenius makes that safe itself, so nothing in the UI asks the user to
-decide anything about safety (the user's correction, 2026-11-20). There is
-no own tab.
+decide anything about safety. There is no own tab.
 - **Take over** and zen-core's `spaces.handOff` load the handed page afresh
   first when the agent's code could see what the user types there, and the
   pages of its group the sandbox wrote into, in place (the user's
@@ -2149,10 +2146,10 @@ no own tab.
   agent's page, so it's part of the task: the agent can use it once you
   resume it.", with [Resume agent].
 
-**The local-network notice** (the user's design, 2026-11-20). zen-observe
-refuses a load the user starts to a private address or a `.local` name in
-an agent's tab, and tells zen-ux (`onUserLoadRefused`, `{browser, url,
-origin, reason, typed, scope, evident}`).
+**The local-network notice.** zen-observe refuses a load the user starts
+to a private address or a `.local` name in an agent's tab, and tells
+zen-ux (`onUserLoadRefused`, `{browser, url, origin, reason, typed, scope,
+evident}`).
 - **In a task's tab** (the user's hold included), the pill
   `zenius-localnet` says "Network access denied · <host>" (a host over 40
   characters shows its end), "The current network policy doesn't allow
@@ -2237,7 +2234,7 @@ task, zen-core's gate asks the user:
   `service.spaces.pendingClaims()`.
 - Notices count down in minutes from a minute up (`{t}` in the detail).
 
-**Accessibility** (since 2026-11-20).
+**Accessibility.**
 - **Announcements.** Only the moments that need the user are announced.
   They go through Firefox's own `A11yUtils.announce({raw})`: an ARIA alert
   in the window the user was in last, since Firefox notes that JAWS ignores
@@ -2262,11 +2259,10 @@ task, zen-core's gate asks the user:
 - **Pills** are groups named by their text, which a screen reader reads as
   the user Tabs to their buttons. As live regions they would be read
   twice.
-  - VoiceOver reads a focused button's own name, not its group's (the
-    user's VoiceOver check, 2026-11-20). So each button is described by the
-    pill's text (`aria-describedby`), countdown included. VoiceOver reads it
-    after the button, as the button's hint. The button keeps its short
-    name, for Voice Control.
+  - VoiceOver reads a focused button's own name, not its group's. So each
+    button is described by the pill's text (`aria-describedby`), countdown
+    included. VoiceOver reads it after the button, as the button's hint.
+    The button keeps its short name, for Voice Control.
   - The description is a hidden copy of the pill's name
     (`.zenius-card-desc`). It follows the countdown while the focus is
     elsewhere, so it's current when the user Tabs to a button.
@@ -2341,7 +2337,7 @@ its page, the one the user sees:
   `browserId`. So `isUserUsing`, the clipboard's test for a copy the user
   made, follows the page too.
 
-**Held calls.** Settled by zen-core, zen-sdk and zen-ux (2026-11-20):
+**Held calls.** zen-core, zen-sdk and zen-ux share these rules:
 
 - **Which calls wait.**
   - zen-core's dispatcher passes the I3 gate before every gated call.

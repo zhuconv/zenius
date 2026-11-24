@@ -1,16 +1,14 @@
-// Chat that survives a restart (the user's bug of 2026-11-22: the update's
-// restart lost a chat). A tab's chat is saved in the profile
-// (agent-sidebar-chats.json, beside the tasks file) under an opaque id its
-// tab keeps as a SessionStore value, and comes back with the tab. The agents
-// are zen-sidebar's mock (tests/fixtures/agent-sidebar), on loopback only.
-// Some tests quit and start this suite's dev Zen (scripts/zen-dev.sh), as a
-// restart or an update does, and the last one leaves it as it found it.
+// Chat that survives a restart, an update's included. A tab's chat is saved in
+// the profile (agent-sidebar-chats.json, beside the tasks file) under an opaque
+// id its tab keeps as a SessionStore value, and comes back with the tab. The
+// agents are zen-sidebar's mock (tests/fixtures/agent-sidebar), on loopback
+// only. Some tests quit and start this suite's dev Zen (scripts/zen-dev.sh), as
+// a restart or an update does, and the last one leaves it as it found it.
 //
-// Chat's way back (as the user decided on 2026-11-22): an empty Chat view
-// on a page an earlier chat asked about offers that chat back in one line,
-// and All tasks' search finds earlier chats in a group of their own. An
-// earlier chat is a saved one no tab shows; a page matches by its origin
-// and path alone.
+// Chat's way back: an empty Chat view on a page an earlier chat asked about
+// offers that chat back in one line, and All tasks' search finds earlier chats
+// in a group of their own. An earlier chat is a saved one no tab shows; a page
+// matches by its origin and path alone.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";

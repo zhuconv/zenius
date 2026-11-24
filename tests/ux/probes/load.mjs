@@ -1,4 +1,4 @@
-// Load probe (a load test, 2026-11-20). Not a test: no suite runs it, and
+// Load probe (a load test). Not a test: no suite runs it, and
 // it asserts nothing. It prints "# key: json" lines.
 //
 //   ZENIUS_UX_INSTANCE=zen-ux-load tests/ux/run.sh tests/ux/probes/load.mjs

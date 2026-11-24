@@ -533,7 +533,7 @@ test("muted text is AA; with increased contrast the pill turns solid, with full-
   assert.match(out.more.plainEdge, /inset/, "an edge on the plain button");
 });
 
-// The cards added on 2026-11-20: the local-network notice, the pills a Stop
+// More cards: the local-network notice, the pills a Stop
 // and a finish leave on pages that ran the agent's code, the closing pill's
 // line about them, and the claim prompt beside them. Their addresses are the
 // fixture's, so no button reaches a real local host.
@@ -608,12 +608,12 @@ test("today's cards are groups named by all they show, not live regions, their b
 });
 
 test("each pill's buttons are described by the pill, and each panel row's by the row, as Gecko's accessibility service computes it: VoiceOver reads a focused button's own name, then its description", async () => {
-  // The user's VoiceOver check (2026-11-20): a focused button was read by
-  // its own name alone, without its pill's text. The accessibility service
-  // runs only for this test, and is let go after it. It stops once nothing
-  // holds it, after a collection: at once alone, but in one loaded test-all
-  // not within 20 s. The rest of the suite then passed with it on, so a
-  // service that lingers is logged, not failed.
+  // Under VoiceOver, a focused button was read by its own name alone, without
+  // its pill's text. The accessibility service runs only for this test, and is
+  // let go after it. It stops once nothing holds it, after a collection: at
+  // once alone, but in one loaded test-all not within 20 s. The rest of the
+  // suite then passed with it on, so a service that lingers is logged, not
+  // failed.
   const id = `a11y-desc-${Date.now()}`;
   const out = await h.chrome(`${P}
     await show();
@@ -673,7 +673,7 @@ test("each pill's buttons are described by the pill, and each panel row's by the
           b.focus();
           const atFocus = now();
           // Gecko signals each change of the focused button's description
-          // (probed 2026-11-20): no change, no signal.
+          // (as probed): no change, no signal.
           await sleep(2600);
           const held = now();
           browser.focus();

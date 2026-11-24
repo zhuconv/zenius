@@ -34,11 +34,11 @@ const slow = new Set();
 const run = Date.now().toString(36).slice(-5);
 
 // What a page can show the user and what it can only lay out: the agent gets
-// the first kind as is, and since the user's pass on defenses (2026-11-21)
-// the second marked as hidden, a JSON string the page can't close ([hidden:
-// "…"]), rather than not at all. What isn't rendered, and the site's
-// navigation, stay out. The second slide of the box below overflows a box of
-// some size, which the user can bring into view, so it is shown.
+// the first kind as is, and the second marked as hidden, a JSON string the
+// page can't close ([hidden: "…"]), rather than not at all. What isn't
+// rendered, and the site's navigation, stay out. The second slide of the box
+// below overflows a box of some size, which the user can bring into view, so it
+// is shown.
 const SHOWN = ["VISIBLE", "DARKBG", "GRADIENT", "CONTENTS", "SLIDE1", "SLIDE2", "SUMMARY"];
 const MARKED = ["SRINLINE", "OFFSCREEN", "INDENT", "WHITE", "NEARWHITE", "TRANSPARENT", "TINY", "OPACITY", "SRONLY", "CLIPPATH", "COLLAPSED", "SCALED"];
 const LEFT_OUT = ["NAV", "DISPNONE", "VISHIDDEN", "DETAILS"];
@@ -109,7 +109,7 @@ const PAGES = {
       };
     </script>`
   ),
-  // Links the user can see and ones they can't (Chat's fetch: the user's call).
+  // Links the user can see and ones they can't (Chat's fetch rule).
   "/zen-ux/links.html": page(
     "zen-ux links",
     `<nav><a href="https://nav.example/">NAV_LINK</a></nav>
@@ -577,7 +577,7 @@ test("startWorkChat starts a task in Work mode: it resolves to the task's uid, t
   assert.equal(out.current, "true");
 });
 
-// Renaming a task (the user's ask, 2026-11-22): the header's name turns
+// Renaming a task: the header's name turns
 // into a field, and the user's name shows wherever the task's does.
 const RENAME = `
   const g = win.ucAgentSidebar;
@@ -600,7 +600,7 @@ const RENAME = `
   };
 `;
 
-test("renaming a task (the user's ask, 2026-11-22): More's Rename task, or a double-click on the header's name, makes the name a field; Enter or a click outside keeps it, Esc leaves it as it was, and an empty one goes back to the task's own title; the name shows at once in the header, the directory and its search, and on the task's zenius task: its tabs' tags and Watch's hint; it's saved with the task", async () => {
+test("renaming a task: More's Rename task, or a double-click on the header's name, makes the name a field; Enter or a click outside keeps it, Esc leaves it as it was, and an empty one goes back to the task's own title; the name shows at once in the header, the directory and its search, and on the task's zenius task: its tabs' tags and Watch's hint; it's saved with the task", async () => {
   await useMock();
   const name = `Pick a flight ${run}`;
   const out = await chrome(
@@ -847,7 +847,7 @@ test("a name another live task has already: the sidebar shows it as the user typ
   }
 });
 
-test("removing a task (removeTask, for programs and tests; the menu archives since the user's ask of 2026-11-22): it takes the task out of the list and out of the panel, its live card too, though its tab is still open and its agent is answering; the agent stops, its zenius task ends as the strip's Stop ends one, and its tabs stay open; the directory doesn't list that zenius task as another program's, after a restart either; '+ New task' then gives a new task (the user's bug)", async () => {
+test("removing a task (removeTask, for programs and tests; the menu archives instead): it takes the task out of the list and out of the panel, its live card too, though its tab is still open and its agent is answering; the agent stops, its zenius task ends as the strip's Stop ends one, and its tabs stay open; the directory doesn't list that zenius task as another program's, after a restart either; '+ New task' then gives a new task", async () => {
   await useMock();
   const name = `Find a hotel ${run}`;
   const out = await chrome(
@@ -936,7 +936,7 @@ test("removing a task (removeTask, for programs and tests; the menu archives sin
   assert.deepEqual(out.fresh, { same: false, uid: false, zen: false, header: "New task", card: false });
 });
 
-test("archiving a task (the user's ask, 2026-11-22): the ⋯ menu says New, Rename, Archive and Close (⌘⇧A), each with a tooltip that says what it does; Archive moves the task to a collapsed Archived group at the bottom of All tasks, with a count, though its tab is still open and its agent is answering: the agent stops, its zenius task ends as the strip's Stop ends one, its tabs stay open, and the panel moves on; a search finds it there; opened, the task reads as it was, without a box, and Unarchive brings it back to the list; it stays archived after a restart", async () => {
+test("archiving a task: the ⋯ menu says New, Rename, Archive and Close (⌘⇧A), each with a tooltip that says what it does; Archive moves the task to a collapsed Archived group at the bottom of All tasks, with a count, though its tab is still open and its agent is answering: the agent stops, its zenius task ends as the strip's Stop ends one, its tabs stay open, and the panel moves on; a search finds it there; opened, the task reads as it was, without a box, and Unarchive brings it back to the list; it stays archived after a restart", async () => {
   await useMock();
   const name = `Plan a trip ${run}`;
   const out = await chrome(
@@ -1408,10 +1408,9 @@ test("an archived task goes as if done once there are more than 60 tasks, even o
   assert.deepEqual(out.after, { archived: false, listed: true, size: 60 }, "past it, the archived one goes; the listed one in Needs you stays");
 });
 
-// --- All tasks' right-click menu (the user's ask, 2026-11-22: a
-// right-click on a task should at least offer Pin and Rename): Pin or
-// Unpin, Rename, then Archive or Unarchive, on each row; Pinned at the top
-// of All tasks.
+// --- All tasks' right-click menu, so a right-click on any task offers at
+// least Pin and Rename: Pin or Unpin, Rename, then Archive or Unarchive, on
+// each row; Pinned at the top of All tasks.
 
 /** What the menu's items say: the ⋯ menu's words, and Pin's own. */
 const PIN_TIP = "Keeps the task in Pinned, at the top of All tasks.";
@@ -1495,7 +1494,7 @@ const ROW_MENU = `
   const nameOf = uid => row(uid)?.querySelector(".asb-dir-rt > b")?.textContent ?? null;
 `;
 
-test("All tasks' rows have a right-click menu (the user's ask, 2026-11-22): Pin, Rename, then Archive, in the ⋯ menu's words; Unpin on a pinned task, and Unarchive without Pin on an archived one; the context-menu key and Shift+F10 open it under the row the arrow keys are on, and nothing opens without one; Esc closes the menu and leaves All tasks open, the search keeping the focus", async () => {
+test("All tasks' rows have a right-click menu: Pin, Rename, then Archive, in the ⋯ menu's words; Unpin on a pinned task, and Unarchive without Pin on an archived one; the context-menu key and Shift+F10 open it under the row the arrow keys are on, and nothing opens without one; Esc closes the menu and leaves All tasks open, the search keeping the focus", async () => {
   const out = await chrome(
     `
     ${ROW_MENU}
@@ -1720,7 +1719,7 @@ for (const [label, realKeys] of [
   ["keys marked as the IME's", false],
   ["the keys themselves, composing", true],
 ]) {
-  test(`Rename in All tasks' menu edits the row's name in place (the user's ask, 2026-11-22), as the ⋯ menu's Rename does, with ${label}: the name is selected in a field; an IME composition's Enter and Esc only compose; Enter keeps the new name and Esc the old one; a click outside keeps it; an empty one gives the task its own title back; the list changing meanwhile keeps the field; the name shows in the row, the header and the search`, async () => {
+  test(`Rename in All tasks' menu edits the row's name in place, as the ⋯ menu's Rename does, with ${label}: the name is selected in a field; an IME composition's Enter and Esc only compose; Enter keeps the new name and Esc the old one; a click outside keeps it; an empty one gives the task its own title back; the list changing meanwhile keeps the field; the name shows in the row, the header and the search`, async () => {
     const out = await chrome(
       `
       ${ROW_MENU}
@@ -2601,7 +2600,7 @@ test("Stop cancels an open ask, and one the agent withdraws ($/cancel_request, a
   assert.equal(log.find(m => m.id === out.withdrawn.rpcId && !m.method)?.error?.code, -32800);
 });
 
-// The agent's wait before its first words (2026-11-22: Codex at xhigh thought
+// The agent's wait before its first words (Codex at xhigh once thought
 // for 23 s with nothing on screen but the box's "Thinking…", then its first
 // sentences came at once). A thought shows from the moment the question goes
 // out until the agent's first words, step or question; the mock's THINK*
@@ -3019,7 +3018,7 @@ test("a long live title, as Claude Code's summaries have, clamps to two lines wi
   assert.match(out.time, /^ for [1-9] s$/);
 });
 
-// Every zenius task in the sidebar (the user's ask): a task the sidebar doesn't
+// Every zenius task in the sidebar: a task the sidebar doesn't
 // drive shows in the directory and opens to a read-only view. zen-core's feed
 // (spaces.feed) and zen-input's ring (input/steps.sys.mjs) are stand-ins here;
 // their suites test them.
@@ -3244,7 +3243,7 @@ test("a task another agent drives (a terminal's Claude Code) shows in the direct
   assert.deepEqual(out.endedAgain, { where: "list", state: "done" }, "and still listed once that run ends");
 });
 
-test("leaving a task another agent drives, for '+ New task', a Work chat of the sidebar's or Chat, leaves none of its read-only view behind: its bar ('Finished just now'), source line, steps and live card go, and the question box and Send come back (the user's bug)", async () => {
+test("leaving a task another agent drives, for '+ New task', a Work chat of the sidebar's or Chat, leaves none of its read-only view behind: its bar ('Finished just now'), source line, steps and live card go, and the question box and Send come back", async () => {
   const name = `zen-ux external switch ${run}`;
   const { id } = await h.createSpace({ name });
   await h.call("page.goto", { space: id, page: "p1", url: `${www()}/zen-ux/hidden.html?switch` });
@@ -4111,7 +4110,7 @@ test("a question the agent ends with puts its task under Needs you, and Work's s
 // What taskInfo says of a work chat's last answer: the question it shows
 // under Needs you, else its state.
 const ANSWERS = [
-  // A real answer (2026-11-22): the question, then the choices as a numbered
+  // A real answer: the question, then the choices as a numbered
   // list.
   ["Wikivoyage's Kyoto guide lists these day trips. Which one would you like?\n\n1. Nara\n2. Uji\n3. Himeji", "Which one would you like?"],
   ["Which one should I plan?\n\n- **Nara**: deer and Tōdai-ji\n- **Uji**: tea and Byōdō-in\n- **Himeji**: the castle", "Which one should I plan?"],
@@ -4552,7 +4551,7 @@ test("the page's links the user can see go with the page, after its text, for Ch
   assert.deepEqual(list.slice(1), Array.from({ length: 60 }, (_, i) => `- https://many.example/${i} "Link ${i}"`));
 });
 
-test("Chat's list of the URLs it may fetch (the user's call on Chat's fetch, zen-sidebar's allowFetches) holds, after a question, the page's address, its links as read, and the question's and the selection's URLs (bare ones too), without a fragment and with http as https; never a hidden link, a URL only in text the page hides, the site's navigation or a link that isn't http(s); a fork carries the list to its new session, and New chat drops every session's list", async () => {
+test("Chat's list of the URLs it may fetch (Chat's fetch rule, zen-sidebar's allowFetches) holds, after a question, the page's address, its links as read, and the question's and the selection's URLs (bare ones too), without a fragment and with http as https; never a hidden link, a URL only in text the page hides, the site's navigation or a link that isn't http(s); a fork carries the list to its new session, and New chat drops every session's list", async () => {
   // A mock that looks like claude-agent-acp (its adapter, UUID session ids,
   // fork): only Claude Code's Chat sessions have lists.
   const acp = join(dir, "config-acp.json");
@@ -5032,7 +5031,7 @@ test("the model picker's note: in a Chat with messages, another family's models 
   }
 });
 
-test("the model picker while the agent answers (the user's ask, 2026-11-22): it stays usable, and a pick there, of a model or only an effort, shows and is saved at once, with no note, and reaches the session when the turn ends, before the queued message, which runs with it; a steer joins the running turn on its model; a turn that ends by Stop, by failure or after a declined ask applies the pick too, Claude Code's and Codex's alike; the other agent's models, which start a new chat, wait for the answer; a pick the agent refuses says so as before", async () => {
+test("the model picker while the agent answers: it stays usable, and a pick there, of a model or only an effort, shows and is saved at once, with no note, and reaches the session when the turn ends, before the queued message, which runs with it; a steer joins the running turn on its model; a turn that ends by Stop, by failure or after a declined ask applies the pick too, Claude Code's and Codex's alike; the other agent's models, which start a new chat, wait for the answer; a pick the agent refuses says so as before", async () => {
   await useMock();
   const both = pickerConfig(["claude", "gpt"]);
   try {
@@ -5335,7 +5334,7 @@ test("the live card draws only while the user can see it; Watch moves the window
       // ⌃Tab while not watching isn't the sidebar's.
       res.ctrlTabUnwatched = { notStopped: ctrlTab(), atUser: atUser() };
       // Watch, on its click: the task's Space; the card says ⌃Tab is the way
-      // back where Watch was (the user's design), and zenius's strip says
+      // back where Watch was, and zenius's strip says
       // "Watching <task> [⌃Tab]" (the chip shows only where the strip can't be read).
       doc.getElementById("watch").click();
       await S.until(() => g.watching === uid, 10000);
@@ -5552,8 +5551,7 @@ test("the card paints only an agent's page of its chat's own task, checked befor
 
 // The card keeps its last picture only for its own task. drawPicture paints
 // a page only while the agent has it, so a finished task's card kept the
-// picture of the task shown before it: another task's page (seen
-// 2026-11-21).
+// picture of the task shown before it: another task's page.
 test("the card shows only its own task's page: from a working task's card to a finished task's, which it doesn't paint, the card shows only its foot, never the other task's picture; back on the working task, its own picture comes again", async () => {
   await useMock();
   const out = await chrome(`
@@ -6007,9 +6005,9 @@ test("Send is zenius's own small up arrow (send.svg) in the question box and in 
   assert.equal(out.stop, "none", "Stop stays a square");
 });
 
-// --- Queue and steer (the user's ask, 2026-11-22) ---------------------------
+// --- Queue and steer --------------------------------------------------------
 // While the agent works, Enter queues a message, which goes out when the
-// turn ends; Steer sends one into the running turn at once (zen-ux's panel).
+// turn ends; Steer sends one into the running turn at once.
 // Both adapters take `_session/steering` (claude-agent-acp 0.107.0,
 // codex-acp 2.6.0); for an agent that doesn't, a steer stops the turn and
 // goes next. After a Stop or a failed turn, what waits goes back into the box.
@@ -6046,7 +6044,7 @@ const STEER_CHAT = `
 `;
 const FILE = { name: "notes.txt", kind: "text", info: "1 KB", uri: "file:///tmp/notes.txt", text: "hello", truncated: false };
 
-test("a message the user sends takes the chat to its end, even from an earlier answer they scrolled up to, and the view follows the answer from there, while they type the next one too: Enter with the agent idle, and Enter that queues while it answers; scrolled up mid-answer, it stays put (the user's ask, 2026-11-22)", async () => {
+test("a message the user sends takes the chat to its end, even from an earlier answer they scrolled up to, and the view follows the answer from there, while they type the next one too: Enter with the agent idle, and Enter that queues while it answers; scrolled up mid-answer, it stays put", async () => {
   await useMock();
   const out = await chrome(`
     await S.openPanel();
@@ -7359,7 +7357,7 @@ test("an ask for a password or a code, in English and Chinese: a secret, or such
   await useMock();
 });
 
-// In a real task (2026-11-22), Claude Code asked "Please enter the 6-digit
+// In a real task, Claude Code asked "Please enter the 6-digit
 // code from the email (type it via 'Other')." under the header "Code", and
 // the card took it for an ordinary ask. An N-digit code from an email or a
 // text is the commonest way to ask for a one-time code, and what an
@@ -7487,11 +7485,11 @@ test("an ask for a one-time code as agents write it reads as one for a password 
   await useMock();
 });
 
-// zen-ux's code card (2026-11-22): Claude Code's AskUserQuestion always
+// The ask for a code: Claude Code's AskUserQuestion always
 // comes with 2 to 4 options, so its ask for a code brings buttons such as
 // "I'll type it" beside the masked field. The field goes first, since that's
 // where the answer goes, and the options stay plain choices.
-test("Claude Code's ask for a code (zen-ux's code card): its masked field comes right under the card's line and the question, where the answer goes, and its options follow under the field as one row of quiet pills in Skip's look, each one's description its tooltip; a pill picks as an option does, pressed, then Send or Enter in the field, and the pick goes back together with the field's words; a plain ask keeps its option cards", async () => {
+test("Claude Code's ask for a code: its masked field comes right under the card's line and the question, where the answer goes, and its options follow under the field as one row of quiet pills in Skip's look, each one's description its tooltip; a pill picks as an option does, pressed, then Send or Enter in the field, and the pick goes back together with the field's words; a plain ask keeps its option cards", async () => {
   const { file } = ownMock("askotp");
   const out = await chrome(`${STEER_PANEL}${ASK_LOOK}
     const outcome = conv => conv.messages.filter(m => m.role === "assistant" && m.text.startsWith("ask outcome: ")).map(m => JSON.parse(m.text.slice("ask outcome: ".length)));
@@ -7814,9 +7812,8 @@ for (const [keys, realKeys] of IME_KEYS) test(`IME (${keys}) in the directory's 
   assert.equal(out.closed, true, "Enter with no composition opens the task found, which closes the drawer");
 });
 
-// A task's name as the user renames it (zen-sidebar's rename, the user's ask,
-// 2026-11-22): its field in the header takes the IME's keys as the boxes above
-// do (zen-observe, from the rename's review).
+// A task's name as the user renames it (zen-sidebar's rename): its field in
+// the header takes the IME's keys as the boxes above do.
 for (const [keys, realKeys] of IME_KEYS) test(`IME (${keys}) in a task's name as the user renames it: an Enter that commits a composition only commits, the field staying open; Escape in a composition cancels only it, the field keeping its words and the focus; Enter with no composition keeps the name`, async () => {
   const id = `imerename${realKeys ? "-real" : ""}`;
   const { file } = ownMock(id);
@@ -7863,7 +7860,7 @@ for (const [keys, realKeys] of IME_KEYS) test(`IME (${keys}) in a task's name as
   await useMock();
 });
 
-// IME from an open address bar (2026-11-22). With its results open, Zen's
+// IME from an open address bar. With its results open, Zen's
 // address bar gives the page the focus as it closes (UrlbarInputBase.mjs
 // #closePopover). When our code put the cursor in our UI from there, that
 // ran inside our focus(): Gecko kept the page's process as the one IME
@@ -8162,7 +8159,7 @@ test("with no agent, the sidebar starts cleanly and the address bar offers no 'A
 });
 
 
-// A leak (measured 2026-11-22): a kept message held objects the panel it
+// A leak (as measured): a kept message held objects the panel it
 // was sent from had made (its files, an ask's answers), and so that panel's
 // whole window, about 0.9 MB, for as long as the chat or the task was kept.
 // Each ⌘⇧A that closed a panel the user had asked from left one more.
@@ -8237,7 +8234,7 @@ test("closing the sidebar lets its panel go: ten panels, each asking a task and 
   );
 });
 
-// The draft's pin (2026-11-22): what's left in the box, the chat's draft, was
+// The draft's pin: what's left in the box, the chat's draft, was
 // an object the panel made, with its files and each file's read in the
 // panel's realm, so it kept that panel's whole window for as long as the chat
 // or the task was kept. One more for each conversation a closed panel had

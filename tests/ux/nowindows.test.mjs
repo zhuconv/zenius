@@ -2,7 +2,7 @@
 // group holds a document the agent's sandbox wrote into: zen-core refuses
 // it, and opens nothing in its place (a form posted into a new window,
 // about:blank, blob:, data:, a feature popup refused on the Mac, and today
-// every other). Under the user's decision nothing shows: when the user's own
+// every other). Nothing shows: when the user's own
 // click or key there came just before, the pages with the writes load
 // afresh, quietly (zen-core's cleanLoad), this page or the group's others,
 // so the next try opens. One the page opened on its own, one a plain tab

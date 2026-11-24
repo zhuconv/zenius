@@ -1,4 +1,4 @@
-// Click probe (a load test, 2026-11-20): one task, no load, the baseline
+// Click probe (a load test): one task, no load, the baseline
 // for the slow clicks seen with ten tasks. Not a test; it prints "# key:
 // json" lines.
 //
