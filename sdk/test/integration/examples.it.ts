@@ -561,12 +561,17 @@ const REFUSAL_PROBES: Record<string, { answers: string[]; code: string; skip?: s
     code: `answers.push(await page.evaluate('navigator.mediaDevices.getUserMedia({ video: true }).then(() => "allowed", (e) => e.name)'));`,
   },
   // Evidence: the agent's code leaves a style sheet in the page.
-  "Location, MIDI, notifications on a page with your code or a flag": {
-    answers: ["PERMISSION_DENIED", "an error event"],
+  "Location, MIDI on a page with your code or a flag": {
+    answers: ["PERMISSION_DENIED"],
     skip: MAC_MISS && "a miss would ask macOS for the location",
     code: `await page.evaluate(() => { document.head.append(document.createElement("style")); });
-answers.push(await page.evaluate('new Promise((resolve) => navigator.geolocation.getCurrentPosition(() => resolve("a position"), (e) => resolve(e.code === e.PERMISSION_DENIED ? "PERMISSION_DENIED" : "code " + e.code)))'));
-answers.push(await page.evaluate('new Promise((resolve) => { const n = new Notification("zenius"); n.onerror = () => resolve("an error event"); n.onshow = () => resolve("shown"); setTimeout(() => resolve("no event"), 5000); })'));`,
+answers.push(await page.evaluate('new Promise((resolve) => navigator.geolocation.getCurrentPosition(() => resolve("a position"), (e) => resolve(e.code === e.PERMISSION_DENIED ? "PERMISSION_DENIED" : "code " + e.code)))'));`,
+  },
+  // The agent's own, on any page: the fixture's site has no grant, so a miss
+  // would fire the native's error event, never show.
+  "Notifications from your code": {
+    answers: ["NotAllowedError"],
+    code: `answers.push(await page.evaluate('(() => { try { new Notification("zenius").close(); return "made"; } catch (e) { return e.name; } })()'));`,
   },
   WebRTC: {
     answers: ["NotAllowedError"],

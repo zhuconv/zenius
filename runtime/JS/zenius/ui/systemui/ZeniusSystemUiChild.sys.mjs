@@ -171,14 +171,25 @@ function guardNotifications(win) {
     return;
   }
   const bc = win.browsingContext;
-  const quiet = () => lazy.isAgentDriven(bc) && Native.permission === "granted";
+  // The site's grant, through the native getter of now: the page can
+  // redefine Notification.permission, which would turn the quiet path off.
+  const permissionOf = Object.getOwnPropertyDescriptor(Native, "permission")?.get;
+  const granted = () => {
+    try {
+      return typeof permissionOf === "function" && Reflect.apply(permissionOf, Native, []) === "granted";
+    } catch {
+      return false;
+    }
+  };
+  const quiet = () => lazy.isAgentDriven(bc) && granted();
 
   // A Proxy keeps Notification.permission, requestPermission(), prototype and
-  // instanceof as they are; only construction changes.
+  // instanceof as they are; only construction changes. Chrome's own Reflect:
+  // the page's could be replaced, and would be handed the constructor beneath.
   const construct = (target, args, newTarget) => {
     const list = Cu.waiveXrays(args);
     if (!list.length || !quiet()) {
-      return page.Reflect.construct(Native, list, Cu.waiveXrays(newTarget));
+      return Reflect.construct(Native, list, Cu.waiveXrays(newTarget));
     }
     return quietNotification(win, Native, list[0], list[1]);
   };
@@ -194,6 +205,10 @@ function guardNotifications(win) {
     enumerable: own?.enumerable ?? false,
     configurable: own?.configurable ?? true,
   });
+  // As the page guards do: Notification.prototype.constructor is the Proxy
+  // too. Left as the one beneath, the page's own call through it would skip
+  // the quiet path.
+  Object.defineProperty(Native.prototype, "constructor", { value: proxy, writable: true, enumerable: false, configurable: true });
 
   // registration.showNotification() from this page (a service worker's own
   // calls run outside any page and aren't covered).

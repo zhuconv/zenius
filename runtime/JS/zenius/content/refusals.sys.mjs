@@ -69,6 +69,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   mirrorGetter: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
   mirrorConstructor: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
   mirrorRefusal: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
+  noteWorkerStart: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
   worldSandboxOf: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
 });
 
@@ -160,9 +161,10 @@ function installAll(actor, win, doc, { done, closed }) {
    * Replace `<iface>.prototype[name]` with a function of the same name that
    * runs `refuse` while `applies()`. The agent's worlds that reach this
    * document get the same function (content/agentworld.sys.mjs): their
-   * Xrays see only the native.
+   * Xrays see only the native. With `worldRefuse`, theirs runs that
+   * instead, every time: a world's copy can't be replaced once it's in.
    */
-  const guard = (iface, name, refuse, applies = agent) => {
+  const guard = (iface, name, refuse, applies = agent, worldRefuse = null) => {
     const proto = page[iface]?.prototype;
     const native = proto?.[name];
     if (typeof native !== "function") {
@@ -178,7 +180,14 @@ function installAll(actor, win, doc, { done, closed }) {
       },
     }[name];
     Cu.exportFunction(fn, proto, { defineAs: name });
-    lazy.mirrorMethod(win, `${iface}.prototype`, name, fn);
+    const inWorld = worldRefuse
+      ? {
+          [name]() {
+            return worldRefuse(this, arguments);
+          },
+        }[name]
+      : fn;
+    lazy.mirrorMethod(win, `${iface}.prototype`, name, inWorld);
   };
   /**
    * `<iface>.prototype[name]` for the agent's worlds alone: the page keeps
@@ -1054,10 +1063,29 @@ function simulateFailure(name) {
  * where the site has the user's grant: one would show on the user's desktop.
  * While the agent drives, zen-ux's guard keeps a granted site's quiet
  * (ui/systemui/ZeniusSystemUiChild.sys.mjs).
+ *
+ * The agent's own code gets a no every time, as for a passkey: the world's
+ * Xrays don't see zen-ux's quiet one, so it would reach the native, and the
+ * agent has nothing of its own to show on the user's desktop.
  */
 function guardNotifications(win, page, { report, guard, applies, why, done, closed }) {
   const refused = api =>
     `The page tried to show a notification (${api}). The page shows evidence of danger (${why().evidence ?? "evidence"}), so zenius refused it (${api === "showNotification" ? "a TypeError" : "an error event"}, as where notifications are blocked), during the user's hold too.`;
+  /**
+   * The agent's no: NotAllowedError, as for its passkeys, and not the
+   * page's TypeError. A JS error made in the page's realm reaches the world
+   * through an Xray that can't read its message; a DOMException's it can.
+   * Made through the Xray, so the page's own DOMException never runs.
+   */
+  const agentRefused = api => {
+    report(
+      "notification",
+      `The agent's code tried to show a notification (${api}). A notification shows on the user's desktop, so zenius refused it (NotAllowedError).`,
+      `agent ${api}`,
+      { api: api === "showNotification" ? "showNotification" : "Notification", asked: "notifications" }
+    );
+    return new win.DOMException("The request is not allowed by the user agent or the platform in the current context.", "NotAllowedError");
+  };
   guard(
     "ServiceWorkerRegistration",
     "showNotification",
@@ -1065,7 +1093,8 @@ function guardNotifications(win, page, { report, guard, applies, why, done, clos
       report("notification", refused("showNotification"), "showNotification", { api: "showNotification", asked: "notifications" });
       return page.Promise.reject(new page.TypeError("Permission to show Notification denied."));
     },
-    applies
+    applies,
+    () => page.Promise.reject(agentRefused("showNotification"))
   );
   if (typeof page.Notification !== "function") {
     return;
@@ -1087,7 +1116,13 @@ function guardNotifications(win, page, { report, guard, applies, why, done, clos
         const Native = globalThis.__zeniusNative ?? Notification;
         const construct = Reflect.construct;
         ${FAKE_NOTIFICATION}
+        // The guards' handlers have no prototype. Code that reaches this
+        // realm's Object.prototype could give it the traps a handler lacks,
+        // and a trap gets the native constructor. The page reaches the
+        // sandbox's through an error a guard's script makes, and the agent's
+        // code reaches its world's, which runs this too.
         const wrapped = new Proxy(Native, {
+          __proto__: null,
           construct(target, args, newTarget) {
             const nt = newTarget === wrapped ? target : newTarget;
             // Without a title the native throws its TypeError, as it should.
@@ -1107,6 +1142,10 @@ function guardNotifications(win, page, { report, guard, applies, why, done, clos
     const wrapped = Cu.evalInSandbox(source, sandbox);
     Object.defineProperty(page, "Notification", { value: wrapped, writable: true, enumerable: false, configurable: true });
     lazy.mirrorConstructor(win, "Notification", source, { zeniusNotificationRefused: helper });
+    // The worlds' one refuses over that copy, before it runs.
+    lazy.mirrorRefusal(win, "Notification", () => {
+      throw agentRefused("new Notification");
+    });
     done.add("Notification");
   } catch (e) {
     closed("Notification", e);
@@ -1148,6 +1187,7 @@ function guardPeerConnections(win, page, { report, applies, why, done, closed })
         const Native = globalThis.__zeniusNative ?? RTCPeerConnection;
         const construct = Reflect.construct;
         const wrapped = new Proxy(Native, {
+          __proto__: null,
           construct(target, args, newTarget) {
             if (refused()) {
               throw new DOMException("The request is not allowed by the user agent or the platform in the current context.", "NotAllowedError");
@@ -1197,7 +1237,8 @@ const SCOPED_MARKS = ["zenius-task-", "zenius-held-"];
  *
  * The wrapper is a Proxy made in a sandbox with the page's principal, so the
  * page constructs through it as usual, and SharedWorker.prototype.constructor
- * is the wrapper too. It converts the URL to a string once.
+ * is the wrapper too. It converts the URL to a string once, with a template
+ * literal: the page can reach the sandbox's global and replace its String.
  *
  * A data: shared worker is refused (SecurityError, `refusedData`): it has an
  * opaque origin, so its requests name neither a tab, a mark nor a site, and
@@ -1259,8 +1300,14 @@ function guardSharedWorkers(win, ownerNow, noted, refusedData, { done, closed })
         const construct = Reflect.construct;
         const slice = Array.prototype.slice;
         const wrapped = new Proxy(Native, {
+          __proto__: null,
           construct(target, args, newTarget) {
-            const url = String(args[0]);
+            // Read once, with no lookup. A String replaced in this realm (the
+            // page reaches its sandbox's global, the agent's code its world's)
+            // would leave the page's object, which chrome's check and the
+            // native could read apart: chrome as no URL, which passes it on
+            // unmarked, and the native as the object's own URL.
+            const url = \`\${args[0]}\`;
             const own = ownURL(url);
             if (own === false) {
               throw insecure();
@@ -1330,7 +1377,10 @@ function channelScope(bc) {
  * workers they start (workerguard.js gets it with the scope): given the
  * native constructor and a function that answers the scope, it returns the
  * constructor the realm gets. A channel's name carries the scope after a NUL
- * and "zenius-"; the name getter gives the page back its own name.
+ * and "zenius-"; the name getter gives the page back its own name. Its
+ * handlers have no prototype: code in the realm (a worker's own, or the
+ * agent's in its world) could give Object.prototype the traps they lack,
+ * and a trap gets the native.
  * `noted`, in pages only, gets each channel for the channel mute.
  */
 const CHANNEL_GUARD = `function zeniusChannelGuard(Native, scopeOf, noted) {
@@ -1344,6 +1394,7 @@ const CHANNEL_GUARD = `function zeniusChannelGuard(Native, scopeOf, noted) {
   const cut = String.prototype.slice;
   const MARK = "\\u0000zenius-";
   const wrapped = new Proxy(Native, {
+    __proto__: null,
     construct(target, args, newTarget) {
       const as = newTarget === wrapped ? target : newTarget;
       if (args.length === 0) {
@@ -1363,6 +1414,7 @@ const CHANNEL_GUARD = `function zeniusChannelGuard(Native, scopeOf, noted) {
   const desc = Object.getOwnPropertyDescriptor(Native.prototype, "name");
   if (desc && typeof desc.get === "function") {
     const getter = new Proxy(desc.get, {
+      __proto__: null,
       apply(target, self, args) {
         const name = apply(target, self, args);
         const at = apply(lastIndexOf, name, [MARK]);
@@ -1656,6 +1708,26 @@ function guardWorker(dbg, owner) {
   dbg.postMessage(JSON.stringify({ channelScope: scope, channelGuard: CHANNEL_GUARD, workerMark: mark }));
 }
 
+/**
+ * A dedicated worker a page's window starts from the agent's world makes the
+ * page written (agentworld's noteWorkerStart). Its registration comes while
+ * its constructor runs. A nested worker's comes later, from its parent's
+ * thread, and the parent counted already.
+ */
+function noteWorldWorker(dbg) {
+  try {
+    if (dbg.type !== Ci.nsIWorkerDebugger.TYPE_DEDICATED || dbg.parent) {
+      return;
+    }
+    const win = dbg.window;
+    if (win) {
+      lazy.noteWorkerStart(win);
+    }
+  } catch (e) {
+    console.error("[zenius] counting a worker of the agent's world", e);
+  }
+}
+
 /** Once per content process: guard the workers that pages of agent tasks start. */
 function watchWorkers() {
   if (watchingWorkers) {
@@ -1670,6 +1742,7 @@ function watchWorkers() {
           const owner = workerOwner(dbg);
           if (owner) {
             guardWorker(dbg, owner);
+            noteWorldWorker(dbg);
           }
         } catch (e) {
           console.error("[zenius] guarding a worker failed", e);

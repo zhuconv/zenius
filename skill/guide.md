@@ -358,12 +358,13 @@ select, or color pickers. The action's receipt lists each refusal in
 `receipt.refused` as `{ kind, message }`, and `page.events()` records it as a
 `Zenius.refused` event; the message says what happened and what to do instead.
 
-In a task's pages zenius also refuses what would reach past the task. The page
-gets its usual denial; the kind is in parentheses:
+In a task's pages zenius also refuses what would reach past the task
+(the kind is in parentheses):
 
 - Camera, microphone, screen, speech (`deviceAccess`): NotAllowedError.
-- Location, MIDI, notifications on a page with your code or a flag
-  (`deviceAccess`, `notification`): PERMISSION_DENIED, an error event.
+- Location, MIDI on a page with your code or a flag (`deviceAccess`):
+  PERMISSION_DENIED.
+- Notifications from your code (`notification`): NotAllowedError.
 - WebRTC (`localNetwork`): NotAllowedError.
 - Private, link-local and `.local` hosts (`localNetwork`): a TypeError in
   `fetch()`, net::ERR_ACCESS_DENIED in `page.goto()`; loopback works.

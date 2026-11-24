@@ -149,6 +149,53 @@ test("a notification from an agent page shows nothing; the page sees it as shown
   assert.ok(heard.url.startsWith(h.base));
 });
 
+test("a notification made by Notification.prototype.constructor is quiet too: the prototype's constructor is the quiet one", async () => {
+  // Checked first, so a regression fails here, before any native call.
+  assert.equal(await evaluate("Notification.prototype.constructor === Notification"), true);
+  const before = await h.chrome(`${P} return { ...stats, alerts: [...Services.wm.getEnumerator("alert:alert")].length };`);
+  await evaluate(`(window.__n2 = new Notification.prototype.constructor("By its prototype", { body: "same path" }), 1)`);
+  await sleep(300);
+  const after = await h.chrome(`${P} return { ...stats, alerts: [...Services.wm.getEnumerator("alert:alert")].length };`);
+  assert.equal(after.notifications, before.notifications + 1);
+  assert.equal(after.alerts, before.alerts, "no alert window");
+  assert.equal((await events("Zenius.notification")).at(-1).title, "By its prototype");
+  await evaluate("(window.__n2.close(), 1)");
+});
+
+test("a page that redefines Notification.permission or replaces Reflect still gets the quiet path, and no constructor from beneath it", async t => {
+  if (!linux) {
+    t.skip("a regression would let a native notification through, which shows on the Mac");
+    return;
+  }
+  const before = await h.chrome(`${P} return { ...stats, alerts: [...Services.wm.getEnumerator("alert:alert")].length };`);
+  const out = JSON.parse(
+    await evaluate(`(() => {
+      const permission = Object.getOwnPropertyDescriptor(Notification, "permission");
+      const reflect = window.Reflect;
+      const handed = [];
+      Object.defineProperty(Notification, "permission", { get: () => "denied", configurable: true });
+      window.Reflect = { construct: (t, a, n) => (handed.push(typeof t), reflect.construct(t, a, n)) };
+      try {
+        try {
+          new Notification();
+        } catch (e) {}
+        window.__n3 = new Notification("Redefined", { body: "still quiet" });
+      } finally {
+        window.Reflect = reflect;
+        Object.defineProperty(Notification, "permission", permission);
+      }
+      return JSON.stringify({ seen: Notification.permission, handed });
+    })()`)
+  );
+  await sleep(300);
+  const after = await h.chrome(`${P} return { ...stats, alerts: [...Services.wm.getEnumerator("alert:alert")].length };`);
+  assert.deepEqual(out, { seen: "granted", handed: [] });
+  assert.equal(after.notifications, before.notifications + 1);
+  assert.equal(after.alerts, before.alerts, "no alert window");
+  assert.equal((await events("Zenius.notification")).at(-1).title, "Redefined");
+  await evaluate("(window.__n3.close(), 1)");
+});
+
 test("registration.showNotification() from an agent page shows nothing either", async () => {
   await agentClick("swNotify");
   await sleep(200);

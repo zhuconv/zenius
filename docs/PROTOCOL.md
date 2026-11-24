@@ -290,7 +290,8 @@ a pending navigation, and `page.evaluate`'s budget.
   user's defenses then apply to it. The world has the page's guards. The clipboard
   is the Space's, as for the page. A passkey request from the world is
   refused (`NotAllowedError`, a `deviceAccess` refusal), while the page's
-  own waits for the user. A user's takeover stops the world's busy script
+  own waits for the user. A notification from the world is refused too
+  (`NotAllowedError`, a `notification` refusal). A user's takeover stops the world's busy script
   within about 200 ms. A page that leaves its task (kept at the finish,
   left by a Stop, released) loses the world at once, with its timers,
   listeners and workers. A page the agent closes takes only its own
@@ -479,6 +480,10 @@ a pending navigation, and `page.evaluate`'s budget.
       page's own shows.
     - A task page's workers are refused for the task's whole life: a
       worker can't tell who holds its page.
+    - The agent's own code is refused every time, evidence or not, and
+      where the site has the grant too: `new Notification()` (however it's
+      called) throws `NotAllowedError`, `showNotification()` rejects with
+      it, and nothing shows.
   - `localNetwork`: the local network. On macOS 15 an app's first reach
     into it raises the system's Local Network prompt, which decides for the
     whole browser.

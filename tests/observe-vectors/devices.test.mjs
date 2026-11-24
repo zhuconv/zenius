@@ -692,6 +692,72 @@ test(
   }
 );
 
+test(
+  "the agent's own code is refused its notifications, where the site may show them too: NotAllowedError, as for its passkeys, for each way to make one, and nothing shows",
+  { skip: MAC && "a miss would be a real notification on the Mac's screen" },
+  async () => {
+    const saved = await env.chrome(SET_PREFS, { "alerts.useSystemBackend": false });
+    await NOTIFICATION_GRANT("allow");
+    try {
+      await env.inSpace("notifications agent", async page => {
+        const shown = await alertWindows();
+        await page.goto(`${vectors.base}/vectors-net`);
+        await page.call("page.events");
+        const out = await page.evaluate(async () => {
+          // A JS error from the page's realm has a message the world can't read.
+          const said = e => {
+            try {
+              return `${e.name}: ${e.message}`;
+            } catch {
+              return `${e.name}: (unreadable)`;
+            }
+          };
+          const out = { permission: Notification.permission };
+          const made = {
+            new: () => new Notification("zenius agent"),
+            prototype: () => new Notification.prototype.constructor("zenius agent"),
+            reflect: () => Reflect.construct(Notification, ["zenius agent"]),
+          };
+          for (const [key, make] of Object.entries(made)) {
+            try {
+              make().close();
+              out[key] = "made";
+            } catch (e) {
+              out[key] = said(e);
+            }
+          }
+          try {
+            await ServiceWorkerRegistration.prototype.showNotification.call(null, "zenius agent");
+            out.registration = "shown";
+          } catch (e) {
+            out.registration = said(e);
+          }
+          return out;
+        });
+        const denied = "NotAllowedError: The request is not allowed by the user agent or the platform in the current context.";
+        assert.deepEqual(out, { permission: "granted", new: denied, prototype: denied, reflect: denied, registration: denied });
+        await sleep(500);
+        assert.equal(await alertWindows(), shown, "nothing showed");
+        const events = await page.call("page.events");
+        assert.deepEqual(events.filter(e => e.method === "Zenius.notification"), [], "not zen-ux's quiet one: the agent's code gets a no");
+        const refused = events.filter(e => e.method === "Zenius.refused" && e.params.kind === "notification");
+        assert.deepEqual(
+          refused.map(e => `${e.params.api} ${e.params.asked}`).sort(),
+          ["Notification notifications", "showNotification notifications"],
+          JSON.stringify(refused)
+        );
+        for (const e of refused) {
+          assert.match(e.params.message, /^The agent's code tried to show a notification/, JSON.stringify(e));
+        }
+      });
+    } finally {
+      await NOTIFICATION_GRANT("remove");
+      await closeAlerts().catch(() => {});
+      await env.chrome(RESTORE_PREFS, saved).catch(() => {});
+    }
+  }
+);
+
 test("while the agent drives, WebRTC is refused in a task's pages and their fresh frames: the browser made no peer connection; during the user's hold the page makes its own", () =>
   env.inSpace("webrtc", async page => {
     await page.goto(`${vectors.base}/vectors-net`);

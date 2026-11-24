@@ -515,7 +515,11 @@ const PAGE_GUARDS = `const out = {};
     try {
       await Reflect.apply(w.CredentialsContainer.prototype.get, {}, [request]);
     } catch {}
-    out[id] = { open, clipboard, passkeys: read[0] ?? "unread", quiet: w.Notification !== w.Notification.prototype.constructor };
+    // quiet: the Notification is a wrapper, and its prototype's constructor
+    // is the same one (zen-ux's quiet one, over the page guard's).
+    const notification = w.Notification;
+    const quiet = notification === notification.prototype.constructor && !/function Notification\\(/.test(Function.prototype.toString.call(notification));
+    out[id] = { open, clipboard, passkeys: read[0] ?? "unread", quiet };
   }
   return out;`;
 const PAGE_GUARDED = { open: "SyntaxError", clipboard: "NotAllowedError", passkeys: "signal", quiet: true };
@@ -650,6 +654,209 @@ test("a frame the world reaches after its own code changed its built-ins still h
       }
     })()`);
     assert.deepEqual(seen, { SharedWorker: true, requestFullscreen: true, clipboard: true, dataset: true, peer: "NotAllowedError" });
+  }));
+
+test("the world's Proxies take no trap from its Object.prototype: none the agent's code plants there runs for ours, so none gets a native constructor from behind ours; each prototype's constructor is ours too", () =>
+  env.inSpace("world traps", async page => {
+    await page.goto(`${env.base}/nav-target?traps`);
+    const seen = await page.evaluate(() => {
+      const names = ["Worker", "SharedWorker", "BroadcastChannel", "Notification", "RTCPeerConnection"];
+      const traps = ["get", "set", "has", "deleteProperty", "defineProperty", "getOwnPropertyDescriptor", "ownKeys", "getPrototypeOf", "setPrototypeOf", "isExtensible", "preventExtensions", "apply", "construct"];
+      const text = f => {
+        try {
+          return Function.prototype.toString.call(f).replace(/\s+/g, " ");
+        } catch {
+          return typeof f;
+        }
+      };
+      const got = [];
+      const out = { got };
+      const p = document.createElement("p");
+      p.setAttribute("data-k", "v");
+      for (const t of traps) {
+        Object.defineProperty(Object.prototype, t, {
+          __proto__: null,
+          configurable: true,
+          writable: true,
+          value(target) {
+            got.push(`${t}: ${text(target)}`);
+            return Reflect[t](...arguments);
+          },
+        });
+      }
+      // A trap's descriptor inherits the get planted below, so the engine
+      // can throw where one runs.
+      const touch = (...ops) => {
+        for (const op of ops) {
+          try {
+            op();
+          } catch (e) {
+            got.push(`threw ${e.name}`);
+          }
+        }
+      };
+      try {
+        for (const n of names) {
+          const C = globalThis[n];
+          touch(
+            () => C.length,
+            () => "x" in C,
+            () => Object.getPrototypeOf(C),
+            () => Object.isExtensible(C)
+          );
+        }
+        touch(
+          () => "x" in location,
+          () => Object.isExtensible(location),
+          () => "k" in p.dataset,
+          () => Object.isExtensible(p.dataset)
+        );
+        // Nor do the descriptors our Proxies give the engine: the get planted
+        // above would make each one invalid.
+        for (const [label, read] of [
+          ["location", () => Object.getOwnPropertyDescriptor(location, "assign").writable],
+          ["dataset", () => Object.getOwnPropertyDescriptor(p.dataset, "k").value],
+        ]) {
+          try {
+            out[label] = read();
+          } catch (e) {
+            out[label] = e.name;
+          }
+        }
+      } finally {
+        for (const t of traps) {
+          delete Object.prototype[t];
+        }
+      }
+      out.constructors = names.filter(n => globalThis[n].prototype.constructor !== globalThis[n]);
+      return out;
+    });
+    assert.deepEqual(seen, { got: [], location: false, dataset: "v", constructors: [] });
+  }));
+
+// A worker's own script: it gives its realm's Object.prototype traps, then
+// touches the constructors the worker guard wraps there (workerguard.js).
+const WORKER_TRAPS = `const got = [];
+  const text = f => {
+    try {
+      return Function.prototype.toString.call(f).replace(/\\s+/g, " ");
+    } catch {
+      return typeof f;
+    }
+  };
+  const traps = ["get", "has", "getPrototypeOf", "isExtensible", "getOwnPropertyDescriptor"];
+  for (const t of traps) {
+    Object.defineProperty(Object.prototype, t, {
+      __proto__: null,
+      configurable: true,
+      writable: true,
+      value(target) {
+        got.push(t + ": " + text(target));
+        return Reflect[t](...arguments);
+      },
+    });
+  }
+  const names = ["Notification", "Worker", "BroadcastChannel"].filter(n => typeof self[n] === "function");
+  for (const n of names) {
+    const C = self[n];
+    void C.length;
+    void ("x" in C);
+    Object.getPrototypeOf(C);
+    Object.isExtensible(C);
+  }
+  for (const t of traps) {
+    delete Object.prototype[t];
+  }
+  onconnect = e => e.ports[0].postMessage({ got, names });`;
+
+test("a task's worker gets no native constructor from behind the worker guard's either: traps its own script gives its Object.prototype never run for the guard's", () =>
+  env.inSpace("worker traps", async page => {
+    await page.goto(`${env.base}/nav-target?worker-traps`);
+    const seen = await page.evaluate(
+      source =>
+        new Promise((resolve, reject) => {
+          const w = new SharedWorker(URL.createObjectURL(new Blob([source], { type: "text/javascript" })));
+          w.port.onmessage = e => resolve(e.data);
+          w.onerror = () => reject(new Error("the worker failed"));
+          setTimeout(() => reject(new Error("no answer from the worker")), 10000);
+        }),
+      WORKER_TRAPS
+    );
+    assert.deepEqual(seen, { got: [], names: ["Notification", "Worker", "BroadcastChannel"] });
+  }));
+
+test("the world's shared worker keeps the task's mark when the agent's code replaced String and gave the document a base that resolves nothing relative", () =>
+  env.inSpace("world worker url", async page => {
+    await page.goto(`${env.base}/nav-target?worker-url`);
+    const hash = await page.evaluate(
+      () =>
+        new Promise(resolve => {
+          const script = URL.createObjectURL(new Blob(["onconnect = e => e.ports[0].postMessage(self.location.hash)"], { type: "text/javascript" }));
+          const base = document.createElement("base");
+          base.href = "mailto:zo@example.com";
+          document.head.prepend(base);
+          const own = String;
+          globalThis.String = x => x;
+          try {
+            const worker = new SharedWorker({ toString: () => script });
+            worker.port.onmessage = e => resolve(e.data);
+            worker.onerror = () => resolve("an error event");
+            setTimeout(() => resolve("no answer"), 10000);
+          } finally {
+            globalThis.String = own;
+            base.remove();
+          }
+        })
+    );
+    assert.match(hash, /(^#|&)zenius-/);
+  }));
+
+// The page's own workers: one from its script, one from its button's click
+// handler. Each answers once.
+const PAGE_WORKERS = `window.__answers = 0;
+  const url = URL.createObjectURL(new Blob(["onmessage = e => postMessage(e.data)"], { type: "text/javascript" }));
+  const start = () => {
+    const w = new Worker(url);
+    w.onmessage = () => window.__answers++;
+    w.postMessage(1);
+  };
+  start();
+  document.getElementById("zo-start").onclick = start;`;
+
+test("a worker the agent's world starts counts as a write, from the page's native constructor too, which the hook doesn't see run; the page's own don't, from a handler the agent's click ran either", () =>
+  env.inSpace("world worker start", async page => {
+    await page.goto(`${env.base}/nav-target?worker-start`);
+    assert.equal(await page.evaluate("1"), 1);
+    const privileged = (code, arg) => env.call("dev.evalContent", { ...page.P, privileged: true, code, ...(arg === undefined ? {} : { arg }) });
+    const answers = () => privileged("return Cu.waiveXrays(actor.contentWindow).__answers ?? null;");
+    await privileged(
+      `const d = actor.document;
+       const button = d.createElement("button");
+       button.id = "zo-start";
+       d.body.append(button);
+       const script = d.createElement("script");
+       script.textContent = arg;
+       d.body.append(script);
+       return true;`,
+      PAGE_WORKERS
+    );
+    await until("the page's own worker", async () => (await answers()) === 1);
+    await page.evaluate("document.getElementById('zo-start').click(); 1");
+    await until("the worker of the page's click handler", async () => (await answers()) === 2);
+    assert.equal(await isWrittenNow(page.P), false, "the page's own workers counted as the agent's");
+    // The page's native Worker in the world, as the agent's code would hold
+    // one it reached past ours.
+    await privileged(
+      `const AW = ChromeUtils.importESModule("chrome://userscripts/content/zenius/content/agentworld.sys.mjs");
+       Cu.waiveXrays(AW.worldFor(actor.contentWindow).sandbox).nativeWorker = actor.contentWindow.Worker;
+       return true;`
+    );
+    const started = await page.evaluate(
+      `new nativeWorker(URL.createObjectURL(new Blob([""], { type: "text/javascript" })));
+       Function.prototype.toString.call(nativeWorker).includes("function Worker()")`
+    );
+    assert.equal(started, true, "the world held the page's native Worker");
+    await until("the parent hearing of the write", () => isWrittenNow(page.P));
   }));
 
 test("the loop counter changes nothing the agent's code sees: a function's text, its results, and where an error is", () =>

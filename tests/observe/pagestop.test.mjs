@@ -113,7 +113,9 @@ test("the stops go on past the call until the page answers: a page that only app
          await Reflect.apply(w.CredentialsContainer.prototype.get, {}, [request]);
        } catch {}
        const native = ["Notification", "RTCPeerConnection", "SharedWorker", "BroadcastChannel"].filter(n => Function.prototype.toString.call(w[n]).includes(n));
-       return { open, clipboard, passkeys: read[0] ?? "unread", quiet: w.Notification !== w.Notification.prototype.constructor, native };`
+       // quiet: the wrapper (native has none of the four) is its prototype's
+       // constructor too, as zen-ux's quiet one makes it.
+       return { open, clipboard, passkeys: read[0] ?? "unread", quiet: w.Notification === w.Notification.prototype.constructor, native };`
     );
     assert.deepEqual(last, { open: "SyntaxError", clipboard: "NotAllowedError", passkeys: "signal", quiet: true, native: [] });
   }));

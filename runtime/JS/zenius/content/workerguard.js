@@ -155,7 +155,10 @@ const SOURCE = `(() => {
   if (typeof self.Notification === "function") {
     const Native = Notification;
     ${FAKE_NOTIFICATION}
+    // No prototype: the worker's own script could give its Object.prototype
+    // the traps this handler lacks, and a trap gets the native Notification.
     const wrapped = new Proxy(Native, {
+      __proto__: null,
       construct(target, args, newTarget) {
         const nt = newTarget === wrapped ? target : newTarget;
         if (args.length < 1) {
@@ -198,6 +201,7 @@ const WORKER_MARK = `(() => {
   const locationOf = Object.getOwnPropertyDescriptor(WorkerGlobalScope.prototype, "location").get;
   const locationHref = Object.getOwnPropertyDescriptor(WorkerLocation.prototype, "href").get;
   const wrapped = new Proxy(Native, {
+    __proto__: null,
     construct(target, args, newTarget) {
       const nt = newTarget === wrapped ? target : newTarget;
       if (args.length < 1) {

@@ -5,8 +5,9 @@
 // and the parent is told. When even that can't go in, a frame is taken out of
 // its page and a popup is closed; a tab's own document keeps the native, and
 // that is logged and told. The preferences zenius.test.failPageGuard.<name>
-// make guards fail on purpose; the last test makes the page's own stack do
-// it, as a hostile page can.
+// make guards fail on purpose; one test makes the page's own stack do it, as
+// a hostile page can. The last shows that a page that reaches the guards'
+// sandbox can't plant traps there for their Proxies.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
@@ -368,5 +369,96 @@ test("frames a page makes at the edge of its stack get refusing constructors, ne
     }
     // Otherwise the page never reached the edge, and this test proves nothing.
     assert.ok(ranOut > 0, "no frame's guard ran out of the page's stack");
+  });
+});
+
+// The page's own code can reach the four's sandbox: an error their script
+// makes comes from there, with the sandbox's Object.prototype at the end of
+// its prototypes. A trap planted there would get a Proxy's target, the
+// native, if the handlers had a prototype.
+const SANDBOX_TRAPS = `(() => {
+  let error = null;
+  try {
+    new BroadcastChannel(Symbol("zo"));
+  } catch (e) {
+    error = e;
+  }
+  let realm = error;
+  while (realm && Object.getPrototypeOf(realm)) {
+    realm = Object.getPrototypeOf(realm);
+  }
+  const sandbox = !!realm && realm !== Object.prototype;
+  const got = [];
+  if (sandbox) {
+    Object.defineProperty(realm, "get", {
+      value(target) {
+        got.push(Function.prototype.toString.call(target).replace(/\\s+/g, " "));
+        return Reflect.get(...arguments);
+      },
+      configurable: true,
+      writable: true,
+    });
+    try {
+      for (const name of ["Notification", "RTCPeerConnection", "SharedWorker", "BroadcastChannel"]) {
+        void window[name].zo;
+      }
+    } finally {
+      delete realm.get;
+    }
+  }
+  return { error: error && error.name, sandbox, got };
+})()`;
+
+test("a page that reaches the four's sandbox gets no native from behind them: a trap it plants on the sandbox's Object.prototype runs for none of their Proxies", async () => {
+  await env.inSpace("zo failclosed traps", async page => {
+    await page.goto(url("/traps"));
+    assert.deepEqual(await asPage(page, SANDBOX_TRAPS), { error: "TypeError", sandbox: true, got: [] });
+  });
+});
+
+// From the sandbox's global, the page makes String give back what it's
+// given, and gives its document a base that nothing relative resolves
+// against. Then it starts a shared worker with an object whose text is an
+// absolute URL. The worker reports its own URL's fragment.
+const SANDBOX_STRING = `window.__zoMarked = (async () => {
+  let error = null;
+  try {
+    new BroadcastChannel(Symbol("zo"));
+  } catch (e) {
+    error = e;
+  }
+  const sandbox = error.constructor.constructor("return this")();
+  const script = URL.createObjectURL(new Blob(["onconnect = e => e.ports[0].postMessage(self.location.hash)"], { type: "text/javascript" }));
+  const base = document.createElement("base");
+  base.href = "mailto:zo@example.com";
+  document.head.prepend(base);
+  const own = sandbox.String;
+  sandbox.String = x => x;
+  try {
+    const worker = new SharedWorker({ toString: () => script });
+    const hash = await new Promise(resolve => {
+      worker.port.onmessage = e => resolve(e.data);
+      worker.onerror = () => resolve("an error event");
+      setTimeout(() => resolve("no answer"), 10000);
+    });
+    return { sandbox: sandbox !== window && own !== String, base: document.baseURI, marked: /(^#|&)zenius-/.test(hash) || hash };
+  } finally {
+    sandbox.String = own;
+    base.remove();
+  }
+})();`;
+
+test("a page that replaces String in the four's sandbox still gets its shared worker marked, with a base that resolves nothing relative", async () => {
+  await env.inSpace("zo failclosed string", async page => {
+    await page.goto(url("/string"));
+    const seen = await page.call("dev.evalContent", {
+      privileged: true,
+      arg: SANDBOX_STRING,
+      code: `const s = actor.document.createElement("script");
+        s.textContent = arg;
+        actor.document.body.append(s);
+        return JSON.parse(JSON.stringify(await Cu.waiveXrays(actor.contentWindow).__zoMarked));`,
+    });
+    assert.deepEqual(seen, { sandbox: true, base: "mailto:zo@example.com", marked: true });
   });
 });

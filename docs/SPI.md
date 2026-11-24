@@ -3108,10 +3108,21 @@ lives:
     the same refusals in the worker's realm through the Debugger API and
     reports each one through a breakpoint. Then it lets the worker run. A
     worker whose guard fails stays held.
+    - A dedicated worker the agent's world starts makes its page written
+      (`noteWorkerStart`). The listener hears of a worker while its
+      constructor runs, so the nearest content frame on the stack shows
+      whose code called it. The world's own Worker counts the write
+      itself, but the native hook never sees a DOM constructor that runs
+      through an Xray, so this also covers a native constructor the
+      world's code got past ours. A worker the page's own code starts is
+      the page's, even from a handler the agent's click ran.
   - Shared workers: in a task's page, the SharedWorker constructor adds
     `#zenius-agent` to the script URL, so Gecko starts a worker of the
     task's own, never one the user's tabs share. The marked URL is how the
-    listener knows the worker.
+    listener knows the worker. The constructor reads the URL once, with a
+    template literal: the page can reach its guards' sandbox and replace
+    its String, and an object that chrome's check can't read as a URL
+    would go on to the native unmarked.
   - BroadcastChannel: `guardBroadcastChannels`, in the same guards, makes
     the constructor a Proxy made in the page-principal sandbox, as for
     SharedWorker. It appends `\0zenius-<scope>` to the channel's name.
@@ -3192,7 +3203,15 @@ lives:
     (`ownStep`), so a page whose one turn runs past the world's limit for
     code outside a call (`IDLE_LIMIT_MS`, 1 s) can't cut a new frame's
     guards short. The adopter's descriptors have no prototype, so the
-    agent's code can't break them by changing the world's built-ins. The
+    agent's code can't break them by changing the world's built-ins.
+    Neither do the Proxy handlers the world makes, nor the page guards'
+    (their sources run in the page's sandbox and in the world), nor the
+    worker guard's in a worker's realm. A handler with a prototype inherits
+    each trap it lacks from the realm's Object.prototype, and the engine
+    hands a trap the native behind the guard. The agent's code can put a
+    trap there in its world, a worker's own script in its realm, and a page
+    in its guards' sandbox, which an error a guard's script makes leads to.
+    The
     actor hands a new document to the worlds last, after every page-side
     guard (`adoptLast` in `actors/ZeniusChild.sys.mjs`), so a step of
     theirs cut short could cost only the worlds' view of it. The test-only

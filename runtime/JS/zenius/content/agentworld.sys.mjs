@@ -91,9 +91,12 @@ const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL,
     ours[ours.length] = fn;
     return fn;
   };
-  // Descriptors here have no prototype: one would inherit a get or a value
-  // that the agent's code gave the world's Object.prototype (the adopter
-  // below must hold however the agent's code changed the world's built-ins).
+  // Descriptors and Proxy handlers here have no prototype. A descriptor
+  // would inherit a get or a value that the agent's code gave the world's
+  // Object.prototype (the adopter below must hold however the agent's code
+  // changed the world's built-ins). A handler would inherit each trap it
+  // lacks from there, and the engine hands a trap the handler's target: the
+  // page's native Worker behind ours, say.
   const fixed = (value, enumerable) => ({ __proto__: null, value, writable: false, enumerable, configurable: false });
 
   // Behind the window's own properties, in the world's view of the window:
@@ -109,12 +112,13 @@ const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL,
       throw new ReferenceErrorCtor("zenius: " + k + " is the page's own JavaScript, which the agent's code doesn't see: it runs in an isolated world that shares only the page's DOM");
     };
   setPrototypeOf(xrayWindow, new ProxyCtor(proto, {
+    __proto__: null,
     getOwnPropertyDescriptor(t, k) {
       const own = getOwnPropertyDescriptor(t, k);
       if (own || !hidden(k)) {
-        return own;
+        return own && setPrototypeOf(own, null);
       }
-      return { get: thrower(k), set: undefined, enumerable: false, configurable: true };
+      return { __proto__: null, get: thrower(k), set: undefined, enumerable: false, configurable: true };
     },
     has(t, k) {
       return reflectHas(t, k) || hidden(k);
@@ -167,6 +171,7 @@ const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL,
   const reflectDefineProperty = Reflect.defineProperty;
   const reflectDeleteProperty = Reflect.deleteProperty;
   const handler = {
+    __proto__: null,
     get: own(function get(t, k) {
       if (k === "assign") {
         return assign;
@@ -192,6 +197,7 @@ const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL,
     getOwnPropertyDescriptor(t, k) {
       const d = getOwnPropertyDescriptor(locationOf(), k);
       if (d) {
+        setPrototypeOf(d, null);
         d.configurable = true;
       }
       return d;
@@ -218,6 +224,7 @@ const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL,
       return Ctor;
     }
     const tracked = new ProxyCtor(Ctor, {
+      __proto__: null,
       construct(t, args, nt) {
         const w = reflectConstruct(t, args, nt === tracked ? t : nt);
         defineProperty(workers, workers.length, { __proto__: null, value: [kind, w], writable: true, enumerable: true, configurable: true });
@@ -228,6 +235,13 @@ const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL,
         return w;
       },
     });
+    // As the page guards' constructors do: the prototype's constructor is
+    // ours too, not the page's native one, which would start a worker past
+    // the record.
+    const prototype = reflectGet(Ctor, "prototype");
+    if (prototype) {
+      defineProperty(prototype, "constructor", { __proto__: null, value: tracked, writable: true, enumerable: false, configurable: true });
+    }
     return tracked;
   };
   const takeWorkers = function takeWorkers() {
@@ -247,6 +261,7 @@ const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL,
     let p = apply(weakGet, datasets, [real]);
     if (!p) {
       p = new ProxyCtor({}, {
+        __proto__: null,
         get: (t, k) => reflectGet(real, k),
         set: (t, k, v) => {
           wrote();
@@ -265,6 +280,7 @@ const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL,
         getOwnPropertyDescriptor(t, k) {
           const d = getOwnPropertyDescriptor(real, k);
           if (d) {
+            setPrototypeOf(d, null);
             d.configurable = true;
           }
           return d;
@@ -799,6 +815,28 @@ export function noteWrittenWindow(win) {
   } catch (e) {
     console.error("[zenius] flagging a document the agent pasted into", e);
   }
+}
+
+/**
+ * A dedicated worker starts for `win`'s document. The worker guard calls this
+ * while the worker's constructor still runs, so the stack shows whose code
+ * called it. One the agent's world started counts as a write, as the world's
+ * own Worker counts it (SETUP's track): the page is reloaded before the user
+ * types there and at the task's end, and the worker goes with its document.
+ * That covers a native constructor the world's code reached past ours too,
+ * since the hook never sees a DOM constructor that runs through an Xray. A
+ * worker the page's own code starts is the page's, from a handler the
+ * agent's click ran too.
+ *
+ * @param {Window} win  the worker's owner window
+ * @returns {boolean} whether the world started it
+ */
+export function noteWorkerStart(win) {
+  if (!worlds.size || nearestScriptedFrame() !== "world") {
+    return false;
+  }
+  noteWrittenWindow(win);
+  return true;
 }
 
 /**
@@ -1819,10 +1857,12 @@ export function mirrorConstructor(win, name, source, helpers) {
 }
 
 /**
- * A constructor whose page guard failed and refuses in the page instead
- * (content/refusals.sys.mjs, failClosed), with `refuse` as its construct
- * trap. The worlds get one that refuses the same way, made in chrome from
- * each world's own Proxy, with no script (refusingIn).
+ * A constructor the worlds refuse, with `refuse` as its construct trap: one
+ * whose page guard failed and refuses in the page instead
+ * (content/refusals.sys.mjs, failClosed), or Notification, which the agent's
+ * own code never gets to make. The worlds get one that refuses, made in
+ * chrome from each world's own Proxy, with no script (refusingIn), over the
+ * one they'd have had.
  */
 export function mirrorRefusal(win, name, refuse) {
   mirrorsOf(win)?.ctors.push({ name, refuse });
