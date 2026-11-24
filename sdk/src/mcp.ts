@@ -13,7 +13,7 @@
 
 import { HAND_OFF_REASONS } from "./api-schema.ts";
 import { ZeniusError } from "./errors.ts";
-import { cleanLine, composeFacts, MAX_LINE, outcomeText, showReport, type Shown } from "./feedback.ts";
+import { cleanLine, composeFacts, declinedText, MAX_LINE, outcomeText, showReport, type Shown } from "./feedback.ts";
 import { taskSpace, startTaskSpace, clientLabel } from "./globals.ts";
 import { instanceName, socketPath } from "./instance.ts";
 import type { Page, PageActionReceipt } from "./page.ts";
@@ -884,11 +884,15 @@ const AFTER_REPORT = "Then finish the task with zenius's other tools if you can;
 function reportText(shown: Shown): string {
   switch (shown.kind) {
     case "answered":
+      // A deferral's next step is the revision with the user, not the task.
+      if (shown.outcome.outcome === "deferred") return outcomeText(shown.outcome, "call report_problem again with the revised line");
       return `${outcomeText(shown.outcome)}\n${AFTER_REPORT}`;
     case "busy":
       return `Another problem report already waits for the user in Zen's agent sidebar, so this one wasn't shown. Don't send another: tell the user it's there.\n${AFTER_REPORT}`;
-    case "declined":
-      return `The user discarded a problem report less than 10 minutes ago, so this one wasn't shown. Don't send another before then.\n${AFTER_REPORT}`;
+    case "declined": {
+      const why = declinedText(shown.until);
+      return `${why.charAt(0).toUpperCase()}${why.slice(1, -1)}, so this one wasn't shown. Don't send another before then.\n${AFTER_REPORT}`;
+    }
     case "no_card":
       if (shown.error.code === "ZEN_BROWSER_UNAVAILABLE") throw shown.error;
       return `${shown.report ? "Zen has no agent sidebar to show the report in" : "This Zen's zenius is older than problem reports"}, so nothing was shown, saved or sent.\n${AFTER_REPORT}`;

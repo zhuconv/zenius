@@ -4008,23 +4008,36 @@ discards in the agent sidebar's card (PROTOCOL, "Problem reports").
   template, `.github/ISSUE_TEMPLATE/zenius-problem.md`.
 - `modules/feedback.sys.mjs` keeps the reports and runs the card's actions.
   It loads with the first `feedback.compose`. Until then
-  `ZeniusService.feedback` is a stand-in whose `pending()` is null, so the
-  sidebar's reads load nothing.
+  `ZeniusService.feedback` is a stand-in whose `pending()` and
+  `cooldown()` are null, so the sidebar's reads load nothing.
 - `methods/feedback.sys.mjs` serves `feedback.compose`, `feedback.propose`
   and `dev.answerFeedback`.
 
 **The card's interface.** The agent sidebar observes the topic
-`zenius-feedback`. It's told `"asked"` when a report starts waiting for the
-user, and `"settled"` when the user answered. `feedback.propose` fails at
-once with `no_sidebar` when nothing observes the topic. The card reads
-`ZeniusService.feedback.pending()`: null, or `{id, title, body, canPost,
-repo, source?}`. `canPost` says whether a `gh` was found (none runs for
-it), and `repo` is where the report would go. `source` is the writer's,
-from `feedback.compose`, cleaned as a task's (`cleanSource` in
-`modules/spaces.sys.mjs`); the card names the Work chat whose uid is
-`source.sidebar`. Like a task's, it's the writer's own claim. Each button
-calls an action in process, with the report's `id` and the title and body
-as the user left them:
+`zenius-feedback`, and on each notice reads `pending()` and `cooldown()`
+again. The notice's data only says why:
+- `"asked"`: a report waits for the user, proposed or brought back by
+  Undo;
+- `"settled"`: the user answered the report the card showed;
+- `"declined"`: a proposal was refused for the cooldown (below). The first
+  refusal in a cooldown notifies at once, and later ones at most once a
+  second;
+- `"reopened"`: the cooldown ran out.
+
+`feedback.propose` fails at once with `no_sidebar` when nothing observes
+the topic. The card reads `ZeniusService.feedback.pending()`: null, or
+`{id, title, body, canPost, repo, cooldownMs, source?}`.
+- `canPost` says whether a `gh` was found (none runs for it), and `repo`
+  is where the report would go.
+- `cooldownMs` is how long a Discard holds new reports off (`DECLINED_MS`,
+  10 minutes), for the card to say so at Discard.
+- `source` is the writer's, from `feedback.compose`, cleaned as a task's
+  (`cleanSource` in `modules/spaces.sys.mjs`); the card names the Work
+  chat whose uid is `source.sidebar`. Like a task's, it's the writer's own
+  claim.
+
+Each button calls an action in process, with the report's `id`, and the
+title and body as the user left them:
 
 | Action | Result |
 |---|---|
@@ -4032,7 +4045,9 @@ as the user left them:
 | `postNew(id, {title, body})` | `{posted: {number, url}}` |
 | `comment(id, number, {body})` | `{commented: {number, url}}`, on an issue this report's own search found, and no other |
 | `copyAndOpen(id, {title, body}, win)` | `{}`: the body goes to the clipboard, and a new tab in `win` opens GitHub's form with the template and the title. The body never goes in the link |
-| `discard(id)` | `{}`, and for 10 minutes `feedback.propose` fails with `ZEN_FEEDBACK_DECLINED` |
+| `defer(id)` | `{}`: the user goes on working on the report with the agent before anything goes out. The report settles as `deferred`, and no cooldown starts, so a revised report can show at once |
+| `discard(id)` | `{}`, and the cooldown starts: for `cooldownMs`, `feedback.propose` of a report the user hasn't answered fails with `ZEN_FEEDBACK_DECLINED` |
+| `undo(id)` | `{}`: the report the user just discarded shows again, under the same id and text, and the cooldown ends. Only for that report, and only while its cooldown runs; otherwise `{error}` |
 
 - Any action can return `{error}` instead, with `signedOut: true` when gh
   needs a sign-in, or `{busy: true}` while another action on the report
@@ -4044,6 +4059,34 @@ as the user left them:
   the outcome, and an issue's number and address. Never the edited text or
   gh's messages: those show in the card only, and the log keeps only each
   gh command's name, exit code and time.
+- No zenius method reaches the actions, `defer` and `undo` included: only
+  the card's own trusted clicks do, and `dev.answerFeedback` on a dev
+  profile. So neither a deferral nor the end of a cooldown lets an agent
+  send a report or bring a card back.
+
+**Deferred and discarded reports.** An answered report's outcome is final
+for its id: proposing it again returns that outcome at once.
+- A deferred report never shows again. A revision is a new
+  `feedback.compose`, so a new id and a new card, whose buttons the card
+  arms only after its 400 ms (`docs/agent-sidebar.md`).
+- The agent hears `discarded` at the click. An Undo later reaches no one
+  who waited then: like a `pending` answer, that call has returned. Undo
+  takes the outcome back, so proposing the id again waits while the card
+  shows it, and then returns the user's next answer.
+
+**The cooldown.** `cooldown()` is null, or `{until, discarded, refused}`:
+- `until`: when proposals are taken again, in ms since the epoch;
+- `discarded`: the id of the report the Discard settled, which `undo`
+  takes while the cooldown runs;
+- `refused`: null, or `{at, source?}` for the latest proposal the cooldown
+  refused: when, and who wrote it, as `pending()`'s `source`. The sidebar
+  shows a line saying when reports open again.
+
+The cooldown ends at `until` (`"reopened"`), or at the user's Undo
+(`"asked"`, as the report shows again). Undo is offered for the whole
+cooldown, so a mistaken Discard can be taken back, and the user can end
+the cooldown early. The discarded report is kept for Undo while the
+cooldown runs, however many reports are composed meanwhile.
 
 **gh.** The actions run `gh` from Zen's parent process through Subprocess,
 as the user, with their own sign-in:

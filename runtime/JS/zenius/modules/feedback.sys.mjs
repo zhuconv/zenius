@@ -4,16 +4,21 @@
 // shows it in every open agent sidebar (zen-sidebar's card) and waits for the
 // user. The card calls this module's actions in process, each on the user's
 // own click: send (search for an open issue with the same title, then post),
-// postNew, comment (on an issue that search found), copyAndOpen and discard.
-// No zenius method reaches them except dev.answerFeedback, which only a dev
-// profile has. gh runs from here, with fixed arguments, as the user.
+// postNew, comment (on an issue that search found), copyAndOpen, defer (the
+// user goes on with the report with the agent), discard, and undo (of that
+// Discard). No zenius method reaches them except dev.answerFeedback, which
+// only a dev profile has. gh runs from here, with fixed arguments, as the
+// user.
 //
 // What holds, for the agent and for review:
 // - a report's text never changes under its id, and the card's actions post
 //   exactly the title and body the card passes, to REPO, which pending()
 //   shows the card;
-// - one report waits at a time, and after a Discard the next proposal waits
-//   DECLINED_MS;
+// - one report waits at a time, and after a Discard no proposal shows for
+//   DECLINED_MS, the cooldown, unless the user undoes the Discard;
+// - an answered report never shows again by a proposal: a deferred one is
+//   revised as a new report, under a new id. Only the user's Undo brings a
+//   report back;
 // - the agent gets the outcome, an issue's number and its address, never the
 //   edited text or gh's messages.
 
@@ -35,8 +40,10 @@ import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 export const TOPIC = "zenius-feedback";
 /** How long propose waits for the user at most, as a claim's prompt does. */
 export const WAIT_MAX_MS = 10 * 60 * 1000;
-/** After a Discard, how long the next proposal is refused. */
+/** After a Discard, how long proposals are refused: the cooldown. */
 export const DECLINED_MS = 10 * 60 * 1000;
+/** After a cooldown's first refused proposal, how often another one notifies the sidebar at most. */
+const REFUSED_NOTICE_MS = 1000;
 /** How long an unanswered report's text is kept for a proposal. */
 const KEEP_MS = 60 * 60 * 1000;
 const MAX_REPORTS = 20;
@@ -49,6 +56,8 @@ const GH_PLACES = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"];
 // address, so no test reaches GitHub. Read nowhere else.
 const PREF_GH = "zenius.feedback.gh";
 const PREF_ISSUES_URL = "zenius.feedback.issuesUrl";
+// And a shorter cooldown, so a test sees one end.
+const PREF_DECLINED_MS = "zenius.feedback.declinedMs";
 // The repository with its host: gh runs with Zen's environment, where a
 // GH_HOST would otherwise point it at another server.
 const GH_REPO = `github.com/${REPO}`;
@@ -86,6 +95,15 @@ function executable(path) {
     return false;
   }
 }
+
+/** The cooldown's length: DECLINED_MS, or on a dev profile what its pref says, never longer. */
+function declinedMs() {
+  const named = devMode() ? Services.prefs.getIntPref(PREF_DECLINED_MS, 0) : 0;
+  return named > 0 ? Math.min(named, DECLINED_MS) : DECLINED_MS;
+}
+
+// A time of day for the agent's message, as the user's clock shows it.
+const CLOCK = new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
 function issuesUrl() {
   const named = devMode() ? Services.prefs.getStringPref(PREF_ISSUES_URL, "") : "";
@@ -166,6 +184,7 @@ async function runGh(gh, args, input = "") {
   }
 }
 
+/** "asked", "settled", "declined" or "reopened": the sidebar reads pending() and cooldown() again on each. */
 const notify = verdict => Services.obs.notifyObservers(null, TOPIC, verdict);
 
 class Feedback {
@@ -173,7 +192,9 @@ class Feedback {
   #reports = new Map();
   /** The report the card shows: proposed, and not answered yet. */
   #shown = null;
-  #declinedUntil = 0;
+  /** @type {{at: number, until: number, report: object, refused: {at: number, source?: object}|null, timer: number}|null} after a Discard */
+  #cooldown = null;
+  #refusedNoticeAt = 0;
 
   /**
    * Keep a report's text, and who wrote it, under a new id. Both are fixed
@@ -191,8 +212,10 @@ class Feedback {
 
   #prune() {
     const old = Date.now() - KEEP_MS;
+    // The report a running cooldown's Discard settled stays, for Undo.
+    const kept = this.#cooldown?.report;
     for (const [id, report] of this.#reports) {
-      if (report !== this.#shown && (report.at < old || this.#reports.size > MAX_REPORTS)) {
+      if (report !== this.#shown && report !== kept && (report.at < old || this.#reports.size > MAX_REPORTS)) {
         this.#reports.delete(id);
       }
     }
@@ -202,12 +225,14 @@ class Feedback {
    * Show the report in the sidebar's card and wait for the user, at most
    * `waitMs`. The card stays when the wait ends or the caller goes, until
    * the user answers; proposing the same id again waits again, and once
-   * the user answered it returns that outcome at once.
+   * the user answered it returns that outcome at once: a proposal never
+   * shows an answered report again. A deferred report is revised as a new
+   * one, and only the user's Undo brings a discarded one back.
    *
    * @param {string} id  from compose
    * @param {number} waitMs
    * @param {object|null} conn  the caller's connection: its closing ends the wait, not the card
-   * @returns {Promise<{outcome: "posted"|"commented"|"copied"|"discarded"|"pending", number?: number, url?: string}>}
+   * @returns {Promise<{outcome: "posted"|"commented"|"copied"|"deferred"|"discarded"|"pending", number?: number, url?: string}>}
    */
   propose(id, waitMs, conn) {
     const report = this.#reports.get(id);
@@ -221,12 +246,15 @@ class Feedback {
       throw new ZenError("ZEN_FEEDBACK_PENDING", "another problem report waits for the user's answer in the sidebar: one report at a time");
     }
     if (!this.#shown) {
-      const left = this.#declinedUntil - Date.now();
-      if (left > 0) {
+      const cooldown = this.#runningCooldown();
+      if (cooldown) {
+        this.#refuse(cooldown, report);
+        const left = Math.max(1, cooldown.until - Date.now());
         throw new ZenError(
           "ZEN_FEEDBACK_DECLINED",
-          `the user discarded a problem report less than ${DECLINED_MS / 60000} minutes ago: don't propose another before then`,
-          { retryAfterMs: Math.ceil(left) }
+          `the user discarded a problem report at ${CLOCK.format(cooldown.at)}, and the sidebar shows no new one until ` +
+            `${CLOCK.format(cooldown.until)} (in ${Math.ceil(left / 60000)} min): don't propose another before then`,
+          { retryAfterMs: Math.ceil(left), until: cooldown.until }
         );
       }
       if (!Services.obs.enumerateObservers(TOPIC).hasMoreElements()) {
@@ -264,7 +292,9 @@ class Feedback {
    * whose sidebar field the card matches to its own chats. Like a task's,
    * the source is the writer's own claim.
    *
-   * @returns {{id: string, title: string, body: string, canPost: boolean, repo: string, source?: object} | null}
+   * The card says at Discard how long it holds new reports off: cooldownMs.
+   *
+   * @returns {{id: string, title: string, body: string, canPost: boolean, repo: string, cooldownMs: number, source?: object} | null}
    */
   pending() {
     const report = this.#shown;
@@ -277,8 +307,61 @@ class Feedback {
       body: report.body,
       canPost: findGh() !== null,
       repo: REPO,
+      cooldownMs: declinedMs(),
       ...(report.source ? { source: report.source } : {}),
     };
+  }
+
+  /**
+   * The cooldown after a Discard, or null: until when proposals are
+   * refused, the discarded report's id (Undo's), and the latest proposal
+   * refused meanwhile, with who wrote it when the writer said, as
+   * pending()'s source.
+   *
+   * @returns {{until: number, discarded: string, refused: {at: number, source?: object}|null} | null}
+   */
+  cooldown() {
+    const cooldown = this.#runningCooldown();
+    if (!cooldown) {
+      return null;
+    }
+    return { until: cooldown.until, discarded: cooldown.report.id, refused: cooldown.refused ? { ...cooldown.refused } : null };
+  }
+
+  /**
+   * The cooldown while it runs. Once its time is up it counts as over, even
+   * before its timer runs: only the timer ends it and says so, never a read.
+   */
+  #runningCooldown() {
+    const cooldown = this.#cooldown;
+    return cooldown && cooldown.until > Date.now() ? cooldown : null;
+  }
+
+  #endCooldown(verdict) {
+    const cooldown = this.#cooldown;
+    if (!cooldown) {
+      return;
+    }
+    clearTimeout(cooldown.timer);
+    this.#cooldown = null;
+    if (verdict) {
+      notify(verdict);
+    }
+  }
+
+  /**
+   * Note a proposal the cooldown refused, for the sidebar's line. Only the
+   * first in a cooldown notifies at once: a caller that keeps proposing
+   * moves the sidebar at most once a second.
+   */
+  #refuse(cooldown, report) {
+    const first = !cooldown.refused;
+    const now = Date.now();
+    cooldown.refused = { at: now, ...(report.source ? { source: report.source } : {}) };
+    if (first || now - this.#refusedNoticeAt >= REFUSED_NOTICE_MS) {
+      this.#refusedNoticeAt = now;
+      notify("declined");
+    }
   }
 
   /**
@@ -395,13 +478,54 @@ class Feedback {
     });
   }
 
-  /** The user discarded the report: the next proposal waits DECLINED_MS. */
+  /**
+   * The user goes on with the report with the agent before anything goes
+   * out: it settles as deferred, and no cooldown starts, so the revision,
+   * a new report, can show at once.
+   */
+  defer(id) {
+    return this.#act(id, async report => {
+      this.#settle(report, { outcome: "deferred" });
+      return {};
+    });
+  }
+
+  /** The user discarded the report: the cooldown starts, and no proposal shows until it ends. */
   discard(id) {
     return this.#act(id, async report => {
-      this.#declinedUntil = Date.now() + DECLINED_MS;
+      this.#endCooldown(null);
+      const at = Date.now();
+      const until = at + declinedMs();
+      const cooldown = { at, until, report, refused: null, timer: 0 };
+      cooldown.timer = setTimeout(() => {
+        if (this.#cooldown === cooldown) {
+          this.#endCooldown("reopened");
+        }
+      }, until - at);
+      this.#cooldown = cooldown;
       this.#settle(report, { outcome: "discarded" });
       return {};
     });
+  }
+
+  /**
+   * The user takes their Discard back: the report shows again under its id
+   * and text, and the cooldown ends. Only the report the cooldown's Discard
+   * settled, while it runs. Its outcome goes, so a proposal of its id waits
+   * again; whoever waited at the Discard heard "discarded" then.
+   */
+  async undo(id) {
+    const cooldown = this.#runningCooldown();
+    const report = cooldown?.report;
+    if (!report || report.id !== id || this.#shown) {
+      return { error: "this report's Discard can't be undone any more" };
+    }
+    this.#endCooldown(null);
+    report.outcome = null;
+    report.at = Date.now();
+    this.#shown = report;
+    notify("asked");
+    return {};
   }
 
   /** One action at a time, on the report the card shows. */

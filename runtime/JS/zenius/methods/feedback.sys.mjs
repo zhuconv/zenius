@@ -1,7 +1,7 @@
 // feedback.* methods (zen-core): a problem report about zenius itself, which
-// the user reads in the sidebar's card and sends, copies or discards
-// (modules/feedback.sys.mjs). The report holds zenius's own data and the
-// agent's one line, nothing from pages.
+// the user reads in the sidebar's card and sends, copies, keeps working on
+// with the agent, or discards (modules/feedback.sys.mjs). The report holds
+// zenius's own data and the agent's one line, nothing from pages.
 
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
 import { feedback, WAIT_MAX_MS } from "chrome://userscripts/content/zenius/modules/feedback.sys.mjs";
@@ -22,7 +22,7 @@ export const i5 = {
   "dev.answerFeedback": "dev",
 };
 
-const ACTIONS = ["send", "postNew", "comment", "copyAndOpen", "discard"];
+const ACTIONS = ["send", "postNew", "comment", "copyAndOpen", "defer", "discard", "undo"];
 
 function home() {
   try {
@@ -90,10 +90,15 @@ export const methods = {
 
   // Tests only: the user's answer on the card, as its buttons give it. It
   // waits for a report to show, so a test can send it beside the proposal.
+  // Undo acts on the discarded report, `id` or the cooldown's.
   "dev.answerFeedback": async (ctx, params) => {
-    const { action, title, body, number, timeoutMs = 10000 } = params ?? {};
+    const { action, title, body, number, id, timeoutMs = 10000 } = params ?? {};
     if (!ACTIONS.includes(action)) {
       throw new ZenError("ZEN_INVALID_ARGUMENT", `dev.answerFeedback: action must be one of ${ACTIONS.join(", ")}`);
+    }
+    if (action === "undo") {
+      const discarded = id ?? feedback.cooldown()?.discarded;
+      return discarded ? feedback.undo(discarded) : { answered: false };
     }
     const until = Date.now() + timeoutMs;
     let shown = feedback.pending();
@@ -108,8 +113,8 @@ export const methods = {
     if (action === "comment") {
       return feedback.comment(shown.id, number, { body: fields.body });
     }
-    if (action === "discard") {
-      return feedback.discard(shown.id);
+    if (action === "discard" || action === "defer") {
+      return feedback[action](shown.id);
     }
     return feedback[action](shown.id, fields, null);
   },

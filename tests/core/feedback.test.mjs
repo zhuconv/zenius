@@ -2,8 +2,9 @@
 // (modules/feedback.sys.mjs), through dev.answerFeedback, which answers as
 // the card's buttons do. gh is a fake that the dev pref names: it notes what
 // it got and answers as each test sets, so nothing reaches GitHub. A
-// stand-in observer of the card's topic plays the sidebar. The Discard test
-// runs last: after it, proposals wait ten minutes.
+// stand-in observer of the card's topic plays the sidebar. A test that
+// discards undoes it, or shortens the cooldown with the dev pref and lets it
+// end, so the files after this one find proposals open.
 import assert from "node:assert/strict";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -110,6 +111,15 @@ async function shown() {
 const compose = (fields = FIELDS) => h.call("feedback.compose", fields);
 const propose = (id, waitMs = 30000) => h.call("feedback.propose", { id, waitMs });
 const card = params => h.call("dev.answerFeedback", params);
+const cooldown = () => h.chrome(`return ctx.service.feedback.cooldown();`);
+/** A dev profile's shorter cooldown, or the real one with null. */
+const cooldownMs = ms =>
+  h.chrome(
+    `if (arg === null) Services.prefs.clearUserPref("zenius.feedback.declinedMs");
+     else Services.prefs.setIntPref("zenius.feedback.declinedMs", arg);
+     return true;`,
+    ms
+  );
 
 test("compose keeps the checked fields only: the line cleaned, zenius's own data, and the last calls", async () => {
   await h.call("browser.version", {});
@@ -151,7 +161,7 @@ test("Send posts exactly the card's title and body, to the repository the card s
   answer({ "issue list": { stdout: "[]" }, "issue create": { stdout: `${ISSUE(41)}\n` } });
   const { id, title, body } = await compose();
   const proposal = propose(id);
-  assert.deepEqual(await shown(), { id, title, body, canPost: true, repo: REPO });
+  assert.deepEqual(await shown(), { id, title, body, canPost: true, repo: REPO, cooldownMs: 10 * 60 * 1000 });
   const edited = { title: `-${title} (edited)`, body: `${body}\nThe user added this line.` };
   assert.deepEqual(await card({ action: "send", ...edited }), { posted: { number: 41, url: ISSUE(41) } });
   assert.deepEqual(await proposal, { outcome: "posted", number: 41, url: ISSUE(41) });
@@ -180,7 +190,7 @@ test("a report keeps who wrote it beside it, cleaned as a task's source, for the
     assert.ok(!title.includes(text) && !body.includes(text), `the report's text has ${text}`);
   }
   const proposal = propose(id);
-  assert.deepEqual(await shown(), { id, title, body, canPost: true, repo: REPO, source });
+  assert.deepEqual(await shown(), { id, title, body, canPost: true, repo: REPO, cooldownMs: 10 * 60 * 1000, source });
   assert.deepEqual(await card({ action: "send" }), { posted: { number: 42, url: ISSUE(42) } });
   assert.deepEqual(await proposal, { outcome: "posted", number: 42, url: ISSUE(42) });
 
@@ -237,7 +247,7 @@ test("gh signed out: the card says so and keeps the report as composed; Copy put
   const failed = await card({ action: "send", title: "an edited title", body: "an edited body" });
   assert.equal(failed.signedOut, true);
   assert.match(failed.error, /isn't signed in/);
-  assert.deepEqual(await pending(), { id, title, body, canPost: true, repo: REPO }, "a report's text never changes under its id");
+  assert.deepEqual(await pending(), { id, title, body, canPost: true, repo: REPO, cooldownMs: 10 * 60 * 1000 }, "a report's text never changes under its id");
 
   await h.chrome(`ctx.service.testSelectedTab = Services.wm.getMostRecentWindow("navigator:browser").gBrowser.selectedTab; return true;`);
   const copiedTitle = "zenius 0.1.4: a title & more";
@@ -321,8 +331,124 @@ test("a dev profile runs only the gh its pref names, never one on PATH", async (
   }
 });
 
-// Last: after a Discard, proposals wait ten minutes.
-test("Discard: nothing runs, and the next proposal is refused for ten minutes as the user declined", async () => {
+test("Keep working on it: the report settles as deferred and never shows again, and with no cooldown its revision shows at once, as a new report", async () => {
+  answer({});
+  await sidebar.on();
+  const { id } = await compose();
+  const proposal = propose(id);
+  await shown();
+  assert.deepEqual(await card({ action: "defer" }), {});
+  assert.deepEqual(await proposal, { outcome: "deferred" });
+  assert.equal(await pending(), null);
+  assert.equal(await cooldown(), null);
+  // Its id again: the outcome at once, and no card.
+  assert.deepEqual(await propose(id, 1000), { outcome: "deferred" });
+  assert.equal(await pending(), null);
+  assert.deepEqual(await sidebar.seen(), ["asked", "settled"]);
+  // The revision is a new report, under a new id, and shows at once.
+  const revised = await compose({ ...FIELDS, line: "page.click failed twice in a shadow root" });
+  assert.notEqual(revised.id, id);
+  const second = propose(revised.id);
+  assert.equal((await shown()).id, revised.id);
+  assert.deepEqual(await card({ action: "defer" }), {});
+  assert.deepEqual(await second, { outcome: "deferred" });
+  assert.deepEqual(ghLog(), []);
+  // No zenius method takes a card action: only dev.answerFeedback, a dev profile's, plays the card.
+  const { methods } = await h.call("browser.methods");
+  assert.deepEqual(methods.filter(m => /feedback/i.test(m)).sort(), ["dev.answerFeedback", "feedback.compose", "feedback.propose"]);
+});
+
+test("Discard starts the cooldown: a proposal meanwhile is refused with the time it ends, the sidebar hears it at once and then at most once a second, and the cooldown ends at its time", async () => {
+  answer({});
+  await cooldownMs(4000);
+  await sidebar.on();
+  try {
+    const { id } = await compose();
+    const chat = "0b1c2d3e-0000-4000-8000-00000000000c";
+    const next = await compose({ ...FIELDS, source: { agent: "Codex", sidebar: chat } });
+    const proposal = propose(id);
+    assert.equal((await shown()).cooldownMs, 4000);
+    const before = Date.now();
+    assert.deepEqual(await card({ action: "discard" }), {});
+    assert.deepEqual(await proposal, { outcome: "discarded" });
+    const running = await cooldown();
+    assert.equal(running.discarded, id);
+    assert.equal(running.refused, null);
+    assert.ok(running.until >= before + 3000 && running.until <= Date.now() + 4000, JSON.stringify(running));
+    // An answered report is no proposal to refuse: its outcome comes back.
+    assert.deepEqual(await propose(id, 1000), { outcome: "discarded" });
+    const refused = await propose(next.id, 1000).catch(error => error);
+    assert.equal(refused.code, "ZEN_FEEDBACK_DECLINED");
+    assert.equal(refused.data?.until, running.until);
+    assert.ok(refused.data?.retryAfterMs > 0 && refused.data.retryAfterMs <= 4000, JSON.stringify(refused.data));
+    assert.match(refused.message, /ZEN_FEEDBACK_DECLINED: the user discarded a problem report at \d\d:\d\d, and the sidebar shows no new one until \d\d:\d\d \(in 1 min\): don't propose another before then$/);
+    // Proposing again at once moves the sidebar no more.
+    await assert.rejects(propose(next.id, 1000), { code: "ZEN_FEEDBACK_DECLINED" });
+    const refusedNow = (await cooldown()).refused;
+    assert.deepEqual(refusedNow.source, { agent: "Codex", sidebar: chat });
+    assert.equal(typeof refusedNow.at, "number");
+    assert.deepEqual(await sidebar.seen(), ["asked", "settled", "declined"]);
+    // The end: the sidebar hears it, and a proposal shows again.
+    for (let i = 0; i < 100 && (await cooldown()); i++) {
+      await sleep(100);
+    }
+    assert.equal(await cooldown(), null);
+    for (let i = 0; i < 20 && !(await sidebar.seen()).includes("reopened"); i++) {
+      await sleep(100);
+    }
+    assert.deepEqual(await sidebar.seen(), ["asked", "settled", "declined", "reopened"]);
+    const third = propose(next.id);
+    assert.equal((await shown()).id, next.id);
+    assert.deepEqual(await card({ action: "defer" }), {});
+    assert.equal((await third).outcome, "deferred");
+  } finally {
+    await cooldownMs(null);
+  }
+});
+
+test("Undo: only the report just discarded, while its cooldown runs; it shows again under its id and text, the cooldown ends, and a proposal of its id waits for the user's next answer", async () => {
+  answer({});
+  await sidebar.on();
+  try {
+    const { id, title, body } = await compose();
+    const other = await compose();
+    const proposal = propose(id);
+    await shown();
+    assert.deepEqual(await card({ action: "discard" }), {});
+    assert.deepEqual(await proposal, { outcome: "discarded" });
+    // Another report's id undoes nothing.
+    assert.match((await card({ action: "undo", id: other.id })).error, /can't be undone/);
+    assert.equal((await cooldown())?.discarded, id);
+    assert.deepEqual(await card({ action: "undo" }), {});
+    const back = await pending();
+    assert.deepEqual([back.id, back.title, back.body], [id, title, body]);
+    assert.equal(await cooldown(), null);
+    assert.deepEqual(await sidebar.seen(), ["asked", "settled", "asked"]);
+    // Nothing is left to undo, and one report waits at a time.
+    assert.match((await card({ action: "undo", id })).error, /can't be undone/);
+    await assert.rejects(propose(other.id, 500), { code: "ZEN_FEEDBACK_PENDING" });
+    // The caller who waited at the Discard heard "discarded"; a proposal of the id now waits for the next answer.
+    const again = propose(id);
+    await sleep(200);
+    answer({ "issue create": { stdout: `${ISSUE(80)}\n` } });
+    assert.deepEqual(await card({ action: "postNew" }), { posted: { number: 80, url: ISSUE(80) } });
+    assert.deepEqual(await again, { outcome: "posted", number: 80, url: ISSUE(80) });
+    // Once the cooldown ran out, the Discard stands.
+    await cooldownMs(800);
+    const late = propose(other.id);
+    await shown();
+    assert.deepEqual(await card({ action: "discard" }), {});
+    assert.deepEqual(await late, { outcome: "discarded" });
+    await sleep(1200);
+    assert.equal(await cooldown(), null);
+    assert.match((await card({ action: "undo", id: other.id })).error, /can't be undone/);
+    assert.equal(await pending(), null);
+  } finally {
+    await cooldownMs(null);
+  }
+});
+
+test("Discard: nothing runs, the next proposal is refused for ten minutes as the user declined, and the user's Undo ends that", async () => {
   answer({});
   const { id } = await compose();
   const next = await compose();
@@ -334,4 +460,9 @@ test("Discard: nothing runs, and the next proposal is refused for ten minutes as
   assert.equal(refused.code, "ZEN_FEEDBACK_DECLINED");
   assert.ok(refused.data?.retryAfterMs > 9 * 60 * 1000, JSON.stringify(refused.data));
   assert.deepEqual(ghLog(), []);
+  // Leave proposals open for the files after this one.
+  assert.deepEqual(await card({ action: "undo" }), {});
+  assert.deepEqual(await card({ action: "defer" }), {});
+  assert.equal(await cooldown(), null);
+  assert.equal(await pending(), null);
 });

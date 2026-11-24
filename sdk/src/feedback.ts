@@ -86,7 +86,7 @@ export type ComposeFacts = { cli: Facts["cli"]; node: string; doctor?: Facts["do
 export type Shown =
   | { kind: "answered"; outcome: Outcome }
   | { kind: "busy" }
-  | { kind: "declined" }
+  | { kind: "declined"; until?: number }
   | { kind: "no_card"; error: ZeniusError; report?: Report };
 
 const CODE = /^(?:ok|[A-Z][A-Z0-9_]{1,62})$/;
@@ -132,7 +132,7 @@ export async function feedbackCommand(rest: string[], instanceFlag: string | und
         writeStderr("zenius feedback: another problem report waits for the user in Zen's agent sidebar. Don't send another: tell the user it's there.\n");
         return 1;
       case "declined":
-        writeStderr("zenius feedback: the user discarded a problem report less than 10 minutes ago. Don't send another before then.\n");
+        writeStderr(`zenius feedback: ${declinedText(shown.until)} Don't send another before then.\n`);
         return 1;
       case "no_card": {
         if (shown.report) return draft(`${DRAFT_HEAD}\n\n${shown.report.body}`, shown.report.title, "no agent sidebar can show the report");
@@ -202,7 +202,7 @@ export async function showReport(client: RpcClient, line: string, facts: Compose
   } catch (error) {
     if (error instanceof ZeniusError) {
       if (error.code === "ZEN_FEEDBACK_PENDING") return { kind: "busy" };
-      if (error.code === "ZEN_FEEDBACK_DECLINED") return { kind: "declined" };
+      if (error.code === "ZEN_FEEDBACK_DECLINED") return { kind: "declined", ...optional("until", cooldownEnd(error.data?.until)) };
       if (NO_CARD.includes(error.code)) return { kind: "no_card", error, report };
     }
     throw error;
@@ -214,8 +214,11 @@ function usage(message: string): number {
   return 2;
 }
 
-/** What the user chose, for the agent: the outcome, and an issue's number and address. */
-export function outcomeText({ outcome, number, url }: Outcome): string {
+/**
+ * What the user chose, for the agent: the outcome, and an issue's number and
+ * address. `again` says how to send a revision, after a deferral.
+ */
+export function outcomeText({ outcome, number, url }: Outcome, again = "run zenius feedback again with the revised line"): string {
   switch (outcome) {
     case "posted":
       return `The user sent the report: issue #${number}, ${url}`;
@@ -223,11 +226,27 @@ export function outcomeText({ outcome, number, url }: Outcome): string {
       return `The user added the report to issue #${number} as a comment: ${url}`;
     case "copied":
       return "The user copied the report to GitHub's form, to file it there.";
+    case "deferred":
+      return `The user wants to keep working on the report with you before anything is sent. Nothing was sent. Ask them what to change, then ${again}: it shows as a new report.`;
     case "discarded":
       return "The user discarded the report. Don't send another for now.";
     default:
-      return "The report waits in Zen's agent sidebar for the user to send, copy or discard it. Tell the user it's there; don't send another.";
+      return "The report waits in Zen's agent sidebar for the user to send, copy or discard it, or to keep working on it with you. Tell the user it's there; don't send another while it waits.";
   }
+}
+
+const CLOCK = new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+
+/** The cooldown's end from ZEN_FEEDBACK_DECLINED's data, if it's a time in the next hour. */
+function cooldownEnd(until: unknown, now = Date.now()): number | undefined {
+  return typeof until === "number" && Number.isFinite(until) && until > now && until - now <= 60 * 60 * 1000 ? until : undefined;
+}
+
+/** Why the card took no report, after the user's Discard: until when, as the user's clock shows it. An older runtime says only "10 minutes". */
+export function declinedText(until: number | undefined, now = Date.now()): string {
+  if (until === undefined) return "the user discarded a problem report less than 10 minutes ago.";
+  const minutes = Math.max(1, Math.ceil((until - now) / 60000));
+  return `the user discarded a problem report, and Zen's agent sidebar shows no new one until ${CLOCK.format(until)} (in ${minutes} min).`;
 }
 
 function readReport(value: unknown): Report {
@@ -241,7 +260,7 @@ function readReport(value: unknown): Report {
 /** Only the outcome, and an issue's number and address in zenius's own repository, reach the agent. */
 export function readOutcome(value: unknown): Outcome {
   const { outcome, number, url } = (value ?? {}) as { outcome?: unknown; number?: unknown; url?: unknown };
-  const known = typeof outcome === "string" && ["posted", "commented", "copied", "discarded"].includes(outcome) ? outcome : "pending";
+  const known = typeof outcome === "string" && ["posted", "commented", "copied", "deferred", "discarded"].includes(outcome) ? outcome : "pending";
   if (known === "posted" || known === "commented") {
     return Number.isInteger(number) && typeof url === "string" && ISSUE_URL.test(url) ? { outcome: known, number: number as number, url } : { outcome: "pending" };
   }

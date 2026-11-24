@@ -27,7 +27,7 @@ the same words (zen-sdk's error guide).
 | `hand_off` | `Ask the user: "<message>"` | Hands the task to the user, for signing in, paying or a captcha. Zen's card in the tab shows the message, and Zen names the reason (`sign_in`, `irreversible`, `human_check` or `other`) where the task waits for the user. |
 | `finish` | `Finish, keeping 1 tab`, then each kept tab's title and host; `Finish, closing the task's tabs` | Ends the task, keeping the tabs the user should see. |
 | `evaluate` | `Run code in the page` | Runs JavaScript in the agent's isolated world, which sees the page's DOM but not its scripts. From the first update, the user's page-code setting decides whether it's offered. |
-| `report_problem` | `Report a problem with zenius: "<line>"` | Shows the user a problem report about zenius itself in Zen's agent sidebar, for them to send, copy or discard (below). |
+| `report_problem` | `Report a problem with zenius: "<line>"` | Shows the user a problem report about zenius itself in Zen's agent sidebar, for them to send, copy, keep working on with the agent, or discard (below). |
 
 `element` is required wherever a tool takes a target. It's the element's
 visible text, or a short description, and it is what the step shows. Each
@@ -130,9 +130,15 @@ a call: zenius's own checks get 15 s at most, and the user the rest, at
 least 10 s. Zen composes the same report as for the CLI
 (PROTOCOL.md, "Problem reports") and shows it in the sidebar's card. There
 the user sends it to zenius's GitHub issues with their own gh, copies it,
-or discards it. Nothing goes out before their click, and the agent hears
-only their choice: the issue's number and address, copied, discarded, or
-still waiting.
+keeps working on it with the agent, or discards it. Nothing goes out
+before their click, and the agent hears only their choice: the issue's
+number and address, copied, deferred, discarded, or still waiting.
+- Deferred: the user wants to change the report with the agent first.
+  Nothing was sent, and the answer says to ask the user what to change,
+  then call `report_problem` again with the revised line. The revision
+  shows at once, as a new report.
+- After a Discard, no report shows for 10 minutes, unless the user undoes
+  the Discard in the card. A call meanwhile says until when.
 
 - The report's last calls and last failed call are the Zen instance's, not
   the session's: every client's calls count, so another chat's or a

@@ -142,6 +142,25 @@ describe("zenius feedback", () => {
     assert.throws(() => statSync(join(zhome, "feedback")), { code: "ENOENT" });
   });
 
+  it("after a discard, says until when the sidebar shows no new report, as the user's clock shows it; a time it can't trust says ten minutes", async () => {
+    const { env } = home("refused-until");
+    const until = Date.now() + 5 * 60 * 1000;
+    const clock = new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(until);
+    cardRuntime(() => {
+      throw new MockError("ZEN_FEEDBACK_DECLINED", "the user discarded a problem report", { retryAfterMs: 300_000, until });
+    });
+    const declined = await runCli(["feedback", "a line"], { socketPath: mock.socketPath, env });
+    assert.equal(declined.code, 1);
+    assert.equal(declined.stderr, `zenius feedback: the user discarded a problem report, and Zen's agent sidebar shows no new one until ${clock} (in 5 min). Don't send another before then.\n`);
+    for (const odd of [Date.now() + 2 * 60 * 60 * 1000, Date.now() - 1000, "15:32", Number.NaN]) {
+      cardRuntime(() => {
+        throw new MockError("ZEN_FEEDBACK_DECLINED", "the user discarded a problem report", { retryAfterMs: 1000, until: odd });
+      });
+      const result = await runCli(["feedback", "a line"], { socketPath: mock.socketPath, env });
+      assert.equal(result.stderr, "zenius feedback: the user discarded a problem report less than 10 minutes ago. Don't send another before then.\n", String(odd));
+    }
+  });
+
   it("with no sidebar to show it, writes the runtime's report as a draft for the user alone, and a link with its title only", async () => {
     cardRuntime(() => {
       throw new MockError("ZEN_UNSUPPORTED", "no agent sidebar can show the report", { reason: "no_sidebar" });
@@ -299,6 +318,11 @@ describe("feedback's parts", () => {
     assert.deepEqual(readOutcome({ outcome: "<b>pwned</b>" }), { outcome: "pending" });
     assert.deepEqual(readOutcome(null), { outcome: "pending" });
     assert.equal(outcomeText({ outcome: "discarded" }), "The user discarded the report. Don't send another for now.");
+    assert.deepEqual(readOutcome({ outcome: "deferred", number: 41, url: ISSUE }), { outcome: "deferred" });
+    assert.equal(
+      outcomeText({ outcome: "deferred" }),
+      "The user wants to keep working on the report with you before anything is sent. Nothing was sent. Ask them what to change, then run zenius feedback again with the revised line: it shows as a new report.",
+    );
   });
 
   it("writes a second draft in the same second beside the first", () => {
@@ -393,6 +417,16 @@ describe("zenius mcp's report_problem", () => {
     assert.throws(() => statSync(join(zhome, "feedback")), { code: "ENOENT" }, "no draft");
   });
 
+  it("when the user keeps working on the report, says to ask them what to change and report the revision, and nothing about finishing the task", async () => {
+    cardRuntime(() => ({ outcome: "deferred" }));
+    const { env } = home("mcp-deferred");
+    const [result] = await mcpCalls([["report_problem", { line: "page.click failed twice with ZEN_INTERNAL" }]], env);
+    assert.ok(!result!.isError, result!.content[0]!.text);
+    assert.deepEqual(result!.content[0]!.text.split("\n").slice(1), [
+      "The user wants to keep working on the report with you before anything is sent. Nothing was sent. Ask them what to change, then call report_problem again with the revised line: it shows as a new report.",
+    ]);
+  });
+
   it("waits as long as wait says, at most ten minutes", async () => {
     cardRuntime(() => ({ outcome: "pending" }));
     const { env } = home("mcp-wait");
@@ -412,6 +446,8 @@ describe("zenius mcp's report_problem", () => {
 
   it("another waiting report, a recent discard, no sidebar and an older runtime are plain answers, and nothing is written", async () => {
     const { zhome, env } = home("mcp-refused");
+    const soon = Date.now() + 5 * 60 * 1000;
+    const soonClock = new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(soon);
     const cases: Array<[string, () => void, string]> = [
       [
         "another waits",
@@ -426,6 +462,13 @@ describe("zenius mcp's report_problem", () => {
           throw new MockError("ZEN_FEEDBACK_DECLINED", "the user discarded a problem report", { retryAfterMs: 1000 });
         }),
         "The user discarded a problem report less than 10 minutes ago, so this one wasn't shown. Don't send another before then.",
+      ],
+      [
+        "a recent discard, with when it ends",
+        () => cardRuntime(() => {
+          throw new MockError("ZEN_FEEDBACK_DECLINED", "the user discarded a problem report", { retryAfterMs: 300_000, until: soon });
+        }),
+        `The user discarded a problem report, and Zen's agent sidebar shows no new one until ${soonClock} (in 5 min), so this one wasn't shown. Don't send another before then.`,
       ],
       [
         "no sidebar",

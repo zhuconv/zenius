@@ -111,7 +111,7 @@ const STATS_WINDOW = 512;
 /** How many of the last client calls a zenius feedback report lists. */
 const RECENT_CALLS = 20;
 const FEEDBACK_MODULE = "chrome://userscripts/content/zenius/modules/feedback.sys.mjs";
-const NO_FEEDBACK = Object.freeze({ pending: () => null });
+const NO_FEEDBACK = Object.freeze({ pending: () => null, cooldown: () => null });
 /** zenius doctor's calls, which a report's list of calls leaves out (#noteCall). */
 const STATUS_READS = new Set(["browser.version", "browser.health", "browser.methods"]);
 /** The restart rebuild waits at most this long for Zen's session restore, or for a first window. */
@@ -236,10 +236,10 @@ class Service {
   }
 
   /**
-   * zenius feedback's reports, for the sidebar's card (zen-sidebar): pending()
-   * and the actions it takes on the user's own click. Until a client
-   * composes a report, the module isn't loaded and pending() is null, so the
-   * sidebar's reads load nothing.
+   * zenius feedback's reports, for the sidebar's card (zen-sidebar):
+   * pending(), cooldown() and the actions it takes on the user's own click.
+   * Until a client composes a report, the module isn't loaded and both reads
+   * are null, so the sidebar's reads load nothing.
    */
   get feedback() {
     return Cu.isESModuleLoaded(FEEDBACK_MODULE) ? ChromeUtils.importESModule(FEEDBACK_MODULE).feedback : NO_FEEDBACK;
