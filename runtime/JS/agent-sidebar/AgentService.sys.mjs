@@ -177,6 +177,17 @@ const ZENIUS_UI = "chrome://userscripts/content/zenius/ui/index.sys.mjs";
 // zenius's version, from its runtime: read as an agent starts, so the
 // sidebar's start loads no zenius module.
 const ZENIUS_UTIL = "chrome://userscripts/content/zenius/modules/util.sys.mjs";
+// The problem report card (`zenius feedback`): the runtime's service
+// notifies this topic with "asked" once a report waits for the user and
+// with "settled" once it's sent, copied or discarded. The sidebar observes
+// it from its start, which loads nothing of zenius's, and an observer here
+// is how the runtime knows a card can show at all.
+const FEEDBACK_TOPIC = "zenius-feedback";
+// What the card may ask the runtime to do, each on the user's own click.
+const FEEDBACK_ACTIONS = ["send", "postNew", "comment", "copyAndOpen", "discard"];
+// GitHub's limits, which the runtime applies too.
+const FEEDBACK_TITLE_MAX = 256;
+const FEEDBACK_BODY_MAX = 65536;
 
 function debug(...args) {
   if (Services.prefs.getBoolPref(PREF_DEBUG, false)) {
@@ -928,6 +939,36 @@ export function oneLine(text, max = 120) {
     .trim();
   const chars = Array.from(line);
   return chars.length > max ? `${chars.slice(0, max - 1).join("")}…` : line;
+}
+
+/**
+ * The runtime's waiting problem report as the card takes it, or null. The
+ * card shows the text exactly as it would be posted, so a report it couldn't
+ * show that way is never shown: a hidden, control or line-separator
+ * character (in the body, line breaks and tabs aside), a title of more than
+ * one line, or text past GitHub's limits.
+ *
+ * @returns {{id: string, title: string, body: string, canPost: boolean, repo: string} | null}
+ */
+export function feedbackOf(report) {
+  if (!report || typeof report !== "object") {
+    return null;
+  }
+  const { id, title, body, repo } = report;
+  const fits = (text, max) => typeof text === "string" && text.trim() !== "" && text.length <= max;
+  if (
+    typeof id !== "string" ||
+    !/^[\w{}-]{1,100}$/.test(id) ||
+    !fits(title, FEEDBACK_TITLE_MAX) ||
+    /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(title) ||
+    !fits(body, FEEDBACK_BODY_MAX) ||
+    /[^\P{Cc}\n\t]|[\p{Cf}\p{Zl}\p{Zp}]/u.test(body) ||
+    typeof repo !== "string" ||
+    !/^[\w.-]{1,100}\/[\w.-]{1,100}$/.test(repo)
+  ) {
+    return null;
+  }
+  return { id, title, body, canPost: report.canPost === true, repo };
 }
 
 function quoted(text, max = 60) {
@@ -2315,6 +2356,8 @@ export const AgentService = {
     for (const topic of [PURGE_HISTORY, PURGE_SITE]) {
       Services.obs.addObserver((subject, name, data) => this.onPurge(name, data), topic);
     }
+    this.feedbackObserver = () => this.feedbackSync();
+    Services.obs.addObserver(this.feedbackObserver, FEEDBACK_TOPIC);
     this.loadConfig().catch(e => debug(e.message));
     this.optionsReady = this.loadOptions();
     this.tasksReady = this.loadTasks();
@@ -3595,6 +3638,70 @@ export const AgentService = {
       return ZeniusUI?.started ? ZeniusUI : null;
     } catch {
       return null;
+    }
+  },
+
+  // --- The problem report card (zenius feedback) ------------------------------------
+
+  /** The report waiting for the user's Send, Copy or Discard (feedbackOf), or null. */
+  feedbackReport: null,
+  feedbackListeners: new Set(),
+
+  /**
+   * Reads the waiting report from zenius again (`service.feedback.pending()`)
+   * and tells the panels when it changed: on each of the runtime's
+   * zenius-feedback notices, and from a panel as it opens. A report's text
+   * never changes under its id, so the id tells.
+   */
+  feedbackSync() {
+    let report = null;
+    try {
+      const pending = this.zenius()?.feedback?.pending?.() ?? null;
+      report = feedbackOf(pending);
+      if (pending && !report) {
+        console.error(LOG, "a problem report the card can't show exactly as it would be posted: not shown");
+      }
+    } catch (e) {
+      debug("could not read the problem report:", e.message);
+    }
+    if (report?.id !== this.feedbackReport?.id) {
+      this.feedbackReport = report;
+      for (const listener of [...this.feedbackListeners]) {
+        try {
+          listener(report);
+        } catch (e) {
+          console.error(LOG, e);
+        }
+      }
+    }
+    return this.feedbackReport;
+  },
+
+  /** @param {(report: object | null) => void} listener  @returns {() => void} unsubscribes */
+  subscribeFeedback(listener) {
+    this.feedbackListeners.add(listener);
+    return () => this.feedbackListeners.delete(listener);
+  },
+
+  /**
+   * One of the card's actions on the waiting report, which the runtime's
+   * service carries out: send, postNew, comment, copyAndOpen or discard.
+   * Only the card calls it, on the user's own click (feedback.mjs).
+   *
+   * @param {string} action
+   * @param {string} id  the report's
+   * @returns {Promise<object>}  the runtime's answer, or {error}
+   */
+  async feedbackAction(action, id, ...args) {
+    const feedback = this.zenius()?.feedback;
+    if (!FEEDBACK_ACTIONS.includes(action) || typeof feedback?.[action] !== "function") {
+      return { error: "zenius isn't running in this browser" };
+    }
+    try {
+      const answer = await feedback[action](id, ...args);
+      return answer && typeof answer === "object" ? answer : {};
+    } catch (e) {
+      return { error: oneLine(String(e?.message ?? e), 200) };
     }
   },
 
@@ -5686,6 +5793,10 @@ export const AgentService = {
     this.saveChats();
     this.zeniusUnsubscribe?.();
     this.zeniusUnsubscribe = null;
+    if (this.feedbackObserver) {
+      Services.obs.removeObserver(this.feedbackObserver, FEEDBACK_TOPIC);
+      this.feedbackObserver = null;
+    }
     this.external?.destroy();
     clearInterval(this.sweeper);
     this.sweeper = null;

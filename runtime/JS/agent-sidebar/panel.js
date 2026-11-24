@@ -12,6 +12,7 @@
 import { marked } from "./vendor/marked.esm.js";
 import { imageFromClipboard, kindOf, readAttachment, Refused } from "./attachments.mjs";
 import { copyText, extensionFor, fileName, saveText } from "./saving.mjs";
+import { mountFeedback } from "./feedback.mjs";
 
 const { AgentService, isCredentialAsk, MODEL_OPTION, EFFORT_OPTIONS, optionValues, concreteModel, modelGeneration, newestModels, STATE_LABELS, age, ago, remoteSource, remoteEnd, taskName } = ChromeUtils.importESModule(
   new URL("AgentService.sys.mjs", import.meta.url).href
@@ -3036,8 +3037,11 @@ const api = {
 };
 
 const unsubscribeTasks = AgentService.subscribeTasks(() => scheduleBinding(), scope);
+// A self-check window's panel is synthetic: the user's problem reports never show there.
+const unmountFeedback = scope ? null : mountFeedback({ el: $("feedback"), service: AgentService, openLink: url => glue.openLink(url) });
 
 window.addEventListener("unload", () => {
+  unmountFeedback?.();
   stopLive();
   liveObserver.disconnect();
   saveDraft();

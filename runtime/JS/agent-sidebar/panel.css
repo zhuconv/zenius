@@ -1320,6 +1320,115 @@ body.busy .msg.user > .actions {
   overflow-wrap: anywhere;
 }
 
+/* The problem report card (feedback.mjs): a report waiting for the user, in
+ * the ask card's look, above the chat in either view. The body shows as the
+ * Markdown it posts. */
+#feedback {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 8px 0;
+  padding: 8px 10px 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--needs-color) 26%, transparent);
+  border-radius: 12px;
+  background: var(--needs-bg);
+  max-height: 70%;
+  overflow: auto;
+}
+
+#feedback[hidden],
+#feedback [hidden] {
+  display: none;
+}
+
+/* The empty chat's hint is placed over the middle of the panel, out of the
+ * flow: while a report waits, the card has that room. */
+body:has(#feedback:not([hidden])) #empty {
+  display: none;
+}
+
+.fb-title {
+  color: var(--needs-color);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.fb-title::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-inline-end: 6px;
+  border-radius: 50%;
+  background: var(--needs-color);
+  vertical-align: 1px;
+}
+
+.fb-lead,
+.fb-status {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.fb-status.error {
+  color: var(--danger);
+}
+
+.fb-field {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--box-bg);
+  color: var(--fg);
+  font: inherit;
+}
+
+#fb-issue-title {
+  font-weight: 600;
+  resize: none;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+#fb-issue-body {
+  min-height: 6em;
+  max-height: 40vh;
+  resize: vertical;
+  font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* The native bar drew white in the dark theme. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--faint) transparent;
+}
+
+.fb-field:read-only {
+  color: var(--muted);
+}
+
+.fb-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fb-actions button {
+  background: var(--box-bg);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.fb-actions button.primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: transparent;
+}
+
+.fb-actions button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 #composer {
   padding: 6px 8px 8px;
   display: flex;

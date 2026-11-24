@@ -30,6 +30,7 @@ import { mkdirSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
+import { clientFacts, REPO, reportBody, reportTitle } from "../../../runtime/JS/zenius/modules/feedbacktext.sys.mjs";
 import { prelude, setup } from "../lib.mjs";
 
 const OUT = process.env.ZENIUS_UX_SHOTS || join(tmpdir(), "zenius-ux-look");
@@ -573,6 +574,108 @@ for (const theme of ["light", "dark"]) {
         console.log(`# task tag (${theme}): ${path}`);
       }
   }));
+}
+
+// The problem report card (zenius feedback), as the user first sees it: with
+// gh (Send) and without (Copy and open GitHub). The runtime's side is a
+// stand-in that only has the report waiting. Nothing is pressed: on the Mac,
+// Send and Copy belong to the user. The report's text comes from the
+// runtime's own builder, as feedback.compose makes it, with an agent's calls
+// in place of this test's.
+const SAMPLE_FACTS = {
+  ...clientFacts({
+    line: "page.click on the sign-up form's Submit button failed twice with the same error",
+    cli: { version: "0.1.4", protocol: 1, commit: null, sandboxed: false },
+    node: "v24.11.0",
+    doctor: ["cli", "zen", "autoconfig", "profile", "loader", "runtime", "instance", "sidebar", "mcp", "daily", "boundary", "dns", "pagecode"].map(id => ({ id, status: "ok" })),
+  }),
+  runtime: { version: "0.1.4", commit: null },
+  zen: "1.24.2b",
+  os: "Darwin 24.6.0, aarch64",
+  defaultInstance: true,
+  calls: [
+    { method: "spaces.create", ms: 212, code: "ok" },
+    { method: "page.goto", ms: 431, code: "ok" },
+    { method: "page.snapshot", ms: 58, code: "ok" },
+    { method: "page.fill", ms: 96, code: "ok" },
+    { method: "page.click", ms: 812, code: "ZEN_INTERNAL" },
+    { method: "page.snapshot", ms: 61, code: "ok" },
+    { method: "page.click", ms: 798, code: "ZEN_INTERNAL" },
+  ],
+  lastFailure: { method: "page.click", ms: 798, code: "ZEN_INTERNAL", ago: 4 },
+};
+const SAMPLE_REPORT = { title: reportTitle(SAMPLE_FACTS), body: reportBody(SAMPLE_FACTS), repo: REPO };
+
+for (const theme of ["light", "dark"]) {
+  test(`${theme}: the problem report card in the agent sidebar, for review (it presses nothing)`, () =>
+    inTheme(theme, async () => {
+      const paths = [];
+      for (const canPost of [true, false]) {
+        const ok = await h.call("dev.evalChrome", {
+          code: `
+          const svc = win.ucAgentSidebar.AgentService.zenius();
+          const until = async (fn, ms = 10000) => {
+            const end = Date.now() + ms;
+            while (!fn()) {
+              if (Date.now() > end) return false;
+              await new Promise(r => win.setTimeout(r, 25));
+            }
+            return true;
+          };
+          arg.wasOpen = win.SidebarController.isOpen && win.SidebarController.currentID === "viewAgentSidebar";
+          const old = Object.getOwnPropertyDescriptor(svc, "feedback");
+          const report = arg.report;
+          Object.defineProperty(svc, "feedback", { value: { pending: () => report, old, wasOpen: arg.wasOpen }, configurable: true, writable: true });
+          Services.obs.notifyObservers(null, "zenius-feedback", "asked");
+          if (!arg.wasOpen) await win.SidebarController.show("viewAgentSidebar");
+          const card = () => win.document.getElementById("sidebar")?.contentDocument?.getElementById("feedback");
+          // Armed, as the user would find it.
+          return await until(() => card() && !card().hidden && [...card().querySelectorAll("button")].every(b => !b.disabled));
+        `,
+          arg: { report: { ...SAMPLE_REPORT, id: `look-${theme}-${canPost}`, canPost } },
+        });
+        assert.ok(ok, "the card showed");
+        paths.push(await shot(`fb-${canPost ? "send" : "copy"}-${theme}`));
+        if (theme === "light") {
+          // At the sidebar's narrowest, as tests/mac/look.test.mjs narrows it:
+          // the words and buttons wrap, and nothing runs past the card.
+          const narrow = await h.chrome(`
+            const sidebar = win.document.getElementById("sidebar-box") ?? win.document.getElementById("sidebar");
+            const min = parseFloat(win.getComputedStyle(sidebar).minWidth) || 0;
+            sidebar.dataset.lookWas = sidebar.style.width;
+            sidebar.style.width = (min >= 120 ? min : 200) + "px";
+            await new Promise(r => win.setTimeout(r, 500));
+            const card = win.document.getElementById("sidebar").contentDocument.getElementById("feedback");
+            const box = card.getBoundingClientRect();
+            const past = [...card.querySelectorAll("button, input, textarea, .fb-lead")].filter(el => el.getBoundingClientRect().right > box.right + 0.5).map(el => el.id || el.textContent);
+            const t = card.querySelector("#fb-issue-title");
+            return { width: Math.round(sidebar.getBoundingClientRect().width), past, titleCut: t.scrollHeight > t.clientHeight + 1 || t.scrollWidth > t.clientWidth + 1 };
+          `);
+          assert.deepEqual(narrow.past, [], `at ${narrow.width} px, past the card's edge`);
+          assert.equal(narrow.titleCut, false, `at ${narrow.width} px, the title box hid part of the title`);
+          paths.push(await shot(`fb-${canPost ? "send" : "copy"}-narrowest-${theme}`));
+          await h.chrome(`
+            const sidebar = win.document.getElementById("sidebar-box") ?? win.document.getElementById("sidebar");
+            sidebar.style.width = sidebar.dataset.lookWas ?? "";
+            delete sidebar.dataset.lookWas;
+            await new Promise(r => win.setTimeout(r, 300));
+            return true;
+          `);
+        }
+        await h.chrome(`
+          const svc = win.ucAgentSidebar.AgentService.zenius();
+          const stand = svc.feedback;
+          if (stand.old) Object.defineProperty(svc, "feedback", stand.old);
+          else delete svc.feedback;
+          Services.obs.notifyObservers(null, "zenius-feedback", "settled");
+          if (!stand.wasOpen) win.SidebarController.hide();
+          return true;
+        `);
+      }
+      for (const path of paths) {
+        console.log(`# problem report card (${theme}): ${path}`);
+      }
+    }));
 }
 
 test("the user's view ends as it started", async () => {

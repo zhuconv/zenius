@@ -289,6 +289,7 @@ stable, and a change to one is announced to zen-eval first.
 | `agent-sidebar/AgentSidebarPicture{Parent,Child}.sys.mjs` | The live card's pictures, painted in the agent page's own process |
 | `agent-sidebar/AgentSidebar{Parent,Child}.sys.mjs` | The JSWindowActor that reads a tab's selection and text |
 | `agent-sidebar/attachments.mjs`, `saving.mjs` | Attached files; copying and saving answers |
+| `agent-sidebar/feedback.mjs` | The problem report card: a report from `zenius feedback`, sent, copied or discarded only on the user's click (below) |
 | `agent-sidebar/pencil.svg` | The question's Edit icon, zenius's own drawing (outline strokes, painted as a mask in the text's color) |
 | `agent-sidebar/send.svg` | Send's small up arrow, in the question box and the edit box: zenius's own drawing (a stem and a chevron, round strokes, painted as a mask in the button's text color) |
 | `agent-sidebar/vendor/marked.esm.js` | marked, MIT (THIRD_PARTY.md) |
@@ -392,6 +393,68 @@ glue, as after cleanup, stops as it loads, before it lists or subscribes
 to anything: without `glue.scope` it would show the user's own tasks. A
 scoped task's error never carries the user's agent's last exit.
 
+## The problem report card
+
+`feedback.mjs`, in every browser window's panel, never in the self-check's.
+An agent's `zenius feedback "<one line>"` has the runtime compose a problem
+report for zenius's GitHub issues and propose it (`feedback.compose` and
+`feedback.propose`, PROTOCOL.md). The card shows it above the chat, in
+either mode:
+
+- **The text, as it would be posted.** The title and the body are both
+  editable. The title is one line, wrapped to the card's width so all of
+  it shows (Enter adds no line, and a pasted line break becomes a space).
+  The body is the report's Markdown, as text.
+- **With gh found: Send and Discard.** Send first looks for an open issue
+  with the same title. If there is one, the card asks once more: Add a
+  comment to #N (the body only: the issue keeps its title), or Post a new
+  issue. Then it says "Posted as #N", with Open #N.
+- **Without gh, with gh not signed in, or after gh failed: Copy and open
+  GitHub.** The runtime puts the body on the clipboard and opens GitHub's
+  new issue form with only the title in its address, and the user pastes
+  the body there.
+- **Discard** drops the report.
+
+The agent hears only the outcome, and for a post or a comment the issue's
+number and address: never the text the user sent, nor gh's messages.
+
+Nothing goes out before the user's own click, and only the user can click:
+
+- The card is chrome, in the panel's own document. zenius's methods act
+  only in web pages (SPEC I5), and pages can't reach chrome.
+- Its buttons act only on a trusted click inside the card. They arm 400 ms
+  after they appear, and again when the window comes to the front or the
+  panel shows again, so a click meant for something else doesn't land on
+  Send.
+- The card takes no focus, and nothing opens the sidebar for it: the agent
+  tells the user where the report waits.
+- A report the card couldn't show exactly as it would be posted never
+  shows: one with a control, format (bidi, zero-width) or line-separator
+  character, a title of more than one line, or text past GitHub's limits
+  (256 characters for a title, 65,536 for a body).
+- One report waits at a time, and its text never changes under its id.
+
+How the card and the runtime meet:
+
+- The runtime notifies the observer topic `zenius-feedback` with `asked`
+  once a report waits, and with `settled` once it's posted, copied or
+  discarded. `AgentService.init` observes it, which loads nothing of
+  zenius's at the sidebar's start. With no observer, `feedback.propose`
+  fails at once (`ZEN_UNSUPPORTED`, `data.reason: "no_sidebar"`), and the
+  CLI writes the report to a draft file instead.
+- On each notice, and as a panel opens, `AgentService.feedbackSync()` reads
+  `service.feedback.pending()`, `{id, title, body, canPost, repo}` or null,
+  through `feedbackOf`, and tells the panels (`subscribeFeedback`).
+- The card's clicks go through `AgentService.feedbackAction(action, id,
+  ...)` to `service.feedback`'s `send`, `postNew`, `comment`, `copyAndOpen`
+  and `discard`. A second action while one runs answers `{busy: true}`: in
+  two windows, the first click wins, and the other card says the report is
+  being sent from another window. Each window's card keeps its own edits,
+  and every card goes once the report settles, but for the one whose click
+  settled it, which shows the result until Close. A newer report waits
+  behind that result and shows at Close: shown at once, it would put Send
+  where the user just clicked.
+
 ## Stable hooks
 
 The panel (`panel.html`, its own document, so bare ids):
@@ -425,6 +488,9 @@ The panel (`panel.html`, its own document, so bare ids):
 | `#remote-end` | Under a remote task's last answer, once it stopped, why (`AgentService.remoteEnd(conv)`, from zen-observe's `conv.remote.final.stopReason`): "Stopped by <address>" (its caller's `sidebar.stop`, the address isolated), "Stopped at its time limit", "Stopped when remote tasks were turned off", "Stopped when Zen quit", or "Stopped" (the user's Stop). The task's state text says the same, on its directory row and in the title's tooltip. Hidden while it runs, when it failed (its error says why), and once the user takes a turn there themselves: an edit of the caller's question is the user's own (no `.src` line), and makes the chat theirs |
 | `#arrival[role=group]`, `#arrival-text`, `#arrival-watch`, `#arrival-stop`, `#arrival-close` | A remote task's arrival, over the composer, when one starts while the panel is open in the front window: "Task from <label> on <address>" (also the group's `aria-label`), with Watch (the task's page if it has one yet, else the task here), Stop (`AgentService.cancel`, as the panel's Stop) and ✕. It takes no focus and moves nothing (I1), and goes after 10 s (`uc.agent-sidebar.arrival-ms`, for tests), though not from under the pointer or the focus. With the sidebar closed, zenius shows the same card over its strip (`#zenius-arrival`, `ZeniusUI.remoteArrival`). Its look: lined up with the question box, Working's purple dot, the text (two lines at most, the address a chip) and ✕ on top, Watch and Stop under them on the right, as the live card's buttons; it slides up as it comes (none with reduced motion) |
 | `#watch`, `#watch-hint`, `#take-over` | Watch, hidden while this window watches the task; in its place then, the hint "⌃Tab back to your tabs" ("Ctrl+Tab" off the Mac), not a button; Take over, shown while the agent has the page, except while zenius reports a Take over refused |
+| `#feedback` (`aria-label` "Problem report") | The problem report card, between `#header` and `#messages`; hidden while no report waits. While it shows, the empty chat's `#empty` gives way |
+| `#feedback` > `#fb-lead`, `#fb-issue-title`, `#fb-issue-body`, `#fb-status`, `#fb-actions` | Where the report would go and what Send or Copy does; the title (a `textarea` kept to one line) and the body, both editable while the report waits for the user and hidden once it's posted or copied; the state's line, `.error` after a failure; the buttons |
+| `#fb-actions > button[data-action]` | `send` ("Send"), `copy` ("Copy and open GitHub"), `discard`, `comment` ("Add a comment to #N"), `postNew` ("Post a new issue"), `retry` ("Try again"), `open` ("Open #N") and `close`; `.primary` on the one in the accent color. Each is `disabled` until it arms |
 
 The directory (in browser.xhtml, so prefixed):
 
@@ -685,6 +751,15 @@ read.
 scenarios drive this checkout's `zenius mcp`, a mock-only config, pages on
 loopback, a tasks file in every state but Working, and a live scene with all
 of them.
+
+`tests/ux/feedback.test.mjs` drives the problem report card through a
+stand-in for the runtime's side of it, so every state can be reached on
+purpose. Its last tests run the runtime's own module, with a fake gh that a
+dev pref names, so nothing reaches GitHub: they check that Send and Add a
+comment post exactly the text the card shows. Copy runs only headless, where
+Zen's clipboard is its own. `tests/ux/mac/look.test.mjs` draws the card in
+Light and Dark, and at the sidebar's narrowest width, with a report from the
+runtime's own text builder, without pressing anything.
 
 Once these files are in `runtime/JS/`, `scripts/zen-dev.sh` copies them into
 every dev profile, so every dev Zen loads the sidebar. With no agents (the
