@@ -359,8 +359,14 @@ export class NavTracker {
     const want = this.pending?.url ? stripRef(this.pending.url) : null;
     // The navigation we started is never stale, whatever reported since.
     const expected = !!this.#expected && !!original && stripRef(original) === this.#expected;
+    // Nor is a commit of the URL we wait for. A document the back/forward
+    // cache restores keeps the request of its first load, whose original
+    // URL predates its replaceState or pushState, while the START reported
+    // its history entry's URL, the one that now commits.
+    const atWanted = !!want && stripRef(url) === want;
     const stale =
       !expected &&
+      !atWanted &&
       !!want &&
       !errorPage &&
       (original ? stripRef(original) !== want : url === "about:blank" && want !== "about:blank");

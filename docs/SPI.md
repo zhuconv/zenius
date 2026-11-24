@@ -1300,6 +1300,12 @@ NOTIFY_LOCATION)` (it follows the tab across process switches), and:
   reported, while its STOP is.
 - Ignore other STOPs; the initial about:blank's STOP can arrive after your
   load started.
+- A document that the back/forward cache restores keeps the request of its
+  first load. After a `replaceState` or `pushState`, that request's
+  `originalURI` is no longer the history entry's URL, which the restore's
+  START reports, which commits, and which its STOP doesn't name. Take a
+  commit (`onLocationChange`) of the URL you wait for as that navigation's,
+  whatever its request.
 - A failed load (refused, DNS, TLS, blocked port) may report no STOP at all,
   only `onLocationChange` with `LOCATION_CHANGE_ERROR_PAGE`; the error code is
   the `e=` parameter of `browser.documentURI` (for example `deniedPortAccess`).

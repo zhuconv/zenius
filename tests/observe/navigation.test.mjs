@@ -192,6 +192,31 @@ test("a pending navigation that commits in time lets the call run on the new doc
     assert.equal(await page.evaluate("location.pathname + location.search", undefined), "/slow-page?ms=700");
   }));
 
+test("history.back to a page the back/forward cache restores after its replaceState: the next call runs at once", () =>
+  env.inSpace("back to a replaced URL", async page => {
+    // As a sign-in callback does, the page replaces its URL once loaded, so
+    // its first request's URL is no longer its history entry's. The restore
+    // reports both, and the next call used to wait out its 15 s for a commit
+    // it had missed.
+    const target = `${env.base}/nav-target`;
+    // Firefox now and then keeps a page out of the cache, most often on a
+    // loaded machine; going back then loads it afresh, which can't show the
+    // bug, so the round goes again.
+    let restored = false;
+    for (let round = 1; round <= 3 && !restored; round++) {
+      await page.goto(`${target}?code=${round}`);
+      await page.evaluate(`history.replaceState(null, "", "/nav-target"); document.body.dataset.kept = "yes"`);
+      await page.goto(`${env.base}/secondary`);
+      await page.evaluate("history.back()");
+      await page.call("page.waitForURL", { matcher: { type: "string", value: target } });
+      const { value, ms } = await timed(() => page.call("page.url"));
+      assert.equal(value, target);
+      assert.ok(ms < 5000, `round ${round}: page.url took ${Math.round(ms)} ms`);
+      restored = (await page.evaluate("document.body.dataset.kept")) === "yes";
+    }
+    assert.ok(restored, "the back/forward cache restored the document in one of three rounds");
+  }));
+
 test("goto to another fragment of the page is a same-document navigation: it returns at once, and the next call runs at once on that document (found on the Mac)", () =>
   env.inSpace("goto fragment", async page => {
     const tall = `data:text/html,<title>fragments</title><p id=a>a</p><div style="height:3000px"></div><p id=b>b</p>`;
