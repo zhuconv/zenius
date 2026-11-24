@@ -406,31 +406,57 @@ ensure_dev_app() {
 }
 
 # One start makes the copy while the others wait: a test run starts several
-# dev Zens at once. A lock whose maker is gone, killed while it made the
-# copy, is taken over.
+# dev Zens at once. The lock is flock(2) on the file .lock, held through this
+# shell's fd 9. Perl takes it on the open file that fd shares with it, so it
+# outlives Perl. The kernel drops it with its holder, a start killed while it
+# made the copy included, so no start ever judges a lock dead and removes it:
+# with a pid in a folder, one could remove another start's lock taken in the
+# meantime. The holder removes the file before it lets go, and a start that
+# then gets the lock, on a file no longer at .lock, tries again. Perl waits
+# for the lock itself, so a waiting start goes on as soon as it's free.
 dev_app_lock() {
-  local lock=$DEV_APPS/.lock pid=
-  for _ in $(seq 1 1200); do
-    if mkdir "$lock" 2>/dev/null; then
-      echo $$ >"$lock/pid"
+  local lock=$DEV_APPS/.lock got pid= end=$((SECONDS + 300))
+  command -v perl >/dev/null || { echo "zen-dev.sh: the dev copy's lock needs perl" >&2; exit 1; }
+  while ((SECONDS < end)); do
+    if [[ -d $lock ]]; then
+      # An older zen-dev.sh's lock, a folder with its pid.
+      pid=$(cat "$lock/pid" 2>/dev/null || true)
+      if [[ -n $pid ]] && ! alive "$pid"; then rm -rf "$lock"; else sleep 0.25; fi
+      continue
+    fi
+    (umask 077 && mkdir -p "$DEV_APPS")
+    if ! exec 9>>"$lock"; then
+      sleep 0.25
+      continue
+    fi
+    got=$(perl -MFcntl=:flock -e '
+      open(my $fh, ">&=", 9) or die "zen-dev.sh: fd 9: $!\n";
+      $SIG{ALRM} = sub { print "busy"; exit };
+      alarm $ARGV[1];
+      flock($fh, LOCK_EX) or do { print "busy"; exit };
+      alarm 0;
+      my @fd = stat($fh);
+      my @path = stat($ARGV[0]);
+      print(@path && $fd[0] == $path[0] && $fd[1] == $path[1] ? "held" : "moved");
+    ' "$lock" "$((end > SECONDS ? end - SECONDS : 1))" || true)
+    if [[ $got == held ]]; then
       DEV_APP_LOCKED=1
       return 0
     fi
-    pid=$(cat "$lock/pid" 2>/dev/null || true)
-    if [[ -n $pid ]] && ! alive "$pid"; then
-      rm -rf "$lock"
-      continue
-    fi
-    sleep 0.25
+    exec 9>&-
+    [[ $got == moved ]] || sleep 0.25
   done
-  echo "zen-dev.sh: $lock has been held for 5 minutes (pid ${pid:-unknown}); remove it if no zen-dev.sh is making the dev copy" >&2
+  echo "zen-dev.sh: $lock has been held for 5 minutes${pid:+ by an older zen-dev.sh, pid $pid}; a zen-dev.sh is still making the dev copy, or is stuck" >&2
   exit 1
 }
 
 dev_app_unlock() {
   if [[ -n $DEV_APP_TMP ]]; then rm -rf "$DEV_APP_TMP"; fi
   DEV_APP_TMP=
-  if [[ -n $DEV_APP_LOCKED ]]; then rm -rf "$DEV_APPS/.lock"; fi
+  if [[ -n $DEV_APP_LOCKED ]]; then
+    rm -f "$DEV_APPS/.lock"
+    exec 9>&-
+  fi
   DEV_APP_LOCKED=
 }
 
@@ -604,8 +630,9 @@ remove_dev_apps() {
     remove_update_folders "$real" "${dir##*/}"
   done
   # Half-made copies of starts that were killed. Each folder's name holds its
-  # maker's pid (make_dev_app), and one whose maker still runs stays: two
-  # starts can both hold the lock when both took over a dead start's.
+  # maker's pid (make_dev_app), and one whose maker still runs stays: an
+  # older zen-dev.sh, whose lock a start could take over from another that
+  # still ran, could have two makers at once.
   for made in "$DEV_APPS"/.make.*; do
     [[ -d $made ]] || continue
     pid=${made##*/.make.}

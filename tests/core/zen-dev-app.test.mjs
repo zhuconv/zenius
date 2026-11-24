@@ -343,10 +343,61 @@ test("a new Zen version gets a new copy, and an old one goes once no Zen runs fr
 test("starts at the same moment make one copy between them", async () => {
   makeSource("20990303000000");
   resetCalls();
-  const made = await Promise.all([1, 2, 3].map(() => zenDev(["--app", "path"], { env: { STUB_CP_SLEEP: "1" } })));
+  const made = await Promise.all([1, 2, 3, 4, 5, 6].map(() => zenDev(["--app", "path"], { env: { STUB_CP_SLEEP: "1" } })));
   for (const r of made) assert.equal(r.status, 0, r.stderr);
   assert.equal(new Set(made.map(r => r.stdout)).size, 1);
   assert.equal(callsOf("cp").length, 1);
+  assert.deepEqual(readdirSync(apps).filter(name => name.startsWith(".")), [], "no half-made copy or lock is left");
+});
+
+test("many starts at once, round after round, each get the one copy: no start loses its lock to another", async () => {
+  // Each start that doesn't make the copy lets go and exits at once, the
+  // moment a lock that judged its holder by pid could remove a newer one.
+  const failed = [];
+  for (let round = 0; round < 5; round++) {
+    makeSource(`2098${String(round + 1).padStart(2, "0")}01000000`);
+    resetCalls();
+    const made = await Promise.all(Array.from({ length: 12 }, () => zenDev(["--app", "path"])));
+    for (const r of made) if (r.status !== 0) failed.push(`round ${round}: ${r.stderr.trim().split("\n").at(-1)}`);
+    if (callsOf("cp").length !== 1) failed.push(`round ${round}: ${callsOf("cp").length} copies`);
+  }
+  assert.deepEqual(failed, []);
+  assert.deepEqual(readdirSync(apps).filter(name => name.startsWith(".")), [], "no half-made copy or lock is left");
+});
+
+test("a start killed while it held the lock leaves none to wait on: the next makes the copy at once", async () => {
+  makeSource("20991212000000");
+  resetCalls();
+  // zenDev's environment, in a start this test can kill with its stand-in cp.
+  const env = {
+    ...process.env,
+    HOME: home,
+    ZENIUS_DEV_HOME: dev,
+    ZENIUS_HOME: join(root, "zhome"),
+    ZEN_APP: source,
+    STUB_CALLS: calls,
+    STUB_STATE: state,
+    STUB_CP_SLEEP: "60",
+    PATH: `${macTools}:${dirname(process.execPath)}:/usr/bin:/bin`,
+  };
+  delete env.ZEN_BIN;
+  const killed = spawn("bash", [script, "--app", "path"], { env, stdio: "ignore", detached: true });
+  running.add(killed);
+  // The stand-in cp notes its call, then sleeps.
+  const copying = () => callsOf("cp").length === 1;
+  for (let i = 0; i < 250 && !copying(); i++) await new Promise(r => setTimeout(r, 20));
+  assert.ok(copying() && existsSync(join(apps, ".lock")), "it holds the lock while it copies");
+  // As a crash would: the start and its cp at once, with no EXIT trap.
+  process.kill(-killed.pid, "SIGKILL");
+  await once(killed, "exit");
+  running.delete(killed);
+
+  const t0 = Date.now();
+  const made = await zenDev(["--app", "path"]);
+  assert.equal(made.status, 0, made.stderr);
+  assert.ok(Date.now() - t0 < 5000, `it waited ${Date.now() - t0} ms`);
+  assert.equal(callsOf("cp").length, 2, "the killed start's copy, then its own");
+  assert.deepEqual(readdirSync(apps).filter(name => name.startsWith(".")), [], "no half-made copy or lock is left");
 });
 
 test("a copy codesign refuses isn't kept, and the start says how to see why", async () => {
