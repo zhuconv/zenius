@@ -417,6 +417,26 @@
       (await openPanel()).show(conv);
     }
 
+    /**
+     * The sidebar open on the Work chat that drives zenius task `space`, if
+     * one does (AgentService.chatOfSpace): zenius's way to the task (the
+     * tasks panel's Open and its tab names, a notification) shows the user
+     * the session that asked. A task no Work chat drives opens nothing here.
+     *
+     * @param {number} space
+     * @param {object|null} [source]  the task's source
+     * @returns {Promise<boolean>} whether the sidebar shows such a chat
+     */
+    async function openChatOfSpace(space, source = null) {
+      const conv = AgentService.chatOfSpace(space, source);
+      if (!conv) {
+        return false;
+      }
+      showTask(conv);
+      (await openPanel()).show(conv);
+      return true;
+    }
+
     /** '+ New task': Work mode on a new task, ready to type. */
     async function newTask() {
       const conv = newDraft();
@@ -1038,6 +1058,7 @@
       },
       showTask,
       openTask,
+      openChatOfSpace,
       newTask,
       startWorkChat,
       watch,

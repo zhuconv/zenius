@@ -322,6 +322,11 @@ without taking focus from the user.
     and Stop, Pause, Resume, Take over and Hand back.
   - **Open.** Open switches the user's window to the task's Space and
     selects its front tab. The user asked, so it may change their selection.
+    When one of the agent sidebar's Work chats drives the task, Open also
+    shows that chat in the window's agent sidebar, opening the sidebar if
+    it's closed, so with several chats at work the user answers the one
+    that asked. A task no Work chat drives (a CLI agent's) opens no
+    sidebar.
   - **The tag.** Each agent tab shows a small task tag with the task's state
     (zen-ux's CSS).
   - **No sidebar grouping.** Zen's sidebar shows the tabs ungrouped:

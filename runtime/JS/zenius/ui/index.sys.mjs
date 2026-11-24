@@ -392,8 +392,8 @@ class UiController {
   /** What the tasks panel's buttons do, by Space id. */
   #panelActions = {
     rows: () => this.tasks(),
-    open: (id, win) => this.#withRec(id, rec => this.openSpace(rec, null, win)),
-    openTab: (id, tabId, win) => this.#withRec(id, rec => this.openSpace(rec, tabId, win)),
+    open: (id, win) => this.#withRec(id, rec => this.goToTask(rec, null, win)),
+    openTab: (id, tabId, win) => this.#withRec(id, rec => this.goToTask(rec, tabId, win)),
     // The auto-close's one-click close (SPEC §3.4), as finish({keep: []})
     // with §3.5's waiting closes.
     closeIdle: id => this.#withRec(id, rec => this.service.closeIdleTask(rec)),
@@ -1524,7 +1524,7 @@ class UiController {
       `zenius-handoff-${rec.id}`,
       `An agent needs you: ${rec.name}`,
       text,
-      () => this.openSpace(rec),
+      () => this.goToTask(rec),
       String(rec.id)
     );
   }
@@ -3156,6 +3156,34 @@ class UiController {
    */
   openSpace(rec, tabId = null, from = null) {
     return this.watch(rec, from, { tabId });
+  }
+
+  /**
+   * Go to an agent's task from zenius's own UI (the tasks panel's Open and
+   * its tab names, a notification): its Space as openSpace shows it, and,
+   * when one of the agent sidebar's Work chats drives the task, that chat in
+   * the agent sidebar of the window that shows the task, opened if it was
+   * closed. With several chats at work, the user then answers the one that
+   * asked. A task no Work chat drives (a CLI agent's) opens no sidebar.
+   *
+   * @param {object} rec
+   * @param {string|null} [tabId]  zen-core's id of the task's tab to show
+   * @param {Window|null} [from]  the window the user asked in
+   * @returns {Promise<boolean>} whether the window shows the task
+   */
+  async goToTask(rec, tabId = null, from = null) {
+    const shown = await this.openSpace(rec, tabId, from);
+    if (rec.gone) {
+      return shown;
+    }
+    const watcher = [from, ...Services.wm.getEnumerator("navigator:browser")].find(w => w && !w.closed && this.watching(w) === rec.id);
+    const win = watcher ?? (from && !from.closed ? from : Services.wm.getMostRecentWindow("navigator:browser"));
+    try {
+      await win?.ucAgentSidebar?.openChatOfSpace?.(rec.id, rec.source ?? null);
+    } catch (e) {
+      console.error("[zenius] the task's chat didn't open in the agent sidebar", e);
+    }
+    return shown;
   }
 
   /**

@@ -149,7 +149,9 @@ stable, and a change to one is announced to zen-eval first.
   (`ZeniusUI.noteSidebarTask`): working while its turn runs, and needing
   the user for the reasons only the sidebar knows (a permission, a
   question, an error, Zen quitting mid-task). zenius knows hand-offs and
-  Take over itself.
+  Take over itself. zenius's way to a task (its tasks panel's Open and tab
+  names, a notification's click) opens the sidebar on the Work chat that
+  drives the task, if one does (`openChatOfSpace`).
 - **Queue and steer**: while the agent works, Enter queues a message
   (`AgentService.enqueue`), which goes out when the turn ends, in order, in
   the same session; a queued Chat question reads its tab's page as it is
@@ -319,6 +321,7 @@ toolbar isn't visible, such as a site's sign-in window, has no sidebar):
 | `watch(uid, { tab })` | Watch a task (on `tab`, one of its tabs, if given) with zenius's `ZeniusUI.watch`; resolves to whether the window shows it. Watching another task keeps the way back |
 | `stopWatching({ back = true })` | End the watch; with `back`, return to the user's Space and tab. Resolves to whether a watch ended |
 | `takeOver(uid)` | zenius's Take over, then a watch; resolves to whether the user has the task |
+| `openChatOfSpace(space, source)` | The sidebar open on the Work chat that drives zenius task `space` (`AgentService.chatOfSpace`), as zenius's tasks panel's Open, its tab names and a notification's click do; resolves to whether it shows one. A task no Work chat drives opens nothing |
 | `watching` | The uid of the task this window watches, else null, whoever began the watch: the card, the directory, zenius's tasks panel or a notification |
 | `currentTask` | The task Work mode shows |
 | `conversationFor(tab)`, `submit(conv, { question, selection, attachments })` | A tab's chat, and asking in it (zen-eval's dispatch tests) |

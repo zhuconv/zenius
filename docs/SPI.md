@@ -1646,6 +1646,14 @@ deadline += await ctx.gate();
   watch: the panel's Open, Take over and tab names, a notification's click
   (`openSpace` is a watch), and the agent sidebar's live card and
   directory, which call it.
+  - The panel's Open and tab names and a notification's click go to the
+    task by `goToTask`: the watch, then, when one of the agent sidebar's
+    Work chats drives the task (`AgentService.chatOfSpace`, by
+    `drivesSpace`'s rule), that chat in the agent sidebar of the window
+    that shows the task, opened if it was closed
+    (`ucAgentSidebar.openChatOfSpace`). With several chats at work, the
+    user answers the one that asked. A task no Work chat drives (a CLI
+    agent's) opens no sidebar, and Take over leaves the sidebar as it is.
   - The window remembers where the user was: their tab, or, from an
     agent's page or Space, their own Space (`#userWorkspace`). Watching
     another task keeps that.

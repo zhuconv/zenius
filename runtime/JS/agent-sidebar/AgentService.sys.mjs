@@ -3247,13 +3247,26 @@ export const AgentService = {
    * could send that, so it counts only for a chat the sidebar has.
    */
   drivesSpace(space, source) {
+    return this.chatOfSpace(space, source) !== null;
+  },
+
+  /**
+   * The sidebar's Work chat that drives zenius task `space`, by drivesSpace's
+   * rule, else null. It's never an external task's view, so a task another
+   * program drives (a CLI agent's) has none.
+   *
+   * @param {number} space
+   * @param {object|null} [source]  the task's source
+   * @returns {Conversation|null}
+   */
+  chatOfSpace(space, source = null) {
     for (const conv of this.tasks.values()) {
       if (conv.zen?.id === space) {
-        return true;
+        return conv;
       }
     }
     const claimed = typeof source?.sidebar === "string" ? source.sidebar : "";
-    return !!claimed && this.tasks.has(claimed);
+    return (claimed && this.tasks.get(claimed)) || null;
   },
 
   /**
