@@ -272,11 +272,30 @@ stable, and a change to one is announced to zen-eval first.
   ⌃Tab does that only while watching; elsewhere it stays Zen's. Picking a
   tab outside the task, or another Space, ends the watch where the user
   went. Take over is zenius's (as its tasks panel does it), then a watch:
-  the agent waits until the user presses zenius's Resume agent. While
-  zenius reports a Take over refused ("Can't take over this page"), the
-  card hides Take over: zenius's card on the page holds the choices, with
-  Try again only where it can work. A task's tab in the directory starts a
-  watch on that tab.
+  the agent waits until the user presses zenius's Resume agent.
+  - **A send can be that press.** While the user holds the task by Take
+    over and this window shows one of its pages, on a site the task had at
+    the Take over (`ZeniusUI.sendHandBack`), a line over the box says
+    "Sending gives <site> back to <agent>. Password, card and code fields
+    there are cleared, so submit what you type first." It offers Keep
+    control, which lasts for this hold (`AgentService.setKeepControl`).
+  - The user's own Enter, Send or Steer on a message that goes now then
+    runs Resume agent's path (`handBackBySend`). The message goes once that
+    is done, with a note that tells the agent which page the user watches
+    (`handBackNote`), and the chat says what was given back. While the
+    agent's turn runs, Enter queues the message, so the line says that
+    Steer gives the task back now and Enter gives nothing back. A press
+    during a hand back waits for it, so the first message goes first, with
+    the note.
+  - Elsewhere the line says that only Resume agent on the page's card
+    gives the task back. A queued message, the glue's `submit`, a remote
+    task's send, an agent's hand-off and a permission hold give nothing
+    back.
+
+  While zenius reports a Take over refused ("Can't take over this page"),
+  the card hides Take over: zenius's card on the page holds the choices,
+  with Try again only where it can work. A task's tab in the directory
+  starts a watch on that tab.
 
 ## Files
 
@@ -481,6 +500,7 @@ The panel (`panel.html`, its own document, so bare ids):
 |---|---|
 | `html[data-mode="chat"\|"work"]` | The mode |
 | `#header`: `#dir`, `#favicon`, `#title`, `#more`, `#menu` | `#dir` (Work only; `aria-expanded` while the directory is open) or `#favicon` (Chat only), the title, the ⋯ menu. `#menu`: `#new-chat` (Chat) or `#new-task` (Work), "New"; `#rename-task`, "Rename"; `#archive-task`, "Archive", or "Unarchive" on an archived task; `#close`, "Close" with `.kbd[data-shortcut]`, the sidebar's key as the window bound it (`uc.agent-sidebar.shortcut`; ⌘⇧A on the Mac, Ctrl+Shift+A on Linux and Windows by default), as the empty chat's `kbd[data-shortcut]` says it. In Work, `#rename-task`, or a double-click on `#title`, puts an `input` (`aria-label` "Task name", the task's own title as its placeholder) in `#title` until Enter, Esc or a click outside |
+| `#handback`: `#handback-text`, `#handback-keep` | Over the box while the user holds the task by Take over: whether a send gives it back, and Keep control (`aria-pressed`); `#input` is described by the text |
 | `#box`: `#input`, `#bar` | The question box: the text, and its bottom row |
 | `#bar` > `#bar-start`, `#bar-end` | The row's two groups: `#attach` and `#switch`; then `#pickers`, `#stop` and `#send`. One row when both fit at their natural widths; otherwise `#bar-end` wraps whole to a second row, at the right, under `#bar-start`, and shrinks the pickers (an ellipsis) rather than run past `#box`. Nothing is hidden. In a box under 170 px the first group tightens, so it keeps one row with the count |
 | `#attach`, `#switch` > `#to-chat`, `#to-work` | '+' and the switch; the shown mode's button has `aria-pressed="true"` |

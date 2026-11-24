@@ -8560,3 +8560,419 @@ test("a file read in one window's sidebar shows as read in another window's on t
   assert.deepEqual(out.here, [["notes.txt", "ready", out.info]], "and so does this window's, which read it");
   assert.deepEqual(out.box, { value: "Words in the other window", caret: [5, 5] }, "the other window's box keeps its words and its caret");
 });
+
+// A Work chat's send as Resume agent, after the user's Take over: the
+// composer says so before the press, and only the user's own press on a
+// message that goes now gives the task back, by the hold card's path, from a
+// window that shows one of the task's pages on a site it had at the Take
+// over. READAGAIN has the mock read its task's page again: it can only once
+// the task is the agent's again.
+// The note a send's hand back puts before the user's words, watching p1.
+const NOTE_P1 = "<zenius-note>\nThe user had taken over this task's pages and gave them back to you with this message. They are watching p1 (127.0.0.1): go on there.\n</zenius-note>";
+const HANDBACK = `
+  const AS = win.ucAgentSidebar.AgentService;
+  const g = win.ucAgentSidebar;
+  const spaces = AS.zenius().spaces;
+  const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
+  const line = () => {
+    const el = S.panelDoc().getElementById("handback");
+    return el.hidden ? null : el.querySelector("#handback-text").textContent;
+  };
+  const keep = () => S.panelDoc().getElementById("handback-keep");
+  const answers = conv => conv.messages.filter(m => m.role === "assistant").length;
+  const answerAfter = async (conv, n) => {
+    await S.until(() => !conv.busy && answers(conv) > n, 30000);
+    return conv.messages.findLast(m => m.role === "assistant").text;
+  };
+  // A Work chat whose agent opened its task's page and left it open.
+  const openTask = async name => {
+    const uid = await startWorkChat(win, { text: "OPENSTAY:" + name, source: "new" });
+    const conv = AS.tasks.get(uid);
+    await S.until(() => conv && !conv.busy && AS.zenRecord(conv) && AS.zenFrontTab(conv), 30000);
+    return conv;
+  };
+  // The user's Take over from the chat's card: zenius's, then a watch.
+  const takeOver = async conv => {
+    await g.takeOver(conv.uid);
+    await S.until(() => AS.isHeld(conv) === "takeover" && g.watching === conv.uid, 10000);
+  };
+  const cleanUp = conv => {
+    const rec = conv && AS.zenRecord(conv);
+    if (rec && !rec.gone) {
+      if (rec.ownership === "agentDelegatedToUser") spaces.setOwnership(rec, "agent", { source: "user" });
+      try { AS.zeniusUI()?.stopByUser(rec); } catch {}
+      for (const t of AS.zenius().pages.tabsOf(rec)) win.gBrowser.removeTab(t, { animate: false });
+    }
+    if (conv && AS.tasks.has(conv.uid)) AS.removeTask(conv);
+  };
+`;
+
+test("a Work chat's send from a window that shows the page the user took over gives the task back, as Resume agent does: the line says so first, the agent's turn hears which page, and its call there works", async () => {
+  await useMock();
+  const out = await chrome(`${HANDBACK}
+    await S.openPanel();
+    let conv = null;
+    try {
+      conv = await openTask("handback same page ${run}");
+      await takeOver(conv);
+      await S.until(() => line()?.startsWith("Sending gives"), 5000);
+      const before = {
+        line: line(),
+        keep: keep().hidden ? null : keep().textContent,
+        pressed: keep().getAttribute("aria-pressed"),
+        described: V.$("input").getAttribute("aria-describedby"),
+      };
+      const n = answers(conv);
+      V.send("READAGAIN");
+      const answer = await answerAfter(conv, n);
+      return {
+        agent: AS.agentName(conv),
+        before,
+        answer,
+        ownership: AS.zenRecord(conv)?.ownership,
+        notes: conv.messages.filter(m => m.role === "note").map(m => m.text),
+        after: line(),
+      };
+    } finally {
+      cleanUp(conv);
+    }
+  `);
+  assert.equal(out.before.line, `Sending gives ${iso("127.0.0.1")} back to ${iso(out.agent)}. Password, card and code fields there are cleared, so submit what you type first.`);
+  assert.deepEqual([out.before.keep, out.before.pressed, out.before.described], ["Keep control", "false", "handback-text"]);
+  assert.equal(out.answer, "I read the page again, in the task I had open.", "the agent's call on its page worked");
+  assert.equal(out.ownership, "agent");
+  assert.ok(out.notes.includes(`You gave ${iso("127.0.0.1")} back to ${iso(out.agent)}.`), JSON.stringify(out.notes));
+  assert.equal(out.after, null, "the line goes with the hold");
+  // The agent's turn: zenius's note first, then the user's words.
+  const prompt = mockLog().filter(m => m.method === "session/prompt").at(-1);
+  const texts = prompt.params.prompt.filter(b => b.type === "text").map(b => b.text);
+  assert.equal(texts.at(-1), "READAGAIN");
+  assert.equal(
+    texts.at(-2),
+    "<zenius-note>\nThe user had taken over this task's pages and gave them back to you with this message. They are watching p1 (127.0.0.1): go on there.\n</zenius-note>"
+  );
+});
+
+test("Keep control: the send goes and the task stays the user's, for this hold only; the next Take over asks again", async () => {
+  await useMock();
+  const out = await chrome(`${HANDBACK}
+    await S.openPanel();
+    let conv = null;
+    try {
+      conv = await openTask("handback keep ${run}");
+      await takeOver(conv);
+      await S.until(() => line()?.startsWith("Sending gives"), 5000);
+      keep().click();
+      await S.until(() => line()?.startsWith("You keep control"), 5000);
+      const kept = { line: line(), pressed: keep().getAttribute("aria-pressed") };
+      const n = answers(conv);
+      V.send("READAGAIN");
+      const answer = await answerAfter(conv, n);
+      const held = AS.isHeld(conv);
+      // Resume agent on the page's card ends the hold; a new Take over asks again.
+      spaces.setOwnership(AS.zenRecord(conv), "agent", { source: "user" });
+      await S.until(() => !AS.isHeld(conv), 5000);
+      await takeOver(conv);
+      await S.until(() => line()?.startsWith("Sending gives"), 5000);
+      return { agent: AS.agentName(conv), kept, answer, held, again: line(), keepAgain: conv.keepControl };
+    } finally {
+      cleanUp(conv);
+    }
+  `);
+  assert.equal(out.kept.line, `You keep control of ${iso("127.0.0.1")}: sending doesn't give it back. Resume agent on the page's card does.`);
+  assert.equal(out.kept.pressed, "true");
+  assert.equal(out.answer, "I couldn't read the page again.", "the page stayed the user's");
+  assert.equal(out.held, "takeover");
+  assert.ok(out.again.startsWith("Sending gives"), out.again);
+  assert.equal(out.keepAgain, false);
+});
+
+test("the hold stays when the sidebar's window shows another tab, another task's page or the held tab on another site; back on the task's site, a send gives it back", async () => {
+  await useMock();
+  const local = www().replace("127.0.0.1", "localhost");
+  const out = await chrome(
+    `${HANDBACK}
+    await S.openPanel();
+    let conv = null;
+    let other = null;
+    try {
+      other = await openTask("handback other task ${run}");
+      conv = await openTask("handback elsewhere ${run}");
+      await takeOver(conv);
+      await S.until(() => line()?.startsWith("Sending gives"), 5000);
+      const res = {};
+      const held = AS.zenFrontTab(conv);
+      // Another window, which shows its own tab: its sidebar's send keeps the hold.
+      const w2 = win.OpenBrowserWindow();
+      try {
+        await S.until(() => w2.ucAgentSidebar && w2.gBrowser?.selectedBrowser, 15000);
+        res.otherWindow = w2.ucAgentSidebar.sendHandBack(conv);
+        res.thisWindow = g.sendHandBack(conv);
+      } finally {
+        w2.close();
+      }
+      // Another task's page.
+      win.gBrowser.selectedTab = AS.zenFrontTab(other);
+      await S.until(() => line()?.startsWith("You have control"), 5000);
+      res.otherTask = { line: line(), state: g.sendHandBack(conv) };
+      // The user's own tab.
+      await g.stopWatching();
+      await S.until(() => g.watching === null, 5000);
+      res.ownTab = g.sendHandBack(conv);
+      // The held tab on another site (a sign-in redirect, the user's mail).
+      win.gBrowser.selectedTab = held;
+      held.linkedBrowser.fixupAndLoadURIString(arg.local + "/article.html", { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+      await S.until(() => held.linkedBrowser.currentURI.host === "localhost" && !held.hasAttribute("busy"), 10000);
+      await S.until(() => line()?.startsWith("You have control"), 5000);
+      res.otherSite = g.sendHandBack(conv);
+      let n = answers(conv);
+      V.send("READAGAIN");
+      res.otherSiteAnswer = await answerAfter(conv, n);
+      res.otherSiteHeld = AS.isHeld(conv);
+      // Back on the task's site, it counts.
+      held.linkedBrowser.goBack();
+      await S.until(() => held.linkedBrowser.currentURI.host === "127.0.0.1" && !held.hasAttribute("busy"), 10000);
+      await S.until(() => line()?.startsWith("Sending gives"), 5000);
+      n = answers(conv);
+      V.send("READAGAIN");
+      res.backAnswer = await answerAfter(conv, n);
+      res.backOwnership = AS.zenRecord(conv)?.ownership;
+      res.fallback = res.otherTask.line;
+      return res;
+    } finally {
+      cleanUp(conv);
+      cleanUp(other);
+    }
+  `,
+    { local }
+  );
+  assert.equal(out.fallback, "You have control of this task's pages: sending doesn't give them back. Resume agent on the page's card does.");
+  assert.equal(out.otherTask.state.applies, false);
+  assert.deepEqual([out.otherWindow.applies, out.thisWindow.applies], [false, true], "only the window that shows the page");
+  assert.deepEqual(out.ownTab, { applies: false, page: null, site: null }, "not watching: the window shows no page of the task's");
+  assert.deepEqual([out.otherSite.applies, out.otherSite.site], [false, "localhost"]);
+  assert.equal(out.otherSiteAnswer, "I couldn't read the page again.");
+  assert.equal(out.otherSiteHeld, "takeover");
+  assert.equal(out.backAnswer, "I read the page again, in the task I had open.");
+  assert.equal(out.backOwnership, "agent");
+});
+
+test("other senders and other holds give nothing back: a queued message, the glue's submit, a remote task's send, an agent's hand-off and a permission hold", async () => {
+  await useMock();
+  const out = await chrome(`${HANDBACK}
+    await S.openPanel();
+    let conv = null;
+    try {
+      conv = await openTask("handback senders ${run}");
+      const res = {};
+      await takeOver(conv);
+      // The glue's submit (the eval's dispatch) and a remote task's send.
+      let n = answers(conv);
+      g.submit(conv, { question: "READAGAIN" });
+      res.glue = await answerAfter(conv, n);
+      n = answers(conv);
+      AS.send(conv, { question: "READAGAIN", source: "remote" }).catch(() => {});
+      res.remote = await answerAfter(conv, n);
+      res.heldAfterSenders = AS.isHeld(conv);
+      // A message queued while the agent's turn runs goes at the turn's end,
+      // and gives nothing back.
+      n = answers(conv);
+      g.submit(conv, { question: "SLOW" });
+      await S.until(() => conv.busy, 5000);
+      res.busyLine = await S.until(() => (line()?.startsWith("The agent's turn is running") ? line() : null), 5000);
+      V.send("READAGAIN");
+      await S.until(() => conv.queue.length === 1, 5000);
+      res.queued = conv.queue.length;
+      await S.until(() => !conv.busy && answers(conv) >= n + 2, 30000);
+      res.queuedAnswer = conv.messages.findLast(m => m.role === "assistant").text;
+      res.heldAfterQueue = AS.isHeld(conv);
+      // An agent's hand-off and a permission hold: no line, and the press
+      // gives nothing back.
+      const rec = AS.zenRecord(conv);
+      const page = AS.zenFrontTab(conv).linkedBrowser;
+      for (const source of ["agent", "permission"]) {
+        spaces.setOwnership(rec, "agent", { source: "user" });
+        spaces.setOwnership(rec, "agentDelegatedToUser", { source, reason: source === "agent" ? "sign_in" : "permission_prompt", secret: source === "agent" });
+        await S.until(() => AS.isHeld(conv) === "handoff", 5000);
+        n = answers(conv);
+        V.send("READAGAIN");
+        res[source] = { line: line(), answer: await answerAfter(conv, n), ownership: AS.zenRecord(conv)?.ownership, page: page.currentURI.spec.endsWith("/article.html") };
+      }
+      return res;
+    } finally {
+      cleanUp(conv);
+    }
+  `);
+  assert.equal(out.glue, "I couldn't read the page again.");
+  assert.equal(out.remote, "I couldn't read the page again.");
+  assert.equal(out.heldAfterSenders, "takeover");
+  assert.ok(out.busyLine?.includes(" Enter waits for the turn to end and gives nothing back. "), `the line said what Enter does: ${out.busyLine}`);
+  assert.equal(out.queued, 1, "Enter queued it");
+  assert.equal(out.queuedAnswer, "I couldn't read the page again.");
+  assert.equal(out.heldAfterQueue, "takeover");
+  for (const source of ["agent", "permission"]) {
+    assert.deepEqual(out[source], { line: null, answer: "I couldn't read the page again.", ownership: "agentDelegatedToUser", page: true }, source);
+  }
+});
+
+test("while the agent's turn runs, the line says Steer gives the site back and Enter doesn't, and Steer does, with the note", async () => {
+  await useMock();
+  const out = await chrome(`${HANDBACK}
+    await S.openPanel();
+    let conv = null;
+    try {
+      conv = await openTask("handback steer ${run}");
+      await takeOver(conv);
+      await S.until(() => line()?.startsWith("Sending gives"), 5000);
+      // A turn that runs, from the glue's submit, which gives nothing back.
+      g.submit(conv, { question: "SLOW" });
+      const busy = await S.until(() => (conv.busy && line()?.startsWith("The agent's turn is running") ? { line: line(), keep: !keep().hidden } : null), 10000);
+      V.type("READAGAIN");
+      if (!(await S.until(() => !V.$("steer").hidden, 5000))) throw new Error("no Steer");
+      V.$("steer").click();
+      await S.until(() => !conv.busy && conv.messages.some(m => m.role === "assistant" && m.text.startsWith("Steered:")), 20000);
+      return {
+        agent: AS.agentName(conv),
+        busy,
+        steered: conv.messages.findLast(m => m.role === "assistant" && m.text.startsWith("Steered:"))?.text ?? null,
+        ownership: AS.zenRecord(conv)?.ownership,
+        notes: conv.messages.filter(m => m.role === "note").map(m => m.text),
+      };
+    } finally {
+      cleanUp(conv);
+    }
+  `);
+  assert.deepEqual(out.busy, {
+    line: `The agent's turn is running: Steer gives ${iso("127.0.0.1")} back to ${iso(out.agent)} now. Enter waits for the turn to end and gives nothing back. Password, card and code fields there are cleared, so submit what you type first.`,
+    keep: true,
+  });
+  assert.equal(out.steered, "Steered: READAGAIN");
+  assert.equal(out.ownership, "agent");
+  assert.ok(out.notes.includes(`You gave ${iso("127.0.0.1")} back to ${iso(out.agent)}.`), JSON.stringify(out.notes));
+  const steer = mockLog().filter(m => m.method === "_session/steering").at(-1);
+  const texts = steer.params.prompt.filter(b => b.type === "text").map(b => b.text);
+  assert.deepEqual(texts.slice(-2), [NOTE_P1, "READAGAIN"]);
+});
+
+test("a second press while a send gives the task back waits for it: one hand back, and the first message goes first, with the note", async () => {
+  await useMock();
+  const out = await chrome(`${HANDBACK}
+    await S.openPanel();
+    let conv = null;
+    const ui = AS.zeniusUI();
+    const own = Object.hasOwn(ui, "handBackBySend");
+    const real = ui.handBackBySend;
+    let calls = 0;
+    // A slow hand back, as one that reloads a page where the user typed a secret.
+    ui.handBackBySend = async (...args) => {
+      calls++;
+      await S.sleep(600);
+      return real.apply(ui, args);
+    };
+    try {
+      conv = await openTask("handback twice ${run}");
+      await takeOver(conv);
+      await S.until(() => line()?.startsWith("Sending gives"), 5000);
+      const n = answers(conv);
+      V.send("READAGAIN first");
+      const giving = await S.until(() => (line()?.startsWith("Giving") ? line() : null), 5000);
+      V.send("READAGAIN second");
+      await S.until(() => !conv.busy && !conv.queue.length && answers(conv) >= n + 2, 30000);
+      return {
+        agent: AS.agentName(conv),
+        giving,
+        calls,
+        notes: conv.messages.filter(m => m.role === "note").map(m => m.text),
+        answers: conv.messages.filter(m => m.role === "assistant").slice(n).map(m => m.text),
+        ownership: AS.zenRecord(conv)?.ownership,
+      };
+    } finally {
+      if (own) ui.handBackBySend = real;
+      else delete ui.handBackBySend;
+      cleanUp(conv);
+    }
+  `);
+  assert.equal(out.giving, `Giving ${iso("127.0.0.1")} back to ${iso(out.agent)}\u2026`);
+  assert.equal(out.calls, 1, "the second press waited for the first one's hand back");
+  assert.equal(out.notes.filter(t => t.startsWith("You gave ")).length, 1, JSON.stringify(out.notes));
+  assert.deepEqual(out.answers, ["I read the page again, in the task I had open.", "I read the page again, in the task I had open."]);
+  assert.equal(out.ownership, "agent");
+  const prompts = mockLog().filter(m => m.method === "session/prompt").map(m => m.params.prompt.filter(b => b.type === "text").map(b => b.text));
+  const first = prompts.findIndex(t => t.at(-1) === "READAGAIN first");
+  const second = prompts.findIndex(t => t.at(-1) === "READAGAIN second");
+  assert.ok(first >= 0 && second > first, `the first message went first: ${first}, ${second}`);
+  assert.equal(prompts[first].at(-2), NOTE_P1);
+  assert.ok(!prompts[second].some(t => t.startsWith("<zenius-note>")), "the second message has no note");
+});
+
+test("a popup the held page opened on another site keeps the hold: the line says only Resume agent on the page's card gives it back, and a send there gives nothing back", async () => {
+  await useMock();
+  const local = www().replace("127.0.0.1", "localhost");
+  const first = await chrome(`${HANDBACK}
+    await S.openPanel();
+    const conv = await openTask("handback popup ${run}");
+    await takeOver(conv);
+    await S.until(() => line()?.startsWith("Sending gives"), 5000);
+    // Pages may open popups without a click, as the observe suites' popup tests do.
+    const pref = "dom.disable_open_during_load";
+    const had = Services.prefs.prefHasUserValue(pref) ? Services.prefs.getBoolPref(pref) : null;
+    Services.prefs.setBoolPref(pref, false);
+    return { uid: conv.uid, space: AS.zenRecord(conv).id, had };
+  `);
+  try {
+    // The page the user holds opens a popup on another site.
+    await h.call("dev.evalContent", { space: first.space, page: "p1", code: `window.open(${JSON.stringify(`${local}/article.html?popup`)}); return true;` });
+    const out = await chrome(
+      `${HANDBACK}
+      const conv = AS.tasks.get(arg.uid);
+      const rec = AS.zenRecord(conv);
+      const popup = await S.until(() => AS.zenius().pages.tabsOf(rec).find(t => t.linkedBrowser.currentURI.host === "localhost" && !t.hasAttribute("busy")), 15000);
+      if (!popup) throw new Error("the popup didn't open in the task");
+      win.gBrowser.selectedTab = popup;
+      const shown = await S.until(() => (line()?.startsWith("You have control") ? line() : null), 5000);
+      const res = { line: shown, keep: !keep().hidden, state: g.sendHandBack(conv) };
+      const n = answers(conv);
+      V.send("READAGAIN");
+      res.answer = await answerAfter(conv, n);
+      res.held = AS.isHeld(conv);
+      return res;
+    `,
+      { uid: first.uid }
+    );
+    assert.equal(out.line, "You have control of this task's pages: sending doesn't give them back. Resume agent on the page's card does.");
+    assert.equal(out.keep, false);
+    assert.deepEqual([out.state.applies, out.state.site], [false, "localhost"]);
+    assert.ok(out.state.page, "the popup is one of the task's pages");
+    assert.equal(out.answer, "I couldn't read the page again.");
+    assert.equal(out.held, "takeover");
+  } finally {
+    await chrome(
+      `${HANDBACK}
+      cleanUp(AS.tasks.get(arg.uid));
+      const pref = "dom.disable_open_during_load";
+      if (arg.had === null) Services.prefs.clearUserPref(pref);
+      else Services.prefs.setBoolPref(pref, arg.had);
+      return true;
+    `,
+      first
+    ).catch(() => {});
+  }
+});
+
+test("the agent's note names what the hand back reloaded or cleared, in zenius's wait's words, and the chat's line isolates the site and the agent", async () => {
+  const out = await chrome(`
+    const M = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentService.sys.mjs");
+    return {
+      plain: M.handBackNote({ page: "p2", site: "example.com" }),
+      reloaded: M.handBackNote({ page: "p1", site: "shop.example", notes: { reloaded: ["p1", "p3"] } }),
+      blanked: M.handBackNote({ page: "p1", site: null, notes: { blanked: ["p2"] } }),
+      chat: M.handBackChatNote({ site: "\\u05d3\\u05d5\\u05d0\\u05e8.example" }, "Codex"),
+      chatNoSite: M.handBackChatNote({ site: null }, "Claude Code"),
+    };
+  `);
+  assert.equal(out.plain, "<zenius-note>\nThe user had taken over this task's pages and gave them back to you with this message. They are watching p2 (example.com): go on there.\n</zenius-note>");
+  assert.ok(out.reloaded.includes("\nzenius loaded p1, p3 afresh while the user had the task: read them again before using refs.\n"), out.reloaded);
+  assert.ok(out.blanked.includes("They are watching p1: go on there.\nzenius cleared p2, which showed the user a secret: it shows about:blank now."), out.blanked);
+  assert.equal(out.chat, `You gave ${iso("\u05d3\u05d5\u05d0\u05e8.example")} back to ${iso("Codex")}.`);
+  assert.equal(out.chatNoSite, `You gave the task back to ${iso("Claude Code")}.`);
+});

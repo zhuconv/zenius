@@ -1625,6 +1625,17 @@ deadline += await ctx.gate();
   the page the agent handed you, so copy what you need from it first."
   under Resume agent. It lasts for that hold: a hand-off without the flag, a
   hold the user began, and the agent's run again end it.
+- **A Work chat's send as Resume agent** (`ZeniusUI.sendHandBack(rec,
+  win)` and `handBackBySend(rec, win)`, which the agent sidebar's composer
+  calls). It applies while the user holds the task by Take over (`heldBy`
+  "user"), with no prompt open on its pages, and with the sidebar's
+  window's selected tab one of the task's managed pages (`pages.forBrowser`)
+  on a site its pages had at the Take over (zen-core's
+  `spaces.takeoverSiteOf`, in "A send as Resume agent"). Then the user's
+  own press on a message that goes now is Resume agent: the same path,
+  awaited (`#handBack`), then `spaces.takeHandBackNotes` for the turn's
+  note. Never the agent's hand-off, whose secret step Resume blanks, nor a
+  permission hold. Any other tab, site or window keeps the hold.
 - **Resume agent** first reloads, quietly, each page where the user typed a
   secret and that has evidence a clean copy clears (zen-input's
   `typedSecrets`, zen-observe's `evidenceOf` saying hooked or made, then

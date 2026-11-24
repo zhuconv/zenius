@@ -93,6 +93,9 @@ const els = {
   pickList: $("pick-list"),
   pickFly: $("pick-fly"),
   box: $("box"),
+  handback: $("handback"),
+  handbackText: $("handback-text"),
+  handbackKeep: $("handback-keep"),
   input: $("input"),
   send: $("send"),
   stop: $("stop"),
@@ -2121,6 +2124,7 @@ function renderAll() {
   renderBinding();
   renderOptions();
   renderChip();
+  renderHandBack();
   renderAttachments();
   renderQueue();
   renderMessages();
@@ -2147,6 +2151,8 @@ function onChange(change) {
       stopEditing();
     }
     renderStatus();
+    // What Enter and Steer do follows the turn (renderHandBack).
+    renderHandBack();
     if (change.type === "busy") {
       scheduleRender(); // steps stop running with the turn
       renderOptions();
@@ -2155,6 +2161,7 @@ function onChange(change) {
   } else if (change.type === "task" || change.type === "zen") {
     scheduleBinding();
     renderExternal();
+    renderHandBack();
   } else if (change.type === "steps") {
     renderExternal();
   } else if (change.type === "queue") {
@@ -2270,11 +2277,93 @@ async function composed(target) {
   return { question, selection, attachments };
 }
 
-/** Send the box's message. While the agent works, Enter queues it for when
+/** The chat whose send is giving its task back right now (handBackBySend),
+ * and that hand back's promise, which a second press waits for (submit). */
+let handingBack = null;
+let handBackRun = null;
+
+/** What a send that gives the task back clears, in the hold card's words. */
+const HANDBACK_CLEARS = "Password, card and code fields there are cleared, so submit what you type first.";
+
+/**
+ * Does the user's press send the message to the agent now, as submit
+ * decides? Enter does while the agent is idle, and while it waits on a
+ * permission, which the message declines; Steer does while its turn runs.
+ * An open question takes the box's words as its answer, and a turn that is
+ * stopping takes no message until it ends.
+ */
+function goesNow(target, steer) {
+  if (openAsk(target)) {
+    return false;
+  }
+  return !target.busy || ((steer || !!openPermission(target)) && !target.stopRequested);
+}
+
+/**
+ * The line over the box while the user holds the chat's task by Take over
+ * (AgentService.isHeld). When this window shows one of the task's pages on
+ * a site it had at the Take over (glue.sendHandBack), sending is Resume
+ * agent: the line says so before the press, in the hold card's terms, and
+ * offers Keep control, which lasts for this hold. Otherwise it says that
+ * only Resume agent on the page's card gives the task back. An agent's
+ * hand-off, a permission hold and every other chat show none.
+ */
+function renderHandBack() {
+  // A self-check window's tasks (scope) run scripted: never the user's press.
+  const held = conv?.kind === "work" && !conv.external && !conv.scope && AgentService.isHeld(conv) === "takeover";
+  els.handback.hidden = !held;
+  if (!held) {
+    els.input.removeAttribute("aria-describedby");
+    return;
+  }
+  const state = glue.sendHandBack?.(conv) ?? null;
+  const agent = `\u2068${AgentService.agentName(conv)}\u2069`;
+  const site = state?.applies && state.site ? `\u2068${state.site}\u2069` : null;
+  // The line says what the user's Enter and Steer do now: while the agent's
+  // turn runs, Enter queues the message and gives nothing back.
+  const enter = goesNow(conv, false);
+  const steer = goesNow(conv, true);
+  const giving = handingBack === conv;
+  let text;
+  if (giving) {
+    text = `Giving ${site ?? "the task"} back to ${agent}\u2026`;
+  } else if (site && conv.keepControl) {
+    text = `You keep control of ${site}: sending doesn't give it back. Resume agent on the page's card does.`;
+  } else if (site && enter) {
+    text = `Sending gives ${site} back to ${agent}. ${HANDBACK_CLEARS}`;
+  } else if (site && steer) {
+    text = `The agent's turn is running: Steer gives ${site} back to ${agent} now. Enter waits for the turn to end and gives nothing back. ${HANDBACK_CLEARS}`;
+  } else if (site) {
+    text = `You have control of ${site}: sending now doesn't give it back. Resume agent on the page's card does.`;
+  } else {
+    text = "You have control of this task's pages: sending doesn't give them back. Resume agent on the page's card does.";
+  }
+  els.handbackText.textContent = text;
+  els.handbackKeep.hidden = !site || giving || !(enter || steer || conv.keepControl);
+  els.handbackKeep.setAttribute("aria-pressed", String(!!conv.keepControl));
+  els.input.setAttribute("aria-describedby", "handback-text");
+}
+
+els.handbackKeep.addEventListener("click", event => {
+  if (event.isTrusted && conv) {
+    AgentService.setKeepControl(conv, !conv.keepControl);
+    renderHandBack();
+  }
+});
+
+/**
+ * Send the box's message. While the agent works, Enter queues it for when
  * the turn ends, and Steer (or Cmd+Enter) sends it into the running turn;
  * with a permission open, it goes at once and declines the request. Whether
- * the agent works is decided once the files are read. */
-async function submit({ steer = false } = {}) {
+ * the agent works is decided once the files are read.
+ *
+ * The user's own press (Enter, Send or Steer: `trusted`) on a message that
+ * goes to the agent now gives the task back as Resume agent does, when the
+ * line over the box says so: the hold card's path runs first, and the
+ * message goes once it's done, with a note that tells the agent. A message
+ * queued for the turn's end, and every other sender, give nothing back.
+ */
+async function submit({ steer = false, trusted = false } = {}) {
   // An archived task is read-only until Unarchive.
   if (!conv || conv.external || conv.archivedAt || waitingFor === conv) {
     return;
@@ -2297,6 +2386,27 @@ async function submit({ steer = false } = {}) {
   const message = await composed(target);
   if (!message) {
     return;
+  }
+  // A press while this chat's send gives the task back waits for it: the
+  // first message goes first, with its note, and this one after it.
+  if (handingBack === target && handBackRun) {
+    await handBackRun.catch(() => null);
+  }
+  if (trusted && goesNow(target, steer) && target.kind === "work" && !target.scope && AgentService.isHeld(target) === "takeover" && !target.keepControl) {
+    handingBack = target;
+    const run = (handBackRun = glue.handBackBySend(target));
+    renderHandBack();
+    try {
+      message.handBack = await run;
+    } catch (e) {
+      console.error("[agent-sidebar] the send didn't give the task back", e);
+    } finally {
+      if (handBackRun === run) {
+        handingBack = null;
+        handBackRun = null;
+      }
+      renderHandBack();
+    }
   }
   // Each goes to the chat's end once it's out (followUp): a queued one
   // shows its row first, which moves the end.
@@ -2396,7 +2506,7 @@ els.input.addEventListener("keydown", event => {
   }
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
-    submit({ steer: steerKey(event) });
+    submit({ steer: steerKey(event), trusted: event.isTrusted });
   } else if (event.key === "Escape") {
     event.preventDefault();
     if (glue.directoryOpen) {
@@ -2406,8 +2516,8 @@ els.input.addEventListener("keydown", event => {
     }
   }
 });
-els.send.addEventListener("click", () => submit());
-els.steer.addEventListener("click", () => submit({ steer: true }));
+els.send.addEventListener("click", event => submit({ trusted: event.isTrusted }));
+els.steer.addEventListener("click", event => submit({ steer: true, trusted: event.isTrusted }));
 els.stop.addEventListener("click", () => conv && AgentService.cancel(conv));
 $("chip-remove").addEventListener("click", () => {
   if (conv?.draft) {
@@ -3013,6 +3123,8 @@ const api = {
     if (conv?.kind !== "work") {
       scheduleBinding();
     }
+    // Whether a send gives the task back follows this window's tab and site.
+    renderHandBack();
   },
   /** The directory opened or closed (its button shows it). */
   directoryChanged(open) {

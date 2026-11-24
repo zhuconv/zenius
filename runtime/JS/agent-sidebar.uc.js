@@ -868,9 +868,9 @@
 
     /** Called by the panel when the user sends a question, or an edited one
      * (`replace`: the question it replaces). */
-    function submit(conv, { question, selection, attachments, replace, source = null }) {
+    function submit(conv, { question, selection, attachments, replace, source = null, handBack = null }) {
       if (conv.kind === "work") {
-        return AgentService.send(conv, { question, selection, attachments, replace, source });
+        return AgentService.send(conv, { question, selection, attachments, replace, source, handBack });
       }
       const tab = tabOf(conv) ?? gBrowser.selectedTab;
       return AgentService.send(conv, { question, selection, attachments, replace, source, page: pageOf(tab) });
@@ -880,14 +880,41 @@
      * one goes with its tab's page as it is when it goes out, so `page` is a
      * function AgentService calls then. Steer sends it into the running turn,
      * with the page as it is now. */
-    function enqueue(conv, { question, selection, attachments }) {
+    function enqueue(conv, { question, selection, attachments, handBack = null }) {
       const page = conv.kind === "work" ? null : () => pageOf(tabOf(conv) ?? gBrowser.selectedTab);
-      return AgentService.enqueue(conv, { question, selection, attachments, page });
+      return AgentService.enqueue(conv, { question, selection, attachments, page, handBack });
     }
 
-    function steer(conv, { question, selection, attachments }) {
+    function steer(conv, { question, selection, attachments, handBack = null }) {
       const page = conv.kind === "work" ? null : pageOf(tabOf(conv) ?? gBrowser.selectedTab);
-      return AgentService.steer(conv, { question, selection, attachments, page });
+      return AgentService.steer(conv, { question, selection, attachments, page, handBack });
+    }
+
+    /**
+     * Would a send in this window give `conv`'s task back to its agent, as
+     * Resume agent does (ZeniusUI.sendHandBack)? Null unless the user holds
+     * the task by Take over. The composer's line reads it.
+     *
+     * @returns {{applies: boolean, page: string|null, site: string|null} | null}
+     */
+    function sendHandBack(conv) {
+      const ui = !conv?.scope && AgentService.isHeld(conv) === "takeover" ? AgentService.zeniusUI() : null;
+      const rec = ui ? AgentService.zenRecord(conv) : null;
+      return rec && typeof ui.sendHandBack === "function" ? ui.sendHandBack(rec, window) : null;
+    }
+
+    /**
+     * The user's press as Resume agent, unless they chose Keep control
+     * (ZeniusUI.handBackBySend, asked again now): what the turn's note says,
+     * or null when it gives nothing back. Only the composer's Enter, Send
+     * and Steer call it, never a queued message or another sender.
+     *
+     * @returns {Promise<{page: string, site: string|null, notes: object} | null>}
+     */
+    async function handBackBySend(conv) {
+      const ui = !conv?.scope && AgentService.isHeld(conv) === "takeover" && !conv.keepControl ? AgentService.zeniusUI() : null;
+      const rec = ui ? AgentService.zenRecord(conv) : null;
+      return rec && typeof ui.handBackBySend === "function" ? ui.handBackBySend(rec, window) : null;
     }
 
     function normalizeModifiers(modifiers) {
@@ -1041,6 +1068,8 @@
       submit,
       enqueue,
       steer,
+      sendHandBack,
+      handBackBySend,
       uninit,
       get mode() {
         return mode;

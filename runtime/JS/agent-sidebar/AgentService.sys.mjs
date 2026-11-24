@@ -549,6 +549,9 @@ class Conversation {
   createdAt = Date.now();
   task = { state: "new", since: Date.now(), text: "" }; // taskInfo(), kept current
   zen = null; // { name, id, heldBy }: the zenius task the agent works in
+  // The composer's Keep control while the user holds the task by Take over:
+  // a send then gives nothing back. It lasts for one hold (onZenEvent).
+  keepControl = false;
   stopped = false; // the user stopped the last turn
   remote = null; // a remote task's source and end (remote.sys.mjs)
   stopRequested = false; // the user pressed Stop during this turn
@@ -781,6 +784,43 @@ function attachmentBlock(file) {
 
 function promptText(question, selection) {
   return selection ? `<selection>\n${selection}\n</selection>\n\n${question}` : question;
+}
+
+/**
+ * What the agent's turn hears when the user's message gave back the pages
+ * they held by Take over (the composer's send as Resume agent,
+ * ZeniusUI.handBackBySend): zenius's word, not the user's, with the page
+ * they watch, and what the hand back changed in zenius's wait's words.
+ *
+ * @param {{page: string, site?: string|null, notes?: {reloaded?: string[], blanked?: string[]}}} back
+ * @returns {string}
+ */
+export function handBackNote(back) {
+  const where = back.site ? `${back.page} (${back.site})` : back.page;
+  const reloaded = back.notes?.reloaded ?? [];
+  const blanked = back.notes?.blanked ?? [];
+  const lines = [
+    `The user had taken over this task's pages and gave them back to you with this message. They are watching ${where}: go on there.`,
+    ...(reloaded.length ? [`zenius loaded ${reloaded.join(", ")} afresh while the user had the task: read ${reloaded.length === 1 ? "it" : "them"} again before using refs.`] : []),
+    ...(blanked.length
+      ? [`zenius cleared ${blanked.join(", ")}, which showed the user a secret: ${blanked.length === 1 ? "it shows" : "they show"} about:blank now. Don't go back to that page; ask the user for anything you need from it.`]
+      : []),
+  ];
+  return `<zenius-note>\n${lines.join("\n")}\n</zenius-note>`;
+}
+
+/**
+ * The chat's line under such a message: what the send did, in the hold
+ * card's terms. The site and the agent are isolated, so a right-to-left
+ * name keeps the sentence in place.
+ *
+ * @param {{site?: string|null}} back
+ * @param {string} agent
+ * @returns {string}
+ */
+export function handBackChatNote(back, agent) {
+  const isolate = s => `\u2068${s}\u2069`;
+  return back.site ? `You gave ${isolate(back.site)} back to ${isolate(agent)}.` : `You gave the task back to ${isolate(agent)}.`;
 }
 
 /** A queued question's page, read as it goes out: none once its tab is gone. */
@@ -3818,6 +3858,20 @@ export const AgentService = {
   },
 
   /**
+   * The composer's Keep control, while the user holds the chat's task by
+   * Take over: the user's sends then give nothing back, until this hold
+   * ends. Without it, a send from a window that shows one of the task's
+   * pages is Resume agent (ZeniusUI.sendHandBack).
+   *
+   * @param {Conversation} conv
+   * @param {boolean} keep
+   */
+  setKeepControl(conv, keep) {
+    conv.keepControl = !!keep && this.isHeld(conv) === "takeover";
+    conv.emit({ type: "zen", event: "keepControl" });
+  },
+
+  /**
    * Does zenius report the chat's Take over as refused? Its task's badge
    * needs the user (taskBadge) while the agent still has the page, and not
    * for a reason the sidebar told it (noteZen): zenius's own reason, a Take
@@ -3901,7 +3955,12 @@ export const AgentService = {
         continue;
       }
       if (event === "spaceChanged" && params?.ownership && this.zenRecord(conv)?.id === space) {
-        zen.heldBy = params.ownership === "agentDelegatedToUser" ? (params.source ?? null) : null;
+        const heldBy = params.ownership === "agentDelegatedToUser" ? (params.source ?? null) : null;
+        // Keep control lasts for one hold: a new hold, or its end, asks again.
+        if (heldBy !== zen.heldBy) {
+          conv.keepControl = false;
+        }
+        zen.heldBy = heldBy;
       }
       if (event === "taskBadge") {
         // working, idle, paused, needs-user, user, or null (ZeniusUI.badgeFor).
@@ -3983,6 +4042,11 @@ export const AgentService = {
    * startup. A self-check window (`scope`) has none to pick, and its agent
    * is in no list.
    */
+  /** The chat's agent by the name the sidebar gives its harness. */
+  agentName(conv) {
+    return this.harnessList().find(h => h.id === conv?.harness)?.name || conv?.harness || "the agent";
+  },
+
   harnessList(scope = null) {
     if (scope) {
       return [];
@@ -4839,7 +4903,7 @@ export const AgentService = {
    * puts it in the directory; `source` says where a question came from
    * ("urlbar": the address bar's '>').
    */
-  async send(conv, { question, selection = "", page = null, attachments = [], replace = null, source = null, user: given = null }) {
+  async send(conv, { question, selection = "", page = null, attachments = [], replace = null, source = null, user: given = null, handBack = null }) {
     if (conv.busy) {
       return;
     }
@@ -4875,6 +4939,9 @@ export const AgentService = {
     conv.cutReply = null;
     // A steer that goes as a question (deliverSteer) is in the chat already.
     const user = given ?? conv.push(userMessage({ question, selection, attachments, page, source }));
+    if (handBack && !given) {
+      conv.push({ role: "note", text: handBackChatNote(handBack, this.agentName(conv)) });
+    }
     conv.emit({ type: "busy" });
     this.refreshTask(conv);
     let seen = null; // the page as the session has it once this question is in
@@ -4941,6 +5008,9 @@ export const AgentService = {
         }
       }
       prompt.push(...attachments.map(attachmentBlock));
+      if (handBack) {
+        prompt.push({ type: "text", text: handBackNote(handBack) });
+      }
       prompt.push({ type: "text", text: promptText(question, selection) });
       // Chat's fetch rule: what the question carries, it may fetch, and the
       // page's links as read (GetPageText's links).
@@ -5054,7 +5124,7 @@ export const AgentService = {
    * out, so it carries the tab's page as it is then. With the agent idle, it
    * goes at once. Returns the queued message, or null.
    */
-  enqueue(conv, { question, selection = "", page = null, attachments = [], source = null }) {
+  enqueue(conv, { question, selection = "", page = null, attachments = [], source = null, handBack = null }) {
     const item = {
       id: this.nextQueued++,
       question,
@@ -5063,6 +5133,10 @@ export const AgentService = {
       files: filesOf(attachments),
       page,
       source,
+      // A hand back the user's press made (the turn began meanwhile) goes
+      // with the message, so the agent hears of it. A queued message never
+      // makes one itself.
+      ...(handBack ? { handBack } : {}),
     };
     if (!conv.busy) {
       this.send(conv, item).catch(e => console.error(LOG, e));
@@ -5120,14 +5194,15 @@ export const AgentService = {
    * queue; so it does when the turn ended meanwhile. With the agent idle, a
    * steer is a question.
    */
-  async steer(conv, { question, selection = "", page = null, attachments = [], source = null }) {
+  async steer(conv, { question, selection = "", page = null, attachments = [], source = null, handBack = null }) {
     if (!conv.busy) {
-      return this.send(conv, { question, selection, page, attachments, source });
+      return this.send(conv, { question, selection, page, attachments, source, handBack });
     }
     if (conv.stopRequested) {
       // The turn is ending for the user's Stop: this goes next, as a
-      // question, first in the queue, and the chat reads in order.
-      conv.queue.unshift({ id: this.nextQueued++, question, selection, attachments: own(attachments), files: filesOf(attachments), page, source });
+      // question, first in the queue, and the chat reads in order. A hand
+      // back its press made goes with it, so the agent hears of it.
+      conv.queue.unshift({ id: this.nextQueued++, question, selection, attachments: own(attachments), files: filesOf(attachments), page, source, handBack });
       conv.emit({ type: "queue" });
       return;
     }
@@ -5154,7 +5229,10 @@ export const AgentService = {
     }
     this.endThought(conv);
     const user = conv.push({ ...userMessage({ question, selection, attachments, page, source }), steered: true });
-    conv.steers.push({ id: this.nextQueued++, question, selection, attachments: user.attachments, files: user.files, page, source, user });
+    if (handBack) {
+      conv.push({ role: "note", text: handBackChatNote(handBack, this.agentName(conv)) });
+    }
+    conv.steers.push({ id: this.nextQueued++, question, selection, attachments: user.attachments, files: user.files, page, source, user, handBack });
     this.refreshTask(conv);
     await this.deliverSteer(conv);
   },
@@ -5227,7 +5305,7 @@ export const AgentService = {
   },
 
   /** A steer's content, as a question's (send()), without the instructions its turn's prompt had. */
-  async steerPrompt(conv, { question, selection, page, attachments, user }) {
+  async steerPrompt(conv, { question, selection, page, attachments, user, handBack = null }) {
     const prompt = [];
     let seen = null;
     if (page?.url && page.getText && !(page.kind === "pdf" && conv.sentPages.has(page.url))) {
@@ -5242,6 +5320,9 @@ export const AgentService = {
       }
     }
     prompt.push(...attachments.map(attachmentBlock));
+    if (handBack) {
+      prompt.push({ type: "text", text: handBackNote(handBack) });
+    }
     prompt.push({ type: "text", text: promptText(question, selection) });
     await this.allowFetches(conv, prompt, { question, links: seen?.links });
     return { prompt, seen };

@@ -3187,6 +3187,70 @@ class UiController {
   }
 
   /**
+   * Would the agent sidebar's send in `win` give task `rec` back to its agent,
+   * as Resume agent does? Only while the user holds the task by Take over
+   * (not the agent's hand-off, whose secret step Resume blanks, nor a
+   * permission hold), with no prompt open on its pages, and with `win`'s
+   * selected tab one of its managed pages, on a site its pages had at the
+   * Take over (spaces.takeoverSiteOf, which checks the page too). Any other
+   * tab, site or window keeps the hold. The composer says so before the
+   * press, and the press asks again (handBackBySend).
+   *
+   * @param {object} rec
+   * @param {Window} win  the agent sidebar's window
+   * @returns {{applies: boolean, page: string|null, site: string|null}}
+   *   page: the selected tab's label when it's one of the task's pages;
+   *   site: that page's site (siteName)
+   */
+  sendHandBack(rec, win) {
+    const none = { applies: false, page: null, site: null };
+    if (!this.service || !rec || rec.gone || rec.ownership !== "agentDelegatedToUser" || rec.heldBy !== "user") {
+      return none;
+    }
+    const browser = win && !win.closed ? win.gBrowser?.selectedBrowser : null;
+    const page = browser ? this.service.pages.forBrowser(browser) : null;
+    if (!page || page.spaceId !== rec.id) {
+      return none;
+    }
+    let site = null;
+    try {
+      site = siteName(browser.currentURI) || null;
+    } catch {}
+    // A page's permission or passkey prompt ends its own hold.
+    if (this.#ui(rec.id).prompts.size) {
+      return { applies: false, page: page.label, site };
+    }
+    // zen-core's rule decides, and its site is the one the line names.
+    const recorded = this.service.spaces.takeoverSiteOf?.(rec, browser) ?? null;
+    return { applies: !!recorded, page: page.label, site: recorded ?? site };
+  }
+
+  /**
+   * The agent sidebar's send as Resume agent: sendHandBack, asked again at
+   * the user's press, then the hold card's own path (#handBack: the quiet
+   * reload of a page that holds a typed secret, zen-input's guard, then the
+   * agent's ownership), awaited, so the agent's turn starts on the cleaned
+   * pages. Resolves to what the turn's note tells the agent, or null when
+   * the send gives nothing back.
+   *
+   * @param {object} rec
+   * @param {Window} win  the agent sidebar's window
+   * @returns {Promise<{page: string, site: string|null, notes: object}|null>}
+   */
+  async handBackBySend(rec, win) {
+    const state = this.sendHandBack(rec, win);
+    if (!state.applies) {
+      return null;
+    }
+    await this.#handBack(rec);
+    const now = this.#peek(rec.id);
+    if (!now || now.gone || now.ownership !== "agent") {
+      return null;
+    }
+    return { page: state.page, site: state.site, notes: this.service.spaces.takeHandBackNotes(now) };
+  }
+
+  /**
    * Watch an agent's task: only ever in answer to the user's own click (the
    * tasks panel's Open and Take over, a notification, the agent sidebar's
    * live card and directory). The window shows the task's Space, on `tab`

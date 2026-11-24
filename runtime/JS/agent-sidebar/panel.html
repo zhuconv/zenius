@@ -102,6 +102,14 @@
         <button id="chip-remove" class="icon" title="Remove the selection">✕</button>
       </div>
       <div id="attachments" hidden></div>
+      <!-- While the user holds the task by Take over: whether a send gives it
+           back to the agent (Resume agent's path), with Keep control, or that
+           only Resume agent on the page's card does. The box is described by
+           it. -->
+      <div id="handback" hidden>
+        <div id="handback-text"></div>
+        <button id="handback-keep" class="pill" aria-pressed="false" hidden>Keep control</button>
+      </div>
       <!-- The question box: the text on top; its bottom row holds + and the
            Chat | Work switch, then the agent and model, the effort, and Send
            or Stop. -->

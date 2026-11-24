@@ -2043,6 +2043,39 @@ body.dragging::after {
   display: none;
 }
 
+/* While the user holds the task by Take over: whether a send gives it back
+ * (Resume agent's path), with Keep control, over the box (panel.js's
+ * renderHandBack). In the color of a task that's the user's for now. */
+#handback {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--needs-color) 40%, transparent);
+  border-radius: 8px;
+  background: var(--needs-bg);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+#handback[hidden] {
+  display: none;
+}
+
+#handback-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#handback-keep {
+  flex: none;
+}
+
+#handback-keep[aria-pressed="true"] {
+  border-color: var(--needs-color);
+}
+
 #queue-head {
   padding-inline: 2px;
   font-size: 11px;
