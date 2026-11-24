@@ -32,6 +32,12 @@ restarted agent can fork a session too. session/fork takes the fork point the
 way both real adapters do, in `_meta.jetbrains.air.fork.messageId`: the new
 session has the turns up to the one with that message.
 
+MOCK_ROUTES, a JSON object of {message: keyword} (zen-eval's renders), lets a
+message read as a user writes it: a text block that is exactly one of its
+messages acts on that message's keyword too, as if the keyword came first in
+the prompt, so a screenshot of the chat shows no keyword. The session still
+keeps the user's words as the question.
+
 Prompts are answered according to a keyword in the prompt text:
 
   CRASH       exit at once
@@ -252,6 +258,8 @@ def say(session, text, size=12, message=None):
 # --- zen-sidebar: scripted browser tasks through the real zenius MCP server ------
 
 WWW = os.environ.get("MOCK_WWW", "http://127.0.0.1:47231")
+# zen-eval's renders: {message: keyword} (MOCK_ROUTES, in the docstring).
+ROUTES = json.loads(os.environ.get("MOCK_ROUTES") or "{}")
 SCENARIOS = {
     "flights": [
         ("say", "On it. I'll search in my own tabs, so you can keep reading."),
@@ -549,6 +557,11 @@ def prompt(request):
     session = request["params"]["sessionId"]
     blocks = request["params"]["prompt"]
     text = "\n".join(b.get("text", "") for b in blocks if b.get("type") == "text")
+    # MOCK_ROUTES: a message that is exactly one of its messages acts on that one's keyword, put first, so
+    # the question (the text's last line) stays the user's words.
+    keys = [str(ROUTES[b["text"].strip()]) for b in blocks if b.get("type") == "text" and b.get("text", "").strip() in ROUTES]
+    if keys:
+        text = "\n".join(keys + [text])
     resources = [b for b in blocks if b.get("type") == "resource"]
     images = [b for b in blocks if b.get("type") == "image"]
     question = text.strip().splitlines()[-1] if text.strip() else ""
