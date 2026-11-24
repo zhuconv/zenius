@@ -36,6 +36,10 @@ function scratch(prefix: string): string {
   temporary.push(dir);
   return dir;
 }
+// The copies here run from a new path each time, so Node's compile cache
+// for them goes in a folder this file removes, not the CLI's own folder,
+// where each run's entries would pile up.
+process.env.NODE_COMPILE_CACHE = join(scratch("zenius-install-"), "compile-cache");
 
 function install(home: string, args: string[] = [], options: { script?: string; build?: boolean; env?: Record<string, string> } = {}) {
   const result = spawnSync("bash", [options.script ?? SCRIPT, ...args], {

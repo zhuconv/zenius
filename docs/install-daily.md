@@ -1243,9 +1243,11 @@ These stay behind:
   (backups, zenius's task records, the CLI if installed), the sidebar's
   chats (<profile>/agent-sidebar-tasks.json,
   <profile>/agent-sidebar-chats.json), and the Agents Space …`.
-- In the temporary folder (`$TMPDIR`): Node's `node-compile-cache/`, which
-  the CLI turns on, and, with the sandboxed CLI, `zenius-sandbox-<uid>/`,
-  which holds each run's temporary folder. Both can go.
+- In the temporary folder (`$TMPDIR`): the CLI's compile cache,
+  `zenius-compile-cache-<uid>/` (from a CLI before 0.1.4, Node's
+  `node-compile-cache/`), and, with the sandboxed CLI,
+  `zenius-sandbox-<uid>/`, which holds each run's temporary folder. All
+  can go.
 - The Agents Space, if tabs are still in it: pages agents kept, or tasks
   that weren't finished. Without zenius it's an ordinary workspace, so the
   user can delete it in Zen or keep its tabs. Each tab that was a task's

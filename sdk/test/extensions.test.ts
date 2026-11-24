@@ -18,6 +18,12 @@ const temporary: string[] = [];
 after(() => {
   for (const dir of temporary) rmSync(dir, { recursive: true, force: true });
 });
+// The copies here run from a new path each time, so Node's compile cache
+// for them goes in a folder this file removes, not the CLI's own folder,
+// where each run's entries would pile up.
+const cacheRoot = mkdtempSync(join(tmpdir(), "zenius-extensions-"));
+temporary.push(cacheRoot);
+process.env.NODE_COMPILE_CACHE = join(cacheRoot, "compile-cache");
 
 /** A copy of the SDK's sources without any src/extensions, and the skill's guide the build bundles. */
 function copySdk(): { work: string; sdk: string } {

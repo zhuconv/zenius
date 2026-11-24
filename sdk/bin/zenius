@@ -27,8 +27,31 @@ if (major && process.versions.node.split(".")[0] !== major) {
 }
 // When Node handed over to this file, for `zenius nodejs --timing`.
 const launcherAt = performance.now();
-const { statSync } = process.getBuiltinModule("node:fs");
-process.getBuiltinModule("node:module").enableCompileCache?.();
+const { lstatSync, mkdirSync, statSync } = process.getBuiltinModule("node:fs");
+// Node's compile cache halves a start. Its default folder,
+// os.tmpdir()/node-compile-cache, is shared by every account on Linux, and
+// whoever makes it first could plant code that V8 then runs as this account.
+// So the cache lives beside it in a folder of this account's own,
+// zenius-compile-cache-<uid>, and a folder there that's a link, another
+// account's, or not 0700 means no cache. It stays in the temporary folder,
+// which the system clears: its entries hold the text of the scripts the CLI
+// runs. NODE_COMPILE_CACHE and NODE_DISABLE_COMPILE_CACHE (the sandboxed
+// launcher's) keep Node's meaning: Node takes the first only when it isn't
+// empty, and the second whenever it's set.
+const uid = process.getuid?.();
+if (uid !== undefined && !process.env.NODE_COMPILE_CACHE && process.env.NODE_DISABLE_COMPILE_CACHE === undefined) {
+  try {
+    const { join } = process.getBuiltinModule("node:path");
+    const cache = join(process.getBuiltinModule("node:os").tmpdir(), `zenius-compile-cache-${uid}`);
+    mkdirSync(cache, { recursive: true, mode: 0o700 });
+    const folder = lstatSync(cache);
+    if (folder.isDirectory() && folder.uid === uid && (folder.mode & 0o777) === 0o700) {
+      process.getBuiltinModule("node:module").enableCompileCache?.(cache);
+    }
+  } catch {
+    // No cache, then.
+  }
+}
 
 const bundle = new URL("../dist/zenius.mjs", import.meta.url);
 const source = entry();
