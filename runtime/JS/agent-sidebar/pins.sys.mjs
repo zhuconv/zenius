@@ -1,7 +1,6 @@
 /* Agent Sidebar: pins in All tasks, and the sidebar's own names for the
- * tasks other programs drive (the user's ask, 2026-11-22: a right-click on
- * a task should at least offer Pin and Rename; the menu is
- * directory.sys.mjs's).
+ * tasks other programs drive, so a right-click on any task offers at least
+ * Pin and Rename (the menu is directory.sys.mjs's).
  *
  * A pinned task shows in Pinned, at the top of All tasks, until the user
  * unpins or archives it, and PIN_CAP is the most there can be. The 60-task

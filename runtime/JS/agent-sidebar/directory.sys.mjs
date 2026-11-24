@@ -12,7 +12,7 @@
  * outside, or Esc, closes the drawer.
  *
  * A right-click on a row, or the context-menu key or Shift+F10 on the row
- * the arrow keys are on, opens its menu (the user's ask, 2026-11-22): Pin or
+ * the arrow keys are on, opens its menu: Pin or
  * Unpin, Rename, then Archive or Unarchive, in the ⋯ menu's words
  * (taskmenu.sys.mjs). Rename makes the row's name a field, as the header's
  * Rename does.

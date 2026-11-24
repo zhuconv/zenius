@@ -1263,8 +1263,8 @@ body.busy .msg.user > .actions {
   font: inherit;
 }
 
-/* A masked question's options, under its field (zen-ux's code card): one
- * row of quiet pills in Skip's look, each one's description its tooltip. */
+/* A masked question's options, under its field: one row of quiet pills in
+ * Skip's look, each one's description its tooltip. */
 .ask-pills {
   display: flex;
   flex-wrap: wrap;
@@ -2106,10 +2106,10 @@ body.dragging::after {
   display: none !important;
 }
 
-/* A task the sidebar doesn't drive (external.sys.mjs): read-only. zen-ux's
-   hooks, zen-sidebar's look: its steps in the box and with the marks of the
-   sidebar's own, the agent's hand-off in the directory's Needs you tint,
-   and in the question's place what the sidebar can still do. */
+/* A task the sidebar doesn't drive (external.sys.mjs): read-only. Its steps
+   in the box and with the marks of the sidebar's own, the agent's hand-off
+   in the directory's Needs you tint, and in the question's place what the
+   sidebar can still do. */
 :root[data-external="true"] #input,
 :root[data-external="true"] #attach,
 :root[data-external="true"] #pickers,

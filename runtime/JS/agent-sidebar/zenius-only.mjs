@@ -3,13 +3,12 @@
 // name it (workspace.sys.mjs), as `node zenius-only.mjs work || exit 2`, or
 // `node zenius-only.mjs chat <lists folder> || exit 2`. It runs under node,
 // outside Zen. It stays in zenius's installed code, out of every agent's
-// folder. zen-sidebar ported it from zen-eval's hook for the try Zen
-// (2026-11-21).
+// folder.
 //
 // It can only refuse, never allow: a call it lets through still meets the
 // session's permission rules, which allow these tools and nothing else.
-//  - Both kinds may search the web and fetch pages (WebSearch, WebFetch: the
-//    user's pass on defenses, 2026-11-21).
+//  - Both kinds may search the web and fetch pages (WebSearch, WebFetch),
+//    which only read.
 //  - In Chat, WebFetch opens only a URL that came from the session's search
 //    results, the page it read or the user's own words: the session's list
 //    (fetchable.sys.mjs). It's checked before anything else, so the host of

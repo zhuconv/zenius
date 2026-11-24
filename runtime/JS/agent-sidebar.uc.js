@@ -33,10 +33,9 @@
   // sign-in window) or another window opened as one. fx-autoconfig takes such
   // a window for a dialog and runs this script at its first DOMContentLoaded
   // (boot.sys.mjs, isDialoglike: this same test), before the browser makes
-  // gBrowser, so the start threw there every time (the user's daily,
-  // 2026-11-22). A popup has no room for the panel anyway. Nothing is
-  // registered for it, and it has no zeniusSidebarStart: doctor counts the
-  // windows that have a sidebar.
+  // gBrowser, so the start threw there every time. A popup has no room for
+  // the panel anyway. Nothing is registered for it, and it has no
+  // zeniusSidebarStart: doctor counts the windows that have a sidebar.
   if (!window.toolbar?.visible) {
     return;
   }
@@ -139,9 +138,10 @@
     const keeping = new WeakMap(); // conv -> stops keeping its id on its tab
     // A tab's chat is saved under an opaque id (AgentService.chatForTab),
     // which the tab keeps as a SessionStore value, so the chat comes back
-    // with the tab after a restart or an update, and after Undo Close Tab
-    // (the user's bug, 2026-11-22). The value holds the id and nothing else.
-    // A private window's chats are never saved, and none comes back there.
+    // with the tab after a restart or an update, and after Undo Close Tab:
+    // an update's restart must lose no chat. The value holds the id and nothing
+    // else. A private window's chats are never saved, and none comes back
+    // there.
     const CHAT_VALUE = "zenius-chat";
     const { PrivateBrowsingUtils } = ChromeUtils.importESModule("resource://gre/modules/PrivateBrowsingUtils.sys.mjs");
     const keepChats = !PrivateBrowsingUtils.isWindowPrivate(window);
@@ -782,15 +782,14 @@
 
     /**
      * Before our code puts the cursor in the sidebar or All tasks: close an
-     * open address bar, as a click would before the focus moves (zen-ux's
-     * report; zen-input, 2026-11-22). With its results open, Zen's address
-     * bar gives the page the focus as it closes (UrlbarInputBase.mjs
-     * #closePopover). Done from its blur, inside our focus(), that focus is
-     * never undone: Gecko keeps the page's process as the one an IME
-     * composes into, and the user's words (Chinese, for this user) went into
-     * the page's field instead of our box. Closed first, the page takes the
-     * focus and our focus() takes it back, in order. The '>' row calls this
-     * too.
+     * open address bar, as a click would before the focus moves. With its
+     * results open, Zen's address bar gives the page the focus as it closes
+     * (UrlbarInputBase.mjs #closePopover). Done from its blur, inside our
+     * focus(), that focus is never undone: Gecko keeps the page's process as
+     * the one an IME composes into, and what the user typed with an input
+     * method (Chinese, Japanese or Korean) went into the page's field instead
+     * of our box. Closed first, the page takes the focus and our focus()
+     * takes it back, in order. The '>' row calls this too.
      */
     function releaseAddressBar() {
       try {
@@ -857,10 +856,10 @@
       return AgentService.send(conv, { question, selection, attachments, replace, source, page: pageOf(tab) });
     }
 
-    /** A message the user sent while the agent worked (zen-ux's queue and
-     * steer). Enter queues it: a Chat one goes with its tab's page as it is
-     * when it goes out, so `page` is a function AgentService calls then.
-     * Steer sends it into the running turn, with the page as it is now. */
+    /** A message the user sent while the agent worked. Enter queues it: a Chat
+     * one goes with its tab's page as it is when it goes out, so `page` is a
+     * function AgentService calls then. Steer sends it into the running turn,
+     * with the page as it is now. */
     function enqueue(conv, { question, selection, attachments }) {
       const page = conv.kind === "work" ? null : () => pageOf(tabOf(conv) ?? gBrowser.selectedTab);
       return AgentService.enqueue(conv, { question, selection, attachments, page });

@@ -132,10 +132,9 @@ const watchHints = new WeakMap();
 
 /**
  * While `win` watches a task, its strip says so, and how to go back:
- * "Watching <task> [⌃Tab]" (the user's design, 2026-11-21; the key a
- * keycap). Once the task ended there, while ⌃Tab still goes back: "Task
- * done, [⌃Tab] back to your tabs". A hint, not a Back button: a click still
- * opens the tasks panel.
+ * "Watching <task> [⌃Tab]" (the key a keycap). Once the task ended there,
+ * while ⌃Tab still goes back: "Task done, [⌃Tab] back to your tabs". A
+ * hint, not a Back button: a click still opens the tasks panel.
  *
  * @param {Window} win
  * @param {WatchHint|null} hint  `words`: the key as a screen reader should
@@ -683,8 +682,8 @@ function createRow(doc, id) {
   el.id = `zenius-task-row-${id}`;
   // A screen reader names the row as it enters it, so its Open, Resume agent
   // and Stop say which task they're for. VoiceOver reads a focused button's
-  // own name, not its group's (the user's check, 2026-11-20), so each button
-  // is described by the row too (updateRow).
+  // own name, not its group's, so each button is described by the row too
+  // (updateRow).
   el.setAttribute("role", "group");
   const dot = doc.createElementNS(XHTML_NS, "span");
   dot.className = "zenius-task-dot";
@@ -703,7 +702,7 @@ function createRow(doc, id) {
   return el;
 }
 
-/** The task's tabs by name; a name opens its tab, as the user asked. */
+/** The task's tabs by name; a name opens its tab. */
 function syncTabs(doc, info, row) {
   const tabs = row.tabs ?? [];
   let list = info.querySelector(":scope > .zenius-task-tabs");

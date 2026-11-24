@@ -266,12 +266,11 @@ function listFor(c) {
 
 // --- A task the sidebar doesn't drive (external.sys.mjs) ---------------------
 //
-// Read-only (the user's ask): where it's driven from, its steps from the
-// runtime's own record (zen-input's ring), a card while it needs the user,
-// then the live card. Every part from the page or the agent goes in as text,
-// and each name a step quotes sits in its own isolate, so a step can't pass
-// for a row of the panel's or pull the panel's words around (zen-snapshot's
-// points for external tasks).
+// Read-only, since another program drives it: where it's driven from, its steps
+// from the runtime's own record (zen-input's ring), a card while it needs the
+// user, then the live card. Every part from the page or the agent goes in as
+// text, and each name a step quotes sits in its own isolate, so a step can't
+// pass for a row of the panel's or pull the panel's words around.
 
 function externalView() {
   const view = div("list ext-view");
@@ -659,8 +658,8 @@ function fillAsk(el, message) {
     }
     box.append(div("ask-text", q.text));
     // A masked question's field comes first, since its answer goes there,
-    // and its options follow as one row of quiet pills (zen-ux's code card):
-    // Claude Code's AskUserQuestion brings 2 to 4 options even for a code.
+    // and its options follow as one row of quiet pills: Claude Code's
+    // AskUserQuestion brings 2 to 4 options even for a code.
     const hidden = masked(message, q);
     let list = null;
     if (q.options.length) {
@@ -813,7 +812,7 @@ function fillStep(el, message) {
 // <what it's on>" while it lasts (Codex's reasoning titles; Claude Code's
 // thinking shows no words), then "Thought for 23 s", which opens to what it
 // thought. Codex at a high effort can think for half a minute before its first
-// word, which looked like a stall (the user's report, 2026-11-22). A thought
+// word, which looked like a stall. A thought
 // with nothing to keep goes when it ends (endThought).
 
 let thoughtTimer = null;
@@ -1022,7 +1021,7 @@ function nearBottom() {
   return m.scrollHeight - m.scrollTop - m.clientHeight < 40;
 }
 
-// --- Following the answer (the user's ask, 2026-11-22) -----------------------
+// --- Following the answer ----------------------------------------------------
 // A message the user sends takes the chat to its end, even from an earlier
 // answer they scrolled up to read: they want the answer. From there the view
 // follows it, as from the end before, through what moves the end meanwhile
@@ -1224,7 +1223,7 @@ function renderOptions() {
 }
 
 // --- The model picker ---------------------------------------------------------
-// The user's pick (2026-11-21): a search; a segmented bar of model families,
+// A search; a segmented bar of model families,
 // one per agent that may run here (Claude: Claude Code's models, GPT:
 // Codex's), gone while only one can; the open family's newest generation,
 // each model with its own effort and a ✓ on the chat's; and the efforts in a
@@ -1235,7 +1234,7 @@ function renderOptions() {
 const picking = { family: null, active: null, flyFor: null, flyActive: null, hover: null };
 
 /** The bar's families: every agent that may run here, and the chat's own.
- * Claude first, then GPT, as the user picked them; other agents after, in
+ * Claude first, then GPT; other agents after, in
  * config.json's order. */
 function families() {
   const rank = f => ["Claude", "GPT"].indexOf(f.name) >>> 0;
@@ -1256,7 +1255,7 @@ function families() {
 function rowsOf(harness) {
   const { model, modelValue, effort, effortValue } = settingsOf(harness);
   const mine = harness === conv.harness;
-  // Every model but Claude Code's "default" (the user's call), of the
+  // Every model but Claude Code's "default", which names no model, of the
   // newest generation.
   const choices = newestModels(modelChoices(model).filter(c => c.value !== "default"), mine ? modelValue : null);
   if (!choices.length) {
@@ -1820,7 +1819,7 @@ function archivable() {
   return TaskMenu.archivable(conv);
 }
 
-/** What Archive does, as the user asked to be told (taskmenu.sys.mjs). */
+/** What Archive does, told before the click (taskmenu.sys.mjs). */
 function archiveTip() {
   return TaskMenu.archiveTip(conv);
 }
@@ -1893,7 +1892,7 @@ function unarchive() {
 }
 els.unarchive.addEventListener("click", unarchive);
 
-// --- Renaming a task (the user's ask, 2026-11-22) ----------------------------
+// --- Renaming a task ---------------------------------------------------------
 // More's Rename task, or a double-click on the header's name, turns the name
 // into a field. Enter, or a click outside, keeps what it says, and an empty
 // one gives the task its own title back (AgentService.renameTask); Esc
@@ -2035,8 +2034,7 @@ function openPermission(target = conv) {
  * what Enter and Steer do, and Send turns into Stop. */
 function renderStatus() {
   // For every chat, since it hides the bar too: called only for a task
-  // another agent drives, it left "Finished · now" on the next chat shown
-  // (the user's bug).
+  // another agent drives, it left "Finished · now" on the next chat shown.
   renderExternalBar();
   if (conv?.external) {
     // Read-only: no question box, no Send, Steer or Stop of the chat's.
@@ -2793,7 +2791,7 @@ function liveState() {
 /**
  * The card at the end of a work chat: the page the agent is on (its zenius
  * task's front tab), with Watch (while this window watches the task, "⌃Tab
- * back to your tabs" in its place: ⌃Tab is the way back, the user's design)
+ * back to your tabs" in its place: ⌃Tab is the way back)
  * and Take over (while the agent has the page, unless zenius reports the
  * Take over refused). Hidden until the task has a tab. Its line and buttons
  * follow every change; its picture doesn't (see above).

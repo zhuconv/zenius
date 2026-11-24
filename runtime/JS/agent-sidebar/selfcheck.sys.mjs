@@ -1,4 +1,4 @@
-/* Agent Sidebar, the post-install self-check's scenarios: zen-sidebar's half
+/* Agent Sidebar, the post-install self-check's scenarios: the sidebar's half
  * of the self-check. zen-core's runner and its window are in
  * zenius/modules/selfcheck.sys.mjs.
  *

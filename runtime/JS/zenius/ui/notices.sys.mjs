@@ -304,9 +304,8 @@ function fill(entry, tab, value) {
     parts.push(site);
   }
   el.toggleAttribute("has-site", !!opts.site);
-  // The user's layout (2026-11-20): one line of small text under the title
-  // row, cut off with a '?' that opens the rest. `more` waits behind the
-  // '?' at any width.
+  // One line of small text under the title row, cut off with a '?' that
+  // opens the rest. `more` waits behind the '?' at any width.
   let note = null;
   if (opts.note) {
     const row = doc.createElementNS(XHTML_NS, "span");
@@ -345,10 +344,10 @@ function fill(entry, tab, value) {
       } else {
         button.textContent = b.label;
       }
-      // VoiceOver reads a focused button's own name, not its group's (the
-      // user's check, 2026-11-20). So the pill's text, countdown included,
-      // is each button's description, which VoiceOver reads after the
-      // button. The button keeps its short name, for Voice Control.
+      // VoiceOver reads a focused button's own name, not its group's. So
+      // the pill's text, countdown included, is each button's description,
+      // which VoiceOver reads after the button. The button keeps its short
+      // name, for Voice Control.
       button.setAttribute("aria-describedby", `${el.id}-desc`);
       if (b.primary) {
         button.setAttribute("primary", "true");
@@ -448,7 +447,7 @@ function closeIcon(doc) {
 /**
  * The '?' at the end of a note cut off at its line: a click opens the
  * rest, and another closes it. An icon drawn centred in its 14 px circle:
- * a text glyph sat off-centre at that size (the user's check, 2026-11-20).
+ * a text glyph sits off-centre at that size.
  *
  * It's for the pointer alone, so it's hidden from a screen reader and out
  * of the tab order: a screen reader reads the whole note in the pill's

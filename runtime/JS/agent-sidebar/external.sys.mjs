@@ -1,5 +1,5 @@
-/* Agent Sidebar: the zenius tasks the sidebar doesn't drive (the user's ask,
- * 2026-11-21).
+/* Agent Sidebar: the zenius tasks the sidebar doesn't drive, so every task
+ * the user has shows in one place.
  *
  * A Claude or Codex session in a terminal, or a script, drives the browser
  * through zenius's CLI, SDK or MCP. Its task shows in the directory like the

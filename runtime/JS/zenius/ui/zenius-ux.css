@@ -126,8 +126,7 @@
 }
 
 /* A pill with a line: one row of small text under the title row and its
-   buttons, 7 px below it, under all but the dot (the user's layout,
-   2026-11-20). */
+   buttons, 7 px below it, under all but the dot. */
 .zenius-card[has-note] {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr) auto;
@@ -523,9 +522,9 @@
   -moz-user-focus: ignore;
 }
 
-/* A black arrow with a thin white edge in a soft glow, after Codex's cursor
- * (the user's choice over the purple arrow, 2026-11-21): the glow makes it
- * clear on a dark page and stays faint on a light one. */
+/* A black arrow with a thin white edge in a soft glow, after Codex's
+ * cursor: the glow makes it clear on a dark page and stays faint on a
+ * light one. */
 .zenius-cursor {
   position: absolute;
   left: 0;

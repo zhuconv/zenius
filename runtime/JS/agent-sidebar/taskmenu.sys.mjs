@@ -28,7 +28,7 @@ export function archivable(conv) {
 }
 
 /**
- * What Archive does, as the user asked to be told: the task goes to
+ * What Archive does, told before the click: the task goes to
  * Archived, a turn running stops (AgentService.archiveTask), and the task's
  * tabs stay. The tabs are the ones zenius lists for the task now (it
  * forgets a task only once its last tab closed), so with none open the tip

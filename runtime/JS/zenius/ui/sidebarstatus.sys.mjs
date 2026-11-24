@@ -42,7 +42,7 @@ function kindOf(win) {
  * sidebar there is "started"; "failed", with its start's error; "skipped" in
  * a popup; "none" in another window with no start recorded, one still
  * opening or a profile whose sidebar file isn't zenius's. A popup's start,
- * which only a sidebar file from before 2026-11-22 made, shows as it was.
+ * which only an older sidebar file made, shows as it was.
  *
  * Only a failed window and one with no start carry their kind, the ones
  * doctor names. Any socket client may call the method, and the other
@@ -71,9 +71,9 @@ export function configPath() {
  * - perWindow: each open browser window, oldest first, popups too (listed);
  * - open: those the sidebar starts in, all but popups; windows: in how many
  *   it started; failed: in how many its start threw; error: the first of
- *   those starts' message. A popup counts in none of them: in the user's
- *   daily, a site's popup's error hid that the main window had loaded
- *   (2026-11-22). open - windows - failed have no start recorded;
+ *   those starts' message. A popup counts in none of them: a site's popup's
+ *   error would hide that the main window loaded. open - windows - failed
+ *   have no start recorded;
  * - loaded: zenius's sidebar started in at least one open window;
  * - config: whether its agents' config is there ("none": no agents, as in a
  *   dev profile), and configPath, so doctor can name it. Without the user's

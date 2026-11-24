@@ -51,13 +51,13 @@ import {
   restoreRemote,
   serializeRemote,
 } from "./remote.sys.mjs";
-// The zenius tasks the sidebar doesn't drive (zen-ux's, the user's ask):
-// read-only entries in the directory.
+// The zenius tasks the sidebar doesn't drive: read-only entries in the
+// directory, so every task the user has shows in one place.
 import { builtinAgents } from "./builtin.sys.mjs";
 import { ExternalTasks } from "./external.sys.mjs";
 import { ExternalMarks, PIN_CAP } from "./pins.sys.mjs";
-// Chat's fetch rule (the user's call on defenses): the lists of URLs a Chat
-// session may fetch.
+// Chat's fetch rule: the lists of URLs a Chat session may fetch, so an
+// injected line can't get Chat to send the chat's content out in a URL.
 import { fetchKey, listName, urlsIn } from "./fetchable.sys.mjs";
 // Text a page lays out where the user can't see it, as the page block marks
 // it (AgentSidebarChild's hiddenMark: a JSON string the page can't close).
@@ -86,9 +86,8 @@ export const EFFORT_OPTIONS = ["reasoning_effort", "effort"];
 // picker (harnessList), and with no options of its own to save.
 export const SELF_CHECK_HARNESS = "zenius:selfcheck";
 
-// A Chat session's only tools are web search and web fetch (the user's pass
-// on defenses; before it, none). workspace.sys.mjs holds it to that; these
-// words only say so.
+// A Chat session's only tools are web search and web fetch, which only
+// read. workspace.sys.mjs holds it to that; these words only say so.
 const INSTRUCTIONS = `You are a reading assistant inside the user's web browser (Zen).
 The user is reading a web page or a PDF. With their question, the browser attaches:
 - the page's text as the user sees it, as an embedded resource whose URI is the page URL. It is attached in full the first time the user asks about a page. After that only what is new on the page is attached, marked as a page update, so look back at the earlier text for the rest. Text the page lays out where the user can't see it (screen-reader-only, transparent, tiny or off the page) comes as [hidden: "..."], a JSON string: the user doesn't see it.
@@ -132,8 +131,8 @@ function systemPromptFor(conv) {
   return conv.remote ? { mode: "append", content: [{ type: "text", text: instructionsFor(conv) }] } : WORK_SYSTEM_PROMPT;
 }
 
-// Chat's threads (the user's bug, 2026-11-22: the update's restart lost a
-// chat): a JSON file in the profile, beside TASKS_FILE, one entry per tab's
+// Chat's threads, kept so that a restart, an update's included, loses no
+// chat: a JSON file in the profile, beside TASKS_FILE, one entry per tab's
 // chat, under an opaque id its tab keeps as a SessionStore value
 // (agent-sidebar.uc.js). A chat unused for CHATS_MS goes, unless its tab
 // shows it now, then the least recently used past CHATS_KEPT chats or
@@ -210,8 +209,8 @@ function optionPref(harness, optionId) {
   return `uc.agent-sidebar.${harness}.${optionId}`;
 }
 
-// Each model keeps its own effort (the user's pick for the model picker,
-// 2026-11-21): one JSON pref per agent, { <model>: <effort> }.
+// Each model keeps its own effort, so going back to a model brings back the
+// effort picked for it: one JSON pref per agent, { <model>: <effort> }.
 function effortsPref(harness) {
   return `uc.agent-sidebar.${harness}.efforts`;
 }
@@ -226,8 +225,8 @@ function choicesOf(option) {
   return (option?.options ?? []).flatMap(o => (Array.isArray(o.options) ? o.options : [o]));
 }
 
-// Claude Code's "Default (recommended)", which the model picker no longer
-// offers (the user's call, 2026-11-21).
+// Claude Code's "Default (recommended)", which the model picker doesn't
+// offer: it names no model, and the picker shows the model that runs.
 const DEFAULT_MODEL = "default";
 
 /** A model's generation: the major version in its name ("Opus 5.5" is 5,
@@ -238,10 +237,10 @@ export function modelGeneration(choice) {
 }
 
 /**
- * Only the newest generation of a family's models (the user's pick): with
- * Claude 5.x there, no Claude 4.x. It comes from the agent's own list, so a
- * new generation replaces the old by itself. A model without a version
- * stays, and so does `keep`, the chat's own.
+ * Only the newest generation of a family's models, which keeps the picker
+ * short: with Claude 5.x there, no Claude 4.x. It comes from the agent's own
+ * list, so a new generation replaces the old by itself. A model without a
+ * version stays, and so does `keep`, the chat's own.
  */
 export function newestModels(choices, keep = null) {
   const generations = choices.map(modelGeneration).filter(n => n !== null);
@@ -676,8 +675,8 @@ const SHOWN_LINKS_CHARS = 8000;
 /**
  * The page's links as Chat sees them after the text: the first of those the
  * user can see (the child's GetPageText), one per line, its URL then its
- * name. Chat may fetch a URL only from its sources (the user's call), so a
- * link whose URL it can't see is one it can't open. "" without any.
+ * name. Chat may fetch a URL only from its sources (fetchable.sys.mjs), so
+ * a link whose URL it can't see is one it can't open. "" without any.
  *
  * @param {Array<{url: string, name: string}>|undefined} links
  */
@@ -799,9 +798,9 @@ function pageNow(page) {
  * What a panel hands over (a question's attachments, an ask's answers) was
  * made in that panel's window, and a kept message holding any object of it,
  * even an empty array, keeps the window and the whole panel alive for as
- * long as the message is kept: about 0.9 MB for each panel the user ever
- * asked from (measured 2026-11-22). A reader's promise (an attachment's
- * `ready`) and functions stay behind.
+ * long as the message is kept: about 0.9 MB, as measured, for each panel
+ * the user ever asked from. A reader's promise (an attachment's `ready`) and
+ * functions stay behind.
  */
 function own(value) {
   if (typeof value === "function" || typeof value?.then === "function") {
@@ -1042,8 +1041,8 @@ function isHiddenTool(tool) {
 //
 // claude-agent-acp turns Claude Code's AskUserQuestion into it, codex-acp
 // Codex's request_user_input, and both pass on an MCP server's own form. The
-// panel shows it as zen-ux's card, from the fields askForm makes; the answer
-// goes back in the request's own shape.
+// panel shows it as a card in the chat, from the fields askForm makes; the
+// answer goes back in the request's own shape.
 
 /** codex-acp's option for an answer given in a question's note field (its USER_INPUT_OTHER_OPTION). */
 const CODEX_NONE = "None of the above";
@@ -1553,10 +1552,9 @@ const NEXT_STEP = /\bI(?:'ll|’ll|\s+will|\s+can)\b|\b(?:let me know|tell me)\b
 // "Let me know which" or "whether", where the sentence or a clause starts
 // (not "The site didn't tell me which seat"), and "what" or "how" only with
 // what the user would like, want or prefer: so not "Let me know what you
-// think" or "how it goes", which end many finished tasks (zen-ux,
-// 2026-11-22), nor an offer of more in its own shapes ("anything else",
-// "what you'd like to do next", "next steps"). "Next week" or "the next two
-// trains" still wait.
+// think" or "how it goes", which end many finished tasks, nor an offer of
+// more in its own shapes ("anything else", "what you'd like to do next", "next
+// steps"). "Next week" or "the next two trains" still wait.
 const TELL_ME =
   /(?:^|[,;:—–]\s*)(?:(?:so|just|please|then|and|now|also|ok|okay)[,\s]+)*(?:let me know|tell me)\s+(?:(?:which|whether)\b|(?:what|how)\b.*\byou(?:'d|’d|\s+would)?\s+(?:like|want|prefer)\b)/i;
 const OFFER = /\b(?:anything|something|what|whatever)\s+else\b|\bdo\s+next\b|\bnext\s+steps?\b/i;
@@ -2842,14 +2840,13 @@ export const AgentService = {
 
   /**
    * The user renamed a task (the header's Rename task, or a double-click on
-   * its name; the user's ask, 2026-11-22). Their name shows wherever the
-   * task's does, and nothing later changes it: not the first question, nor
-   * the agent's name for a zenius task, nor a name the agent gives that task
-   * later (nameZen). An empty name gives the task its own title back, and
-   * its zenius task the agent's name. A task another program drives
-   * (external) keeps the name its program gave: a script finds its task by
-   * that name (zenius's taskSpace), and zenius's strip and tags show it.
-   * All tasks' Rename names one in the sidebar only (labelTask).
+   * its name). Their name shows wherever the task's does, and nothing later
+   * changes it: not the first question, nor the agent's name for a zenius task,
+   * nor a name the agent gives that task later (nameZen). An empty name gives
+   * the task its own title back, and its zenius task the agent's name. A task
+   * another program drives (external) keeps the name its program gave: a script
+   * finds its task by that name (zenius's taskSpace), and zenius's strip and
+   * tags show it. All tasks' Rename names one in the sidebar only (labelTask).
    */
   renameTask(conv, name) {
     if (conv?.kind !== "work" || conv.external) {
@@ -3024,14 +3021,13 @@ export const AgentService = {
   },
 
   /**
-   * The ⋯ menu's Archive (the user's ask, 2026-11-22): the task leaves the
-   * list for Archived, at the bottom of the directory, where it can be
-   * opened, read and unarchived. The sidebar's own keeps its thread, and its
-   * session is parked for a later question; a turn running stops (cancel,
-   * as the user's Stop), and its zenius task ends as the strip's Stop ends
-   * one (ZeniusUI.stopByUser), its tabs kept for the user. An external task
-   * can be archived once it ended, and stays archived while it stays as it
-   * ended (archivedAtOf).
+   * The ⋯ menu's Archive: the task leaves the list for Archived, at the bottom
+   * of the directory, where it can be opened, read and unarchived. The
+   * sidebar's own keeps its thread, and its session is parked for a later
+   * question; a turn running stops (cancel, as the user's Stop), and its zenius
+   * task ends as the strip's Stop ends one (ZeniusUI.stopByUser), its tabs kept
+   * for the user. An external task can be archived once it ended, and stays
+   * archived while it stays as it ended (archivedAtOf).
    */
   archiveTask(conv) {
     if (conv?.kind !== "work" || conv.archivedAt || !this.isListed(conv)) {
@@ -3079,13 +3075,12 @@ export const AgentService = {
   },
 
   /**
-   * All tasks' Pin (the user's ask, 2026-11-22; pins.sys.mjs): the task shows
-   * in Pinned, at the top of the directory, until the user unpins or
-   * archives it, and no more than PIN_CAP do. The sidebar's own keeps it in
-   * TASKS_FILE, and an external one by its id and start (ExternalMarks).
-   * A self-check window's task (scope) is never pinned: a pin is the user's
-   * tasks file's, which a self-check never writes (zen-observe's
-   * cross-point; that window has no row menu either).
+   * All tasks' Pin (pins.sys.mjs): the task shows in Pinned, at the top of the
+   * directory, until the user unpins or archives it, and no more than PIN_CAP
+   * do. The sidebar's own keeps it in TASKS_FILE, and an external one by its id
+   * and start (ExternalMarks). A self-check window's task (scope) is never
+   * pinned: a pin is the user's tasks file's, which a self-check never writes
+   * (and that window has no row menu either).
    */
   pinTask(conv) {
     if (conv?.kind !== "work" || conv.scope || conv.pinnedAt || conv.archivedAt || !this.isListed(conv) || !this.canPin()) {
@@ -3100,11 +3095,10 @@ export const AgentService = {
   },
 
   /**
-   * All tasks' Rename of a task another program drives (the user's ask,
-   * 2026-11-22): its name in the sidebar only, kept by its id and start
-   * (pins.sys.mjs). Its zenius task keeps the name its program gave
-   * (renameTask). An empty name, or the program's own, shows the program's
-   * names again, its later ones too.
+   * All tasks' Rename of a task another program drives: its name in the
+   * sidebar only, kept by its id and start (pins.sys.mjs). Its zenius task
+   * keeps the name its program gave (renameTask). An empty name, or the
+   * program's own, shows the program's names again, its later ones too.
    */
   labelTask(conv, name) {
     // A self-check window's task is never another program's, nor named here.
@@ -4149,7 +4143,7 @@ export const AgentService = {
   /**
    * What a Work chat's zenius server takes (workspace.sys.mjs's withTask):
    * its live zenius task, so that a resumed or forked session works on in
-   * the same task (zen-sdk's fix), and its uid.
+   * the same task, and its uid.
    */
   zeniusTask(conv) {
     if (conv?.kind !== "work") {
@@ -4500,8 +4494,8 @@ export const AgentService = {
   },
 
   /**
-   * Chat's fetch rule (the user's call on defenses): before a Chat question
-   * goes out, the URLs it carries join the session's list, which the
+   * Chat's fetch rule (fetchable.sys.mjs): before a Chat question goes out, the
+   * URLs it carries join the session's list, which the
    * zenius-only hook holds WebFetch to (fetchable.sys.mjs). They come from
    * the user's words (bare addresses too), the page's address and text, the
    * selection, attached files, and `links`, the page's links as the read
@@ -4599,7 +4593,7 @@ export const AgentService = {
     }
     let wantedModel = this.preferredValue(conv.harness, MODEL_OPTION);
     const start = conv.configOptions?.find(o => o.id === MODEL_OPTION);
-    // The picker has no "default" (the user's call). A chat on it, by the
+    // The picker has no "default", which names no model. A chat on it, by the
     // agent's start or an earlier pick, shows the model the agent names for
     // it; where the agent names none, it runs on the model the panel shows
     // in its place, so the label is what runs.
@@ -4672,8 +4666,8 @@ export const AgentService = {
   /**
    * The panel picked a model, with an effort or without. The model keeps the
    * effort it runs with from then on, so switching models switches the
-   * effort with it, and other models keep theirs (the user's pick). Without
-   * an effort, a model runs with its own; one that has none yet takes the
+   * effort with it, and other models keep theirs. Without an effort, a model
+   * runs with its own; one that has none yet takes the
    * agent's default, or else the effort the chat has now, as the panel
    * showed it.
    *
@@ -4681,7 +4675,7 @@ export const AgentService = {
    * answers, the running turn keeps its model and effort, and a steer joins
    * it on them: the session gets the pick when the turn ends, however it
    * ends, before anything queued goes out (send()), so the next answer runs
-   * with it (the user's ask, 2026-11-22). Left to the adapters,
+   * with it, and no answer changes model partway. Left to the adapters,
    * claude-agent-acp 0.107.0 would switch the running turn's model
    * (query.setModel), while codex-acp 2.6.0 keeps it for its next turn/start.
    */
@@ -5406,7 +5400,7 @@ export const AgentService = {
 
   /**
    * An agent's elicitation/create (initialize declares form mode only): a
-   * question in the chat while its turn waits (zen-ux's card). Declined
+   * question in the chat while its turn waits, shown as a card. Declined
    * unseen: one outside a turn, url mode, and a form the card can't show.
    */
   onAsk(conn, message) {
@@ -5446,10 +5440,10 @@ export const AgentService = {
   },
 
   /**
-   * The user's answer to an ask (zen-ux's card): `answers` maps a question's
-   * key to { picks: [values], text }, or is null for Skip (decline). The
-   * agent gets it in the request's own shape; the message keeps it without a
-   * secret's words, with `summary`, what the card shows after "→".
+   * The user's answer to an ask (its card in the chat): `answers` maps a
+   * question's key to { picks: [values], text }, or is null for Skip (decline).
+   * The agent gets it in the request's own shape; the message keeps it without
+   * a secret's words, with `summary`, what the card shows after "→".
    */
   answerAsk(conv, message, answers) {
     if (message?.role !== "ask" || message.answer !== null) {

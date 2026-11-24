@@ -1,5 +1,5 @@
-// Watching an agent's task (the user's design, 2026-11-21): the window shows
-// the task's tabs, remembers where the user was, and ⌃Tab goes back there.
+// Watching an agent's task: the window shows the task's tabs, remembers
+// where the user was, and ⌃Tab goes back there.
 // Every way the user goes to an agent's task is a watch (ZeniusUI.watch):
 // the tasks panel's Open, a notification, the agent sidebar's live card and
 // directory.

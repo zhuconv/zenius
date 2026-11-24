@@ -40,9 +40,9 @@ let observing = false;
 /**
  * The least room the rest of a Space's status gets, in ems. With less it
  * hides, rather than show a stub such as "Agent needs you ·…": on a Mac's
- * narrower system font the narrowest sidebar left it a few pixels, where
- * Linux's words fill the line (on a Mac, 2026-11-20). The status's title
- * keeps the whole text.
+ * narrower system font the narrowest sidebar leaves it a few pixels,
+ * where Linux's words fill the line. The status's title keeps the whole
+ * text.
  */
 const MIN_REST_EM = 5;
 /** Each window's ResizeObserver: a Space's status refits when its width changes. */
@@ -132,9 +132,8 @@ const STATE_WORDS = {
 /**
  * The status's words: the state's own (STATE_WORDS), then a space and the
  * rest, its parts after a comma: "Agent working Finding a table for 2, Click
- * Submit". The picker's look, the user's choice (2026-11-23): the state's
- * words in the pill's color, the rest in gray (zenius-ux.css). The Space's
- * tooltip reads the same words.
+ * Submit". The state's words are in the pill's color, the rest in gray
+ * (zenius-ux.css). The Space's tooltip reads the same words.
  *
  * @param {BadgeInfo} info
  */

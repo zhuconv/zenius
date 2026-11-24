@@ -33,8 +33,7 @@ const INPUT_EVENTS = ["pointerdown", "touchstart", "keydown", "drop"];
 
 // The pill counts down to what happens if the user does nothing: after
 // clicks the agent resumes, after typing the user keeps control. The two
-// end oppositely, so their titles differ, not only their muted text (the
-// wording pass of 2026-11-20).
+// end oppositely, so their titles differ, not only their muted text.
 const TITLE = { clicked: "Agent paused", typed: "You're taking over" };
 const DETAIL = {
   clicked: "it resumes in {s} s",

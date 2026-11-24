@@ -22,10 +22,9 @@ const PDF_OPEN_MS = 30000;
 // footer of an article or section stay (#isSitePart).
 const SITE_PARTS = "nav, header, footer, [role=navigation], [role=banner], [role=contentinfo]";
 // Text that is laid out but that the user can't read comes marked as hidden
-// (#hidden): a page could hide instructions for the agent in it. It was
-// left out until the user's pass on defenses (2026-11-21): trust the agent,
-// and let it see what the user can't, marked so. Hidden is text smaller
-// than this,
+// (#hidden): a page could hide instructions for the agent in it. The agent
+// is trusted with page text and sees it too, marked so it can tell it from
+// what the user sees. Hidden is text smaller than this,
 const MIN_FONT_PX = 4;
 // squeezed or clipped into a box thinner than this (screen-reader-only
 // text's 1 px box, a transform),
@@ -248,7 +247,7 @@ export class AgentSidebarChild extends JSWindowActorChild {
   }
 
   /**
-   * The links the user can see, for Chat's fetch (the user's call): Chat
+   * The links the user can see, for Chat's fetch rule (fetchable.sys.mjs): Chat
    * opens only a URL from its sources, the page's links among them. Each is a
    * link with text the user can see (#visibleText), outside the site's
    * navigation, http(s) only, to another page than this one, once, in page
