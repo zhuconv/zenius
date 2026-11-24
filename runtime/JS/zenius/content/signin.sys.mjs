@@ -49,8 +49,10 @@ const TOKEN_KEYS = ["access_token", "id_token"];
  * accounts.google.com's usercode page. Pages are added on evidence.
  */
 const MICROSOFT = "Microsoft's device sign-in page";
-// Microsoft's work and school sign-in hosts, which serve the same pages.
-const MICROSOFT_LOGIN = /^login\.(?:microsoftonline\.com|microsoft\.com|windows\.net)$/;
+// Microsoft's work and school sign-in hosts, which serve the same pages:
+// its global cloud's, and its US Government and China clouds'.
+const MICROSOFT_LOGIN =
+  /^login\.(?:microsoftonline\.com|microsoft\.com|windows\.net|microsoftonline\.us|chinacloudapi\.cn|partner\.microsoftonline\.cn)$/;
 const GOOGLE = "Google's device sign-in page";
 const DEVICE_PAGES = [
   { host: /^github\.com$/, path: "/login/device", label: "GitHub's device sign-in page" },

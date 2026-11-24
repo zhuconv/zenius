@@ -118,6 +118,10 @@ describe("the rules' tests on URLs (no browser)", () => {
       "https://login.microsoftonline.com/contoso.onmicrosoft.com/oauth2/v2.0/deviceauth": "Microsoft's device sign-in page",
       "https://login.microsoft.com/common/oauth2/deviceauth": "Microsoft's device sign-in page",
       "https://login.windows.net/organizations/oauth2/deviceauth": "Microsoft's device sign-in page",
+      // Its US Government and China clouds.
+      "https://login.microsoftonline.us/common/oauth2/deviceauth": "Microsoft's device sign-in page",
+      "https://login.chinacloudapi.cn/common/oauth2/deviceauth": "Microsoft's device sign-in page",
+      "https://login.partner.microsoftonline.cn/organizations/oauth2/v2.0/deviceauth": "Microsoft's device sign-in page",
       "https://microsoft.com/link": "Microsoft's device sign-in page",
       "https://www.microsoft.com/link": "Microsoft's device sign-in page",
       "https://login.live.com/oauth20_remoteconnect.srf": "Microsoft's device sign-in page",
@@ -160,7 +164,7 @@ describe("the rules' tests on URLs (no browser)", () => {
     for (const [url, label] of Object.entries(spellings)) {
       assert.equal(L.deviceLoginPage(url), label, url);
     }
-    for (const url of ["https://login.live.com/oauth20_authorize.srf", "https://login.live.com/oauth20_remoteconnect", "https://login.windows.net/common/oauth2/authorize", "https://www.microsoft.com/linkedin", "https://github.com/login/devices", "https://github.com/login/%64evices", "https://github.com/login/%2564evices", "https://github.com/login/%E0%A4%A", "https://github.com/login/devic%E0", "https://github.com..//login/device", "https://github.com/login", "https://example.com/device", "https://device.sso.us-east-1.amazonaws.com/?user_code=ABCD-EFGH", "https://device.sso.eu-west-2.api.aws/", "http://github.com/login/device", "https://github.com:8443/login/device", "https://evil.example/github.com/login/device"]) {
+    for (const url of ["https://login.microsoftonline.us.example/common/oauth2/deviceauth", "https://evil-login.chinacloudapi.cn/common/oauth2/deviceauth", "https://login.live.com/oauth20_authorize.srf", "https://login.live.com/oauth20_remoteconnect", "https://login.windows.net/common/oauth2/authorize", "https://www.microsoft.com/linkedin", "https://github.com/login/devices", "https://github.com/login/%64evices", "https://github.com/login/%2564evices", "https://github.com/login/%E0%A4%A", "https://github.com/login/devic%E0", "https://github.com..//login/device", "https://github.com/login", "https://example.com/device", "https://device.sso.us-east-1.amazonaws.com/?user_code=ABCD-EFGH", "https://device.sso.eu-west-2.api.aws/", "http://github.com/login/device", "https://github.com:8443/login/device", "https://evil.example/github.com/login/device"]) {
       assert.equal(L.deviceLoginPage(url), null, url);
     }
     assert.equal(L.deviceLoginPage("http://127.0.0.1:9/dev-device", ["http://127.0.0.1:9/dev-device"]), "a device sign-in page");
@@ -178,6 +182,8 @@ describe("the rules' tests on URLs (no browser)", () => {
       "https://login.microsoftonline.com/common/adminconsent?client_id=x": "Microsoft's consent prompt",
       "https://login.microsoftonline.com/contoso.onmicrosoft.com/v2.0/adminconsent?client_id=x&scope=y": "Microsoft's consent prompt",
       "https://login.microsoft.com/organizations/adminconsent": "Microsoft's consent prompt",
+      "https://login.microsoftonline.us/common/adminconsent?client_id=x": "Microsoft's consent prompt",
+      "https://login.partner.microsoftonline.cn/contoso.partner.onmschina.cn/v2.0/adminconsent?client_id=x": "Microsoft's consent prompt",
       "https://account.live.com/Consent/Update?mkt=en-US": "Microsoft's consent prompt",
       // The same pages however their address is spelled.
       "https://ACCOUNTS.GOOGLE.COM/signin/oauth/V3/Consent": "Google's consent page",
@@ -220,6 +226,9 @@ describe("the rules' tests on URLs (no browser)", () => {
       "https://login.microsoftonline.com/common/login",
       "https://login.microsoft.com/organizations/oauth2/v2.0/authorize",
       "https://login.windows.net/common/oauth2/authorize",
+      "https://login.microsoftonline.us/common/oauth2/v2.0/authorize",
+      "https://login.chinacloudapi.cn/common/login",
+      "https://login.partner.microsoftonline.cn/common/oauth2/v2.0/authorize",
       "https://login.microsoftonline.com./common/login",
     ]) {
       assert.equal(L.consentByConfig(url), "Microsoft's consent prompt", url);
