@@ -264,13 +264,14 @@ const copiesPlaced = (space, labels) =>
     { space, labels }
   );
 
-/** Another task in the Agents Space: running, or stopped by the user, who keeps its tab. */
+/** Another task in the Agents Space: running, or stopped by the user, who keeps its tabs. */
 async function otherTask(stopped) {
   const space = await h.space(stopped ? "stopped" : "running");
   const { label } = await h.call("pages.new", { space, url: `${h.base}/api/text?other` });
   const B = `const s = ctx.spaces.get(arg.space); const b = ctx.pages.tabFor(ctx.pages.get(s, arg.label)).linkedBrowser;`;
   await h.until(async () => (await h.chrome(`${B} return b.currentURI.spec;`, { space, label })).includes("text?other"), 10000);
-  const id = await h.chrome(`${W} return Win.syncId(liveOf(arg.space, arg.label));`, { space, label });
+  // Both of its tabs: its first page, left blank, and the one it opened.
+  const ids = await h.chrome(`${W} return ["p1", arg.label].map(l => Win.syncId(liveOf(arg.space, l)));`, { space, label });
   if (stopped) {
     await h.chrome(`${B} await ctx.service.userTakeOver(s, b); ctx.spaces.setOwnership(s, "user", { source: "user" }); return true;`, { space, label });
     await h.call("spaces.finish", { space, keep: [] }).catch(() => {});
@@ -278,14 +279,16 @@ async function otherTask(stopped) {
   return {
     async end() {
       await h.call("spaces.finish", { space, keep: [] }).catch(() => {});
-      // The tab a stop left is the user's: closed here as they would.
+      // The tabs a stop left are the user's: closed here as they would.
       await h.chrome(
         `${W}
-         const tab = nth(0).document.getElementById(arg);
-         if (tab && !tab.closing) nth(0).gBrowser.removeTab(tab, { animate: false });
-         await until(() => wins().every(w => !w.document.getElementById(arg)));
+         for (const id of arg) {
+           const w = wins().find(w => w.document.getElementById(id)?.closing === false);
+           if (w) w.gBrowser.removeTab(w.document.getElementById(id), { animate: false });
+         }
+         await until(() => wins().every(w => arg.every(id => !w.document.getElementById(id))));
          return true;`,
-        id
+        ids
       );
     },
   };
