@@ -4,8 +4,13 @@
 // does a kept page's next document after the task.
 //
 // Lookups stay on this machine: network.dns.native-is-localhost answers
-// every name with loopback, and the resolver's cache (nsIDashboard) shows
-// which names were looked up.
+// every address lookup with loopback, and the resolver's cache
+// (nsIDashboard) shows which names were looked up. A prefetch also asks for
+// each name's HTTPS record, which native-is-localhost doesn't cover: Gecko
+// sends that query to the system's DNS server. So native HTTPS-record
+// queries are off here. network.dns.localDomains would keep the names
+// local too, but it resolves them as localhost before any lookup, so the
+// cache would never show them.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
@@ -16,6 +21,8 @@ let site;
 let base;
 /** network.dns.disablePrefetch as the dev profile had it, put back at the end. */
 let prefetchWas = true;
+/** network.dns.native_https_query's own value in the dev profile, if it has one, put back at the end. */
+let httpsQueryWas = null;
 const TAG = `${process.pid}-${Date.now() % 1e6}`;
 /** The names a page made from `n` would look up: its link's and its anchor's, its frame's link's and anchor's. */
 const namesOf = n => [`zo-pf-l-${n}-${TAG}.test`, `zo-pf-a-${n}-${TAG}.test`, `zo-pf-fl-${n}-${TAG}.test`, `zo-pf-fa-${n}-${TAG}.test`];
@@ -38,6 +45,12 @@ before(async () => {
   await new Promise(r => site.listen(0, "127.0.0.1", r));
   base = `http://127.0.0.1:${site.address().port}`;
   await env.chrome(`Services.prefs.setBoolPref("network.dns.native-is-localhost", true); return true;`);
+  httpsQueryWas = await env.chrome(
+    `const name = "network.dns.native_https_query";
+     const was = Services.prefs.prefHasUserValue(name) ? Services.prefs.getBoolPref(name) : null;
+     Services.prefs.setBoolPref(name, false);
+     return was;`
+  );
   // Dev profiles turn DNS prefetch off (scripts/dev/no-outside-traffic.js);
   // the user's tabs here need Firefox's own default.
   prefetchWas = await env.chrome(
@@ -45,8 +58,21 @@ before(async () => {
   );
 });
 after(async () => {
-  await env?.chrome(`Services.prefs.clearUserPref("network.dns.native-is-localhost"); return true;`).catch(() => {});
+  // Prefetch goes off before the names stop resolving here, so no prefetch
+  // in between asks a DNS server.
   await env?.chrome(`Services.prefs.setBoolPref("network.dns.disablePrefetch", arg); return true;`, prefetchWas).catch(() => {});
+  await env?.chrome(`Services.prefs.clearUserPref("network.dns.native-is-localhost"); return true;`).catch(() => {});
+  await env
+    ?.chrome(
+      `const name = "network.dns.native_https_query";
+       if (arg === null) Services.prefs.clearUserPref(name); else Services.prefs.setBoolPref(name, arg);
+       return true;`,
+      httpsQueryWas
+    )
+    .catch(() => {});
+  // Run alone, Zen stops before it writes prefs.js again, so a kept profile
+  // would start next time with this file's prefs.
+  await env?.chrome(`Services.prefs.savePrefFile(null); return true;`).catch(() => {});
   site?.close();
   await env?.close();
 });
