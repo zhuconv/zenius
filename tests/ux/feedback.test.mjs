@@ -737,6 +737,8 @@ process.exit(answer.exit ?? 0);
       edited
     );
     assert.deepEqual([out.first.title, out.first.body], [report.title, report.body], "the card shows the report as composed");
+    // Composed with no source, as zenius feedback does: no task to name.
+    assert.equal(out.first.lead.split(" Nothing is sent")[0], "An agent wrote this.");
     assert.deepEqual(out.first.buttons, ["*Send", "Discard"]);
     assert.equal(out.posted.status, "Posted as #41.");
     assert.deepEqual(out.posted.buttons, ["*Open #41", "Close"]);
@@ -860,6 +862,38 @@ process.exit(answer.exit ?? 0);
       }
     }
   );
+
+  test("a report composed with a sidebar task's source names that task in the card, as compose kept it", async () => {
+    const task = await chrome(`
+      const conv = A.createTask();
+      A.addTask(conv, "Find flights to Tokyo");
+      return { uid: conv.uid, agent: A.harnessList().find(h => h.id === conv.harness)?.name ?? conv.harness };
+    `);
+    try {
+      answer({ "issue list": { stdout: "[]" }, "issue create": { stdout: `${ISSUE(43)}\n` } });
+      const report = await h.call("feedback.compose", { ...FIELDS, source: { sidebar: task.uid, terminal: "devbox/t1" } });
+      const proposal = propose(report.id);
+      const lead = await chrome(
+        `
+        await until(() => A.feedbackReport?.id === arg && shown(), "the card for " + arg);
+        const lead = view().lead;
+        await press("Send");
+        await until(() => view()?.status?.startsWith("Posted"), "Posted");
+        await press("Close");
+        await until(() => !shown(), "the card to go");
+        return lead;
+      `,
+        report.id
+      );
+      assert.equal(lead.split(" Nothing is sent")[0], `${task.agent} wrote this in your task “\u2068Find flights to Tokyo\u2069”.`);
+      assert.deepEqual(await proposal, { outcome: "posted", number: 43, url: ISSUE(43) });
+      // The source stays beside the report: none of it is posted.
+      const create = ghLog().find(call => call.args[1] === "create");
+      assert.ok(!create.input.includes(task.uid) && !create.args.some(a => a.includes(task.uid)), "the task's uid went out");
+    } finally {
+      await chrome(`const conv = A.tasks.get(arg); if (conv) A.removeTask(conv); return true;`, task.uid);
+    }
+  });
 
   // Last: after a Discard, proposals wait ten minutes.
   test("Discard runs nothing, and the agent hears only that the user discarded the report", async () => {
