@@ -481,7 +481,8 @@ test("right-to-left names keep their own order and their place, in every text th
   assert.equal(out.bangLeftOfName, true, "the name's '!' is at its left end, as in a right-to-left paragraph");
   assert.equal(out.closesRightOfName, true, "zenius's words after the name stay after it");
   assert.equal(out.control, `Agent needs you · ${iso(RTL)} on ${site()}`);
-  assert.equal(out.said, `The agent says: “${iso("שלב 2!")}”.`);
+  // Its own "!" ends the sentence, so no period follows the quote.
+  assert.equal(out.said, `The agent says: “${iso("שלב 2!")}”`);
   assert.equal(out.claimNote, `An agent asks to work in your Space “${iso(RTL)}”. It calls itself “${iso("לקוח")}”.`);
   assert.equal(out.status, `Agent needs you ${iso(RTL)}, ${iso("שלב 2!")}`);
   assert.equal(out.tooltipLine, `Task: ${iso(RTL)} · Agent needs you`);

@@ -316,6 +316,32 @@ test("the Agent needs you pill names the task, and its small text follows the ag
   });
 });
 
+test("the note quotes the agent's words as a sentence: no period of its own after words that end one, English or Chinese", async () => {
+  const cases = [
+    ["Log in to continue", "."],
+    ["Sign in, then press Authorize or Cancel.", ""],
+    ["Is the code on your phone?", ""],
+    ["Approve it now!", ""],
+    ["Wait for the code...", ""],
+    ["Wait for the code\u2026", ""],
+    ['Then press "Done."', ""],
+    ["Then press Done. ", ""],
+    ["Use version 1.2", "."],
+    ["\u8bf7\u5728\u9875\u9762\u4e0a\u767b\u5f55\u3002", ""],
+    ["\u9a8c\u8bc1\u7801\u6536\u5230\u4e86\u5417\uff1f", ""],
+    ["\u70b9\u51fb\u5141\u8bb8\uff01", ""],
+    ["\u8bf7\u5728\u9875\u9762\u4e0a\u767b\u5f55", "."],
+  ];
+  const notes = await h.chrome(`
+    const UIM = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs");
+    return ${JSON.stringify(cases.map(([words]) => words))}.map(stateText => UIM.controlCard({ name: "t", stateText }, "agent").note);
+  `);
+  assert.deepEqual(
+    notes,
+    cases.map(([words, end]) => `The agent says: \u201c${iso(words)}\u201d${end}`)
+  );
+});
+
 test("pills come in light and dark", async () => {
   const out = await h.chrome(`${P}
     // A pill takes the color scheme of the page area, #browser's, as Zen's

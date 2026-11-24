@@ -3727,6 +3727,11 @@ function splitPromptKey(key) {
   return [key.slice(0, i), key.slice(i + 1)];
 }
 
+// The agent's words end a sentence of their own: . ! ? or an ellipsis, or
+// Chinese 。！？, before any closing quotes or brackets and isolate()'s
+// closing mark. The note then adds no period after its quote.
+const ENDS_SENTENCE = /[.!?…。！？][\s"'”’»)\]）」』\u2069]*$/u;
+
 /**
  * The control pill's text: who has control, and why (also the card tests').
  *
@@ -3746,7 +3751,7 @@ export function controlCard(rec, source, promptWhat) {
   // asked what "Log in to continue" meant, 2026-11-20). They go in the small
   // text, uncapped, which the '?' opens; the title row names the task.
   const said = isolate(rec.stateText);
-  return { title: "Agent needs you", detail: isolate(rec.name), note: said ? `The agent says: “${said}”.` : undefined, tone: "attention" };
+  return { title: "Agent needs you", detail: isolate(rec.name), note: said ? `The agent says: “${said}”${ENDS_SENTENCE.test(said) ? "" : "."}` : undefined, tone: "attention" };
 }
 
 /**
