@@ -67,8 +67,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   installMediaGuard: "chrome://userscripts/content/zenius/content/media.sys.mjs",
   mirrorMethod: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
   mirrorGetter: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
-  mirrorConstructor: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
+  mirrorGetterTrap: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
   mirrorRefusal: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
+  mirrorTrap: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
   noteWorkerStart: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
   worldSandboxOf: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
 });
@@ -797,69 +798,72 @@ function guardDevices(page, win, { report, later, guard, worldGuard, devices, pr
 
 /**
  * A Notification that only errs, as where the user blocks notifications: an
- * EventTarget over Notification.prototype, with the options as own
- * properties, its own on* handlers and a no-op close(). It runs in the
- * page's realm (a sandbox with the page's principal). workerguard.js has the
- * same text for workers (a test compares them).
+ * EventTarget over Notification.prototype (or newTarget's), with the options
+ * as own properties, its own on* handlers and a no-op close(). Made in
+ * chrome: the EventTarget, its methods and the event come through the Xray,
+ * from the original constructors, and the page's own functions run only as
+ * the handlers it sets. workerguard.js has the same in text, for workers.
  */
-const FAKE_NOTIFICATION = `function fakeNotification(Native, title, options, newTarget) {
-  const n = new EventTarget();
-  Object.setPrototypeOf(n, (newTarget && newTarget.prototype) || Native.prototype);
+function fakeNotification(win, Native, title, options, newTarget) {
+  const xn = new win.EventTarget();
+  const n = Cu.waiveXrays(xn);
+  Object.setPrototypeOf(n, newTarget?.prototype || Native.prototype);
   const o = options !== null && typeof options === "object" ? options : {};
   const fields = {
-    title: String(title), dir: o.dir ?? "auto", lang: String(o.lang ?? ""), body: String(o.body ?? ""),
-    tag: String(o.tag ?? ""), icon: String(o.icon ?? ""), image: String(o.image ?? ""), badge: String(o.badge ?? ""),
-    data: o.data ?? null, silent: o.silent ?? null, requireInteraction: !!o.requireInteraction, renotify: !!o.renotify,
-    timestamp: Date.now(), vibrate: [], actions: [],
+    title,
+    dir: o.dir ?? "auto",
+    lang: String(o.lang ?? ""),
+    body: String(o.body ?? ""),
+    tag: String(o.tag ?? ""),
+    icon: String(o.icon ?? ""),
+    image: String(o.image ?? ""),
+    badge: String(o.badge ?? ""),
+    data: o.data ?? null,
+    silent: o.silent ?? null,
+    requireInteraction: !!o.requireInteraction,
+    renotify: !!o.renotify,
+    timestamp: Date.now(),
+    vibrate: Cu.cloneInto([], win),
+    actions: Cu.cloneInto([], win),
   };
-  for (const key of Object.keys(fields)) {
-    Object.defineProperty(n, key, { value: fields[key], configurable: true });
+  for (const [key, value] of Object.entries(fields)) {
+    Object.defineProperty(n, key, { value, configurable: true });
   }
-  Object.defineProperty(n, "close", { value: function close() {}, writable: true, configurable: true });
+  Object.defineProperty(n, "close", { value: Cu.exportFunction(function close() {}, win), writable: true, configurable: true });
   for (const type of ["click", "show", "error", "close"]) {
     let handler = null;
-    n.addEventListener(type, e => { if (typeof handler === "function") handler.call(n, e); });
-    Object.defineProperty(n, "on" + type, { get: () => handler, set: v => { handler = typeof v === "function" ? v : null; }, configurable: true });
+    xn.addEventListener(
+      type,
+      Cu.exportFunction(e => {
+        if (handler) {
+          Reflect.apply(handler, n, [e]);
+        }
+      }, win)
+    );
+    Object.defineProperty(n, `on${type}`, {
+      get: Cu.exportFunction(() => handler, win),
+      set: Cu.exportFunction(v => {
+        handler = typeof v === "function" ? v : null;
+      }, win),
+      configurable: true,
+    });
   }
-  setTimeout(() => n.dispatchEvent(new Event("error")), 0);
+  win.setTimeout(() => xn.dispatchEvent(new win.Event("error")), 0);
   return n;
-}`;
-
-/** Documents → their sandbox (one per document, for every guard that needs one). */
-const sandboxes = new WeakMap();
-
-/**
- * A sandbox with the document's principal, for constructors the page sees
- * as its own. Each guard hands it a function under a name of its own and
- * deletes that name at once.
- */
-function pageSandbox(win) {
-  const doc = win.document;
-  let sandbox = sandboxes.get(doc);
-  if (!sandbox) {
-    sandbox = Cu.Sandbox(doc.nodePrincipal, { sandboxPrototype: win, wantXrays: false, sandboxName: "zenius page guards" });
-    sandboxes.set(doc, sandbox);
-  }
-  return sandbox;
-}
-
-/** Hand each of `helpers` to `sandbox` under its name, for a guard's source to take and delete. */
-function exportHelpers(sandbox, helpers) {
-  for (const [name, fn] of Object.entries(helpers)) {
-    Cu.exportFunction(fn, sandbox, { defineAs: name });
-  }
 }
 
 // ---------------------------------------------------------------------------
-// Failing closed. The four constructor guards below build their wrappers with
-// a script in the page's sandbox, which Gecko holds to the page's own stack
-// limit. A page that spends its stack and then makes a same-origin frame runs
-// the frame's install inside its appendChild with little of it left, and the
-// script throws "too much recursion". Gecko also stops it in a content process
-// that is shutting down. A failed guard must not leave the native: the page
-// gets a constructor that refuses, built here in chrome with no script in the
-// sandbox, the agent's worlds get one too, and the parent is told. If even
-// that can't go in, a frame is taken out of the page that made it.
+// Failing closed. The four constructor guards below are made in chrome as the
+// document is created (wrapInPage). A page that spends its stack and then
+// makes a same-origin frame runs the frame's install inside its appendChild
+// with little of the stack left; chrome gets more of it than the page's own
+// code, so where the page can still make a frame, the install goes in
+// (tests/observe/guardfailclosed.test.mjs). An install can still fail, with
+// an error, or when Gecko stops the script in a content process that is
+// shutting down. A failed guard must not leave the native: the page gets a
+// constructor that refuses, made the same way, the agent's worlds get one
+// too, and the parent is told. If even that can't go in, a frame is taken out
+// of the page that made it.
 
 /** Per constructor: its guard's words, and what its refusing constructor throws. */
 const FAILED_CLOSED = {
@@ -874,11 +878,10 @@ const FAILED_CLOSED = {
 };
 
 /**
- * Why a guard's install threw. Gecko stopped its script: Cu.evalInSandbox then
- * throws NS_ERROR_OUT_OF_MEMORY with no exception of the script's, and since
- * the navigation cancel never stops a sandbox's script, in a content process
- * that means the process is shutting down. Or the page's stack ran out, or
- * another error.
+ * Why a guard's install threw. NS_ERROR_OUT_OF_MEMORY with no exception of a
+ * script's: Gecko stopped the script, as it does in a content process that is
+ * shutting down (the navigation cancel never stops chrome's). Or the page's
+ * stack ran out, or another error.
  *
  * @returns {{kind: "stopped"|"stack"|"error", words: string}}
  */
@@ -976,23 +979,64 @@ function refusal(win, what) {
 
 /**
  * Put a `name` that refuses (`refuse`, its trap) in the page, over the one it
- * has. As zen-ux's notification guard builds its own: the page's Proxy, with a
- * handler that has no prototype and a trap from here, so its statics,
- * prototype and instanceof stay. Returns false when the page has no `name`.
+ * has (wrapInPage). Returns false when the page has no `name`.
  */
 function refuseInPage(win, name, refuse) {
+  return !!wrapInPage(win, name, () => refuse());
+}
+
+/**
+ * Wrap the page's constructor `name`, made in chrome with no script, as
+ * zen-ux's notification guard builds its own: the page's Proxy, with a
+ * handler that has no prototype and `trap` (chrome's) as its construct trap,
+ * so its statics, prototype and instanceof stay, and its prototype's
+ * constructor is the Proxy too. No realm the page can reach holds anything
+ * the trap looks up: it runs in chrome, with chrome's built-ins.
+ * `trap(target, args, newTarget, caller)` gets the arguments waived, the
+ * target as newTarget when the page constructs the Proxy itself, and
+ * `caller`, what it makes in the page's realm: `TypeError`, through the
+ * Xray, so the original constructor runs, and `construct`, chrome's
+ * Reflect.construct, which calls the waived native in the page's realm.
+ * The agent's worlds give their traps their own (agentworld's callerIn).
+ * Returns the Proxy, or null when the page has no `name`.
+ */
+function wrapInPage(win, name, trap) {
   const page = Cu.waiveXrays(win);
   const Native = page[name];
   if (typeof Native !== "function") {
-    return false;
+    return null;
   }
+  const caller = { TypeError: win.TypeError, construct: Reflect.construct };
   const handler = page.Object.create(null);
-  handler.construct = Cu.exportFunction(refuse, win);
-  const refusing = new page.Proxy(Native, handler);
-  Object.defineProperty(page, name, { value: refusing, writable: true, enumerable: false, configurable: true });
+  let wrapped = null;
+  handler.construct = Cu.exportFunction((target, args, newTarget) => {
+    const own = Cu.waiveXrays(target);
+    const nt = Cu.waiveXrays(newTarget);
+    return trap(own, Cu.waiveXrays(args), nt === wrapped ? own : nt, caller);
+  }, win);
+  wrapped = new page.Proxy(Native, handler);
+  Object.defineProperty(page, name, { value: wrapped, writable: true, enumerable: false, configurable: true });
   // Nor through the prototype: X.prototype.constructor would be the native.
-  Object.defineProperty(Native.prototype, "constructor", { value: refusing, writable: true, enumerable: false, configurable: true });
-  return true;
+  Object.defineProperty(Native.prototype, "constructor", { value: wrapped, writable: true, enumerable: false, configurable: true });
+  return wrapped;
+}
+
+/**
+ * `${value}` in a trap, as the native's own conversion goes: the caller's
+ * toString runs, and what it throws goes back as it is. A symbol's
+ * TypeError, made here in chrome, is made again in the caller's realm
+ * (`caller`, wrapInPage's): an error made in chrome reaches the page or the
+ * agent's world as an InvalidStateError.
+ */
+function asString(value, caller) {
+  try {
+    return `${value}`;
+  } catch (e) {
+    if (e instanceof TypeError) {
+      throw new caller.TypeError(e.message);
+    }
+    throw e;
+  }
 }
 
 /**
@@ -1101,48 +1145,21 @@ function guardNotifications(win, page, { report, guard, applies, why, done, clos
   }
   try {
     simulateFailure("Notification");
-    const sandbox = pageSandbox(win);
-    const helper = () => {
-        if (!applies()) {
-          return false;
-        }
-        report("notification", refused("new Notification"), "Notification", { api: "Notification", asked: "notifications" });
-        return true;
-      };
-    Cu.exportFunction(helper, sandbox, { defineAs: "zeniusNotificationRefused" });
-    const source = `(() => {
-        const refused = zeniusNotificationRefused;
-        delete globalThis.zeniusNotificationRefused;
-        const Native = globalThis.__zeniusNative ?? Notification;
-        const construct = Reflect.construct;
-        ${FAKE_NOTIFICATION}
-        // The guards' handlers have no prototype. Code that reaches this
-        // realm's Object.prototype could give it the traps a handler lacks,
-        // and a trap gets the native constructor. The page reaches the
-        // sandbox's through an error a guard's script makes, and the agent's
-        // code reaches its world's, which runs this too.
-        const wrapped = new Proxy(Native, {
-          __proto__: null,
-          construct(target, args, newTarget) {
-            const nt = newTarget === wrapped ? target : newTarget;
-            // Without a title the native throws its TypeError, as it should.
-            if (args.length < 1) {
-              return construct(target, args, nt);
-            }
-            const title = String(args[0]);
-            if (!refused()) {
-              return construct(target, args, nt);
-            }
-            return fakeNotification(Native, title, args[1], nt);
-          },
-        });
-        Object.defineProperty(Native.prototype, "constructor", { value: wrapped, writable: true, enumerable: false, configurable: true });
-        return wrapped;
-      })()`;
-    const wrapped = Cu.evalInSandbox(source, sandbox);
-    Object.defineProperty(page, "Notification", { value: wrapped, writable: true, enumerable: false, configurable: true });
-    lazy.mirrorConstructor(win, "Notification", source, { zeniusNotificationRefused: helper });
-    // The worlds' one refuses over that copy, before it runs.
+    const refusedNow = () => {
+      if (!applies()) {
+        return false;
+      }
+      report("notification", refused("new Notification"), "Notification", { api: "Notification", asked: "notifications" });
+      return true;
+    };
+    wrapInPage(win, "Notification", (target, args, newTarget, caller) => {
+      // Without a title the native throws its TypeError, as it should.
+      if (args.length < 1 || !refusedNow()) {
+        return caller.construct(target, args, newTarget);
+      }
+      return fakeNotification(win, target, asString(args[0], caller), args[1], newTarget);
+    });
+    // The worlds' one refuses outright (agentRefused).
     lazy.mirrorRefusal(win, "Notification", () => {
       throw agentRefused("new Notification");
     });
@@ -1164,43 +1181,31 @@ function guardPeerConnections(win, page, { report, applies, why, done, closed })
   }
   try {
     simulateFailure("RTCPeerConnection");
-    const sandbox = pageSandbox(win);
-    const helper = () => {
-        if (!applies()) {
-          return false;
-        }
-        const { evidence } = why();
-        const head = "The page tried to open a WebRTC connection (new RTCPeerConnection).";
-        report(
-          "localNetwork",
-          evidence !== undefined
-            ? `${head} The page shows evidence of danger (${evidence}), so zenius refused it (NotAllowedError), during the user's hold too.`
-            : `${head} WebRTC gathers the machine's local network addresses, which can make macOS ask the user about the local network for their whole browser, so the agent's pages can't use it (NotAllowedError). If the task needs a call, hand the task to the user: while they hold the page, it can connect.`,
-          "RTCPeerConnection"
-        );
-        return true;
-      };
-    Cu.exportFunction(helper, sandbox, { defineAs: "zeniusPeerConnectionRefused" });
-    const source = `(() => {
-        const refused = zeniusPeerConnectionRefused;
-        delete globalThis.zeniusPeerConnectionRefused;
-        const Native = globalThis.__zeniusNative ?? RTCPeerConnection;
-        const construct = Reflect.construct;
-        const wrapped = new Proxy(Native, {
-          __proto__: null,
-          construct(target, args, newTarget) {
-            if (refused()) {
-              throw new DOMException("The request is not allowed by the user agent or the platform in the current context.", "NotAllowedError");
-            }
-            return construct(target, args, newTarget === wrapped ? target : newTarget);
-          },
-        });
-        Object.defineProperty(Native.prototype, "constructor", { value: wrapped, writable: true, enumerable: false, configurable: true });
-        return wrapped;
-      })()`;
-    const wrapped = Cu.evalInSandbox(source, sandbox);
-    Object.defineProperty(page, "RTCPeerConnection", { value: wrapped, writable: true, enumerable: false, configurable: true });
-    lazy.mirrorConstructor(win, "RTCPeerConnection", source, { zeniusPeerConnectionRefused: helper });
+    const refused = () => {
+      if (!applies()) {
+        return false;
+      }
+      const { evidence } = why();
+      const head = "The page tried to open a WebRTC connection (new RTCPeerConnection).";
+      report(
+        "localNetwork",
+        evidence !== undefined
+          ? `${head} The page shows evidence of danger (${evidence}), so zenius refused it (NotAllowedError), during the user's hold too.`
+          : `${head} WebRTC gathers the machine's local network addresses, which can make macOS ask the user about the local network for their whole browser, so the agent's pages can't use it (NotAllowedError). If the task needs a call, hand the task to the user: while they hold the page, it can connect.`,
+        "RTCPeerConnection"
+      );
+      return true;
+    };
+    // In the page and in the agent's worlds alike. The DOMException through
+    // the Xray: the original constructor, never one the page put there.
+    const trap = (target, args, newTarget, caller) => {
+      if (refused()) {
+        throw new win.DOMException("The request is not allowed by the user agent or the platform in the current context.", "NotAllowedError");
+      }
+      return caller.construct(target, args, newTarget);
+    };
+    wrapInPage(win, "RTCPeerConnection", trap);
+    lazy.mirrorTrap(win, "RTCPeerConnection", trap);
     done.add("RTCPeerConnection");
   } catch (e) {
     closed("RTCPeerConnection", e);
@@ -1235,10 +1240,10 @@ const SCOPED_MARKS = ["zenius-task-", "zenius-held-"];
  * The page's code works as before; only the sharing with the user's tabs is
  * gone, and the worker sees the fragment in `self.location`.
  *
- * The wrapper is a Proxy made in a sandbox with the page's principal, so the
- * page constructs through it as usual, and SharedWorker.prototype.constructor
- * is the wrapper too. It converts the URL to a string once, with a template
- * literal: the page can reach the sandbox's global and replace its String.
+ * The wrapper is made in chrome (wrapInPage), so the page constructs through
+ * it as usual, and SharedWorker.prototype.constructor is the wrapper too. It
+ * converts the URL to a string once, in chrome (asString), and hands that
+ * string to both the check and the native.
  *
  * A data: shared worker is refused (SecurityError, `refusedData`): it has an
  * opaque origin, so its requests name neither a tab, a mark nor a site, and
@@ -1252,79 +1257,61 @@ function guardSharedWorkers(win, ownerNow, noted, refusedData, { done, closed })
   }
   try {
     simulateFailure("SharedWorker");
-    const sandbox = pageSandbox(win);
-    const helpers = {
-      // The script URL to start the worker with: the task's own, null for
-      // the page's own as given (not a task's page now, or not a URL), or
-      // false for a refused one (data:).
-      zeniusSharedWorkerURL: scriptURL => {
-        const owner = ownerNow();
-        if (!owner) {
-          return null;
+    /**
+     * The script URL to start the worker with: the task's own, null for the
+     * page's own as given (not a task's page now, or not a URL), or false
+     * for a refused one (data:).
+     */
+    const ownURL = scriptURL => {
+      const owner = ownerNow();
+      if (!owner) {
+        return null;
+      }
+      try {
+        const uri = Services.io.newURI(scriptURL, null, win.document.baseURIObject);
+        if (uri.schemeIs("data")) {
+          try {
+            refusedData?.();
+          } catch {}
+          return false;
         }
-        try {
-          const uri = Services.io.newURI(scriptURL, null, win.document.baseURIObject);
-          if (uri.schemeIs("data")) {
-            try {
-              refusedData?.();
-            } catch {}
-            return false;
-          }
-          // The task's own worker, or the hold's, as its channels are.
-          const scope = owner.scope?.() || "agent";
-          const mark = `zenius-${scope}`;
-          const marked = uri
-            .mutate()
-            .setRef(uri.hasRef ? `${uri.ref}&${mark}` : mark)
-            .finalize().spec;
-          noteSharedWorker(marked, owner);
-          return marked;
-        } catch {
-          return null;
-        }
-      },
-      // The worker, for the channel mute (noteChannel).
-      zeniusNoteWorker: worker => noted?.(worker),
-      // The page's own SecurityError, for a refused worker.
-      zeniusInsecure: () => new page.DOMException("The operation is insecure.", "SecurityError"),
+        // The task's own worker, or the hold's, as its channels are.
+        const scope = owner.scope?.() || "agent";
+        const mark = `zenius-${scope}`;
+        const marked = uri
+          .mutate()
+          .setRef(uri.hasRef ? `${uri.ref}&${mark}` : mark)
+          .finalize().spec;
+        noteSharedWorker(marked, owner);
+        return marked;
+      } catch {
+        return null;
+      }
     };
-    exportHelpers(sandbox, helpers);
-    const source = `(() => {
-        const ownURL = zeniusSharedWorkerURL;
-        const noted = zeniusNoteWorker;
-        const insecure = zeniusInsecure;
-        delete globalThis.zeniusSharedWorkerURL;
-        delete globalThis.zeniusNoteWorker;
-        delete globalThis.zeniusInsecure;
-        const Native = globalThis.__zeniusNative ?? SharedWorker;
-        const construct = Reflect.construct;
-        const slice = Array.prototype.slice;
-        const wrapped = new Proxy(Native, {
-          __proto__: null,
-          construct(target, args, newTarget) {
-            // Read once, with no lookup. A String replaced in this realm (the
-            // page reaches its sandbox's global, the agent's code its world's)
-            // would leave the page's object, which chrome's check and the
-            // native could read apart: chrome as no URL, which passes it on
-            // unmarked, and the native as the object's own URL.
-            const url = \`\${args[0]}\`;
-            const own = ownURL(url);
-            if (own === false) {
-              throw insecure();
-            }
-            const worker = construct(target, [own === null ? url : own, ...slice.call(args, 1)], newTarget === wrapped ? target : newTarget);
-            try {
-              noted(worker);
-            } catch {}
-            return worker;
-          },
-        });
-        Object.defineProperty(Native.prototype, "constructor", { value: wrapped, writable: true, enumerable: false, configurable: true });
-        return wrapped;
-      })()`;
-    const wrapped = Cu.evalInSandbox(source, sandbox);
-    Object.defineProperty(page, "SharedWorker", { value: wrapped, writable: true, enumerable: false, configurable: true });
-    lazy.mirrorConstructor(win, "SharedWorker", source, helpers);
+    // In the page and in the agent's worlds alike (wrapInPage, mirrorTrap).
+    const trap = (target, args, newTarget, caller) => {
+      if (args.length === 0) {
+        return caller.construct(target, args, newTarget);
+      }
+      // Read once, here: chrome's check and the native get the same string.
+      const url = asString(args[0], caller);
+      const own = ownURL(url);
+      if (own === false) {
+        throw new win.DOMException("The operation is insecure.", "SecurityError");
+      }
+      // The native reads its options itself; it ignores what comes after.
+      const list = [own === null ? url : own];
+      if (args.length > 1) {
+        list.push(args[1]);
+      }
+      const worker = caller.construct(target, list, newTarget);
+      try {
+        noted?.(Cu.unwaiveXrays(worker));
+      } catch {}
+      return worker;
+    };
+    wrapInPage(win, "SharedWorker", trap);
+    lazy.mirrorTrap(win, "SharedWorker", trap);
     done.add("SharedWorker");
   } catch (e) {
     closed("SharedWorker", e);
@@ -1427,15 +1414,18 @@ const CHANNEL_GUARD = `function zeniusChannelGuard(Native, scopeOf, noted) {
   return wrapped;
 }`;
 
+/** What a channel's name carries before its scope: a NUL, then "zenius-", as CHANNEL_GUARD's MARK. */
+const CHANNEL_MARK = `${String.fromCharCode(0)}zenius-`;
+
 /**
  * A task shares the user's container (SPEC §3.4), so a BroadcastChannel joins
  * every same-site document of the profile, the user's open tabs too, both
  * ways: data, but data the site's code in the user's tab acts on, with that
  * tab's grants (tests/snapshot/tools/channels-probe.mjs). In a task's
  * documents a channel's name gets the task's scope (channelScope), so task
- * pages hear only each other. As for the shared worker, the wrapper is a
- * Proxy made in a sandbox with the page's principal, and the page reads its
- * own names back.
+ * pages hear only each other. As for the peer connection, the wrapper is
+ * made in chrome (wrapInPage), and so is the getter that gives the page and
+ * the agent's worlds their own names back.
  */
 function guardBroadcastChannels(win, scopeNow, noted, { done, closed }) {
   const page = Cu.waiveXrays(win);
@@ -1444,23 +1434,44 @@ function guardBroadcastChannels(win, scopeNow, noted, { done, closed }) {
   }
   try {
     simulateFailure("BroadcastChannel");
-    const sandbox = pageSandbox(win);
-    const helpers = {
-      zeniusChannelScope: () => scopeNow(),
-      zeniusNoteChannel: channel => noted?.(channel),
+    const proto = page.BroadcastChannel.prototype;
+    const desc = Object.getOwnPropertyDescriptor(proto, "name");
+    const trap = (target, args, newTarget, caller) => {
+      if (args.length === 0) {
+        return caller.construct(target, args, newTarget);
+      }
+      const name = asString(args[0], caller);
+      const scope = scopeNow();
+      // The native takes one argument and ignores the rest.
+      const channel = caller.construct(target, [scope ? name + CHANNEL_MARK + scope : name], newTarget);
+      try {
+        noted?.(Cu.unwaiveXrays(channel));
+      } catch {}
+      return channel;
     };
-    exportHelpers(sandbox, helpers);
-    const source = `(() => {
-        const scopeOf = zeniusChannelScope;
-        const noted = zeniusNoteChannel;
-        delete globalThis.zeniusChannelScope;
-        delete globalThis.zeniusNoteChannel;
-        return (${CHANNEL_GUARD})(globalThis.__zeniusNative ?? BroadcastChannel, scopeOf, noted);
-      })()`;
-    const wrapped = Cu.evalInSandbox(source, sandbox);
-    if (wrapped) {
-      Object.defineProperty(page, "BroadcastChannel", { value: wrapped, writable: true, enumerable: false, configurable: true });
-      lazy.mirrorConstructor(win, "BroadcastChannel", source, helpers);
+    wrapInPage(win, "BroadcastChannel", trap);
+    lazy.mirrorTrap(win, "BroadcastChannel", trap);
+    if (typeof desc?.get === "function") {
+      const ownName = (get, self, args) => {
+        const name = Reflect.apply(get, self, args);
+        const at = typeof name === "string" ? name.lastIndexOf(CHANNEL_MARK) : -1;
+        return at < 0 ? name : name.slice(0, at);
+      };
+      const native = desc.get;
+      // A named function, as the native is, for the page.
+      const getter = {
+        "get name"() {
+          return ownName(native, this, arguments);
+        },
+      }["get name"];
+      Object.defineProperty(proto, "name", {
+        get: Cu.exportFunction(getter, proto),
+        set: desc.set,
+        enumerable: desc.enumerable,
+        configurable: true,
+      });
+      // Each world's wraps its own native, whose errors are the world's.
+      lazy.mirrorGetterTrap(win, "BroadcastChannel.prototype", "name", ownName);
     }
     done.add("BroadcastChannel");
   } catch (e) {

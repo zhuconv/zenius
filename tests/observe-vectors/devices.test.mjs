@@ -600,11 +600,16 @@ const NOTIFICATION_GRANT = verb =>
     new URL(vectors.base).origin
   );
 
-test("the workers' fake Notification is the pages' (two copies of one text)", () => {
-  const fake = file => /const FAKE_NOTIFICATION = (`function fakeNotification[\s\S]*?\n}`);/.exec(readFileSync(new URL(file, import.meta.url), "utf8"))?.[1];
-  const page = fake("../../runtime/JS/zenius/content/refusals.sys.mjs");
-  assert.ok(page, "content/refusals.sys.mjs has it");
-  assert.equal(fake("../../runtime/JS/zenius/content/workerguard.js"), page);
+test("the workers' fake Notification has the fields the pages' has (one made in chrome, one in the worker's text)", () => {
+  // fakeNotification's `fields`, in order: each `key:`, or a line that is a key alone.
+  const fields = file => {
+    const text = readFileSync(new URL(file, import.meta.url), "utf8");
+    const body = /function fakeNotification\([\s\S]*?const fields = \{([\s\S]*?)\n  \};/.exec(text)?.[1];
+    return body ? [...body.matchAll(/^\s*(\w+),\s*$|(\w+)\s*:/gm)].map(m => m[1] ?? m[2]) : null;
+  };
+  const page = fields("../../runtime/JS/zenius/content/refusals.sys.mjs");
+  assert.ok(page?.length > 10, "content/refusals.sys.mjs has them");
+  assert.deepEqual(fields("../../runtime/JS/zenius/content/workerguard.js"), page);
 });
 
 /** A notification without the site's grant, as Firefox answers it: it errs, and nothing shows. */

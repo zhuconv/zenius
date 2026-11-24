@@ -1,13 +1,14 @@
 // The constructor guards fail closed (content/refusals.sys.mjs, failClosed).
 // Notification, RTCPeerConnection, SharedWorker and BroadcastChannel get their
-// wrappers from a script in the page's sandbox. When that script can't run,
-// the page gets a constructor that refuses, and so does the agent's world,
-// and the parent is told. When even that can't go in, a frame is taken out of
-// its page and a popup is closed; a tab's own document keeps the native, and
-// that is logged and told. The preferences zenius.test.failPageGuard.<name>
-// make guards fail on purpose; one test makes the page's own stack do it, as
-// a hostile page can. The last shows that a page that reaches the guards'
-// sandbox can't plant traps there for their Proxies.
+// wrappers made in chrome as the document is created. When that install
+// fails, the page gets a constructor that refuses, and so does the agent's
+// world, and the parent is told. When even that can't go in, a frame is taken
+// out of its page and a popup is closed; a tab's own document keeps the
+// native, and that is logged and told. The preferences
+// zenius.test.failPageGuard.<name> make guards fail on purpose; one test makes
+// the page's own stack do it, as a hostile page can. The last two show that
+// the page reaches no realm of the guards', and that its own built-ins, however
+// it changes them, play no part in them.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
@@ -276,12 +277,15 @@ test("a tab's own document stays open when not even the refusing constructor can
  * A page spends its stack, then on the way back out appends same-origin
  * frames, keeping up to 40 that get a window: the deepest ones install their
  * guards with the least of the page's stack left. `levels` puts each frame at
- * the bottom of a subtree that deep.
+ * the bottom of a subtree that deep. `missed` counts the tries below the
+ * deepest frame kept, where the page's own calls ran out of stack: then the
+ * frames it kept were made at its edge.
  */
 const EDGE = levels => `(() => {
   const kept = [];
   let depth = 0;
   let maxDepth = 0;
+  let missed = 0;
   const make = () => {
     const f = document.createElement("iframe");
     f.dataset.zoEdge = String(depth);
@@ -307,8 +311,11 @@ const EDGE = levels => `(() => {
             kept.push(depth);
           } else {
             top.remove();
+            missed += kept.length === 0 ? 1 : 0;
           }
-        } catch (e) {}
+        } catch (e) {
+          missed += kept.length === 0 ? 1 : 0;
+        }
       }
       depth--;
     }
@@ -316,7 +323,7 @@ const EDGE = levels => `(() => {
   try {
     climb();
   } catch (e) {}
-  return { maxDepth, kept: kept.length, deepest: kept[0] ?? null };
+  return { maxDepth, kept: kept.length, deepest: kept[0] ?? null, missed };
 })()`;
 
 /**
@@ -339,9 +346,9 @@ const WORLD_PEERS = `(() => {
   return out;
 })()`;
 
-test("frames a page makes at the edge of its stack get refusing constructors, never the native", async () => {
+test("frames a page makes at the edge of its stack get the guards, or refusing constructors, never the native", async () => {
   await env.inSpace("zo failclosed edge", async page => {
-    let ranOut = 0;
+    let edges = 0;
     for (const [run, levels] of [
       [0, 0],
       [1, 0],
@@ -360,7 +367,7 @@ test("frames a page makes at the edge of its stack get refusing constructors, ne
         heard.every(f => f.outcome === "refusing"),
         `run ${run}: ${js(heard)}`
       );
-      ranOut += heard.filter(f => f.cause === "stack").length;
+      edges += sweep.missed > 0 ? 1 : 0;
       const world = await page.evaluate(WORLD_PEERS);
       assert.ok(
         world.length === seen.frames && world.every(r => r === "NotAllowedError"),
@@ -368,97 +375,163 @@ test("frames a page makes at the edge of its stack get refusing constructors, ne
       );
     }
     // Otherwise the page never reached the edge, and this test proves nothing.
-    assert.ok(ranOut > 0, "no frame's guard ran out of the page's stack");
+    // Made in chrome, the guards have more of the stack than the page's own
+    // calls, so they go in where the page can still make a frame.
+    assert.ok(edges > 0, "the page made a frame at every depth it tried: it never reached its stack's edge");
   });
 });
 
-// The page's own code can reach the four's sandbox: an error their script
-// makes comes from there, with the sandbox's Object.prototype at the end of
-// its prototypes. A trap planted there would get a Proxy's target, the
-// native, if the handlers had a prototype.
-const SANDBOX_TRAPS = `(() => {
-  let error = null;
-  try {
-    new BroadcastChannel(Symbol("zo"));
-  } catch (e) {
-    error = e;
-  }
-  let realm = error;
-  while (realm && Object.getPrototypeOf(realm)) {
-    realm = Object.getPrototypeOf(realm);
-  }
-  const sandbox = !!realm && realm !== Object.prototype;
-  const got = [];
-  if (sandbox) {
-    Object.defineProperty(realm, "get", {
-      value(target) {
-        got.push(Function.prototype.toString.call(target).replace(/\\s+/g, " "));
-        return Reflect.get(...arguments);
-      },
-      configurable: true,
-      writable: true,
-    });
+// What the four throw is the page's own, made through Xrays: no realm of the
+// guards' is at the end of an error's prototypes, as a sandbox's global was
+// when a guard's script made the error.
+const OWN_ERRORS = `(() => {
+  const out = {};
+  for (const [label, make] of [
+    ["BroadcastChannel", () => new BroadcastChannel(Symbol("zo"))],
+    ["SharedWorker", () => new SharedWorker(Symbol("zo"))],
+    ["data: SharedWorker", () => new SharedWorker("data:text/javascript,1")],
+    ["Notification", () => new Notification(Symbol("zo"))],
+    ["RTCPeerConnection", () => new RTCPeerConnection().close()],
+  ]) {
     try {
-      for (const name of ["Notification", "RTCPeerConnection", "SharedWorker", "BroadcastChannel"]) {
-        void window[name].zo;
+      make();
+      out[label] = "made";
+    } catch (e) {
+      let end = e;
+      while (end && Object.getPrototypeOf(end)) {
+        end = Object.getPrototypeOf(end);
       }
-    } finally {
-      delete realm.get;
+      out[label] = [e.name, end === Object.prototype, e.constructor.constructor("return this")() === window];
     }
   }
-  return { error: error && error.name, sandbox, got };
+  return out;
 })()`;
 
-test("a page that reaches the four's sandbox gets no native from behind them: a trap it plants on the sandbox's Object.prototype runs for none of their Proxies", async () => {
-  await env.inSpace("zo failclosed traps", async page => {
-    await page.goto(url("/traps"));
-    assert.deepEqual(await asPage(page, SANDBOX_TRAPS), { error: "TypeError", sandbox: true, got: [] });
+test("what the four throw is the page's own: no realm of the guards' at the end of its prototypes", async () => {
+  await env.inSpace("zo failclosed own", async page => {
+    await page.goto(url("/own"));
+    const seen = await asPage(page, OWN_ERRORS);
+    const peer = seen.RTCPeerConnection;
+    delete seen.RTCPeerConnection;
+    assert.deepEqual(seen, {
+      BroadcastChannel: ["TypeError", true, true],
+      SharedWorker: ["TypeError", true, true],
+      "data: SharedWorker": ["SecurityError", true, true],
+      Notification: ["TypeError", true, true],
+    });
+    // Refused while the agent drives the page, made otherwise.
+    assert.ok(peer === "made" || js(peer) === js(["NotAllowedError", true, true]), js(peer));
   });
 });
 
-// From the sandbox's global, the page makes String give back what it's
-// given, and gives its document a base that nothing relative resolves
-// against. Then it starts a shared worker with an object whose text is an
-// absolute URL. The worker reports its own URL's fragment.
-const SANDBOX_STRING = `window.__zoMarked = (async () => {
-  let error = null;
-  try {
-    new BroadcastChannel(Symbol("zo"));
-  } catch (e) {
-    error = e;
-  }
-  const sandbox = error.constructor.constructor("return this")();
+// The page replaces its own String, Reflect, Array iterator, String methods,
+// TypeError and DOMException, plants traps on its Object.prototype, and gives
+// its document a base that nothing relative resolves against. Then it makes
+// a channel, and starts a shared worker with an object whose text is an
+// absolute URL; the worker reports its own URL's fragment. None of what it
+// put there runs inside the four, the channel gets the task's scope, the
+// worker its mark, and the errors stay the originals'.
+const TAMPERED = `window.__zoTampered = (async () => {
+  const hit = [];
+  const saved = {
+    Reflect: window.Reflect,
+    String: window.String,
+    TypeError: window.TypeError,
+    DOMException: window.DOMException,
+    iterator: Array.prototype[Symbol.iterator],
+    lastIndexOf: String.prototype.lastIndexOf,
+    slice: String.prototype.slice,
+  };
   const script = URL.createObjectURL(new Blob(["onconnect = e => e.ports[0].postMessage(self.location.hash)"], { type: "text/javascript" }));
   const base = document.createElement("base");
   base.href = "mailto:zo@example.com";
   document.head.prepend(base);
-  const own = sandbox.String;
-  sandbox.String = x => x;
+  const traps = ["get", "apply", "construct", "getPrototypeOf", "has"];
+  let channel = null;
+  let worker = null;
+  let name = null;
+  let baseURI = null;
+  const errors = {};
   try {
-    const worker = new SharedWorker({ toString: () => script });
-    const hash = await new Promise(resolve => {
-      worker.port.onmessage = e => resolve(e.data);
-      worker.onerror = () => resolve("an error event");
-      setTimeout(() => resolve("no answer"), 10000);
-    });
-    return { sandbox: sandbox !== window && own !== String, base: document.baseURI, marked: /(^#|&)zenius-/.test(hash) || hash };
+    for (const name of traps) {
+      // No prototype: a descriptor would inherit the get planted first.
+      Object.defineProperty(Object.prototype, name, {
+        __proto__: null,
+        value() {
+          hit.push("trap " + name);
+          return saved.Reflect[name](...arguments);
+        },
+        configurable: true,
+        writable: true,
+      });
+    }
+    window.Reflect = new Proxy({}, { get: (t, k) => (hit.push("Reflect." + saved.String(k)), saved.Reflect[k]) });
+    saved.String.prototype.lastIndexOf = function () { hit.push("lastIndexOf"); return -1; };
+    saved.String.prototype.slice = function () { hit.push("slice"); return "page"; };
+    window.String = x => (hit.push("String"), x);
+    window.TypeError = function () { hit.push("TypeError"); };
+    window.DOMException = function () { hit.push("DOMException"); };
+    Array.prototype[Symbol.iterator] = function () { hit.push("iterator"); return saved.iterator.call(this); };
+    channel = new BroadcastChannel("zo-tampered");
+    name = channel.name;
+    worker = new SharedWorker({ toString: () => script });
+    baseURI = document.baseURI;
+    try {
+      new BroadcastChannel(Symbol("zo"));
+    } catch (e) {
+      errors.symbol = e instanceof saved.TypeError;
+    }
+    try {
+      new SharedWorker("data:text/javascript,1");
+    } catch (e) {
+      errors.data = e instanceof saved.DOMException;
+    }
   } finally {
-    sandbox.String = own;
-    base.remove();
+    // The iterator first: a for...of here would run the page's.
+    Array.prototype[Symbol.iterator] = saved.iterator;
+    for (let i = 0; i < traps.length; i++) {
+      delete Object.prototype[traps[i]];
+    }
+    window.Reflect = saved.Reflect;
+    window.String = saved.String;
+    window.TypeError = saved.TypeError;
+    window.DOMException = saved.DOMException;
+    saved.String.prototype.lastIndexOf = saved.lastIndexOf;
+    saved.String.prototype.slice = saved.slice;
   }
+  const hash = await new Promise(resolve => {
+    worker.port.onmessage = e => resolve(e.data);
+    worker.onerror = () => resolve("an error event");
+    setTimeout(() => resolve("no answer"), 10000);
+  });
+  base.remove();
+  window.__zoChannel = channel;
+  return { hit, errors, name, base: baseURI, marked: /(^#|&)zenius-/.test(hash) || hash };
 })();`;
 
-test("a page that replaces String in the four's sandbox still gets its shared worker marked, with a base that resolves nothing relative", async () => {
-  await env.inSpace("zo failclosed string", async page => {
-    await page.goto(url("/string"));
+test("a page that replaces its own built-ins and plants traps on its Object.prototype runs none of them inside the four: its channel gets the task's scope, its shared worker the mark", async () => {
+  await env.inSpace("zo failclosed tampered", async page => {
+    await page.goto(url("/tampered"));
     const seen = await page.call("dev.evalContent", {
       privileged: true,
-      arg: SANDBOX_STRING,
+      arg: TAMPERED,
       code: `const s = actor.document.createElement("script");
         s.textContent = arg;
         actor.document.body.append(s);
-        return JSON.parse(JSON.stringify(await Cu.waiveXrays(actor.contentWindow).__zoMarked));`,
+        const out = JSON.parse(JSON.stringify(await Cu.waiveXrays(actor.contentWindow).__zoTampered));
+        // The name the native has, through an Xray: the page's, then the scope.
+        const channel = Cu.unwaiveXrays(Cu.waiveXrays(actor.contentWindow).__zoChannel);
+        out.scoped = channel.name.startsWith("zo-tampered" + String.fromCharCode(0) + "zenius-task-");
+        channel.close();
+        return out;`,
     });
-    assert.deepEqual(seen, { sandbox: true, base: "mailto:zo@example.com", marked: true });
+    assert.deepEqual(seen, {
+      hit: [],
+      errors: { symbol: true, data: true },
+      name: "zo-tampered",
+      base: "mailto:zo@example.com",
+      marked: true,
+      scoped: true,
+    });
   });
 });

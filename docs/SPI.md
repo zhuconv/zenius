@@ -3156,13 +3156,14 @@ lives:
   - Shared workers: in a task's page, the SharedWorker constructor adds
     `#zenius-agent` to the script URL, so Gecko starts a worker of the
     task's own, never one the user's tabs share. The marked URL is how the
-    listener knows the worker. The constructor reads the URL once, with a
-    template literal: the page can reach its guards' sandbox and replace
-    its String, and an object that chrome's check can't read as a URL
-    would go on to the native unmarked.
+    listener knows the worker. The constructor's trap is chrome code: it
+    reads the URL once, in chrome (`asString`), and hands that one string
+    to both the check and the native, so an object whose text the check
+    can't read as a URL can't reach the native unmarked.
   - BroadcastChannel: `guardBroadcastChannels`, in the same guards, makes
-    the constructor a Proxy made in the page-principal sandbox, as for
-    SharedWorker. It appends `\0zenius-<scope>` to the channel's name.
+    the constructor a Proxy with a chrome trap, as for SharedWorker. It
+    appends `\0zenius-<scope>` to the channel's name, and a getter made in
+    chrome gives the page and the agent's worlds their own names back.
     - The scope (`channelScope`) is `task-<space id>` for a task's page,
       its frames and a popup on its way: the first top in its opener chain
       that `TASK_SPACES_KEY` lists. A document that keeps the agent's code
@@ -3199,12 +3200,12 @@ lives:
     `watch()` calls. Each report also carries `api` and `asked` (PROTOCOL),
     for zen-ux's card in a kept page.
   - Notifications (`notification`): `guardNotifications`, on evidence.
-    The Notification constructor becomes a Proxy made in a sandbox with
-    the page's principal, as for SharedWorker, which gives a fake
-    (`FAKE_NOTIFICATION`) that fires `error`.
+    The Notification constructor becomes a Proxy with a chrome trap, as
+    for SharedWorker, which gives a fake made in chrome
+    (`fakeNotification`) that fires `error`.
     `ServiceWorkerRegistration.prototype.showNotification` rejects.
-    workerguard.js has the same fake for workers, and a test compares the
-    two texts. In workers it holds for the task's whole life: a worker
+    workerguard.js has a fake of its own for workers (`FAKE_NOTIFICATION`),
+    and a test compares the two fakes' fields. In workers it holds for the task's whole life: a worker
     can't read the hold or the evidence (a known residual). zen-ux's guard
     (`ui/systemui/ZeniusSystemUiChild.sys.mjs`) installs after it at
     DOMWindowCreated and wraps it: while the agent
@@ -3213,14 +3214,28 @@ lives:
     a Proxy whose construct throws NotAllowedError by the `devices` rule
     (Zen has no moz- or webkit- alias). WebRTC's own list of the browser's peer connections
     (`WebrtcGlobalInformation.getStatsHistoryPcIds`) is the test's counter.
-  - Failing closed (`failClosed`). Notification, RTCPeerConnection,
-    SharedWorker and BroadcastChannel get their wrappers from a script in
-    the page-principal sandbox. Gecko holds that script to the page's own
-    stack limit, and stops it in a content process that is shutting down.
-    A page can spend its stack and then make a same-origin frame, whose
-    guards install inside its `appendChild`.
-    - When a wrapper's script fails, or anything before it in the install,
-      the constructor refuses instead. It's the page's own Proxy over the
+  - The four constructor guards (Notification, RTCPeerConnection,
+    SharedWorker and BroadcastChannel) are made in chrome as the document
+    is created (`wrapInPage`): the page's own Proxy over the native, a
+    handler made with the page's `Object.create(null)`, and an exported
+    chrome function as its construct trap. A trap gets the caller's realm
+    (`caller`): its TypeError through the Xray, and the native's
+    construction from chrome on the waived target, so the native's errors
+    are the page's own. No realm the page reaches holds anything a trap
+    looks up. The agent's worlds get the same, made from each world's own
+    Proxy and Object before any of its code runs (`guardedIn`,
+    `mirrorTrap`), with a `caller` that constructs from the world's realm
+    (`callerIn`): an error made in chrome reaches a world as an
+    InvalidStateError, and one made in the page's realm with a message the
+    world can't read.
+  - Failing closed (`failClosed`). A page can spend its stack and then make
+    a same-origin frame, whose guards install inside its `appendChild`.
+    Chrome gets more of the stack than the page's own code, so where the
+    page can still make a frame, the install goes in. An install can still
+    fail, with an error, or when Gecko stops it in a content process that
+    is shutting down.
+    - When a guard's install fails, or anything before it, the constructor
+      refuses instead. It's the page's own Proxy over the
       native, built in chrome with no script, whose construct trap throws
       the error a blocked call gives, and `prototype.constructor` is set to
       it. The agent's worlds get the same (`mirrorRefusal`).
@@ -3242,12 +3257,12 @@ lives:
     guards short. The adopter's descriptors have no prototype, so the
     agent's code can't break them by changing the world's built-ins.
     Neither do the Proxy handlers the world makes, nor the page guards'
-    (their sources run in the page's sandbox and in the world), nor the
-    worker guard's in a worker's realm. A handler with a prototype inherits
-    each trap it lacks from the realm's Object.prototype, and the engine
-    hands a trap the native behind the guard. The agent's code can put a
-    trap there in its world, a worker's own script in its realm, and a page
-    in its guards' sandbox, which an error a guard's script makes leads to.
+    (made in chrome with `Object.create(null)`, in the page and in each
+    world), nor the worker guard's in a worker's realm. A handler with a
+    prototype inherits each trap it lacks from the realm's
+    Object.prototype, and the engine hands a trap the native behind the
+    guard. The agent's code can put a trap there in its world, and a
+    worker's own script in its realm.
     The
     actor hands a new document to the worlds last, after every page-side
     guard (`adoptLast` in `actors/ZeniusChild.sys.mjs`), so a step of

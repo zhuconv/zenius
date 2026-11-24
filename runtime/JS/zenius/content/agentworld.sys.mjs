@@ -85,7 +85,6 @@ const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL,
   const TypeErrorCtor = TypeError;
   const ReferenceErrorCtor = ReferenceError;
   const ProxyCtor = Proxy;
-  const indirectEval = eval;
   const ours = [];
   const own = fn => {
     ours[ours.length] = fn;
@@ -344,7 +343,7 @@ const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL,
       }
       return true;
     },
-    getter(xw, parts, name, fn) {
+    getter(xw, parts, name, fn, wrap) {
       let target = xw;
       for (let i = 0; i < parts.length; i++) {
         target = target == null ? null : target[parts[i]];
@@ -356,28 +355,11 @@ const SETUP = `(function (pageOnly, missed, hooked, xrayWindow, isJavaScriptURL,
       if (!d || typeof d.get !== "function" || d.configurable === false) {
         return false;
       }
-      defineProperty(target, name, { __proto__: null, get: fn, set: d.set, enumerable: d.enumerable, configurable: false });
+      // A trap (mirrorGetterTrap) gets the world's own getter to call, which
+      // runs in the world's realm.
+      const get = wrap ? new ProxyCtor(d.get, { __proto__: null, apply: fn }) : fn;
+      defineProperty(target, name, { __proto__: null, get, set: d.set, enumerable: d.enumerable, configurable: false });
       return true;
-    },
-    build(xw, name, source, helpers, previous) {
-      // A second guard of the same constructor wraps the first one's.
-      const Native = previous || xw[name];
-      if (typeof Native !== "function") {
-        return null;
-      }
-      const names = ownKeys(helpers);
-      for (let i = 0; i < names.length; i++) {
-        defineProperty(globalThis, names[i], { __proto__: null, value: helpers[names[i]], writable: true, configurable: true });
-      }
-      defineProperty(globalThis, "__zeniusNative", { __proto__: null, value: Native, writable: true, configurable: true });
-      try {
-        return indirectEval(source);
-      } finally {
-        delete globalThis.__zeniusNative;
-        for (let i = 0; i < names.length; i++) {
-          delete globalThis[names[i]];
-        }
-      }
     },
     ctor(xw, isOwn, name, value) {
       const d = getOwnPropertyDescriptor(xw, name);
@@ -1768,7 +1750,7 @@ function markWritten(id) {
 
 /**
  * Our page-world shims of each document (innerWindowId): {methods: [{path,
- * name, fn}], ctors: [{name, source, helperName, helper}]}. A world reaches
+ * name, fn, getter?, wrap?}], ctors: [{name, trap}]}. A world reaches
  * the document through Xrays, which show only the natives, so each world
  * that can reach it gets the same shims in its own view of the document's
  * window (adopt).
@@ -1803,6 +1785,16 @@ export function mirrorMethod(win, path, name, fn) {
  */
 export function mirrorGetter(win, path, name, fn) {
   mirror(win, { path, name, fn, getter: true });
+}
+
+/**
+ * A getter a guard made in chrome over the native at `<path>[name]`: the
+ * agent's worlds each get a Proxy over their own native getter there, with
+ * `apply(target, self, args)` as its trap. The native the trap calls then
+ * runs in the world's realm, so its errors are the world's own (callerIn).
+ */
+export function mirrorGetterTrap(win, path, name, apply) {
+  mirror(win, { path, name, fn: apply, getter: true, wrap: true });
 }
 
 function mirror(win, entry) {
@@ -1847,41 +1839,75 @@ export function worldSandboxOf(value) {
 }
 
 /**
- * A constructor the page's world got from `source`, a script that reads the
- * native from globalThis.__zeniusNative when it's set, and each of
- * `helpers` ({name: function}) from the global of that name, and returns the
- * wrapped constructor.
- */
-export function mirrorConstructor(win, name, source, helpers) {
-  mirrorsOf(win)?.ctors.push({ name, source, helpers });
-}
-
-/**
  * A constructor the worlds refuse, with `refuse` as its construct trap: one
  * whose page guard failed and refuses in the page instead
  * (content/refusals.sys.mjs, failClosed), or Notification, which the agent's
  * own code never gets to make. The worlds get one that refuses, made in
- * chrome from each world's own Proxy, with no script (refusingIn), over the
+ * chrome from each world's own Proxy, with no script (guardedIn), over the
  * one they'd have had.
  */
 export function mirrorRefusal(win, name, refuse) {
-  mirrorsOf(win)?.ctors.push({ name, refuse });
+  mirrorsOf(win)?.ctors.push({ name, trap: () => refuse() });
 }
 
 /**
- * The world's `name` that refuses with `refuse` (mirrorRefusal): a Proxy, made
- * from the world's own Proxy and Object, over the one the world has. Its
- * prototype's constructor is the Proxy too, as a guard's source makes it.
+ * A constructor guard made in chrome (content/refusals.sys.mjs, wrapInPage):
+ * the worlds get one made the same way over theirs (guardedIn), with `trap`
+ * as its construct trap.
  */
-function refusingIn(world, win, name, refuse) {
+export function mirrorTrap(win, name, trap) {
+  mirrorsOf(win)?.ctors.push({ name, trap });
+}
+
+/**
+ * What a guard's trap makes in the world's realm, with the world's own
+ * built-ins, taken before any of the agent's code runs: `TypeError`, and
+ * `construct(target, list, newTarget)`, which calls the native from the
+ * world's realm, as the agent's own `new` would. An error made elsewhere
+ * reaches the world badly: one made in the page's realm through an Xray
+ * that can't read its message, and one made in chrome (a native that
+ * chrome calls makes its errors there) as an InvalidStateError.
+ */
+function callerIn(world) {
+  const realm = Cu.waiveXrays(world.sandbox);
+  const construct = realm.Reflect.construct;
+  const WorldArray = realm.Array;
+  return {
+    TypeError: realm.TypeError,
+    construct(target, list, newTarget) {
+      // The list in the world's realm, by own properties: none of the
+      // world's setters or iterators runs.
+      const own = new WorldArray();
+      for (let i = 0; i < list.length; i++) {
+        Object.defineProperty(own, i, { value: list[i], writable: true, enumerable: true, configurable: true });
+      }
+      return construct(target, own, newTarget);
+    },
+  };
+}
+
+/**
+ * The world's guarded `name` (mirrorTrap, mirrorRefusal): a Proxy made in
+ * chrome from the world's own Proxy and Object, taken before any of the
+ * agent's code runs, over the one the world has, with no script. Its
+ * prototype's constructor is the Proxy too. `trap(target, args, newTarget,
+ * caller)` gets the arguments waived, the target as newTarget when the world
+ * constructs the Proxy itself, and `caller`, the world's own (callerIn).
+ */
+function guardedIn(world, win, name, trap) {
   const Native = world.ctors.get(name) ?? world.adopter.native(win, name);
   if (typeof Native !== "function") {
     return null;
   }
   const realm = Cu.waiveXrays(world.sandbox);
+  const caller = world.caller;
   const handler = realm.Object.create(null);
-  handler.construct = world.exported(refuse);
-  const made = new realm.Proxy(Native, handler);
+  let made = null;
+  handler.construct = world.exported((target, args, newTarget) => {
+    const nt = Cu.waiveXrays(newTarget);
+    return trap(target, Cu.waiveXrays(args), nt === made ? target : newTarget, caller);
+  });
+  made = Cu.waiveXrays(new realm.Proxy(Native, handler));
   const proto = realm.Reflect.get(Native, "prototype");
   if (proto) {
     const desc = realm.Object.create(null);
@@ -1900,21 +1926,11 @@ function refusingIn(world, win, name, refuse) {
  * agent's code changed. Worker and SharedWorker also record what they start.
  */
 function buildConstructors(world, win) {
+  world.caller = callerIn(world);
   const table = mirrors.get(world.id);
-  for (const { name, source, helpers, refuse } of table?.ctors ?? []) {
+  for (const { name, trap } of table?.ctors ?? []) {
     try {
-      if (refuse) {
-        const made = refusingIn(world, win, name, refuse);
-        if (made) {
-          world.ctors.set(name, made);
-        }
-        continue;
-      }
-      const given = Cu.createObjectIn(world.sandbox);
-      for (const [key, fn] of Object.entries(helpers)) {
-        Cu.waiveXrays(given)[key] = world.exported(fn);
-      }
-      const made = world.adopter.build(win, name, source, given, world.ctors.get(name));
+      const made = guardedIn(world, win, name, trap);
       if (made) {
         world.ctors.set(name, made);
       }
@@ -1961,11 +1977,11 @@ function adoptNow(world, win) {
   }
   const table = mirrors.get(id);
   for (; table && done.methods < table.methods.length; done.methods++) {
-    const { path, name, fn, getter } = table.methods[done.methods];
+    const { path, name, fn, getter, wrap } = table.methods[done.methods];
     try {
       const parts = Cu.cloneInto(path ? path.split(".") : [], world.sandbox);
       if (getter) {
-        world.adopter.getter(win, parts, name, world.exported(fn));
+        world.adopter.getter(win, parts, name, world.exported(fn), !!wrap);
         continue;
       }
       world.adopter.method(win, own, parts, name, world.exported(fn, MIRROR_KINDS[`${path}.${name}`] ?? SAFE));
