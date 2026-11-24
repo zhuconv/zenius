@@ -142,6 +142,18 @@ const L = {
     await T.until(() => win.document.querySelector(H.DRAWER.root)?.hidden !== false, 3000, "the drawer to close");
   },
   sidebarBox: () => win.document.getElementById("sidebar-box") ?? win.document.getElementById("sidebar"),
+  // The sidebar keeps any width its box takes in uc.agent-sidebar.width at once,
+  // and Gecko writes prefs.js about half a second later. A run that stops right
+  // after a test that narrowed the sidebar would leave the narrowest width on
+  // disk, and the next run on the kept profile would start there. So such a
+  // test reads the pref first and puts it back with restoreWidth, which also
+  // writes prefs.js before the test ends.
+  widthPref: () => (Services.prefs.prefHasUserValue("uc.agent-sidebar.width") ? Services.prefs.getIntPref("uc.agent-sidebar.width") : null),
+  restoreWidth(value) {
+    if (value === null) Services.prefs.clearUserPref("uc.agent-sidebar.width");
+    else Services.prefs.setIntPref("uc.agent-sidebar.width", value);
+    Services.prefs.savePrefFile(null);
+  },
 };
 `;
 const look = (code, arg) => h.chrome(`${LOOK}\n${code}`, arg);
@@ -445,6 +457,7 @@ test("the composer's row holds at the sidebar's narrowest width", () =>
       await L.mode(doc, "work");
       const sidebar = L.sidebarBox();
       const was = sidebar.style.width;
+      const widthWas = L.widthPref();
       const before = sidebar.getBoundingClientRect().width;
       // Zen's own floor for the sidebar (168 px in 1.24), or 200 px where
       // none is set.
@@ -463,6 +476,7 @@ test("the composer's row holds at the sidebar's narrowest width", () =>
       } finally {
         sidebar.style.width = was;
         await T.sleep(300);
+        L.restoreWidth(widthWas);
       }
     `, { path: join(OUT, "narrowest-chat.png"), backdrop: BACKDROP.light });
     console.log(`# narrowest: the sidebar went from ${r.before} px to ${r.after} px (its min-width is ${r.min} px); the row: ${r.bar.layout} in Work, ${r.chatBar.layout} in Chat`);
@@ -486,6 +500,7 @@ test("at the sidebar's narrowest width, a busy task's empty box stays 2 lines an
       const A = win.ucAgentSidebar.AgentService;
       const sidebar = L.sidebarBox();
       const was = sidebar.style.width;
+      const widthWas = L.widthPref();
       const min = parseFloat(win.getComputedStyle(sidebar).minWidth) || 0;
       sidebar.style.width = (min >= 120 ? min : 200) + "px";
       await T.sleep(500);
@@ -511,6 +526,7 @@ test("at the sidebar's narrowest width, a busy task's empty box stays 2 lines an
         A.removeTask(conv);
         sidebar.style.width = was;
         await T.sleep(300);
+        L.restoreWidth(widthWas);
       }
     `);
     console.log(`# narrowest, busy: ${JSON.stringify(r)}`);
