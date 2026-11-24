@@ -204,22 +204,29 @@ before(async () => {
 });
 
 after(async () => {
-  await h
-    ?.chrome(`
-      Services.prefs.setStringPref(${JSON.stringify(PREF)}, "none");
-      Services.prefs.clearUserPref(${JSON.stringify(PREF_UNKNOWN)});
-      if (win.SidebarController.isOpen && win.SidebarController.currentID === "viewAgentSidebar") win.SidebarController.hide();
-      return true;
-    `)
-    .catch(() => {});
-  await h?.close();
-  for (const res of slow) {
-    res.destroy();
-  }
-  server?.closeAllConnections();
-  server?.close();
-  if (dir) {
-    rmSync(dir, { recursive: true, force: true });
+  // The server and the folder go even when closing the session fails (Zen
+  // gone after a failed test): an open server would keep this file's
+  // process alive until the runner's limit stops it, and a stopped process
+  // runs no hook.
+  try {
+    await h
+      ?.chrome(`
+        Services.prefs.setStringPref(${JSON.stringify(PREF)}, "none");
+        Services.prefs.clearUserPref(${JSON.stringify(PREF_UNKNOWN)});
+        if (win.SidebarController.isOpen && win.SidebarController.currentID === "viewAgentSidebar") win.SidebarController.hide();
+        return true;
+      `)
+      .catch(() => {});
+    await h?.close();
+  } finally {
+    for (const res of slow) {
+      res.destroy();
+    }
+    server?.closeAllConnections();
+    server?.close();
+    if (dir) {
+      rmSync(dir, { recursive: true, force: true });
+    }
   }
 });
 
