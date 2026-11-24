@@ -15,16 +15,18 @@ const server = http.createServer((req, res) => {
 });
 /** A page on `host`, served by the one loopback server: 127.0.0.1, localhost, and two names under example.test. */
 const at = (host, part) => `http://${host}:${port}/?t=${part}`;
+/** The names the dev profile maps to this machine before this file added two, which its end puts back. */
+let foundLocalDomains = "";
 
 before(async () => {
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
   port = server.address().port;
   h = await setup();
-  await h.chrome(`Services.prefs.setStringPref("network.dns.localDomains", "a.example.test,b.example.test"); return true;`);
+  foundLocalDomains = await h.chrome(`const found = Services.prefs.getStringPref("network.dns.localDomains", ""); Services.prefs.setStringPref("network.dns.localDomains", [found, ...arg].filter(Boolean).join(",")); return found;`, ["a.example.test", "b.example.test"]);
 });
 
 after(async () => {
-  await h?.chrome(`Services.prefs.clearUserPref("network.dns.localDomains"); return true;`).catch(() => {});
+  await h?.chrome(`if (arg) Services.prefs.setStringPref("network.dns.localDomains", arg); else Services.prefs.clearUserPref("network.dns.localDomains"); return true;`, foundLocalDomains).catch(() => {});
   await h?.close();
   server.close();
 });

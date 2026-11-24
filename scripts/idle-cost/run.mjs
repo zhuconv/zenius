@@ -19,6 +19,8 @@ import path from "node:path";
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
 const ROOT = path.resolve(HERE, "../..");
+// The prefs that keep every dev and test Zen off outside services, as zen-dev.sh gives its profiles.
+const NO_OUTSIDE_TRAFFIC = fs.readFileSync(path.join(ROOT, "scripts/dev/no-outside-traffic.js"), "utf8");
 const OUT = process.env.IDLE_COST_DIR ?? `${os.homedir()}/.zenius-dev/idle-cost`;
 const ZEN = process.env.ZEN_BIN ?? `${os.homedir()}/opt/zen-1.24.2b/zen`;
 const DEV = process.env.ZENIUS_DEV_HOME ?? `${os.homedir()}/.zenius-dev`;
@@ -82,16 +84,13 @@ user_pref("app.update.suppressPrompts", true);
 user_pref("app.update.checkInstallTime", false);
 user_pref("toolkit.startup.max_resumed_crashes", -1);
 user_pref("toolkit.startup.recent_crashes", 0);
-user_pref("datareporting.policy.dataSubmissionEnabled", false);
-user_pref("datareporting.healthreport.uploadEnabled", false);
-user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);
 user_pref("browser.newtabpage.enabled", false);
 user_pref("extensions.autoDisableScopes", 15);
 user_pref("zenius.i4.out", "${out}");
 user_pref("zenius.i4.t1", ${t1});
 user_pref("zenius.i4.t2", ${t2});
 user_pref("zenius.i4.timeline", ${timeline});
-`;
+${NO_OUTSIDE_TRAFFIC}`;
 }
 
 function freshProfile(arm) {

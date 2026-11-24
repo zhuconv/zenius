@@ -397,19 +397,14 @@ user_pref("app.update.noWindowAutoRestart.enabled", false);
 // Zen relaunches itself in safe mode (no userscripts, profile lock held).
 user_pref("toolkit.startup.max_resumed_crashes", -1);
 user_pref("toolkit.startup.recent_crashes", 0);
-user_pref("datareporting.policy.dataSubmissionEnabled", false);
-user_pref("datareporting.healthreport.uploadEnabled", false);
-user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);
 user_pref("browser.newtabpage.enabled", false);
 user_pref("extensions.autoDisableScopes", 15);
-// No media plugins: a fresh profile otherwise downloads Widevine (22 MB) and
-// OpenH264 into the temporary folder soon after startup, and a Zen stopped
-// before it unpacks them leaves the download there. No test plays DRM media.
-// (The intermediate certificates stay: without them a site that sends an
-// incomplete chain fails here and not in the daily. ZEN_TMP takes their
-// download's leftovers.)
-user_pref("media.gmp-manager.updateEnabled", false);
 EOF
+  # Nothing of a dev Zen's own goes to an outside service: telemetry,
+  # studies, connectivity checks, push, remote settings, Safe Browsing, DoH,
+  # Suggest and add-on updates all stay off. Before ZENIUS_DEV_PREFS, so a
+  # test that needs one of them can turn it back on.
+  cat "$ROOT/scripts/dev/no-outside-traffic.js" >>"$PROFILE/user.js"
   if [[ -n ${ZENIUS_DEV_PREFS:-} ]]; then
     [[ -f $ZENIUS_DEV_PREFS ]] || { echo "zen-dev.sh: ZENIUS_DEV_PREFS: no file $ZENIUS_DEV_PREFS" >&2; exit 1; }
     { echo "// From ZENIUS_DEV_PREFS ($ZENIUS_DEV_PREFS)."; cat "$ZENIUS_DEV_PREFS"; } >> "$PROFILE/user.js"

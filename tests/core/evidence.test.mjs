@@ -69,7 +69,8 @@ test("a task document on a Safe Browsing list is marked listed: the page someone
   const { label } = await h.call("pages.new", { space, url: url("/form?ev=4") });
   await loaded(space, label, "ev=4");
   // Mozilla's offline test entry (moztest-phish-simple), served by the fixture.
-  await h.chrome(`Services.prefs.setStringPref("network.dns.localDomains", "itisatrap.org"); return true;`);
+  // Added to the names the dev profile maps to this machine; the end puts back what was there.
+  const foundLocalDomains = await h.chrome(`const found = Services.prefs.getStringPref("network.dns.localDomains", ""); Services.prefs.setStringPref("network.dns.localDomains", [found, ...arg].filter(Boolean).join(",")); return found;`, ["itisatrap.org"]);
   try {
     const trap = `http://itisatrap.org:${new URL(h.base).port}/firefox/its-a-trap.html`;
     // Gecko would show its warning page instead; the click-through loads past the classifier.
@@ -93,7 +94,7 @@ test("a task document on a Safe Browsing list is marked listed: the page someone
     await h.call("page.goto", { space, page: label, url: url("/form?ev=5"), options: {} });
     assert.deepEqual(await evidenceOf(space, label), {}, "a page on no list isn't");
   } finally {
-    await h.chrome(`Services.prefs.clearUserPref("network.dns.localDomains"); return true;`).catch(() => {});
+    await h.chrome(`if (arg) Services.prefs.setStringPref("network.dns.localDomains", arg); else Services.prefs.clearUserPref("network.dns.localDomains"); return true;`, foundLocalDomains).catch(() => {});
     await h.call("pages.close", { space, page: label }).catch(() => {});
   }
 });

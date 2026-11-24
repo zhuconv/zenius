@@ -14,6 +14,8 @@ import { setup } from "./lib.mjs";
 let env;
 let site;
 let base;
+/** network.dns.disablePrefetch as the dev profile had it, put back at the end. */
+let prefetchWas = true;
 const TAG = `${process.pid}-${Date.now() % 1e6}`;
 /** The names a page made from `n` would look up: its link's and its anchor's, its frame's link's and anchor's. */
 const namesOf = n => [`zo-pf-l-${n}-${TAG}.test`, `zo-pf-a-${n}-${TAG}.test`, `zo-pf-fl-${n}-${TAG}.test`, `zo-pf-fa-${n}-${TAG}.test`];
@@ -36,9 +38,15 @@ before(async () => {
   await new Promise(r => site.listen(0, "127.0.0.1", r));
   base = `http://127.0.0.1:${site.address().port}`;
   await env.chrome(`Services.prefs.setBoolPref("network.dns.native-is-localhost", true); return true;`);
+  // Dev profiles turn DNS prefetch off (scripts/dev/no-outside-traffic.js);
+  // the user's tabs here need Firefox's own default.
+  prefetchWas = await env.chrome(
+    `const was = Services.prefs.getBoolPref("network.dns.disablePrefetch", false); Services.prefs.setBoolPref("network.dns.disablePrefetch", false); return was;`
+  );
 });
 after(async () => {
   await env?.chrome(`Services.prefs.clearUserPref("network.dns.native-is-localhost"); return true;`).catch(() => {});
+  await env?.chrome(`Services.prefs.setBoolPref("network.dns.disablePrefetch", arg); return true;`, prefetchWas).catch(() => {});
   site?.close();
   await env?.close();
 });

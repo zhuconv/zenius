@@ -162,7 +162,8 @@ async function formServer() {
 test("Firefox's question before a secure page's form goes over http is answered Cancel: the click returns, nothing is sent, the agent is told", () =>
   env.inSpace("dialog insecure form", async page => {
     const target = await formServer();
-    await env.chrome(`Services.prefs.setStringPref("network.dns.localDomains", "insecure.test"); return true;`);
+    // Added to the names the dev profile maps to this machine; the end puts back what was there.
+    const foundLocalDomains = await env.chrome(`const found = Services.prefs.getStringPref("network.dns.localDomains", ""); Services.prefs.setStringPref("network.dns.localDomains", [found, ...arg].filter(Boolean).join(",")); return found;`, ["insecure.test"]);
     try {
       // A loopback page is a secure context; insecure.test is plain http.
       await page.goto(`${env.base}/nav-target`);
@@ -185,7 +186,7 @@ test("Firefox's question before a secure page's form goes over http is answered 
       assert.equal(events.length, 1);
       assert.equal(events[0].params.url, `${env.base}/nav-target`);
     } finally {
-      await env.chrome(`Services.prefs.clearUserPref("network.dns.localDomains"); return true;`);
+      await env.chrome(`if (arg) Services.prefs.setStringPref("network.dns.localDomains", arg); else Services.prefs.clearUserPref("network.dns.localDomains"); return true;`, foundLocalDomains);
       target.close();
     }
   }));

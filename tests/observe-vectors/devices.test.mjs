@@ -179,6 +179,8 @@ before(async () => {
   env = await setup();
   vectors = await startVectorServer();
   recorder = await startRecorder();
+  // The names the dev profile maps to this machine stay mapped, with this file's added.
+  const localDomains = await env.chrome(`return Services.prefs.getStringPref("network.dns.localDomains", "");`);
   savedPrefs = await env.chrome(SET_PREFS, {
     ...recorderProxyPrefs(recorder.port),
     "media.navigator.streams.fake": true,
@@ -192,7 +194,7 @@ before(async () => {
     "geo.provider.use_corelocation": false,
     "geo.provider.use_geoclue": false,
     "geo.provider.use_gpsd": false,
-    "network.dns.localDomains": "lan.local,lan-ok.local",
+    "network.dns.localDomains": [localDomains, "lan.local", "lan-ok.local"].filter(Boolean).join(","),
     "zenius.agentTabs.allowPrivateNetworks": "lan-ok.local",
     // Code planted before a hand-off stays in the page: these tests check the refusals it meets during the hold (zen-core's glue).
     "zenius.handoff.quietReload": false,
