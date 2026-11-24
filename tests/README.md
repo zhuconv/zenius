@@ -129,7 +129,7 @@ running Ego Lite.
     Bash runs only the zenius CLI, pointed at the run's own launcher by its path (Claude Code's
     Bash tool sources the user's shell snapshot, whose PATH could find their own `zenius` first)
     and kept on the run's instance. Read stays in the run's temp home, and Skill loads only zenius.
-  - The agent's `zenius` is the sandboxed launcher the user chose (`scripts/install-cli.sh
+  - The agent's `zenius` is the sandboxed launcher (`scripts/install-cli.sh
     --sandbox`, on Homebrew's node@24 on the Mac), installed into each run's temp home. Its CLI
     reads only the CLI copy, the instance registry, the run's working folder and its own
     temporary and output folders, writes only those two, starts no process, and connects only to

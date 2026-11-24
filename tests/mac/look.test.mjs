@@ -1,6 +1,6 @@
 // The two-mode sidebar's look in Zen's own Light
-// and Dark: the Chat and Work chats and the directory drawer, laid out as the
-// user asked (2026-11-21). zen-eval runs it in a visible window on the Mac:
+// and Dark: the Chat and Work chats and the directory drawer, in the layout
+// listed below. zen-eval runs it in a visible window on the Mac:
 //
 //   ZENIUS_MAC_HEADED=1 tests/mac/run.sh tests/mac/look.test.mjs
 //

@@ -49,7 +49,7 @@ for a test.
 So `look.test.mjs` takes a snapshot over a transparent backdrop. Its alpha
 shows which parts let the material through, which it compares with Zen's own
 sidebar and with `MATERIAL` in `hooks.mjs`. The panel and the drawer are
-solid: the user tried a see-through panel and chose solid (2026-11-21).
+solid: a see-through panel was tried and dropped, so the look has no switch.
 
 ## Rules on the user's Mac
 

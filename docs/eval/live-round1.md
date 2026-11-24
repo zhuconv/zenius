@@ -122,17 +122,17 @@ with one browser skill, on two targets. This is round 1 of two.
   to the build's at its start, with the harness's `tests/live` commits on top. It ran on a
   headed dev Zen (profile `zen-eval`, new for the round) behind the
   user's windows, with no developer methods.
-  - Each run installs the CLI the user chose, the sandboxed launcher
-    (`install-cli.sh --sandbox`), into its own temp home.
+  - Each run installs the sandboxed launcher (`install-cli.sh --sandbox`) into its
+    own temp home: the agents read untrusted pages, so their scripts run contained.
   - The containment canary passed on that Zen right before the round: 44 checks passed
     and none failed (8 turns, $0.26).
 - **Ego Lite 0.6.3.17**, the user's own app and profile, through its own `ego-browser`
   CLI. Each run's folder holds a copy of Ego's Skill, unchanged, with Ego's MIT notice
   beside it.
-  - **Ego ran uncontained, by the user's choice (2026-11-21).** Ego runs each script in its
-    own Node helper, a child of the Ego Lite app, outside any sandbox of ours. So Ego's
-    containment canary is recorded as failing by design. The probe of 2026-11-21 showed
-    that a script there can start processes.
+  - **Ego ran uncontained, as it ships.** Ego runs each script in its own Node helper, a
+    child of the Ego Lite app, outside any sandbox of ours. So Ego's containment canary
+    is recorded as failing by design. The probe of 2026-11-21 showed that a script there
+    can start processes.
   - Before the round, a smoke run with a stand-in agent checked the Ego wiring. It opened
     one task space on example.com, closed it, and removed its screenshot.
   - Its window may come to the front during its runs. Its `keyboard.paste()` reads the
@@ -163,9 +163,10 @@ is shared. It never had to wait.
 
 ### The Mac during the round
 
-- The user worked on the Mac throughout, by their choice, in their own Zen and other
-  apps. Our headed tests normally wait for the user to be idle before a window opens; the
-  user waived that for this round. The lock, call and screen-share checks stayed.
+- The user worked on the Mac throughout, in their own Zen and other apps. Our headed
+  tests normally wait for the user to be idle before a window opens; that wait was off
+  for this round, so the round could run while they worked. The lock, call and
+  screen-share checks stayed.
 - The dev Zen's window opened only while an app other than Zen was in front. The focus
   guard handed the front back whenever the dev Zen came forward: 8 times, each at once. Seven were at the window's start and during the canary, whose probes open
   popups and downloads on purpose. One came during an Ego run, at a moment that suggests

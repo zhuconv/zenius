@@ -1,9 +1,9 @@
 # VoiceOver check: zenius's cards (about 5 minutes)
 
-A listening script for zen-eval, for the hands-on stretch with the user
-(the manager, 2026-11-20). zen-ux wrote it from the headless a11y suite
-(`tests/ux/a11y.test.mjs`), which checks the same names, order and
-announcements without a screen reader.
+A listening script for zen-eval's hands-on VoiceOver check with the user.
+The headless a11y suite (`tests/ux/a11y.test.mjs`) checks the same names,
+order and announcements, but without a screen reader, so a person listens
+once. zen-ux wrote this script from that suite.
 
 The user turns VoiceOver on and off themselves (Cmd+F5). Nothing here
 turns it on, changes VoiceOver's settings or touches the system clipboard.
@@ -55,4 +55,4 @@ left by the panel's Stop, has no card, by design.
 ## Report
 
 For each row: pass or fail, and for a fail, what VoiceOver said instead
-(quoted) and where the focus went. Send it to zen-ux through the manager.
+(quoted) and where the focus went. Send it to zen-ux.

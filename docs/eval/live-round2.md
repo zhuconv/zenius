@@ -128,10 +128,11 @@ WebFetch and WebSearch off, and the prompt with its common tail are round 1's.
     launcher into its own temp home, as in round 1.
   - The containment canary passed on that Zen right before the round: 44 checks passed
     and none failed (8 turns, $0.22).
-- **Ego Lite 0.6.3.17**, the user's own app and profile, as in round 1, uncontained by the
-  user's choice. Before the round, the smoke run with a stand-in agent checked the Ego
-  wiring: it opened one task space on example.com, closed it, and its screenshot was
-  removed.
+- **Ego Lite 0.6.3.17**, the user's own app and profile. As in round 1, Ego ran
+  uncontained, as it ships: its Node helper, a child of the Ego Lite app, is outside any
+  sandbox of ours, so its canary is recorded as failing by design. Before the round, the
+  smoke run with a stand-in agent checked the Ego wiring: it opened one task space on
+  example.com, closed it, and its screenshot was removed.
 
 ### Round 2's fixes
 
@@ -170,9 +171,9 @@ runs went back to back.
 
 ### The Mac during the round
 
-- The user worked on the Mac throughout, by their choice, in their own Zen and other
-  apps. As in round 1, they waived the idle wait. The lock, call and screen-share checks
-  stayed, and the round never had to wait for them.
+- The user worked on the Mac throughout, in their own Zen and other apps. As in round 1,
+  the idle wait was off, so the round could run while they worked. The lock, call and
+  screen-share checks stayed, and the round never had to wait for them.
 - At the round's start, the user put a harmless word on the pasteboard, since Ego's
   `keyboard.paste()` reads the pasteboard to restore it afterwards.
 - The dev Zen's window opened at 23:13:22 UTC, while another app was in front.

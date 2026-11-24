@@ -35,9 +35,9 @@
 // an agent's browser work needs: `skill`, `help [topic]`, `--help`,
 // `--version`, and `nodejs` with its script on stdin or as one -e/--eval
 // argument. Its `import` and `upgrade` change Ego Lite's data or app, and
-// `--ego-server-name` reaches another browser, so they never run. Ego runs an
-// agent's scripts in its own Node helper, outside any sandbox of ours: the
-// user chose to run it so (2026-11-21).
+// `--ego-server-name` reaches another browser, so they never run. The harness
+// runs Ego uncontained, as shipped: Ego runs an agent's scripts in its own
+// Node helper, outside any sandbox of ours.
 // ALLOW_CLI_READ_IMAGE_ROOTS (folders, one per line) with ALLOW_CLI_READ_IMAGES_SINCE
 // (epoch ms) also allow Read of an image (PNG, JPEG, GIF or WebP, by its first bytes)
 // under one of those folders and modified since then. Ego's scripts save a screenshot

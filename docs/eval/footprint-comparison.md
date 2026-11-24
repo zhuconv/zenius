@@ -92,9 +92,8 @@ reads both streams now.
 
 ## Disk
 
-Disk use wasn't compared, at the user's choice: CPU and memory are what
-matter to them, not size (2026-11-22). No disk numbers were taken, and
-nothing was downloaded for this comparison.
+Disk use wasn't compared: the comparison covers CPU and memory only. No disk
+numbers were taken, and nothing was downloaded for it.
 
 ## Data
 

@@ -24,7 +24,7 @@
 //
 // The agents read untrusted pages, so a page could try to steer one. What
 // limits it (2026-11-20; docs/eval/live-pilot.md):
-// - The agent's `zenius` is the sandboxed launcher the user chose
+// - The agent's `zenius` is the sandboxed launcher
 //   (scripts/install-cli.sh --sandbox; sdk/sandbox/), installed into each
 //   run's own temp home. The process that runs the agent's scripts reads only
 //   the CLI copy, the instance registry, the run's working folder and its own
@@ -58,10 +58,10 @@
 // - The Claude Code binary is resolved once to its versioned file.
 // --target ego: the user's own Ego Lite, which must already run (the harness
 // never starts it), through its ego-browser CLI and a copy of its Skill.
-// - Ego runs each script in its own Node helper, a child of the Ego Lite
-//   app, so no sandbox of ours reaches it. The user chose to run it
-//   uncontained (2026-11-21), and its containment canary is recorded as
-//   failing by design: --canary refuses it.
+// - The harness runs Ego uncontained, as shipped: Ego runs each script in
+//   its own Node helper, a child of the Ego Lite app, outside any sandbox of
+//   ours. So its containment canary is recorded as failing by design, and
+//   --canary refuses it.
 // - The hook stays, so the comparison is fair. Bash runs only the CLI's
 //   subcommands for browser work (never its import, upgrade or another
 //   browser service), Read stays in the run, and Skill is for ego-browser.
@@ -114,10 +114,10 @@ const arg = (name, fallback) => {
 const mode = argv.includes("--canary") ? "canary" : argv.includes("--smoke") ? "smoke" : "tasks";
 const instance = arg("--instance");
 // --target ego runs the same tasks on the user's own Ego Lite, through its installed
-// ego-browser CLI and Skill, as Ego's own agents run (docs/eval/live-tasks.md). Ego runs
-// each script in its own Node helper, a child of the Ego Lite app, so no sandbox of ours
-// reaches it: the user chose to run it uncontained (2026-11-21), and its containment
-// canary is recorded as failing by design. The hook still decides every tool call.
+// ego-browser CLI and Skill, as Ego's own agents run (docs/eval/live-tasks.md). There the
+// harness runs Ego uncontained, as shipped: Ego runs each script in its own Node helper, a
+// child of the Ego Lite app, outside any sandbox of ours, so its containment canary is
+// recorded as failing by design. The hook still decides every tool call.
 const TARGET = arg("--target", "zenius");
 if (!["zenius", "ego"].includes(TARGET)) {
   console.error(`run.mjs: --target is zenius or ego, not ${TARGET}`);
@@ -162,7 +162,7 @@ if ((!EGO && !instance) || (mode === "tasks" && !argv.includes("--keys"))) {
   process.exit(2);
 }
 if (EGO && mode === "canary") {
-  console.error("run.mjs: no canary on Ego. It runs agents' scripts in its own Node helper, uncontained by the user's choice (2026-11-21), so its canary is recorded as failing by design.");
+  console.error("run.mjs: no canary on Ego. The harness runs Ego uncontained, as shipped: its Node helper, a child of the Ego Lite app, is outside any sandbox of ours, so its canary is recorded as failing by design.");
   process.exit(2);
 }
 const keys = mode === "tasks" ? JSON.parse(readFileSync(resolve(arg("--keys")), "utf8")) : {};
@@ -424,7 +424,7 @@ function launcherRuns(run) {
 function launcherCheck(run, hookLog) {
   const allowed = hookCounts(join(outDir, hookLog)).allowedBash;
   if (EGO) {
-    return { starts: null, allowed, pass: true, outcome: `n/a: Ego's own CLI, its scripts uncontained by the user's choice; ${allowed} allowed command${allowed === 1 ? "" : "s"}, kept in <out>/${run.id}.scripts` };
+    return { starts: null, allowed, pass: true, outcome: `n/a: Ego's own CLI, run uncontained as shipped (its Node helper is outside any sandbox of ours); ${allowed} allowed command${allowed === 1 ? "" : "s"}, kept in <out>/${run.id}.scripts` };
   }
   const starts = launcherRuns(run) - run.baseline;
   return { starts, allowed, pass: starts === allowed, outcome: `${starts} launcher start${starts === 1 ? "" : "s"} for ${allowed} allowed zenius command${allowed === 1 ? "" : "s"}` };
@@ -555,7 +555,7 @@ function summary() {
       ? `Ego Lite's own ego-browser (${shortPath(EGO_CLI)}), with a copy of its Skill in each run's folder`
       : "the sandboxed launcher (install-cli.sh --sandbox --skill), installed into each run's temp home",
     contained: EGO
-      ? "no: Ego runs each script in its own Node helper, uncontained by the user's choice (2026-11-21); its canary is recorded as failing by design"
+      ? "no: Ego runs uncontained, as shipped: its Node helper, a child of the Ego Lite app, is outside any sandbox of ours, so its canary is recorded as failing by design"
       : "yes: the sandboxed launcher, the hook, and an instance without dev methods",
     scripts: "every command the hook allowed, script included: <out>/<task>.scripts/",
     evidence: "trajectory items and the judge go by each run's own tool log, on both targets",

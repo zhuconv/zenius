@@ -1,6 +1,6 @@
 // The bundle's test hooks: the names zen-sidebar's docs/agent-sidebar.md
 // gives the two-mode sidebar, the '>' dispatch and Watch, which zen-ux keeps
-// as a contract (2026-11-21). Every Mac test reads them from here, so a
+// as a contract. Every Mac test reads them from here, so a
 // renamed hook is a one-line change.
 //
 // The panel is a document of its own, so its ids are bare. The drawer and
@@ -165,7 +165,7 @@ export const TASKS_FILE = "agent-sidebar-tasks.json";
 /**
  * Which parts let Zen's window material (the macOS vibrancy) show through.
  * None. The panel's body is solid var(--bg), like the page card beside it,
- * and the drawer is solid too. The user tried a see-through panel in the try
- * Zen and chose solid (2026-11-21), so the look has no switch.
+ * and the drawer is solid too. A see-through panel was tried in the try Zen
+ * and dropped, so the look has no switch.
  */
 export const MATERIAL = { panel: "solid", header: "solid", box: "solid", drawer: "solid" };
