@@ -111,6 +111,11 @@ async function userTypes(page, selector, ...keys) {
  * The user moves the pointer over the page, and the page's code hears it.
  * Pointer moves pass every hold, and reach the page after the user's input
  * sent before them: what the page hadn't heard by then, it never will.
+ *
+ * On macOS, a move sent in the first frame after the user's press can be
+ * lost while the next one arrives. So the user moves again every half
+ * second until the page hears one; each move still goes out after all
+ * their input before it.
  */
 let moves = 0;
 async function userMoved(page) {
@@ -119,8 +124,23 @@ async function userMoved(page) {
     `if (!window.__moves) { window.__moves = { n: 0 }; window.addEventListener("mousemove", () => window.__moves.n++, true); }
      return window.__moves.n;`
   );
+  const arrived = async () => (await h.asUser(page, "return window.__moves.n")) > before;
+  for (let sent = 1; ; sent++) {
+    await moveOnce(page);
+    const ok = await h.until(arrived, `the user's pointer move to reach the page (${sent} sent)`, 500).then(
+      () => true,
+      e => (sent === 20 ? Promise.reject(e) : false)
+    );
+    if (ok) {
+      return;
+    }
+  }
+}
+
+/** One move of the user's over the page, entering through the parent like OS input. */
+function moveOnce(page) {
   moves++;
-  await chrome(
+  return chrome(
     `${SERVICE} const { browser } = ZeniusService.resolvePage(arg);
      const r = browser.getBoundingClientRect();
      // A card of zen-ux's may cover part of the page: the first point that's
@@ -138,7 +158,6 @@ async function userMoved(page) {
      return true;`,
     { ...where(page), moves }
   );
-  await h.until(async () => (await h.asUser(page, "return window.__moves.n")) > before, "the user's pointer move to reach the page");
 }
 
 /**
