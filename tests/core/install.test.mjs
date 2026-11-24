@@ -401,28 +401,50 @@ test("uninstall removes this profile's upload and download folders, in the profi
   assert.match(un.out, new RegExp(`removed ${ours.length + inProfile.length} zenius upload or download folders`));
 });
 
-test("it warns, without stopping, when another Zen from the same app runs: the reopen would only bring that one forward", async () => {
+test("it warns, without stopping, when another Zen from the same app runs: how to stop a dev Zen, and that any other is the user's to quit; never for a dev profile", async () => {
   const s = sandbox("other-zens");
   const p = s.profile();
+  // A dev profile is one under ~/.zenius-dev/profiles/, as the runtime says.
+  const devProfile = path.join(s.home, ".zenius-dev/profiles/try");
+  fs.mkdirSync(devProfile, { recursive: true });
   // Stand-ins whose command lines read as the app's: a dev Zen with its own
-  // profile, and a content process, which doesn't count.
+  // profile, the user's own Zen as the Dock starts it (no profile named),
+  // another account's dev profile, which isn't this one's to stop, and a
+  // content process, which doesn't count.
   const bin = path.join(s.dir, "Zen.app/Contents/MacOS/zen");
   const fakeZen = (...args) =>
     spawn("bash", ["-c", 'exec -a "$0" "$@"', bin, process.execPath, "-e", "setTimeout(() => {}, 30000)", "--", ...args], { stdio: "ignore" });
-  const dev = fakeZen("-profile", "/x/.zenius-dev/profiles/try", "--headless");
+  const dev = fakeZen("-profile", devProfile, "--headless");
+  const own = fakeZen();
+  const elsewhere = fakeZen("-profile", "/x/.zenius-dev/profiles/try");
   const content = fakeZen("-contentproc", "8", "tab");
+  const literal = text => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   try {
     for (const end = Date.now() + 5000; ; ) {
       const ps = spawnSync("ps", ["axo", "pid=,command="], { encoding: "utf8" }).stdout;
-      if (ps.includes(`${bin} -e`) && ps.split(`${bin} -e`).length > 2) break;
+      if (ps.split(`${bin} -e`).length - 1 >= 4) break;
       assert.ok(Date.now() < end, "the stand-ins didn't start");
       await new Promise(r => setTimeout(r, 50));
     }
-    const r = s.run(["--profile", p], { env: { ZENIUS_APP_BIN: bin } });
+    const env = { ZENIUS_APP_BIN: bin };
+    const r = s.run(["--profile", p], { env });
     assert.equal(r.status, 0, r.err);
     assert.match(r.out, /^Done\. The next time Zen starts, it will load zenius .*\nWarning: another Zen from the same app is running\. /m);
-    assert.match(r.out, new RegExp(`^  pid ${dev.pid}, profile /x/\\.zenius-dev/profiles/try$`, "m"));
+    assert.match(r.out, new RegExp(`^  pid ${dev.pid}, profile ${literal(devProfile)}: a dev Zen; stop it with scripts/zen-dev\\.sh try stop$`, "m"));
+    // Never an instruction to stop the user's own Zen: only the user quits it.
+    assert.match(r.out, new RegExp(`^  pid ${own.pid}: not a dev Zen, so the user quits it themselves$`, "m"));
+    assert.match(r.out, new RegExp(`^  pid ${elsewhere.pid}, profile /x/\\.zenius-dev/profiles/try: not a dev Zen, so the user quits it themselves$`, "m"));
+    assert.doesNotMatch(r.out, /[Ss]top it before/);
     assert.doesNotMatch(r.out, new RegExp(`pid ${content.pid}\\b`));
+
+    // A dev profile's Zen is started by scripts/zen-dev.sh, beside the
+    // others, and the Dock never opens it: no warning there.
+    // (Its own record, since one install record names one profile.)
+    const devTarget = s.profile("home/.zenius-dev/profiles/target");
+    const d = s.run(["--profile", devTarget], { env: { ...env, ZENIUS_HOME: path.join(s.dir, "zenius-dev-target") } });
+    assert.equal(d.status, 0, d.err);
+    assert.doesNotMatch(d.out, /another Zen/);
+
     // Without the app's binary named, a Linux run looks for nothing. A Mac
     // run looks at /Applications/Zen.app, where the user's own Zen and dev
     // Zens may well run, so only Linux can say none.
@@ -432,8 +454,7 @@ test("it warns, without stopping, when another Zen from the same app runs: the r
       assert.doesNotMatch(un.out, /another Zen/);
     }
   } finally {
-    dev.kill();
-    content.kill();
+    for (const zen of [dev, own, elsewhere, content]) zen.kill();
   }
 });
 

@@ -644,15 +644,38 @@ other_zens() {
   done
 }
 
-# Warns, never blocks: the install itself is done either way.
+# A folder's real path; fails when it can't be entered.
+real_dir() { (CDPATH='' cd -- "$1" 2>/dev/null && pwd -P); }
+
+# Profile folder $1's path under ~/.zenius-dev/profiles/, links resolved; fails
+# for a folder anywhere else. That's how the runtime tells a dev profile
+# (devProfile in modules/util.sys.mjs).
+dev_profile() {
+  local dev real
+  dev=$(real_dir "$HOME/.zenius-dev/profiles") && real=$(real_dir "$1") || return 1
+  [[ $real == "$dev"/* ]] && printf '%s\n' "${real#"$dev"/}"
+}
+
+# Warns, never blocks: the install itself is done either way. Not for a dev
+# profile, whose Zen scripts/zen-dev.sh starts beside the others: the Dock
+# never opens it. Only a dev Zen gets a way to stop it. Any other Zen is the
+# user's own, which only the user quits.
 warn_other_zens() {
-  local others pid cmd profile
+  local others pid cmd profile name stop
+  dev_profile "$PROFILE" >/dev/null && return 0
   others=$(other_zens)
   [[ -n $others ]] || return 0
-  say "Warning: another Zen from the same app is running. While it runs, opening Zen only brings it forward, so the reopen won't open this profile. Stop it before Zen is reopened (a dev Zen: scripts/zen-dev.sh <name> stop):"
+  say "Warning: another Zen from the same app is running. While it runs, opening Zen only brings it forward, so the reopen won't open this profile:"
   while IFS=$'\t' read -r pid cmd; do
     profile=$(printf '%s\n' "$cmd" | sed -n 's/.* -\{1,2\}profile \([^ ]*\).*/\1/p')
-    say "  pid $pid${profile:+, profile $profile}"
+    if [[ -n $profile ]] && name=$(dev_profile "$profile"); then
+      stop=
+      # Only a name zen-dev.sh takes, so the line never shows another command.
+      if [[ $name =~ ^[a-z0-9][a-z0-9_-]*$ ]]; then stop="; stop it with scripts/zen-dev.sh $name stop"; fi
+      say "  pid $pid, profile $profile: a dev Zen$stop"
+    else
+      say "  pid $pid${profile:+, profile $profile}: not a dev Zen, so the user quits it themselves"
+    fi
   done <<<"$others"
 }
 

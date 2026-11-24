@@ -789,7 +789,9 @@ in user.js (no IPv6 lookups in Zen); uninstall restores its previous
 value`, and, with Zen running: `Done. Zen is running: quit it and reopen it
 to load zenius <version>.` If another Zen from the app is running, a dev
 Zen for example, `Warning: another Zen from the same app is running. …`
-follows, with each one's pid and profile. Stop them before step 5.
+follows, with each one's pid and profile. A dev Zen's line says how to stop
+it (`scripts/zen-dev.sh <name> stop`): stop those before step 5. Any other
+is the user's own Zen, which only the user quits.
 
 The running Zen doesn't change. Zen reads its scripts only when it starts.
 
@@ -803,11 +805,12 @@ it is; some older commits set the pref without being asked.
 
 ## 5. The user quits and reopens Zen
 
-First stop every other Zen that runs from `/Applications/Zen.app`, such as
-a dev Zen (`scripts/zen-dev.sh <name> stop`). While one runs, even a
-headless one, opening Zen from the Dock only brings that one forward, and
-the daily Zen doesn't open. Then check that only the daily Zen is left; the
-others are the ones started with `-profile`:
+First stop every dev Zen that runs from `/Applications/Zen.app`
+(`scripts/zen-dev.sh <name> stop`). While one runs, even a headless one,
+opening Zen from the Dock only brings that one forward, and the daily Zen
+doesn't open. Any other Zen from the app is the user's own, and only the
+user quits it. Then check that only the daily Zen is left; the others are
+the ones started with `-profile`:
 
 ```bash
 pgrep -lf '/Applications/Zen.app/Contents/MacOS/zen .*-profile' || echo "no dev Zen"
@@ -1380,7 +1383,8 @@ backups, and the Agents Space's tasks, which come back after the restart.
    …`: that copy is now the one Undo puts back.
 
    A `Warning: another Zen from the same app is running. …` line after
-   `Done.` means a dev Zen started since step 3: stop it before step 5.
+   `Done.` means another Zen from the app started since step 3. Stop a dev
+   Zen before step 5, as its line says; any other is the user's to quit.
 
    With zenius installed, it refuses while a Zen has the profile open, so a
    running Zen never mixes two versions. Then it prints only `install.sh:
