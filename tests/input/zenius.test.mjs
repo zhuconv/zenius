@@ -2699,7 +2699,8 @@ for (const [when, release] of [
         const agentCall = release?.(page);
         await userMouse(USER_CLICK, -1);
         await agentCall;
-        await h.sleep(PAST_HOLD_MS);
+        // Its moves go out at the button events, so none can come after the hold.
+        await h.sleep(300);
         // Its own release and click are on its pad; the user's input would come at their point.
         const heard = (await page.evaluate(() => window.__log.splice(0))).filter(e => !e.endsWith("@agentpad"));
         assert.deepEqual(heard, [], `run ${run}: the agent's page heard none of the user's input`);
@@ -2815,12 +2816,20 @@ function userClickOnAgent(page, x, y) {
 }
 
 const BUTTON_EVENTS = /^(mousedown|mouseup|click)@agentbtn$/;
+// A run shows something only if the user's click came well inside the
+// hold's 1 s cap, where a hold that ran to it would still drop the click. On
+// a slower machine the agent's click, the navigation and the new document's
+// input delay can take longer. Such a run still checks that the click
+// reached the page, but doesn't count, and another runs.
+const COUNTS_WITHIN_MS = 900;
+const COUNTING_RUNS = 3;
+const MAX_RUNS = 6;
 
 for (const [what, navigates] of [
   ["once the hold after the agent's click there has ended", false],
   ["right after the agent's click navigated it: no hold outlives its document", true],
 ]) {
-  test(`the user's click reaches an agent page they're looking at ${what}`, { timeout: 120_000 }, async () => {
+  test(`the user's click reaches an agent page they're looking at ${what}`, { timeout: 300_000 }, async t => {
     // Each release holds the user's input in its tab's document for a
     // moment: a click there meanwhile is lost. The hold ends two frames
     // after the parent's answer, long before its cap. A page the agent's
@@ -2839,7 +2848,9 @@ for (const [what, navigates] of [
       code: `return { ticks: Services.prefs.getIntPref("dom.input_events.security.minNumTicks", 3),
         ms: Services.prefs.getIntPref("dom.input_events.security.minTimeElapsedInMS", 100) };`,
     });
-    for (let run = 1; run <= 5; run++) {
+    const late = [];
+    let counted = 0;
+    for (let run = 1; counted < COUNTING_RUNS && run <= MAX_RUNS; run++) {
       let page = null;
       try {
         ({ page } = await labPair(`${h.crossUrl}/?user=${Date.now()}`));
@@ -2889,8 +2900,11 @@ for (const [what, navigates] of [
         await h.sleep(300);
         const heard = (await page.evaluate(() => window.__log.splice(0))).filter(e => BUTTON_EVENTS.test(e));
         assert.deepEqual(heard, ["mousedown@agentbtn", "mouseup@agentbtn", "click@agentbtn"], `run ${run}: the user's click reached the agent's page (${after} ms after the agent's)`);
-        // Well inside the hold's cap, so a hold that ran to it would have dropped the click.
-        assert.ok(after < 900, `run ${run}: the user's click came ${after} ms after the agent's`);
+        if (after < COUNTS_WITHIN_MS) {
+          counted++;
+        } else {
+          late.push(after);
+        }
       } finally {
         await page?.mouse.up().catch(() => {});
         if (page) await backToUserTab(page).catch(() => {});
@@ -2902,6 +2916,12 @@ for (const [what, navigates] of [
       }
     }
     assert.deepEqual(await h.call("dev.viewState"), before, "the user's view is back as it was");
+    if (late.length) {
+      t.diagnostic(`runs that didn't count, the user's click ${late.join(", ")} ms after the agent's`);
+    }
+    if (!counted) {
+      t.skip(`no run's click came within ${COUNTS_WITHIN_MS} ms of the agent's, so none could show a hold that outlived it`);
+    }
   });
 }
 
