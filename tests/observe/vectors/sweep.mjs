@@ -203,9 +203,9 @@ async function main() {
   const askFirst = await chrome(`return Services.prefs.getBoolPref("security.external_protocol_requires_permission", true);`);
   const wanted = process.argv.slice(2);
   const all = [...Object.keys(VECTORS), "login", ...Object.keys(KEYS)];
-  // The user's rule (2026-11-20): Zen on the Mac holds their camera,
-  // microphone and screen-recording grants, and only fake devices may run
-  // there. The sweep has none, so on the Mac it leaves out every vector
+  // Zen on the Mac holds the user's camera, microphone and
+  // screen-recording grants, and only fake devices may run there. The
+  // sweep has none, so on the Mac it leaves out every vector
   // that reaches for a device, and location (which would ask macOS);
   // the Linux server runs them.
   const device = v => DEVICE_CODE.test(VECTORS[v] ?? "");

@@ -337,8 +337,8 @@ without taking focus from the user.
   cancelled, during a hold too, and the agent gets `promptDenied`. That
   covers notifications, location, camera, microphone, MIDI, persistent
   storage and any type not listed. A device stream or a location watch the
-  user allowed would carry on under the agent after Resume (the user's rule
-  for sensitive input).
+  user allowed would carry on under the agent after Resume, and sensitive
+  input stays the user's.
 
 ### 3.9 Invariants (each has an automated test)
 
@@ -514,7 +514,6 @@ SDK's tests stay in `sdk/test/`.
   - ErgoZen: experiment API access to `gZenWorkspaces`.
   - DoubleBobCat/zen-mcp: GPL or unclear license. Read only, never copy.
 - The user's `agent-sidebar.uc.js` (JSWindowActor plus ACP adapters, in their
-  daily profile's `chrome/JS/`): it joins this repo as zenius's sidebar (the
-  user's decision, 2026-11-21). install.sh replaces the daily profile's copy,
-  with a backup that Undo restores, and never touches the user's other
-  scripts (`my-script.uc.js`).
+  daily profile's `chrome/JS/`): it joins this repo as zenius's sidebar.
+  install.sh replaces the daily profile's copy, with a backup that Undo
+  restores, and never touches the user's other scripts (`my-script.uc.js`).

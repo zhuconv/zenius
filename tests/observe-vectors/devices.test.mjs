@@ -34,8 +34,8 @@
 // user's list (zenius.agentTabs.allowPrivateNetworks). Every other request
 // goes to a recorder on loopback, the profile's proxy with no failover, so
 // a private literal the refusal missed lands there and fails the test,
-// never reaching a real network (the user's rule, 2026-11-20; the
-// preflight checks the routing before any private address is tried).
+// never reaching a real network (the preflight checks the routing before
+// any private address is tried).
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -84,7 +84,7 @@ const RESOLVE_PROXY = `
   return out;`;
 
 /**
- * The user's rule (2026-11-20): the private and link-local literals the
+ * The rule: the private and link-local literals the
  * vectors use must never reach a real network, least of all the user's LAN
  * on the Mac, where a miss could also raise macOS's Local Network alert.
  * So before any of them, check that every form goes to the recorder with no
@@ -263,8 +263,8 @@ const apiOf = e => / \(([\w.]+)\)\. The (?:agent|page) /.exec(e.message)?.[1] ??
 const whereOf = e =>
   e.url === `${vectors.base}/vectors` || e.url === `${vectors.base}/vectors-net` ? "page" : e.url === "about:blank" ? "frame" : e.url.startsWith(vectors.crossBase) ? "cross" : e.url;
 
-// The user's rule (2026-11-20): Zen on the Mac holds their camera,
-// microphone and screen-recording grants, so a refusal that failed there
+// Zen on the Mac holds the user's camera, microphone and screen-recording
+// grants, so a refusal that failed there
 // would reach the real device with no macOS prompt. Only fake devices run
 // there. The camera and microphone are fake (media.navigator.streams.fake),
 // but Firefox has no fake screen, speaker picker or MIDI device, and speech

@@ -61,7 +61,7 @@ comparing zenius's page snapshots with Ego Lite's: each page's DOM (scripts
 and session values removed, `dom/<slug>.html.gz`) and the snapshot text of
 both. The text is the sites' own. Most of it is under an open license; five
 snapshots, at the end of the table, are kept as test data though their text
-isn't (the user's call, 2026-11-21):
+isn't:
 
 | Snapshot | Page | Terms |
 |---|---|---|
