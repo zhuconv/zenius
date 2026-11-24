@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo/aqua-navy/banner-dark.png" />
-  <img src="docs/assets/logo/aqua-navy/banner.png" width="1280" alt="zen(ius): Bring your agent to your browser." />
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo/orange-aqua/banner-dark.png" />
+  <img src="docs/assets/logo/orange-aqua/banner.png" width="1280" alt="zen(ius): Bring your agent to your browser." />
 </picture>
 
 **Bring your agent to your browser.**
@@ -486,12 +486,12 @@ Questions, bugs and ideas: [GitHub Issues](https://github.com/zhuconv/zenius/iss
 
 The zen(ius) mark stands for the agent's cursor. Its design draws on the Arc
 browser's icon: an A whose crossbar is an arch, with the A's apex as the
-cursor's tip. Aqua and navy is the main mark; red and blue is an alternate.
-Each comes light and dark, as SVG and PNG.
+cursor's tip. The main mark is an orange A with an aqua arch; the alternate is
+a red A with a blue arch. Each comes light and dark, as SVG and PNG.
 
 | | Light | Dark | Files |
 |---|---|---|---|
-| Aqua and navy (main) | <img src="docs/assets/logo/aqua-navy/icon-512.png" width="80" alt="zen(ius) logo in aqua and navy" /> | <img src="docs/assets/logo/aqua-navy/icon-dark-512.png" width="80" alt="zen(ius) logo in aqua and navy, dark" /> | [aqua-navy](docs/assets/logo/aqua-navy/) |
+| Orange and aqua (main) | <img src="docs/assets/logo/orange-aqua/icon-512.png" width="80" alt="zen(ius) logo in orange and aqua" /> | <img src="docs/assets/logo/orange-aqua/icon-dark-512.png" width="80" alt="zen(ius) logo in orange and aqua, dark" /> | [orange-aqua](docs/assets/logo/orange-aqua/) |
 | Red and blue | <img src="docs/assets/logo/red-blue/icon-512.png" width="80" alt="zen(ius) logo in red and blue" /> | <img src="docs/assets/logo/red-blue/icon-dark-512.png" width="80" alt="zen(ius) logo in red and blue, dark" /> | [red-blue](docs/assets/logo/red-blue/) |
 
 ## License

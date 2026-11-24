@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo/aqua-navy/banner-dark.png" />
-  <img src="docs/assets/logo/aqua-navy/banner.png" width="1280" alt="zen(ius)：把你的 Agent 带进你的浏览器" />
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo/orange-aqua/banner-dark.png" />
+  <img src="docs/assets/logo/orange-aqua/banner.png" width="1280" alt="zen(ius)：把你的 Agent 带进你的浏览器" />
 </picture>
 
 **把你的 Agent 带进你的浏览器**
@@ -225,12 +225,12 @@ zen(ius) 以 MIT 许可证开源，运行在 Zen 里的那部分也包括在内�
 
 ## Logo
 
-zen(ius) 的标志代表 Agent 的光标。设计借鉴了 Arc 浏览器图标的元素：一个横画是弧形的 A，A 的顶点就是光标的尖。浅青配深蓝是主版本，红配蓝是备选。两个版本都有浅色和深色，提供 SVG 和 PNG。
+zen(ius) 的标志代表 Agent 的光标。设计借鉴了 Arc 浏览器图标的元素：一个横画是弧形的 A，A 的顶点就是光标的尖。主版本是橙色的 A 配青色的弧，备选是红色的 A 配蓝色的弧。两个版本都有浅色和深色，提供 SVG 和 PNG。
 
 | | 浅色 | 深色 | 文件 |
 |---|---|---|---|
-| 浅青配深蓝（主版本） | <img src="docs/assets/logo/aqua-navy/icon-512.png" width="80" alt="zen(ius) 标志，浅青配深蓝" /> | <img src="docs/assets/logo/aqua-navy/icon-dark-512.png" width="80" alt="zen(ius) 标志，浅青配深蓝, dark" /> | [aqua-navy](docs/assets/logo/aqua-navy/) |
-| 红配蓝 | <img src="docs/assets/logo/red-blue/icon-512.png" width="80" alt="zen(ius) 标志，红配蓝" /> | <img src="docs/assets/logo/red-blue/icon-dark-512.png" width="80" alt="zen(ius) 标志，红配蓝, dark" /> | [red-blue](docs/assets/logo/red-blue/) |
+| 橙配青（主版本） | <img src="docs/assets/logo/orange-aqua/icon-512.png" width="80" alt="zen(ius) 标志，橙配青" /> | <img src="docs/assets/logo/orange-aqua/icon-dark-512.png" width="80" alt="zen(ius) 标志，橙配青，深色" /> | [orange-aqua](docs/assets/logo/orange-aqua/) |
+| 红配蓝 | <img src="docs/assets/logo/red-blue/icon-512.png" width="80" alt="zen(ius) 标志，红配蓝" /> | <img src="docs/assets/logo/red-blue/icon-dark-512.png" width="80" alt="zen(ius) 标志，红配蓝，深色" /> | [red-blue](docs/assets/logo/red-blue/) |
 
 ## 许可证
 
