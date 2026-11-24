@@ -598,6 +598,12 @@ in `modules/pages.sys.mjs` reads it:
     page) takes nothing. Firefox has already moved the old tab's session
     values into the new tab, so carryOver deletes the task's: the new tab
     is the user's. The page stays with its document, or ends with it.
+  - A tab the task keeps that isn't a page goes the same way. Its copy
+    with the document is the one whose contents show (window sync), else
+    the one that moved, as for a tab no window has selected since a
+    restart. Moved with it, the tab keeps the tab id the task's ledger
+    holds it by: carryOver gives the permanentKey that moves to the new
+    tab that id.
 - The value moves with the tab: a tab the user drags to another Space stays
   the task's.
 - Tab ids (`t12`) still don't survive a restart; the value does.
@@ -654,6 +660,12 @@ zenius treats a tab's copies as one tab:
   - Torn off from another window's copy, a page loses its document too:
     Zen closes the live copy with the others, so the page ends
     (`pageClosed`), and the new window's tab is the user's.
+  - A tab the task keeps that isn't a page, torn off with its document,
+    stays the task's under its tab id. The close of the last copy left
+    behind keeps it in the ledger while another open tab has that id
+    (`pages.movedTab`), so the task doesn't end. Its value names no sync
+    id, and the restart brings it back there. Torn off from another
+    window's copy, it ends with the copies Zen closes.
 - **Compare with `sameTab(a, b)`** (`modules/windows.sys.mjs`), not `===`:
   two copies of a tab are the same tab.
 - **`pageMoved`.** When a page's live copy changes, the service emits

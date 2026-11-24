@@ -1433,6 +1433,10 @@ class Service {
     } else {
       const space = this.spaces.peekUuid(tab.getAttribute("zen-workspace-id")) ?? this.#taskHolding(id);
       if (space && id in space.ledger.unmanaged) {
+        // As for a page: the tab went on in another, the one a tear-off made.
+        if (this.pages.movedTab(tab)) {
+          return;
+        }
         delete space.ledger.unmanaged[id];
         space.ledger.retained = space.ledger.retained.filter(t => t !== id);
         task = space;

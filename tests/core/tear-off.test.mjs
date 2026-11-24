@@ -4,7 +4,8 @@
 // windows. If the page's document went with it, the page stays the task's
 // there, guarded, as a tab moved to another window does, and a hand-off
 // still loads it afresh when the agent's code left something in it. If it
-// didn't, the page ends, and the new window's tab is the user's.
+// didn't, the page ends, and the new window's tab is the user's. A tab the
+// task keeps that isn't a page goes the same way, under its tab id.
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -77,7 +78,8 @@ const W = `
     await until(() => wins().length > n);
     const w = wins().at(-1);
     await until(() => w.gBrowser?.tabs?.length > 0 && w.document.readyState === "complete");
-    await until(() => !wins().slice(0, n).some(x => [...x.gBrowser.tabs].some(t => !t.closing && Win.syncId(t) === sync)));
+    // Every Space's tabs: gBrowser.tabs has only the shown Space's.
+    await until(() => !wins().slice(0, n).some(x => (x.gZenWorkspaces?.allStoredTabs ?? [...x.gBrowser.tabs]).some(t => t.isConnected && !t.closing && Win.syncId(t) === sync)));
     await sleep(500);
     return w;
   };
@@ -283,6 +285,115 @@ test("a hand-off after a tear-off, with a tab of the user's shown in the new win
         )
       )
     );
+  } finally {
+    await closeNewWindows();
+  }
+});
+
+/**
+ * A task whose only tab is one it keeps that isn't a page: the blank tab
+ * pages.close leaves when it closes the task's last page, which the agent's
+ * code lists and closes by tab id. Here it loads a page of its own, as a
+ * tab someone browses in does, and has its copy in the second window.
+ */
+async function keptTab(name, path) {
+  await h.chrome(`${W} await focus(0); return true;`);
+  const space = await h.space(name);
+  spaces.push(space);
+  // The task's one page, which it starts with.
+  const [first] = await h.call("tabs.list", { space });
+  await h.call("pages.close", { space, page: first.label });
+  // The page ends once Zen has closed its last copy, from window sync's queue.
+  await h.chrome(`${W} await until(() => !pageOf(arg.space, arg.label)); return true;`, { space, label: first.label });
+  const listed = await h.call("tabs.list", { space });
+  assert.deepEqual(listed.map(t => t.label ?? null), [null], "pages.close left the task one tab, not a page");
+  const id = listed[0].tab;
+  await h.chrome(
+    `${W}
+     const t = ctx.pages.findTab(recOf(arg.space), arg.id);
+     t.linkedBrowser.fixupAndLoadURIString(arg.url, { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+     await until(() => t.linkedBrowser.currentURI?.spec === arg.url && !t.hasAttribute("busy"));
+     await until(() => Win.copyIn(t, nth(1)));
+     return true;`,
+    { space, id, url: `${h.base}/api/text?${path}` }
+  );
+  return { space, id };
+}
+
+/** The tab ids the task's tabs.list names: none once the task has ended. */
+const listedIds = space => h.call("tabs.list", { space }).then(
+  list => list.map(t => t.tab),
+  () => []
+);
+
+test("a tab its task keeps that isn't a page, torn off into a new window, stays the task's there, under its tab id", async () => {
+  const { space, id } = await keptTab("kept tab torn off", "kto-1");
+  try {
+    const out = await h.chrome(
+      `${W}
+       const w = await tearOff(ctx.pages.findTab(recOf(arg.space), arg.id));
+       const t = ctx.pages.findTab(recOf(arg.space), arg.id);
+       return {
+         found: !!t,
+         inNewWindow: !!t && wid(t.ownerDocument.defaultView) === wid(w),
+         holder: t ? ctx.pages.holderOf(t) : null,
+         task: t ? value(t)?.task ?? null : null,
+         sync: t ? value(t)?.sync : "no tab",
+       };`,
+      { space, id }
+    );
+    // Its value names the tab's own sync id: none, in a torn-off window.
+    assert.deepEqual(out, { found: true, inNewWindow: true, holder: space, task: space, sync: null });
+    assert.deepEqual(await listedIds(space), [id], "the agent's code lists it under the same id");
+  } finally {
+    await closeNewWindows();
+  }
+});
+
+test("a tab its task keeps, torn off into a new window, comes back after a restart, still the task's", async () => {
+  const { space, id } = await keptTab("kept tab torn off, restart", "kto-2");
+  try {
+    await h.chrome(`${W} await tearOff(ctx.pages.findTab(recOf(arg.space), arg.id)); return true;`, { space, id });
+    await h.chrome(`await ctx.service.flushState(); return true`);
+    const file = join(dir, "prefs.js");
+    writeFileSync(file, 'user_pref("browser.startup.page", 3);\nuser_pref("zen.workspaces.continue-where-left-off", false);\n');
+    process.env.ZENIUS_DEV_PREFS = file;
+    try {
+      await h.restart({});
+    } finally {
+      delete process.env.ZENIUS_DEV_PREFS;
+    }
+    // Tab ids last while the browser runs: the tab has a new one now.
+    const listed = await h.call("tabs.list", { space });
+    assert.deepEqual(listed.map(t => [t.label ?? null, t.url]), [[null, `${h.base}/api/text?kto-2`]], "the task kept its tab");
+    const out = await h.chrome(
+      `${W}
+       const t = ctx.pages.findTab(recOf(arg.space), arg.tab);
+       return { task: value(t)?.task ?? null, valueNamesItsTab: value(t)?.sync === Win.syncId(t) };`,
+      { space, tab: listed[0].tab }
+    );
+    assert.deepEqual(out, { task: space, valueNamesItsTab: true });
+  } finally {
+    await closeNewWindows();
+  }
+});
+
+test("Move to New Window on another window's copy of a tab its task keeps: the tab ends with the copies Zen closes, and the new window's tab is the user's", async () => {
+  const { space, id } = await keptTab("kept tab's copy torn off", "kto-3");
+  try {
+    const out = await h.chrome(
+      `${W}
+       const t = ctx.pages.findTab(recOf(arg.space), arg.id);
+       const copy = Win.copyIn(t, nth(1));
+       // The copy without the document: the first window's has it.
+       const standIn = !!t._zenContentsVisible && !copy._zenContentsVisible;
+       const w = await tearOff(copy);
+       const moved = [...w.gBrowser.tabs].find(x => !x.hasAttribute("zen-empty-tab"));
+       return { standIn, value: value(moved), tag: moved.getAttribute("zenius-task"), holder: ctx.pages.holderOf(moved) };`,
+      { space, id }
+    );
+    assert.deepEqual(out, { standIn: true, value: null, tag: null, holder: null });
+    assert.deepEqual(await listedIds(space), [], "the task's tab ended");
   } finally {
     await closeNewWindows();
   }

@@ -221,6 +221,34 @@ export class Pages {
   }
 
   /**
+   * The open tab, if any, that a closing tab moved to. A tear-off or a drag
+   * to another window gives the new tab the old one's id (carryOver), and
+   * Zen then closes the copies left behind.
+   *
+   * @param {Element} tab  a closing copy
+   * @returns {Element|null}
+   */
+  movedTab(tab) {
+    const id = this.#knownTabId(tab);
+    if (!id) {
+      return null;
+    }
+    for (const other of allTabs()) {
+      if (other !== tab && !other.closing && this.#knownTabId(other) === id) {
+        return other;
+      }
+    }
+    return null;
+  }
+
+  /** A tab's id if it has one: tabId() without giving it one. */
+  #knownTabId(tab) {
+    const sync = syncId(tab);
+    const key = tab?.linkedBrowser?.permanentKey;
+    return (sync && this.#syncTabIds.get(sync)) || (key && this.#tabIds.get(key)) || null;
+  }
+
+  /**
    * A live tab of the space by tab id.
    *
    * @param {object} space  SpaceRecord
@@ -618,7 +646,11 @@ export class Pages {
    * without the document (another window's copy of the page) takes
    * nothing: the page stays with its document, or ends with it, and the new
    * tab is the user's. Firefox has already moved the old tab's session
-   * values to the new one by then, so that tab loses the task's.
+   * values to the new one by then, so that tab loses the task's. A tab the
+   * task keeps that isn't a page goes the same way, and keeps its tab id,
+   * by which the task's ledger holds it. Its copy that holds the document
+   * is the one whose contents show (window sync); with none shown, as for
+   * a tab no window has selected since a restart, the moving copy is it.
    *
    * This runs at the old tab's TabClose, before Firefox swaps the browsers:
    * the old tab's permanentKey and docShell go to the new tab after it.
@@ -640,7 +672,14 @@ export class Pages {
     }
     const key = from.linkedBrowser?.permanentKey;
     const page = value.label && key ? (this.#byKey.get(key) ?? null) : null;
-    if (value.label && page?.spaceId !== value.task) {
+    const standIn = value.label
+      ? page?.spaceId !== value.task
+      : copiesOf(from).some(copy => copy !== from && copy._zenContentsVisible);
+    if (standIn) {
+      // The user's tab, with a tab id of its own (movedTab).
+      if (key) {
+        this.#tabIds.delete(key);
+      }
       writeTabValue(to, null);
       writeTag(to, null);
       return null;
@@ -654,6 +693,12 @@ export class Pages {
         Promise.resolve().then(() => keepAlive(to));
       }
       return page;
+    }
+    // Its tab id goes by the browser that moves to the new tab: a torn-off
+    // window's tab has no sync id, and one in a synced window gets its own.
+    const id = this.tabId(from);
+    if (key && id) {
+      this.#tabIds.set(key, id);
     }
     if (from.hasAttribute(TASK_ATTR)) {
       to.setAttribute(TASK_ATTR, from.getAttribute(TASK_ATTR));
