@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { connect } from "node:net";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { crc32 } from "node:zlib";
 
 import { guardHome } from "../lib/scratch-home.mjs";
@@ -78,6 +78,16 @@ export function disguisedUrls(planted) {
 
 /** The working folder run.sh made, which the dev Zen and the CLI's config name. */
 export const WORKING = process.env.ZENIUS_SECURITY_WORKING ?? "";
+
+// Paths compared by what they name, not how they're spelled: the SDK
+// returns the paths it resolves, with one slash between parts and none at
+// the end, and a folder's name may have either.
+
+/** Whether the absolute paths `a` and `b` name one file. */
+export const samePath = (a, b) => typeof a === "string" && typeof b === "string" && resolve(a) === resolve(b);
+
+/** Whether the absolute path `path` names something inside `folder`. */
+export const insidePath = (path, folder) => typeof path === "string" && resolve(path).startsWith(`${resolve(folder)}/`);
 
 /**
  * Runs `script` with `zenius nodejs`, as an agent's shell would, in run.sh's

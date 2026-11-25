@@ -22,7 +22,7 @@ import { basename, dirname, join } from "node:path";
 import { after, before, test } from "node:test";
 
 import { guardHome } from "../lib/scratch-home.mjs";
-import { CANARY, INSTANCE, REPORT, plant, startFixtures } from "./lib.mjs";
+import { CANARY, INSTANCE, REPORT, insidePath, plant, samePath, startFixtures } from "./lib.mjs";
 
 const LAUNCHER = process.env.ZENIUS_SECURITY_LAUNCHER ?? "";
 if (!LAUNCHER) throw new Error("run this part through tests/security/run.sh sandbox");
@@ -479,15 +479,15 @@ console.log(JSON.stringify(out));
   works("upload from the cwd", (files) => JSON.stringify(files) === JSON.stringify([{ name: "mine.txt", text: "the agent's own file\n" }]));
   // What a relative path names lands in the working folder, which the
   // install's config names, and the output lists it by its absolute path.
-  if (out.workingDir !== WORKING) got.push(`ZENIUS_WORKING_DIR in the sandbox is ${out.workingDir}, not the config's ${WORKING}`);
-  works("write the working folder", (path) => path === `${WORKING}/probe.txt`);
-  works("screenshot to a relative path", (path) => path === `${WORKING}/shot.png`);
-  works("download to a relative path", (path) => path === `${WORKING}/report.bin`);
-  const shot = `${WORKING}/shot.png`;
+  if (!samePath(out.workingDir, WORKING)) got.push(`ZENIUS_WORKING_DIR in the sandbox is ${out.workingDir}, not the config's ${WORKING}`);
+  works("write the working folder", (path) => samePath(path, join(WORKING, "probe.txt")));
+  works("screenshot to a relative path", (path) => samePath(path, join(WORKING, "shot.png")));
+  works("download to a relative path", (path) => samePath(path, join(WORKING, "report.bin")));
+  const shot = join(WORKING, "shot.png");
   if (!existsSync(shot) || !readFileSync(shot).subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) got.push("shot.png in the working folder isn't a PNG");
-  const report = `${WORKING}/report.bin`;
+  const report = join(WORKING, "report.bin");
   if (!existsSync(report) || !readFileSync(report).equals(REPORT)) got.push("report.bin in the working folder isn't the download");
-  if (JSON.stringify(files) !== JSON.stringify([shot, report])) got.push(`the output listed ${JSON.stringify(files)}, not the screenshot and the download`);
+  if (!(files?.length === 2 && samePath(files[0], shot) && samePath(files[1], report))) got.push(`the output listed ${JSON.stringify(files)}, not the screenshot and the download`);
   for (const name of ["probe.txt", "shot.png", "report.bin"]) rmSync(join(WORKING, name), { force: true });
 
   // Only macOS's profile stops this: Node doesn't check a socket's path.
@@ -528,7 +528,7 @@ test("zenius feedback in the sandbox writes its draft only in the working folder
   const result = await launch(["feedback", "--instance", INSTANCE, `page.click failed on https://bank.example/acct for jane@example.com, see ${SCRATCH_HOME}/notes.txt`]);
   assert.equal(result.code, 0, `${result.stdout}\n${result.stderr}`);
   const file = /^No agent sidebar can show the report, so zenius feedback wrote the report as a draft: (.+)$/.exec(result.stdout.split("\n")[0])?.[1];
-  assert.ok(file?.startsWith(`${WORKING}/`), result.stdout);
+  assert.ok(insidePath(file, WORKING), result.stdout);
   cleanups.push(() => rmSync(file, { force: true }));
   const draft = readFileSync(file, "utf8");
   assert.match(draft, /\n {4}page\.click failed on <link> for <email>, see ~\/notes\.txt\n/);
@@ -626,7 +626,7 @@ console.log(JSON.stringify(out));
   const unGranted = (await probe(SCRATCH_HOME)).out;
   const got = [];
   for (const [who, result] of [["the first run", first.out], ["a run elsewhere", elsewhere], ["a run in the home folder", unGranted]]) {
-    if (result.dir !== WORKING) got.push(`${who}'s working folder is ${result.dir}, not ${WORKING}`);
+    if (!samePath(result.dir, WORKING)) got.push(`${who}'s working folder is ${result.dir}, not ${WORKING}`);
   }
   if (!first.out.write?.ok) got.push(`the first run couldn't write the working folder: ${JSON.stringify(first.out.write)}`);
   if (elsewhere.read?.value !== "the first run's") got.push(`a run elsewhere couldn't read the first run's file: ${JSON.stringify(elsewhere.read)}`);

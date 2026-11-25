@@ -598,7 +598,7 @@ test("the runtime never opens a path an agent names: uploads, screenshots, fetch
       const path = await call("download.path", { download });
       f.check("download.path", () => {
         assert.ok(path.ok, `failed: ${path.code} ${path.message}`);
-        assert.ok(path.value.path.startsWith(`${S.WORKING}/`), `${path.value.path} isn't in the working folder, ${S.WORKING}`);
+        assert.ok(S.insidePath(path.value.path, S.WORKING), `${path.value.path} isn't in the working folder, ${S.WORKING}`);
         assert.equal(sha256(readFileSync(path.value.path)), sha256(S.REPORT), "must be the download's bytes");
       });
       const read = await call("download.read", { download, offset: 0, length: 8 * 1024 * 1024 });

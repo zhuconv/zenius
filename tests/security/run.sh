@@ -57,7 +57,12 @@ if [[ ! -d $ROOT/sdk/node_modules/esbuild ]]; then
   exit 1
 fi
 
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/zenius-security.XXXXXX")
+# A TMPDIR that ends in a slash, as macOS's does, would put "//" in every
+# path made from it, and the launcher's config would keep it in the working
+# folder, where the SDK gives the paths it returns resolved, with one.
+base=${TMPDIR:-/tmp}
+while [[ $base == */ && $base != / ]]; do base=${base%/}; done
+WORK=$(mktemp -d "$base/zenius-security.XXXXXX")
 # The dev Zens' zenius home, where the instance's socket and record are.
 RUNTIME_HOME=${ZENIUS_HOME:-$HOME/.zenius}
 scratch_home sec "$WORK"
