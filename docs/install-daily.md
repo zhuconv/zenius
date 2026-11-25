@@ -567,6 +567,10 @@ only to change it.
   there's no default working folder: pass `--working-dir` too, or each
   installer stops with `there's no default working folder: …` and makes
   nothing.
+- Not checked on the Mac yet: a working folder inside `~/Documents` or
+  `~/Downloads`, or on another volume. macOS guards those places, and may
+  ask whether Zen, and the app your agent runs in, can use the folder. The
+  default, `~/zenius-files`, is in none of them.
 
 ### The sandboxed CLI
 
