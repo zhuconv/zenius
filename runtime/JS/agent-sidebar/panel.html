@@ -37,6 +37,21 @@
     <main id="messages"></main>
     <!-- A remote task that ended: why (remoteEnd), under its last answer. -->
     <div id="remote-end" hidden></div>
+    <!-- Work: the agent's hand-off while its task is the user's, in the ask
+         card's look (renderHandOff, AgentService.handOff): what the task
+         waits for, the agent's whole message as its words, what Resume agent
+         clears, Show tab and Resume agent. It stays until Resume agent or the
+         task's end, whatever becomes of the agent's wait call. -->
+    <div id="handoff" role="group" aria-labelledby="handoff-title" hidden>
+      <div id="handoff-title" class="ask-title"></div>
+      <div id="handoff-words" class="ask-words"></div>
+      <div id="handoff-clears" class="ask-hint" hidden></div>
+      <div class="ask-actions">
+        <span class="ask-hint"></span>
+        <button id="handoff-show" type="button" class="ask-skip">Show tab</button>
+        <button id="handoff-resume" type="button" class="pill ask-send">Resume agent</button>
+      </div>
+    </div>
     <!-- Work: the page the agent is on, live while it works, with Watch and
          Take over. renderLive keeps it at the end of the thread. -->
     <div id="live" hidden>

@@ -739,6 +739,29 @@ class UiController {
   }
 
   /**
+   * The agent sidebar's hand-off card's Resume agent: the hold card's and
+   * the tasks panel's own (#handBack), so the user's press gives the task
+   * back the same way from every place it shows.
+   *
+   * @param {object} rec
+   */
+  handBackByUser(rec) {
+    return this.#handBack(rec);
+  }
+
+  /**
+   * What Resume agent clears before the agent gets the task back, in the
+   * tasks panel's words (#panelClears), for the sidebar's hand-off card; null
+   * when nothing.
+   *
+   * @param {object} rec
+   * @returns {string|null}
+   */
+  handBackClears(rec) {
+    return this.#panelClears(rec);
+  }
+
+  /**
    * The panel's Resume: the agent runs again, after the quiet reload of a
    * secret the user typed meanwhile (#beforeAgentRuns).
    *

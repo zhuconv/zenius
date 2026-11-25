@@ -173,6 +173,8 @@ const REMOVED_KEPT = 100;
 // task's state and tabs. Loaded only once a chat names a zenius task.
 const ZENIUS_SERVICE = "chrome://userscripts/content/zenius/modules/service.sys.mjs";
 const ZENIUS_UI = "chrome://userscripts/content/zenius/ui/index.sys.mjs";
+// zenius's tasks panel: its words for what a waiting task waits for (handOff).
+const ZENIUS_PANEL = "chrome://userscripts/content/zenius/ui/panel.sys.mjs";
 // zenius's version, from its runtime: read as an agent starts, so the
 // sidebar's start loads no zenius module.
 const ZENIUS_UTIL = "chrome://userscripts/content/zenius/modules/util.sys.mjs";
@@ -1465,12 +1467,48 @@ function commandOf(input) {
   return Array.isArray(command) ? command.join(" ") : null;
 }
 
+/**
+ * Claude Code's own words for a call whose result it doesn't have (2.1.332's
+ * texts), never the server's step:
+ * - moved: a message the user sent while the MCP call ran (or Claude Code's
+ *   own timer) moved the call to the background. It goes on in the server,
+ *   and its result reaches the agent later, in a cycle of Claude Code's own
+ *   (ownWork). The sidebar keeps its calls in the foreground
+ *   (claudeEnvironment), but the user's env or a later Claude Code may not.
+ * - cut: the call ended without its result. An interrupt ended it (the
+ *   user's message, with the call kept in the foreground: the first text,
+ *   with nonExecutionKind "interrupted"), or a message delivered at the
+ *   turn's end, or the end of the session that ran it. Nobody refused it.
+ */
+const HARNESS_WORDS = [
+  ["moved", /^MCP tool "[^"\n]*" (?:was moved to the background as task |is still running after |started server-side task )/],
+  ["cut", /^The tool call was interrupted before a result was received\./],
+  ["cut", /^\[Tool call did not complete: the turn was ended to deliver the message that follows\./],
+  ["cut", /^\[Tool call interrupted: the session ended before this call's result was recorded/],
+  ["cut", /^\[Request interrupted by user for tool use\]/],
+];
+
+/**
+ * Which of Claude Code's own words a call's result is (HARNESS_WORDS), or
+ * claude-agent-acp's word that an interrupt ended it; null for anything else.
+ */
+function harnessWords(tool) {
+  const text = String(tool.result ?? "").replace(/^\s*```[^\n]*\n/, "").trimStart();
+  const said = text ? (HARNESS_WORDS.find(([, words]) => words.test(text))?.[0] ?? null) : null;
+  return said ?? (["interrupted", "cancelled"].includes(tool.nonExecution) ? "cut" : null);
+}
+
 /** Set a tool message's step (what the user reads) and detail (folded under it). */
 function describeTool(tool) {
+  // Claude Code moved the call, or ended it short of its result: the step
+  // shows it as moved (it goes on) or stopped, whoever's Stop it was.
+  const harness = harnessWords(tool);
+  tool.moved = harness === "moved";
+  tool.cutShort = harness === "cut";
   // A call that failed with no result at all said nothing of its own, as
   // codex-acp ends one Codex interrupted with none: cut, so after the user's
   // Stop it shows as stopped (the panel's stepStatus), else as failed.
-  tool.cut = tool.status === "failed" && !tool.result;
+  tool.cut = (tool.status === "failed" && !tool.result) || tool.cutShort;
   const zen = zeniusCall(tool);
   tool.zen = zen?.tool ?? null;
   tool.args = zen ? zen.args : null;
@@ -1480,6 +1518,17 @@ function describeTool(tool) {
     if (!tool.result) {
       tool.step = provisional;
       tool.detail = "";
+      return;
+    }
+    if (harness) {
+      // Not the server's words: the step stays as the call asked, with
+      // Claude Code's folded under it.
+      tool.cut = tool.cutShort;
+      tool.step = provisional;
+      tool.detail = String(tool.result)
+        .replace(/^\s*```[^\n]*\n/, "")
+        .replace(/\n```\s*$/, "")
+        .trim();
       return;
     }
     const { step, rest } = resultStep(tool.result);
@@ -1550,6 +1599,155 @@ function startedTask(tool) {
 // How much earlier than the sidebar saw an open call its task may have been
 // created: the call's report and the task reach Zen by different pipes.
 const OPEN_SLACK_MS = 1000;
+
+// The agent's own work, outside the sidebar's turns (ownWork): updates that
+// come with no turn open, such as Claude Code's cycle once a call it moved to
+// the background ends. claude-agent-acp ends that cycle with the usage_update
+// of Claude Code's result. Without one, the work counts as over this long
+// after its last update, when no call of it still runs: a model call streams
+// its thinking's summary well within it.
+const OWN_WORK_QUIET_MS = 2 * 60 * 1000;
+// ... and at the latest this long after its last update, whatever still runs
+// (a wait for the user, 600 s at most, and a minute).
+const OWN_WORK_LONGEST_MS = 11 * 60 * 1000;
+// How long a call Claude Code moved to the background may still run in its
+// session: zenius's longest call (a wait for the user, 600 s), and a minute.
+// The session stays in use that long, unless the result's cycle comes first.
+const MOVED_LONGEST_MS = 11 * 60 * 1000;
+// The updates that are the agent's own work when no turn is open.
+const OWN_WORK_UPDATES = new Set(["agent_message_chunk", "agent_thought_chunk", "tool_call", "tool_call_update"]);
+
+// --- Editing a question: where the session goes back to ---------------------
+
+/**
+ * Whether a step finished with a result of its own, which the agent must keep:
+ * not one cut short (by a Stop, a message or the session's end) or moved to the
+ * background, whose result the session never had. A refused call (Claude
+ * Code's nonExecutionKind other than an interrupt) finished: the agent was
+ * told no.
+ */
+function stepFinished(m) {
+  if (!["completed", "failed"].includes(m.status) || m.moved) {
+    return false;
+  }
+  if (m.nonExecution && !["interrupted", "cancelled"].includes(m.nonExecution)) {
+    return true;
+  }
+  return !m.cut && !m.cutShort;
+}
+
+/**
+ * What an edit of messages[i] does to the agent's session (AgentService.rewind):
+ * the point session/fork takes it back to, and what the agent forgets.
+ *
+ * session/fork copies the session up to the whole API message its point names,
+ * by an id that the message's text chunks carry, and with claude-agent-acp its
+ * thinking's too, but never a tool call. So a point is an answer (or, when
+ * `thoughts`, a thought) of a session the chat's own descends from, in a turn
+ * that ended, and followed, until the next message of the user's, by nothing
+ * but thoughts, notes and steps that never finished: a finished step's result
+ * would be lost, and one in the point's own API message would come back as cut
+ * short by the session's end, so the agent might do it again.
+ *
+ * The newest point keeps everything the agent did before the edited message
+ * when nothing else lies between them. Otherwise `lost` counts what the agent
+ * forgets, which the panel says before the edit goes: the steps and messages
+ * after the point, or, with no point, all before the edited message (a new
+ * session).
+ *
+ * @param {object[]} messages  the chat's messages
+ * @param {number} i  the edited message's index
+ * @param {{lineage: Set<string>, thoughts?: boolean}} options
+ * @returns {{point: object|null, lost: {steps: number, messages: number}|null}}
+ *   point: { messageId, ...its turn's `after` }, or null for a new session;
+ *   lost: null when the agent forgets nothing
+ */
+export function editPlan(messages, i, { lineage, thoughts = false }) {
+  let steps = 0;
+  let said = 0;
+  let lossy = false;
+  // A finished step after the message at hand, before the user's next message.
+  let finishedSince = false;
+  for (let j = i - 1; j >= 0; j--) {
+    const m = messages[j];
+    switch (m.role) {
+      case "user":
+        said++;
+        lossy = true;
+        finishedSince = false;
+        continue;
+      case "tool":
+        if (!m.hidden) {
+          steps++;
+        }
+        if (stepFinished(m)) {
+          lossy = finishedSince = true;
+        }
+        continue;
+      case "ask":
+        // The agent's question, with the user's answer: the call that asked
+        // finished.
+        if (m.answer != null) {
+          said++;
+          lossy = finishedSince = true;
+        }
+        continue;
+      case "assistant":
+      case "thought": {
+        const point = (m.role === "assistant" || thoughts) && m.messageId && lineage.has(m.session);
+        const turn = point && !finishedSince ? messages.slice(0, j).findLast(x => x.role === "user") : null;
+        if (turn?.after) {
+          return { point: { messageId: m.messageId, ...turn.after }, lost: lossy ? { steps, messages: said } : null };
+        }
+        if (m.role === "assistant" && String(m.text ?? "").trim()) {
+          said++;
+          lossy = true;
+        }
+        continue;
+      }
+    }
+  }
+  return { point: null, lost: lossy ? { steps, messages: said } : null };
+}
+
+/** "3 steps and 2 messages", or null when neither counts. */
+function lostWhat(lost) {
+  const count = (n, word) => (n ? `${n} ${word}${n === 1 ? "" : "s"}` : null);
+  const parts = [count(lost.steps, "step"), count(lost.messages, "message")].filter(Boolean);
+  return parts.length ? parts.join(" and ") : null;
+}
+
+/**
+ * The edit box's line before an edit that makes the agent forget something
+ * (editPlan's `lost`), or null. In Work, the task's pages stay as the agent
+ * left them, whatever it forgets.
+ *
+ * @param {{point: object|null, lost: object|null}} plan
+ * @param {boolean} work
+ */
+export function editLossText(plan, work) {
+  if (!plan?.lost) {
+    return null;
+  }
+  const what = lostWhat(plan.lost);
+  const head = plan.point
+    ? what
+      ? `Sending this edit takes the agent back before the last ${what} above, and it forgets them.`
+      : "Sending this edit takes the agent back to an earlier point, and it forgets what it did since."
+    : what
+      ? `Sending this edit starts the agent over, and it forgets the ${what} above.`
+      : "Sending this edit starts the agent over, and it forgets what it did before.";
+  return `${head}${work ? " The pages stay as they are." : ""} To keep ${what ? "them" : "it"}, send a new message instead.`;
+}
+
+/** The thread's note where an edit made the agent forget something (editPlan's `lost`). */
+function editLossNote(plan) {
+  const what = lostWhat(plan.lost);
+  if (plan.point) {
+    return what ? `The agent went back before the last ${what} above, and forgot them.` : "The agent went back to an earlier point, and forgot what it did since.";
+  }
+  return what ? `The agent started over, and forgot the ${what} above.` : "The agent started over, and forgot what it did before.";
+}
 
 // --- Where a task stands ---------------------------------------------------------
 
@@ -1829,7 +2027,7 @@ export function taskInfo(conv, held = false, zenNeeds = false) {
     // The words of zenius's card on that page.
     return { state: "needs", text: "Can't take over this page", why: "zenius" };
   }
-  if (conv.busy) {
+  if (conv.busy || conv.ownWork) {
     const last = messages.findLast(m => (m.role === "tool" && !m.hidden) || m.role === "assistant" || m.role === "user");
     if (last?.role === "tool" && last.zen === "wait" && last.args?.user && !["completed", "failed"].includes(last.status)) {
       return { state: "needs", text: handOffText || "Waiting for you to resume the agent", why: "wait" };
@@ -2075,7 +2273,14 @@ function serializeMessage(m) {
         step: m.step,
         zen: m.zen,
         cut: !!m.cut,
-        args: m.zen === "hand_off" && m.args?.message ? { message: m.args.message } : null,
+        moved: !!m.moved,
+        cutShort: !!m.cutShort,
+        args:
+          m.zen === "hand_off" && m.args?.message
+            ? { message: m.args.message }
+            : m.zen === "wait" && m.args?.user
+              ? { user: true }
+              : null,
         rawTitle: "",
         detail: "",
       };
@@ -2093,7 +2298,16 @@ function serializeMessage(m) {
       };
     case "thought":
       // One still open when saved keeps its time so far.
-      return m.text.trim() ? { role: "thought", text: m.text, title: m.title ?? "", ms: m.ms ?? Date.now() - m.started } : null;
+      // With its API message's id, a point an edit can go back to (editPlan).
+      return m.text.trim()
+        ? {
+            role: "thought",
+            text: m.text,
+            title: m.title ?? "",
+            ms: m.ms ?? Date.now() - m.started,
+            ...(m.messageId ? { session: m.session ?? null, messageId: m.messageId } : {}),
+          }
+        : null;
     case "note":
     case "error":
       return { role: m.role, text: m.text };
@@ -2399,6 +2613,7 @@ export const AgentService = {
   tasksReady: null, // reading TASKS_FILE at startup
   taskListeners: new Set(),
   taskTimers: new Map(), // conv -> the timer of its batched notice to taskListeners
+  ownWorkTimers: new Map(), // conv -> the timer that ends its agent's own work (settleOwnWork)
   saveTasksTimer: null,
   zeniusService: undefined, // the zenius runtime's service: undefined until looked for, null if absent
   zeniusUnsubscribe: null,
@@ -3550,7 +3765,8 @@ export const AgentService = {
     if (typeof ui?.noteSidebarTask !== "function") {
       return;
     }
-    const running = !!conv.busy;
+    // The agent's own work (ownWork) runs as a turn does.
+    const running = !!conv.busy || !!conv.ownWork;
     const needs = !conv.archivedAt && conv.task.state === "needs" && WHY_NEEDS.has(conv.task.why) ? conv.task.why : null;
     const sent = conv.zenNoted;
     if (sent && sent.running === running && sent.needs === needs) {
@@ -3909,6 +4125,82 @@ export const AgentService = {
   },
 
   /**
+   * The agent's hand-off, for the chat's card (the panel's renderLive), while
+   * the chat's task is the user's by the agent's hand_off: from the task's
+   * own state, until Resume agent or the task's end, never from the wait
+   * call's life, which a harness may end early or move. A page's permission
+   * prompt holds the task too, but its own prompt ends that hold: no card.
+   *
+   * @param {Conversation} conv
+   * @returns {{name: string, waits: string, message: string, clears: string|null}|null}
+   *   waits: what the task waits for, in zenius's strip's words ("needs a
+   *   sign-in"); message: the agent's whole message (the task's, which a
+   *   hand-off made in a script sets too, else the chat's hand_off call's);
+   *   clears: what Resume agent clears first, in zenius's words, or null
+   */
+  handOff(conv) {
+    const rec = this.isHeld(conv) === "handoff" ? this.zenRecord(conv) : null;
+    if (!rec || conv.zen?.heldBy === "permission") {
+      return null;
+    }
+    const call = conv.messages.findLast(m => m.role === "tool" && m.zen === "hand_off");
+    let clears = null;
+    let waits = "needs you";
+    try {
+      clears = this.zeniusUI()?.handBackClears?.(rec) ?? null;
+      waits = ChromeUtils.importESModule(ZENIUS_PANEL).waitText(rec.reason ?? null);
+    } catch (e) {
+      debug("could not read the hand-off's words from zenius:", e.message);
+    }
+    return {
+      name: rec.name,
+      waits,
+      message: String(rec.stateText || call?.args?.message || "").trim(),
+      clears,
+    };
+  },
+
+  /**
+   * The card's Resume agent: the task goes back to the agent as zenius's own
+   * Resume agent gives it (ZeniusUI.handBackByUser: the quiet reload of a
+   * page that holds a secret the user typed, the input guard, then the
+   * ownership), and the agent's wait for the user ends.
+   *
+   * @param {Conversation} conv
+   * @returns {Promise<boolean>} whether the task went back
+   */
+  async handBack(conv) {
+    const rec = this.handOff(conv) ? this.zenRecord(conv) : null;
+    const ui = rec ? this.zeniusUI() : null;
+    if (!rec || typeof ui?.handBackByUser !== "function") {
+      return false;
+    }
+    await ui.handBackByUser(rec);
+    return this.zenRecord(conv)?.ownership === "agent";
+  },
+
+  /**
+   * The card's Show tab: the task's page the agent handed over, in `win`, as
+   * zenius's tasks panel's Open shows it (ZeniusUI.goToTask).
+   *
+   * @param {Conversation} conv
+   * @param {Window} win  the agent sidebar's window
+   */
+  async showHandOffTab(conv, win) {
+    const rec = this.zenRecord(conv);
+    const ui = rec ? this.zeniusUI() : null;
+    if (!rec || typeof ui?.goToTask !== "function") {
+      return false;
+    }
+    const tab = this.zenFrontTab(conv);
+    let tabId = null;
+    try {
+      tabId = tab ? (this.zenius().pages.tabId?.(tab) ?? null) : null;
+    } catch {}
+    return ui.goToTask(rec, tabId, win);
+  },
+
+  /**
    * The composer's Keep control, while the user holds the chat's task by
    * Take over: the user's sends then give nothing back, until this hold
    * ends. Without it, a send from a window that shows one of the task's
@@ -4012,6 +4304,13 @@ export const AgentService = {
           conv.keepControl = false;
         }
         zen.heldBy = heldBy;
+        // A wait for the user that Claude Code moved to the background waits
+        // in the chat while the task is the user's (the panel's stepStatus).
+        for (const m of conv.messages) {
+          if (m.role === "tool" && m.moved && m.zen === "wait") {
+            conv.touch(m);
+          }
+        }
       }
       if (event === "taskBadge") {
         // working, idle, paused, needs-user, user, or null (ZeniusUI.badgeFor).
@@ -4388,32 +4687,29 @@ export const AgentService = {
   },
 
   /**
-   * Where the session goes back to when the user edits conv.messages[i]: the
-   * last answer before it that the session holds, from a turn that ended, with
-   * what the session had of the pages and the instructions after that turn.
-   * Null when the session holds no answer before it, so a new session loses
-   * nothing; { messageId: null } when it does but none can be pointed at.
+   * What an edit of conv.messages[i] does to the chat's session: the point it
+   * goes back to, with what the session had of the pages and the instructions
+   * after that turn, and what the agent forgets (editPlan). A thought is a
+   * point too with claude-agent-acp, whose thinking chunks carry their API
+   * message's id.
+   *
+   * @param {Conversation} conv
+   * @param {number} i
    */
+  editPlan(conv, i) {
+    const thoughts = adapterOf(this.config?.agents?.[conv.harness]) === "claude";
+    return editPlan(conv.messages, i, { lineage: conv.lineage, thoughts });
+  },
+
+  /** Where the session goes back to when the user edits conv.messages[i] (editPlan's point). */
   forkPoint(conv, i) {
-    let held = false;
-    for (let j = i - 1; j >= 0; j--) {
-      const answer = conv.messages[j];
-      if (answer.role !== "assistant" || !conv.lineage.has(answer.session)) {
-        continue;
-      }
-      held = true;
-      const turn = conv.messages.slice(0, j).findLast(m => m.role === "user");
-      if (answer.messageId && turn?.after) {
-        return { messageId: answer.messageId, ...turn.after };
-      }
-    }
-    return held ? { messageId: null } : null;
+    return this.editPlan(conv, i).point;
   },
 
   /**
    * The user edited a question: take the session back to `point` (see
-   * forkPoint), so that it holds the conversation up to the end of that
-   * answer's turn and nothing after it. session/fork copies the session up to
+   * editPlan), so that it holds the conversation up to that answer's API
+   * message and nothing after it. session/fork copies the session up to
    * an answer (both adapters take the fork point in `_meta`, from JetBrains
    * AIR); the session the question was in is closed. With nothing to keep, or
    * when the agent cannot fork, the question goes to a new session.
@@ -4509,6 +4805,9 @@ export const AgentService = {
     conv.sessionId = null;
     conv.conn = null;
     conv.configOptions = null;
+    // What its agent did on its own ends with the session.
+    conv.movedUntil = 0;
+    this.endOwnWork(conv);
     if (close && conn && !conn.exited) {
       if (conn.ownedBy) {
         // The chat's own process (slotFor), which nothing else uses: its
@@ -4522,25 +4821,130 @@ export const AgentService = {
   },
 
   /** At most uc.agent-sidebar.open-sessions sessions per agent stay open; the
-   * least recently used ones close. Only for agents that can resume them.
-   * Work chats' own processes (slotFor) count as one agent's, so as many of
-   * them run: parking a session there stops its process, which takes no
-   * session/close, so they're held whether or not the agent declares it. */
-  limitOpenSessions(keep) {
-    const conn = keep.conn;
+   * least recently used ones close. A session in use (inUse) never closes, so
+   * a chat that opens while the others are in use opens over the limit, and
+   * the sweep closes the extra ones once they're not (with `keep` null: an
+   * agent's open sessions as they are). Only for agents that can resume
+   * them. Work chats' own processes (slotFor) count as one agent's, so as
+   * many of them run: parking a session there stops its process, which takes
+   * no session/close, so they're held whether or not the agent declares it.
+   *
+   * @param {Conversation|null} keep  the chat whose session just opened
+   * @param {AcpConnection} [conn]  the agent's process
+   * @param {number} [now]
+   */
+  limitOpenSessions(keep, conn = keep?.conn, now = Date.now()) {
     const limit = Services.prefs.getIntPref(PREF_OPEN_SESSIONS, 2);
     if (!conn || limit <= 0 || (!conn.ownedBy && !conn.closesSessions) || !conn.restoreMethods.length) {
       return;
     }
     const peer = c => (conn.ownedBy ? !!c.conn?.ownedBy && c.conn.harness === conn.harness : c.conn === conn);
     const others = [...this.conversations.values()].filter(c => c !== keep && peer(c) && c.sessionId);
-    let excess = others.length + 1 - limit;
-    for (const conv of others.filter(c => !c.busy && !c.opening).sort((a, b) => a.lastUsed - b.lastUsed)) {
+    let excess = others.length + (keep ? 1 : 0) - limit;
+    const idle = others.filter(c => !this.inUse(c, now));
+    for (const conv of idle.sort((a, b) => a.lastUsed - b.lastUsed)) {
       if (excess-- <= 0) {
         break;
       }
       this.park(conv);
     }
+  },
+
+  /**
+   * Is a chat's session in use, so that neither the idle sweep nor the
+   * open-sessions limit closes it? While its turn runs or it opens, while its
+   * agent works on its own (ownWork), and while a call that Claude Code moved
+   * to the background may still run in it (movedUntil): closing the session
+   * would cut that work, and Claude Code then reports the call as the
+   * session's end.
+   *
+   * @param {Conversation} conv
+   * @param {number} [now]
+   */
+  inUse(conv, now = Date.now()) {
+    return !!(conv.busy || conv.opening || conv.ownWork || (conv.movedUntil ?? 0) > now);
+  },
+
+  /**
+   * An update of the agent's own work came, with no turn open
+   * (onNotification): the chat shows it, as working (conv.ownWork: the
+   * steps' marks, the directory, zenius's strip), and the session counts as
+   * used now, so neither the idle sweep nor the open-sessions limit closes
+   * it. A call Claude Code moved has come back with it. The work ends with
+   * the usage_update of Claude Code's result (onNotification), when a turn
+   * takes it over (send), or after OWN_WORK_QUIET_MS with no update and no
+   * call of it running (settleOwnWork).
+   *
+   * @param {Conversation} conv
+   */
+  noteOwnWork(conv) {
+    const now = Date.now();
+    conv.lastUsed = now;
+    if (conv.conn) {
+      conv.conn.lastUsed = now;
+    }
+    conv.movedUntil = 0;
+    conv.ownWorkAt = now;
+    clearTimeout(this.ownWorkTimers.get(conv));
+    this.ownWorkTimers.set(
+      conv,
+      setTimeout(() => this.settleOwnWork(conv), OWN_WORK_QUIET_MS)
+    );
+    if (!conv.ownWork) {
+      debug("the agent works on its own in", conv.sessionId);
+      conv.ownWork = true;
+      conv.emit({ type: "busy" });
+      this.refreshTask(conv);
+    }
+  },
+
+  /** OWN_WORK_QUIET_MS after the last update of the agent's own work with no
+   * result's usage_update: over, unless a call of it still runs. */
+  settleOwnWork(conv) {
+    this.ownWorkTimers.delete(conv);
+    if (!conv.ownWork || !this.conversations.has(conv.id)) {
+      return;
+    }
+    const running = conv.messages.some(m => m.role === "tool" && m.ownWork && !["completed", "failed"].includes(m.status));
+    if (!conv.busy && running && Date.now() - conv.ownWorkAt < OWN_WORK_LONGEST_MS) {
+      this.ownWorkTimers.set(
+        conv,
+        setTimeout(() => this.settleOwnWork(conv), OWN_WORK_QUIET_MS)
+      );
+      return;
+    }
+    this.endOwnWork(conv);
+  },
+
+  /**
+   * The agent's own work is over (its result, or settleOwnWork), or a turn
+   * takes it over (send), or the user's Stop, the session's close or the
+   * process's end ends it: its last words are done, and the session counts
+   * as used now.
+   *
+   * @param {Conversation} conv
+   */
+  endOwnWork(conv) {
+    clearTimeout(this.ownWorkTimers.get(conv));
+    this.ownWorkTimers.delete(conv);
+    if (!conv.ownWork) {
+      return;
+    }
+    conv.ownWork = false;
+    if (!conv.busy) {
+      if (conv.current && conv.messages.at(-1) === conv.current) {
+        conv.current.state = "done";
+        conv.touch(conv.current);
+      }
+      conv.current = null;
+      this.endThought(conv);
+    }
+    conv.lastUsed = Date.now();
+    if (conv.conn) {
+      conv.conn.lastUsed = conv.lastUsed;
+    }
+    conv.emit({ type: "busy" });
+    this.refreshTask(conv);
   },
 
   startSweeper() {
@@ -4549,13 +4953,21 @@ export const AgentService = {
     }
   },
 
-  /** Stop agents nobody used for uc.agent-sidebar.idle-minutes (0: never). */
+  /** Stop agents nobody used for uc.agent-sidebar.idle-minutes (0: never),
+   * and close the sessions over the open-sessions limit that idled long
+   * enough (limitOpenSessions). A session in use (inUse) keeps its agent. */
   sweep(now = Date.now()) {
     const minutes = Services.prefs.getIntPref(PREF_IDLE_MINUTES, 10);
     for (const conn of [...this.conns.values()]) {
-      const working = [...this.conversations.values()].some(c => c.conn === conn && (c.busy || c.opening));
+      // One the limit stopped on the way (a Work chat's own process).
+      if (conn.stopping || conn.exited) {
+        continue;
+      }
+      const working = [...this.conversations.values()].some(c => c.conn === conn && this.inUse(c, now));
       if (minutes > 0 && !working && now - conn.lastUsed >= minutes * 60000) {
         this.stop(conn);
+      } else {
+        this.limitOpenSessions(null, conn, now);
       }
     }
     if (!this.conns.size && !this.connecting.size) {
@@ -4979,9 +5391,17 @@ export const AgentService = {
       if (i < 0) {
         return;
       }
-      point = this.forkPoint(conv, i);
+      const plan = this.editPlan(conv, i);
+      point = plan.point;
       conv.truncate(i);
+      // What the agent forgets stays on screen: the note says so where the
+      // edit goes (the edit box said it before).
+      if (plan.lost) {
+        conv.push({ role: "note", text: editLossNote(plan) });
+      }
     }
+    // The agent's own work, if any, goes on as this turn's.
+    this.endOwnWork(conv);
     conv.busy = true;
     conv.stopRequested = false;
     conv.steerCancel = false;
@@ -5492,6 +5912,11 @@ export const AgentService = {
     // Nothing waiting goes out after a Stop: it goes back into the box.
     const back = this.queueToDraft(conv);
     if (!conv.busy) {
+      // The agent's own work, and a call Claude Code moved, keep the session
+      // no longer: the callers close it next (archiveTask, reset), and that
+      // ends them.
+      conv.movedUntil = 0;
+      this.endOwnWork(conv);
       return back;
     }
     conv.stopRequested = true;
@@ -5739,7 +6164,21 @@ export const AgentService = {
       return;
     }
     if (!conv.busy) {
-      return;
+      // The agent's own work, with no turn of the sidebar's open: Claude
+      // Code's cycle once a call it moved to the background ends, which
+      // claude-agent-acp streams with no prompt open. It shows as it comes,
+      // and the session is in use meanwhile (noteOwnWork). Not while the
+      // session opens (a load replays its history as updates), nor after the
+      // user's Stop, whose late words stay out. The usage_update of Claude
+      // Code's result ends it.
+      if (update.sessionUpdate === "usage_update" && conv.ownWork) {
+        this.endOwnWork(conv);
+        return;
+      }
+      if (!OWN_WORK_UPDATES.has(update.sessionUpdate) || conv.opening || conv.stopped || !conv.sessionId) {
+        return;
+      }
+      this.noteOwnWork(conv);
     }
     switch (update.sessionUpdate) {
       case "agent_message_chunk": {
@@ -5802,6 +6241,10 @@ export const AgentService = {
           const thought = conv.thought ?? this.startThought(conv);
           thought.text += text;
           thought.title = thoughtTitle(thought.text);
+          // Its API message, a point an edit can go back to (editPlan): the
+          // newest, if one thought spans two.
+          thought.session = sessionId;
+          thought.messageId = update.messageId ?? thought.messageId ?? null;
           conv.touch(thought);
         }
         break;
@@ -5824,6 +6267,8 @@ export const AgentService = {
           result: "",
           // When the sidebar first saw the call: a task its open starts comes after (startedRecord).
           seenAt: Date.now(),
+          // A call of the agent's own work, outside the sidebar's turns (settleOwnWork).
+          ownWork: !conv.busy,
         };
         tool.forAsk = conv.messages.some(m => m.role === "ask" && m.from === null && m.toolCallId === tool.id);
         this.takeToolUpdate(conv, tool, update);
@@ -5864,9 +6309,22 @@ export const AgentService = {
     if (result) {
       tool.result = result;
     }
+    // claude-agent-acp's word that Claude Code ran the call short of its end
+    // (interrupted, cancelled) or refused it (harnessWords).
+    const kind = update._meta?.claudeCode?.nonExecutionKind;
+    if (typeof kind === "string") {
+      tool.nonExecution = kind;
+    }
     // An ask's tool call (onAsk): the card stands for it.
     tool.hidden = !!tool.forAsk || isHiddenTool(tool);
     describeTool(tool);
+    if (tool.moved && !tool.movedAt) {
+      // Claude Code moved the call to the background, where it goes on: its
+      // session stays in use until the call's result comes back as the
+      // agent's own work, or for as long as such a call can run (inUse).
+      tool.movedAt = Date.now();
+      conv.movedUntil = Math.max(conv.movedUntil ?? 0, tool.movedAt + MOVED_LONGEST_MS);
+    }
   },
 
   /** A zenius open may start the chat's task (startedTask), and every call moves the task on. */
@@ -5942,6 +6400,9 @@ export const AgentService = {
         conv.sessionId = null;
         conv.conn = null;
         conv.configOptions = null;
+        // Nothing of its agent's goes on without the process.
+        conv.movedUntil = 0;
+        this.endOwnWork(conv);
         conv.emit({ type: "options" });
       }
     }

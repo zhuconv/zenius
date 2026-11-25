@@ -14,7 +14,7 @@ import { imageFromClipboard, kindOf, readAttachment, Refused } from "./attachmen
 import { copyText, extensionFor, fileName, saveText } from "./saving.mjs";
 import { mountFeedback } from "./feedback.mjs";
 
-const { AgentService, isCredentialAsk, MODEL_OPTION, EFFORT_OPTIONS, optionValues, concreteModel, modelGeneration, newestModels, STATE_LABELS, age, ago, remoteSource, remoteEnd, taskName } = ChromeUtils.importESModule(
+const { AgentService, editLossText, isCredentialAsk, MODEL_OPTION, EFFORT_OPTIONS, optionValues, concreteModel, modelGeneration, newestModels, STATE_LABELS, age, ago, remoteSource, remoteEnd, taskName } = ChromeUtils.importESModule(
   new URL("AgentService.sys.mjs", import.meta.url).href
 );
 const { ENDED_TEXT, sourceParts } = ChromeUtils.importESModule(new URL("external.sys.mjs", import.meta.url).href);
@@ -56,6 +56,12 @@ const els = {
   dir: $("dir"),
   favicon: $("favicon"),
   title: $("title"),
+  handoff: $("handoff"),
+  handoffTitle: $("handoff-title"),
+  handoffWords: $("handoff-words"),
+  handoffClears: $("handoff-clears"),
+  handoffShow: $("handoff-show"),
+  handoffResume: $("handoff-resume"),
   live: $("live"),
   liveShot: $("live-shot"),
   liveText: $("live-text"),
@@ -765,9 +771,15 @@ function fillAsk(el, message) {
 
 /** How a step's mark shows: done ✓, running, failed, or waiting for the user. */
 function stepStatus(message) {
+  if (message.moved) {
+    // Claude Code moved the call to the background, where it goes on: a wait
+    // for the user still waits while the task is theirs.
+    return message.zen === "wait" && message.args?.user && AgentService.isHeld(conv) ? "waiting" : "done";
+  }
   if (message.status === "failed") {
-    // Cut short when the user stopped the agent: not a failure of the step.
-    return message.cut && conv?.stopped ? "stopped" : "failed";
+    // Cut short when the user stopped the agent, or by their message or the
+    // session's end (Claude Code's words, cutShort): not a failure of the step.
+    return message.cut && (conv?.stopped || message.cutShort) ? "stopped" : "failed";
   }
   if (message.status === "completed") {
     return "done";
@@ -775,7 +787,8 @@ function stepStatus(message) {
   if (message.zen === "wait" && message.args?.user) {
     return "waiting";
   }
-  return conv?.busy ? "running" : "stopped";
+  // The agent's own work, outside a turn, runs as a turn does (ownWork).
+  return conv?.busy || conv?.ownWork ? "running" : "stopped";
 }
 
 /**
@@ -2118,7 +2131,7 @@ function renderAttachments() {
 }
 
 function renderAll() {
-  els.messages.replaceChildren(listFor(conv), els.live);
+  els.messages.replaceChildren(listFor(conv), els.handoff, els.live);
   pruneList();
   renderExternal();
   renderBinding();
@@ -2636,7 +2649,9 @@ els.arrivalClose.addEventListener("click", hideArrival);
 
 /** Edit a question in place. Sending it asks again from there: the question
  * and everything after it go, and the agent forgets them (AgentService.send).
- * The passage and the files go with it as they were. */
+ * The passage and the files go with it as they were. When the agent can't go
+ * back to right before the question, a line under the box says what else it
+ * forgets, before the edit goes (AgentService.editPlan). */
 function startEditing(el) {
   const message = messageOf.get(el);
   if (!conv || conv.busy || conv.archivedAt || !message) {
@@ -2659,7 +2674,15 @@ function startEditing(el) {
   const buttons = div("buttons");
   buttons.append(cancel, send);
   const editor = div("editor");
-  editor.append(box, buttons);
+  editor.append(box);
+  const loss = editLossText(AgentService.editPlan(conv, conv.messages.indexOf(message)), conv.kind === "work");
+  if (loss) {
+    const line = div("edit-loss", loss);
+    line.id = "edit-loss";
+    box.setAttribute("aria-describedby", line.id);
+    editor.append(line);
+  }
+  editor.append(buttons);
   el.querySelector(":scope > .text").replaceWith(editor);
   el.querySelector(":scope > .meta")?.remove();
   el.querySelector(":scope > .actions")?.remove();
@@ -2899,6 +2922,29 @@ function liveState() {
 }
 
 /**
+ * The agent's hand-off card, before the live card at the end of a Work chat
+ * (the user's pick): from the task's state (AgentService.handOff), so it
+ * stays while the task is the user's, whatever becomes of the agent's wait
+ * call (a harness may end it early or move it to the background), and goes
+ * at Resume agent or the task's end. Its title is zenius's words for what the
+ * task waits for, as the strip says it; the agent's whole message follows as
+ * its words (isolated, in the ask card's quote), then what Resume agent
+ * clears. Show tab goes to the task's page; Resume agent gives it back.
+ */
+function renderHandOff() {
+  const off = conv?.kind === "work" && !conv.external && !conv.scope ? AgentService.handOff(conv) : null;
+  els.handoff.hidden = !off;
+  if (!off) {
+    return;
+  }
+  els.handoffTitle.textContent = `\u2068${off.name}\u2069 ${off.waits}`;
+  els.handoffWords.hidden = !off.message;
+  els.handoffWords.textContent = off.message ? `\u2068${off.message}\u2069` : "";
+  els.handoffClears.hidden = !off.clears;
+  els.handoffClears.textContent = off.clears ?? "";
+}
+
+/**
  * The card at the end of a work chat: the page the agent is on (its zenius
  * task's front tab), with Watch (while this window watches the task, "⌃Tab
  * back to your tabs" in its place: ⌃Tab is the way back)
@@ -2907,6 +2953,7 @@ function liveState() {
  * follow every change; its picture doesn't (see above).
  */
 function renderLive() {
+  renderHandOff();
   const state = liveState();
   els.live.hidden = !state;
   if (!state) {
@@ -3075,6 +3122,29 @@ els.takeOver.addEventListener("click", () => {
   if (conv) {
     glue.takeOver(conv.uid).then(() => renderLive());
   }
+});
+
+els.handoffShow.addEventListener("click", () => {
+  if (conv) {
+    AgentService.showHandOffTab(conv, window.browsingContext.topChromeWindow).catch(e => console.error(e));
+  }
+});
+
+els.handoffResume.addEventListener("click", () => {
+  const target = conv;
+  if (!target || els.handoffResume.disabled) {
+    return;
+  }
+  // One press: the hand back reloads a page that holds a typed secret first.
+  els.handoffResume.disabled = true;
+  AgentService.handBack(target)
+    .catch(e => console.error(e))
+    .finally(() => {
+      els.handoffResume.disabled = false;
+      if (conv === target) {
+        renderLive();
+      }
+    });
 });
 
 document.addEventListener("visibilitychange", () => {

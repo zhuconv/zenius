@@ -380,6 +380,13 @@ body.busy .msg.user > .actions {
   outline-offset: -1px;
 }
 
+/* What else the agent forgets with this edit (AgentService.editPlan). */
+.editor .edit-loss {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .editor .buttons {
   display: flex;
   align-items: center;
@@ -614,6 +621,29 @@ body.busy .msg.user > .actions {
  * an orange dot while it waits for the user. */
 
 /* Work: the page the agent is on (renderLive), at the end of the thread. */
+/* The agent's hand-off (renderHandOff): the ask card's look (.msg.ask), before
+ * the live card, while the task is the user's. Not a .msg: it's no message of
+ * the thread. */
+#handoff {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 4px;
+  padding: 8px 10px 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--needs-color) 26%, transparent);
+  border-radius: 12px;
+  background: var(--needs-bg);
+}
+
+#handoff[hidden],
+#handoff > [hidden] {
+  display: none;
+}
+
+#handoff-clears {
+  font-size: 12px;
+}
+
 #live {
   margin: 8px 0 4px;
   border: 1px solid var(--line);

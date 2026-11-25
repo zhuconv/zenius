@@ -204,6 +204,7 @@ ${downloads}${PAGE_TEXT}
 ## Handing a step to the user
 
 - Type passwords, codes and card numbers that the user gave you in the chat. When a step needs a sign-in or a code you don't have, or a captcha, use hand_off with a short message, then wait until they resume you.
+- While the user has the task, answer whatever they write first, in the chat: a question gets its answer, not your request again. Ask for their step again only when they ask what to do, or say they're done but haven't pressed Resume agent. When their message ends your wait, wait again with user: true while the step is still theirs.
 - Whenever you need the user's input or a choice only they can make before going on, ask them with your own ask tool (AskUserQuestion, or request_user_input), with the choices as its options, and wait for the answer. Offer options only for real choices: the user can always type an answer of their own. Without such a tool, ask in one short sentence and end your turn.
 - Confirming a payment is the user's step: hand it to them, unless they asked you to complete that purchase.
 - When the user's step will show a secret (an API key, a token, a recovery code, a password), call hand_off with secret: true. zenius clears that tab when the user resumes you, and the reply names it as blanked.
@@ -542,14 +543,31 @@ export function agentEnvironment(agent, overrides = {}) {
  * summarized. Recent models default to "omitted": thinking blocks with no
  * words, so the row could only count seconds. Adaptive thinking is fine on
  * every model Claude Code 2.1.330 lists: the one without it, Haiku 4.5,
- * falls back cleanly. It's this process's env only, never the user's
- * ~/.claude, and the agent's own env in config.json wins.
+ * falls back cleanly.
+ *
+ * Its MCP calls stay in the foreground: CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS 0.
+ * Otherwise a message the user sends while a zenius call runs moves the call
+ * to the background (Claude Code 2.1.286 and later): the call ends at once in
+ * Claude Code's words while it goes on in the server, the turn ends, and the
+ * call's result comes later in a cycle of Claude Code's own, outside every
+ * turn. A wait for the user then hides its hand-off. With 0, Claude Code
+ * 2.1.332 interrupts the call instead, cancels it in the server, and the agent
+ * answers the message in the same turn (both checked with a real run). The
+ * variable is Claude Code's own and may change, so the chat copes with a
+ * moved call all the same (harnessWords, ownWork).
+ *
+ * It's this process's env only, never the user's ~/.claude, and the agent's
+ * own env in config.json wins.
  *
  * @param {Record<string, string>} env
  * @returns {Record<string, string>}
  */
 export function claudeEnvironment(env) {
-  return { ...env, CLAUDE_CODE_THINKING_DISPLAY: env.CLAUDE_CODE_THINKING_DISPLAY ?? "summarized" };
+  return {
+    ...env,
+    CLAUDE_CODE_THINKING_DISPLAY: env.CLAUDE_CODE_THINKING_DISPLAY ?? "summarized",
+    CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS: env.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS ?? "0",
+  };
 }
 
 /** config.json's claudeCode.options, cut to CLAUDE_KEPT_OPTIONS. */

@@ -49,7 +49,20 @@ Prompts are answered according to a keyword in the prompt text:
   SCENARIO:<name>  (zen-sidebar) a scripted browser task through the real
               `zenius mcp` (MOCK_ZENIUS_MCP, on ZENIUS_INSTANCE), each call
               reported as claude-agent-acp reports an MCP tool call:
-              flights, trip, prices, weather (see SCENARIOS)
+              flights, trip, prices, weather, handsteer (see SCENARIOS).
+              handsteer hands off, then waits for the user; a steer moves
+              the running wait to the background as Claude Code 2.1.286
+              and later does (issue #3): the call ends at once with Claude
+              Code's words, its wait goes on in the server, and the agent
+              answers the steer by asking again. When that wait ends (the
+              user's Resume agent), Claude Code goes on in a cycle of its
+              own, with no prompt open, as claude-agent-acp 0.107.0
+              streams one: a message, then a read_page. handsteer-end is the
+              same hand-off as Claude Code runs it with its MCP calls kept in
+              the foreground (CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0): the steer
+              interrupts the wait with Claude Code's words (MESSAGE_ENDED)
+              while the server's wait goes on, and inside the same turn the agent
+              answers, waits again, and goes on once the user resumes it
   BASHSTEP    (zen-sidebar) a Bash call with a description, as Claude Code
               reports `zenius nodejs` before the MCP server
   ECHOTASK:<name>  (zen-sidebar) a shell call that only echoes
@@ -275,6 +288,27 @@ SCENARIOS = {
         ("tool", "wait", {"user": True, "seconds": 600}),
         ("say", "Thanks, I'm in."),
     ],
+    "handsteer": [
+        ("say", "I'll look at your saved trips first."),
+        ("tool", "open", {"url": f"{WWW}/signin.html", "task": "Trip planner"}),
+        ("tool", "hand_off", {"message": "Sign in to Accounts with your work account, not the personal one, then press Resume agent so I can read your saved trips.",
+                              "reason": "other"}),
+        ("background", "wait", {"user": True, "seconds": 600}, [
+            ("say", "Thanks, you're signed in. Reading your saved trips now."),
+            ("tool", "read_page", {}),
+        ]),
+        ("answer", "Please sign in to Accounts in the Trip planner tab, then press Resume agent in Zen so I can see your saved trips."),
+    ],
+    "handsteer-end": [
+        ("say", "I'll look at your saved trips first."),
+        ("tool", "open", {"url": f"{WWW}/signin.html", "task": "Trip planner"}),
+        ("tool", "hand_off", {"message": "Sign in to Accounts with your work account, not the personal one, then press Resume agent so I can read your saved trips.",
+                              "reason": "other"}),
+        ("ends", "wait", {"user": True, "seconds": 600}),
+        ("answer", "Your work account: the one you use for the office. Sign in with it, then press Resume agent."),
+        ("tool", "wait", {"user": True, "seconds": 600}),
+        ("say", "Thanks, I'm in."),
+    ],
     "prices": [
         ("say", "Checking the camera's price at a few shops."),
         ("tool", "open", {"url": f"{WWW}/shop.html", "task": "Price tracker"}),
@@ -366,13 +400,34 @@ def tool_update(session, call_id, full, args, **fields):
 CANCELLED_CALL = {"content": [{"type": "content", "content": {"type": "text",
                   "text": "The turn was cancelled before this tool call returned a result."}}]}
 
+# How claude-agent-acp 0.107.0 ends a running MCP call that a steered message
+# interrupted, when Claude Code 2.1.332 keeps the call in the foreground
+# (CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0), as a real run showed: failed, Claude
+# Code's text fenced, the kind in _meta. Claude Code sends the server
+# notifications/cancelled; zenius's server takes it only after the call, so
+# the call goes on there.
+MESSAGE_ENDED = ("The tool call was interrupted before a result was received. It may or may not have completed "
+                 "on the server \u2014 verify before assuming it succeeded, and retry if needed.")
 
-def run_tool(session, name, args, hold=False, cut_name=None, bare=False):
+# How Claude Code answers a running MCP call that a steered message moved to
+# the background, word for word as the user's daily got it (issue #3); the
+# call goes on in the server.
+BACKGROUNDED = ('MCP tool "zenius/{name}" was moved to the background as task {task} so that a message that arrived '
+                "while it was running can reach you; it was not interrupted and keeps running; you'll receive a "
+                "notification with the result when it completes.")
+
+
+def run_tool(session, name, args, hold=False, cut_name=None, bare=False, background=False, then=(), ends=False):
     """One MCP tool call, reported as claude-agent-acp reports it. With hold,
     the call shows running until the turn is cancelled, then ends as
     claude-agent-acp ends a cut call (with bare, with no result at all). With
     cut_name, a started task's name in the result is cut to that many
-    characters ("…"), as an older `zenius mcp` reported it."""
+    characters ("…"), as an older `zenius mcp` reported it. With background,
+    a steer while the call runs ends it at once with Claude Code's words
+    (BACKGROUNDED), and the call goes on in the server; when it ends there,
+    the steps of `then` run as Claude Code's own cycle (run_cycle). With
+    ends, a steer ends the call at once as failed with MESSAGE_ENDED, and the
+    call goes on in the server."""
     tool_counter[0] += 1
     call_id = f"toolu_{os.getpid()}_{tool_counter[0]}"
     full = f"mcp__zenius__{name}"
@@ -395,6 +450,17 @@ def run_tool(session, name, args, hold=False, cut_name=None, bare=False):
             mcps.pop(session, None)
             tool_update(session, call_id, full, args, status="failed", **CANCELLED_CALL)
             return False
+        if ends and steers.get(session):
+            tool_update(session, call_id, full, args, status="failed",
+                        content=[{"type": "content", "content": {"type": "text", "text": f"```\n{MESSAGE_ENDED}\n```"}}],
+                        _meta={"claudeCode": {"toolName": full, "nonExecutionKind": "interrupted"}})
+            return False
+        if background and steers.get(session):
+            text = BACKGROUNDED.format(name=name, task=f"b{tool_counter[0]}x7k2")
+            tool_update(session, call_id, full, args, status="completed",
+                        content=[{"type": "content", "content": {"type": "text", "text": text}}])
+            threading.Thread(target=run_cycle, args=(session, worker, list(then)), daemon=True).start()
+            return True
         worker.join(0.1)
     result = (box.get("r") or {}).get("result") or {}
     text = "\n".join(c.get("text", "") for c in result.get("content", []) if c.get("type") == "text")
@@ -407,6 +473,31 @@ def run_tool(session, name, args, hold=False, cut_name=None, bare=False):
     tool_update(session, call_id, full, args, status="failed" if failed else "completed",
                 content=[{"type": "content", "content": {"type": "text", "text": shown}}])
     return not failed
+
+
+def run_cycle(session, call, steps):
+    """Claude Code's own cycle: once a call it moved to the background ends
+    in the server (`call`, its thread), its notification starts a model
+    cycle that no prompt asked for, and claude-agent-acp 0.107.0 streams its
+    updates with no turn open (startAutonomousCycle)."""
+    call.join()
+    # A session closed meanwhile took its server with it: nothing goes on.
+    if session in cancelled or session not in mcps:
+        return
+    for step in steps:
+        if step[0] == "say":
+            say(session, step[1], size=16)
+            time.sleep(0.2)
+        elif step[0] == "tool":
+            run_tool(session, step[1], step[2])
+    # Claude Code's result ends the cycle: claude-agent-acp sends its
+    # usage_update, with the cycle's origin.
+    update(session, {
+        "sessionUpdate": "usage_update",
+        "used": 1000,
+        "size": 200000,
+        "_meta": {"_claude/origin": {"kind": "task-notification"}},
+    })
 
 
 def run_scenario(session, name):
@@ -423,6 +514,18 @@ def run_scenario(session, name):
         elif kind == "hold":
             run_tool(session, step[1], step[2], hold=True)
             return "cancelled"
+        elif kind == "ends":
+            run_tool(session, step[1], step[2], ends=True)
+            if session in cancelled:
+                return "cancelled"
+        elif kind == "background":
+            then = step[3] if len(step) > 3 else ()
+            if not run_tool(session, step[1], step[2], background=True, then=then) and session in cancelled:
+                return "cancelled"
+        elif kind == "answer":
+            # The agent takes the steer that reached it, and answers.
+            steers.pop(session, None)
+            say(session, step[1], size=16)
     return "end_turn"
 
 

@@ -550,6 +550,10 @@ test("the agent's process gets none of Zen's environment but a few names, starts
   // the chat's thinking row shows (zen-sidebar, 2026-11-22): this process's
   // only, never the user's ~/.claude.
   assert.equal(start.env.CLAUDE_CODE_THINKING_DISPLAY, "summarized");
+  // Claude Code keeps its MCP calls in the foreground, so a message the user
+  // sends mid-call interrupts the call in the turn rather than moving it to
+  // the background, out of every turn (claudeEnvironment).
+  assert.equal(start.env.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS, "0");
   // Its own zenius commands reach this Zen and write in its working folder,
   // as its zenius server does: never the user's own Zen, the default
   // instance (config.json here names none).
@@ -560,6 +564,7 @@ test("the agent's process gets none of Zen's environment but a few names, starts
     ...Object.keys(config().agents.claude.env),
     ...Object.keys(zenius),
     "CLAUDE_CODE_THINKING_DISPLAY",
+    "CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS",
     "HOME", "USER", "LOGNAME", "SHELL", "PATH", "TMPDIR", "TZ", "LANG", "LANGUAGE", "__CF_USER_TEXT_ENCODING",
     "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "no_proxy", "all_proxy",
     "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR",
@@ -573,16 +578,17 @@ test("the agent's process gets none of Zen's environment but a few names, starts
   assert.deepEqual(readdirSync(dir).filter(f => /options|cache/i.test(f)), [], "no cache beside config.json");
 });
 
-test("Claude Code's thinking comes as summaries (CLAUDE_CODE_THINKING_DISPLAY), unless the agent's own env in config.json says otherwise", async () => {
+test("Claude Code's thinking comes as summaries (CLAUDE_CODE_THINKING_DISPLAY) and its MCP calls stay in the foreground (CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS 0), unless the agent's own env in config.json says otherwise", async () => {
   const out = await chrome(`
     const W = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/workspace.sys.mjs");
+    const own = W.claudeEnvironment({ CLAUDE_CODE_THINKING_DISPLAY: "omitted", CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS: "120000" });
     return {
       none: W.claudeEnvironment({ PATH: "/bin" }),
-      own: W.claudeEnvironment({ CLAUDE_CODE_THINKING_DISPLAY: "omitted" }).CLAUDE_CODE_THINKING_DISPLAY,
+      own: [own.CLAUDE_CODE_THINKING_DISPLAY, own.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS],
     };
   `);
-  assert.deepEqual(out.none, { PATH: "/bin", CLAUDE_CODE_THINKING_DISPLAY: "summarized" });
-  assert.equal(out.own, "omitted");
+  assert.deepEqual(out.none, { PATH: "/bin", CLAUDE_CODE_THINKING_DISPLAY: "summarized", CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS: "0" });
+  assert.deepEqual(out.own, ["omitted", "120000"]);
 });
 
 test("Claude Code's thinking switch was checked against the pinned claude-agent-acp and SDK: moving either pin needs a real turn's check again that the thinking still comes as summaries", () => {
@@ -670,6 +676,7 @@ test("Codex is on by default, its limits merged in memory with zenius's server i
   for (const [codex, s, search] of [[chatConfig, starts[0], "cached"], [workConfig, starts[1], "live"]]) {
     assert.equal(s.env.INITIAL_AGENT_MODE, "read-only");
     assert.equal(s.env.CLAUDE_CODE_THINKING_DISPLAY, undefined, "Claude Code's switch only");
+    assert.equal(s.env.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS, undefined, "Claude Code's switch only");
     assert.equal(codex.sandbox_mode, "read-only");
     assert.equal(codex.sandbox_workspace_write.network_access, false);
     for (const feature of ["shell_tool", "unified_exec", "view_image", "plugins", "apps", "multi_agent"]) {
@@ -970,6 +977,57 @@ test("Codex Work chats' processes stay within uc.agent-sidebar.open-sessions whe
   } finally {
     rmSync(file, { force: true });
   }
+});
+
+test("the open-sessions limit and the idle stop never close a session in use, one whose agent works on its own or whose call Claude Code moved to the background, however long since its turn: a chat that opens meanwhile opens over the limit, the sweep closes the extra one as soon as it isn't in use, and no more than that", async () => {
+  const out = await chrome(
+    `Services.prefs.setBoolPref("zenius.agentSidebar.allowCodex", true);
+     const made = [];
+     const open = () => made.map(c => !!c.sessionId);
+     try {
+       for (let i = 0; i < 2; i++) {
+         const conv = A.createTask({ harness: "codex" });
+         made.push(conv);
+         await A.ensureSession(conv);
+       }
+       const [own, moved] = made;
+       // The least recently used, but in use: its agent works on its own
+       // (updates with no turn open), or a call Claude Code moved to the
+       // background may still run in it.
+       own.lastUsed = moved.lastUsed = Date.now() - 60 * 60000;
+       own.ownWork = true;
+       moved.movedUntil = Date.now() + 30 * 60000;
+       const third = A.createTask({ harness: "codex" });
+       made.push(third);
+       await A.ensureSession(third);
+       const atOpen = open();
+       // The sweep: the third, not in use, closes at once.
+       A.sweep();
+       const swept = open();
+       // Twenty minutes on, past the idle stop's 10, it leaves the two in use
+       // too (the moved call may run for 30 more).
+       A.sweep(Date.now() + 20 * 60000);
+       const idleStop = open();
+       // Their work over, the limit closes neither: two open sessions are
+       // within it.
+       A.endOwnWork(own);
+       moved.movedUntil = 0;
+       A.sweep();
+       return { atOpen, swept, idleStop, after: open(), ownWork: own.ownWork };
+     } finally {
+       for (const conv of made) {
+         const conn = conv.conn;
+         A.removeTask(conv);
+         A.forget(conv);
+         if (conn && !conn.exited) A.stop(conn);
+       }
+     }`
+  );
+  assert.deepEqual(out.atOpen, [true, true, true], "the third opens over the limit: the others are in use");
+  assert.deepEqual(out.swept, [true, true, false], "the sweep closes the one not in use, the newest though it is");
+  assert.deepEqual(out.idleStop, [true, true, false], "the idle stop never stops a process whose session is in use");
+  assert.deepEqual(out.after, [true, true, false], "two open sessions, within the limit: nothing more closes");
+  assert.equal(out.ownWork, false);
 });
 
 test("an agent's error notice shows in the chat as a note, where its warnings stay out", async () => {

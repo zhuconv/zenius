@@ -2270,6 +2270,335 @@ test("a Work chat's hand-off through zenius's MCP tool carries its reason: the s
   assert.deepEqual(out.strip, { label: `${name} needs a sign-in`, title: `${name} needs a sign-in`, who: name });
 });
 
+// Issue #3, R1, from the user's daily: the user wrote while the agent waited
+// for them after its hand-off. Claude Code (2.1.286 and later) moved the
+// running wait to the background so the message could reach the agent, and
+// answered the call at once in its own words while the wait went on in the
+// server; the agent then asked again. The mock's handsteer scene does the
+// same through the real zenius server.
+const HANDSTEER = "Sign in to Accounts with your work account, not the personal one, then press Resume agent so I can read your saved trips.";
+
+test("a steer while the agent waits for the user after its hand-off (issue #3): Claude Code moves the wait to the background and answers it in its own words, but the step keeps its own and waits on while the task is the user's, and the chat shows the agent's whole hand-off message until Resume agent, on a card whose Show tab shows the task's page", async () => {
+  await useMock();
+  const out = await chrome(`
+    const g = win.ucAgentSidebar;
+    const AS = g.AgentService;
+    await S.openPanel();
+    const doc = S.panelDoc();
+    const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
+    const userSpace = win.gZenWorkspaces.activeWorkspace;
+    const userTab = win.gBrowser.selectedTab;
+    const uid = await startWorkChat(win, { text: "SCENARIO:handsteer", source: "new" });
+    const conv = AS.tasks.get(uid);
+    const res = { space: null };
+    let rec = null;
+    const wait = () => conv.messages.find(m => m.role === "tool" && m.zen === "wait");
+    const seen = () => ({
+      wait: { status: wait()?.status ?? null, step: wait()?.step ?? null },
+      steps: [...doc.querySelectorAll(".steps > .step")].map(el => [el.querySelector(".label")?.textContent ?? "", el.dataset.status]),
+      task: { state: conv.task.state, why: conv.task.why ?? null },
+      live: doc.getElementById("live-text")?.textContent ?? null,
+      whole: doc.body.textContent.includes(${JSON.stringify(HANDSTEER)}),
+    });
+    try {
+      g.showTask(conv);
+      await S.until(() => AS.zenRecord(conv)?.ownership === "agentDelegatedToUser" && wait()?.status === "in_progress", 60000);
+      rec = AS.zenRecord(conv);
+      res.space = rec.id;
+      await S.sleep(500);
+      res.before = seen();
+      await AS.steer(conv, { question: "Which account do you mean, work or personal?" });
+      await S.until(() => !conv.busy, 30000);
+      await S.sleep(500);
+      res.after = seen();
+      res.held = AS.isHeld(conv);
+      res.answer = conv.messages.findLast(m => m.role === "assistant")?.text ?? null;
+      // The card's Show tab: the task's page, in this window.
+      const front = AS.zenFrontTab(conv);
+      doc.getElementById("handoff-show").click();
+      await S.until(() => win.gBrowser.selectedTab === front, 5000).catch(() => {});
+      res.show = { tab: win.gBrowser.selectedTab === front, space: win.gZenWorkspaces.activeWorkspace === rec.uuid };
+    } finally {
+      AS.cancel(conv);
+      await S.until(() => !conv.busy, 10000).catch(() => {});
+      if (g.watching) await g.stopWatching();
+      if (win.gZenWorkspaces.activeWorkspace !== userSpace) await win.gZenWorkspaces.changeWorkspaceWithID(userSpace);
+      if (userTab.isConnected) win.gBrowser.selectedTab = userTab;
+      // The chat goes first, with its session and server, so the wait that
+      // went on there ends with them and no cycle of Claude Code's follows.
+      AS.removeTask(conv);
+      if (rec && rec.ownership !== "agent") ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+      g.setMode("chat");
+    }
+    return res;
+  `);
+  if (out.space) {
+    await h.call("spaces.finish", { space: out.space, keep: [] }).catch(() => {});
+  }
+  const waiting = "Wait for the user to resume the agent";
+  assert.deepEqual(out.before?.wait, { status: "in_progress", step: waiting }, JSON.stringify(out));
+  assert.equal(out.held, "handoff", "nobody pressed Resume agent: the task is still the user's");
+  assert.match(out.answer ?? "", /press Resume agent/, "the agent answered the steer");
+  assert.deepEqual(
+    { step: out.after.wait.step, mark: out.after.steps.find(([label]) => label.startsWith("Wait") || label.startsWith("MCP tool"))?.[1] ?? null },
+    { step: waiting, mark: "waiting" },
+    `Claude Code's words aren't zenius's step, and the wait goes on in the server: ${JSON.stringify(out.after)}`
+  );
+  assert.deepEqual(out.after.task, { state: "needs", why: "handoff" });
+  assert.equal(out.before.whole, true, "the chat shows the agent's whole hand-off message while the task is the user's");
+  assert.equal(out.after.whole, true, "and still after the steer");
+  assert.deepEqual(out.show, { tab: true, space: true }, "Show tab shows the task's page");
+});
+
+test("after a steer moved the hand-off's wait to the background, the user's Resume agent ends that wait in the server and Claude Code goes on in a cycle of its own, with no prompt open (issue #3): the chat shows what the agent says and does then", async () => {
+  await useMock();
+  const out = await chrome(`
+    const g = win.ucAgentSidebar;
+    const AS = g.AgentService;
+    await S.openPanel();
+    const doc = S.panelDoc();
+    const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
+    const uid = await startWorkChat(win, { text: "SCENARIO:handsteer", source: "new" });
+    const conv = AS.tasks.get(uid);
+    const res = { space: null };
+    let rec = null;
+    const wait = () => conv.messages.find(m => m.role === "tool" && m.zen === "wait");
+    const said = () => conv.messages.some(m => m.role === "assistant" && m.text.includes("Reading your saved trips now."));
+    const read = () => conv.messages.find(m => m.role === "tool" && m.zen === "read_page");
+    try {
+      g.showTask(conv);
+      await S.until(() => AS.zenRecord(conv)?.ownership === "agentDelegatedToUser" && wait()?.status === "in_progress", 60000);
+      rec = AS.zenRecord(conv);
+      res.space = rec.id;
+      await AS.steer(conv, { question: "Which account do you mean, work or personal?" });
+      await S.until(() => !conv.busy, 30000);
+      // The user signs in and presses Resume agent.
+      ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+      await S.until(() => conv.ownWork, 30000).catch(() => {});
+      res.working = { own: !!conv.ownWork, inUse: AS.inUse(conv) };
+      await S.until(() => said() && read()?.status === "completed", 30000).catch(() => {});
+      // Claude Code's result (its usage_update) ends the cycle.
+      await S.until(() => !conv.ownWork, 10000).catch(() => {});
+      await S.sleep(300);
+      res.said = said();
+      res.read = read()?.status ?? null;
+      res.shown = doc.getElementById("messages").textContent.includes("Reading your saved trips now.");
+      res.ended = { own: !!conv.ownWork, inUse: AS.inUse(conv) };
+    } finally {
+      AS.cancel(conv);
+      await S.until(() => !conv.busy, 10000).catch(() => {});
+      AS.removeTask(conv);
+      if (rec && rec.ownership !== "agent") ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+      g.setMode("chat");
+    }
+    return res;
+  `);
+  if (out.space) {
+    await h.call("spaces.finish", { space: out.space, keep: [] }).catch(() => {});
+  }
+  assert.deepEqual({ said: out.said, read: out.read, shown: out.shown }, { said: true, read: "completed", shown: true }, JSON.stringify(out));
+  assert.deepEqual(out.working, { own: true, inUse: true }, "the cycle is the agent's own work: the session is in use");
+  assert.deepEqual(out.ended, { own: false, inUse: false }, "Claude Code's result ends it");
+});
+
+test("a steer while the agent waits for the user after its hand-off, with Claude Code keeping MCP calls in the foreground (the sidebar's setting): the wait ends for the message and shows stopped under its own words, the agent answers and waits again in the same turn, the hand-off card keeps the agent's whole message, and its Resume agent lets the agent go on", async () => {
+  await useMock();
+  const out = await chrome(`
+    const g = win.ucAgentSidebar;
+    const AS = g.AgentService;
+    await S.openPanel();
+    const doc = S.panelDoc();
+    const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
+    const uid = await startWorkChat(win, { text: "SCENARIO:handsteer-end", source: "new" });
+    const conv = AS.tasks.get(uid);
+    const res = { space: null };
+    let rec = null;
+    const waits = () => conv.messages.filter(m => m.role === "tool" && m.zen === "wait");
+    const marks = () => [...doc.querySelectorAll(".steps > .step")]
+      .map(el => [el.querySelector(".label")?.textContent ?? "", el.dataset.status])
+      .filter(([label]) => label.startsWith("Wait") || label.startsWith("[Tool call"));
+    const card = () => {
+      const block = doc.getElementById("handoff");
+      return { shown: !!block && !block.hidden, whole: !!block && !block.hidden && block.textContent.includes(${JSON.stringify(HANDSTEER)}) };
+    };
+    try {
+      g.showTask(conv);
+      await S.until(() => AS.zenRecord(conv)?.ownership === "agentDelegatedToUser" && waits()[0]?.status === "in_progress", 60000);
+      rec = AS.zenRecord(conv);
+      res.space = rec.id;
+      await AS.steer(conv, { question: "Which account do you mean, work or personal?" });
+      await S.until(() => waits()[1]?.status === "in_progress", 30000);
+      await S.sleep(500);
+      res.steered = {
+        first: { status: waits()[0].status, step: waits()[0].step },
+        marks: marks(),
+        busy: conv.busy,
+        answer: conv.messages.findLast(m => m.role === "assistant")?.text ?? null,
+        card: card(),
+      };
+      // The user signs in and presses the card's Resume agent.
+      const resume = doc.getElementById("handoff-resume");
+      res.button = !!resume && !resume.hidden;
+      if (res.button) {
+        resume.click();
+      } else {
+        ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+      }
+      await S.until(() => !conv.busy, 30000);
+      await S.sleep(300);
+      res.end = {
+        said: conv.messages.some(m => m.role === "assistant" && m.text.includes("Thanks, I'm in.")),
+        marks: marks(),
+        card: card(),
+        owner: AS.zenRecord(conv)?.ownership ?? null,
+      };
+    } finally {
+      AS.cancel(conv);
+      await S.until(() => !conv.busy, 10000).catch(() => {});
+      AS.removeTask(conv);
+      if (rec && rec.ownership !== "agent") ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+      g.setMode("chat");
+    }
+    return res;
+  `);
+  if (out.space) {
+    await h.call("spaces.finish", { space: out.space, keep: [] }).catch(() => {});
+  }
+  const waiting = "Wait for the user to resume the agent";
+  assert.ok(out.steered, JSON.stringify(out));
+  assert.equal(out.steered.busy, true, "the steer stays in the sidebar's turn");
+  assert.match(out.steered.answer ?? "", /work account/, "the agent answered the question");
+  assert.deepEqual(out.steered.first, { status: "failed", step: waiting }, JSON.stringify(out.steered));
+  assert.deepEqual(out.steered.marks, [[waiting, "stopped"], [waiting, "waiting"]], "ended for the message, not failed; the new wait waits");
+  assert.deepEqual(out.steered.card, { shown: true, whole: true }, "the hand-off card shows the agent's whole message");
+  assert.equal(out.button, true, "the card has Resume agent");
+  assert.deepEqual(out.end, { said: true, marks: [[waiting, "stopped"], [waiting, "done"]], card: { shown: false, whole: false }, owner: "agent" }, JSON.stringify(out.end));
+});
+
+test("where an edit takes the agent back (editPlan): to the newest answer (or, with Claude Code, thought) of its session, in a turn that ended, that nothing finished after before the user's next message; it keeps everything when only steps the edit's message cut short or moved lie between, and otherwise counts the steps and messages the agent forgets, all of them when no such point exists", async () => {
+  const out = await chrome(`
+    const { editPlan, editLossText } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentService.sys.mjs");
+    const lineage = new Set(["s1"]);
+    const U = (text, after = { instructed: true, instructedBy: "system" }) => ({ role: "user", text, after });
+    const A = (id, session = "s1") => ({ role: "assistant", text: "Answer " + id, messageId: id, session });
+    const T = (status, more = {}) => ({ role: "tool", status, ...more });
+    const Th = id => ({ role: "thought", text: "Thinking", messageId: id, session: "s1" });
+    const cut = T("failed", { cut: true, cutShort: true, nonExecution: "interrupted" });
+    const plan = (messages, more = {}) => {
+      const r = editPlan(messages, messages.length - 1, { lineage, ...more });
+      return { point: r.point?.messageId ?? null, lost: r.lost };
+    };
+    return {
+      ended: plan([U("q1"), A("m1"), U("q2")]),
+      cutByIt: plan([U("q1"), A("m1"), cut, U("steer")]),
+      moved: plan([U("q1"), A("m1"), T("completed", { moved: true }), U("steer")]),
+      toolOnly: plan([U("q0"), A("m0"), U("q1"), A("m1"), T("completed"), T("completed"), cut, U("steer")]),
+      thought: plan([U("q1"), A("m1"), T("completed"), Th("m2"), T("completed", { moved: true }), U("steer")], { thoughts: true }),
+      noThought: plan([U("q1"), A("m1"), T("completed"), Th("m2"), T("completed", { moved: true }), U("steer")]),
+      first: plan([U("q1")]),
+      otherSession: plan([U("q1"), A("m1", "s0"), U("q2")]),
+      unended: plan([U("q1", null), A("m1"), U("q2")]),
+      asked: plan([U("q1"), A("m1"), { role: "ask", answer: "Yes" }, U("steer")]),
+      refused: plan([U("q1"), A("m1"), T("failed", { cut: true, nonExecution: "user-rejected" }), U("steer")]),
+      hidden: plan([U("q1"), A("m1"), T("completed", { hidden: true }), U("steer")]),
+      texts: {
+        back: editLossText({ point: { messageId: "m0" }, lost: { steps: 3, messages: 2 } }, true),
+        over: editLossText({ point: null, lost: { steps: 1, messages: 1 } }, false),
+        hidden: editLossText({ point: { messageId: "m0" }, lost: { steps: 0, messages: 0 } }, true),
+        none: editLossText({ point: { messageId: "m1" }, lost: null }, true),
+      },
+    };
+  `);
+  assert.deepEqual(out.ended, { point: "m1", lost: null }, "a question after an ended turn");
+  assert.deepEqual(out.cutByIt, { point: "m1", lost: null }, "a steer that cut the running step: the fork's own words say it was cut");
+  assert.deepEqual(out.moved, { point: "m1", lost: null }, "a step Claude Code moved to the background");
+  assert.deepEqual(out.toolOnly, { point: "m0", lost: { steps: 3, messages: 2 } }, "issue #3: the steps after the turn's first answer finished, so it's no point; the turn before is");
+  assert.deepEqual(out.thought, { point: "m2", lost: null }, "Claude Code's thought starts the API message of the step the steer moved");
+  assert.deepEqual(out.noThought, { point: null, lost: { steps: 2, messages: 2 } }, "no thoughts as points (Codex): nothing to go back to");
+  assert.deepEqual(out.first, { point: null, lost: null });
+  assert.deepEqual(out.otherSession, { point: null, lost: { steps: 0, messages: 2 } }, "an answer the session doesn't hold");
+  assert.deepEqual(out.unended, { point: null, lost: { steps: 0, messages: 2 } }, "a turn that never ended");
+  assert.deepEqual(out.asked, { point: null, lost: { steps: 0, messages: 3 } }, "the user's answer to the agent's question");
+  assert.deepEqual(out.refused, { point: null, lost: { steps: 1, messages: 2 } }, "a refused call: the agent was told no");
+  assert.deepEqual(out.hidden, { point: null, lost: { steps: 0, messages: 2 } }, "a hidden step (ToolSearch) finished too");
+  assert.equal(out.texts.back, "Sending this edit takes the agent back before the last 3 steps and 2 messages above, and it forgets them. The pages stay as they are. To keep them, send a new message instead.");
+  assert.equal(out.texts.over, "Sending this edit starts the agent over, and it forgets the 1 step and 1 message above. To keep them, send a new message instead.");
+  assert.equal(out.texts.hidden, "Sending this edit takes the agent back to an earlier point, and it forgets what it did since. The pages stay as they are. To keep it, send a new message instead.");
+  assert.equal(out.texts.none, null);
+});
+
+test("editing a message sent mid-turn after the agent's own steps (issue #3: a steer during its hand-off's wait): the edit box says first what the agent forgets, the steps and messages since its last answer that ended a turn; the edit forks there, not at the turn's first answer, whose fork would drop the steps' results, and the thread notes it; the question right after an ended turn edits with nothing else forgotten", async () => {
+  await useMock();
+  const STEER = "Which account do you mean, work or personal?";
+  const out = await chrome(`
+    const g = win.ucAgentSidebar;
+    const AS = g.AgentService;
+    await S.openPanel();
+    const doc = S.panelDoc();
+    const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
+    const uid = await startWorkChat(win, { text: "Hello", source: "new" });
+    const conv = AS.tasks.get(uid);
+    const res = { space: null };
+    let rec = null;
+    const waits = () => conv.messages.filter(m => m.role === "tool" && m.zen === "wait");
+    const question = text => [...doc.querySelectorAll("#messages .msg.user")].find(el => el.querySelector(".text")?.textContent === text);
+    const edit = async text => {
+      await S.until(() => question(text)?.querySelector('[data-action="edit"]'), 5000);
+      question(text).querySelector('[data-action="edit"]').click();
+      await S.until(() => doc.querySelector(".editor textarea"), 3000);
+      return doc.querySelector(".editor .edit-loss")?.textContent ?? null;
+    };
+    try {
+      g.showTask(conv);
+      await S.until(() => !conv.busy && conv.messages.some(m => m.role === "assistant"), 30000);
+      res.first = conv.messages.find(m => m.role === "assistant").messageId;
+      const turn = AS.send(conv, { question: "SCENARIO:handsteer-end" });
+      await S.until(() => AS.zenRecord(conv)?.ownership === "agentDelegatedToUser" && waits()[0]?.status === "in_progress", 60000);
+      rec = AS.zenRecord(conv);
+      res.space = rec.id;
+      await AS.steer(conv, { question: ${JSON.stringify(STEER)} });
+      await S.until(() => waits()[1]?.status === "in_progress", 30000);
+      ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+      await turn;
+      await S.until(() => !conv.busy, 30000);
+      await S.sleep(300);
+      res.plain = await edit("SCENARIO:handsteer-end");
+      doc.querySelector(".editor .cancel").click();
+      await S.sleep(100);
+      res.line = await edit(${JSON.stringify(STEER)});
+      res.described = doc.querySelector(".editor textarea").getAttribute("aria-describedby");
+      doc.querySelector(".editor textarea").value = "Which account, work or personal? I'm about to take a screenshot.";
+      doc.querySelector(".editor .send").click();
+      await S.until(() => conv.busy, 5000).catch(() => {});
+      await S.until(() => !conv.busy, 30000);
+      await S.sleep(300);
+      res.after = {
+        roles: conv.messages.map(m => m.role),
+        note: conv.messages.findLast(m => m.role === "note")?.text ?? null,
+        last: conv.messages.at(-1)?.text ?? null,
+      };
+    } finally {
+      AS.cancel(conv);
+      await S.until(() => !conv.busy, 10000).catch(() => {});
+      AS.removeTask(conv);
+      if (rec && rec.ownership !== "agent") ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+      g.setMode("chat");
+    }
+    return res;
+  `);
+  if (out.space) {
+    await h.call("spaces.finish", { space: out.space, keep: [] }).catch(() => {});
+  }
+  assert.equal(out.plain, null, "the question after an ended turn: nothing else is forgotten");
+  assert.equal(out.line, "Sending this edit takes the agent back before the last 3 steps and 2 messages above, and it forgets them. The pages stay as they are. To keep them, send a new message instead.", JSON.stringify(out));
+  assert.equal(out.described, "edit-loss");
+  const forks = mockLog().filter(m => m.method === "session/fork");
+  assert.equal(forks.at(-1)?.params?._meta?.jetbrains?.air?.fork?.messageId, out.first, "back to the first turn's answer, the newest point");
+  assert.deepEqual(out.after.roles, ["user", "assistant", "user", "assistant", "tool", "tool", "tool", "note", "user", "assistant"], JSON.stringify(out.after));
+  assert.equal(out.after.note, "The agent went back before the last 3 steps and 2 messages above, and forgot them.");
+  assert.match(out.after.last ?? "", /^Echo: Which account, work or personal\? I'm about to take a screenshot\./);
+});
+
 test("a remote task says which of the user's agents sent it: 'From <label> on <address>' over its question, on its live card and on its directory row, whose search finds it by the address", async () => {
   await useMock();
   const out = await chrome(`
@@ -2363,6 +2692,10 @@ test("the sidebar agent's rules, in its work prompt and in its folder's CLAUDE.m
     assert.match(text, /Use a tab when the user should see the page, or it needs their sign-in: fetched pages carry none\./, where);
   }
   assert.match(out.work.claude, /blanked/);
+  // Issue #3: while the user has the task, their message gets its answer,
+  // not the agent's request again, and the agent then waits on.
+  assert.match(out.work.claude, /While the user has the task, answer whatever they write first, in the chat: a question gets its answer, not your request again\./);
+  assert.match(out.work.claude, /wait again with user: true while the step is still theirs/);
   assert.match(out.chat, /Your only tools here are web search and web fetch\./);
   assert.match(out.chat, hidden);
   assert.doesNotMatch(out.chat, /You have no tools here/);

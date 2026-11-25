@@ -188,6 +188,32 @@ stable, and a change to one is announced to zen-eval first.
   the next message grows), until the user scrolls up: from there it stays
   where they put it, as before (panel.js's `followUp`, `following`). The
   move is instant.
+- **Editing a message**: Edit on any of the user's messages, a steer's too,
+  asks again from there. The message and everything after it leave the
+  chat. The agent's session goes back with `session/fork` to a point before
+  it (`AgentService.editPlan`), in a new process for a Work chat, and the
+  old session is closed.
+  - The fork copies the session up to the whole API message its point
+    names. claude-agent-acp keys that message by the id its text chunks
+    carry, and its thinking chunks too, but never a tool call.
+  - So a point is an answer, or with Claude Code a thought (saved with its
+    `messageId`), of a session the chat's descends from, in a turn that
+    ended. Until the user's next message, nothing may follow it but
+    thoughts, notes and steps that never finished: cut short (by a Stop,
+    a message or the session's end) or moved to the background.
+  - Why: a finished step's result would be lost. A step in the point's own
+    API message would come back as cut short by the session's end, so the
+    agent might do it again.
+  - The newest point keeps everything the agent did before the edited
+    message when nothing else lies between them: a question after an
+    ended turn, or a steer that cut the step it came during.
+  - Otherwise, as for a steer sent after the agent's own steps (issue #3),
+    the edit box says under the box what the agent forgets: "Sending this
+    edit takes the agent back before the last 3 steps and 2 messages above,
+    and it forgets them. The pages stay as they are. To keep them, send a
+    new message instead." The edit goes back to the newest point, or, with
+    none, starts a new session. A note where the edit goes says the same,
+    since those steps and messages stay on screen.
 - **What AgentService keeps holds no panel**, or the panel would leak. An
   object a panel made keeps that panel's whole window, about
   0.9 MB, for as long as anything holds it. So AgentService keeps its own
@@ -240,6 +266,30 @@ stable, and a change to one is announced to zen-eval first.
   cancelled before this tool call returned a result."), or that failed with
   no result at all (codex-acp's, when Codex gives an interrupted call none).
   The mock's held steps end on Stop as claude-agent-acp's do.
+  - Claude Code's own words for a call it ended or moved are never a step's
+    text (`harnessWords`; Claude Code 2.1.332's texts, and
+    claude-agent-acp's `nonExecutionKind` `interrupted` or `cancelled`). The
+    step keeps the call's own text, with those words folded under it.
+  - A call ended short of its result shows as stopped, whoever ended it:
+    the user's message ("The tool call was interrupted before a result was
+    received..."), a message delivered at the turn's end, or the end of the
+    session that ran it.
+  - A call Claude Code moved to the background ("MCP tool ... was moved to
+    the background as task ...") goes on in the server. Its step shows as
+    done, except a wait for the user, which shows as waiting while the task
+    is the user's. Its result comes back later as the agent's own work
+    (below), and its session stays in use meanwhile (Sessions, under State).
+- **The agent's own work**: updates that come while no turn of the
+  sidebar's is open show in the chat as they come, as a turn's do. Claude
+  Code sends them when a call it moved to the background ends: its
+  notification starts a cycle of Claude Code's own, which claude-agent-acp
+  streams with no prompt open. Meanwhile the chat counts as working
+  (`conv.ownWork`: running steps, the directory, zenius's strip), until the
+  `usage_update` claude-agent-acp sends with Claude Code's result ends the
+  cycle. Without one, it ends after 2 minutes with no update and no call of
+  it running, at most 11. The user's next message takes it over as its
+  turn. Not while a session opens (a load replays its history as updates),
+  nor after the user's Stop.
 - **Live card, Watch and Take over**: at the end of a work chat, once its
   task has a tab, a picture of the page the agent is on (zenius's front tab
   of the task): one when the card appears (or the task moves to another
@@ -291,6 +341,23 @@ stable, and a change to one is announced to zen-eval first.
     gives the task back. A queued message, the glue's `submit`, a remote
     task's send, an agent's hand-off and a permission hold give nothing
     back.
+  - **The agent's hand-off** is a card in the ask card's look, before the
+    live card (`#handoff`, `renderHandOff`, `AgentService.handOff`), while
+    the task is the user's by the agent's hand_off. It shows:
+    - what the task waits for, in zenius's strip's words ("Trip planner
+      needs a sign-in", `waitText`);
+    - the agent's whole message, as its words: the task's own
+      (`stateText`, which a hand-off made in a script sets too), else the
+      hand_off call's;
+    - what Resume agent clears first, in zenius's tasks panel's words;
+    - Show tab (zenius's `goToTask`, the task's page) and Resume agent
+      (zenius's own path, `ZeniusUI.handBackByUser`).
+
+    It follows the task's state, not the agent's wait call, so it stays
+    until Resume agent or the task's end, whatever becomes of that call: a
+    harness may end it early for the user's message, or move it to the
+    background. A page's permission prompt holds the task too, but shows
+    no card: answering the prompt ends that hold.
 
   While zenius reports a Take over refused ("Can't take over this page"),
   the card hides Take over: zenius's card on the page holds the choices,
@@ -537,6 +604,8 @@ The panel (`panel.html`, its own document, so bare ids):
 | `#stop`, `#send` | One shows at a time |
 | `#earlier` > `#earlier-text`, `#earlier-open` | In the empty Chat view, first: an earlier chat about this page, "Earlier chat about this page, 2 days ago", and Open; `title` is the chat's first question. Hidden when there's none |
 | `.steps > .step[data-status] > .label` | Steps; `data-status` is `done`, `running`, `failed`, `waiting` (for the user) or `stopped` |
+| `.msg.user.editing` > `.editor` > `textarea`, `#edit-loss.edit-loss`, `.buttons` > `.cancel`, `.send` | A message being edited (Editing a message): its box, the line saying what else the agent forgets (only when it does; the box's `aria-describedby`), Cancel and Send |
+| `#handoff[role=group]` > `#handoff-title`, `#handoff-words`, `#handoff-clears`, `#handoff-show`, `#handoff-resume` | The agent's hand-off while the task is the user's, before the live card, in the ask card's look (`.msg.ask`): what the task waits for ("<task> needs a sign-in"), the agent's whole message, what Resume agent clears (hidden when nothing), Show tab and Resume agent |
 | `.msg.thought` (`.live`) > `summary` or `.line` > `.head`, `.time`; `details > .body` | A stretch of the agent's thinking: "Thinking for 12 s, <title>" while `.live`, then "Thought for 23 s". `.head` clamps to two lines, and the line's `title` is the whole title. With words, a `details` whose `.body` is what it thought. After a step, it's inside `.steps` |
 | `.msg.assistant > .actions` | Copy and save: one row per turn, on its last part, once the turn has ended |
 | `html[data-external="true"]`, `.ext-view[data-state]` | A task the sidebar doesn't drive (`external.sys.mjs`: every zenius task shows in the sidebar), opened: read-only, so the question box shows only `#ext-bar`. `data-state` is the task's `working`, `needs` or `done` |
@@ -706,7 +775,23 @@ Firefox's Actions restrict token and shows no row.
   in Chinese when Zen's UI is in Chinese),
   `uc.agent-sidebar.debug`, `uc.agent-sidebar.width` (the panel's width as
   the user last dragged it, in px; 420 until then; the box takes it as the
-  browser shows the panel, before its first paint, with the panel's look).
+  browser shows the panel, before its first paint, with the panel's look),
+  `uc.agent-sidebar.idle-minutes` and `uc.agent-sidebar.open-sessions`
+  (Sessions, below).
+- **Sessions**: an agent's process stops once no session in it has been
+  used for `uc.agent-sidebar.idle-minutes` (10; 0 never), and at most
+  `uc.agent-sidebar.open-sessions` (2) sessions per agent stay open: the
+  least recently used close (`park`). A closed session resumes with its
+  next question.
+  - Neither ever closes a session in use (`inUse`): while its turn runs or
+    it opens, while its agent works on its own (above), and for up to 11
+    minutes after Claude Code moved one of its calls to the background,
+    until that call's result comes. Closing it then would cut what the
+    agent does, and Claude Code reports the cut call as the session's end.
+  - So a chat that opens while the others are in use opens over the limit,
+    never closing a busy one. The sweep (every 30 s) closes the extra
+    sessions as soon as they're not in use, least recently used first,
+    and no more: the limit keeps no session open for any other reason.
 - The agents come from `config.json`, by default
   `~/Library/Application Support/zenius-agent-sidebar/config.json`, in the
   sidebar's own folder, which it only reads.
@@ -776,6 +861,18 @@ read.
   sets `settingSources: ["project"]`, `strictMcpConfig: true`, and
   disallows Bash, Edit, MultiEdit, Write, NotebookEdit, Read, Glob, Grep
   and Task.
+- Claude Code's process keeps its MCP calls in the foreground
+  (`CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0` in its env, `claudeEnvironment`,
+  unless config.json's agent env sets it). Otherwise, from Claude Code
+  2.1.286, a message the user sends while a zenius call runs moves the call
+  to the background: the call ends at once in Claude Code's words while it
+  goes on in the server, the turn ends, and the call's result comes later,
+  outside every turn. A wait for the user then hid its hand-off. With 0,
+  Claude Code 2.1.332 interrupts the call, sends the server
+  `notifications/cancelled`, and the agent answers the message in the same
+  turn (both checked with a real run). The variable is Claude Code's own and
+  may change, so the chat copes with a moved call too (Steps, The agent's
+  own work).
 - Web search and fetch are on in Chat and Work, since they only read and an
   answer often needs more than the page: Claude Code's WebSearch and
   WebFetch, allowed without asking, are Chat's only tools besides zenius's
