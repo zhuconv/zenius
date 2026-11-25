@@ -29,7 +29,7 @@ const opened = [];
 const track = page => (opened.push(page), page);
 const homePage = async () => track(await h.newPageAt(task, `${h.baseUrl}/?run=${Date.now()}`));
 
-// A test that put the agent's mouse on the real mouse's pointer id (shareMousePointerId).
+// A test that set the agent's pointer id (setAgentPointerId, shareMousePointerId).
 let pointerShared = false;
 
 afterEach(async () => {
@@ -2137,6 +2137,52 @@ test("the cursor's label is Ego's for a click or dblclick that names none, and o
   });
 });
 
+test("the agent's mouse events carry its own pointer id, the held move of a drag between frames included; the pref set to Gecko's pen or touch id keeps it, and 0 gives the real mouse's", { timeout: 60_000 }, async () => {
+  const page = await homePage();
+  await page.evaluate(async src => {
+    const frame = Object.assign(document.createElement("iframe"), { id: "id-frame", src });
+    frame.style.cssText = "position:fixed;left:460px;top:220px;width:300px;height:160px;z-index:20;border:0";
+    const loaded = new Promise(resolve => frame.addEventListener("load", resolve, { once: true }));
+    document.body.append(frame);
+    await loaded;
+    const fdoc = frame.contentDocument;
+    const add = (doc, id, css) => {
+      const d = Object.assign(doc.createElement("div"), { id, textContent: id });
+      d.style.cssText = css;
+      doc.body.append(d);
+    };
+    add(document, "isrc", "position:fixed;left:20px;top:60px;width:80px;height:80px;background:#9cf;z-index:5");
+    add(fdoc, "idst", "position:fixed;left:20px;top:20px;width:100px;height:100px;background:#fc9");
+    window.__ids = [];
+    for (const [doc, name] of [
+      [document, "top"],
+      [fdoc, "frame"],
+    ]) {
+      for (const type of ["pointermove", "pointerdown", "pointerup"]) {
+        doc.addEventListener(type, e => window.__ids.push(`${name}:${type}:${e.pointerId}`), true);
+      }
+    }
+  }, `${h.baseUrl}/frame.html?same=1`);
+  // The press in the top document, the held move that stays there
+  // (heldMove's own event), and the release in the frame.
+  const dragged = async (id, why) => {
+    await page.dragAndDrop("#isrc", "#idst");
+    const log = await page.evaluate(() => window.__ids.splice(0));
+    const down = log.indexOf(`top:pointerdown:${id}`);
+    assert.ok(down >= 0, `${why}: the press: ${log.join(" ")}`);
+    assert.ok(log.slice(down + 1).includes(`top:pointermove:${id}`), `${why}: the held move: ${log.join(" ")}`);
+    assert.ok(log.includes(`frame:pointerup:${id}`), `${why}: the release: ${log.join(" ")}`);
+    assert.deepEqual(log.filter(e => !e.endsWith(`:${id}`)), [], `${why}: each carries ${id}`);
+  };
+  await dragged(32767, "by default");
+  for (const id of [1, 2]) {
+    await setAgentPointerId(id);
+    await dragged(32767, `the pref at ${id}`);
+  }
+  await setAgentPointerId(0);
+  await dragged(0, "the pref at 0");
+});
+
 test("dragAndDrop between the top document and a same-origin frame runs in page coordinates, as Ego's does", { timeout: 60_000 }, async () => {
   // Ego's live run (2026-11-20) logged top:mousemove, top:mousedown,
   // top:mousemove, frame:mouseup:dst: Chromium keeps a pressed mouse's
@@ -2433,8 +2479,13 @@ const LAB_PAGE = who => `
  * out of the agent's page. afterEach puts the id back.
  */
 async function shareMousePointerId() {
+  await setAgentPointerId(0);
+}
+
+/** Set zenius.input.agentPointerId for the rest of the test; afterEach clears it. */
+async function setAgentPointerId(id) {
   pointerShared = true;
-  await h.call("dev.evalChrome", { code: 'Services.prefs.setIntPref("zenius.input.agentPointerId", 0); return true;' });
+  await h.call("dev.evalChrome", { code: `Services.prefs.setIntPref("zenius.input.agentPointerId", ${Number(id)}); return true;` });
 }
 
 /**

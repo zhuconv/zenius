@@ -64,7 +64,9 @@ const AGENT_POINTER_ID_PREF = "zenius.input.agentPointerId";
 /** The pointer id zenius's mouse events carry now. */
 export function agentPointerId() {
   const id = Services.prefs.getIntPref(AGENT_POINTER_ID_PREF, AGENT_POINTER_ID);
-  return id >= 0 ? id : AGENT_POINTER_ID;
+  // Not Gecko's own pen (1) or touch (2) id: the agent's mouse would share
+  // that pointer's capture and state. A negative value means the default too.
+  return id === 0 || id > 2 ? id : AGENT_POINTER_ID;
 }
 
 /** The tab a zenius input event is for, while Gecko dispatches it. */

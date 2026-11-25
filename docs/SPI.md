@@ -3985,8 +3985,8 @@ zenius's mouse events carry pointer id 32767 (`AGENT_POINTER_ID`,
 - **The switch.** `zenius.input.agentPointerId`, an integer pref, read at
   each mouse event. If a site breaks on the agent's id, set it to 0. A
   page's pointer capture of the agent's press then takes the user's mouse
-  again, and the guard drops what comes, as before. A negative value means
-  the default.
+  again, and the guard drops what comes, as before. A negative value, or
+  Gecko's pen or touch id (1 or 2), means the default.
 - **No hold after a release at the agent's id.** At 0, each release holds
   the user's input in its document until the parent has heard that the
   capture is gone (`holdUntilParentHears`: the parent's answer, the input
@@ -4002,8 +4002,10 @@ zenius's mouse events carry pointer id 32767 (`AGENT_POINTER_ID`,
   guard still covers them.
 - **Tests.** `tests/input/zenius.test.mjs`: the agent's drag on a page that
   captures its pointer, with the user's click in their own tab, in another
-  process and in the same one. The guard's routing cases run with the pref
-  at 0.
+  process and in the same one. The agent's mouse events carry its id, the
+  held move of a drag between frames included; the pref at 1 or 2 keeps it,
+  and at 0 they carry the real mouse's. The guard's routing cases run with
+  the pref at 0.
 
 ## Testing
 

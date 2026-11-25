@@ -1607,7 +1607,7 @@ function heldMove(win, x, y, buttons, mods = []) {
     view: win,
   };
   C.dispatchIn(win, () => {
-    I.dispatchTrusted(target, new win.PointerEvent("pointermove", { ...init, pointerId: 1, pointerType: "mouse", isPrimary: true }));
+    I.dispatchTrusted(target, new win.PointerEvent("pointermove", { ...init, pointerId: C.agentPointerId(), pointerType: "mouse", isPrimary: true }));
     I.dispatchTrusted(target, new win.MouseEvent("mousemove", init));
   });
 }
