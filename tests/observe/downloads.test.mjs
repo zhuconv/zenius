@@ -887,3 +887,118 @@ test("a subscribed client hears a download refused at its start as one failure, 
       events.close();
     }
   }));
+
+/**
+ * A loopback site with an OAuth callback, whose address carries a sign-in
+ * result's code, and a file sent as an attachment (`requests` counts the
+ * file's).
+ */
+async function signInSite() {
+  const site = { requests: 0 };
+  const server = createServer((req, res) => {
+    const url = new URL(req.url, "http://127.0.0.1");
+    if (url.pathname === "/cb") {
+      res.writeHead(200, { "content-type": "text/html", "cache-control": "no-store" });
+      res.end("<!doctype html><title>signed in</title><p>signed in</p>");
+      return;
+    }
+    site.requests++;
+    res.writeHead(200, {
+      "content-type": "application/octet-stream",
+      "content-disposition": `attachment; filename="${url.searchParams.get("name")}"`,
+    });
+    res.end("the user's file\n");
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  site.callback = `${base}/cb?code=${"c0de".repeat(8)}&state=s1`;
+  site.file = name => `${base}/file?name=${name}`;
+  site.close = () => (server.closeAllConnections(), server.close());
+  return site;
+}
+
+test("a download that starts while its tab shows a sign-in result is the user's: no wait, event or page.events record tells the agent of it, finished or refused at its start", () =>
+  env.inSpace("download signin", async page => {
+    const site = await signInSite();
+    const pref = "zenius.observe.downloads.maxCount";
+    const was = await env.chrome(`return Services.prefs.prefHasUserValue(arg) ? Services.prefs.getIntPref(arg) : null;`, pref);
+    const events = await downloadEvents(page.P.space);
+    const names = [];
+    try {
+      for (const refused of [false, true]) {
+        const name = `signin-${refused ? "refused" : "kept"}-${process.pid}.txt`;
+        names.push(name);
+        await page.goto(`${env.base}/nav-target`);
+        await env.call("page.events", page.P);
+        if (refused) {
+          await env.chrome(`Services.prefs.setIntPref(arg, 0); return true;`, pref);
+        }
+        // The agent's wait, armed before a sign-in's redirect brings the tab
+        // to its callback.
+        const waiting = page.call("page.waitForEvent", { event: "download", options: { timeout: 4000 } }).then(
+          d => d,
+          e => e.code
+        );
+        await page.goto(site.callback);
+        assert.equal((await page.fail("page.snapshot")).code, "ZEN_SIGN_IN_PAGE", "the callback isn't a sign-in result");
+        // The tab downloads a file while it shows the callback.
+        const asked = site.requests;
+        await env.chrome(
+          `const b = ctx.resolvePage(arg.P).browser;
+           b.loadURI(Services.io.newURI(arg.url), { triggeringPrincipal: b.contentPrincipal });
+           return true;`,
+          { P: page.P, url: site.file(name) }
+        );
+        assert.equal(await until(() => site.requests > asked), true, "the tab didn't ask for the file");
+        if (!refused) {
+          // It lands in the working folder: the file is the user's.
+          assert.equal(await until(() => existsSync(join(working.path, name)), 5000), true, "the user's file didn't land");
+        }
+        assert.equal(await waiting, "ZEN_TIMEOUT", "the agent's wait heard of the user's download");
+        await page.goto(`${env.base}/nav-target`);
+        const told = (await env.call("page.events", page.P)).filter(e => /^(Page\.downloadWillBegin|Zenius\.refused)$/.test(e.method));
+        assert.deepEqual(told, [], "page.events told of the user's download");
+      }
+      await pause(300);
+      assert.deepEqual(events.seen, [], "a subscribed client heard of the user's download");
+      assert.equal(existsSync(join(working.path, names[1])), false, "the refused download landed");
+    } finally {
+      await env.chrome(
+        `if (arg.was === null) Services.prefs.clearUserPref(arg.pref); else Services.prefs.setIntPref(arg.pref, arg.was); return true;`,
+        { pref, was }
+      );
+      events.close();
+      site.close();
+      for (const name of names) {
+        rmSync(join(working.path, name), { force: true });
+      }
+    }
+  }));
+
+test("a download whose own address carries a sign-in code reaches the agent cut at its query, as a navigation's address does: its wait, its event and its page.events record", () =>
+  env.inSpace("download code url", async page => {
+    await page.goto(`${env.base}/nav-target`);
+    await env.call("page.events", page.P);
+    const events = await downloadEvents(page.P.space);
+    try {
+      const waiting = page.call("page.waitForEvent", { event: "download", options: { timeout: 5000 } });
+      await startDownload(page, `?code=${"c0de".repeat(8)}&state=s1`);
+      const d = await waiting;
+      const cut = `${env.base}/api/download`;
+      assert.equal(d.url, cut);
+      await pathOf(d.download);
+      assert.equal(await until(() => eventsOf(events.seen, d.download).length === 2), true, JSON.stringify(events.seen));
+      assert.deepEqual(
+        eventsOf(events.seen, d.download).map(e => e.url),
+        [cut, cut]
+      );
+      const records = (await env.call("page.events", page.P)).filter(e => e.method === "Page.downloadWillBegin");
+      assert.deepEqual(
+        records.map(e => e.params.url),
+        [cut]
+      );
+      await env.call("download.delete", { download: d.download });
+    } finally {
+      events.close();
+    }
+  }));

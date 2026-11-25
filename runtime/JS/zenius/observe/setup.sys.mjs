@@ -356,13 +356,15 @@ export function setupObserve() {
       const page = managedPage(browser);
       return page ? { spaceId: page.spaceId, label: page.label } : null;
     },
+    // A download that starts while its tab shows a sign-in result is the
+    // user's, as that page is: no wait, record or event tells the agent of it.
+    isUsers: browser => tabTopIsSignInResult(browser.browserId),
   }).catch(e => log("zen-observe: download hooks failed:", e.message));
   onAgentCodeMarks(syncHooks);
   onHolds(syncHooks);
   syncHooks();
   onDownload(entry => {
-    // A download a sign-in result starts is the user's, as its page is.
-    if (tabTopIsSignInResult(entry.browserId)) {
+    if (entry.users) {
       return;
     }
     pushEvent(entry.browserId, "Page.downloadWillBegin", {
@@ -373,23 +375,10 @@ export function setupObserve() {
     });
   });
   // The service's "download" event (docs/PROTOCOL.md): each download's start
-  // and end in a task's tab, which a client shows with no call or wait of
-  // its own. One a sign-in result starts is the user's, decided at its start
-  // (the tab may be gone by its end); a refusal at the start asks its tab.
-  const usersDownloads = new Set();
+  // and end in a task's page, which a client shows with no call or wait of
+  // its own. The user's downloads (isUsers) aren't told.
   onDownloadEvent(event => {
-    let users;
-    if (event.state === "started") {
-      users = tabTopIsSignInResult(event.browserId);
-      if (users) {
-        usersDownloads.add(event.download);
-      }
-    } else if (usersDownloads.delete(event.download)) {
-      users = true;
-    } else {
-      users = event.download.startsWith("refused-") && tabTopIsSignInResult(event.browserId);
-    }
-    if (users || typeof event.spaceId !== "number") {
+    if (typeof event.spaceId !== "number") {
       return;
     }
     service.emit("download", {

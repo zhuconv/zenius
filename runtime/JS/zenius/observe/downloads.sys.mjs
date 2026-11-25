@@ -57,6 +57,7 @@ function limits() {
  * @property {string} suggestedFilename
  * @property {string} dir               this download's own folder
  * @property {object|null} owner        the connection that received it
+ * @property {boolean} users            its tab showed a sign-in result as it started: it's the user's, and the agent hears nothing of it
  * @property {Set<() => void>} changes
  * @property {string} [refusal]          why zenius stopped it, once it did
  * @property {boolean} [checked]         its finished file was checked to be zenius's own
@@ -79,6 +80,7 @@ let seq = 0;
 let refusedSeq = 0;
 let agentBrowser = _browser => false;
 let pageOf = _browser => null;
+let usersBrowser = _browser => false;
 let installed = false;
 
 // Agent downloads land under the profile, in <profile>/zenius-downloads
@@ -232,10 +234,12 @@ function agentBrowserFor(browsingContextId) {
  * @param {object} opts
  * @param {(browser: Element) => boolean} opts.isAgent  tabs whose downloads we take
  * @param {(browser: Element) => {spaceId: number, label: string}|null} opts.pageOf
+ * @param {(browser: Element) => boolean} [opts.isUsers]  tabs whose download, as it starts, is the user's (a sign-in result's)
  */
-export async function installDownloads({ isAgent, pageOf: findPage }) {
+export async function installDownloads({ isAgent, pageOf: findPage, isUsers = _browser => false }) {
   agentBrowser = isAgent;
   pageOf = findPage;
+  usersBrowser = isUsers;
   if (installed) {
     return;
   }
@@ -420,19 +424,26 @@ export function downloadsActive() {
 /**
  * Tell the agent, its waits for a download included, and the downloads'
  * listeners: the end of `entry`, or without one, a refusal at the start,
- * which has its file's `name` when the browser had named it.
+ * which has its file's `name` when the browser had named it. A download
+ * that's the user's (usersBrowser) is told to none of them.
  */
 function refused(browser, message, url, { entry = null, name = "" } = {}) {
-  reportRefused(browser, "download", message, url);
-  for (const w of waiters) {
-    if (w.browserId === browser.browserId) {
-      waiters.delete(w);
-      w.resolve({ refused: message });
-      break;
+  const users = entry ? entry.users : usersBrowser(browser);
+  if (!users) {
+    reportRefused(browser, "download", message, url);
+    for (const w of waiters) {
+      if (w.browserId === browser.browserId) {
+        waiters.delete(w);
+        w.resolve({ refused: message });
+        break;
+      }
     }
   }
   if (entry) {
     settle(entry, "failed", { failure: message });
+    return;
+  }
+  if (users) {
     return;
   }
   const page = pageOf(browser);
@@ -770,6 +781,8 @@ function register(browser, download, source = {}) {
     suggestedFilename: source.suggestedFilename ?? PathUtils.filename(download.target.path),
     dir: PathUtils.parent(download.target.path),
     owner: null,
+    // Decided once, as it starts: by its end the tab may show another page.
+    users: usersBrowser(browser),
     changes: new Set(),
   };
   // Nobody else watches this download: it is on no list.
@@ -806,7 +819,8 @@ function register(browser, download, source = {}) {
       console.error("[zenius] download listener failed", e);
     }
   }
-  for (const w of waiters) {
+  // The user's download resolves no wait of the agent's.
+  for (const w of entry.users ? [] : waiters) {
     if (w.browserId === entry.browserId) {
       waiters.delete(w);
       w.resolve(entry);
@@ -861,7 +875,8 @@ export function onDownload(fn) {
  * these). The event is `{state, browserId, spaceId, page, download, url,
  * suggestedFilename, path?, failure?}`, its url cut as the refusals cut it. A
  * refusal at the start has no download to act on: it only fails, with an id
- * of its own (refused-<n>).
+ * of its own (refused-<n>). A download that's the user's (usersBrowser) is
+ * told to no one.
  */
 export function onDownloadEvent(fn) {
   eventListeners.add(fn);
@@ -870,6 +885,9 @@ export function onDownloadEvent(fn) {
 
 /** Give `state` of the download `entry` (or a refusal's stand-in for one) to the event listeners. */
 function tell(state, entry, extra = {}) {
+  if (entry.users) {
+    return;
+  }
   const event = {
     state,
     browserId: entry.browserId,
@@ -1045,7 +1063,7 @@ async function moveFinished(entry, browser) {
     entry.refusal = moveRefusal(entry.url, e?.message ?? String(e));
     settle(entry, "failed", { failure: entry.refusal });
     await removeOwnFolder(entry.dir);
-    if (browser?.isConnected) {
+    if (browser?.isConnected && !entry.users) {
       reportRefused(browser, "download", entry.refusal, entry.url);
     }
     return;

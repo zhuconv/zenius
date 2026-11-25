@@ -3084,8 +3084,13 @@ The installers set it, and the sandboxed launcher grants it read-write.
   `deleteDownload` came before the move. `entry.told` keeps it to one end.
   A refusal at the start, which has no entry, is told as a failure with an
   id of its own (`refused-<n>`). `observe/setup.sys.mjs` emits each one in
-  a task's page as the service's `download` event, but none for a download
-  a sign-in result started, decided at its start.
+  a task's page as the service's `download` event.
+- **The user's downloads.** A download that starts while its tab shows a
+  sign-in result is the user's, as that page is (setup's `isUsers`). It's
+  decided once, as it starts (`entry.users`), since by its end the tab may
+  show another page. Nothing tells the agent of it: no `page.waitForEvent`
+  wait, `Page.downloadWillBegin`, `Zenius.refused`, receipt or event. Its
+  file still lands in the working folder.
 
 **Download caps.** `observe/downloads.sys.mjs` counts a task's live
 downloads and their `currentBytes` (`taskDownloads(spaceId)`). It checks a
