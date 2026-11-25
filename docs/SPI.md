@@ -1632,9 +1632,12 @@ deadline += await ctx.gate();
 - A page's cursor goes once the agent's call names another page of the same
   task, a read too, since the agent works there now. zen-core's call context
   tells zen-ux of each agent call's page as it resolves it (`ctx.resolvePage`
-  calls `notePageCall(tab)` in `ui/pages.sys.mjs`, except for `dev.*`
+  calls `notePageCall(tab, method)` in `ui/pages.sys.mjs`, except for `dev.*`
   methods). The cursor is forgotten, not hidden, so a hold's end doesn't
   bring it back; the agent's next action on that page draws it again.
+  Closing a page (`pages.close`) takes no cursor away, and a page whose
+  action is still under way (zen-input's steps, `onStep`) keeps its cursor
+  until a later call.
 - It hides while Take over's prompt is open on its page, and comes back with
   its label when the agent goes on (Resume agent, or the countdown after
   clicks only). A call waits before it starts while the prompt is open, but

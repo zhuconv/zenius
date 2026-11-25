@@ -54,7 +54,7 @@ export function onNotePage(fn) {
   return () => listeners.delete(fn);
 }
 
-/** @type {Set<(tab: Element) => void>} */
+/** @type {Set<(tab: Element, method: string) => void>} */
 const callListeners = new Set();
 
 /**
@@ -65,11 +65,12 @@ const callListeners = new Set();
  * on as it is.
  *
  * @param {Element} tab
+ * @param {string} method  the call's: pages.close names a page it ends
  */
-export function notePageCall(tab) {
+export function notePageCall(tab, method) {
   for (const fn of callListeners) {
     try {
-      fn(tab);
+      fn(tab, method);
     } catch (e) {
       console.error("[zenius] notePageCall listener failed", e);
     }
@@ -77,7 +78,7 @@ export function notePageCall(tab) {
 }
 
 /**
- * @param {(tab: Element) => void} fn
+ * @param {(tab: Element, method: string) => void} fn
  * @returns {() => void} unsubscribe
  */
 export function onNotePageCall(fn) {

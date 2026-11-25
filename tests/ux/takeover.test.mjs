@@ -387,8 +387,9 @@ test("IME composition counts as typing; an input-source switch doesn't", async (
 
 // Issue #3, R2: the arrow stayed at the agent's last click in one page while
 // the agent worked in another, and under the prompt.
-test("the agent's cursor leaves a page once the agent's call names another page of the task, a read too, and comes back with its next action there", async () => {
+test("the agent's cursor leaves a page once the agent's call names another page of the task, a read too, and comes back with its next action there; closing the other page leaves it", async () => {
   const p2 = await h.call("pages.new", { space, url: `${h.base}/` });
+  let closed = false;
   try {
     // The user still looks at p1.
     await h.chrome(`${P} gBrowser.selectedTab = tab; await until(() => gBrowser.selectedTab === tab);`);
@@ -401,8 +402,48 @@ test("the agent's cursor leaves a page once the agent's call names another page 
     assert.deepEqual(shown, { hidden: false, inDom: true });
     assert.deepEqual(left, { state: null, layer: false }, "a read in p2 takes the cursor off p1");
     assert.deepEqual(back, { hidden: false, inDom: true, label: "Click Done" });
+    // Closing a page isn't work there.
+    await h.call("pages.close", { space, page: p2.label });
+    closed = true;
+    const afterClose = await h.chrome(`${P} const s = C.cursorState(tab); return s && { hidden: s.hidden, inDom: s.inDom, label: s.label };`);
+    assert.deepEqual(afterClose, { hidden: false, inDom: true, label: "Click Done" }, "closing p2 leaves p1's cursor");
+  } finally {
+    if (!closed) await h.call("pages.close", { space, page: p2.label }).catch(() => {});
+    await h.chrome(`${P} gBrowser.selectedTab = tab; await until(() => gBrowser.selectedTab === tab);`);
+  }
+});
+
+test("a page whose action is still under way keeps its cursor when a call names another page of the task, as a script's calls on two pages at once do, until a call after that action", async () => {
+  const p2 = await h.call("pages.new", { space, url: `${h.base}/` });
+  try {
+    await h.chrome(`${P} gBrowser.selectedTab = tab; await until(() => gBrowser.selectedTab === tab);`);
+    await h.call("ui.cursor", { space, page: "p1", x: 200, y: 150, label: "Click Next", kind: "click" });
+    // A button shown only after a while: a click on it waits, its step under way.
+    await h.call("dev.evalContent", {
+      space,
+      page: "p1",
+      privileged: true,
+      code: `
+        const w = actor.contentWindow;
+        w.document.body.insertAdjacentHTML("beforeend", "<button id='late' style='display:none;position:fixed;left:40px;top:40px'>Late</button>");
+        w.setTimeout(() => (w.document.getElementById("late").style.display = "block"), 1500);
+      `,
+    });
+    const click = h.call("page.click", { space, page: "p1", target: "#late" });
+    await sleep(400);
+    await h.call("page.title", { space, page: p2.label });
+    const pick = `const s = C.cursorState(tab); return s && { hidden: s.hidden, inDom: s.inDom };`;
+    const during = await h.chrome(`${P} ${pick}`);
+    await click;
+    const after = await h.chrome(`${P} ${pick}`);
+    await h.call("page.title", { space, page: p2.label });
+    const later = await h.chrome(`${P} return C.cursorState(tab);`);
+    assert.deepEqual(during, { hidden: false, inDom: true }, "p1's click was under way: its cursor stays");
+    assert.deepEqual(after, { hidden: false, inDom: true });
+    assert.equal(later, null, "once that click ended, the next call on p2 takes it");
   } finally {
     await h.call("pages.close", { space, page: p2.label }).catch(() => {});
+    await h.call("dev.evalContent", { space, page: "p1", privileged: true, code: `actor.contentWindow.document.getElementById("late")?.remove();` }).catch(() => {});
     await h.chrome(`${P} gBrowser.selectedTab = tab; await until(() => gBrowser.selectedTab === tab);`);
   }
 });
@@ -438,6 +479,94 @@ test("while Take over's prompt is open on a page, the agent's cursor there hides
   assert.deepEqual(out.held, { hidden: true, inDom: false, ...goes, visible: false }, "the waiting action's point, not drawn");
   assert.deepEqual(out.after, { hidden: false, inDom: true, ...goes });
   await sleep(3200); // the grace period after Resume agent
+});
+
+test("a step that left its task's ring while it ran (zen-input keeps 50 steps) no longer keeps its page's cursor", async () => {
+  const p2 = await h.call("pages.new", { space, url: `${h.base}/` });
+  try {
+    await h.chrome(`${P} gBrowser.selectedTab = tab; await until(() => gBrowser.selectedTab === tab);`);
+    await h.call("ui.cursor", { space, page: "p1", x: 200, y: 150, label: "Click Next", kind: "click" });
+    // A step on p1 that never ends, as a script's long wait there, through
+    // zen-input's own ring.
+    await h.chrome(`
+      const St = ChromeUtils.importESModule("chrome://userscripts/content/zenius/input/steps.sys.mjs");
+      win.zenuxHeldStep = St.beginCall({ method: "page.click", params: { space: ${space}, page: "p1", target: "#held" } });
+    `);
+    await h.call("page.title", { space, page: p2.label });
+    const kept = await h.chrome(`${P} return !!C.cursorState(tab);`);
+    // 55 actions under way on p2 at once push it out of the ring, which
+    // keeps 50 steps, the oldest going first, running or not.
+    await h.chrome(`
+      const St = ChromeUtils.importESModule("chrome://userscripts/content/zenius/input/steps.sys.mjs");
+      win.zenuxHeldSteps = [];
+      for (let i = 0; i < 55; i++) {
+        win.zenuxHeldSteps.push(St.beginCall({ method: "page.click", params: { space: ${space}, page: ${JSON.stringify(p2.label)}, target: "#b" + i } }));
+      }
+    `);
+    await h.call("page.title", { space, page: p2.label });
+    const later = await h.chrome(`${P} return C.cursorState(tab);`);
+    assert.equal(kept, true, "its step under way keeps p1's cursor");
+    assert.equal(later, null, "once the ring no longer shows it running, the next call on p2 takes it");
+  } finally {
+    await h.chrome(`
+      const St = ChromeUtils.importESModule("chrome://userscripts/content/zenius/input/steps.sys.mjs");
+      // dev.evalChrome's calls share no globalThis: the window keeps them.
+      const step = win.zenuxHeldStep;
+      delete win.zenuxHeldStep;
+      if (step) St.endCall(step, { method: "page.click", params: { space: ${space}, page: "p1", target: "#held" }, outcome: "ok", ms: 1 });
+      for (const [i, held] of (win.zenuxHeldSteps ?? []).entries()) {
+        St.endCall(held, { method: "page.click", params: { space: ${space}, page: ${JSON.stringify(p2.label)}, target: "#b" + i }, outcome: "ok", ms: 1 });
+      }
+      delete win.zenuxHeldSteps;
+    `).catch(() => {});
+    await h.call("pages.close", { space, page: p2.label }).catch(() => {});
+    await h.chrome(`${P} gBrowser.selectedTab = tab; await until(() => gBrowser.selectedTab === tab);`);
+  }
+});
+
+test("Take over's prompt follows the user's input to another page of the task and hides the agent's cursor there too; when the agent goes on, both come back", async () => {
+  const p2 = await h.call("pages.new", { space, url: `${h.base}/` });
+  await h.chrome(`Services.prefs.setIntPref("zenius.ux.takeover.quietMs", 20000);`);
+  let out;
+  try {
+    out = await h.chrome(`${P}
+      const { tab: tab2, browser: browser2 } = ctx.resolvePage({ space: ${space}, page: ${JSON.stringify(p2.label)} });
+      const pick = s => s && { hidden: s.hidden, inDom: s.inDom };
+      const both = () => ({ p1: pick(C.cursorState(tab)), p2: pick(C.cursorState(tab2)) });
+      gBrowser.selectedTab = tab;
+      await until(() => gBrowser.selectedTab === tab);
+      await C.moveCursor(tab2, { x: 100, y: 100 }, { label: "Read prices", kind: "move" });
+      await C.moveCursor(tab, { x: 200, y: 150 }, { label: "Click Next", kind: "click" });
+      userClick();
+      await waitPrompt();
+      const opened = both();
+      // The user goes on in p2: their click there, entering through the parent as on p1.
+      gBrowser.selectedTab = tab2;
+      await until(() => gBrowser.selectedTab === tab2);
+      const r = browser2.getBoundingClientRect();
+      for (const type of ["mousedown", "mouseup"]) {
+        win.synthesizeMouseEvent(type, r.x + r.width / 2, r.y + r.height / 2, { button: 0, buttons: type === "mousedown" ? 1 : 0, clickCount: 1 }, { isDOMEventSynthesized: false });
+      }
+      await until(() => UI.takeover.promptState(rec.id)?.tab === tab2);
+      const moved = both();
+      UI.takeover.resolve(rec.id, "continue");
+      await until(() => C.cursorState(tab2)?.inDom);
+      const resumed = both();
+      gBrowser.selectedTab = tab;
+      await until(() => gBrowser.selectedTab === tab);
+      return { opened, moved, resumed };
+    `);
+  } finally {
+    await h.chrome(`Services.prefs.setIntPref("zenius.ux.takeover.quietMs", ${QUIET_MS});`);
+    await h.call("pages.close", { space, page: p2.label }).catch(() => {});
+    await h.chrome(`${P} gBrowser.selectedTab = tab; await until(() => gBrowser.selectedTab === tab);`);
+  }
+  // p2's tab wasn't shown, so its cursor wasn't drawn: it's kept, not hidden.
+  assert.deepEqual(out.opened, { p1: { hidden: true, inDom: false }, p2: { hidden: false, inDom: false } });
+  assert.deepEqual(out.moved, { p1: { hidden: true, inDom: false }, p2: { hidden: true, inDom: false } }, "hidden where the prompt went");
+  assert.deepEqual(out.resumed.p2, { hidden: false, inDom: true });
+  assert.equal(out.resumed.p1.hidden, false, "p1's comes back too, drawn when its tab shows");
+  await sleep(3200); // the grace period after the agent goes on
 });
 
 test("the user's view ends as it started", async () => {

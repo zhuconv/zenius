@@ -29,6 +29,7 @@ import {
   showNotice,
 } from "chrome://userscripts/content/zenius/ui/notices.sys.mjs";
 import { landOn, onNotePage, onNotePageCall } from "chrome://userscripts/content/zenius/ui/pages.sys.mjs";
+import { onStep, stepsOf } from "chrome://userscripts/content/zenius/input/steps.sys.mjs";
 import { askPageCode, endPageCodeAsks } from "chrome://userscripts/content/zenius/ui/pagecode.sys.mjs";
 import {
   closeTasksPanel,
@@ -304,6 +305,9 @@ class UiController {
   #takingOver = new Set();
   /** <browser> → the top document its RELOADED_NOTICE is for (#showReloaded). */
   #reloadedDocs = new WeakMap();
+  // The steps under way, by id: the task and page each acts on (zen-input's
+  // onStep). A page with one keeps its cursor when a call names another.
+  #runningSteps = new Map();
   /** zen-input's typedSecrets, null without it; see typedSecrets. */
   #typedSecretsFn = undefined;
   /**
@@ -462,7 +466,8 @@ class UiController {
     this.#unsubscribe.push(
       service.addEventListener((event, params) => this.#onServiceEvent(event, params)),
       onNotePage(tab => this.#onAgentPage(tab)),
-      onNotePageCall(tab => this.#onAgentCall(tab))
+      onNotePageCall((tab, method) => this.#onAgentCall(tab, method)),
+      onStep(({ space, step }) => this.#onStep(space, step))
     );
     // zen-observe refuses a load the user started to the local network in
     // an agent's tab: the tab says why (observe/localnet.sys.mjs, which its
@@ -891,16 +896,54 @@ class UiController {
    * a hold doesn't bring it back; the agent's next action there draws it
    * afresh. Every call checks them all, whatever the call before named: a
    * cursor may have been drawn without one.
+   *
+   * Two kinds of call leave the other pages' cursors: closing a page (a
+   * popup the agent is done with) isn't work there, and a page whose action
+   * is still under way (a script's calls on two pages at once) may be about
+   * to press, so its cursor stays until a later call.
+   *
+   * @param {Element} tab
+   * @param {string} method
    */
-  #onAgentCall(tab) {
+  #onAgentCall(tab, method) {
+    if (method === "pages.close") {
+      return;
+    }
     const hit = this.lookup(tab);
     if (!hit) {
       return;
     }
-    for (const other of this.#tabsOf(hit.rec)) {
-      if (other !== tab) {
+    // A step that fell out of its task's ring while it ran never tells its
+    // end (steps.sys.mjs keeps a task's last 50): one counts only while the
+    // ring still shows it running, and goes once it doesn't.
+    const busy = new Set();
+    let running = null;
+    for (const [id, { space, page }] of this.#runningSteps) {
+      if (space !== hit.rec.id || !page) {
+        continue;
+      }
+      running ??= new Set(stepsOf(space).filter(s => s.outcome === "running").map(s => s.id));
+      if (running.has(id)) {
+        busy.add(page);
+      } else {
+        this.#runningSteps.delete(id);
+      }
+    }
+    const { pages } = this.service;
+    for (const page of pages.list(hit.rec.id)) {
+      const other = pages.tabFor(page);
+      if (other && other !== tab && !busy.has(page.label)) {
         forgetCursor(other);
       }
+    }
+  }
+
+  /** A step began or ended (zen-input's onStep): which pages have an action under way. */
+  #onStep(space, step) {
+    if (step?.outcome === "running") {
+      this.#runningSteps.set(step.id, { space, page: step.page ?? null });
+    } else {
+      this.#runningSteps.delete(step?.id);
     }
   }
 
@@ -3594,6 +3637,11 @@ class UiController {
   }
 
   #forget(id) {
+    for (const [step, { space }] of this.#runningSteps) {
+      if (space === id) {
+        this.#runningSteps.delete(step);
+      }
+    }
     setTaskTag(id, null);
     this.#watches.forget(id);
     const ui = this.#spaces.get(id);

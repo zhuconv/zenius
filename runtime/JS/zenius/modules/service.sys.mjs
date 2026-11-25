@@ -2518,7 +2518,7 @@ class Service {
         // cursor off its other pages (notePageCall). Not a dev method's.
         if (i5 !== "dev" && this.spaces.isAgentTask(resolved.space)) {
           try {
-            this.#notePageCallFn()?.(resolved.tab);
+            this.#notePageCallFn()?.(resolved.tab, method);
           } catch (e) {
             log(`notePageCall for ${method} failed: ${e.message}`);
           }
