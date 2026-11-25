@@ -25,6 +25,43 @@ const RESOLVE = "chrome://userscripts/content/zenius/content/resolve.sys.mjs";
 // instance.
 const WATCHDOG_MS = Number(process.env.ZENIUS_INPUT_WATCHDOG_MS) || 5 * 60_000;
 
+// A tab switch, or a Space switch and the tab switch it makes, can take
+// seconds on a loaded machine: one ran past 5 s on a Mac deep in swap. Past
+// this, watch() and its way back fail.
+const SWITCH_MS = Number(process.env.ZENIUS_INPUT_SWITCH_MS) || 30_000;
+
+/**
+ * watch()'s way back, a chrome function for its code: the user's Space
+ * again, the switch over before I1 is read. Through Zen every time: its
+ * changeWorkspace first waits out a switch in progress, which sets the
+ * user's Space active before it shows its tab, and is a no-op once there.
+ * Zen's active Space has also read the user's while the window still showed
+ * the agent's tab (a Mac run of v0.1.7's input lane; what set it isn't
+ * known). So if the window still shows another Space's tab, the switch is
+ * made again, which keeps later files from starting there, and the way back
+ * resolves to what diverged; watch()'s caller fails on it. Else null.
+ */
+const GO_BACK_FN = `
+  async function goBack(userWs, ms) {
+    const zw = win.gZenWorkspaces;
+    const before = zw.activeWorkspace;
+    await zw.changeWorkspaceWithID(userWs);
+    let diverged = null;
+    const shown = win.gBrowser.selectedTab;
+    const space = shown?.getAttribute("zen-workspace-id");
+    if (space && space !== userWs && !shown.hasAttribute("zen-essential")) {
+      diverged = "Zen's active Space was " + zw.activeWorkspace + " (the user's" + (before === userWs ? ", already before the way back" : "") +
+        ") while the window still showed tab " + shown.linkedBrowser?.browserId + " of Space " + space + "; a second switch brought the user's tab back";
+      await zw.changeWorkspaceWithID(userWs, { alwaysChange: true });
+    }
+    for (const end = Date.now() + ms; win.gBrowser._switcher; ) {
+      if (Date.now() > end) throw new Error("the switch back to the user's Space didn't finish in " + ms / 1000 + " s");
+      await new Promise(r => win.setTimeout(r, 25));
+    }
+    await new Promise(r => win.requestAnimationFrame(() => win.requestAnimationFrame(r)));
+    return diverged;
+  }`;
+
 /** A chord that copies or cuts on some platform: Accel+C or X, Ctrl+Insert, Shift+Delete, the Copy and Cut keys. */
 function isCopyOrCut(chord) {
   const parts = String(chord).toLowerCase().split("+");
@@ -477,8 +514,9 @@ export async function openHarness(suite) {
      */
     async watch(page) {
       const userWs = await call("dev.evalChrome", {
-        arg: { space: page.spaceId, page: page.label },
-        code: `const { ZeniusService } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/service.sys.mjs");
+        arg: { space: page.spaceId, page: page.label, ms: SWITCH_MS },
+        code: `${GO_BACK_FN}
+          const { ZeniusService } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/service.sys.mjs");
           const { landOn } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/pages.sys.mjs");
           const { tab, space } = ZeniusService.resolvePage(arg);
           const userWs = win.gZenWorkspaces.activeWorkspace;
@@ -491,14 +529,33 @@ export async function openHarness(suite) {
           // the tab switch must be over. On the first switch after Zen
           // starts, the window's focus keeps moving after the tab is
           // selected: a <browser> gets it, then loses it some 100 ms later.
-          for (const end = Date.now() + 5000; win.gBrowser.selectedTab !== tab || win.gBrowser._switcher; ) {
-            if (Date.now() > end) throw new Error(win.gBrowser.selectedTab !== tab ? "the agent's tab wasn't selected" : "the switch to the agent's tab didn't finish");
+          for (const end = Date.now() + arg.ms; win.gBrowser.selectedTab !== tab || win.gBrowser._switcher; ) {
+            if (Date.now() > end) {
+              const why = win.gBrowser.selectedTab !== tab ? "the agent's tab wasn't selected" : "the switch to the agent's tab didn't finish";
+              // A watch that throws gives its caller no way back, and a
+              // window left in the agent's Space would fail every later
+              // file's I1 check too.
+              const wayBack = await goBack(userWs, arg.ms).then(
+                diverged => (diverged ? "; on the way back, " + diverged : ""),
+                e => "; the way back failed too: " + e.message
+              );
+              throw new Error(why + " in " + arg.ms / 1000 + " s" + wayBack);
+            }
             await new Promise(r => win.setTimeout(r, 25));
           }
           await new Promise(r => win.requestAnimationFrame(() => win.requestAnimationFrame(r)));
           return userWs;`,
       });
-      return () => call("dev.evalChrome", { arg: userWs, code: `if (win.gZenWorkspaces.activeWorkspace !== arg) await win.gZenWorkspaces.changeWorkspaceWithID(arg);` });
+      return async () => {
+        const diverged = await call("dev.evalChrome", { arg: { userWs, ms: SWITCH_MS }, code: `${GO_BACK_FN} return goBack(arg.userWs, arg.ms);` });
+        // Repaired, so later files start on the user's Space. But a
+        // divergence nobody has explained must not pass: the window showed
+        // the agent's tab while Zen's own Space said otherwise, which a
+        // click on the user's Space can't undo.
+        if (diverged) {
+          throw new Error(`the way back from watching page ${page.label} of task ${page.spaceId}: ${diverged}`);
+        }
+      };
     },
     /**
      * Run fn(page, how) in a new page of `task` at `url`, hidden and then

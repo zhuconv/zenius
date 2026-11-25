@@ -177,7 +177,8 @@ test("beside a popup of its site with what the agent's code left hooked in it, a
       assert.equal((await fields(page)).user, "abc", "the key reached the page");
     } finally {
       await chrome(UNCOUNT).catch(() => {});
-      await chrome(`${BY_URL} if (b) b.ownerGlobal.gBrowser.removeTab(b.ownerGlobal.gBrowser.getTabForBrowser(b)); return true;`, { url: url(popupPath) }).catch(() => {});
+      // ownerDocument.defaultView: the dev sandbox doesn't see b.ownerGlobal.
+      await chrome(`${BY_URL} const w = b?.ownerDocument.defaultView; if (w) w.gBrowser.removeTab(w.gBrowser.getTabForBrowser(b)); return true;`, { url: url(popupPath) }).catch(() => {});
       await chrome(
         `${SERVICE} ${UI}
          const rec = ZeniusService.spaces.peek(arg);
