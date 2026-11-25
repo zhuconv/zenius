@@ -13,7 +13,8 @@
 # sum, and main moves less while a merge check runs. ZENIUS_SERIAL=1 runs them
 # one after another, which is the default on the Mac (the user's laptop).
 # Logs go to $TMPDIR/zenius-test-all/. On Linux each suite also gets a
-# temporary folder of its own (see "lane" below).
+# temporary folder of its own (see "lane" below). A failed suite's summary
+# lists every test its log names as failed, then the log's last 20 lines.
 set -uo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 [[ -d $HOME/opt/node-v24.22.2-linux-x64/bin ]] && export PATH=$HOME/opt/node-v24.22.2-linux-x64/bin:$PATH
@@ -177,6 +178,14 @@ for name in ${names[@]+"${names[@]}"} ${sdk[@]+"${sdk[@]}"}; do
     [[ -n $TMPBASE && -f $LOGS/$name.tmpdir ]] && kept=$(<"$LOGS/$name.tmpdir")
     [[ -n $kept && -d $kept ]] && note="; its temporary folder stays at $kept"
     echo "FAIL $name, log $LOGS/$name.log$note:"
+    # Every test its log names as failed, then the log's last lines: a
+    # second failure in a suite mustn't hide behind the one its tail shows,
+    # such as a known flake's (scripts/lib/test-all-failures.mjs).
+    list=$(node "$ROOT/scripts/lib/test-all-failures.mjs" "$LOGS/$name.log" 2>/dev/null)
+    if [[ -n $list ]]; then
+      printf '%s\n' "$list" | sed 's/^/    /'
+      echo "    The log ends:"
+    fi
     tail -20 "$LOGS/$name.log" | sed 's/^/    /'
     failed+=("$name")
   fi
