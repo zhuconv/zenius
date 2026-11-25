@@ -221,7 +221,9 @@ ${downloads}${PAGE_TEXT}
  * Work's line about zenius's working folder, where the runtime puts a file
  * the agent's task downloads: the folder, with the home folder as ~, or why
  * there's none, which refuses every download. The agent can't open a file
- * there, so it tells the user where to look.
+ * there, so it tells the user where to look: zenius's results name each
+ * file, and its finish won't cancel a download still running unless told
+ * to (docs/mcp.md, Downloads).
  *
  * @param {{path?: string, error?: string}} folder  the runtime's workingFolder()
  * @param {string} home  the home folder
@@ -233,7 +235,7 @@ export function downloadsLine(folder, home) {
     return `- zenius refuses every download in your tasks, since it has no working folder to put files in (${why}). When a task needs a download, tell the user that, with the reason.\n`;
   }
   const shown = folder.path.startsWith(`${home}/`) ? `~${folder.path.slice(home.length)}` : folder.path;
-  return `- A file you download in a task lands in the user's working folder, ${shown}, unless zenius tells you it refused it. You can't open it: tell the user it's in that folder.\n`;
+  return `- A file you download in a task lands in the user's working folder, ${shown}: zenius's results say when it's there and under which name, or why it failed. You can't open it, so tell the user where it is. Finishing the task cancels a download still running: wait for it first, with wait and downloads: true.\n`;
 }
 
 /**

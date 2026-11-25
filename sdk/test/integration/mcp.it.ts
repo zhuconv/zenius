@@ -3,6 +3,7 @@
 // as, the errors from the guide, and what the server never offers.
 import assert from "node:assert/strict";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -495,5 +496,112 @@ test("mcp: a ZENIUS_TASK_SPACE that is the user's, a kept tab's, stopped, unknow
     } finally {
       await chat.close();
     }
+  }
+});
+
+/** The dev Zen's working folder, as its runtime read it at its start. */
+async function workingFolder(): Promise<string> {
+  const folder = await chrome(
+    `return ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/workingfolder.sys.mjs").workingFolder()?.path ?? null;`,
+    null,
+  );
+  assert.equal(typeof folder, "string", "the dev Zen has a working folder");
+  return folder as string;
+}
+
+/**
+ * Short waits until what the results told matches `pattern`: a download's
+ * news comes in a call after it happens, as the agent hears it.
+ */
+async function untilTold(chat: Client, pattern: RegExp, told: string): Promise<string> {
+  for (let i = 0; i < 40 && !pattern.test(told); i++) told += `\n${await chat.ok("wait", { seconds: 0.5 })}`;
+  assert.match(told, pattern);
+  return told;
+}
+
+const releaseFile = (name: string) => fetch(`${context.base}/release-file?name=${encodeURIComponent(name)}`);
+
+test("mcp: a download the agent starts is told in a later result, once: its file's name in the working folder", async () => {
+  const chat = await started();
+  const folder = await workingFolder();
+  let file: string | undefined;
+  try {
+    await chat.ok("open", { url: `${context.base}/files`, task: unique("it mcp download") });
+    const clicked = await chat.ok("click", { element: "download the report", target: "#download" });
+    const told = await untilTold(chat, /^p1 downloaded "report\.txt"/m, clicked);
+    const line = /^p1 downloaded "report\.txt": it's in the working folder, (.+), as "(report(?:\(\d+\))?\.txt)"\.$/m.exec(told);
+    assert.ok(line, told);
+    assert.equal(line[1], folder);
+    file = path.join(folder, line[2]!);
+    assert.equal(readFileSync(file, "utf8"), "zenius download fixture\n");
+    assert.equal(told.match(/downloaded "report\.txt"/g)?.length, 1, told);
+    assert.doesNotMatch(await chat.ok("wait", { seconds: 0.5 }), /report/, "told once");
+    await chat.ok("finish", { keep: "none" });
+  } finally {
+    await chat.close();
+    if (file) rmSync(file, { force: true });
+  }
+});
+
+test("mcp: finish won't cancel a download still running: it names it and both ways on, wait with downloads: true waits for it, and cancel_downloads: true cancels it", async () => {
+  const chat = await started();
+  const folder = await workingFolder();
+  const first = `slow-${process.pid}-a.txt`;
+  const second = `slow-${process.pid}-b.txt`;
+  try {
+    await chat.ok("open", { url: `${context.base}/slow-download?name=${first}`, task: unique("it mcp slow download") });
+    let clicked = await chat.ok("click", { element: "download slowly", target: "#slow" });
+    await untilTold(chat, new RegExp(`^p1 started downloading "${escaped(first)}": zenius says when it's in the working folder`, "m"), clicked);
+    assert.match(
+      await chat.ok("wait", { downloads: true, seconds: 1 }),
+      new RegExp(`^Not yet: "${escaped(first)}" is still downloading after 1 second\\. Call wait with downloads: true again to go on waiting\\.$`, "m"),
+    );
+    const refused = await chat.call("finish", { keep: "none" });
+    assert.equal(refused.isError, true);
+    assert.match(
+      refused.content[0]!.text,
+      new RegExp(
+        `^"${escaped(first)}" is still downloading, and finishing the task now would cancel it\\. Wait for it with wait and downloads: true, or call finish with cancel_downloads: true to cancel it\\.$`,
+        "m",
+      ),
+    );
+
+    await releaseFile(first);
+    const waited = await chat.ok("wait", { downloads: true, seconds: 30 });
+    assert.match(waited, /^No download of the task is running now\.$/m);
+    assert.match(waited, new RegExp(`^p1 downloaded "${escaped(first)}": it's in the working folder, ${escaped(folder)}, as "${escaped(first)}"\\.$`, "m"));
+    assert.equal(readFileSync(path.join(folder, first), "utf8"), "zenius slow download, done\n");
+
+    await chat.ok("goto", { url: `${context.base}/slow-download?name=${second}` });
+    clicked = await chat.ok("click", { element: "download slowly", target: "#slow" });
+    await untilTold(chat, new RegExp(`^p1 started downloading "${escaped(second)}"`, "m"), clicked);
+    const finished = await chat.ok("finish", { keep: "none", cancel_downloads: true });
+    assert.match(finished, new RegExp(`It canceled "${escaped(second)}", which was still downloading\\.$`, "m"));
+    assert.ok(!existsSync(path.join(folder, second)), "a canceled download leaves no file in the working folder");
+  } finally {
+    await releaseFile(first).catch(() => {});
+    await releaseFile(second).catch(() => {});
+    await chat.close();
+    rmSync(path.join(folder, first), { force: true });
+  }
+});
+
+test("mcp: a download zenius refuses is told once, with the reason, whichever result gives it", async () => {
+  const chat = await started();
+  const pref = "zenius.observe.downloads.maxCount";
+  const had = await chrome(`return Services.prefs.prefHasUserValue(arg) ? Services.prefs.getIntPref(arg) : null;`, pref);
+  try {
+    // A task may hold no download at all: the next one is refused at its start.
+    await chrome(`Services.prefs.setIntPref(arg, 0); return true;`, pref);
+    await chat.ok("open", { url: `${context.base}/files`, task: unique("it mcp refused download") });
+    const clicked = await chat.ok("click", { element: "download the report", target: "#download" });
+    const reason = /zenius refused a download from \S+: the task holds 0 downloads, the most it may \(zenius\.observe\.downloads\.maxCount\)/;
+    const told = await untilTold(chat, reason, clicked);
+    assert.equal(told.match(new RegExp(reason.source, "g"))?.length, 1, told);
+    assert.doesNotMatch(await chat.ok("wait", { seconds: 0.5 }), /refused/, "told once");
+    await chat.ok("finish", { keep: "none" });
+  } finally {
+    await chrome(had === null ? `Services.prefs.clearUserPref(arg.pref); return true;` : `Services.prefs.setIntPref(arg.pref, arg.had); return true;`, { pref, had });
+    await chat.close();
   }
 });

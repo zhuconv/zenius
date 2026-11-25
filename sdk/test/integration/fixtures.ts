@@ -150,6 +150,11 @@ export const FIXTURE_PAGES: Record<string, string> = {
   input.onchange = () => { note('chosen', [...input.files].map((file) => file.name)); }; input.click();">Upload</button>`,
   ),
   "/ex-download": page("sdk download", `<button class="download" onclick="location.href = '/file.txt'">Download</button>`),
+  // A download that runs until the test ends it, its file named by this page's query (context.ts).
+  "/slow-download": page(
+    "sdk slow download",
+    `<a id="slow">download slowly</a><script>document.querySelector("#slow").href = "/slow-file.txt" + location.search;</script>`,
+  ),
   // Dialogs that interrupt a call (next-steps.it.ts): a select whose change
   // alerts, and an input whose keydown alerts at "b".
   "/ex-month-alert": page(

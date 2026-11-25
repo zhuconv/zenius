@@ -150,9 +150,30 @@ export async function zeniusJson<T = any>(context: Context, script: string): Pro
 
 export const unique = (prefix: string) => `${prefix} ${process.pid} ${Date.now()} ${Math.floor(Math.random() * 1000)}`;
 
+/** /slow-file.txt downloads still running, by file name, until /release-file ends one. */
+const heldFiles = new Map<string, ServerResponse>();
+
 function serveFixture(request: IncomingMessage, response: ServerResponse): void {
-  const path = new URL(request.url ?? "/", "http://127.0.0.1").pathname;
+  const url = new URL(request.url ?? "/", "http://127.0.0.1");
+  const path = url.pathname;
   if (path === "/hang") return; // never answers: navigation timeouts
+  // A download that runs until the test lets it end: ?name= names its file.
+  if (path === "/slow-file.txt") {
+    const name = url.searchParams.get("name") ?? "slow.txt";
+    response.writeHead(200, { "content-type": "application/octet-stream", "content-disposition": `attachment; filename="${name}"` });
+    response.write("zenius slow download, ");
+    heldFiles.set(name, response);
+    return;
+  }
+  if (path === "/release-file") {
+    const name = url.searchParams.get("name") ?? "slow.txt";
+    const held = heldFiles.get(name);
+    heldFiles.delete(name);
+    if (held && !held.destroyed) held.end("done\n");
+    response.writeHead(204);
+    response.end();
+    return;
+  }
   if (path === "/file.txt") {
     response.writeHead(200, { "content-type": "text/plain", "content-disposition": 'attachment; filename="report.txt"' });
     response.end("zenius download fixture\n");

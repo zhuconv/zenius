@@ -2423,7 +2423,8 @@ test("Work's CLAUDE.md and AGENTS.md name the working folder the runtime read at
     };
   `);
   const shown = work.startsWith(`${out.home}/`) ? `~${work.slice(out.home.length)}` : work;
-  const lands = path => `- A file you download in a task lands in the user's working folder, ${path}, unless zenius tells you it refused it. You can't open it: tell the user it's in that folder.\n`;
+  const lands = path =>
+    `- A file you download in a task lands in the user's working folder, ${path}: zenius's results say when it's there and under which name, or why it failed. You can't open it, so tell the user where it is. Finishing the task cancels a download still running: wait for it first, with wait and downloads: true.\n`;
   const noTools = "no shell, no files and no other browser.\n";
   assert.equal(out.folder.path, work, "the runtime read this dev Zen's own folder");
   assert.equal(out.folder.source, "dev");

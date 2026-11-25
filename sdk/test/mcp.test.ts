@@ -5,11 +5,14 @@
 // server against a dev Zen.
 
 import assert from "node:assert/strict";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { describe, it } from "node:test";
 
 import { ZeniusError } from "../src/errors.ts";
 import { settleWithin } from "../src/feedback.ts";
-import { callTool, reportWaitS, stepFor, toolList } from "../src/mcp.ts";
+import { callTool, reportWaitS, Session, stepFor, toolList } from "../src/mcp.ts";
+import { MockRuntime } from "./mock-runtime.ts";
 
 describe("zenius mcp steps", () => {
   it("name the kind of a secret field and never show what was typed into it", () => {
@@ -59,6 +62,7 @@ describe("zenius mcp steps", () => {
     assert.equal(stepFor("wait", { seconds: 500 }), "Wait 50 seconds");
     assert.equal(stepFor("wait", {}), "Wait 10 seconds");
     assert.equal(stepFor("wait", { user: true }), "Wait for the user to resume the agent");
+    assert.equal(stepFor("wait", { downloads: true }), "Wait for the downloads to finish");
     assert.equal(stepFor("read_page", { root: "ref=12" }), "Read part of the page");
     assert.equal(stepFor("read_page", {}), "Read the page");
     assert.equal(stepFor("read_page", { full: true }), "Read the whole page");
@@ -129,6 +133,8 @@ describe("zenius mcp hand_off", () => {
     const session = {
       connect() {},
       async resume() {},
+      async watchDownloads() {},
+      downloadNews: () => [],
       drop() {},
       ended() {},
       task: {
@@ -162,6 +168,7 @@ describe("zenius mcp hard stops", () => {
         async resume() {
           throw new ZeniusError("ZEN_TASK_SPACE_USER_IN_CONTROL", "Control is with the user", { reason });
         },
+        downloadNews: () => [],
         drop() {},
         ended() {},
       } as unknown as Parameters<typeof callTool>[0];
@@ -177,5 +184,181 @@ describe("zenius mcp hard stops", () => {
     assert.equal(await paused("permission_prompt"), "a browser prompt, such as a passkey request, or one asking for persistent storage or virtual reality");
     // A key from a later runtime still says it's a prompt, by its key.
     assert.equal(await paused("bluetooth"), "a browser prompt (bluetooth)");
+  });
+});
+
+/**
+ * A real session on a mock runtime, which sends the download events a test
+ * gives it (MockRuntime.emit), as the runtime sends them to a subscriber.
+ */
+async function withSession(
+  body: (context: {
+    session: Session;
+    mock: MockRuntime;
+    call: (name: string, args?: Record<string, unknown>) => Promise<{ text: string; isError?: boolean }>;
+    download: (id: string, state: string, more?: Record<string, unknown>) => void;
+  }) => Promise<void>,
+): Promise<void> {
+  const mock = await new MockRuntime().start();
+  const socket = process.env.ZENIUS_SOCKET;
+  process.env.ZENIUS_SOCKET = mock.socketPath;
+  const session = new Session({});
+  const call = async (name: string, args: Record<string, unknown> = {}) => {
+    const result = await callTool(session, name, args);
+    return { text: result.content.map((part) => part.text).join("\n"), isError: result.isError };
+  };
+  const download = (id: string, state: string, more: Record<string, unknown> = {}) =>
+    mock.emit("download", { space: session.task.id, page: "p1", download: id, url: "https://shop.example.com/r", suggestedFilename: "report.pdf", state, ...more });
+  try {
+    await call("open", { url: "https://shop.example.com/" });
+    await body({ session, mock, call, download });
+  } finally {
+    session.drop();
+    if (socket === undefined) delete process.env.ZENIUS_SOCKET;
+    else process.env.ZENIUS_SOCKET = socket;
+    await mock.stop();
+  }
+}
+
+const TOO_MANY =
+  "zenius refused a download from https://shop.example.com/big: the task holds 50 downloads, the most it may (zenius.observe.downloads.maxCount). Tell the user.";
+
+describe("zenius mcp downloads", () => {
+  it("hears the task's download events from its open on, through one subscription to the task's own", async () => {
+    await withSession(async ({ session, mock, call }) => {
+      const subscribed = mock.requests.filter((request) => request.method === "events.subscribe");
+      assert.deepEqual(
+        subscribed.map((request) => request.params),
+        [{ names: ["download"], space: session.task.id }],
+      );
+      const open = mock.requests.findIndex((request) => request.method === "page.goto");
+      assert.ok(mock.requests.indexOf(subscribed[0]!) < open, "before the first page, which may be a download");
+      await call("read_page", {});
+      assert.equal(mock.requests.filter((request) => request.method === "events.subscribe").length, 1);
+    });
+  });
+
+  it("goes on when the subscription fails, and the next call subscribes again", async () => {
+    const mock = await new MockRuntime().start();
+    const socket = process.env.ZENIUS_SOCKET;
+    process.env.ZENIUS_SOCKET = mock.socketPath;
+    const session = new Session({});
+    let failed = 0;
+    mock.handle("events.subscribe", () => {
+      if (!failed++) throw new Error("not now");
+      return { ok: true };
+    });
+    try {
+      const opened = await callTool(session, "open", { url: "https://shop.example.com/" });
+      assert.equal(opened.isError, undefined, opened.content[0]!.text);
+      await callTool(session, "read_page", {});
+      assert.equal(mock.requests.filter((request) => request.method === "events.subscribe").length, 2);
+      mock.emit("download", { space: session.task.id, page: "p1", download: "download-1", suggestedFilename: "report.pdf", state: "started" });
+      const read = await callTool(session, "read_page", {});
+      assert.match(read.content[0]!.text, /\np1 started downloading "report\.pdf"/);
+      assert.equal(mock.requests.filter((request) => request.method === "events.subscribe").length, 2, "once it holds, no more");
+    } finally {
+      session.drop();
+      if (socket === undefined) delete process.env.ZENIUS_SOCKET;
+      else process.env.ZENIUS_SOCKET = socket;
+      await mock.stop();
+    }
+  });
+
+  it("tells the agent in the next result what the task's downloads did, once each: started, in the working folder with home as ~, or failed with the reason", async () => {
+    await withSession(async ({ session, mock, call, download }) => {
+      download("download-1", "started");
+      const clicked = await call("click", { element: "Download", target: "#download" });
+      assert.equal(
+        clicked.text,
+        [
+          'Click "Download"',
+          "Done.",
+          `p1 started downloading "report.pdf": zenius says when it's in the working folder, and finishing the task before then cancels it.`,
+        ].join("\n"),
+      );
+      download("download-1", "finished", { path: join(homedir(), "zenius-files", "report(1).pdf") });
+      download("refused-1", "failed", { page: null, suggestedFilename: "", failure: TOO_MANY });
+      download("download-2", "started", { suggestedFilename: "Invoice\u202Etxt.exe\n2024.pdf" });
+      download("download-2", "failed", { suggestedFilename: "Invoice\u202Etxt.exe\n2024.pdf", failure: "canceled" });
+      // Another task's download and an event that isn't one say nothing.
+      mock.emit("download", { space: session.task.id + 1, page: "p1", download: "download-9", suggestedFilename: "theirs.pdf", state: "started" });
+      mock.emit("popup", { space: session.task.id, page: "p1", label: "p2" });
+      const waited = await call("wait", { downloads: true });
+      assert.equal(
+        waited.text,
+        [
+          "Wait for the downloads to finish",
+          "No download of the task is running now.",
+          `p1 downloaded "report.pdf": it's in the working folder, ~/zenius-files, as "report(1).pdf".`,
+          `A download failed: ${TOO_MANY}`,
+          `p1's download of "Invoicetxt.exe 2024.pdf" failed: canceled`,
+        ].join("\n"),
+      );
+      assert.equal((await call("read_page", {})).text.includes("download"), false, "each is told once");
+    });
+  });
+
+  it("leaves out a download refusal that the action's receipt gives, and tells a later one", async () => {
+    await withSession(async ({ mock, call, download }) => {
+      mock.handle("page.click", () => {
+        download("refused-1", "failed", { suggestedFilename: "", failure: TOO_MANY });
+        return { refused: [{ kind: "download", message: TOO_MANY }] };
+      });
+      const clicked = await call("click", { element: "Download", target: "#download" });
+      assert.equal(clicked.text, ['Click "Download"', "Done.", `zenius refused something the page tried: ${TOO_MANY}`].join("\n"));
+      download("refused-2", "failed", { suggestedFilename: "", failure: TOO_MANY });
+      assert.equal((await call("wait", { downloads: true })).text.split("\n").at(-1), `p1's download failed: ${TOO_MANY}`);
+    });
+  });
+
+  it("waits with downloads: true until the running ones end, up to its seconds, and says which still run", async () => {
+    await withSession(async ({ call, download }) => {
+      download("download-1", "started");
+      const ends = setTimeout(() => download("download-1", "finished", { path: "/srv/files/report.pdf" }), 100);
+      const started = performance.now();
+      const waited = await call("wait", { downloads: true, seconds: 5 });
+      clearTimeout(ends);
+      assert.ok(performance.now() - started < 2000, "it returns when they end");
+      assert.match(waited.text, /^Wait for the downloads to finish\nNo download of the task is running now\.\n/);
+      assert.match(waited.text, /\np1 downloaded "report\.pdf": it's in the working folder, \/srv\/files, as "report\.pdf"\.$/);
+
+      download("download-2", "started", { suggestedFilename: "a.zip" });
+      download("download-3", "started", { suggestedFilename: "b.zip" });
+      const late = await call("wait", { downloads: true, seconds: 0.2 });
+      assert.equal(
+        late.text.split("\n").slice(0, 2).join("\n"),
+        'Wait for the downloads to finish\nNot yet: "a.zip" and "b.zip" are still downloading after 0.2 seconds. Call wait with downloads: true again to go on waiting.',
+      );
+    });
+  });
+
+  it("finish refuses while a download runs, naming it and both ways on, and cancel_downloads: true finishes and says what it canceled", async () => {
+    await withSession(async ({ mock, call, download }) => {
+      download("download-1", "started");
+      const refused = await call("finish", { keep: "none" });
+      assert.equal(refused.isError, true);
+      assert.equal(
+        refused.text.split("\n").slice(0, 2).join("\n"),
+        `Finish, closing the task's tabs failed.\n"report.pdf" is still downloading, and finishing the task now would cancel it. Wait for it with wait and downloads: true, or call finish with cancel_downloads: true to cancel it.`,
+      );
+      assert.ok(!mock.requests.some((request) => request.method === "spaces.finish"), "the task goes on");
+      const finished = await call("finish", { keep: "none", cancel_downloads: true });
+      assert.equal(finished.isError, undefined, finished.text);
+      assert.match(finished.text, /The task is finished: closed p1\. It canceled "report\.pdf", which was still downloading\.$/);
+      // The ended task's last events say nothing.
+      mock.emit("download", { space: 1, page: "p1", download: "download-1", suggestedFilename: "report.pdf", state: "failed", failure: "canceled" });
+      assert.equal((await call("wait", { downloads: true })).text, "Wait for the downloads to finish\nNo download of the task is running now.");
+    });
+  });
+
+  it("finishes at once when no download runs, saying nothing of downloads", async () => {
+    await withSession(async ({ call, download }) => {
+      download("download-1", "started");
+      download("download-1", "finished", { path: "/srv/files/report.pdf" });
+      const finished = await call("finish", { keep: "none" });
+      assert.equal(finished.isError, undefined, finished.text);
+      assert.doesNotMatch(finished.text, /canceled/);
+    });
   });
 });

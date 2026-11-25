@@ -19,4 +19,4 @@ Next: Give screenshot() and saveAs() a relative path, which lands in the working
 
 ## Through the MCP tools
 
-The MCP tools read and write no files: they offer no upload, no download and no screenshot.
+The MCP tools read and write no files: they offer no upload and no screenshot. A file a page downloads in the task lands in the working folder, and a later result says where, under which name, or why it failed. wait with downloads: true waits for the downloads still running, and finish refuses while one runs, since the task's end would cancel it, unless cancel_downloads is true.

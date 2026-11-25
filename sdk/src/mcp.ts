@@ -9,7 +9,12 @@
 // the runtime's checks and the error guide's words are the same as a
 // script's. It offers no dev.* method, no setting, no shell, no file system
 // and no upload: only the tools below, and only http and https pages
-// (docs/mcp.md).
+// (docs/mcp.md). It tells the agent about the task's downloads, which the
+// runtime puts in the working folder, from the runtime's download events,
+// and never reads them.
+
+import { homedir } from "node:os";
+import { basename, dirname } from "node:path";
 
 import { HAND_OFF_REASONS } from "./api-schema.ts";
 import { DOC_TOPICS, docsText } from "./docs.ts";
@@ -251,14 +256,89 @@ function positive(args: Json, name: string, fallback: number, max: number, unit:
 }
 const seconds = (args: Json, name: string, fallback: number, max: number) => positive(args, name, fallback, max, " of seconds");
 
+/**
+ * A download of the task, as the runtime's download events tell it
+ * (docs/PROTOCOL.md, "download"): started, then finished in the working
+ * folder or failed with the reason. One refused at its start only fails,
+ * under an id of its own (refused-N).
+ */
+type DownloadEvent = {
+  space: number;
+  /** download-N, or refused-N for one refused at its start. */
+  id: string;
+  /** The page's label (the runtime sends one for a task's pages alone). */
+  page: string;
+  /** The file's name as zenius staged it; empty when zenius refused it before it had a file. */
+  name: string;
+  state: "started" | "finished" | "failed";
+  path?: string;
+  failure?: string;
+};
+
+function downloadEvent(params: unknown): DownloadEvent | undefined {
+  const p = (params ?? {}) as Record<string, unknown>;
+  if (typeof p.space !== "number" || typeof p.download !== "string") return undefined;
+  if (p.state !== "started" && p.state !== "finished" && p.state !== "failed") return undefined;
+  if (p.state === "finished" && typeof p.path !== "string") return undefined;
+  return {
+    space: p.space,
+    id: p.download,
+    page: typeof p.page === "string" ? p.page : "",
+    name: typeof p.suggestedFilename === "string" ? p.suggestedFilename : "",
+    state: p.state,
+    ...(typeof p.path === "string" ? { path: p.path } : {}),
+    ...(typeof p.failure === "string" ? { failure: p.failure } : {}),
+  };
+}
+
+/** A folder as the user knows it: the home folder as ~. */
+function shownFolder(folder: string): string {
+  const home = homedir();
+  return folder.startsWith(`${home}/`) ? `~${folder.slice(home.length)}` : folder;
+}
+
+/**
+ * What a download did, for the agent: its tab and its name, which the site
+ * chose, so quoted; then where the file is, or why there's none. A finished
+ * file's name in the folder may differ from the site's ("report(1).pdf").
+ */
+function downloadLine(d: DownloadEvent): string {
+  const name = d.name ? quoted(d.name) : "";
+  if (d.state === "started") {
+    return `${d.page || "A tab of the task"} started downloading ${name || "a file"}: zenius says when it's in the working folder, and finishing the task before then cancels it.`;
+  }
+  if (d.state === "finished") {
+    return `${d.page || "The task"} downloaded ${name || "a file"}: it's in the working folder, ${shownFolder(dirname(d.path!))}, as ${quoted(basename(d.path!), 120)}.`;
+  }
+  return `${d.page ? `${d.page}'s download` : "A download"}${name ? ` of ${name}` : ""} failed: ${d.failure || "zenius wasn't told why"}`;
+}
+
+/** Downloads by name, as a refusal or a wait lists them. */
+function downloadNames(downloads: DownloadEvent[]): string {
+  const names = downloads.map((d) => (d.name ? quoted(d.name) : "a file"));
+  return names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : (names[0] ?? "");
+}
+
 /** The connection, the task and its current tab, for one MCP session. */
-class Session {
+export class Session {
   label: string | undefined;
   #client: RpcClient | undefined;
   #task: TaskSpace | undefined;
   #current: Page | undefined;
   /** Each tab's last read, by label: what its refs named, for fill's step. */
   #reads = new Map<string, string>();
+  /** The task's downloads still running, by id, as their events say: what a finish would cancel. */
+  #running = new Map<string, DownloadEvent>();
+  /** Each download's latest event since a result last told the agent, in the order they began. */
+  #news = new Map<string, DownloadEvent>();
+  /** Download refusals this call's receipt already gave the agent, which its news leaves out. */
+  #told = new Set<string>();
+  /** The connection and task whose download events this session hears, once subscribed. */
+  #watched: { client: RpcClient; space: number } | undefined;
+  /** The connection this session's event listener is on. */
+  #listening: RpcClient | undefined;
+  /** Who waits for the running downloads to end (wait with downloads: true). */
+  #idle = new Set<() => void>();
   /**
    * ZENIUS_TASK_SPACE: the id of the task this chat worked in before, which
    * the agent sidebar passes when a parked session resumes in a new server.
@@ -301,6 +381,82 @@ class Session {
     }
   }
 
+  /**
+   * Hear the task's download events: once per task and connection, before
+   * the task's first action, so a result can tell what its downloads did
+   * without any call or wait of its own.
+   */
+  async watchDownloads(): Promise<void> {
+    const task = this.#task;
+    const client = this.#client;
+    if (!task || !client || (this.#watched?.client === client && this.#watched.space === task.id)) return;
+    if (this.#listening !== client) {
+      client.onEvent((event, params) => this.#onEvent(event, params));
+      this.#listening = client;
+    }
+    // Watched once the subscription holds. One that failed doesn't fail the
+    // agent's call: the next call subscribes again, and tells what came since.
+    try {
+      await client.call("events.subscribe", { names: ["download"], space: task.id });
+      this.#watched = { client, space: task.id };
+    } catch {}
+  }
+
+  #onEvent(event: string, params: unknown): void {
+    if (event !== "download") return;
+    const download = downloadEvent(params);
+    if (!download || download.space !== this.#task?.id) return;
+    if (download.state === "started") this.#running.set(download.id, download);
+    else this.#running.delete(download.id);
+    // A later state replaces one the agent hasn't heard yet, in its place.
+    this.#news.set(download.id, download);
+    if (!this.#running.size) for (const done of [...this.#idle]) done();
+  }
+
+  /** A download refusal the call's receipt gives the agent: its news won't repeat it. */
+  toldRefusal(message: string): void {
+    this.#told.add(message);
+  }
+
+  /** What the task's downloads did since a result last told the agent, a line each. */
+  downloadNews(): string[] {
+    const lines = [...this.#news.values()].filter((d) => !(d.state === "failed" && d.failure && this.#told.has(d.failure))).map(downloadLine);
+    this.#news.clear();
+    this.#told.clear();
+    return lines;
+  }
+
+  /**
+   * Hear every download event the runtime sent until now, before a check
+   * that goes by them (wait's, finish's): it sends them on the connection in
+   * order, so one round trip brings them in.
+   */
+  async heardDownloads(): Promise<void> {
+    const client = this.#watched?.client;
+    if (client && client === this.#client) await client.call("browser.version", {}, { op: "zenius mcp" });
+  }
+
+  /** The task's downloads still running. */
+  runningDownloads(): DownloadEvent[] {
+    return [...this.#running.values()];
+  }
+
+  /** Wait up to `ms` for the task's running downloads to end; those still running then. */
+  async downloadsEnded(ms: number): Promise<DownloadEvent[]> {
+    if (this.#running.size) {
+      await new Promise<void>((resolve) => {
+        const done = () => {
+          clearTimeout(timer);
+          this.#idle.delete(done);
+          resolve();
+        };
+        const timer = setTimeout(done, ms);
+        this.#idle.add(done);
+      });
+    }
+    return this.runningDownloads();
+  }
+
   /** The SDK's round on the instance socket, opened at the first call. */
   connect(): void {
     if (this.#client) return;
@@ -320,6 +476,10 @@ class Session {
     this.#client?.close();
     this.#client = undefined;
     setRound(undefined);
+    // Its downloads went with it; the next connection hears the task afresh.
+    this.#watched = undefined;
+    this.#running.clear();
+    for (const done of [...this.#idle]) done();
   }
 
   get task(): TaskSpace {
@@ -346,6 +506,8 @@ class Session {
       // Always a task of its own: another chat's agent may have named its task alike.
       this.#task = await startTaskSpace(clean(name) || `${this.label ?? clientLabel() ?? "Agent"} task`, { maxLength: TASK_NAME_MAX });
       created = true;
+      // Before its first page, whose URL may be a download.
+      await this.watchDownloads();
     }
     // A new task comes with a blank p1: the first page goes there.
     let page: Page | undefined;
@@ -381,6 +543,9 @@ class Session {
     this.#task = undefined;
     this.#current = undefined;
     this.#reads.clear();
+    // Its news stays for this call's result; what still ran ended with it.
+    this.#running.clear();
+    for (const done of [...this.#idle]) done();
   }
 }
 
@@ -392,7 +557,10 @@ async function where(page: Page): Promise<string> {
 /** What an action did besides its own step: tabs it opened, a dialog, what zenius refused. */
 function notes(receipt: PageActionReceipt | undefined, session: Session, page: Page): string[] {
   const lines: string[] = [];
-  for (const refusal of receipt?.refused ?? []) lines.push(`zenius refused something the page tried: ${refusal.message}`);
+  for (const refusal of receipt?.refused ?? []) {
+    lines.push(`zenius refused something the page tried: ${refusal.message}`);
+    if (refusal.kind === "download") session.toldRefusal(refusal.message);
+  }
   if (receipt?.dialog) lines.push(`The page showed a dialog: ${JSON.stringify(receipt.dialog).slice(0, 300)}`);
   const popups = receipt?.popups ?? [];
   if (popups.length) {
@@ -615,7 +783,7 @@ const TOOLS: Tool[] = [
   {
     name: "wait",
     title: "Wait",
-    description: "Wait for text, an element, a URL or the page's load, for some seconds, or for the user to hand the task back.",
+    description: "Wait for text, an element, a URL, the page's load or the task's downloads, for some seconds, or for the user to hand the task back.",
     inputSchema: {
       type: "object",
       properties: {
@@ -623,6 +791,7 @@ const TOOLS: Tool[] = [
         target: { type: "string", description: "An element to wait for, by selector." },
         url: { type: "string", description: "A URL the tab should reach (a glob such as **/done works)." },
         load: { type: "string", enum: ["load", "domcontentloaded", "networkidle"], description: "A load state to wait for." },
+        downloads: { type: "boolean", description: "Wait until the task's downloads that are still running finish or fail." },
         seconds: { type: "number", description: `Wait this long, at most ${WAIT_MAX_S} s; or, with the others, the most to wait (${WAIT_DEFAULT_S} s if left out).` },
         user: { type: "boolean", description: `Wait until the user hands the task back after hand_off: ${WAIT_USER_DEFAULT_S} s, or seconds (at most ${WAIT_USER_MAX_S}); wait again if they need longer.` },
         page: PAGE_PARAM,
@@ -632,7 +801,9 @@ const TOOLS: Tool[] = [
     step: (args) =>
       args.user
         ? "Wait for the user to resume the agent"
-        : args.text
+        : args.downloads
+          ? "Wait for the downloads to finish"
+          : args.text
           ? `Wait for ${quoted(args.text)}`
           : args.target
             ? `Wait for ${quoted(args.target)}`
@@ -642,7 +813,7 @@ const TOOLS: Tool[] = [
                 ? "Wait for the page to load"
                 : `Wait ${plural(typeof args.seconds === "number" && args.seconds > 0 ? Math.min(args.seconds, WAIT_MAX_S) : WAIT_DEFAULT_S, "second")}`,
     run: async (args, session) => {
-      const conditions = ["text", "target", "url", "load", "user"].filter((name) => args[name] !== undefined && args[name] !== false);
+      const conditions = ["text", "target", "url", "load", "user", "downloads"].filter((name) => args[name] !== undefined && args[name] !== false);
       if (conditions.length > 1) throw new CallError(`wait for one thing at a time, not ${conditions.join(" and ")}`);
       if (args.user) {
         const limit = seconds(args, "seconds", WAIT_USER_DEFAULT_S, WAIT_USER_MAX_S);
@@ -664,6 +835,14 @@ const TOOLS: Tool[] = [
             ? [`zenius cleared ${blanked.join(", ")}, which showed the user a secret: ${blanked.length === 1 ? "it shows" : "they show"} about:blank now. Don't go back to that page; ask the user for anything you need from it.`]
             : []),
         ].join("\n");
+      }
+      if (args.downloads) {
+        const limit = seconds(args, "seconds", WAIT_DEFAULT_S, WAIT_MAX_S);
+        await session.heardDownloads();
+        const running = await session.downloadsEnded(limit * 1000);
+        return running.length
+          ? `Not yet: ${downloadNames(running)} ${running.length === 1 ? "is" : "are"} still downloading after ${plural(limit, "second")}. Call wait with downloads: true again to go on waiting.`
+          : "No download of the task is running now.";
       }
       if (conditions.length === 0) {
         const s = seconds(args, "seconds", WAIT_DEFAULT_S, WAIT_MAX_S);
@@ -745,13 +924,17 @@ const TOOLS: Tool[] = [
   {
     name: "finish",
     title: "Finish",
-    description: "End the task, keeping the tabs the user should see and closing the rest.",
+    description: "End the task, keeping the tabs the user should see and closing the rest; while a download still runs it refuses, unless cancel_downloads is true.",
     inputSchema: {
       type: "object",
       properties: {
         keep: {
           description: 'The tabs to keep open for the user: a list of labels (["p1"]), "all", or "none".',
           oneOf: [{ type: "array", items: { type: "string" } }, { type: "string", enum: ["all", "none"] }],
+        },
+        cancel_downloads: {
+          type: "boolean",
+          description: "Finish even while downloads still run, which cancels them: only when the user doesn't need those files.",
         },
       },
       required: ["keep"],
@@ -773,6 +956,15 @@ const TOOLS: Tool[] = [
       else if (Array.isArray(keep) && keep.every((k) => typeof k === "string")) labels = keep;
       else throw new CallError('keep must be a list of labels, "all" or "none"');
       const task = session.task;
+      // A task's end cancels its running downloads: the user's files, unless the agent says so.
+      await session.heardDownloads();
+      const running = session.runningDownloads();
+      const them = running.length === 1 ? "it" : "them";
+      if (running.length && args.cancel_downloads !== true) {
+        throw new CallError(
+          `${downloadNames(running)} ${running.length === 1 ? "is" : "are"} still downloading, and finishing the task now would cancel ${them}. Wait for ${them} with wait and downloads: true, or call finish with cancel_downloads: true to cancel ${them}.`,
+        );
+      }
       // Asked before the finish, which hands the kept tabs to the user.
       const candidates = labels === "all" ? await task.pages().catch(() => []) : labels.flatMap((label) => {
         try {
@@ -798,7 +990,9 @@ const TOOLS: Tool[] = [
       const shown = kept.flatMap((label) => (lines.has(label) ? [`  ${lines.get(label)}`] : []));
       return {
         step: [step, ...shown].join("\n"),
-        text: `The task is finished${kept.length ? `: kept ${kept.join(", ")}` : ""}${closed.length ? `${kept.length ? ";" : ":"} closed ${closed.join(", ")}` : ""}.`,
+        text: `The task is finished${kept.length ? `: kept ${kept.join(", ")}` : ""}${closed.length ? `${kept.length ? ";" : ":"} closed ${closed.join(", ")}` : ""}.${
+          running.length ? ` It canceled ${downloadNames(running)}, which ${running.length === 1 ? "was" : "were"} still downloading.` : ""
+        }`,
       };
     },
   },
@@ -1039,14 +1233,17 @@ export async function callTool(session: Session, name: string, args: Json): Prom
   const tool = toolsFor(session).find((t) => t.name === name);
   if (!tool) return { content: [{ type: "text", text: `There is no tool named ${quoted(name)}.` }], isError: true };
   const step = stepFor(name, args);
+  // What the task's downloads did, for a tool that reaches Zen; an offline one leaves it to the next.
+  const news = () => (tool.offline ? [] : session.downloadNews());
   try {
     if (!tool.offline) {
       session.connect();
       await session.resume();
+      await session.watchDownloads();
     }
     const outcome = await tool.run(args, session);
     const [shown, text] = typeof outcome === "string" ? [step, outcome] : [outcome.step, outcome.text];
-    return { content: [{ type: "text", text: `${shown}\n${text}` }] };
+    return { content: [{ type: "text", text: [`${shown}\n${text}`, ...news()].join("\n") }] };
   } catch (error) {
     const code = error instanceof ZeniusError ? error.code : undefined;
     if (code === "ZEN_BROWSER_UNAVAILABLE") session.drop();
@@ -1054,7 +1251,7 @@ export async function callTool(session: Session, name: string, args: Json): Prom
     if (code === "ZEN_TASK_SPACE_INACTIVE" || code === "ZEN_TASK_SPACE_NOT_FOUND") session.ended();
     const explained = (error instanceof ZeniusError && hardStop(error)) || readable(error);
     // The step stays the user's line; the code, for the agent to go by, leads the explanation.
-    return { content: [{ type: "text", text: `${step} failed.\n${code ? `${code}: ` : ""}${explained}` }], isError: true };
+    return { content: [{ type: "text", text: [`${step} failed.\n${code ? `${code}: ` : ""}${explained}`, ...news()].join("\n") }], isError: true };
   }
 }
 

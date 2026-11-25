@@ -268,6 +268,13 @@ export class MockRuntime {
     return popup;
   }
 
+  /** An event frame to every connection, as the runtime sends one to its subscribers. */
+  emit(event: string, params: Record<string, unknown>): void {
+    for (const socket of this.#sockets) {
+      if (!socket.destroyed) socket.write(`${JSON.stringify({ event, params })}\n`);
+    }
+  }
+
   #fire(space: number, page: string, event: string, value: unknown): boolean {
     const index = this.#waiters.findIndex((waiter) => waiter.space === space && waiter.page === page && waiter.event === event);
     if (index < 0) return false;

@@ -23,9 +23,9 @@ the same words (zen-sdk's error guide).
 | `press` | `Press Enter`, `Press Cmd+A on "<element>"` | Presses a key or a chord. |
 | `scroll` | `Scroll down`, `Scroll to "<element>"` | Scrolls by screens, or until an element is in view. |
 | `select` | `Select "<option>" in "<element>"` | Chooses options of a select element. |
-| `wait` | `Wait for "<text>"`, `Wait for the tab to reach example.com/done`, `Wait for the page to load`, `Wait 1 second`, `Wait for the user to resume the agent` | Waits for text, an element, a URL, a load state, a time, or the user. |
+| `wait` | `Wait for "<text>"`, `Wait for the tab to reach example.com/done`, `Wait for the page to load`, `Wait 1 second`, `Wait for the downloads to finish`, `Wait for the user to resume the agent` | Waits for text, an element, a URL, a load state, a time, the task's downloads, or the user. |
 | `hand_off` | `Ask the user: "<message>"` | Hands the task to the user, for signing in, paying or a captcha. Zen's card in the tab shows the message, and Zen names the reason (`sign_in`, `irreversible`, `human_check` or `other`) where the task waits for the user. |
-| `finish` | `Finish, keeping 1 tab`, then each kept tab's title and host; `Finish, closing the task's tabs` | Ends the task, keeping the tabs the user should see. |
+| `finish` | `Finish, keeping 1 tab`, then each kept tab's title and host; `Finish, closing the task's tabs` | Ends the task, keeping the tabs the user should see. While a download still runs, it refuses, naming it, unless `cancel_downloads` is true (Downloads, below). |
 | `evaluate` | `Run code in the page` | Runs JavaScript in the agent's isolated world, which sees the page's DOM but not its scripts. From the first update, the user's page-code setting decides whether it's offered. |
 | `report_problem` | `Report a problem with zenius: "<line>"` | Shows the user a problem report about zenius itself in Zen's agent sidebar, for them to send, copy, keep working on with the agent, or discard (below). |
 | `docs` | `Read zenius's docs`, `Read zenius's docs: "<topic>"` | Returns zenius's own docs for the version installed: what an error code means, which URLs agents may load, where a script's files go, and the limits (below). It needs no Zen. |
@@ -120,6 +120,29 @@ that tab the current one. `wait` gives a page condition 10 s, at most 50.
 With `user: true` it waits 50 s unless given `seconds` (at most 600). If the
 user hasn't pressed Resume agent by then, it says so, not as a failure, and
 the agent calls it again.
+
+## Downloads
+
+A file a page downloads in the agent's task lands in the working folder
+(install-daily.md, "The working folder"), as a script's download does. The
+server never reads it: it tells the agent where it is, so the agent can
+tell the user. It hears the runtime's `download` events for its task
+(PROTOCOL.md) and adds what they say to the next result, a line each, once:
+
+- `p1 started downloading "report.pdf": …`
+- `p1 downloaded "report.pdf": it's in the working folder, ~/zenius-files, as "report(1).pdf".`
+- `p1's download of "report.pdf" failed: …`, with the reason, such as
+  zenius's refusal. A refusal that the action's own result already gives
+  isn't repeated.
+
+Nothing waits for a download. A click returns before the download it starts
+begins, so its line usually comes with the next call.
+
+`wait` with `downloads: true` waits until the task's downloads that are
+still running end, up to its `seconds`. A task's end cancels a download
+still running, so `finish` refuses while one runs, naming it: the agent
+waits for it, or passes `cancel_downloads: true` when the user doesn't need
+the file.
 
 ## Reporting a problem with zenius
 
@@ -255,7 +278,9 @@ Codex gives a tool call 60 s by default. That's why no `wait` goes past
 `sdk/test/integration/mcp.it.ts`, in the SDK's integration suite (`sdk-it`
 in `scripts/test-all.sh`), spawns `zenius mcp` and drives every tool over
 stdio against a headless dev Zen. It checks the steps, the results, the
-error paths, and that nothing beyond these tools is offered.
+error paths, the downloads that later results tell of, and that nothing
+beyond these tools is offered. `sdk/test/mcp.test.ts` checks the download
+lines, `wait`'s and `finish`'s rules on a mock runtime.
 `sdk/test/docs.test.ts` checks the docs, their resources and `--docs-only`
 without a Zen, and `tests/ux/chatdocs.test.mjs` checks Chat's server as the
 sidebar starts it.
