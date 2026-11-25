@@ -28,6 +28,7 @@ the same words (zen-sdk's error guide).
 | `finish` | `Finish, keeping 1 tab`, then each kept tab's title and host; `Finish, closing the task's tabs` | Ends the task, keeping the tabs the user should see. |
 | `evaluate` | `Run code in the page` | Runs JavaScript in the agent's isolated world, which sees the page's DOM but not its scripts. From the first update, the user's page-code setting decides whether it's offered. |
 | `report_problem` | `Report a problem with zenius: "<line>"` | Shows the user a problem report about zenius itself in Zen's agent sidebar, for them to send, copy, keep working on with the agent, or discard (below). |
+| `docs` | `Read zenius's docs`, `Read zenius's docs: "<topic>"` | Returns zenius's own docs for the version installed: what an error code means, which URLs agents may load, where a script's files go, and the limits (below). It needs no Zen. |
 
 `element` is required wherever a tool takes a target. It's the element's
 visible text, or a short description, and it is what the step shows. Each
@@ -157,6 +158,35 @@ number and address, copied, deferred, discarded, or still waiting.
   names the Work chat that wrote it from it. Like a task's, the source is
   the server's own claim.
 
+## zenius's docs
+
+`docs` answers questions about zenius itself, such as what a
+`ZEN_URL_NOT_ALLOWED` from `goto` means. Its topics are built from the
+installed version's own code (`sdk/src/docs.ts`):
+
+- `errors`: every error code and refused kind, what it means and what to do
+  next. A code or a kind's name as the topic gives that one alone.
+- `urls`: which URLs agents may load, and the pages where they can't act.
+- `files`: where a script's files go, and which files it may upload.
+- `limits`: the default timeouts and limits.
+
+With no topic it lists them. It reads no page and never connects to Zen,
+so it answers while Zen is closed.
+
+The same text is there in three other forms:
+
+- MCP resources, `zenius://docs/<topic>` as `text/markdown`, for clients
+  that read resources. A code's URI works too, such as
+  `zenius://docs/ZEN_URL_NOT_ALLOWED`.
+- `zenius docs [topic]`, for an agent with a shell.
+- The skill's `references/<topic>.md`, which `sdk/scripts/write-references.ts`
+  writes. `sdk/test/docs.test.ts` fails while they differ.
+
+`zenius mcp --docs-only` serves the `docs` tool alone, and never reaches
+Zen. The agent sidebar's Chat runs it that way: Chat can say what an error
+means, and has none of the browser tools. A CLI older than the flag refuses
+it and doesn't start.
+
 ## What it never offers
 
 - No `dev.*` method, no zenius or Zen settings, no shell, no file system.
@@ -222,3 +252,6 @@ Codex gives a tool call 60 s by default. That's why no `wait` goes past
 in `scripts/test-all.sh`), spawns `zenius mcp` and drives every tool over
 stdio against a headless dev Zen. It checks the steps, the results, the
 error paths, and that nothing beyond these tools is offered.
+`sdk/test/docs.test.ts` checks the docs, their resources and `--docs-only`
+without a Zen, and `tests/ux/chatdocs.test.mjs` checks Chat's server as the
+sidebar starts it.

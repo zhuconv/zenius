@@ -3,7 +3,10 @@
  * What a session may do depends on its kind:
  *  - Both kinds may search the web and fetch pages: it only reads, and an
  *    answer often needs more than the page.
- *  - A Chat session has nothing else: it answers from the page's text, which
+ *  - A Chat session has one more tool, zenius's docs: the zenius server
+ *    started with --docs-only, which serves that tool alone. It reads
+ *    zenius's own text, never the browser or a file, so a user can ask Chat
+ *    what an error means. Otherwise Chat answers from the page's text, which
  *    the page controls, and from the web.
  *  - A Work session also has zenius's MCP tools (the zenius server, given to
  *    the session) and two harmless built-ins: its todo list and the search
@@ -18,7 +21,7 @@
  *     - disallowedTools, and allowedTools for zenius's server;
  *     - settingSources ["project"], so ~/.claude's settings, hooks and
  *       skills stay out; the user's own config sets [];
- *     - strictMcpConfig: no MCP server but zenius's;
+ *     - strictMcpConfig: no MCP server but zenius's (in Chat, its docs alone);
  *     - settings: the flag tier, with the deny rules, dontAsk and the hook;
  *     - no bypass mode.
  *  2. The workspace's .claude/settings.json, the same rules, written afresh
@@ -111,6 +114,9 @@ const CLAUDE_DENIED_RULES = [
   "Bash", "Read", "Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep", "LS",
   "Task", "Agent", "Skill", "SlashCommand",
 ];
+
+/** zenius's MCP tools a kind allows: all of them in Work, and in Chat the docs alone. */
+export const ZENIUS_TOOLS = { chat: ["mcp__zenius__docs"], work: ["mcp__zenius"] };
 
 /** A denied list, plus the web tools a kind doesn't have. */
 function deniedFor(kind, list) {
@@ -342,7 +348,7 @@ export function claudeSettings(kind, command, sources = null) {
     permissions: {
       defaultMode: "dontAsk",
       disableBypassPermissionsMode: "disable",
-      allow: [...(kind === "work" ? ["mcp__zenius"] : []), ...CLAUDE_WEB_TOOLS[kind]],
+      allow: [...ZENIUS_TOOLS[kind], ...CLAUDE_WEB_TOOLS[kind]],
       deny: deniedFor(kind, CLAUDE_DENIED_RULES),
     },
     hooks,
@@ -356,8 +362,15 @@ function settingsFor(agent, kind, base) {
   return claudeSettings(kind, hookCommand(agent, kind, base), sourcesCommand(agent, base));
 }
 
-/** The zenius MCP server for this Zen: the installed CLI, or the pref's. Null without one. */
-export async function zeniusServer() {
+/**
+ * The zenius MCP server for this Zen: the installed CLI, or the pref's. Null
+ * without one. Chat's is `zenius mcp --docs-only`, which serves the docs tool
+ * alone and never reaches Zen. A CLI older than the flag refuses it and
+ * doesn't start, so Chat goes without docs rather than get browser tools.
+ *
+ * @param {"chat"|"work"} [kind]
+ */
+export async function zeniusServer(kind = "work") {
   const cli =
     Services.prefs.getStringPref(PREF_CLI, "") ||
     PathUtils.join(Services.dirsvc.get("Home", Ci.nsIFile).path, ".local", "bin", "zenius");
@@ -366,7 +379,7 @@ export async function zeniusServer() {
   }
   return {
     command: cli,
-    args: ["mcp"],
+    args: kindOf(kind) === "chat" ? ["mcp", "--docs-only"] : ["mcp"],
     env: { ZENIUS_INSTANCE: Services.prefs.getStringPref("zenius.instance", "default") },
   };
 }
@@ -505,12 +518,16 @@ export async function sessionLimits(agent, kind, base, task = {}) {
     return { cwd, mcpServers: [], meta: null };
   }
   let mcpServers = [];
-  if (kind === "work") {
-    const server = await zeniusServer();
-    if (!server) {
-      throw new Error("The zenius CLI isn't installed, so the agent has no browser tools: run scripts/install-cli.sh.");
+  // Chat without the CLI goes on without its docs; Work can't go on without
+  // its browser tools.
+  const server = await zeniusServer(kind);
+  if (!server && kind === "work") {
+    throw new Error("The zenius CLI isn't installed, so the agent has no browser tools: run scripts/install-cli.sh.");
+  }
+  if (server) {
+    if (kind === "work") {
+      server.env = withTask(server.env, task);
     }
-    server.env = withTask(server.env, task);
     mcpServers = [
       {
         name: "zenius",
@@ -525,14 +542,14 @@ export async function sessionLimits(agent, kind, base, task = {}) {
   const options = {
     ...keptClaudeOptions(own),
     tools: kind === "work" ? [...CLAUDE_WORK_TOOLS, ...web] : [...web],
-    allowedTools: [...(kind === "work" ? ["mcp__zenius"] : []), ...web],
-    // The user's own denials stay: they may turn a web tool off.
+    allowedTools: [...ZENIUS_TOOLS[kind], ...web],
+    // The user's own denials stay: they may turn a web tool off. Chat no
+    // longer denies mcp__*, which would take its docs away too: its only
+    // server is zenius's (strictMcpConfig), with the docs tool alone
+    // (--docs-only), dontAsk refuses any tool not allowed above, and the
+    // hook lets no other MCP tool through.
     disallowedTools: [
-      ...new Set([
-        ...(Array.isArray(own.disallowedTools) ? own.disallowedTools : []),
-        ...deniedFor(kind, CLAUDE_DENIED),
-        ...(kind === "chat" ? ["mcp__*"] : []),
-      ]),
+      ...new Set([...(Array.isArray(own.disallowedTools) ? own.disallowedTools : []), ...deniedFor(kind, CLAUDE_DENIED)]),
     ],
     settingSources: ["project"],
     strictMcpConfig: true,
@@ -588,8 +605,8 @@ function mergeObjects(base, over) {
  * A Codex agent's environment with zenius's limits merged into CODEX_CONFIG,
  * over the user's own: read-only, no network from the sandbox, the tools
  * above off, web search on unless the user's own turns it off or keeps it to
- * the cached index, the user's MCP servers off, and zenius's server approved
- * in a Work process only. A Chat process has no zenius server.
+ * the cached index, the user's MCP servers off, and zenius's server approved:
+ * in a Work process all of it, in Chat's its docs alone (--docs-only).
  *
  * codex-acp reads CODEX_CONFIG once per process and starts each session's
  * servers from it, so a Work process is one chat's (AgentService.slotFor),
@@ -621,18 +638,16 @@ export async function codexEnvironment(env, kind, userServers, task = {}) {
   if (own.mcp_servers) {
     own = { ...own, mcp_servers: Object.fromEntries(Object.entries(own.mcp_servers).filter(([name]) => userServers.includes(name))) };
   }
-  if (kindOf(kind) === "work") {
-    const server = await zeniusServer();
-    if (server) {
-      servers.zenius = {
-        command: server.command,
-        args: server.args,
-        env: withTask(server.env, task),
-        enabled: true,
-        tool_timeout_sec: 120,
-        default_tools_approval_mode: "approve",
-      };
-    }
+  const server = await zeniusServer(kind);
+  if (server) {
+    servers.zenius = {
+      command: server.command,
+      args: server.args,
+      env: kindOf(kind) === "work" ? withTask(server.env, task) : server.env,
+      enabled: true,
+      tool_timeout_sec: 120,
+      default_tools_approval_mode: "approve",
+    };
   }
   // Web search: live in Work, unless the user's own config turns it off
   // (web_search "disabled", or older versions' feature) or keeps it to the

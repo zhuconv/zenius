@@ -14,6 +14,8 @@
 //    (fetchable.sys.mjs). It's checked before anything else, so the host of
 //    a URL that isn't listed is never looked up either: a DNS lookup of a
 //    built name (<the chat's content>.example) would carry it out too.
+//  - Chat may also read zenius's docs (mcp__zenius__docs), which only read
+//    zenius's own text: no other zenius tool.
 //  - A Work session may also call zenius's browser tools (mcp__zenius__*), its
 //    todo list, the tool search and AskUserQuestion. Past the hook, an ask
 //    goes on to canUseTool and the sidebar's card (elicitation/create).
@@ -40,6 +42,9 @@ import { join } from "node:path";
 import { fetchKey, listName } from "./fetchable.sys.mjs";
 
 const WORK = /^mcp__zenius__[A-Za-z0-9_]+$/;
+// Chat's one zenius tool (workspace.sys.mjs's ZENIUS_TOOLS), from a server
+// that serves it alone (zenius mcp --docs-only).
+const CHAT_ZENIUS = new Set(["mcp__zenius__docs"]);
 // Every built-in Work offers its model (workspace.sys.mjs's CLAUDE_WORK_TOOLS):
 // one it offers but this refuses fails as a step, as AskUserQuestion did.
 const WORK_BUILTINS = new Set(["TodoWrite", "ToolSearch", "AskUserQuestion"]);
@@ -174,10 +179,13 @@ try {
   if (kind === "work" && (WORK.test(tool) || WORK_BUILTINS.has(tool))) {
     process.exit(0);
   }
+  if (kind === "chat" && CHAT_ZENIUS.has(tool)) {
+    process.exit(0);
+  }
   if (kind === "work") {
     deny(`${tool} isn't available in the agent sidebar: only the zenius browser tools (mcp__zenius__*), web search and web fetch run here.`);
   }
-  deny(`${tool} isn't available in the sidebar's Chat, whose only tools are web search and web fetch.`);
+  deny(`${tool} isn't available in the sidebar's Chat, whose only tools are web search, web fetch and zenius's docs.`);
 } catch (e) {
   process.stderr.write(`The zenius-only hook failed (${e?.message ?? e}), so ${tool} is refused.`);
   process.exit(2);

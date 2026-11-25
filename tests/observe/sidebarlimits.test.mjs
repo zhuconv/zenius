@@ -155,28 +155,32 @@ function open(harness, kind) {
   );
 }
 
-test("a Claude Code session's limits are set in memory over config.json's: settingSources ['project'], strict MCP, only web search and fetch in Chat, zenius's tools and web search and fetch in Work", async () => {
+test("a Claude Code session's limits are set in memory over config.json's: settingSources ['project'], strict MCP, only web search and fetch and zenius's docs in Chat, zenius's tools and web search and fetch in Work", async () => {
   const chat = await open("claude", "chat");
   const work = await open("claude", "work");
   const [chatParams, workParams] = requests(join(dir, "claude.log"), "session/new");
   const ws = join(chat.profile, "agent-sidebar-workspace", "claude");
 
-  // Chat: web search and fetch, nothing else.
+  // Chat: web search and fetch, and zenius's docs from a server that serves
+  // them alone, with no task.
   assert.equal(chatParams.cwd, join(ws, "chat"));
-  assert.deepEqual(chatParams.mcpServers, []);
+  assert.deepEqual(
+    chatParams.mcpServers.map(s => [s.name, s.command, s.args, s.env.map(e => e.name)]),
+    [["zenius", CLI, ["mcp", "--docs-only"], ["ZENIUS_INSTANCE"]]]
+  );
   const c = chatParams._meta.claudeCode.options;
   assert.deepEqual(c.settingSources, ["project"]);
   assert.equal(c.strictMcpConfig, true);
   assert.deepEqual(c.tools, WEB);
-  assert.deepEqual(c.allowedTools, WEB);
+  assert.deepEqual(c.allowedTools, ["mcp__zenius__docs", ...WEB]);
   assert.deepEqual(c.mcpServers, {});
-  for (const tool of ["Bash", "Read", "Write", "Edit", "Task", "Skill", "AskUserQuestion", "mcp__*"]) {
+  for (const tool of ["Bash", "Read", "Write", "Edit", "Task", "Skill", "AskUserQuestion"]) {
     assert.ok(c.disallowedTools.includes(tool), `Chat denies ${tool}`);
   }
   allowsWeb(c);
   assert.equal(c.allowDangerouslySkipPermissions, false);
   assert.equal(c.settings.permissions.defaultMode, "dontAsk");
-  assert.deepEqual(c.settings.permissions.allow, WEB);
+  assert.deepEqual(c.settings.permissions.allow, ["mcp__zenius__docs", ...WEB]);
   // Chat's hooks name the folder of its sessions' lists of URLs it may
   // fetch, and its PostToolUse hook adds
   // search hits to them.
@@ -311,11 +315,12 @@ test("the zenius-only hook: web search and fetch run in Chat and Work, but WebFe
   assert.match(webFetch("chat", "https://10.0.0.7/"), /Tell the user you can't read that page here/);
   assert.equal(hook("work", "mcp__zenius__open", { url: "https://example.com/" }), "runs");
   assert.equal(hook("work", "ToolSearch", { query: "select:WebFetch" }), "runs");
-  assert.match(hook("chat", "mcp__zenius__open"), /whose only tools are web search and web fetch/);
+  assert.match(hook("chat", "mcp__zenius__open"), /whose only tools are web search, web fetch and zenius's docs/);
   // zenius's problem report tool comes with its server: a Work session's to
-  // call, and never Chat's, whose only tools are web search and web fetch.
+  // call, and never Chat's, whose one zenius tool is its docs.
   assert.equal(hook("work", "mcp__zenius__report_problem", { line: "page.click timed out on a visible button" }), "runs");
-  assert.match(hook("chat", "mcp__zenius__report_problem", { line: "x" }), /whose only tools are web search and web fetch/);
+  assert.match(hook("chat", "mcp__zenius__report_problem", { line: "x" }), /whose only tools are web search, web fetch and zenius's docs/);
+  assert.equal(hook("chat", "mcp__zenius__docs", { topic: "errors" }), "runs");
   assert.match(hook("chat", "ToolSearch"), /isn't available in the sidebar's Chat/);
   // Work offers its model AskUserQuestion (CLAUDE_WORK_TOOLS). Past the hook,
   // the call goes on to canUseTool and the sidebar's card (elicitation/create).
@@ -335,7 +340,7 @@ test("the zenius-only hook: web search and fetch run in Chat and Work, but WebFe
 // drifted apart: the hook refused Work's AskUserQuestion, and the mock, which
 // sends elicitation/create itself, hid it (until Claude's ask fix). So
 // each mode's own session/new options go through the real hook, both ways.
-test("the zenius-only hook and what each mode offers can't drift apart: every built-in a Claude session's options offer runs past the real hook in that mode, and every other built-in the sidebar knows is refused there; zenius's tools run in Work only, another server's nowhere", async () => {
+test("the zenius-only hook and what each mode offers can't drift apart: every built-in a Claude session's options offer runs past the real hook in that mode, and every other built-in the sidebar knows is refused there; zenius's tools run in Work, its docs alone in Chat, another server's nowhere", async () => {
   const known = await chrome(
     `const W = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/workspace.sys.mjs");
      return [...W.CLAUDE_DENIED, ...W.CLAUDE_WORK_TOOLS, ...W.CLAUDE_WEB_TOOLS.chat, ...W.CLAUDE_WEB_TOOLS.work];`
@@ -376,11 +381,14 @@ test("the zenius-only hook and what each mode offers can't drift apart: every bu
       }
     }
   }
-  // zenius's tools: Work allows its server by name, Chat none.
+  // zenius's tools: Work allows its server by name, Chat its docs alone.
   assert.deepEqual(offered.work.allowedTools.filter(tool => tool.startsWith("mcp__")), ["mcp__zenius"]);
-  assert.deepEqual(offered.chat.allowedTools.filter(tool => tool.startsWith("mcp__")), []);
+  assert.deepEqual(offered.chat.allowedTools.filter(tool => tool.startsWith("mcp__")), ["mcp__zenius__docs"]);
   assert.equal(hook("work", "mcp__zenius__open"), "runs");
   assert.match(hook("chat", "mcp__zenius__open"), /isn't available/);
+  for (const kind of ["chat", "work"]) {
+    assert.equal(hook(kind, "mcp__zenius__docs"), "runs", `${kind}: zenius's docs`);
+  }
   for (const kind of ["chat", "work"]) {
     assert.match(hook(kind, "mcp__other__run"), /isn't available/, `${kind}: another server's tool`);
   }
@@ -616,7 +624,7 @@ test("every permission request but one for zenius's tools in Work is refused at 
   assert.deepEqual(result, { chat: [], work: ["mcp__zenius__open"] });
 });
 
-test("Codex is on by default, its limits merged in memory with zenius's server in Work's process only; the user's false (zenius.agentSidebar.allowCodex) turns it off at once, running processes included", async () => {
+test("Codex is on by default, its limits merged in memory with zenius's server in Work's process and its docs alone in Chat's; the user's false (zenius.agentSidebar.allowCodex) turns it off at once, running processes included", async () => {
   const on = await chrome(
     `const name = "zenius.agentSidebar.allowCodex";
      Services.prefs.clearUserPref("uc.agent-sidebar.harness");
@@ -656,7 +664,10 @@ test("Codex is on by default, its limits merged in memory with zenius's server i
     assert.deepEqual(codex.mcp_servers["google-slides"], { enabled: false });
     assert.equal(s.cwd, join(chat.profile, "agent-sidebar-workspace", "codex"));
   }
-  assert.equal(chatConfig.mcp_servers.zenius, undefined, "Chat's process has no zenius server");
+  // Chat's process has zenius's docs alone, with no chat's task or uid.
+  assert.deepEqual(chatConfig.mcp_servers.zenius.args, ["mcp", "--docs-only"]);
+  assert.deepEqual(Object.keys(chatConfig.mcp_servers.zenius.env), ["ZENIUS_INSTANCE"]);
+  assert.deepEqual(workConfig.mcp_servers.zenius.args, ["mcp"]);
   // Codex 0.169.0 offers request_user_input in its Default mode only with
   // this feature: Work's agent asks with it (AgentService's onAsk); Chat has
   // no ask.
@@ -780,7 +791,13 @@ test("a Work chat's live zenius task goes to its zenius server, at session/new a
     const resumed = requests(join(dir, "claude.log"), "session/resume").at(-1);
     assert.equal(taskOf(opened), String(space.id));
     assert.equal(taskOf(resumed), String(space.id), "the resumed session's new server takes the task up again");
-    assert.deepEqual(chat.mcpServers, [], "a Chat has no zenius server at all");
+    // A Chat's zenius server serves its docs alone, and takes no task, even
+    // one the chat names.
+    assert.deepEqual(
+      chat.mcpServers.map(s => [s.name, s.args, s.env.map(e => e.name)]),
+      [["zenius", ["mcp", "--docs-only"], ["ZENIUS_INSTANCE"]]],
+      "a Chat's zenius server is its docs alone, with no task"
+    );
     await env.call("spaces.finish", { space: space.id, keep: [] });
     finished = true;
     await chrome(

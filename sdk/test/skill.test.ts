@@ -172,7 +172,15 @@ describe("the entry Skill", () => {
 
   it("links references that exist", () => {
     const links = [...entry.matchAll(/\]\((references\/[^)]+)\)/g)].map((match) => match[1]!);
-    assert.deepEqual(links.sort(), ["references/clearing-state.md", "references/feedback.md", "references/install.md"]);
+    assert.deepEqual(links.sort(), [
+      "references/clearing-state.md",
+      "references/errors.md",
+      "references/feedback.md",
+      "references/files.md",
+      "references/install.md",
+      "references/limits.md",
+      "references/urls.md",
+    ]);
     for (const link of links) assert.ok(existsSync(join(SKILL, link)), link);
     assert.ok(existsSync(join(SKILL, "agents/openai.yaml")));
     assert.equal(resolve(skillDir()), resolve(SKILL));

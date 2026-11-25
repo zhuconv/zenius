@@ -287,15 +287,28 @@ async function checkRealPath(method: string, file: string): Promise<void> {
 // page can't upload the user's other files.
 function notAllowed(method: string, file: string, where: string, data: Record<string, unknown> = {}): ZeniusError {
   const reads = sandboxReadDir();
-  const folders = reads
-    ? `its working folder, its runs' output folders, its temporary folder and ${reads}`
-    : "its working folder, its runs' output folders and its temporary folder";
   return new ZeniusError(
     "ZEN_PATH_NOT_ALLOWED",
-    `${method}: a sandboxed script reads files only in ${folders}, and ${where}. ` +
+    `${method}: a sandboxed script reads files only in ${readFolders(reads)}, and ${where}. ` +
       `If the task needs this file, ask the user to copy it into the working folder${reads ? ` or ${reads}` : ""}.`,
     { path: file, ...data },
   );
+}
+
+/**
+ * The folders a sandboxed script reads files from, in the words its
+ * messages use, as do the files docs (docs.ts). `reads` names the folder the
+ * install lets scripts read (sandboxReadDir), if there is one.
+ */
+export function readFolders(reads: string | undefined): string {
+  return reads
+    ? `its working folder, its runs' output folders, its temporary folder and ${reads}`
+    : "its working folder, its runs' output folders and its temporary folder";
+}
+
+/** The folders a sandboxed script writes, in the same words: `out` names its run's output folder. */
+export function writeFolders(out: string): string {
+  return `its output folder, ${out}, and its temporary folder, never its working folder`;
 }
 
 /**
@@ -367,7 +380,7 @@ export function outputPath(path: unknown, label: string, notAbsolute = `${label}
   if (within(file, out) || within(file, os.tmpdir())) return file;
   throw new ZeniusError(
     "ZEN_PATH_NOT_ALLOWED",
-    `${label}: a sandboxed script writes only to its output folder, ${out}, and its temporary folder, never its working folder. ` +
+    `${label}: a sandboxed script writes only to ${writeFolders(out)}. ` +
       "Pass a relative path, which lands in the output folder.",
     { path: file, outputDir: out },
   );

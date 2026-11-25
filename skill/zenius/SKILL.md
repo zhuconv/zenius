@@ -43,3 +43,13 @@ launcher. Never add such a rule yourself.
   zenius itself fails: `ZEN_INTERNAL` twice, the `zenius` command crashing, or
   `zenius doctor` failing after an update. The user sends the report from Zen's
   sidebar; never file one yourself. Not for a site's errors.
+- [Error codes](references/errors.md) — read when an error's code or a refused
+  kind is new to you: what each means, and what to do next.
+- [URLs](references/urls.md) — read when a page won't load or can't be acted
+  on: which URLs agents may load, and where they can't act.
+- [Files](references/files.md) — read before a script writes or uploads a file:
+  where its files go, and which files it may upload.
+- [Limits](references/limits.md) — this version's default timeouts and limits.
+
+`zenius docs <topic>` prints the same docs for the installed version: errors (or
+one code, such as `ZEN_URL_NOT_ALLOWED`), urls, files and limits.

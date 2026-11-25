@@ -229,7 +229,8 @@ details.
   hand-offs. The address bar's '>' row and `+ New task` start one. The
   directory beside the sidebar lists the tasks: Needs you, Working, Done.
 - **The sidebar's agents get the browser and nothing else.** A Chat session
-  answers from the page's text. A Work session's tools are zenius's browser
+  answers from the page's text, and from zenius's own docs, such as what an
+  error means. A Work session's tools are zenius's browser
   tools and Claude Code's ToolSearch. Both can search the web and fetch
   pages without a tab. No shell, no files. Codex runs within these limits:
   read-only, no shell, no writes, no network outside zenius and its hosted

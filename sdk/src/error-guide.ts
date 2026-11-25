@@ -541,11 +541,16 @@ function helpFor(message: string): string {
   return name && apiEntry(normalizeApiName(name)) ? `help("${name}") prints its signature and options` : "help() lists every method's signature";
 }
 
+/** What a refused kind is, before help("errors") and the docs (docs.ts) list them. */
+export const REFUSED_KINDS =
+  "In an agent tab, zenius doesn't open browser UI that would cover the user's view, leave the browser or touch the OS. Nothing throws: the page gets the answer it already handles, and the action's receipt lists { kind, message } in refused, as page.events() does in Zenius.refused events.";
+
 /** help("errors"): every code, then every refused kind. */
 export function errorsHelp(): string {
-  const codes = Object.entries(CODE_GUIDE)
-    .filter(([, guide]) => !guide.unlisted)
-    .map(([code, guide]) => formatCode(code, guide));
+  const codes = Object.keys(CODE_GUIDE).flatMap((code) => {
+    const parts = codeParts(code);
+    return parts ? [formatCode(code, parts)] : [];
+  });
   const kinds = Object.entries(REFUSAL_GUIDE).map(([kind, guide]) => `${kind}\n  ${guide.what}\n  Next: ${guide.next}`);
   return [
     "Error codes",
@@ -556,7 +561,7 @@ export function errorsHelp(): string {
     "",
     "Refused kinds",
     "",
-    "In an agent tab, zenius doesn't open browser UI that would cover the user's view, leave the browser or touch the OS. Nothing throws: the page gets the answer it already handles, and the action's receipt lists { kind, message } in refused, as page.events() does in Zenius.refused events.",
+    REFUSED_KINDS,
     "",
     kinds.join("\n\n"),
   ].join("\n");
@@ -564,11 +569,24 @@ export function errorsHelp(): string {
 
 /** help("ZEN_REF_STALE"), or undefined for a name that isn't a code. */
 export function codeHelp(name: string): string | undefined {
-  const guide = Object.hasOwn(CODE_GUIDE, name) ? CODE_GUIDE[name] : undefined;
-  return guide && !guide.unlisted ? formatCode(name, guide) : undefined;
+  const parts = codeParts(name);
+  return parts && formatCode(name, parts);
 }
 
-function formatCode(code: string, guide: CodeGuide): string {
-  const notes = [guide.ego ? `Ego: ${guide.ego}` : "", guide.plain ? "often a plain Error with no code, as in Ego" : ""].filter(Boolean);
-  return [`${code}${notes.length ? ` (${notes.join("; ")})` : ""}`, `  ${guide.what}`, `  Next: ${guide.next.replace("{help}", 'help("<method>") prints its signature and options')}`].join("\n");
+/** A code's notes (Ego's code, a plain Error), what happened, and what to do next. */
+export type CodeParts = { notes: string[]; what: string; next: string };
+
+/** A code as help() and the docs (docs.ts) show it, or undefined for a name that isn't one agents read. */
+export function codeParts(name: string): CodeParts | undefined {
+  const guide = Object.hasOwn(CODE_GUIDE, name) ? CODE_GUIDE[name] : undefined;
+  if (!guide || guide.unlisted) return undefined;
+  return {
+    notes: [guide.ego ? `Ego: ${guide.ego}` : "", guide.plain ? "often a plain Error with no code, as in Ego" : ""].filter(Boolean),
+    what: guide.what,
+    next: guide.next.replace("{help}", 'help("<method>") prints its signature and options'),
+  };
+}
+
+function formatCode(code: string, { notes, what, next }: CodeParts): string {
+  return [`${code}${notes.length ? ` (${notes.join("; ")})` : ""}`, `  ${what}`, `  Next: ${next}`].join("\n");
 }

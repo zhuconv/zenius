@@ -103,6 +103,8 @@ function steps(kind) {
       fetch(CHAT_URLS.text),
       fetch(CHAT_URLS.user),
       fetch(CHAT_URLS.query),
+      // zenius's docs, Chat's one zenius tool: its server serves them alone.
+      { tool: { name: "mcp__zenius__docs", input: { topic: "ZEN_URL_NOT_ALLOWED" } } },
       finish,
     ];
   }
@@ -278,24 +280,24 @@ function ask(kind, question) {
   );
 }
 
-test("Chat with the real CLI: only web search and fetch are offered; Bash and zenius's tools are refused, so is a fetch of the local network, and nothing of the user's ~/.claude loads", { skip: SKIP }, async () => {
+test("Chat with the real CLI: only web search and fetch and zenius's docs are offered; Bash and zenius's other tools are refused, so is a fetch of the local network, and nothing of the user's ~/.claude loads", { skip: SKIP }, async () => {
   const userBefore = snapshot(join(s, "claude-config"));
   const shown = await ask("chat", `ZENIUS-CLI-CHAT what does the page say? It links ${CHAT_URLS.user}`);
   const errors = shown.filter(m => m.role === "error");
   assert.deepEqual(errors, [], "the session ran");
   const mine = api.requests.filter(r => r.messages.some(m => m.text.includes("ZENIUS-CLI-CHAT")));
   assert.ok(mine.length >= 3, `the model was asked ${mine.length} times`);
-  // The session's requests offer web search and fetch (the CLI's own side
-  // requests none). Chat has no ToolSearch, so they come whole, to be
-  // called; Claude Code 2.1.330 adds its deferred placeholder, only a
-  // reference, as in Work.
+  // The session's requests offer web search and fetch, and zenius's docs
+  // (the CLI's own side requests none). Chat has no ToolSearch, so they come
+  // whole, to be called; Claude Code 2.1.330 adds its deferred placeholder,
+  // only a reference, as in Work.
   const each = mine.map(r => r.tools.join("+") || "none").join(" | ");
   const offered = [...new Set(mine.flatMap(r => r.tools))].filter(name => name !== "DeferredToolPlaceholder").sort();
-  assert.deepEqual(offered, ["WebFetch", "WebSearch"], `Chat is offered web search and fetch only: ${each}`);
+  assert.deepEqual(offered, ["WebFetch", "WebSearch", "mcp__zenius__docs"], `Chat is offered web search and fetch and zenius's docs only: ${each}`);
   for (const def of mine.flatMap(r => r.toolDefs)) {
     assert.equal(def.defer === true, def.name === "DeferredToolPlaceholder", `${def.name} is ${def.defer === true ? "deferred" : "whole"}: ${each}`);
   }
-  const [bash, search, hit, text, user, built, finish] = results("ZENIUS-CLI-CHAT");
+  const [bash, search, hit, text, user, built, docs, finish] = results("ZENIUS-CLI-CHAT");
   assert.match(bash, /^\[tool_result error\]/);
   // Chat's fetch rule. The search ran, and its hit was listed before the
   // model's next call: the list let that fetch through to the
@@ -318,8 +320,11 @@ test("Chat with the real CLI: only web search and fetch are offered; Bash and ze
   const list = readFileSync(join(profile, "agent-sidebar-allow", `${session}.txt`), "utf8").split("\n");
   assert.ok(list.includes(CHAT_URLS.user) && list.includes(CHAT_URLS.hit), `the list: ${list.join(" ")}`);
   assert.ok(!list.includes(CHAT_URLS.text) && !list.includes(CHAT_URLS.query), `the list: ${list.join(" ")}`);
+  // zenius's docs ran, from the server Chat has; the browser tools aren't there.
+  assert.doesNotMatch(docs, /^\[tool_result error\]/, docs);
+  assert.match(docs, /# ZEN_URL_NOT_ALLOWED/, docs);
   assert.match(finish, /^\[tool_result error\]/);
-  assert.doesNotMatch(finish, /keep must be/, "zenius's server isn't there");
+  assert.doesNotMatch(finish, /keep must be/, "zenius's browser tools aren't there");
   assert.ok(!existsSync(canary("bash-chat")), "Bash didn't run");
   assert.deepEqual(shown.filter(m => m.role === "permission"), [], "nothing asked the user");
   assert.equal(shown.filter(m => m.role === "assistant").at(-1)?.text, "done");

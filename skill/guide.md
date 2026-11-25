@@ -9,7 +9,8 @@ date: "2026-11-20"
 
 `help()` and `help("page.click")` print the signatures and uncommon options of
 the APIs below by themselves; don't wrap them in `console.log`. `help("errors")`
-lists every error code and refused kind, with what to do next.
+lists every error code and refused kind, with what to do next. `zenius docs`
+prints zenius's docs on its errors, URLs, files and limits.
 For installation or connection problems, read `references/install.md` in the
 zenius Skill directory.
 
@@ -50,12 +51,9 @@ started in your shell's working directory and environment; load built-ins with
 dynamic imports such as `await import("node:fs/promises")`. Every method that
 reads or writes a file, such as `screenshot()`, `setInputFiles()`, and
 `saveAs()`, takes only absolute paths. In the sandboxed CLI (`zenius --version`
-ends in `sandboxed`), scripts can't write the working folder: give
-`screenshot()` and `saveAs()` relative paths, which land in the run's output
-folder (`process.env.ZENIUS_OUTPUT_DIR`, kept 7 days) and are listed after the
-output under `[zenius:files]`. Other paths, and uploads from outside the
-working folder and the install's read folder (such as `~/Downloads`, in
-`process.env.ZENIUS_READ_DIR`), fail with `ZEN_PATH_NOT_ALLOWED`.
+ends in `sandboxed`), give `screenshot()` and `saveAs()` relative paths, which
+land in the run's output folder; `references/files.md` in the zenius Skill
+directory says which other folders scripts may read and write.
 
 zenius has a small API of its own, not Playwright's, even where names and
 options look alike: use only the TaskSpace, Page, FileChooser, mouse, and

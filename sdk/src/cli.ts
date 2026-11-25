@@ -3,6 +3,8 @@
 //   zenius nodejs [-e <code>]   run a browser script from stdin (heredoc) or -e
 //   zenius skill                print the usage guide for this version
 //   zenius help [name]          API help, e.g. `zenius help page.click`
+//   zenius docs [topic]         zenius's own docs: error codes, URLs, files and
+//                               limits (docs.ts), as the MCP server's docs tool serves them
 //   zenius status               list Zen instances and whether they answer
 //   zenius doctor               check Zen, the zenius install and the instance
 //   zenius sidebar <verb> …     remote tasks in the sidebar (sidebar.ts)
@@ -44,11 +46,14 @@ export function usage(): string {
   zenius nodejs -e '<code>'      run code given on the command line
   zenius skill                   print the usage guide (read it before scripting)
   zenius help [name]             API help: zenius help page.click, zenius help all
+  zenius docs [topic]            zenius's own docs: errors (or a code, such as ZEN_URL_NOT_ALLOWED),
+                                 urls, files and limits
   zenius status                  list Zen instances and whether they answer
   zenius doctor [--json]         check Zen, the zenius install and the instance; changes nothing
                                  (--profile <dir> and --app <path> pick what to check)
-  zenius mcp                     serve browser tools to Claude Code or Codex over MCP (stdio);
-                                 see docs/mcp.md for registering it
+  zenius mcp [--docs-only]       serve browser tools to Claude Code or Codex over MCP (stdio);
+                                 see docs/mcp.md for registering it. --docs-only serves the
+                                 docs tool alone, which needs no Zen
   zenius sidebar start|send|status|list|stop
                                  remote tasks in the sidebar: zenius sidebar --help
   zenius feedback "<one line>"   when zenius itself fails: show the user a problem report in the
@@ -125,6 +130,14 @@ export async function main(argv: string[], launch: LaunchTimes = {}): Promise<nu
       return skill(args.rest);
     case "help":
       return help(args.rest);
+    case "docs": {
+      if (args.rest.length > 1) return usageError("zenius docs takes one topic at most");
+      // Loaded on demand, like doctor. It reaches no instance.
+      const { docsText } = await import("./docs.ts");
+      const { text, found } = docsText(args.rest[0]);
+      writeStdout(`${text}\n`);
+      return found ? 0 : 1;
+    }
     case "status":
       if (args.rest.length > 0) return usageError(`zenius status takes no arguments`);
       writeStdout(`${await statusText(args.instance)}\n`);
@@ -132,11 +145,14 @@ export async function main(argv: string[], launch: LaunchTimes = {}): Promise<nu
     case "doctor":
       return doctorCommand(args);
     case "mcp": {
-      if (args.rest.length > 0) return usageError(`zenius mcp takes no arguments`);
+      // --docs-only: the docs tool alone, for the agent sidebar's Chat. A CLI
+      // older than it refuses the flag, so it never serves Chat its browser tools.
+      const docsOnly = args.rest.length === 1 && args.rest[0] === "--docs-only";
+      if (args.rest.length > 0 && !docsOnly) return usageError(`zenius mcp takes no arguments but --docs-only`);
       // zen-core's MCP server (src/mcp.ts), loaded on demand like doctor.
       if (args.instance) process.env.ZENIUS_INSTANCE = args.instance;
       const { serveMcp } = await import("./mcp.ts");
-      return serveMcp();
+      return serveMcp({ docsOnly });
     }
     case "sidebar": {
       // Loaded on demand, like doctor and mcp.

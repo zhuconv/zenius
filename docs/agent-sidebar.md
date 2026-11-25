@@ -755,16 +755,23 @@ read.
   workspace. settings.json names it by its absolute path, quoted, and the
   command ends in `|| exit 2`.
 - Claude Code's Work session gets the zenius MCP server through ACP's
-  `mcpServers`, as its only server; its Chat session gets none. The server
-  brings zenius's browser tools and `report_problem`, which shows a problem
-  report in the card (The problem report card), and the zenius-only hook
-  lets Work call any of them (`mcp__zenius__*`). Each session's `_meta`
+  `mcpServers`, as its only server. The server brings zenius's browser
+  tools, `report_problem`, which shows a problem report in the card (The
+  problem report card), and `docs`, and the zenius-only hook lets Work call
+  any of them (`mcp__zenius__*`).
+- Its Chat session gets the server started with `--docs-only`, which serves
+  `docs` alone: zenius's own text about its error codes, URLs, files and
+  limits, read from the installed version and never from the browser
+  (docs/mcp.md). Users ask Chat what an error means. Chat allows
+  `mcp__zenius__docs` and no other zenius tool, and the hook refuses the
+  rest. Each session's `_meta`
   sets `settingSources: ["project"]`, `strictMcpConfig: true`, and
   disallows Bash, Edit, MultiEdit, Write, NotebookEdit, Read, Glob, Grep
   and Task.
 - Web search and fetch are on in Chat and Work, since they only read and an
   answer often needs more than the page: Claude Code's WebSearch and
-  WebFetch, allowed without asking, are Chat's only tools. The user's own
+  WebFetch, allowed without asking, are Chat's only tools besides zenius's
+  docs. The user's own
   denial of one in config.json stays. WebFetch runs in the CLI, which Zen
   started, so macOS counts its requests as Zen.app's: the zenius-only hook
   keeps it off the local network as task pages are kept (private and
@@ -787,10 +794,12 @@ read.
 
   Work fetches any URL.
 - Codex runs with its limits in memory: a read-only sandbox with no network,
-  no shell tools or sub-agents, zenius's server in Work's processes only,
-  one per Work chat (at most `uc.agent-sidebar.open-sessions` of them; the
-  least recently used one stops, and a chat's stops when it's removed or
-  closed, or as its last turn ends), cwd `codex/`. Its hosted web search,
+  no shell tools or sub-agents, and cwd `codex/`. Each Work chat has a
+  process of its own with zenius's server (at most
+  `uc.agent-sidebar.open-sessions` of them; the least recently used one
+  stops, and a chat's stops when it's removed or closed, or as its last
+  turn ends). The process Chat's conversations share has the server with
+  `--docs-only`, its docs alone. Its hosted web search,
   which runs at OpenAI, is on: live in Work, and in Chat kept to the
   cached index, where no hook could hold it to Chat's sources. The user's own `CODEX_CONFIG` `"disabled"` or
   `"cached"` stays in both. The sidebar refuses its permission requests as

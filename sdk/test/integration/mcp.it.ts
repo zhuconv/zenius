@@ -124,10 +124,10 @@ before(async () => {
 });
 after(() => client?.close());
 
-test("mcp: the tools are the browser's steps and a problem report, each told in one sentence, and nothing else", async () => {
+test("mcp: the tools are the browser's steps, a problem report and zenius's docs, each told in one sentence, and nothing else", async () => {
   const { result } = await client.request("tools/list");
   const names = result.tools.map((tool: { name: string }) => tool.name);
-  assert.deepEqual(names, ["open", "goto", "read_page", "click", "fill", "press", "scroll", "select", "wait", "hand_off", "flag_page", "finish", "evaluate", "report_problem"]);
+  assert.deepEqual(names, ["open", "goto", "read_page", "click", "fill", "press", "scroll", "select", "wait", "hand_off", "flag_page", "finish", "evaluate", "report_problem", "docs"]);
   for (const tool of result.tools) {
     assert.match(tool.description, /^[A-Z][^.]*\.$/, `${tool.name}: one sentence`);
     assert.equal(tool.inputSchema.type, "object");
