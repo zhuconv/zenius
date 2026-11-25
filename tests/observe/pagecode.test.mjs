@@ -32,6 +32,8 @@ const NO_PAGE_CODE = [
   "sidebar.start", "sidebar.send", "sidebar.status", "sidebar.list", "sidebar.stop",
   // zenius feedback: a report of zenius's own data and the agent's line, shown in the sidebar's card.
   "feedback.compose", "feedback.propose",
+  // A client gives up on a request of its own: it stops that request, and runs nothing.
+  "calls.cancel",
 ];
 
 let env;

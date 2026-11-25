@@ -323,19 +323,22 @@ function onPageClosed(browser, fn) {
  * wait, and a chooser it takes, go with `conn`: a script that ends with a
  * wait armed must not take the next script's chooser, and a chooser it took
  * and never answered must not keep its input blocked, since Gecko allows
- * one chooser per input.
+ * one chooser per input. A wait its client cancels ends at once too, through
+ * `stop`, the call's ctx (modules/service.sys.mjs, #stopRequest).
  *
  * @returns {Promise<{chooser: string, multiple: boolean}>}
  */
-export function waitForChooser(browser, timeoutMs, conn = null) {
+export function waitForChooser(browser, timeoutMs, conn = null, stop = null) {
   if (waiters.has(browser)) {
     throw new ZenError("ZEN_INVALID_ARGUMENT", "this Page is already waiting for a file chooser");
   }
   return new Promise((resolve, reject) => {
     let offClosed = () => {};
+    let offStop = () => {};
     const end = () => {
       clearTimeoutMs(timer);
       offClosed();
+      offStop();
       if (waiters.get(browser) === entry) {
         waiters.delete(browser);
       }
@@ -366,6 +369,13 @@ export function waitForChooser(browser, timeoutMs, conn = null) {
         reject(new ZenError("ZEN_FILE_CHOOSER_TIMEOUT", "page.waitForFileChooser ended with the script that sent it"));
       }
     });
+    offStop =
+      stop?.onStopped(() => {
+        if (waiters.get(browser) === entry) {
+          end();
+          reject(stop.stopped());
+        }
+      }) ?? offStop;
   });
 }
 

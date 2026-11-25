@@ -3,11 +3,15 @@
 // Requests are written synchronously in call order, so `const p =
 // page.waitForEvent("popup"); await page.click(…)` reaches the runtime with the
 // waiter first. Requests may run concurrently; responses carry the id.
+//
+// zenius mcp runs each tool call with an AbortSignal (withSignal): a call made
+// for a tool call that its client cancels fails here at once, and the runtime
+// stops it (calls.cancel), so a canceled wait ends there too.
 
 import type { Socket } from "node:net";
 
 import { fromWireError, ZeniusError } from "./errors.ts";
-import { net } from "./node.ts";
+import { asyncHooks, net } from "./node.ts";
 import { configuredPageBudget } from "./config.ts";
 
 export type Hello = {
@@ -37,6 +41,8 @@ type Pending = {
   space?: number;
   /** An SDK-internal call whose failure the script never sees. */
   quiet?: boolean;
+  /** Stops listening to the canceling signal (withSignal). */
+  unlisten?: () => void;
 };
 
 export type CallOptions = {
@@ -52,6 +58,22 @@ export type CallOptions = {
 };
 
 export type EventListener = (event: string, params: unknown) => void;
+
+/** The tool call that code runs for in zenius mcp, made on its first one: a `zenius nodejs` run has none. */
+let callSignals: import("node:async_hooks").AsyncLocalStorage<AbortSignal> | undefined;
+
+/**
+ * Run `fn` for a tool call that `signal` cancels: each call any RpcClient
+ * makes in its context, its continuations included, is canceled with it.
+ */
+export function withSignal<T>(signal: AbortSignal, fn: () => T): T {
+  callSignals ??= new (asyncHooks().AsyncLocalStorage)<AbortSignal>();
+  return callSignals.run(signal, fn);
+}
+
+function canceledError(op: string): ZeniusError {
+  return new ZeniusError("ZEN_CANCELED", `${op}: canceled, since the client canceled the tool call it was for`);
+}
 
 export type RpcClientOptions = {
   socketPath: string;
@@ -91,7 +113,10 @@ export class RpcClient {
   /** Open the socket early so the handshake overlaps script compilation. */
   connect(): void {
     if (this.#socket || this.#closed) return;
-    const socket = net().createConnection(this.socketPath);
+    // Outside any tool call's context (withSignal): the socket's events belong
+    // to no call, and must never carry one that its client canceled.
+    const open = () => net().createConnection(this.socketPath);
+    const socket = callSignals ? callSignals.exit(open) : open();
     this.#socket = socket;
     socket.once("connect", () => (this.connectedAt = performance.now()));
     socket.setEncoding("utf8");
@@ -122,6 +147,8 @@ export class RpcClient {
     if (this.#closed) {
       return Promise.reject(atSite(new ZeniusError("ZEN_BROWSER_UNAVAILABLE", `${op}: the connection was already closed`), site));
     }
+    const signal = callSignals?.getStore();
+    if (signal?.aborted) return Promise.reject(atSite(canceledError(op), site));
     this.connect();
     const id = this.#nextId++;
     return new Promise<T>((resolve, reject) => {
@@ -145,7 +172,28 @@ export class RpcClient {
       // applies wherever a space gains a Page; per process, as in Ego.
       const pageBudget = configuredPageBudget();
       this.#socket!.write(`${JSON.stringify({ id, method, params, progress: true, ...(pageBudget ? { pageBudget } : {}) })}\n`);
+      if (signal) {
+        const cancel = () => this.#cancel(id);
+        signal.addEventListener("abort", cancel, { once: true });
+        pending.unlisten = () => signal.removeEventListener("abort", cancel);
+      }
     });
+  }
+
+  /**
+   * The tool call this call was for was canceled: the runtime stops the call
+   * (its wait ends, its page code stops) and sends no answer, and it fails
+   * here at once.
+   */
+  #cancel(id: number): void {
+    const pending = this.#pending.get(id);
+    if (!pending) return;
+    this.#settle(id);
+    if (this.#socket && !this.#closed && !this.#failure) {
+      // Its own answer has no pending call, so it's dropped.
+      this.#socket.write(`${JSON.stringify({ id: this.#nextId++, method: "calls.cancel", params: { id } })}\n`);
+    }
+    pending.reject(atSite(canceledError(pending.op), pending.site));
   }
 
   onEvent(listener: EventListener): () => void {
@@ -267,6 +315,7 @@ export class RpcClient {
     const pending = this.#pending.get(id);
     if (!pending) return;
     if (pending.timer) clearTimeout(pending.timer);
+    pending.unlisten?.();
     this.#pending.delete(id);
     if (this.#pending.size === 0) this.#socket?.unref();
   }

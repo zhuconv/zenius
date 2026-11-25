@@ -98,9 +98,10 @@ describe("help(\"errors\")", () => {
     for (const [code, guide] of Object.entries(CODE_GUIDE)) {
       assert.ok(guide.what.length > 0 && guide.next.length > 0);
       if (guide.unlisted) {
-        // Only `zenius selfcheck` and `zenius feedback` meet these, and each
-        // words them itself: agents never run the first, and the second
-        // says what to do.
+        // Only `zenius selfcheck`, `zenius feedback` and zenius mcp meet
+        // these, and each words them itself: agents never run the first, the
+        // second says what to do, and the server answers a canceled call
+        // nothing.
         assert.doesNotMatch(text, new RegExp(`^${code}\\b`, "m"), code);
         assert.equal(codeHelp(code), undefined, code);
         continue;
@@ -110,7 +111,7 @@ describe("help(\"errors\")", () => {
     }
     assert.deepEqual(
       Object.entries(CODE_GUIDE).filter(([, guide]) => guide.unlisted).map(([code]) => code),
-      ["ZEN_SELFCHECK_BUSY", "ZEN_SELFCHECK_UNAVAILABLE", "ZEN_FEEDBACK_PENDING", "ZEN_FEEDBACK_DECLINED"],
+      ["ZEN_SELFCHECK_BUSY", "ZEN_SELFCHECK_UNAVAILABLE", "ZEN_FEEDBACK_PENDING", "ZEN_FEEDBACK_DECLINED", "ZEN_CANCELED"],
     );
     assert.doesNotMatch(text, /self-?check/i);
     for (const kind of Object.keys(REFUSAL_GUIDE)) assert.match(text, new RegExp(`^${kind}\\n  .+\\n  Next: .+$`, "m"), kind);

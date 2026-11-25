@@ -32,3 +32,8 @@ export function net(): typeof import("node:net") {
 export function tty(): typeof import("node:tty") {
   return require("node:tty");
 }
+
+/** For zenius mcp's tool calls alone (rpc.ts withSignal): a `zenius nodejs` run never loads it. */
+export function asyncHooks(): typeof import("node:async_hooks") {
+  return require("node:async_hooks");
+}

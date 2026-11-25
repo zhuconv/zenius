@@ -85,7 +85,8 @@ export const methods = {
     if (typeof waitMs !== "number" || !(waitMs >= 0)) {
       throw new ZenError("ZEN_INVALID_ARGUMENT", "feedback.propose: waitMs must be a number of milliseconds");
     }
-    return feedback.propose(id, waitMs, ctx.conn ?? null);
+    // A wait its client canceled ends at once; the card stays for the user.
+    return ctx.unlessStopped(feedback.propose(id, waitMs, ctx.conn ?? null));
   },
 
   // Tests only: the user's answer on the card, as its buttons give it. It

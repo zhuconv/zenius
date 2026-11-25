@@ -231,9 +231,9 @@ async function runEvaluation(ctx, target, args, params, apiName) {
   const started = ChromeUtils.now();
   const dialogs = watchDialogs(target.browser);
   // I3: agent JavaScript runs only while the agent controls the Space. If
-  // the user pauses or takes it mid-call, the call fails, and its script is
-  // stopped if it is still running.
-  const control = watchControl(target.space);
+  // the user pauses or takes it mid-call, or the call's client cancels it,
+  // the call fails, and its script is stopped if it is still running.
+  const control = watchControl(target.space, ctx);
   let lost = null;
   control.lost.then(l => (lost = l));
   // zen-ux warns at a handOff on a site where the agent's code may linger.
@@ -363,7 +363,7 @@ async function waitForFunction(ctx, params) {
   // I3: the predicate runs only while the agent controls the Space. A pause
   // (a takeover prompt, the panel's Pause) stops the poll before its next
   // run and holds the wait; the user taking the Space ends it.
-  let control = watchControl(space);
+  let control = watchControl(space, ctx);
   // After a navigation, the next document's first poll waits `polling` ms.
   let delayMs = 0;
   const timedOut = (url, title) => {
@@ -444,7 +444,7 @@ async function waitForFunction(ctx, params) {
           throw stoppedError({ error: e }, space, "page.waitForFunction");
         }
         deadline += held;
-        control = watchControl(space);
+        control = watchControl(space, ctx);
         continue;
       }
       if (reply.dialog) {
@@ -526,6 +526,12 @@ async function waitForSelector(ctx, params) {
   const deadline = ChromeUtils.now() + timeoutMs;
   // Polled from here, as Ego's driver does, so one wait covers every frame.
   for (;;) {
+    // A wait its client canceled, or whose connection closed, ends at its
+    // next look.
+    const stop = ctx.stopped();
+    if (stop) {
+      throw stop;
+    }
     const ref = target.kind === "ref" ? refTarget(browser, target) : null;
     let holds = false;
     try {

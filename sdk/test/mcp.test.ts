@@ -5,13 +5,16 @@
 // server against a dev Zen.
 
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 
+import { guardHome } from "../../tests/lib/scratch-home.mjs";
 import { ZeniusError } from "../src/errors.ts";
 import { settleWithin } from "../src/feedback.ts";
 import { callTool, reportWaitS, Session, stepFor, toolList } from "../src/mcp.ts";
+import { CLI } from "./helpers.ts";
 import { MockRuntime } from "./mock-runtime.ts";
 
 describe("zenius mcp steps", () => {
@@ -360,5 +363,94 @@ describe("zenius mcp downloads", () => {
       assert.equal(finished.isError, undefined, finished.text);
       assert.doesNotMatch(finished.text, /canceled/);
     });
+  });
+});
+
+type Answer = { id?: unknown; result?: { content: Array<{ text: string }>; isError?: boolean }; error?: unknown };
+
+/** zenius mcp itself on stdio, against `mock`, as a client starts it. */
+function startServer(mock: MockRuntime) {
+  const env = guardHome({ ...process.env, ZENIUS_INSTANCE: "", ZENIUS_TIMING: "", ZENIUS_SOCKET: mock.socketPath }, "zenius mcp's cancel test");
+  const child = spawn(process.execPath, [CLI, "mcp"], { env, stdio: ["pipe", "pipe", "pipe"] });
+  const answered: unknown[] = [];
+  const waiting = new Map<unknown, (answer: Answer) => void>();
+  let stderr = "";
+  let buffer = "";
+  child.stderr.setEncoding("utf8").on("data", (chunk: string) => (stderr += chunk));
+  child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
+    buffer += chunk;
+    let newline: number;
+    while ((newline = buffer.indexOf("\n")) >= 0) {
+      const line = buffer.slice(0, newline);
+      buffer = buffer.slice(newline + 1);
+      if (!line.trim()) continue;
+      const answer = JSON.parse(line) as Answer;
+      answered.push(answer.id);
+      waiting.get(answer.id)?.(answer);
+    }
+  });
+  const send = (message: Record<string, unknown>) => child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", ...message })}\n`);
+  return {
+    send,
+    answered,
+    request(id: number, method: string, params: Record<string, unknown>): Promise<Answer> {
+      const answer = new Promise<Answer>((resolve, reject) => {
+        waiting.set(id, resolve);
+        setTimeout(() => reject(new Error(`no answer to ${method} (${id}) in 10 s; stderr: ${stderr}`)), 10_000).unref();
+      });
+      send({ id, method, params });
+      return answer;
+    },
+    async stop(): Promise<void> {
+      child.stdin.end();
+      const closed = new Promise((resolve) => (child.exitCode !== null ? resolve(null) : child.once("close", resolve)));
+      const kill = setTimeout(() => child.kill("SIGKILL"), 5000);
+      await closed;
+      clearTimeout(kill);
+    },
+  };
+}
+
+async function until(check: () => boolean, ms = 5000): Promise<void> {
+  const started = performance.now();
+  while (!check()) {
+    if (performance.now() - started > ms) throw new Error(`not so after ${ms} ms`);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+describe("zenius mcp cancel", () => {
+  it("answers a canceled call nothing, stops its wait in the runtime, and starts the next call at once, skipping one canceled in the queue", async () => {
+    const mock = await new MockRuntime().start();
+    // The runtime's wait for the user holds until the user resumes the agent.
+    const waits: number[] = [];
+    mock.handle("spaces.waitForControl", (_params, { frame }) => {
+      waits.push(frame.id);
+      return new Promise(() => {});
+    });
+    const server = startServer(mock);
+    try {
+      await server.request(1, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test-client" } });
+      const opened = await server.request(2, "tools/call", { name: "open", arguments: { url: "https://shop.example.com/" } });
+      assert.equal(opened.result?.isError, undefined, opened.result?.content[0]?.text);
+      // A wait for the user, and another queued behind it.
+      server.send({ id: 3, method: "tools/call", params: { name: "wait", arguments: { user: true } } });
+      server.send({ id: 4, method: "tools/call", params: { name: "wait", arguments: { user: true } } });
+      await until(() => waits.length === 1);
+      const canceled = performance.now();
+      server.send({ method: "notifications/cancelled", params: { requestId: 4, reason: "the user sent a message" } });
+      server.send({ method: "notifications/cancelled", params: { requestId: 3, reason: "the user sent a message" } });
+      const read = await server.request(5, "tools/call", { name: "read_page", arguments: {} });
+      assert.ok(performance.now() - canceled < 3000, `the next call answered ${Math.round(performance.now() - canceled)} ms after the cancels`);
+      assert.equal(read.result?.isError, undefined, read.result?.content[0]?.text);
+      assert.match(read.result!.content[0]!.text, /^Read the page\n/);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      assert.deepEqual(server.answered, [1, 2, 5], "the canceled calls got no answer");
+      assert.deepEqual(waits.length, 1, "the queued wait never ran");
+      assert.deepEqual(mock.canceled, waits, "the runtime was told to stop the wait it ran");
+    } finally {
+      await server.stop();
+      await mock.stop();
+    }
   });
 });

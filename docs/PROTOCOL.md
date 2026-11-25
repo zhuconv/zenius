@@ -36,7 +36,8 @@ Each frame is one JSON object followed by `\n`, over the Unix socket
 ```
 
 - Requests on one connection may run concurrently; responses carry the `id`.
-  A call ends only with a frame that has `result` or `error`.
+  A call ends only with a frame that has `result` or `error`, except one
+  its client canceled, which gets none.
 - Handlers start in frame order: a request's handler has started, and
   registered any waiter, before the next frame on the connection is
   handled. So `page.waitForEvent` sent before the action that triggers the
@@ -49,8 +50,8 @@ Each frame is one JSON object followed by `\n`, over the Unix socket
   at release. A request with top-level `"progress": true` gets `{id, held:
   true, reason: "paused"}`, then `{id, held: false}` at release (or just its
   final frame); a client stops its own timer while held. Other requests are
-  held silently. A held call whose connection closes is dropped without
-  running. Ignore progress frames you don't know.
+  held silently. A held call that its client cancels, or whose connection
+  closes, ends without running. Ignore progress frames you don't know.
 - Page budget. A request may carry top-level `"pageBudget": n`, a positive
   integer: the page budget for that request, as Ego's
   `EGO_BROWSER_PAGE_BUDGET` (the SDK sends it with every request of a
@@ -67,8 +68,17 @@ Each frame is one JSON object followed by `\n`, over the Unix socket
   10000 ms; `setInputFiles` 10000 ms; other page actions 3000 ms; `evaluate`
   15000 ms (the runtime response timeout). Check Ego's source for any method
   not listed.
-- A client that disconnects cancels nothing that already started in the
-  browser. Long operations are bounded by their own `timeout`.
+- Stopping a request. A client gives up on a request of its own with
+  `calls.cancel {id}` (below), as zenius mcp does when its client cancels a
+  tool call; a client that disconnects stops all of its running requests.
+  A stopped request's waits end at once (`page.waitFor*`,
+  `page.waitForEvent`, `spaces.waitForControl`, `feedback.propose`), its
+  page code stops as when the user takes the task in mid-call, and a held
+  one ends without running. An action still looking for its target ends
+  without acting; one already under way finishes. A
+  canceled request gets no answer, and its step in the task's steps reads
+  "stopped" (SPI "Each task's steps"). Other operations are bounded by
+  their own `timeout`.
 
 ## Addressing
 
@@ -1247,6 +1257,12 @@ cut: return it in parts.
 | `dev.registry` | none | `[{method, module, access, accessDeclared, i5, i5Declared}]`, sorted by method: each method's access level and I5 class, and whether its module declared them |
 | `dev.answerClaim` | `{space?, allow?, timeout?}` | `{id, space, verdict}`: answers the claim prompt for `space` (any, without it) as the user would, `allow` default true, waiting up to `timeout` ms (15000) for the ask; `{verdict: null}` when the claim needed none. Send it alongside the `spaces.claim`. |
 | `dev.answerFeedback` | `{action, title?, body?, number?, timeoutMs?}` | the user's answer on the feedback card, as its buttons give it: `action` is `send`, `postNew`, `comment` (on the issue `number`, which the report's search found), `copyAndOpen` or `discard`, with the card's `title` and `body` (by default the report's). It waits up to `timeoutMs` (10000) for a report to show, then returns the action's result (SPI "zenius feedback"), or `{answered: false}` if none showed. Send it alongside the `feedback.propose`. |
+
+### Calls
+
+| Method | Params | Result |
+|---|---|---|
+| `calls.cancel` | `{id}` | `{canceled}`: stops this connection's request `id` ("Frames", "Stopping a request"), which then gets no answer. `canceled` is `false` when that request has already answered, or never came. |
 
 ### Events (zen-core)
 

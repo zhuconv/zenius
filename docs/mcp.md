@@ -37,6 +37,15 @@ error's code (such as `ZEN_SELECTOR_NOT_FOUND: …`) with the error guide's
 explanation and next step. The code is for the agent; the step stays the
 user's line.
 
+The server runs one call at a time, in order: a task's steps depend on the
+ones before. A call its client cancels (MCP's `notifications/cancelled`, as
+Claude Code sends when the user interrupts it) ends at once, wherever it is
+in that queue: the server answers it nothing, as MCP has it, and the next
+call starts. The runtime stops what the call was running too: a `wait`
+for the user or for a page ends in Zen as well, and its step reads
+stopped. An action still looking for its element ends without acting; one
+already under way finishes.
+
 ## A task of its own
 
 Each server's task is its own. `open` never joins a task the server didn't

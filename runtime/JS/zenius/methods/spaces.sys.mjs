@@ -238,7 +238,14 @@ export const methods = {
     if (typeof timeout !== "number" || !(timeout >= 0)) {
       throw new ZenError("ZEN_INVALID_ARGUMENT", "spaces.waitForControl timeout must be a number of ms");
     }
-    await ctx.spaces.waitForControl(rec, { timeout });
+    // A wait its client canceled, or whose connection closed, ends at once,
+    // and leaves the hand back's notes to the next one.
+    const off = ctx.onStopped(() => ctx.spaces.wake(rec));
+    try {
+      await ctx.spaces.waitForControl(rec, { timeout, stopped: ctx.stopped });
+    } finally {
+      off();
+    }
     const via = ctx.spaces.takeHandBackVia(rec);
     return { ownership: rec.ownership, ...(via ? { via } : {}), ...ctx.spaces.takeHandBackNotes(rec) };
   },

@@ -86,6 +86,8 @@ export class MockRuntime {
   readonly dir: string;
   readonly socketPath: string;
   readonly requests: RequestRecord[] = [];
+  /** The request ids calls.cancel named, in order. */
+  readonly canceled: unknown[] = [];
   readonly spaces = new Map<number, MockSpace>();
   pageBudget = 8;
   /** The working folder finished downloads move into, as the runtime moves them. */
@@ -332,6 +334,11 @@ export class MockRuntime {
     };
     const handlers: Record<string, Handler> = {
       "browser.version": () => ({ zenVersion: "1.24.2b", runtimeVersion: "0.0.0-mock", updateAvailable: false }),
+      // A test's handler that waits ends itself when it sees the id here.
+      "calls.cancel": (params) => {
+        mock.canceled.push(params.id);
+        return { canceled: true };
+      },
       "feedback.compose": () => ({ id: "{00000000-0000-4000-8000-000000000000}", title: "zenius 0.0.0-mock: a problem report", body: "From `zenius feedback`.\n" }),
       "feedback.propose": () => ({ outcome: "pending" }),
       "browser.health": () => ({

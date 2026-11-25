@@ -37,7 +37,7 @@ import {
 } from "./limits.ts";
 import type { Page, PageActionReceipt } from "./page.ts";
 import { Round, setRound } from "./round.ts";
-import { RpcClient } from "./rpc.ts";
+import { RpcClient, withSignal } from "./rpc.ts";
 import type { TaskSpace } from "./task-space.ts";
 import { VERSION } from "./version.ts";
 
@@ -348,10 +348,44 @@ export class Session {
 
   /** --docs-only: the docs tool alone, which never reaches Zen. */
   readonly docsOnly: boolean;
+  /** The tools/call requests running, by request id, to cancel. */
+  readonly #calls = new Map<string, AbortController>();
+  /** Requests the client canceled while they waited in the queue: each begins canceled. */
+  readonly #canceled = new Set<string>();
 
   constructor(env: NodeJS.ProcessEnv = process.env, { docsOnly = false }: { docsOnly?: boolean } = {}) {
     this.#resume = env.ZENIUS_TASK_SPACE;
     this.docsOnly = docsOnly;
+  }
+
+  /** A tools/call request begins: its signal aborts when the client cancels it, or already has. */
+  beginCall(id: unknown): AbortSignal {
+    const controller = new AbortController();
+    const key = requestKey(id);
+    if (key !== undefined) {
+      if (this.#canceled.delete(key)) controller.abort();
+      this.#calls.set(key, controller);
+    }
+    return controller.signal;
+  }
+
+  endCall(id: unknown): void {
+    const key = requestKey(id);
+    if (key !== undefined) this.#calls.delete(key);
+  }
+
+  /** notifications/cancelled: the client gave up on that request, running or still queued. */
+  cancel(id: unknown): void {
+    const key = requestKey(id);
+    if (key === undefined) return;
+    const running = this.#calls.get(key);
+    if (running) {
+      running.abort();
+      return;
+    }
+    this.#canceled.add(key);
+    // A cancel that crossed its answer has no request to begin: keep the last few.
+    if (this.#canceled.size > 100) this.#canceled.delete(this.#canceled.values().next().value!);
   }
 
   /**
@@ -1229,19 +1263,53 @@ export function stepFor(name: string, args: Json): string {
   }
 }
 
-export async function callTool(session: Session, name: string, args: Json): Promise<ToolResult> {
+/** A JSON-RPC request id as a key: 1 and "1" are different requests. */
+function requestKey(id: unknown): string | undefined {
+  return typeof id === "string" ? `s${id}` : typeof id === "number" ? `n${id}` : undefined;
+}
+
+/** What a call returns once its client canceled it, which handle never sends. */
+const CANCELED = Symbol("canceled");
+
+/** CANCELED once `signal` aborts; `off` stops listening. */
+function whenAborted(signal: AbortSignal): { canceled: Promise<typeof CANCELED>; off: () => void } {
+  let off = () => {};
+  const canceled = new Promise<typeof CANCELED>((resolve) => {
+    if (signal.aborted) return resolve(CANCELED);
+    const abort = () => resolve(CANCELED);
+    signal.addEventListener("abort", abort, { once: true });
+    off = () => signal.removeEventListener("abort", abort);
+  });
+  return { canceled, off: () => off() };
+}
+
+/**
+ * One tools/call's result. `signal` aborts when the client cancels the call
+ * (handle sends no answer then): the call ends at once, and each runtime
+ * call it made is canceled with it, so a wait ends in the runtime too.
+ */
+export async function callTool(session: Session, name: string, args: Json, signal: AbortSignal = new AbortController().signal): Promise<ToolResult> {
   const tool = toolsFor(session).find((t) => t.name === name);
   if (!tool) return { content: [{ type: "text", text: `There is no tool named ${quoted(name)}.` }], isError: true };
   const step = stepFor(name, args);
+  const canceledResult: ToolResult = { content: [{ type: "text", text: `${step}\nThe client canceled the call.` }], isError: true };
+  if (signal.aborted) return canceledResult;
   // What the task's downloads did, for a tool that reaches Zen; an offline one leaves it to the next.
   const news = () => (tool.offline ? [] : session.downloadNews());
+  const aborted = whenAborted(signal);
   try {
-    if (!tool.offline) {
-      session.connect();
-      await session.resume();
-      await session.watchDownloads();
-    }
-    const outcome = await tool.run(args, session);
+    const run = withSignal(signal, async () => {
+      if (!tool.offline) {
+        session.connect();
+        await session.resume();
+        await session.watchDownloads();
+      }
+      return tool.run(args, session);
+    });
+    // Once canceled, what's left of it fails as its runtime calls do, unheard.
+    run.catch(() => {});
+    const outcome = await Promise.race([run, aborted.canceled]);
+    if (outcome === CANCELED) return canceledResult;
     const [shown, text] = typeof outcome === "string" ? [step, outcome] : [outcome.step, outcome.text];
     return { content: [{ type: "text", text: [`${shown}\n${text}`, ...news()].join("\n") }] };
   } catch (error) {
@@ -1252,6 +1320,8 @@ export async function callTool(session: Session, name: string, args: Json): Prom
     const explained = (error instanceof ZeniusError && hardStop(error)) || readable(error);
     // The step stays the user's line; the code, for the agent to go by, leads the explanation.
     return { content: [{ type: "text", text: [`${step} failed.\n${code ? `${code}: ` : ""}${explained}`, ...news()].join("\n") }], isError: true };
+  } finally {
+    aborted.off();
   }
 }
 
@@ -1312,7 +1382,14 @@ export async function handle(session: Session, message: Json): Promise<Json | un
     case "tools/call": {
       const name = typeof params.name === "string" ? params.name : "";
       const args = params.arguments && typeof params.arguments === "object" ? (params.arguments as Json) : {};
-      return reply((await callTool(session, name, args)) as unknown as Json);
+      const signal = session.beginCall(id);
+      try {
+        const result = await callTool(session, name, args, signal);
+        // A canceled request gets no answer (MCP's notifications/cancelled).
+        return signal.aborted ? undefined : reply(result as unknown as Json);
+      } finally {
+        session.endCall(id);
+      }
     }
     default:
       return fail(-32601, `zenius has no method ${method}`);
@@ -1343,6 +1420,12 @@ export async function serveMcp(options: { docsOnly?: boolean } = {}): Promise<nu
         message = JSON.parse(line) as Json;
       } catch {
         send({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "not JSON" } });
+        continue;
+      }
+      // A cancel goes ahead of the queue, where the call it cancels holds
+      // every later one: that call ends at once, and the next one starts.
+      if (message.method === "notifications/cancelled") {
+        session.cancel((message.params as Json | undefined)?.requestId);
         continue;
       }
       queue = queue.then(async () => {

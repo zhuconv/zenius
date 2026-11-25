@@ -130,7 +130,9 @@ function tell(space, step) {
 /**
  * The task's recent steps, in the order their calls began, oldest first:
  * `{id, at, ms, method, text, outcome, page}`. `outcome` is "running" until
- * the call ends, then "ok" or the error's code, and `ms` null until then.
+ * the call ends, then "ok" or the error's code, or "stopped" for one that
+ * failed once its client canceled it or its connection closed (zen-core's
+ * dispatcher), and `ms` null until then.
  * `id` grows from step to step, across tasks; `page` is the tab's label,
  * null for a call that names none (pages.new).
  *

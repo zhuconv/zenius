@@ -1297,11 +1297,18 @@ export class Spaces {
    * with INACTIVE, as Ego's probe does.
    *
    * @param {SpaceRecord} rec
-   * @param {{timeout?: number}} [opts]
+   * @param {{timeout?: number, stopped?: () => Error|null}} [opts]
+   *   stopped: the error to end with once the call's client canceled it or
+   *   its connection closed (ctx.stopped), checked whenever the wait wakes
+   *   (wake)
    */
-  async waitForControl(rec, { timeout = CONTROL_WAIT_TIMEOUT_MS } = {}) {
+  async waitForControl(rec, { timeout = CONTROL_WAIT_TIMEOUT_MS, stopped = () => null } = {}) {
     const deadline = Date.now() + timeout;
     while (true) {
+      const stop = stopped();
+      if (stop) {
+        throw stop;
+      }
       if (rec.gone) {
         throw new ZenError("ZEN_TASK_SPACE_NOT_FOUND", `Task space not found: ${rec.id}`, { space: rec.id });
       }
@@ -1320,6 +1327,13 @@ export class Spaces {
         });
       }
       await this.#nextChange(rec, left);
+    }
+  }
+
+  /** Wake the waits on `rec` to look again, as a change does: one whose call stopped then ends. */
+  wake(rec) {
+    for (const wake of [...(this.#waiters.get(rec.id) ?? [])]) {
+      wake();
     }
   }
 

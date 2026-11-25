@@ -131,7 +131,7 @@ export const methods = {
    | `mutate` | The agent must control the space; waits while a takeover prompt is open. | every method not listed below |
    | `read` | The agent must control the space; never waits. | `pages.list`, `tabs.list`, `pages.userPage`, `spaces.open`, `page.info`, `page.url`, `page.title`, `page.snapshot`, `page.screenshot`, `page.events`, `page.waitFor*`, `download.path`, `download.failure` |
    | `task` | An agent task must be in progress, even one handed to the user. | `spaces.handOff`, `spaces.setState` |
-   | `none` | No gate (the method checks ownership itself, or is a tool). | `spaces.list`, `spaces.create`, `spaces.claim`, `spaces.takeOver`, `spaces.waitForControl`, `events.subscribe`, `ui.state`, `browser.*`, `profiles.list`, `dev.*` |
+   | `none` | No gate (the method checks ownership itself, or is a tool). | `spaces.list`, `spaces.create`, `spaces.claim`, `spaces.takeOver`, `spaces.waitForControl`, `events.subscribe`, `calls.cancel`, `ui.state`, `browser.*`, `profiles.list`, `dev.*` |
 
    Each method module declares every method's level, `export const access
    = { "page.foo": "read" };`. `tests/core/registry.test.mjs` fails on a
@@ -218,9 +218,32 @@ Rules:
   held. It hasn't started: the handler, and every timeout it applies, start
   at release. A request with `progress: true` gets `{id, held: true,
   reason: "paused"}`, then `{id, held: false}` at release, or just its
-  error. If its connection closes while held, the call is dropped without
+  error. If it stops while held (below), the call ends there, without
   running. Take over (or Stop) during the hold fails it with
   `ZEN_TASK_SPACE_USER_IN_CONTROL` (or `ZEN_TASK_SPACE_INACTIVE`).
+- **Stopped requests.** A client's request stops when the client sends
+  `calls.cancel` for it, as zenius mcp does once its own client cancels a
+  tool call, or when its connection closes (PROTOCOL "Frames"). It stops as
+  a call does when the user takes the task in mid-call:
+  - its waits end at once: `page.waitFor*`, `page.waitForEvent` (a
+    download or chooser it would have taken stays the next waiter's),
+    `spaces.waitForControl` and `feedback.propose`;
+  - its page code stops (`watchControl`, `observe/control.sys.mjs`), as
+    `page.evaluate`'s and `page.waitForFunction`'s does at a takeover;
+  - a hold at the gate ends, and a call waiting at any other gate (a
+    pending navigation, an unloaded tab's load) never starts;
+  - an action still looking for its target (one not yet visible, enabled
+    or stable) ends without acting: element actions and drags check
+    `ctx.stopped()` at each try and right before each content call that
+    may act;
+  - an action already under way finishes: half a click isn't safer, and a
+    drag that has pressed still releases.
+
+  A request its client canceled gets no answer. A call that fails once
+  stopped gets outcome "stopped" in its task's steps; one that succeeds
+  anyway keeps "ok". `ctx.call` passes the request on, so a nested call
+  stops with it. A handler that waits watches for it with `ctx.stopped()`,
+  `ctx.onStopped(fn)` or `ctx.unlessStopped(promise, cleanup)` (below).
 - **`ctx.gate()`** re-runs the control check from inside a handler, as a
   mutating call whatever the method's level, with the same held frames, and
   resolves to the ms held (leave them out of your own timeouts). Call it
@@ -245,6 +268,9 @@ Rules:
 | `ctx.content(bc, "module#fn", args, opts?)` | Calls `fn(actor, args)` exported by `content/<module>.sys.mjs` in `bc`'s process and returns its result. `bc` may be any frame, including an out-of-process iframe (`browsingContext.children`, or `getAllBrowsingContextsInSubtree()`). `opts.timeout` (ms) turns a hang into `ZEN_PAGE_UNRESPONSIVE`. |
 | `ctx.call(method, params)` | Runs another method in-process (gated, timed and logged as internal). `pages.new {url}` uses it to call whichever `page.goto` is registered. |
 | `ctx.gate()` | The control check again for this call's space, with held frames; resolves to the ms held. See "Dispatch". |
+| `ctx.stopped()` | The error this call ends with once its request stopped (its client canceled it, or its connection closed), else `null`. Throw it from a wait's loop. See "Dispatch". |
+| `ctx.onStopped(fn)` | `fn()` when the call's request stops, at once if it has; returns `off()`, which a handler calls as it ends. Never for the runtime's own calls. |
+| `ctx.unlessStopped(promise, cleanup?)` | `promise`, or `ctx.stopped()`'s error once the request stops first, after `cleanup()` ends what the wait holds (a timer, a waiter). |
 | `ctx.pageBudget` | The page budget for this request: its top-level `pageBudget` (PROTOCOL "Frames"), else pref `zenius.pageBudget`, else 8. `pages.new` and `pages.adopt` enforce it; snapshot headers show it. `ctx.call` passes it on. |
 | `ctx.watchPopups(spaceId, label)` | Collects the popups that page `label` opens: `w.stop()` returns `[{label, targetId}]` for the action receipt. |
 | `ctx.emit(event, params)` | Emits an event to in-process listeners and to clients that called `events.subscribe`. |
@@ -274,7 +300,7 @@ which would wait in a tab nobody sees.
 | `spaces.setOwnership(rec, ownership, {reason, source})` | `ownership`: `agent`, `agentDelegatedToUser` or `user`. `reason` (Ego's key) is kept only for `agentDelegatedToUser`, default `manual_takeover`. `source`: `agent` (a method), `user` (prompt or panel), `permission` (a permission prompt). An agent task that goes to `user` has ended (`rec.ended`): calls fail with `ZEN_TASK_SPACE_INACTIVE` until a claim. `finish()` also ends its labels, as Ego discards its ledger; after the user's Stop they stay for a later claim. It never changes `paused`. `spaceChanged {space, ownership, reason, source}` |
 | `spaces.setStateText(rec, text)` | Ego's setAgentTaskState. `spaceChanged {space, stateText}` |
 | `spaces.gate(rec, access = "mutate")` | The I3 check: `null` when the call may go on now, a promise while a takeover prompt holds it (no timeout of its own; it rejects if ownership changes), or a throw: `ZEN_TASK_SPACE_USER_IN_CONTROL` with `data.reason`, `ZEN_TASK_SPACE_INACTIVE`, `ZEN_TASK_SPACE_NOT_FOUND`. |
-| `spaces.waitForControl(rec, {timeout})` | Resolves when ownership is `agent` and no prompt is open. |
+| `spaces.waitForControl(rec, {timeout, stopped})` | Resolves when ownership is `agent` and no prompt is open. `stopped`: `ctx.stopped`, checked whenever the wait wakes; `spaces.wake(rec)` wakes it. |
 | `ZeniusService.lookup(tab)` | `{rec, page}` for a managed tab, or null, without refreshing anything (cheap enough for every click). |
 
 Events, from `ZeniusService.addEventListener((event, params) => …)` in
@@ -4021,6 +4047,8 @@ the agent's steps from `input/steps.sys.mjs`.
   - A step shows while its call runs, with outcome "running".
   - When the call ends, the step gets its outcome ("ok" or the error's
     code), its run time without held time, and the name the action found.
+    A call that failed once its client canceled it, or its connection
+    closed, gets "stopped" ("Dispatch", "Stopped requests").
 - **Reading.** zen-ux reads the steps beside zen-core's task feed. The feed
   carries a task's life only.
   - `stepsOf(spaceId)` gives the task's last 50 steps,

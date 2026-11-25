@@ -7,6 +7,10 @@
 // page.waitForFunction is held: its poll stops while the Space is paused
 // and goes on when the agent has it back. page.evaluate can't be held,
 // because its async steps would go on running in the page, so it fails.
+//
+// A call whose client cancels it, or whose connection closes, stops the same
+// way (modules/service.sys.mjs, #stopRequest): nothing it started may go on
+// running in the page for a client that stopped waiting for it.
 
 import { ZeniusService } from "chrome://userscripts/content/zenius/modules/service.sys.mjs";
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
@@ -16,21 +20,30 @@ import { controlError } from "chrome://userscripts/content/zenius/modules/spaces
  * Watch the Space `rec` while a call runs agent JavaScript. `lost` resolves
  * once the agent doesn't control it: `{paused: true}` while the user
  * decides, or `{error}` (the gate's error) when the Space is the user's or
- * gone.
+ * gone, or the call's request stopped.
  *
  * @param {object} rec  the call's SpaceRecord
+ * @param {object|null} [ctx]  the call's ctx, whose request may stop
  * @returns {{lost: Promise<{paused: true} | {error: Error}>, stop(): void}}
  */
-export function watchControl(rec) {
+export function watchControl(rec, ctx = null) {
   let settle;
   const lost = new Promise(resolve => (settle = resolve));
   let off = null;
+  let offStop = null;
+  let settled = false;
+  const done = state => {
+    settled = true;
+    off?.();
+    off = null;
+    offStop?.();
+    offStop = null;
+    settle(state);
+  };
   const check = () => {
     const state = lostState(rec);
     if (state) {
-      off?.();
-      off = null;
-      settle(state);
+      done(state);
     }
   };
   // A Space that goes away closes its pages, which ends their calls.
@@ -40,11 +53,16 @@ export function watchControl(rec) {
     }
   });
   check();
+  if (!settled && ctx?.onStopped) {
+    offStop = ctx.onStopped(() => done({ error: ctx.stopped() }));
+  }
   return {
     lost,
     stop() {
       off?.();
       off = null;
+      offStop?.();
+      offStop = null;
     },
   };
 }

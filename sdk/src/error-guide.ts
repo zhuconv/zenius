@@ -22,8 +22,9 @@ export type CodeGuide = {
   /** The SDK's own wording replaces the message (the hard stops), so nothing is added. */
   owned?: boolean;
   /**
-   * Left out of help("errors") and help("<code>"), which agents read: only
-   * `zenius selfcheck` meets the code, and agents never run it.
+   * Left out of help("errors") and help("<code>"), which agents read: only a
+   * command agents never run meets the code (`zenius selfcheck`), or one that
+   * words it itself.
    */
   unlisted?: boolean;
   /** Sent as a plain Error without a code, as Ego throws it: scripts see only the message. */
@@ -309,6 +310,14 @@ export const CODE_GUIDE: Record<string, CodeGuide> = {
   ZEN_FEEDBACK_DECLINED: {
     what: "The user discarded a problem report less than 10 minutes ago.",
     next: "Don't send another before then.",
+    owned: true,
+    unlisted: true,
+  },
+  // Only zenius mcp cancels a call, for a tool call its client canceled,
+  // and it answers that client nothing then.
+  ZEN_CANCELED: {
+    what: "zenius mcp's client canceled the tool call this call was for, so zenius stopped the call.",
+    next: "Nothing: the client stopped waiting for it, and its next call runs.",
     owned: true,
     unlisted: true,
   },

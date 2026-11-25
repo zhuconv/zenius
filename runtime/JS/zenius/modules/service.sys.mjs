@@ -2082,10 +2082,73 @@ class Service {
       });
       return;
     }
-    this.dispatch(method, frame.params ?? {}, conn, { onHold, pageBudget }).then(
-      result => conn.send(resultFrame(id, result)),
-      error => conn.send({ id, error: toWireError(error) })
-    );
+    // The request while it runs: calls.cancel and the connection's close
+    // stop it (#stopRequest). One its client canceled gets no answer, as an
+    // MCP request canceled with notifications/cancelled gets none: the
+    // client has stopped waiting for it.
+    const request = this.#beginRequest(conn, id);
+    this.dispatch(method, frame.params ?? {}, conn, { onHold, pageBudget, request })
+      .then(
+        result => request.stopped !== "canceled" && conn.send(resultFrame(id, result)),
+        error => request.stopped !== "canceled" && conn.send({ id, error: toWireError(error) })
+      )
+      .finally(() => this.#endRequest(conn, request));
+  }
+
+  /** A client's request, by its id on its connection, while it runs. */
+  #beginRequest(conn, id) {
+    const request = { id, stopped: null, hooks: new Set() };
+    if (typeof id === "number" || typeof id === "string") {
+      (conn.state.requests ??= new Map()).set(id, request);
+    }
+    return request;
+  }
+
+  #endRequest(conn, request) {
+    if (conn.state.requests?.get(request.id) === request) {
+      conn.state.requests.delete(request.id);
+    }
+  }
+
+  /**
+   * Stop a running request: its client canceled it, or its connection
+   * closed. Its waits end at once, its page code stops as at a takeover
+   * (observe/control.sys.mjs), a hold at the control gate ends, a call
+   * waiting at any gate never starts, an action still looking for its target
+   * ends without acting (methods/actions.sys.mjs), and its step reads
+   * "stopped". An action already under way finishes: half a click isn't
+   * safer.
+   *
+   * @param {object} request  #beginRequest's
+   * @param {"canceled"|"closed"} reason
+   * @returns {boolean} whether it was running
+   */
+  #stopRequest(request, reason) {
+    if (request.stopped) {
+      return false;
+    }
+    request.stopped = reason;
+    for (const fn of [...request.hooks]) {
+      try {
+        fn();
+      } catch (e) {
+        log(`stopping request ${request.id} failed: ${e.message}`);
+      }
+    }
+    request.hooks.clear();
+    return true;
+  }
+
+  /**
+   * calls.cancel (methods/calls.sys.mjs): the client gave up on its request
+   * `id` on this connection, as zenius mcp does when its own client cancels
+   * a tool call.
+   *
+   * @returns {boolean} whether that request was still running
+   */
+  cancelRequest(conn, id) {
+    const request = conn?.state.requests?.get(id);
+    return request ? this.#stopRequest(request, "canceled") : false;
   }
 
   /**
@@ -2114,11 +2177,11 @@ class Service {
    * @param {{onHold?: (held: boolean, reason?: string) => void}} [opts]
    * @returns {Promise<any>}
    */
-  dispatch(method, params, conn = null, { onHold, pageBudget } = {}) {
+  dispatch(method, params, conn = null, { onHold, pageBudget, request = null } = {}) {
     this.#ensureMethods();
     if (this.#rebuilding) {
       // In frame order: calls queue on the same promise.
-      return this.#rebuilding.then(() => this.dispatch(method, params, conn, { onHold, pageBudget }));
+      return this.#rebuilding.then(() => this.dispatch(method, params, conn, { onHold, pageBudget, request }));
     }
     const t0 = now();
     // A client's call shows in its task's steps while it runs (zen-input's
@@ -2152,7 +2215,8 @@ class Service {
         }
         const heldAt = now();
         onHold?.(true, "paused");
-        return hold.then(() => {
+        // A request stopped while held ends there, without running.
+        return (request ? Promise.race([hold, whenStopped(request, method)]) : hold).then(() => {
           const ms = now() - heldAt;
           heldMs += ms;
           if (conn?.closed) {
@@ -2166,6 +2230,7 @@ class Service {
       const hasSpace = params.space !== undefined && params.space !== null;
       ctx = this.#makeCtx(method, conn, {
         pageBudget: pageBudget ?? defaultPageBudget(),
+        request,
         // For a handler about to act after a long step (a pointer action
         // after moveCursor): I3 again, with held frames. Resolves to the ms
         // held, which the handler's own timeouts shouldn't count.
@@ -2181,7 +2246,16 @@ class Service {
         ? [() => this.#restoreGate(params, method), ...this.#pageGates.map(({ gate }) => () => gate(ctx, params, method))]
         : [];
       const wait = runChain(control, gates, 0);
-      const run = () => entry.fn(ctx, params);
+      // A request stopped while a gate waited (a pending navigation, an
+      // unloaded tab's load) never starts: only the control gate's hold
+      // ends at the stop itself.
+      const run = () => {
+        const stop = ctx.stopped();
+        if (stop) {
+          throw stop;
+        }
+        return entry.fn(ctx, params);
+      };
       promise = wait ? wait.then(run) : Promise.resolve(run());
     } catch (e) {
       promise = Promise.reject(e);
@@ -2204,7 +2278,9 @@ class Service {
         return result;
       },
       e => {
-        const outcome = typeof e?.code === "string" && ErrorCodes[e.code] ? e.code : "ZEN_INTERNAL";
+        // A request its client canceled, or whose connection closed, ended
+        // because of that: the user's line reads stopped, not failed.
+        const outcome = request?.stopped ? "stopped" : typeof e?.code === "string" && ErrorCodes[e.code] ? e.code : "ZEN_INTERNAL";
         if (outcome === "ZEN_INTERNAL") {
           log(`${method} internal error: ${e?.message}\n${e?.stack ?? ""}`);
         }
@@ -2412,6 +2488,7 @@ class Service {
   #makeCtx(method, conn, extras = {}) {
     const service = this;
     const pageBudget = extras.pageBudget ?? defaultPageBudget();
+    const request = extras.request ?? null;
     const i5 = this.i5Of(method);
     return {
       method,
@@ -2448,8 +2525,16 @@ class Service {
         lazy.checkSignInCall(method, bc, kind);
         return this.content(bc, spec, args, { ...opts, gate: { kind, method } });
       },
-      // Nested calls keep the request's budget.
-      call: (m, p) => this.dispatch(m, p, null, { pageBudget }),
+      // A client's request stops when its client cancels it or its
+      // connection closes (#stopRequest); the runtime's own calls never do.
+      // stopped(): the error it then ends with, else null. onStopped(fn):
+      // fn() at the stop, returning off. unlessStopped(promise, cleanup):
+      // promise, or that error once it stops first, after cleanup().
+      stopped: () => (request?.stopped ? stopError(request.stopped, method) : null),
+      onStopped: fn => onStopped(request, fn),
+      unlessStopped: (promise, cleanup) => unlessStopped(request, method, promise, cleanup),
+      // Nested calls keep the request's budget, and stop with it.
+      call: (m, p) => this.dispatch(m, p, null, { pageBudget, request }),
       emit: (event, params) => this.emit(event, params),
     };
   }
@@ -2680,7 +2765,11 @@ class Service {
 
   #onConnectionClosed(conn) {
     this.#subscribers.delete(conn);
-    conn.state.onClose?.forEach(fn => {
+    for (const request of conn.state.requests?.values() ?? []) {
+      this.#stopRequest(request, "closed");
+    }
+    // A copy: a hook may take itself off the list as it runs.
+    [...(conn.state.onClose ?? [])].forEach(fn => {
       try {
         fn();
       } catch {}
@@ -2745,6 +2834,58 @@ function runGates(control, gates, i) {
     }
   }
   return null;
+}
+
+/**
+ * The error a stopped request ends with. Its client never reads it: it
+ * canceled the request, which gets no answer, or its connection is gone.
+ */
+function stopError(reason, method) {
+  return new ZenError(
+    "ZEN_BROWSER_UNAVAILABLE",
+    reason === "closed" ? `${method} stopped: its connection closed` : `${method} stopped: its client canceled it`,
+    { stopped: method, reason }
+  );
+}
+
+/** `fn()` when the request stops, at once if it has; returns off. No request (the runtime's own call): never. */
+function onStopped(request, fn) {
+  if (!request) {
+    return () => {};
+  }
+  if (request.stopped) {
+    let on = true;
+    Promise.resolve().then(() => on && fn());
+    return () => (on = false);
+  }
+  request.hooks.add(fn);
+  return () => request.hooks.delete(fn);
+}
+
+/** A promise that fails with the request's stopError once it stops. */
+function whenStopped(request, method) {
+  const stopped = new Promise((_, reject) => onStopped(request, () => reject(stopError(request.stopped, method))));
+  stopped.catch(() => {});
+  return stopped;
+}
+
+/** `promise`, or the request's stopError once it stops first, after `cleanup()` ends what the wait holds. */
+function unlessStopped(request, method, promise, cleanup) {
+  if (!request) {
+    return promise;
+  }
+  let off = () => {};
+  const stopped = new Promise((_, reject) => {
+    off = onStopped(request, () => {
+      try {
+        cleanup?.();
+      } finally {
+        reject(stopError(request.stopped, method));
+      }
+    });
+  });
+  stopped.catch(() => {});
+  return Promise.race([promise, stopped]).finally(() => off());
 }
 
 function isThenable(value) {

@@ -3,8 +3,10 @@
 // them. zen-input's registry test checks every module's declarations; this
 // file checks the plumbing.
 import assert from "node:assert/strict";
+import net from "node:net";
 import { after, before, test } from "node:test";
-import { setup } from "./lib.mjs";
+import { socketPath } from "../../scripts/lib/rpc.mjs";
+import { setup, sleep } from "./lib.mjs";
 
 let h;
 before(async () => {
@@ -215,4 +217,215 @@ test("a method declared dev exists only in dev profiles, whatever its name", asy
      return { registered, devAgain: S.dev };`
   );
   assert.deepEqual(out, { registered: ["probe.plain"], devAgain: true });
+});
+
+/** A connection of the test's own: requests by the ids it picks, and every frame that comes back. */
+async function rawConnection() {
+  const sock = net.createConnection(socketPath(h.instance));
+  sock.setEncoding("utf8");
+  const frames = [];
+  let buffer = "";
+  sock.on("data", chunk => {
+    buffer += chunk;
+    let nl;
+    while ((nl = buffer.indexOf("\n")) >= 0) {
+      const line = buffer.slice(0, nl);
+      buffer = buffer.slice(nl + 1);
+      if (line.trim()) {
+        frames.push(JSON.parse(line));
+      }
+    }
+  });
+  await new Promise((resolve, reject) => {
+    sock.once("connect", resolve);
+    sock.once("error", reject);
+  });
+  return {
+    send: (id, method, params) => sock.write(`${JSON.stringify({ id, method, params })}\n`),
+    answer: id => frames.find(f => f.id === id && ("result" in f || "error" in f)),
+    close: () => sock.destroy(),
+  };
+}
+
+const STEPS = `const S = ChromeUtils.importESModule("chrome://userscripts/content/zenius/input/steps.sys.mjs");`;
+/** The task's last step of `method`, as the sidebar reads it. */
+const lastStep = async (space, method) => (await h.chrome(`${STEPS} return S.stepsOf(arg);`, space)).findLast(s => s.method === method);
+
+/** `check()`'s first truthy value, within `ms`. */
+async function until(check, what, ms = 5000) {
+  const end = Date.now() + ms;
+  for (;;) {
+    const value = await check();
+    if (value) {
+      return value;
+    }
+    if (Date.now() > end) {
+      throw new Error(`${what}: not so after ${ms} ms`);
+    }
+    await sleep(25);
+  }
+}
+
+/** The step once it has ended. */
+const ended = (space, method) =>
+  until(async () => {
+    const step = await lastStep(space, method);
+    return step && step.outcome !== "running" && step;
+  }, `${method}'s step ends`);
+
+test("a request its client cancels stops at once and gets no answer: a wait, page code and a call the gate holds; their steps read stopped", async () => {
+  const space = await h.space("zen-core cancel");
+  await h.call("page.goto", { space, page: "p1", url: `${h.base}/api/text?cancel` });
+  const conn = await rawConnection();
+  try {
+    const P = { space, page: "p1" };
+    conn.send(1, "page.waitForSelector", { ...P, target: "#never", options: { timeout: 60000 } });
+    conn.send(2, "page.evaluate", { ...P, isFunction: false, fn: "new Promise(resolve => setTimeout(resolve, 60000))" });
+    await until(async () => (await lastStep(space, "page.evaluate"))?.outcome === "running", "the page code runs");
+    const canceled = Date.now();
+    conn.send(3, "calls.cancel", { id: 1 });
+    conn.send(4, "calls.cancel", { id: 2 });
+    await until(() => conn.answer(3) && conn.answer(4), "the cancels answer");
+    assert.deepEqual([conn.answer(3).result, conn.answer(4).result], [{ canceled: true }, { canceled: true }]);
+    assert.equal((await ended(space, "page.waitForSelector")).outcome, "stopped");
+    assert.equal((await ended(space, "page.evaluate")).outcome, "stopped");
+    assert.ok(Date.now() - canceled < 3000, `they ended ${Date.now() - canceled} ms after the cancel`);
+
+    // While the user decides at a takeover prompt, the gate holds the
+    // click; a wait for the user waits. Canceled, both end there.
+    await h.pause(space, true);
+    conn.send(5, "spaces.waitForControl", { space, timeout: 60000 });
+    conn.send(6, "page.click", { ...P, target: "body" });
+    await until(async () => (await lastStep(space, "page.click"))?.outcome === "running", "the gate holds the click");
+    conn.send(7, "calls.cancel", { id: 5 });
+    conn.send(8, "calls.cancel", { id: 6 });
+    assert.equal((await ended(space, "spaces.waitForControl")).outcome, "stopped");
+    assert.equal((await ended(space, "page.click")).outcome, "stopped");
+    await h.pause(space, false);
+
+    // One that has answered is past stopping.
+    conn.send(9, "page.title", P);
+    await until(() => conn.answer(9), "page.title answers");
+    conn.send(10, "calls.cancel", { id: 9 });
+    await until(() => conn.answer(10), "the late cancel answers");
+    assert.deepEqual(conn.answer(10).result, { canceled: false });
+    await sleep(300);
+    assert.deepEqual(
+      [1, 2, 5, 6].filter(id => conn.answer(id)),
+      [],
+      "the canceled requests got no answer"
+    );
+  } finally {
+    conn.close();
+    await h.pause(space, false);
+    await h.call("spaces.finish", { space, keep: [] });
+  }
+});
+
+test("a connection that closes stops its running requests: a wait ends, and its step reads stopped", async () => {
+  const space = await h.space("zen-core closed");
+  await h.call("page.goto", { space, page: "p1", url: `${h.base}/api/text?closed` });
+  const conn = await rawConnection();
+  try {
+    conn.send(1, "page.waitForSelector", { space, page: "p1", target: "#never", options: { timeout: 60000 } });
+    await until(async () => (await lastStep(space, "page.waitForSelector"))?.outcome === "running", "the wait runs");
+    const closed = Date.now();
+    conn.close();
+    assert.equal((await ended(space, "page.waitForSelector")).outcome, "stopped");
+    assert.ok(Date.now() - closed < 3000, `it ended ${Date.now() - closed} ms after the close`);
+  } finally {
+    conn.close();
+    await h.call("spaces.finish", { space, keep: [] });
+  }
+});
+
+// The target is there but hidden, which a click retries until it shows. The
+// test shows it only once the click has stopped, so a click that went on
+// looking would land then.
+const HIDDEN_BUTTON = `(() => {
+  const b = document.createElement("button");
+  b.id = "late";
+  b.textContent = "late";
+  b.style.visibility = "hidden";
+  b.onclick = () => (window.__clicks = (window.__clicks || 0) + 1);
+  document.body.append(b);
+  return true;
+})()`;
+
+for (const how of ["canceled", "closed"]) {
+  const which = how === "canceled" ? "that its client cancels" : "whose connection closes";
+  test(`a click still looking for its target, ${which}, lands no click, and its step reads stopped`, async () => {
+    const space = await h.space(`zen-core click ${how}`);
+    const P = { space, page: "p1" };
+    await h.call("page.goto", { ...P, url: `${h.base}/api/text?click-${how}` });
+    await h.call("page.evaluate", { ...P, isFunction: false, fn: HIDDEN_BUTTON });
+    const conn = await rawConnection();
+    try {
+      conn.send(1, "page.click", { ...P, target: "#late", options: { timeout: 20000 } });
+      await until(async () => (await lastStep(space, "page.click"))?.outcome === "running", "the click looks for its target");
+      await sleep(200);
+      const stoppedAt = Date.now();
+      if (how === "canceled") {
+        conn.send(2, "calls.cancel", { id: 1 });
+        await until(() => conn.answer(2), "the cancel answers");
+        assert.deepEqual(conn.answer(2).result, { canceled: true });
+      } else {
+        conn.close();
+      }
+      await sleep(300);
+      // A click still looking would take the button at its next try, 50 ms on.
+      await h.call("page.evaluate", { ...P, isFunction: false, fn: `document.getElementById("late").style.visibility = "visible"` });
+      await sleep(1500);
+      const step = await lastStep(space, "page.click");
+      const clicks = await h.call("page.evaluate", { ...P, isFunction: false, fn: "window.__clicks || 0" });
+      assert.deepEqual({ outcome: step.outcome, clicks }, { outcome: "stopped", clicks: 0 });
+      assert.ok(step.at + step.ms - stoppedAt < 1500, `it ended ${step.at + step.ms - stoppedAt} ms after the stop`);
+      assert.equal(conn.answer(1), undefined, "the stopped click got no answer");
+    } finally {
+      conn.close();
+      await h.call("spaces.finish", { space, keep: [] });
+    }
+  });
+}
+
+test("a drag still looking for its source, that its client cancels, never presses, and its step reads stopped", async () => {
+  const space = await h.space("zen-core drag canceled");
+  const P = { space, page: "p1" };
+  await h.call("page.goto", { ...P, url: `${h.base}/api/text?drag-canceled` });
+  await h.call("page.evaluate", {
+    ...P,
+    isFunction: false,
+    fn: `(() => {
+      const from = document.createElement("div");
+      from.id = "from";
+      from.textContent = "from";
+      from.style.cssText = "visibility: hidden; width: 80px; height: 40px";
+      from.onmousedown = () => (window.__presses = (window.__presses || 0) + 1);
+      const to = document.createElement("div");
+      to.id = "to";
+      to.textContent = "to";
+      to.style.cssText = "width: 80px; height: 40px";
+      document.body.append(from, to);
+      return true;
+    })()`,
+  });
+  const conn = await rawConnection();
+  try {
+    conn.send(1, "page.dragAndDrop", { ...P, source: "#from", target: "#to", options: { timeout: 20000 } });
+    await until(async () => (await lastStep(space, "page.dragAndDrop"))?.outcome === "running", "the drag looks for its source");
+    await sleep(200);
+    conn.send(2, "calls.cancel", { id: 1 });
+    await until(() => conn.answer(2), "the cancel answers");
+    assert.deepEqual(conn.answer(2).result, { canceled: true });
+    await sleep(300);
+    await h.call("page.evaluate", { ...P, isFunction: false, fn: `document.getElementById("from").style.visibility = "visible"` });
+    await sleep(1500);
+    const step = await lastStep(space, "page.dragAndDrop");
+    const presses = await h.call("page.evaluate", { ...P, isFunction: false, fn: "window.__presses || 0" });
+    assert.deepEqual({ outcome: step.outcome, presses }, { outcome: "stopped", presses: 0 });
+    assert.equal(conn.answer(1), undefined, "the stopped drag got no answer");
+  } finally {
+    conn.close();
+    await h.call("spaces.finish", { space, keep: [] });
+  }
 });

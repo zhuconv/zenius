@@ -473,6 +473,20 @@ function isTransient(e) {
   return e?.data?.transient === true;
 }
 
+/**
+ * A request its client canceled, or whose connection closed, acts no more
+ * (modules/service.sys.mjs, #stopRequest): an action still looking for its
+ * target ends without acting. Checked at each try and right before each
+ * content call that may act; one already sent finishes, since half a click
+ * isn't safer, and a drag that pressed still releases.
+ */
+function throwIfStopped(ctx) {
+  const stop = ctx.stopped();
+  if (stop) {
+    throw stop;
+  }
+}
+
 /** Where the target lives: a ref's own frame, or the page (main document first). */
 function refLocation(rp, parsed) {
   if (!/^[1-9]\d*$/.test(parsed.id)) {
@@ -529,7 +543,10 @@ async function attempt(ctx, rp, method, parsed, base, state) {
     }
   }
   const visible = POINTER.has(method) && isTabVisible(rp.tab);
+  // Two content calls for a target in a frame, with the frame's offset
+  // between: phase "all" acts in whichever finds the target.
   const call = async extra => {
+    throwIfStopped(ctx);
     let r;
     try {
       r = await contentCall(ctx, where.bc, base.fn ?? "act", { ...base, ...where.args, ...extra });
@@ -552,6 +569,7 @@ async function attempt(ctx, rp, method, parsed, base, state) {
     if (!offset || state.hints?.ended) {
       return { dialog: true };
     }
+    throwIfStopped(ctx);
     return contentCall(ctx, where.bc, base.fn ?? "act", { ...base, ...where.args, ...extra });
   };
   if (!visible) {
@@ -572,6 +590,7 @@ async function attempt(ctx, rp, method, parsed, base, state) {
   if (state.hints?.ended) {
     return { dialog: true };
   }
+  throwIfStopped(ctx);
   const r = await contentCall(ctx, where.bc, base.fn ?? "act", { ...base, ...where.args, phase: "perform", token });
   return { ...r, point, cursorShown: true, bcId: where.bc.id };
 }
@@ -674,6 +693,7 @@ async function runElementAction(ctx, params, method, extra = {}) {
         if (hints.ended) {
           return null;
         }
+        throwIfStopped(ctx);
         base.deadline = start + timeout + state.held;
         try {
           const r = await attempt(ctx, rp, method, parsed, base, state);
@@ -1461,6 +1481,7 @@ export const methods = {
         if (hints.ended) {
           return null;
         }
+        throwIfStopped(ctx);
         const deadline = start + timeout + held;
         // On screen, the cursor flies to the source with the label before the
         // press, and on to the target before the release, as Ego's cursor
@@ -1514,6 +1535,8 @@ export const methods = {
             }
             // The drop point in the source frame's own viewport.
             const toward = { x: b.tab.x - (a.tab.x - a.point.x), y: b.tab.y - (a.tab.y - a.point.y) };
+            // Stopped before the press, it never presses; once pressed, it releases.
+            throwIfStopped(ctx);
             const pressed = await ctx.content(whereSrc, "actions#dragPress", { point: a.point, toward, options, mods, deadline: deadline + gated });
             if (pressed.dialog) {
               return null;
@@ -1539,6 +1562,7 @@ export const methods = {
             }
             const args = { source: params.source, target: params.target, ...refArgs, ...only, level, options, mods, deadline };
             if (!isTabVisible(rp.tab)) {
+              throwIfStopped(ctx);
               return { r: await ctx.content(where, "actions#drag", args), offset };
             }
             // In three phases, for the cursor (content/actions.sys.mjs's drag).
@@ -1552,6 +1576,7 @@ export const methods = {
               return null;
             }
             const phase = name => ctx.content(where, "actions#drag", { ...args, deadline: deadline + gated, phase: name, token });
+            throwIfStopped(ctx);
             if ((await phase("press"))?.dialog || hints.ended) {
               return null;
             }

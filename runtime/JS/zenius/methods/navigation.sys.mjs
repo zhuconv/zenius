@@ -747,7 +747,8 @@ export const methods = {
     if (dialog) {
       throw msg.dialogOpened({ method: "page.waitForLoadState", dialog });
     }
-    const r = await untilLoadState(ctx, browser, state, ChromeUtils.now() + timeoutMs, { idleMs });
+    // A wait its client canceled, or whose connection closed, ends at once.
+    const r = await ctx.unlessStopped(untilLoadState(ctx, browser, state, ChromeUtils.now() + timeoutMs, { idleMs }));
     if (!r.reached) {
       throw msg.loadStateTimeout({ state, timeoutMs, inflight: inflight(browser.browserId) });
     }
@@ -771,6 +772,12 @@ export const methods = {
     const ticker = setInterval(poke, 100);
     try {
       for (;;) {
+        // A wait its client canceled, or whose connection closed, ends at
+        // its next look: the ticker wakes it every 100 ms.
+        const stop = ctx.stopped();
+        if (stop) {
+          throw stop;
+        }
         const url = nav.currentURL;
         if (matcher.test(url)) {
           return;
@@ -801,7 +808,7 @@ export const methods = {
       // zen-input's chooser interception (the SDK's page.waitForFileChooser),
       // armed here before the next frame's action runs.
       const { waitForChooser } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/input/filechooser.sys.mjs");
-      return waitForChooser(browser, timeoutOption(params.options, WAIT_TIMEOUT_MS), ctx.conn);
+      return waitForChooser(browser, timeoutOption(params.options, WAIT_TIMEOUT_MS), ctx.conn, ctx);
     }
     if (event !== "popup" && event !== "download") {
       throw new ZenError("ZEN_INVALID_ARGUMENT", "page.waitForEvent only supports the popup and download events");
@@ -810,7 +817,9 @@ export const methods = {
     if (event === "download") {
       prepareBrowser(browser);
       const w = waitForDownload(browser.browserId, timeoutMs);
-      return w.promise.then(entry => {
+      // Stopped, it claims nothing: a download that comes later is no
+      // stopped request's to keep.
+      return ctx.unlessStopped(w.promise, () => w.cancel()).then(entry => {
         if (!entry) {
           throw msg.eventTimeout({ event, timeoutMs });
         }
@@ -838,9 +847,14 @@ export const methods = {
         finish();
         reject(msg.eventTimeout({ event, timeoutMs }));
       }, timeoutMs);
+      const offStop = ctx.onStopped(() => {
+        finish();
+        reject(ctx.stopped());
+      });
       const finish = () => {
         off();
         clearTimeout(timer);
+        offStop();
       };
     });
   },
