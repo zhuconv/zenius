@@ -3121,12 +3121,12 @@ test("Codex's request_user_input, as codex-acp sends it: words alone answer with
   assert.deepEqual(out.savedAnswered, { role: "ask", from: null, title: null, questions, answer: { action: "accept", summary: "••••, ••••" } });
 });
 
-test("an MCP server's own form shows as an ask from that server: a number answered in words goes back as a number, a yes or no as a boolean, an enum by its names; a url-mode request and a form with a field the card can't show are declined, unseen", async () => {
+test("an MCP server's own form shows as an ask from that server: a number answered in words goes back as a number, a yes or no as a boolean, an enum by its names; zenius's server sends no form, so one from it (a script in its process could send one) is declined unseen, as is a form of any shape in a zenius tool call, whose step stays; a url-mode request and a form with a field the card can't show are declined, unseen", async () => {
   await useMock();
   const out = await chrome(`
     ${ASKS}
     const conv = A.createTask({ source: "new" });
-    const turn = A.send(conv, { question: "ASKMCP" });
+    const turn = A.send(conv, { question: "ASKSERVER" });
     try {
       const ask = await asked(conv);
       const open = { ...shown(ask), task: task(conv) };
@@ -3135,18 +3135,35 @@ test("an MCP server's own form shows as an ask from that server: a number answer
       await turn;
       const first = outcome(conv);
       const unseen = {};
-      for (const keyword of ["ASKODD", "ASKURL"]) {
-        await A.send(conv, { question: keyword });
-        unseen[keyword] = outcome(conv);
+      const needed = [];
+      const off = conv.subscribe(() => conv.task.state === "needs" && needed.push(conv.task.text));
+      try {
+        // ASKMCP comes with no tool call, as claude-agent-acp passes a
+        // server's form on: in Work, its server is zenius's, the only one.
+        for (const keyword of ["ASKMCP", "ASKINZEN", "ASKODD", "ASKURL"]) {
+          await A.send(conv, { question: keyword });
+          unseen[keyword] = outcome(conv);
+        }
+      } finally {
+        off();
       }
-      return { open, answered, first, unseen, asks: conv.messages.filter(m => m.role === "ask").length };
+      const script = conv.messages.find(m => m.role === "tool" && m.zen === "script");
+      return {
+        open,
+        answered,
+        first,
+        unseen,
+        needed,
+        asks: conv.messages.filter(m => m.role === "ask").length,
+        script: script ? { hidden: !!script.hidden, forAsk: !!script.forAsk, shown: !!script.step } : null,
+      };
     } finally {
       A.removeTask(conv);
     }
   `);
   const words = (key, text) => ({ key, text, header: null, multi: false, options: [], other: null, secret: false });
   assert.deepEqual(out.open, {
-    from: "zenius",
+    from: "trains",
     title: "Confirm the booking details.",
     questions: [
       words("seats", "Seats"),
@@ -3160,8 +3177,11 @@ test("an MCP server's own form shows as an ask from that server: a number answer
   const content = { seats: 2, window: true, cabin: "business", note: "Vegetarian meal" };
   assert.deepEqual(out.answered, { action: "accept", content, summary: "2, Yes, Business, Vegetarian meal" });
   assert.deepEqual(out.first, { action: "accept", content });
-  assert.deepEqual(out.unseen, { ASKODD: { action: "decline" }, ASKURL: { action: "decline" } });
-  assert.equal(out.asks, 1);
+  const decline = { action: "decline" };
+  assert.deepEqual(out.unseen, { ASKMCP: decline, ASKINZEN: decline, ASKODD: decline, ASKURL: decline });
+  assert.equal(out.asks, 1, "no card for any of them");
+  assert.deepEqual(out.needed, [], "and the task never needed the user for one");
+  assert.deepEqual(out.script, { hidden: false, forAsk: false, shown: true }, "the zenius call's step stays: a form in it doesn't stand for it");
 });
 
 test("Stop cancels an open ask, and one the agent withdraws ($/cancel_request, as codex-acp does when its timeout passes) is settled as not answered and answered with 'Request cancelled'; either way the task stops needing the user", async () => {
@@ -7748,7 +7768,7 @@ test("the agent's own question shows as Needs you's card, naming the agent that 
   await useMock();
 });
 
-test("end to end, the card answers the agent's real asks (elicitation/create through the mock): Claude Code's AskUserQuestion by a click, its tool step hidden; Codex's request_user_input with a secret, an ask for a password or a code, so both its fields of words are the card's own and masked, under the card's line, and its answer is masked once answered and in the draft nowhere; an MCP server's form in Work, named after zenius, with yes, a pick and words; and a withdrawn ask reads as not answered", async () => {
+test("end to end, the card answers the agent's real asks (elicitation/create through the mock): Claude Code's AskUserQuestion by a click, its tool step hidden; Codex's request_user_input with a secret, an ask for a password or a code, so both its fields of words are the card's own and masked, under the card's line, and its answer is masked once answered and in the draft nowhere; another MCP server's form in Work, in its own tool call, named after that server, with yes, a pick and words; and a withdrawn ask reads as not answered", async () => {
   const { file } = ownMock("askreal");
   const out = await chrome(`${STEER_PANEL}${ASK_LOOK}
     const outcome = conv => conv.messages.filter(m => m.role === "assistant" && m.text.startsWith("ask outcome: ")).map(m => JSON.parse(m.text.slice("ask outcome: ".length)));
@@ -7795,12 +7815,13 @@ test("end to end, the card answers the agent's real asks (elicitation/create thr
     } finally {
       await closeTab(chat);
     }
-    // An MCP server's form, in Work: its server is zenius.
+    // Another MCP server's form, in Work, in its own tool call: the card names
+    // that server. (zenius's own sends none: a form from it is declined.)
     const task = A.createTask({ harness: arg.id });
     try {
       g.showTask(task);
       await S.until(() => doc.documentElement.dataset.mode === "work");
-      const turn = A.send(task, { question: "ASKMCP" });
+      const turn = A.send(task, { question: "ASKSERVER" });
       await S.until(() => cardOf()?.querySelector(".ask-opt"), 10000);
       seen.mcp = look(cardOf());
       seen.mcpGuard = guard(cardOf());
@@ -7847,7 +7868,7 @@ test("end to end, the card answers the agent's real asks (elicitation/create thr
     { action: "accept", content: { question_0: "Uji" } },
     { action: "accept", content: { code: "XY-1234", trip: "None of the above", trip_note: "Kobe" } },
   ], "what the agent got");
-  assert.deepEqual([out.mcp.title, out.mcp.lead, out.mcpGuard], ["zenius asks", "Confirm the booking details.", null]);
+  assert.deepEqual([out.mcp.title, out.mcp.lead, out.mcpGuard], ["trains asks", "Confirm the booking details.", null]);
   assert.deepEqual(out.needs, { state: "needs", text: "Confirm the booking details.", why: "question" }, "the task needs the user, with the ask's words");
   assert.deepEqual(out.mcp.questions.map(x => [x.text, x.options.map(o => o[0])]), [
     ["Seats", []],

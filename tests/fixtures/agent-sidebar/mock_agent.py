@@ -136,7 +136,13 @@ Prompts are answered according to a keyword in the prompt text:
   ASKWITHDRAW (zen-sidebar) ASKCODEX's request, withdrawn after 0.5 s with
               $/cancel_request, as codex-acp does when its timeout passes
   ASKMCP      (zen-sidebar) an MCP server's own form: a number, a yes or no,
-              an enum with names, and words
+              an enum with names, and words, with no tool call, as
+              claude-agent-acp passes one on
+  ASKSERVER   (zen-sidebar) ASKMCP's form in another server's tool call
+              (mcp__trains__book)
+  ASKINZEN    (zen-sidebar) ASKFORM's form in a zenius tool call
+              (mcp__zenius__script), as a script in zenius's server could
+              send one
   ASKODD      (zen-sidebar) an MCP server's form with an object field
   ASKURL      (zen-sidebar) an MCP server's url-mode elicitation
   (anything else)  echo the question, the number of attached resources and
@@ -573,6 +579,16 @@ CODEX_ASK = {
     }, "required": ["trip", "code"]},
     "_meta": {"codex": {"autoResolutionMs": None}},
 }
+MCP_FORM = {
+    "mode": "form",
+    "message": "Confirm the booking details.",
+    "requestedSchema": {"type": "object", "properties": {
+        "seats": {"type": "integer", "title": "Seats"},
+        "window": {"type": "boolean", "title": "Window seat?"},
+        "cabin": {"type": "string", "title": "Cabin", "enum": ["economy", "business"], "enumNames": ["Economy", "Business"]},
+        "note": {"type": "string", "title": "A note for the airline"},
+    }, "required": ["seats"]},
+}
 # Each: the tool call that shows first (claude-agent-acp's), the request's
 # toolCallId (codex-acp's is Codex's item, with no tool call), the request.
 ASKS = {
@@ -612,16 +628,8 @@ ASKS = {
     "ASKCODEX": {"call": "call_codex_ask", "request": CODEX_ASK},
     "ASKWITHDRAW": {"call": "call_codex_ask", "withdraw": True,
                     "request": dict(CODEX_ASK, _meta={"codex": {"autoResolutionMs": 500}})},
-    "ASKMCP": {"request": {
-        "mode": "form",
-        "message": "Confirm the booking details.",
-        "requestedSchema": {"type": "object", "properties": {
-            "seats": {"type": "integer", "title": "Seats"},
-            "window": {"type": "boolean", "title": "Window seat?"},
-            "cabin": {"type": "string", "title": "Cabin", "enum": ["economy", "business"], "enumNames": ["Economy", "Business"]},
-            "note": {"type": "string", "title": "A note for the airline"},
-        }, "required": ["seats"]},
-    }},
+    "ASKMCP": {"request": MCP_FORM},
+    "ASKSERVER": {"tool": "mcp__trains__book", "request": MCP_FORM},
     "ASKODD": {"request": {
         "mode": "form",
         "message": "Where to?",
@@ -629,6 +637,7 @@ ASKS = {
     }},
     "ASKURL": {"request": {"mode": "url", "message": "Sign in to continue.", "url": "https://example.com/signin", "elicitationId": "e1"}},
 }
+ASKS["ASKINZEN"] = {"tool": "mcp__zenius__script", "request": ASKS["ASKFORM"]["request"]}
 
 
 def ask(session, keyword, quiet=False):

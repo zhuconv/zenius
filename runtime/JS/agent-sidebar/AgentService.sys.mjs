@@ -1161,7 +1161,8 @@ function isHiddenTool(tool) {
 // claude-agent-acp turns Claude Code's AskUserQuestion into it, codex-acp
 // Codex's request_user_input, and both pass on an MCP server's own form. The
 // panel shows it as a card in the chat, from the fields askForm makes; the
-// answer goes back in the request's own shape.
+// answer goes back in the request's own shape. zenius's server sends no form,
+// so one from it is declined unseen (zeniusForm).
 
 /** codex-acp's option for an answer given in a question's note field (its USER_INPUT_OTHER_OPTION). */
 const CODEX_NONE = "None of the above";
@@ -1409,6 +1410,22 @@ function mcpServerOf(conv, toolCallId) {
   const tool = toolCallId ? conv.messages.findLast(m => m.role === "tool" && m.id === toolCallId) : null;
   const name = tool?.toolName?.match(/^mcp__(.+?)__/)?.[1] ?? (typeof tool?.rawInput?.server === "string" ? tool.rawInput.server : null);
   return name ? askText(name, 60) : conv.kind === "work" ? "zenius" : null;
+}
+
+/**
+ * Whether a form is zenius's server's. That server asks the user nothing of
+ * its own (mcp.ts sends no form), so only a script running in its process
+ * could send one: it would show under zenius's name and read the user's
+ * answer. A form that comes in one of zenius's tool calls counts too,
+ * whatever its shape, so a script can't pass one off as the agent's own ask
+ * and hide its step.
+ */
+function zeniusForm(conv, form, from, toolCallId) {
+  if (form.kind === "mcp" && /zenius/i.test(from ?? "")) {
+    return true;
+  }
+  const tool = toolCallId ? conv.messages.findLast(m => m.role === "tool" && m.id === toolCallId) : null;
+  return !!tool && zeniusCall(tool) !== null;
 }
 
 const CLAUDE_MCP = /^mcp__([A-Za-z0-9_-]*zenius[A-Za-z0-9_-]*)__([a-z_]+)$/;
@@ -6078,19 +6095,20 @@ export const AgentService = {
   /**
    * An agent's elicitation/create (initialize declares form mode only): a
    * question in the chat while its turn waits, shown as a card. Declined
-   * unseen: one outside a turn, url mode, and a form the card can't show.
+   * unseen: one outside a turn, url mode, a form the card can't show, and a
+   * form from zenius's server (zeniusForm).
    */
   onAsk(conn, message) {
     const params = message.params ?? {};
     const conv = this.bySession.get(params.sessionId);
     const form = conv?.busy && (params.mode ?? "form") === "form" ? askForm(params) : null;
     const from = form?.kind === "mcp" ? mcpServerOf(conv, params.toolCallId) : null;
-    if (!form || (form.kind === "mcp" && !from)) {
-      debug("declined an elicitation:", params.mode ?? "form", conv?.kind ?? "no chat");
+    const toolCallId = typeof params.toolCallId === "string" ? params.toolCallId : null;
+    if (!form || (form.kind === "mcp" && !from) || zeniusForm(conv, form, from, toolCallId)) {
+      debug("declined an elicitation:", params.mode ?? "form", conv?.kind ?? "no chat", form?.kind ?? "");
       conn.respond(message.id, { action: "decline" });
       return;
     }
-    const toolCallId = typeof params.toolCallId === "string" ? params.toolCallId : null;
     if (form.kind !== "mcp" && toolCallId) {
       const tool = conv.messages.findLast(m => m.role === "tool" && m.id === toolCallId);
       if (tool) {

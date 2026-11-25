@@ -140,8 +140,14 @@ stable, and a change to one is announced to zen-eval first.
   quiet pills, each one's description its tooltip:
   Claude Code's AskUserQuestion brings 2 to 4 options even for a code, and
   Work's rule offers options only for real choices. An MCP server's
-  own form shows the same way, as that server's; url mode, a field the
-  card can't show, and an ask outside a turn are declined unseen. Codex
+  own form shows the same way, as that server's. zenius's server sends
+  none, so only a script in its process could send one, under zenius's
+  name and reading the answer: a form from it is declined unseen, and so
+  is a form of any shape that comes in one of zenius's tool calls, whose
+  step stays. In Work, a form that comes with no tool call (as
+  claude-agent-acp passes a server's form on) counts as zenius's, the
+  session's only server. Url mode, a field the card can't show, and an
+  ask outside a turn are declined unseen too. Codex
   0.169.0 offers request_user_input in its Default mode only with its
   feature `default_mode_request_user_input`, which Work's process turns on.
   The text rule above stays as the fallback.
