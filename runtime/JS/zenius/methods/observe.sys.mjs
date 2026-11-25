@@ -5,6 +5,7 @@
 // Semantics follow Ego (page-model.ts, driver/observe.ts).
 
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
+import { log } from "chrome://userscripts/content/zenius/modules/util.sys.mjs";
 import { Unserializable } from "chrome://userscripts/content/zenius/modules/serialize.sys.mjs";
 import { Refs } from "chrome://userscripts/content/zenius/snapshot/refs.sys.mjs";
 import * as Resolve from "chrome://userscripts/content/zenius/content/resolve.sys.mjs";
@@ -109,17 +110,30 @@ async function resendStops(ctx, browser) {
   if (!stopPageScript(browser)) {
     return false;
   }
+  // Logged for a run the page never answers: few stops in the time allowed,
+  // or a long gap between two, mean the machine was too busy to send them;
+  // many mean they all went out and every one missed.
+  const t0 = ChromeUtils.now();
+  let stops = 1;
+  let last = t0;
+  let gap = 0;
   let answered = null;
   const asked = answers(ctx, browser.browsingContext, RESEND_LIMIT_MS).then(yes => (answered = yes));
-  const end = ChromeUtils.now() + RESEND_LIMIT_MS;
+  const end = t0 + RESEND_LIMIT_MS;
   while (answered === null && ChromeUtils.now() < end) {
     await Promise.race([sleep(RESEND_MS), asked]);
-    if (answered === null && !sendStop(browser, ++cancelEpoch)) {
+    if (answered !== null || !sendStop(browser, ++cancelEpoch)) {
       break;
     }
+    const now = ChromeUtils.now();
+    gap = Math.max(gap, now - last);
+    last = now;
+    stops++;
   }
   await asked;
   sendStop(browser, 0);
+  const ms = (ChromeUtils.now() - t0).toFixed(1);
+  log(`page stop: ${stops} stops in ${ms}ms, the longest gap ${gap.toFixed(1)}ms, ${answered ? "answered" : "no answer"}`);
   return answered;
 }
 
