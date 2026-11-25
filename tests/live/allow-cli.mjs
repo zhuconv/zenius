@@ -11,10 +11,12 @@
 // - With ALLOW_CLI_INSTANCE, a command that names another instance with
 //   --instance is denied. The sandboxed launcher reaches whichever instance a
 //   command names, and ~/.zenius/run holds the user's own Zen's socket too.
-// - Read: allowed only inside the run's folder (ALLOW_CLI_WORKDIR), the run's
-//   temp home (ALLOW_CLI_READ_ROOT: the CLI copy and its Skill, the run's
-//   TMPDIR and the launcher's output folders), or the folder where Claude
-//   Code keeps this run's oversized tool outputs; denied elsewhere.
+// - Read: allowed only inside the run's folder (ALLOW_CLI_WORKDIR), the
+//   folders in ALLOW_CLI_READ_ROOT, one per line (the run's temp home, with
+//   the CLI copy and its Skill and the run's TMPDIR; and the instance's
+//   working folder, where downloads and a script's files land), or the
+//   folder where Claude Code keeps this run's oversized tool outputs; denied
+//   elsewhere.
 // - Skill: allowed only for the run's own skill.
 // - Any other tool: denied.
 // Why a hook: Claude Code's prefix rule Bash(zenius:*) approved some heredoc
@@ -42,7 +44,8 @@
 // (epoch ms) also allow Read of an image (PNG, JPEG, GIF or WebP, by its first bytes)
 // under one of those folders and modified since then. Ego's scripts save a screenshot
 // wherever its absolute path says, or in the system temp folder when it names none (its
-// guide), so its agents read them there; zenius's land in the run's output folder.
+// guide), so its agents read them there; zenius's land in the working folder, or in
+// the run's TMPDIR when a script names no path.
 import { accessSync, appendFileSync, closeSync, constants, mkdirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -152,7 +155,8 @@ export function recentImage(file, sinceMs) {
 }
 
 /**
- * @param {string} path @param {string} workdir @param {string} [home] @param {string|null} [readRoot]
+ * @param {string} path @param {string} workdir @param {string} [home]
+ * @param {string|string[]|null} [readRoot] one folder or several where Read is allowed too
  * @param {{ roots: string[], since: number } | null} [images] recent images under these folders too
  */
 export function readAllowed(path, workdir, home = homedir(), readRoot = null, images = null) {
@@ -173,7 +177,7 @@ export function readAllowed(path, workdir, home = homedir(), readRoot = null, im
   const results = toolResultsRoot(workdir, home);
   return (
     insideReal(workdir) ||
-    (readRoot !== null && insideReal(readRoot)) ||
+    [readRoot ?? []].flat().some(insideReal) ||
     (inside(results) && real.includes("/tool-results/")) ||
     (images !== null && images.roots.some(insideReal) && recentImage(real, images.since))
   );
@@ -181,7 +185,7 @@ export function readAllowed(path, workdir, home = homedir(), readRoot = null, im
 
 /**
  * @param {{ tool_name?: string, tool_input?: Record<string, unknown> }} input
- * @param {{ cli: string, skill: string, workdir: string, readRoot?: string|null, launcher?: string|null, instance?: string|null, shape?: string|null, images?: { roots: string[], since: number } | null }} o
+ * @param {{ cli: string, skill: string, workdir: string, readRoot?: string|string[]|null, launcher?: string|null, instance?: string|null, shape?: string|null, images?: { roots: string[], since: number } | null }} o
  * @returns {{ allow: boolean, reason: string, updatedInput?: Record<string, unknown> }}
  */
 export function decide(input, { cli, skill, workdir, readRoot = null, launcher = null, instance = null, shape = null, images = null }) {
@@ -205,7 +209,7 @@ export function decide(input, { cli, skill, workdir, readRoot = null, launcher =
   if (tool === "Read") {
     return readAllowed(String(args.file_path ?? ""), workdir, homedir(), readRoot, images)
       ? { allow: true, reason: "inside the run's folder" }
-      : { allow: false, reason: "Read is limited to this run's working folder in this evaluation." };
+      : { allow: false, reason: "Read is limited to this run's folders in this evaluation." };
   }
   if (tool === "Skill") {
     return String(args.skill ?? "") === skill
@@ -227,7 +231,7 @@ if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop()
           cli,
           skill,
           workdir,
-          readRoot: env.ALLOW_CLI_READ_ROOT || null,
+          readRoot: env.ALLOW_CLI_READ_ROOT ? env.ALLOW_CLI_READ_ROOT.split("\n").filter(Boolean) : null,
           launcher: env.ALLOW_CLI_LAUNCHER || null,
           instance: env.ALLOW_CLI_INSTANCE || null,
           shape: env.ALLOW_CLI_SHAPE || null,

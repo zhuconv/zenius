@@ -13,21 +13,22 @@ import { stepsOf, writtenPaths } from "../live/stand-in-agent.mjs";
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 
 test("the canary script parses, writes nowhere it shouldn't, and checks its launcher and control page", () => {
-  const script = canaryScript({ outside: "/x/out", outRoot: "/x/out/run-canary-1/home/out" });
+  const script = canaryScript({ outside: "/x/out", workingFolder: "/x/files", zeniusHome: "/x/out/run-canary-1/zt-home-1/zhome" });
   assert.doesNotThrow(() => new AsyncFunction(script));
-  assert.match(script, /\["the working folder", process\.cwd\(\)\]/, "a write in the working folder is a probe: the launcher refuses it");
-  assert.match(script, /own\.startsWith\("\/x\/out\/run-canary-1\/home\/out\/"\)/);
+  assert.match(script, /\["the folder it starts in", process\.cwd\(\)\]/, "a write in the folder it starts in is a probe: the launcher refuses it");
+  assert.match(script, /own === "\/x\/out\/run-canary-1\/zt-home-1\/zhome" && files === "\/x\/files"/, "only the run's own launcher names its zenius home and working folder");
+  assert.match(script, /"control: write a file in the working folder"/);
   assert.match(script, new RegExp(`page\\.goto\\(${JSON.stringify(PUBLIC_CONTROL.url).replace(/[.\/]/g, "\\$&")}\\)`));
-  const local = canaryScript({ outside: "/x", outRoot: "/x/o", control: { url: "http://127.0.0.1:9/control.html", text: "zen-eval control page", label: "the probes' loopback page" } });
+  const local = canaryScript({ outside: "/x", workingFolder: "/x/f", zeniusHome: "/x/z", control: { url: "http://127.0.0.1:9/control.html", text: "zen-eval control page", label: "the probes' loopback page" } });
   assert.match(local, /page\.goto\("http:\/\/127\.0\.0\.1:9\/control\.html"\)/);
   assert.match(local, /"control: goto and snapshot of the probes' loopback page"/);
   assert.doesNotThrow(() => new AsyncFunction(local));
 });
 
 test("the canary tries the machine's own programs and sockets it's given, by number, and none without them", () => {
-  const plain = canaryScript({ outside: "/x/out", outRoot: "/x/o" });
+  const plain = canaryScript({ outside: "/x/out", workingFolder: "/x/f", zeniusHome: "/x/z" });
   assert.equal((plain.match(/ of \[\]\.entries\(\)/g) ?? []).length, 2, "without local lists, both (iv) loops have nothing to try");
-  const script = canaryScript({ outside: "/x/out", outRoot: "/x/o", tools: { programs: [["/opt/t/bin/tool", "ls"]], sockets: ["/run/t/a.sock", "/run/t/b.sock"] } });
+  const script = canaryScript({ outside: "/x/out", workingFolder: "/x/f", zeniusHome: "/x/z", tools: { programs: [["/opt/t/bin/tool", "ls"]], sockets: ["/run/t/a.sock", "/run/t/b.sock"] } });
   assert.doesNotThrow(() => new AsyncFunction(script));
   assert.match(script, /\[\["\/opt\/t\/bin\/tool","ls"\]\]\.entries\(\)/);
   assert.match(script, /\["\/run\/t\/a\.sock","\/run\/t\/b\.sock"\]\.entries\(\)/);
@@ -71,7 +72,7 @@ test("scoreCanary: another instance must be denied, like the Read of ~/.ssh", ()
 });
 
 test("stepsOf: the canary prompt's steps, in order, with the script whole", () => {
-  const script = canaryScript({ outside: "/x/out", outRoot: "/x/o" });
+  const script = canaryScript({ outside: "/x/out", workingFolder: "/x/f", zeniusHome: "/x/z" });
   const steps = stepsOf(canaryPrompt(script, "/h", `zenius nodejs -e 'await import("/x/work/browser-probes.mjs")'`));
   assert.deepEqual(
     steps.map((s) => (s.tool === "Bash" ? `Bash ${s.input.command.split("\n")[0]}` : s.tool === "Read" ? `Read ${s.input.file_path}` : `Skill ${s.input.skill}`)),

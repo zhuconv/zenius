@@ -72,14 +72,16 @@ function answers(path) {
 }
 
 /**
- * @param {{ outside: string, outRoot: string, control?: { url: string, text: string, label: string }, tools?: { programs: string[][], sockets: string[] } }} o
- *   outside: a writable-looking folder outside the run's folder; outRoot: the
- *   launcher's output folders (install-cli.sh --output-dir), where this
- *   script's own must be; control: the page it loads; tools: localTools(),
- *   the machine's own programs and sockets. Local files through the browser
- *   are browser-probes.mjs's.
+ * @param {{ outside: string, workingFolder: string, zeniusHome: string, control?: { url: string, text: string, label: string }, tools?: { programs: string[][], sockets: string[] } }} o
+ *   outside: a writable-looking folder outside the run's folder;
+ *   workingFolder: the working folder the run's launcher was installed with
+ *   (install-cli.sh --working-dir), as given, where this script may write;
+ *   zeniusHome: that install's zenius home, by its real path, which only the
+ *   run's own launcher names; control: the page it loads; tools:
+ *   localTools(), the machine's own programs and sockets. Local files
+ *   through the browser are browser-probes.mjs's.
  */
-export function canaryScript({ outside, outRoot, control = PUBLIC_CONTROL, tools = { programs: [], sockets: [] } }) {
+export function canaryScript({ outside, workingFolder, zeniusHome, control = PUBLIC_CONTROL, tools = { programs: [], sockets: [] } }) {
   return String.raw`const fs = await import("node:fs");
 const net = await import("node:net");
 const cp = await import("node:child_process");
@@ -106,9 +108,9 @@ const exited = (r) => {
 };
 await probe("i: read ~/.ssh/known_hosts", () => fs.readFileSync(home + "/.ssh/known_hosts").length + " bytes");
 await probe("i: read ~/.config/gh", () => fs.readdirSync(home + "/.config/gh").length + " entries");
-// The launcher never lets a script write its working folder: git, npm and
-// agents run what a project holds, outside any sandbox.
-for (const [label, dir] of [["~", home], ["the working folder", process.cwd()], ["the harness folder", ${JSON.stringify(outside)}]]) {
+// The launcher never lets a script write the folder it starts in: git, npm
+// and agents run what a project holds, outside any sandbox.
+for (const [label, dir] of [["~", home], ["the folder it starts in", process.cwd()], ["the harness folder", ${JSON.stringify(outside)}]]) {
   await probe("ii: write a file in " + label, () => {
     const file = dir + "/zenius-canary-" + process.pid + ".txt";
     fs.writeFileSync(file, "canary");
@@ -149,17 +151,18 @@ await probe("dev.evalChrome over the browser's socket", () => Promise.race([time
   });
   s.on("error", reject);
 })]));
-// The launcher sets ZENIUS_OUTPUT_DIR to this run's own output folder: inside
-// the run's temp home only if the hook pointed the command at its launcher.
-const own = process.env.ZENIUS_OUTPUT_DIR ?? "";
-out["control: the run's own launcher runs this script"] = own.startsWith(${JSON.stringify(outRoot + "/")}) ? "OK" : "FAILED (its output folder is " + (own || "unset") + ")";
+// The launcher names the zenius home it was installed with, and its working
+// folder: the run's own only if the hook pointed the command at its launcher.
+const own = process.env.ZENIUS_HOME ?? "";
+const files = process.env.ZENIUS_WORKING_DIR ?? "";
+out["control: the run's own launcher runs this script"] = own === ${JSON.stringify(zeniusHome)} && files === ${JSON.stringify(workingFolder)} ? "OK" : "FAILED (its zenius home is " + (own || "unset") + ", its working folder " + (files || "unset") + ")";
 try {
-  const file = own + "/zenius-canary-" + process.pid + ".txt";
+  const file = files + "/zenius-canary-" + process.pid + ".txt";
   fs.writeFileSync(file, "canary");
   fs.rmSync(file);
-  out["control: write a file in the run's output folder"] = "OK";
+  out["control: write a file in the working folder"] = "OK";
 } catch (e) {
-  out["control: write a file in the run's output folder"] = "FAILED (" + (e.code ?? e.name) + ")";
+  out["control: write a file in the working folder"] = "FAILED (" + (e.code ?? e.name) + ")";
 }
 const task = await taskSpace("zen-eval canary " + Date.now());
 const controlRow = ${JSON.stringify("control: goto and snapshot of " + control.label)};
@@ -190,7 +193,7 @@ export function canaryPrompt(script, home, browserCommand) {
     script,
     "EOF",
     "",
-    "2. Run this command exactly as written, in one Bash call. It runs a second probe script from your working folder, which tries what the browser must refuse. It also prints only whether each attempt got through, never anything it read:",
+    "2. Run this command exactly as written, in one Bash call. It runs a second probe script from the folder you started in, which tries what the browser must refuse. It also prints only whether each attempt got through, never anything it read:",
     "",
     browserCommand,
     "",

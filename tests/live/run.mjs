@@ -26,29 +26,37 @@
 // limits it (2026-11-20; docs/eval/live-pilot.md):
 // - The agent's `zenius` is the sandboxed launcher
 //   (scripts/install-cli.sh --sandbox; sdk/sandbox/), installed into each
-//   run's own temp home. The process that runs the agent's scripts reads only
-//   the CLI copy, the instance registry, the run's working folder and its own
-//   temporary and output folders; writes only those two; starts no process;
-//   and connects only to the instance's socket. The launcher's sandbox-exec
+//   run's own scratch home with the instance's working folder. The process
+//   that runs the agent's scripts reads only the CLI copy, the instance
+//   registry, the folder it starts in (the run's), the working folder and its
+//   own temporary folder; writes only those two; starts no process; and
+//   connects only to the instance's socket. The launcher's sandbox-exec
 //   profile grew from the pilot's own cli-sandbox.sb, which it replaces.
 // - A PreToolUse hook (allow-cli.mjs, passed in --settings) decides every tool
 //   call: Bash only for the CLI, run as the run's own launcher by its path
 //   (the Bash tool sources the user's shell snapshot, whose PATH could find
 //   their own zenius first) and on the run's instance only; Read only in the
-//   run's temp home and its own tool-results; Skill only for zenius;
-//   everything else denied. --permission-mode dontAsk denies whatever the
-//   hook doesn't decide.
+//   run's temp home, the working folder and its own tool-results; Skill only
+//   for zenius; everything else denied. --permission-mode dontAsk denies
+//   whatever the hook doesn't decide.
 // - The browser instance answers no dev.* methods.
 // How a run is kept apart from the user's own Claude Code (checked on 2.1.329):
-// - Each run has a fresh temp home in --out, removed afterwards: work/, its
-//   working folder, holding only .claude/skills/zenius (the install's link to
-//   its CLI copy's Skill); tmp/, its TMPDIR, beside work/ since the launcher
-//   grants no working folder that holds a temp folder; and home/, with the
-//   CLI copy, the launcher and the launcher's output folders. The run checks
-//   that its skill came from there, not from the user's own install.
+// - Each run has a fresh temp home in --out, removed afterwards: work/, the
+//   folder the agent starts in, holding only .claude/skills/zenius (the
+//   install's link to its CLI copy's Skill); tmp/, its TMPDIR, beside work/
+//   since the launcher grants no folder that holds a temp folder; and
+//   zt-home-*/, a scratch home (tests/lib/scratch-home.mjs) with the CLI copy
+//   and the launcher in home/. The run checks that its skill came from there,
+//   not from the user's own install.
 //   --setting-sources project loads that folder's skills and settings only:
 //   none of the user's skills, plugins, hooks, settings or CLAUDE.md. Claude
 //   Code's built-in skills stay listed, the same for every target.
+// - The launcher's zenius home is that scratch home's zhome/, never ~/.zenius:
+//   its config.json names the instance's working folder, as the instance's
+//   profile does (scripts/zen-dev.sh writes it there), so a script reads what
+//   the browser downloaded; run/ and instances/ link to the dev Zens'
+//   (~/.zenius) for the instance's socket. A run starts with that folder
+//   empty, and what it leaves there is listed in its result and removed.
 // - Its environment is built from scratch. CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC
 //   stops the background skill sync and feature-flag cache writes, --settings
 //   turns auto-memory off, and --no-session-persistence keeps the transcript
@@ -101,7 +109,7 @@ import { PUBLIC_CONTROL, canaryPrompt, canaryScript, localTools, scoreCanary } f
 import { runJudge, trajectory } from "./judge.mjs";
 import { removeEmptySessionEnv, removeRunProjectDir, removeStaleSessionFiles } from "./sessions.mjs";
 import { COMMON_TAIL, TASKS } from "./tasks.mjs";
-import { guardHome } from "../lib/scratch-home.mjs";
+import { guardHome, scratchHome } from "../lib/scratch-home.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
 const HOOK = join(ROOT, "tests", "live", "allow-cli.mjs");
@@ -166,6 +174,9 @@ if (EGO && mode === "canary") {
   console.error("run.mjs: no canary on Ego. The harness runs Ego uncontained, as shipped: its Node helper, a child of the Ego Lite app, is outside any sandbox of ours, so its canary is recorded as failing by design.");
   process.exit(2);
 }
+// The instance's working folder, where Zen puts finished downloads: each run's
+// launcher gets the same one, as the daily's launcher and Zen share theirs.
+const WORKING = EGO ? null : instanceWorkingFolder(instance);
 const keys = mode === "tasks" ? JSON.parse(readFileSync(resolve(arg("--keys")), "utf8")) : {};
 // The harness's own TMPDIR in the clean environment (its own zenius calls
 // write temp files there).
@@ -212,45 +223,53 @@ const claudeVersion = execFileSync(claudeFile, claudeArgs, { encoding: "utf8", e
 /** Every run's temp home this process made; any a run didn't remove goes at the end. */
 const runRoots = new Set();
 let bundleBuilt = false;
+// Whether a run holds the instance's working folder: it found the folder
+// empty, so what is there until the run ends is the run's own.
+let workingHeld = false;
 
 /**
  * A run's own temp home in --out, with the zenius CLI as an agent gets it
  * (never ~/.zenius/cli, ~/.local/bin or the user's skill folders):
- * - work/: the agent's working folder. install-cli.sh --skill links
+ * - work/: the folder the agent starts in. install-cli.sh --skill links
  *   work/.claude/skills/zenius to the copy's Skill, so the agent's skill is
  *   the one its CLI came with.
- * - tmp/: the agent's TMPDIR, beside work/: the launcher grants no working
- *   folder that holds a temp folder.
- * - home/: the CLI copy (cli/), the sandboxed launcher (bin/zenius) and its
- *   output folders (out/). ZENIUS_HOME keeps its default, ~/.zenius, which
- *   holds the dev instances' sockets; the hook keeps commands on --instance.
+ * - tmp/: the agent's TMPDIR, beside work/: the launcher grants no folder
+ *   that holds a temp folder. Each launcher start makes a folder of its own
+ *   in tmp/zenius-sandbox-<uid>/.
+ * - zt-home-<x>/: the scratch home the install runs in
+ *   (tests/lib/scratch-home.mjs): home/, its HOME, with the CLI copy (cli/)
+ *   and the sandboxed launcher (bin/zenius); and zhome/, its ZENIUS_HOME,
+ *   which the launcher keeps. zhome/config.json names the instance's working
+ *   folder, and zhome/run and zhome/instances link to the dev Zens' (in
+ *   ~/.zenius), which hold the instance's socket and registry record; the
+ *   hook keeps commands on --instance.
  */
 function makeRun(id) {
   if (EGO) return makeEgoRun(id);
+  holdWorkingFolder();
   const root = realpathSync(mkdtempSync(join(outDir, `run-${id}-`)));
   runRoots.add(root);
-  const home = join(root, "home");
-  const run = { id, root, work: join(root, "work"), tmp: join(root, "tmp"), cli: join(home, "cli"), launcher: join(home, "bin", "zenius"), out: join(home, "out") };
+  const scratch = scratchHome("home", { parent: root, workingFolder: WORKING });
+  scratch.shareRuntime(dirname(dirname(SOCKET)));
+  const { home, zeniusHome } = scratch;
+  const run = { id, root, work: join(root, "work"), tmp: join(root, "tmp"), home, zeniusHome, cli: join(home, "cli"), launcher: join(home, "bin", "zenius") };
   run.skills = join(run.work, ".claude", "skills");
   mkdirSync(run.skills, { recursive: true });
   mkdirSync(run.tmp);
   // The first install builds the bundle when the checkout can; the rest reuse it.
-  const install = spawnSync(INSTALL, ["--sandbox", "--skill", "--output-dir", run.out], {
+  const install = spawnSync(INSTALL, ["--sandbox", "--skill", "--working-dir", WORKING], {
     cwd: root,
-    // An installer writes its zenius home's config.json and makes the working
-    // folder, so it runs only with a HOME and ZENIUS_HOME that aren't the
-    // account's own (tests/lib/scratch-home.mjs). With the real ones it
-    // refuses, until this run moves to a scratch home whose run folder is the
-    // dev Zen's (scratchHome's shareRuntime).
     env: guardHome(
       {
         ...cleanEnv(run.tmp, { PATH: `${dirname(NODE)}:${BASE_PATH}` }),
+        HOME: home,
+        ZENIUS_HOME: zeniusHome,
         ZENIUS_CLI_DIR: run.cli,
         ZENIUS_BIN_DIR: dirname(run.launcher),
         ZENIUS_SKILL_DIRS: run.skills,
         ...(bundleBuilt && { ZENIUS_INSTALL_NO_BUILD: "1" }),
       },
-      "tests/live/run.mjs's install-cli.sh"
+      "run.mjs's install",
     ),
     encoding: "utf8",
     timeout: 300_000,
@@ -303,8 +322,53 @@ function makeEgoRun(id) {
 }
 
 function removeRun(run) {
+  if (!EGO) run.leftInWorkingFolder = releaseWorkingFolder();
   rmSync(run.root, { recursive: true, force: true });
   runRoots.delete(run.root);
+}
+
+/**
+ * The dev instance's working folder, as scripts/zen-dev.sh wrote it into the
+ * profile's user.js at the instance's start (the last zenius.dev.workingFolder
+ * line). Zen reads it at start, so it names the running instance's folder
+ * whatever the environment says now. Exits with the reason if there is none.
+ */
+function instanceWorkingFolder(name) {
+  const userJs = join(homedir(), ".zenius-dev", "profiles", name, "user.js");
+  const lines = existsSync(userJs) ? [...readFileSync(userJs, "utf8").matchAll(/^user_pref\("zenius\.dev\.workingFolder", "((?:[^"\\]|\\.)*)"\);$/gm)] : [];
+  let folder = null;
+  try {
+    folder = lines.length ? JSON.parse(`"${lines.at(-1)[1]}"`) : null;
+  } catch {
+    // not as zen-dev.sh writes it
+  }
+  if (!folder?.startsWith("/") || !lstatSync(folder, { throwIfNoEntry: false })?.isDirectory()) {
+    console.error(`run.mjs: ${name} has no working folder of its own (zenius.dev.workingFolder in ${userJs}, a folder that exists). Start it with this checkout's scripts/zen-dev.sh.`);
+    process.exit(2);
+  }
+  return folder;
+}
+
+/**
+ * Before a run: the instance's working folder must be empty, so that all it
+ * holds when the run ends is the run's own (downloads, files its scripts
+ * wrote), which releaseWorkingFolder() lists and removes.
+ */
+function holdWorkingFolder() {
+  const there = readdirSync(WORKING);
+  if (there.length) {
+    throw new Error(`the instance's working folder, ${WORKING}, holds ${there.join(", ")}: a run starts with it empty, since what a run leaves there is removed afterwards`);
+  }
+  workingHeld = true;
+}
+
+/** After a run: what it left in the instance's working folder, by name, removed. */
+function releaseWorkingFolder() {
+  if (!workingHeld) return [];
+  workingHeld = false;
+  const left = readdirSync(WORKING);
+  for (const name of left) rmSync(join(WORKING, name), { recursive: true, force: true });
+  return left;
 }
 
 /**
@@ -379,9 +443,10 @@ function allowedBashTimes(file) {
 
 /**
  * Before an agent starts: the skill is the copy's, through the install's link,
- * and nothing else is in the working folder; the launcher, started there,
- * grants that folder, keeps its output and temporary folders in the run's
- * temp home, and runs on the run's instance.
+ * and nothing else is in the folder the agent starts in; the launcher,
+ * started there, grants that folder, keeps the run's zenius home and the
+ * instance's working folder, makes its temporary folder in the run's temp
+ * home, and runs on the run's instance.
  */
 function checkRun(run) {
   const problems = [];
@@ -396,7 +461,7 @@ function checkRun(run) {
       cwd: run.work,
       env: cleanEnv(run.tmp, { ZENIUS_INSTANCE: instance }),
       input: `const fs = await import("node:fs");
-console.log("WIRING " + JSON.stringify({ cwd: process.cwd(), entries: fs.readdirSync("."), out: process.env.ZENIUS_OUTPUT_DIR ?? null, tmp: process.env.TMPDIR ?? null, instance: process.env.ZENIUS_INSTANCE ?? null }));
+console.log("WIRING " + JSON.stringify({ cwd: process.cwd(), entries: fs.readdirSync("."), home: process.env.ZENIUS_HOME ?? null, files: process.env.ZENIUS_WORKING_DIR ?? null, tmp: process.env.TMPDIR ?? null, instance: process.env.ZENIUS_INSTANCE ?? null }));
 `,
       encoding: "utf8",
       timeout: 60_000,
@@ -408,7 +473,8 @@ console.log("WIRING " + JSON.stringify({ cwd: process.cwd(), entries: fs.readdir
       if (seen.cwd !== run.work || !seen.entries.includes(".claude")) {
         problems.push(`the launcher didn't grant the run's folder (it ran in ${seen.cwd}): --out must not be inside ~/.zenius, ~/.zenius-dev, ~/.config, ~/.local, ~/Library, a credentials folder or a folder above a temp folder`);
       }
-      if (!String(seen.out).startsWith(run.out + "/")) problems.push(`the launcher's output folder is ${seen.out}, outside ${run.out}`);
+      if (seen.home !== realpathSync(run.zeniusHome)) problems.push(`the launcher's zenius home is ${seen.home}, not the run's ${run.zeniusHome}`);
+      if (seen.files !== WORKING) problems.push(`the launcher's working folder is ${seen.files}, not the instance's ${WORKING}`);
       if (!String(seen.tmp).startsWith(run.tmp + "/")) problems.push(`the launcher's TMPDIR is ${seen.tmp}, outside ${run.tmp}`);
       if (seen.instance !== instance) problems.push(`the launcher ran on ${seen.instance}, not ${instance}`);
     }
@@ -416,17 +482,14 @@ console.log("WIRING " + JSON.stringify({ cwd: process.cwd(), entries: fs.readdir
   if (problems.length) throw new Error(`run ${run.id}'s zenius isn't wired as an agent needs it:\n- ${problems.join("\n- ")}`);
 }
 
-/** How often the run's launcher started: each start makes one run.* output folder, kept for days. */
+/**
+ * How often the run's launcher started: each start makes one run.* folder, its
+ * temporary folder, in zenius-sandbox-<uid>/ in the caller's TMPDIR (the
+ * run's tmp/), and leaves it.
+ */
 function launcherRuns(run) {
-  let starts = 0;
-  for (const dir of existsSync(run.out) ? readdirSync(run.out) : []) {
-    try {
-      starts += readdirSync(join(run.out, dir)).filter((f) => f.startsWith("run.")).length;
-    } catch {
-      // not a folder of runs
-    }
-  }
-  return starts;
+  const box = join(run.tmp, `zenius-sandbox-${process.getuid()}`);
+  return existsSync(box) ? readdirSync(box).filter((f) => f.startsWith("run.")).length : 0;
 }
 
 /** Whether every zenius command the hook allowed started the run's launcher, as the hook's rewrite says. */
@@ -507,22 +570,28 @@ const agentEnv = (run, log) =>
     ...(!EGO && { ZENIUS_INSTANCE: instance, ALLOW_CLI_INSTANCE: instance }),
     ...(EGO && { ALLOW_CLI_SHAPE: "ego-browser", ALLOW_CLI_READ_IMAGE_ROOTS: EGO_IMAGE_ROOTS.join("\n"), ALLOW_CLI_READ_IMAGES_SINCE: String(run.started) }),
     ALLOW_CLI_WORKDIR: run.work,
-    ALLOW_CLI_READ_ROOT: run.root,
+    // Read's folders, one per line: the run's temp home, and on zenius the
+    // instance's working folder, where downloads and a script's files land.
+    ALLOW_CLI_READ_ROOT: EGO ? run.root : `${run.root}\n${WORKING}`,
     ALLOW_CLI_LAUNCHER: run.launcher,
     ALLOW_CLI_LOG: join(outDir, log),
     // Every command the hook allows, its script included, stays for the report.
     ALLOW_CLI_SCRIPTS: join(outDir, `${run.id}.scripts`),
   });
-const SAMPLE_RUN = { id: "<id>", root: "<run>", work: "<run>/work", tmp: "<run>/tmp", launcher: EGO ? "<ego-browser>" : "<run>/home/bin/zenius", started: 0 };
+const SAMPLE_RUN = { id: "<id>", root: "<run>", work: "<run>/work", tmp: "<run>/tmp", launcher: EGO ? "<ego-browser>" : "<run>/zt-home-<x>/home/bin/zenius", started: 0 };
 /**
  * The harness's own scripts run the run's CLI copy directly (Ego's own CLI on Ego): they are
- * ours, not an agent's. Their output, stderr included: Ego's CLI prints a script's console
- * output there.
+ * ours, not an agent's, and run in the run's scratch home. Their output, stderr included:
+ * Ego's CLI prints a script's console output there.
  */
 function harnessCli(run, script) {
   const [file, args, env] = EGO
     ? [EGO_CLI, ["nodejs"], cleanEnv(HARNESS_TMP)]
-    : [NODE, [join(run.cli, "sdk", "bin", "zenius"), "nodejs"], cleanEnv(HARNESS_TMP, { ZENIUS_INSTANCE: instance, ZENIUS_SOCKET: SOCKET })];
+    : [
+        NODE,
+        [join(run.cli, "sdk", "bin", "zenius"), "nodejs"],
+        guardHome({ ...cleanEnv(HARNESS_TMP, { ZENIUS_INSTANCE: instance, ZENIUS_SOCKET: SOCKET }), HOME: run.home, ZENIUS_HOME: run.zeniusHome }, "run.mjs's own zenius calls"),
+      ];
   const r = spawnSync(file, args, { env, input: script, encoding: "utf8", timeout: 60_000 });
   const output = `${r.stdout ?? ""}${r.stderr ?? ""}`;
   if (r.status !== 0) throw new Error(`the harness's ${CLI_NAME} script failed (${r.status ?? r.signal ?? r.error}): ${output.slice(0, 600)}`);
@@ -562,7 +631,7 @@ function summary() {
     node: EGO ? null : shortPath(NODE),
     cli: EGO
       ? `Ego Lite's own ego-browser (${shortPath(EGO_CLI)}), with a copy of its Skill in each run's folder`
-      : "the sandboxed launcher (install-cli.sh --sandbox --skill), installed into each run's temp home",
+      : "the sandboxed launcher (install-cli.sh --sandbox --skill --working-dir), installed into each run's scratch home, with the instance's working folder",
     contained: EGO
       ? "no: Ego runs uncontained, as shipped: its Node helper, a child of the Ego Lite app, is outside any sandbox of ours, so its canary is recorded as failing by design"
       : "yes: the sandboxed launcher, the hook, and an instance without dev methods",
@@ -595,7 +664,7 @@ function agentArgs(prompt) {
 
 // The skill's usual calls, on a page of the script's own: the guide, a task
 // space, a snapshot, a fill and a click, a screenshot to a relative path
-// (which lands in the launcher's output folder), and a Read of it.
+// (which lands in the working folder), and a Read of it.
 const SMOKE_SCRIPT = `const task = await taskSpace("zen-eval smoke " + Date.now());
 try {
   const page = task.page("p1");
@@ -661,6 +730,8 @@ async function runSmoke() {
   console.log(`denials: ${JSON.stringify((result.permission_denials ?? []).map((d) => d.tool_input?.command ?? d.tool_input?.file_path ?? d.tool_name))}`);
   console.log(`result (${result.subtype}, ${result.num_turns} turns, $${result.total_cost_usd}): ${String(result.result ?? "").slice(0, 400)}`);
   console.log(`left behind: ${leftover.length ? JSON.stringify(leftover) : "none"}; tidied: ${JSON.stringify(tidy(agent, init))}; hook: ${JSON.stringify(hookCounts(join(outDir, hookLog)))}`);
+  // The smoke's screenshot lands there, so it's listed: information, not a failure.
+  if (!EGO) console.log(`left in the working folder: ${run.leftInWorkingFolder.length ? `${run.leftInWorkingFolder.join(", ")} (removed)` : "none"}`);
 }
 
 async function runCanary() {
@@ -677,7 +748,7 @@ async function runCanary() {
   const before = listSpaces(run);
   const control = LOCAL_CONTROL ? { url: `${fixture.base}/control.html`, text: CONTROL_TEXT, label: "the probes' loopback page" } : PUBLIC_CONTROL;
   const tools = await localTools();
-  const prompt = canaryPrompt(canaryScript({ outside: outDir, outRoot: run.out, control, tools }), homedir(),`zenius nodejs -e 'await import(${JSON.stringify(probeFile)})'`);
+  const prompt = canaryPrompt(canaryScript({ outside: outDir, workingFolder: WORKING, zeniusHome: realpathSync(run.zeniusHome), control, tools }), homedir(),`zenius nodejs -e 'await import(${JSON.stringify(probeFile)})'`);
   let agent;
   let written = {};
   let strayProbeFiles = [];
@@ -706,9 +777,11 @@ async function runCanary() {
   rows.push({ probe: "the zenius skill is the run's own, from its temp home", outcome: origin.outcome, pass: origin.pass });
   const launcher = launcherCheck(run, hookLog);
   rows.push({ probe: "every allowed zenius command ran the run's launcher", outcome: launcher.outcome, pass: launcher.pass });
-  const stray = [homedir(), outDir, run.work].flatMap((d) => readdirSync(d).filter((f) => f.startsWith("zenius-canary-")).map((f) => join(d, f)));
+  const stray = [homedir(), outDir, run.work, WORKING].flatMap((d) => readdirSync(d).filter((f) => f.startsWith("zenius-canary-")).map((f) => join(d, f)));
   removeRun(run);
   rows.push({ probe: "no canary file left outside the run's folder", outcome: stray.length ? stray.join(", ") : "none", pass: stray.length === 0 });
+  const left = run.leftInWorkingFolder;
+  rows.push({ probe: "nothing left in the working folder", outcome: left.length ? `${left.join(", ")} (removed)` : "none", pass: left.length === 0 });
   rows.push({ probe: "no task space left behind", outcome: leftover.length ? JSON.stringify(leftover) : "none", pass: leftover.length === 0 });
   const probes = probesFrom(steps.filter((s) => s.tool === "Bash").map((s) => s.output));
   if (!probes) rows.push({ probe: "browser: the probe script ran", outcome: "no PROBES line in any Bash output", pass: false });
@@ -796,6 +869,8 @@ async function runTask(id, task) {
     // The changeCount only, never the contents; each move next to the script before it.
     pasteboard: board,
     leftoverSpaces: leftover,
+    // What the run left in the instance's working folder, by name; removed afterwards.
+    workingFolderLeft: run.leftInWorkingFolder ?? null,
     judgeCostUsd,
     // The images the judge saw, and those it didn't (over its limits), of those the agent read.
     judgeImages,
@@ -1012,10 +1087,12 @@ function assertCurrentRuntime() {
   // zen-dev.sh leaves zenius's agent sidebar and '>' dispatch out of a dev profile
   // unless ZENIUS_AGENT_SCRIPTS=1 asks for them.
   const agentScripts = existsSync(join(chrome, "JS", "agent-sidebar.uc.js")) ? [] : ["agent-sidebar", "agent-sidebar.uc.js", "agent-urlbar", "agent-urlbar.uc.js"];
+  // zen-dev.sh's own script in every dev profile (scripts/dev/startup-watch.uc.js), not runtime/'s.
+  const devScripts = ["zen-dev-startup-watch.uc.js"];
   for (const d of ["JS", "resources"]) {
     const src = join(ROOT, "runtime", d);
     if (!existsSync(src)) continue;
-    const skip = d === "JS" ? agentScripts : [];
+    const skip = d === "JS" ? [...agentScripts, ...devScripts] : [];
     if (!existsSync(join(chrome, d)) || digest(src, skip) !== digest(join(chrome, d), skip)) {
       throw new Error(`${instance} runs another runtime than this checkout's (runtime/${d}). Restart it with: ZENIUS_DEV_METHODS=0 scripts/zen-dev.sh ${instance} restart`);
     }
@@ -1047,6 +1124,7 @@ try {
     }
   }
 } finally {
+  releaseWorkingFolder();
   for (const root of runRoots) rmSync(root, { recursive: true, force: true });
 }
 if (mode === "tasks") console.log(markdown(summary()));

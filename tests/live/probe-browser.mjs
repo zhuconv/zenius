@@ -4,30 +4,35 @@
 // - a fresh dev profile, zen-eval-probes, with one dummy saved login;
 // - dev methods off for the probes;
 // - the CLI as the live runs have it: the sandboxed launcher
-//   (install-cli.sh --sandbox), installed into a temp home of its own. Its
-//   working folder lies outside ~/.zenius-dev, which the launcher never grants.
+//   (install-cli.sh --sandbox), installed into a scratch home of its own
+//   (tests/lib/scratch-home.mjs), never the user's ~/.zenius or their working
+//   folder. Its working folder is in the run's temp folder, and the profile
+//   gets the same one (ZENIUS_DEV_WORKING_DIR), as the daily's launcher and
+//   Zen share theirs. The folder it starts in lies outside ~/.zenius-dev,
+//   which the launcher never grants.
 //
 // The rules (2026-11-20):
 // - every file the probes plant or make the browser write stays in
 //   ~/.zenius-dev/canary/<run>/, never over an existing file;
 // - uploads go only to a loopback page;
 // - everything is deleted afterwards: the run's folder, the profile with its
-//   login, the instance's state, log and socket.
+//   login, the instance's state, log and socket, and the run's temp folder
+//   with its working folder, once what that held is listed.
 //
-// The one write outside that folder is the runtime's own: a download first
-// lands in its temporary folder. download.delete() removes it, and the
-// cleanup checks that it's gone.
+// The one write outside those folders is the runtime's own: a download is
+// staged in the profile's zenius-downloads, then lands in the working folder.
+// download.delete() removes it, and the cleanup checks that both are empty.
 //
 //   node tests/live/probe-browser.mjs [--out <file.json>] [--instance <name>] [--node <Node 24>]
 
 import { execFile, spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { browserProbeScript, probeFixture, scoreProbes } from "./browser-probes.mjs";
-import { guardHome } from "../lib/scratch-home.mjs";
+import { guardHome, scratchHome } from "../lib/scratch-home.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const ZEN_DEV = join(ROOT, "scripts", "zen-dev.sh");
@@ -46,7 +51,7 @@ const out = flag("--out", null);
 const run = promisify(execFile);
 
 async function zenDev(cmd, env = {}) {
-  const e = { ...process.env, ...env };
+  const e = { ...process.env, ZENIUS_DEV_WORKING_DIR: files, ...env };
   if (!("ZENIUS_DEV_METHODS" in env)) delete e.ZENIUS_DEV_METHODS;
   delete e.ZENIUS_DEV_PREFS;
   delete e.ZENIUS_DEV_DEFAULT_PREFS;
@@ -63,9 +68,16 @@ const fixture = await probeFixture({ home: HOME });
 const cliRoot = realpathSync(mkdtempSync(join(tmpdir(), "zen-eval-probes-cli-")));
 const work = join(cliRoot, "work");
 const cliTmp = join(cliRoot, "tmp");
-const cliHome = join(cliRoot, "home");
+// The working folder of both the launcher and the instance.
+const files = join(cliRoot, "files");
+// HOME and ZENIUS_HOME for the install and the probes: the launcher keeps this
+// zenius home, whose run/ and instances/ link to the dev Zens' (~/.zenius).
+const scratch = scratchHome("probes", { parent: cliRoot, workingFolder: files });
+scratch.shareRuntime(join(HOME, ".zenius"));
+const cliHome = scratch.home;
 mkdirSync(work);
 mkdirSync(cliTmp);
+mkdirSync(files, { mode: 0o700 });
 const login = { host: "canary.invalid", user: "zen-eval-canary", password: `zen-eval-dummy-${Math.random().toString(16).slice(2, 14)}` };
 const report = { at: new Date().toISOString(), instance: NAME, rows: [], cleanup: {} };
 
@@ -98,25 +110,17 @@ try {
 
   // 3. The CLI, installed with --sandbox into its temp home; the probes go
   //    through its launcher, from the working folder there.
-  const env = { HOME, USER: process.env.USER, LANG: "en_US.UTF-8", PATH: BASE_PATH, TMPDIR: cliTmp };
-  const install = spawnSync(join(ROOT, "scripts", "install-cli.sh"), ["--sandbox", "--output-dir", join(cliHome, "out")], {
+  const env = { HOME: cliHome, ZENIUS_HOME: scratch.zeniusHome, USER: process.env.USER, LANG: "en_US.UTF-8", PATH: BASE_PATH, TMPDIR: cliTmp };
+  const install = spawnSync(join(ROOT, "scripts", "install-cli.sh"), ["--sandbox", "--working-dir", files], {
     cwd: cliRoot,
-    // An installer writes its zenius home's config.json and makes the working
-    // folder, so it runs only with a HOME and ZENIUS_HOME that aren't the
-    // account's own (tests/lib/scratch-home.mjs). With the real ones it
-    // refuses, until this run moves to a scratch home whose run folder is the
-    // dev Zen's (scratchHome's shareRuntime).
-    env: guardHome(
-      { ...env, PATH: `${dirname(NODE)}:${BASE_PATH}`, ZENIUS_CLI_DIR: join(cliHome, "cli"), ZENIUS_BIN_DIR: join(cliHome, "bin") },
-      "tests/live/probe-browser.mjs's install-cli.sh"
-    ),
+    env: guardHome({ ...env, PATH: `${dirname(NODE)}:${BASE_PATH}`, ZENIUS_CLI_DIR: join(cliHome, "cli"), ZENIUS_BIN_DIR: join(cliHome, "bin") }, "probe-browser.mjs's install"),
     encoding: "utf8",
     timeout: 300000,
   });
   if (install.status !== 0) throw new Error(`install-cli.sh --sandbox failed (${install.status ?? install.signal}): ${install.stdout}${install.stderr}`);
   report.cli = /^check\s+(.+)$/m.exec(install.stdout ?? "")?.[1] ?? null;
   const script = browserProbeScript({ ...fixture, extensionPage: report.setup?.extensionPage ?? null, login });
-  const child = spawn(join(cliHome, "bin", "zenius"), ["nodejs"], { cwd: work, env: { ...env, ZENIUS_INSTANCE: NAME } });
+  const child = spawn(join(cliHome, "bin", "zenius"), ["nodejs"], { cwd: work, env: guardHome({ ...env, ZENIUS_INSTANCE: NAME }, "probe-browser.mjs's probes") });
   let stdout = "";
   let stderr = "";
   child.stdout.on("data", (d) => (stdout += d));
@@ -142,10 +146,13 @@ try {
   rmSync(LOG, { force: true });
   rmSync(SOCK, { force: true }); // a killed instance leaves its socket behind
   const downloads = fixture.close(PROFILE);
+  // download.delete() removed the probes' download; anything here is listed.
+  const leftInFiles = existsSync(files) ? readdirSync(files) : [];
   rmSync(cliRoot, { recursive: true, force: true });
   report.cleanup = {
     runFolder: existsSync(fixture.runDir) ? "LEFT" : "removed",
     cliFolder: existsSync(cliRoot) ? "LEFT" : "removed",
+    workingFolder: leftInFiles.length ? `held ${leftInFiles.join(", ")}; removed` : "empty; removed",
     profile: existsSync(PROFILE) ? "LEFT" : "removed",
     downloadTemp: downloads,
   };

@@ -128,16 +128,21 @@ running Ego Lite.
   - `live/allow-cli.mjs` decides every tool call, as a PreToolUse hook passed in `--settings`.
     Bash runs only the zenius CLI, pointed at the run's own launcher by its path (Claude Code's
     Bash tool sources the user's shell snapshot, whose PATH could find their own `zenius` first)
-    and kept on the run's instance. Read stays in the run's temp home, and Skill loads only zenius.
+    and kept on the run's instance. Read stays in the run's temp home and the instance's working
+    folder, and Skill loads only zenius.
   - The agent's `zenius` is the sandboxed launcher (`scripts/install-cli.sh
-    --sandbox`, on Homebrew's node@24 on the Mac), installed into each run's temp home. Its CLI
-    reads only the CLI copy, the instance registry, the run's working folder and its own
-    temporary and output folders, writes only those two, starts no process, and connects only to
-    the instance's socket. Each run checks, before its agent starts, that the launcher grants
-    the working folder, and afterwards that every allowed command started that launcher.
-- **Isolation:** each run gets a fresh temp home in `--out`. Its working folder holds only
-  `.claude/skills/zenius`, the install's link to its CLI copy's Skill, and the run checks that the
-  skill came from there, not from the user's own install. Its environment is built from scratch.
+    --sandbox`, on Homebrew's node@24 on the Mac), installed into a scratch home in each run's
+    temp home (`tests/lib/scratch-home.mjs`), with the instance's working folder, which
+    `scripts/zen-dev.sh` gives each dev profile. Its CLI reads only the CLI copy, the instance
+    registry, the run's folder, the working folder and its own temporary folder, writes only
+    those two, starts no process, and connects only to the instance's socket. Each run checks,
+    before its agent starts, that the launcher grants the run's folder and names the run's zenius
+    home and the working folder, and afterwards that every allowed command started that launcher.
+- **Isolation:** each run gets a fresh temp home in `--out`. The folder its agent starts in holds
+  only `.claude/skills/zenius`, the install's link to its CLI copy's Skill, and the run checks
+  that the skill came from there, not from the user's own install. The instance's working folder
+  must be empty when a run starts; what the run leaves there is listed in its result and
+  removed. Its environment is built from scratch.
   `--setting-sources project` keeps the user's skills, plugins, hooks, settings and CLAUDE.md
   out. `docs/eval/live-pilot.md` has the checks.
 - **Without a model:** `--claude tests/live/stand-in-agent.mjs` runs `--smoke` or `--canary`
@@ -147,11 +152,16 @@ running Ego Lite.
 - **The browser** runs outside that sandbox. `live/browser-probes.mjs` asks what an agent's script
   can still reach through it, and `node tests/live/probe-browser.mjs` runs those probes without an
   agent. It uses planted dummies under `~/.zenius-dev/canary/`, a dev profile with dev methods
-  off, and only loopback pages, and deletes everything afterwards.
+  off, a scratch home and a working folder of its own, and only loopback pages, and deletes
+  everything afterwards.
 - **The allow rule** for the sandboxed launcher (`install-cli.sh --sandbox`) is `Bash(zenius:*)`
   with dontAsk. `node tests/live/allow-rule.mjs` checks, with one cheap headless Claude Code run,
   that the rule lets `zenius` commands run and nothing that runs another program or picks another
-  `zenius`: variable prefixes, `env`, chained commands. Rerun it when Claude Code updates.
+  `zenius`: variable prefixes, `env`, chained commands. Its launcher is installed in a scratch
+  home, and its agent's shell gets an empty `ZDOTDIR`, so the user's own startup files can't
+  put the daily install's `zenius` first on its PATH; the run checks that its own launcher ran.
+  Rerun it when Claude Code updates.
 - **Output:** the raw streams stay in `--out`. `summary.json` and `summary.md` hold the scores,
   timings, tokens and answers. The CLI is installed into each run's temp home there, never
-  `~/.zenius` or `~/.local/bin`.
+  `~/.zenius` or `~/.local/bin`, and no run reads or writes `~/.zenius/config.json` or
+  `~/zenius-files`.

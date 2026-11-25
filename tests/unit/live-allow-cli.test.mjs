@@ -193,6 +193,8 @@ test("decide: Read in the run's temp home too, through its Skill link, never out
     assert.equal(read(join(run, "home", "out", "link.txt"), run), false, "a symlink out of the temp home");
     assert.equal(read(join(root, "elsewhere", "secret.txt"), run), false);
     assert.equal(read(join(run, "home", "out", "work-1", "run.a", "shot.png"), join(root, "missing")), false, "a missing read root grants nothing");
+    assert.equal(read(join(root, "elsewhere", "secret.txt"), [run, join(root, "elsewhere")]), true, "a second read root, such as the instance's working folder");
+    assert.equal(read(join(root, "elsewhere", "secret.txt"), [join(root, "missing"), run]), false, "neither root holds it");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -222,11 +224,24 @@ test("the hook, as Claude Code runs it: updatedInput for an allowed command, a p
     const denied = run("Bash", { command: "zenius --instance default --version" });
     assert.equal(denied.permissionDecision, "deny");
     assert.equal("updatedInput" in denied, false);
+    // ALLOW_CLI_READ_ROOT: several folders, one per line.
+    mkdirSync(join(root, "home"));
+    mkdirSync(join(root, "files"));
+    mkdirSync(join(root, "elsewhere"));
+    for (const dir of ["home", "files", "elsewhere"]) writeFileSync(join(root, dir, "a.txt"), "x");
+    env.ALLOW_CLI_READ_ROOT = `${join(root, "home")}\n${join(root, "files")}\n`;
+    assert.equal(run("Read", { file_path: join(root, "home", "a.txt") }).permissionDecision, "allow");
+    assert.equal(run("Read", { file_path: join(root, "files", "a.txt") }).permissionDecision, "allow");
+    assert.equal(run("Read", { file_path: join(root, "elsewhere", "a.txt") }).permissionDecision, "deny");
+    delete env.ALLOW_CLI_READ_ROOT;
     assert.deepEqual(
       readFileSync(join(root, "hook.jsonl"), "utf8").trim().split("\n").map((line) => { const { at, ...rest } = JSON.parse(line); return rest; }),
       [
         { tool: "Bash", allow: true, as: "launcher", detail: "zenius --version" },
         { tool: "Bash", allow: false, detail: "zenius --instance default --version" },
+        { tool: "Read", allow: true, detail: join(root, "home", "a.txt") },
+        { tool: "Read", allow: true, detail: join(root, "files", "a.txt") },
+        { tool: "Read", allow: false, detail: join(root, "elsewhere", "a.txt") },
       ],
     );
   } finally {
