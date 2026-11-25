@@ -1844,10 +1844,11 @@ export function worldSandboxOf(value) {
  * (content/refusals.sys.mjs, failClosed), or Notification, which the agent's
  * own code never gets to make. The worlds get one that refuses, made in
  * chrome from each world's own Proxy, with no script (guardedIn), over the
- * one they'd have had.
+ * one they'd have had. `refuse(caller)` throws, and gets the world's own
+ * built-ins (callerIn) to make its error with.
  */
 export function mirrorRefusal(win, name, refuse) {
-  mirrorsOf(win)?.ctors.push({ name, trap: () => refuse() });
+  mirrorsOf(win)?.ctors.push({ name, trap: (target, args, newTarget, caller) => refuse(caller) });
 }
 
 /**

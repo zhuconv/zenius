@@ -120,6 +120,43 @@ const natives = page => page.call("dev.evalContent", { privileged: true, code: N
 
 const REFUSED = { Notification: "TypeError", RTCPeerConnection: "NotAllowedError", SharedWorker: "SecurityError", BroadcastChannel: "SecurityError" };
 
+/**
+ * What the agent's code reads of each one's error: its message, and whether
+ * a TypeError is its own realm's. An error made in the page's realm reaches
+ * the world through an Xray that can't read its message.
+ */
+const READ = `(() => {
+  const make = {
+    Notification: () => new Notification("zo"),
+    RTCPeerConnection: () => new RTCPeerConnection(),
+    SharedWorker: () => new SharedWorker("worker.js"),
+    BroadcastChannel: () => new BroadcastChannel("zo"),
+  };
+  const out = {};
+  for (const name of Object.keys(make)) {
+    try {
+      make[name]();
+      out[name] = "made";
+    } catch (e) {
+      let message;
+      try {
+        message = String(e.message);
+      } catch (x) {
+        message = "(unreadable)";
+      }
+      out[name] = e instanceof TypeError ? "own TypeError: " + message : message;
+    }
+  }
+  return out;
+})()`;
+const INSECURE = "The operation is insecure.";
+const READ_REFUSED = {
+  Notification: "own TypeError: Permission to show Notification denied.",
+  RTCPeerConnection: "The request is not allowed by the user agent or the platform in the current context.",
+  SharedWorker: INSECURE,
+  BroadcastChannel: INSECURE,
+};
+
 /** The Zen log's text, for the guards' own lines. */
 const zenLog = () => readFileSync(join(homedir(), ".zenius-dev", "logs", `${process.env.ZENIUS_INSTANCE}.log`), "utf8");
 
@@ -135,6 +172,7 @@ test("a constructor guard that fails leaves one that refuses, in the page and th
     assert.deepEqual(await asPage(page, CONSTRUCT), REFUSED, "the page's own script");
     assert.deepEqual(await asPage(page, THROUGH_PROTOTYPES), REFUSED, "through each prototype's constructor");
     assert.deepEqual(await page.evaluate(CONSTRUCT), REFUSED, "the agent's code");
+    assert.deepEqual(await page.evaluate(READ), READ_REFUSED, "the agent's code reads each refusal's message");
     assert.deepEqual((await natives(page)).top, []);
     const heard = (await failures()).slice(before).filter(f => f.url.endsWith("/failed"));
     assert.deepEqual(

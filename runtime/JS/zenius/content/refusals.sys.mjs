@@ -916,9 +916,8 @@ function failClosed(actor, win, name, error, missed) {
     if (simulated(name)?.fallback) {
       throw new Error("zenius.test.failPageGuard");
     }
-    const refuse = refusal(win, what);
-    outcome = refuseInPage(win, name, refuse) ? "refusing" : "absent";
-    lazy.mirrorRefusal(win, name, refuse);
+    outcome = refuseInPage(win, name, refusal(win, what)) ? "refusing" : "absent";
+    lazy.mirrorRefusal(win, name, worldRefusal(win, what));
   } catch (e) {
     missed.push({ name, cause, error, why: failureCause(e).words });
     return;
@@ -974,6 +973,19 @@ function refusal(win, what) {
   return () => {
     const page = Cu.waiveXrays(win);
     throw what.error === "TypeError" ? new page.TypeError(what.message) : new page.DOMException(what.message, what.error);
+  };
+}
+
+/**
+ * The worlds' refusal of a constructor whose guard failed: `what`'s error,
+ * made where the agent's code reads it. A TypeError made in the page's realm
+ * reaches a world through an Xray that can't read its message, so it's the
+ * world's own (`caller`, callerIn). A DOMException's message reads through
+ * the Xray, which makes it without running the page's DOMException.
+ */
+function worldRefusal(win, what) {
+  return caller => {
+    throw what.error === "TypeError" ? new caller.TypeError(what.message) : new win.DOMException(what.message, what.error);
   };
 }
 
