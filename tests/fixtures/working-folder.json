@@ -1,10 +1,10 @@
 {
   "about": [
-    "The working folder's rules, as cases that every reader of them must agree on: scripts/working-folder.sh, which install.sh and install-cli.sh source; the sandboxed launcher, sdk/sandbox/launcher.sh; and the runtime's reader. sdk/test/install.test.ts, sdk/test/release.test.ts and tests/core/install.test.mjs run them against the installers, and tests/security against the launcher, so the copies of the rules can't drift apart.",
+    "The working folder's rules, as cases that every reader of them must agree on: scripts/working-folder.sh, which install.sh and install-cli.sh source; the sandboxed launcher, sdk/sandbox/launcher.sh; the runtime's reader; and, for 'configs', the SDK's. sdk/test/install.test.ts, sdk/test/release.test.ts and tests/core/install.test.mjs run them against the installers, tests/security against the launcher, tests/core/workingfolder.test.mjs against the runtime, and sdk/test/sdk.test.ts the unreadable configs against the SDK, so the copies of the rules can't drift apart.",
     "A case builds under a scratch root, written ~ here. 'make' lists its entries: 'x/' a folder, 'x' an empty file, 'x -> y' a link to y. 'unlistable' lists folders the suite makes after those, then makes unreadable (mode 000); a suite running as root, which reads any folder, skips such a case. 'env' sets HOME, ZENIUS_HOME and TMPDIR over the defaults below, where TMPDIR is the suite's own unless a case sets it, and {PATH} is the PATH the suite had. Then the reader is asked to take 'folder'.",
     "'outcome' is allowed, or the category of the reader's refusal, below. Each suite maps a category to its own wording, with 'kept' or 'repo' for the folder the reason names, by its real path. A case with 'by' holds only for those readers: install-cli.sh, install.sh, launcher or runtime.",
     "Tokens a suite fills in: {cli} the CLI copy, {bin} the folder of the zenius command, {node} the node the suite runs, {profile} Zen's profile, {profiles} a folder that holds the profile but not ~, and {app} Zen's app folder, where the suite can name it (ZEN_BIN on Linux). The installer suites install once before the refused cases, which then share one root: no case's entries change another's outcome, and a refusal changes nothing. Each allowed case gets a root of its own.",
-    "'configs' are config.json texts edited by hand, with {folder} for an absolute folder. No reader takes an 'unreadable' one, and none falls back to ~/zenius-files then. Every reader takes the folder a 'readable' one names."
+    "'configs' are config.json texts edited by hand, with {folder} for an absolute folder. No reader takes an 'unreadable' one, and none falls back to ~/zenius-files then. One with an 'outcome' is refused for that reason, in a suite's own wording where it has one, and as unreadable where it hasn't. Every reader takes the folder a 'readable' one names."
   ],
   "env": { "HOME": "~", "ZENIUS_HOME": "~/.zenius" },
   "outcomes": {
@@ -16,7 +16,8 @@
     "not-yours": "a folder that isn't the user's own",
     "not-a-folder": "something that isn't a folder: a file, a link to one, or a dangling link",
     "no-parent": "a folder that isn't there, in a folder that isn't there either",
-    "not-plain": "a path with a double quote, a backslash or a control character, which config.json can't hold unescaped"
+    "not-plain": "a path with a double quote, a backslash or a control character, which config.json can't hold unescaped",
+    "dotdot": "a path with a '..' part. After a link, '..' leads to the target's parent for the kernel, but drops the link's name for path.resolve and bash's plain cd, so the readers would name two folders. Every reader refuses one, and the installers store every folder without one. As a case it's the installers' alone, which take a folder as given; 'configs' has one stored"
   },
   "cases": [
     { "name": "the home folder", "folder": "~", "outcome": "shared" },
@@ -65,6 +66,9 @@
     { "name": "a backslash", "folder": "~/back\\slash", "outcome": "not-plain", "by": ["install-cli.sh", "install.sh", "runtime"] },
     { "name": "a newline", "folder": "~/new\nline", "outcome": "not-plain", "by": ["install-cli.sh", "install.sh", "runtime"] },
     { "name": "a tab", "folder": "~/a\tb", "outcome": "not-plain", "by": ["install-cli.sh", "install.sh", "runtime"] },
+    { "name": "a '..' part", "make": ["~/up/"], "folder": "~/up/../files", "outcome": "dotdot", "by": ["install-cli.sh", "install.sh"] },
+    { "name": "a '..' part after a link, which the kernel takes to the target's parent", "make": ["~/far/deep/", "~/far/files/", "~/near -> ~/far/deep"], "folder": "~/near/../files", "outcome": "dotdot", "by": ["install-cli.sh", "install.sh"] },
+    { "name": "a '..' part at the end, after doubled slashes", "make": ["~/up/down/"], "folder": "~/up//down//..", "outcome": "dotdot", "by": ["install-cli.sh", "install.sh"] },
     { "name": "the default, ~/zenius-files", "folder": "~/zenius-files", "outcome": "allowed" },
     { "name": "a folder inside TMPDIR", "make": ["~/tmp/"], "env": { "TMPDIR": "~/tmp" }, "folder": "~/tmp/work", "outcome": "allowed" },
     { "name": "below a temporary folder whose own root holds a stray repository", "make": ["~/tmp/.git/HEAD", "~/tmp/scratch/"], "env": { "TMPDIR": "~/tmp" }, "folder": "~/tmp/scratch/work", "outcome": "allowed" },
@@ -87,6 +91,7 @@
       { "name": "an escaped slash in the path", "text": "{\n  \"workingFolder\": \"{folder}\\/files\"\n}\n" },
       { "name": "a tab in the path", "text": "{\n  \"workingFolder\": \"{folder}/a\tb\"\n}\n" },
       { "name": "an empty path", "text": "{\n  \"workingFolder\": \"\"\n}\n" },
+      { "name": "a '..' part in the path", "text": "{\n  \"workingFolder\": \"{folder}/../files\"\n}\n", "outcome": "dotdot" },
       { "name": "no workingFolder", "text": "{}\n" },
       { "name": "nothing at all", "text": "" }
     ],

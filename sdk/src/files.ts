@@ -372,7 +372,10 @@ const CONFIG_LINE = /^[ \t\v\f\r]*"workingFolder"[ \t\v\f\r]*:[ \t\v\f\r]*"([^"\
  * for what it starts. Otherwise the CLI reads it as the launcher does: the
  * one line in the install's
  * ~/.zenius/config.json, or ~/zenius-files without that file. A file that
- * line doesn't fit is refused with the reason, never read another way.
+ * line doesn't fit is refused with the reason, never read another way, as
+ * is a path with a ".." part, which no installer writes: after a link it
+ * leads to the target's parent for the launcher and the runtime, but drops
+ * the link's name for path.resolve here.
  * ~/zenius-files is the default only while zenius's home is ~/.zenius: a
  * ZENIUS_HOME elsewhere has none, so a test or runner that moves zenius's
  * home alone can't reach the user's own folder.
@@ -415,7 +418,7 @@ export function workingDir(env: NodeJS.ProcessEnv = process.env): string {
   }
   const found = text.split("\n").flatMap((line) => CONFIG_LINE.exec(line)?.[1] ?? []);
   const [dir] = found;
-  if (found.length !== 1 || !dir?.startsWith("/") || /[\u0000-\u001f\u007f]/.test(dir)) {
+  if (found.length !== 1 || !dir?.startsWith("/") || /[\u0000-\u001f\u007f]/.test(dir) || /\/\.\.(\/|$)/.test(dir)) {
     throw new ZeniusError(
       "ZEN_PATH_NOT_ALLOWED",
       `${file} doesn't name the working folder on a line of its own, as the installer writes it: ask the user to run the installer again with --working-dir <folder>`,

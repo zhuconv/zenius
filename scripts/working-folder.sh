@@ -7,7 +7,9 @@
 # default, and a later install without the option keeps it. It is kept in
 # ~/.zenius/config.json (ZENIUS_HOME moves ~/.zenius), which the sandboxed
 # launcher, the runtime and the sidebar read at each start. Changing it moves
-# no files.
+# no files. It's stored resolved (wf_tidy), as the SDK spells the paths it
+# returns, so every reader sees one string. One with a ".." part is refused
+# (wf_dotdot): readers disagree on where it leads.
 #
 # The file holds one key, on a line of its own, in the form wf_write writes,
 # so the launcher's shell reads it without a JSON parser:
@@ -41,7 +43,10 @@ wf_plain() {
 
 # The folder the config file names. Nothing, and status 0, when there is no
 # file; status 1, with the reason instead, when the file has no single
-# workingFolder line in the installer's form.
+# workingFolder line in the installer's form, or names the folder with a
+# ".." part. An earlier installer stored a ".." as it was given, and the
+# launcher and the runtime read it the kernel's way, so tidying it would
+# quietly move the folder; every reader refuses it now.
 wf_saved() {
   local file value count
   file=$(wf_config)
@@ -50,6 +55,10 @@ wf_saved() {
   count=$(printf '%s' "$value" | grep -c '' || true)
   if [[ $count != 1 ]] || ! wf_plain "$value" || [[ $value != /* ]]; then
     echo "$file doesn't name the working folder on a line of its own, as the installer writes it: pass --working-dir <folder> to write it again"
+    return 1
+  fi
+  if wf_dotdot "$value"; then
+    echo "$file names the working folder with a \"..\" part, which can lead elsewhere through a link: pass --working-dir <folder>, named without one, to write it again"
     return 1
   fi
   printf '%s\n' "$value"
@@ -132,6 +141,34 @@ wf_why_not() {
   return 0
 }
 
+# Whether the absolute path $1 has a ".." part. After a link, ".." leads to
+# the parent of the link's target for the kernel, and so for the launcher
+# and the runtime. Node's path.resolve and bash's plain cd instead drop the
+# part before it, the link's own name, so the readers would name two
+# folders.
+wf_dotdot() {
+  case $1 in */../* | */..) return 0 ;; esac
+  return 1
+}
+
+# $1, an absolute path with no ".." part (wf_saved and wf_pick refuse one), in
+# WF_TIDY as Node's path.resolve spells it, which the SDK uses for the paths
+# it returns: one slash between parts, no "." part, and no slash at the end.
+# None of these changes which folder it names. Set in a variable rather than
+# printed, as $(...) would drop a newline at the end.
+wf_tidy() {
+  local rest=$1 part out=
+  while [[ -n $rest ]]; do
+    part=${rest%%/*}
+    if [[ $part == "$rest" ]]; then rest=; else rest=${rest#*/}; fi
+    case $part in
+      '' | .) ;;
+      *) out=$out/$part ;;
+    esac
+  done
+  WF_TIDY=${out:-/}
+}
+
 # The working folder an install sets, as given: $1 (--working-dir) if given,
 # else the one the config file names, else wf_default. Status 1, with the
 # reason instead, when that folder can't be the working folder; status 2
@@ -153,11 +190,19 @@ wf_pick() {
       folder=$(wf_default)
     fi
   fi
-  [[ $folder == / ]] || folder=${folder%/}
   if [[ $folder != /* ]] || ! wf_plain "$folder"; then
     echo "the working folder must be an absolute path with no double quote, backslash or control character: $folder"
     return 1
   fi
+  # A given one; wf_saved has refused a saved one.
+  if wf_dotdot "$folder"; then
+    echo "the working folder must be named without a \"..\" part, which can lead elsewhere through a link: $folder"
+    return 1
+  fi
+  # A saved folder too: an install rewrites one an earlier installer stored
+  # another way. It's the same folder.
+  wf_tidy "$folder"
+  folder=$WF_TIDY
   if [[ -e $folder || -L $folder ]] && { [[ ! -d $folder ]] || [[ ! -O $folder ]]; }; then
     echo "the working folder must be a folder of yours: $folder"
     return 1

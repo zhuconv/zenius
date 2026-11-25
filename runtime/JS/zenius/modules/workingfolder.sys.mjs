@@ -145,16 +145,19 @@ const CONFIG_LINE = /^[ \t\v\f\r]*"workingFolder"[ \t\v\f\r]*:[ \t\v\f\r]*"([^"\
 
 /**
  * The folder the config file's text names, by the shell's rule: exactly one
- * such line, holding an absolute path with no control character. Otherwise
- * null: the file is refused, as the launcher refuses it, never read another
- * way or replaced by the default.
+ * such line, holding an absolute path with no control character and no ".."
+ * part. Otherwise null: the file is refused, as the launcher refuses it,
+ * never read another way or replaced by the default. No installer writes a
+ * "..": after a link it leads to the target's parent for the files read
+ * here, but drops the link's name for the SDK's path.resolve, so the two
+ * would name different folders.
  */
 export function configuredFolder(text) {
   const found = text.split("\n").flatMap(line => {
     const match = CONFIG_LINE.exec(line);
     return match ? [match[1]] : [];
   });
-  return found.length === 1 && found[0].startsWith("/") && plain(found[0]) ? found[0] : null;
+  return found.length === 1 && found[0].startsWith("/") && plain(found[0]) && !/\/\.\.(\/|$)/.test(found[0]) ? found[0] : null;
 }
 
 function dirPath(key) {

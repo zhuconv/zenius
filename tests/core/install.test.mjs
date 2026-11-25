@@ -164,6 +164,8 @@ function refusal(c, folder, fill) {
   switch (c.outcome) {
     case "not-plain":
       return `the working folder must be an absolute path with no double quote, backslash or control character: ${folder}`;
+    case "dotdot":
+      return `the working folder must be named without a ".." part, which can lead elsewhere through a link: ${folder}`;
     case "not-a-folder":
     case "not-yours":
       return `the working folder must be a folder of yours: ${folder}`;
@@ -1161,18 +1163,23 @@ test("install sets the working folder, ~/zenius-files unless --working-dir says,
   assert.ok(lines(kept.out).includes(`  the working folder stays ${work} (${config})`), kept.out);
 
   // A folder that's there keeps its mode and files: here one outside the
-  // home folder, in the temporary folder. The option's = form, and a slash
-  // at the end, which config.json leaves off.
+  // home folder, in the temporary folder. The option's = form, spelled
+  // another way: config.json stores it resolved.
   const mine = path.join(s.dir, "mine");
   fs.mkdirSync(mine);
   fs.chmodSync(mine, 0o750);
   fs.writeFileSync(path.join(mine, "notes.txt"), "mine");
-  const taken = s.install(p, `--working-dir=${mine}/`);
+  const taken = s.install(p, `--working-dir=${s.dir}//./mine/`);
   assert.ok(lines(taken.out).includes(`  set the working folder: ${mine}, in ${config}`), taken.out);
   assert.doesNotMatch(taken.out, /^ {2}made /m);
   assert.equal(fs.readFileSync(config, "utf8"), naming(mine));
   assert.equal(mode(mine), 0o750);
   assert.deepEqual(fs.readdirSync(mine), ["notes.txt"]);
+  // One an earlier installer stored another way is stored again, resolved.
+  fs.writeFileSync(config, naming(`${s.dir}//mine/`));
+  const respelled = s.install(p);
+  assert.ok(lines(respelled.out).includes(`  set the working folder: ${mine}, in ${config}`), respelled.out);
+  assert.equal(fs.readFileSync(config, "utf8"), naming(mine));
 
   // A dry run says what it would set and make, and does neither.
   const other = path.join(s.home, "other");
@@ -1277,13 +1284,15 @@ test("a config.json edited so it doesn't name the folder as the installers write
   const files = path.join(s.home, "zenius-files");
   const profile = snap(p, false);
   const reason = `install.sh: ${config} doesn't name the working folder on a line of its own, as the installer writes it: pass --working-dir <folder> to write it again\n`;
+  const dotdot = `install.sh: ${config} names the working folder with a ".." part, which can lead elsewhere through a link: pass --working-dir <folder>, named without one, to write it again\n`;
   for (const c of FIXTURE.configs.unreadable) {
     const text = c.text.replaceAll("{folder}", work);
+    const want = c.outcome === "dotdot" ? dotdot : reason;
     fs.writeFileSync(config, text);
     for (const more of [[], ["--dry-run"]]) {
       const r = s.run(["--profile", p, ...more]);
       assert.equal(r.status, 1, `${c.name}: ${r.out}${r.err}`);
-      assert.ok(r.err.endsWith(reason), `${c.name}: ${r.err}`);
+      assert.ok(r.err.endsWith(want), `${c.name}: ${r.err}`);
     }
     assert.equal(fs.readFileSync(config, "utf8"), text, `${c.name}: config.json is as it was`);
     assert.ok(!fs.existsSync(files), `${c.name}: no ~/zenius-files`);
@@ -1308,6 +1317,24 @@ test("a config.json edited so it doesn't name the folder as the installers write
   const wide = s.run(["--profile", p]);
   assert.equal(wide.status, 1, wide.out);
   assert.ok(wide.err.endsWith(`install.sh: the working folder can't be ${s.home}: it's your home folder, a temporary folder, or a folder above one\n`), wide.err);
+
+  // So does one an earlier installer stored with a ".." part, as it was
+  // given, here after a link. The launcher and the runtime used to read it
+  // as far/work, and path.resolve would make it ~/work, so it's left for the
+  // user to name again.
+  const far = path.join(s.home, "far");
+  fs.mkdirSync(path.join(far, "deep"), { recursive: true });
+  fs.mkdirSync(path.join(far, "work"));
+  fs.symlinkSync(path.join(far, "deep"), path.join(s.home, "near"));
+  const dotted = naming(`${s.home}/near/../work`);
+  fs.writeFileSync(config, dotted);
+  const stopped = s.run(["--profile", p]);
+  assert.equal(stopped.status, 1, `${stopped.out}${stopped.err}`);
+  assert.ok(stopped.err.endsWith(dotdot), stopped.err);
+  assert.equal(fs.readFileSync(config, "utf8"), dotted, "config.json is as it was");
+  const renamed = s.install(p, "--working-dir", path.join(far, "work"));
+  assert.ok(lines(renamed.out).includes(`  set the working folder: ${path.join(far, "work")}, in ${config}`), renamed.out);
+  assert.equal(fs.readFileSync(config, "utf8"), naming(path.join(far, "work")));
 
   // --working-dir writes it again, whatever it held.
   fs.writeFileSync(config, FIXTURE.configs.unreadable[0].text.replaceAll("{folder}", work));

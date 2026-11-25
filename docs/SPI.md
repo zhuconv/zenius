@@ -3026,8 +3026,15 @@ The installers set it, and the sandboxed launcher grants it read-write.
   - else `<zenius home>/config.json`, by the shell's line rule
     (`configuredFolder`): exactly one `"workingFolder": "<absolute path>"`
     line, with no double quote, backslash or control character in the
-    path, and an optional comma. A file that doesn't match is refused,
-    never read another way;
+    path, no `..` part, and an optional comma. A file that doesn't match is
+    refused, never read another way. After a link, `..` leads to the
+    target's parent for the kernel but drops the link's name for
+    `path.resolve`, so the readers would name two folders: the launcher,
+    the runtime and the SDK refuse one, and the installers refuse one
+    given or stored (`wf_dotdot`). The installers store the path resolved
+    (`wf_tidy`), as the SDK spells the paths it returns: one slash between
+    parts, no `.` part, and none at the end, which never changes the
+    folder;
   - with no config file, `~/zenius-files`, but only while the zenius home
     is `~/.zenius` by real path. A zenius home moved elsewhere has no
     default.

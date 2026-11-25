@@ -186,6 +186,10 @@ if [ -e "$config" ]; then
     /*) [ "$plain" = "$wf" ] || wf= ;;
     *) wf= ;;
   esac
+  # No installer writes a ".." part. After a link it leads to the target's
+  # parent for cd -P below, but drops the link's name for the SDK's
+  # path.resolve, so the two would name different folders.
+  case $wf in */../* | */..) wf= ;; esac
   [ -n "$wf" ] || fail "$config doesn't name the working folder on a line of its own, as the installer writes it: $reinstall"
 else
   dot=$(cd -P "$home/.zenius" 2>/dev/null && pwd -P) || dot=$home/.zenius

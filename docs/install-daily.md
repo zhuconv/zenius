@@ -545,6 +545,15 @@ writes it in `~/.zenius/config.json`, which Zen reads at each start and the
 user, if it's missing. Later installs keep it: pass `--working-dir` again
 only to change it.
 
+- The installers store the folder resolved, as the `zenius` command spells
+  the paths it returns: one slash between parts, no `.` part, and no slash
+  at the end, so `--working-dir ~/work//files/` stores `~/work/files`. A
+  folder an earlier install stored another way is stored again so, at the
+  next install. It's the same folder.
+- Name the folder without a `..` part. After a link, `..` leads to the
+  link's target's parent, not back where the name seems to go, so the
+  installers refuse one, given or in `config.json`, and so do Zen and the
+  `zenius` command.
 - Changing it moves no files: the earlier folder keeps its own. A Zen
   that's running keeps the folder it started with, so its downloads land
   there until you quit and reopen it, while the `zenius` command takes the
@@ -560,9 +569,9 @@ only to change it.
 - A folder inside a temporary folder, such as `/tmp/zenius-files`, is
   allowed, but the system may empty it: keep files that matter elsewhere.
 - A `config.json` edited by hand must name the folder as the installer
-  writes it, on a line of its own. Otherwise Zen, the `zenius` command and
-  the installers stop with the reason, and never fall back to
-  `~/zenius-files`. `--working-dir` writes it again.
+  writes it, on a line of its own, with no `..` part. Otherwise Zen, the
+  `zenius` command and the installers stop with the reason, and never fall
+  back to `~/zenius-files`. `--working-dir` writes it again.
 - zenius's own folder is `~/.zenius`. When `ZENIUS_HOME` moves it elsewhere,
   there's no default working folder: pass `--working-dir` too, or each
   installer stops with `there's no default working folder: …` and makes

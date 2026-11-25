@@ -23,6 +23,13 @@ import { MOCK_PNG, MockError, type MockSpace } from "./mock-runtime.ts";
 declare const nodeOnlyVariable: number;
 declare const location: { href: string };
 
+/** The hand-edited config.json texts every reader of the working folder refuses (tests/fixtures/working-folder.json), with {folder} for an absolute folder. */
+const UNREADABLE_CONFIGS = (
+  JSON.parse(readFileSync(new URL("../../tests/fixtures/working-folder.json", import.meta.url), "utf8")) as {
+    configs: { unreadable: { name: string; text: string }[] };
+  }
+).configs.unreadable;
+
 /** The upload payload for a file, as the SDK reads it. */
 function payload(file: string, text?: string): Record<string, unknown> {
   const bytes = readFileSync(file);
@@ -1007,14 +1014,16 @@ describe("Page", () => {
       const printed: string[] = [];
       flushOutput(false, (chunk) => printed.push(chunk));
       assert.equal(printed.join(""), ["[zenius:files]", `Wrote ${join(mock.workingDir, "shots/a.png")}`, `Wrote ${join(mock.workingDir, "image.png")}`, ""].join("\n"));
-      // Read by the line the shell reads, never another way or the default.
+      // Read by the line the shell reads, never another way or the default:
+      // each text the fixture's other readers refuse, a ".." part included.
       const config = join(process.env.ZENIUS_HOME!, "config.json");
-      for (const text of [`{"workingFolder": "${mock.workingDir}"}`, `{\n  "workingFolder": "relative"\n}\n`, `{\n  "workingFolder": "/a",\n  "workingFolder": "/b"\n}\n`, "{}"]) {
-        writeFileSync(config, text);
+      assert.ok(UNREADABLE_CONFIGS.some((c) => c.text.includes("/../")), "the fixture has a config with a \"..\" part");
+      for (const c of UNREADABLE_CONFIGS) {
+        writeFileSync(config, c.text.replaceAll("{folder}", mock.workingDir));
         await assert.rejects(
           () => page.screenshot({ path: "b.png" }),
           (error: Error) => error instanceof ZeniusError && error.code === "ZEN_PATH_NOT_ALLOWED" && /doesn't name the working folder on a line of its own/.test(error.message),
-          text,
+          c.name,
         );
       }
       // An absolute path outside it is the plain CLI's to write.
