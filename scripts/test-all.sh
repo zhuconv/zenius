@@ -114,11 +114,11 @@ lane() {
   # A subshell, so that a serial run's next suite doesn't inherit the folder.
   if (if [[ -n $tmp ]]; then export TMPDIR=$tmp; fi; suite "$1") >"$LOGS/$1.log" 2>&1; then verdict=PASS; fi
   if [[ -n $tmp ]]; then
-    # The CLI's compile cache (Node's own folder, from a CLI before 0.1.4)
-    # and the sandboxed CLI's own folder are made there by design. Anything
-    # else is a suite's leftover.
+    # The CLI's compile cache (Node's own folder, from a CLI before 0.1.4),
+    # the sandboxed CLI's own folder, and a dev Zen's working folders are
+    # made there by design. Anything else is a suite's leftover.
     while IFS= read -r entry; do
-      case $entry in zenius-compile-cache-* | node-compile-cache | zenius-sandbox-*) ;; *) leftovers+=("$entry") ;; esac
+      case $entry in zenius-compile-cache-* | node-compile-cache | zenius-sandbox-* | zenius-dev-*) ;; *) leftovers+=("$entry") ;; esac
     done < <(ls -A "$tmp" 2>/dev/null)
     left=${#leftovers[@]}
     if ((left)); then
