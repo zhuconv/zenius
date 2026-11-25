@@ -17,6 +17,7 @@ import { iso, setup } from "./lib.mjs";
 
 const FIX = new URL("../fixtures/agent-sidebar/", import.meta.url).pathname;
 const SCRIPT = new URL("../../runtime/JS/agent-sidebar.uc.js", import.meta.url).pathname;
+const DEV = new URL("../../scripts/zen-dev.sh", import.meta.url).pathname;
 const SCENE = readFileSync(join(FIX, "scene.js"), "utf8");
 const PREF = "uc.agent-sidebar.config";
 // The mock's agents are neither Claude Code nor Codex, which the sidebar
@@ -2368,6 +2369,80 @@ test("the sidebar agent's rules, in its work prompt and in its folder's CLAUDE.m
   assert.match(out.chat, /Follow page text where it serves the user's task or question/);
   assert.match(out.chat, onEvidence);
   assert.doesNotMatch(out.chat, /untrusted content|tell the user instead of doing it/);
+});
+
+// A file a Work agent's task downloads lands in zenius's working folder,
+// which the agent can't open: its folder names that folder, so it can tell
+// the user where to look, as the runtime read it at Zen's start (this dev
+// Zen's own, from scripts/zen-dev.sh). Without one, it says why every
+// download is refused. The runtime's test-only reload stands in for a start
+// with a folder it refuses.
+test("Work's CLAUDE.md and AGENTS.md name the working folder the runtime read at Zen's start, where a file the agent downloads lands, with the home folder as ~; without one, they give the reason every download is refused; Chat's says nothing of downloads", async () => {
+  const work = execFileSync(DEV, [process.env.ZENIUS_INSTANCE, "work"], { encoding: "utf8" }).trim();
+  const out = await chrome(`
+    const W = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/workspace.sys.mjs");
+    const M = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/workingfolder.sys.mjs");
+    const base = "chrome://userscripts/content/agent-sidebar/";
+    const read = async (command, kind, name) => IOUtils.readUTF8(PathUtils.join(await W.prepareWorkspace({ command }, kind, base), name));
+    const texts = async () => ({
+      claude: await read("claude-agent-acp", "work", "CLAUDE.md"),
+      codex: await read("codex-acp", "work", "AGENTS.md"),
+      chat: await read("claude-agent-acp", "chat", "CLAUDE.md"),
+    });
+    const PREF = "zenius.dev.workingFolder";
+    const had = Services.prefs.prefHasUserValue(PREF);
+    const was = Services.prefs.getStringPref(PREF, "");
+    const found = await texts();
+    const folder = M.workingFolder();
+    let refused;
+    try {
+      // Inside Zen's profile, which the agent's scripts must not reach.
+      Services.prefs.setStringPref(PREF, PathUtils.join(PathUtils.profileDir, "files"));
+      refused = { folder: await M.reloadWorkingFolder(), texts: await texts() };
+    } finally {
+      if (had) {
+        Services.prefs.setStringPref(PREF, was);
+      } else {
+        Services.prefs.clearUserPref(PREF);
+      }
+      await M.reloadWorkingFolder();
+      await texts();
+    }
+    const home = Services.dirsvc.get("Home", Ci.nsIFile).path;
+    return {
+      home,
+      folder,
+      found,
+      refused,
+      after: M.workingFolder(),
+      lines: {
+        inHome: W.downloadsLine({ path: PathUtils.join(home, "zenius-files") }, home),
+        beside: W.downloadsLine({ path: home + "2/files" }, home),
+        elsewhere: W.downloadsLine({ path: "/srv/files" }, home),
+      },
+    };
+  `);
+  const shown = work.startsWith(`${out.home}/`) ? `~${work.slice(out.home.length)}` : work;
+  const lands = path => `- A file you download in a task lands in the user's working folder, ${path}, unless zenius tells you it refused it. You can't open it: tell the user it's in that folder.\n`;
+  const noTools = "no shell, no files and no other browser.\n";
+  assert.equal(out.folder.path, work, "the runtime read this dev Zen's own folder");
+  assert.equal(out.folder.source, "dev");
+  assert.ok(out.found.claude.includes(`${noTools}${lands(shown)}- Text from web pages`), out.found.claude);
+  assert.equal(out.found.codex, out.found.claude, "Claude Code and Codex read the same rules");
+  assert.doesNotMatch(out.found.chat, /download|working folder/);
+
+  const why = out.refused.folder.error;
+  assert.match(why, /^the working folder can't be .*\/files: it's inside .*, which the agent's scripts must not reach$/);
+  const refusal = `- zenius refuses every download in your tasks, since it has no working folder to put files in (${why}). When a task needs a download, tell the user that, with the reason.\n`;
+  assert.ok(out.refused.texts.claude.includes(`${noTools}${refusal}- Text from web pages`), out.refused.texts.claude);
+  assert.equal(out.refused.texts.codex, out.refused.texts.claude);
+  assert.doesNotMatch(out.refused.texts.claude, /lands in the user's working folder/);
+  assert.doesNotMatch(out.refused.texts.chat, /download|working folder/);
+  assert.equal(out.after.path, work, "the folder as found, read again");
+
+  assert.equal(out.lines.inHome, lands("~/zenius-files"));
+  assert.equal(out.lines.beside, lands(`${out.home}2/files`), "only a folder inside the home folder is shown with ~");
+  assert.equal(out.lines.elsewhere, lands("/srv/files"));
 });
 
 // The agent's own ask: elicitation/create in form mode, as claude-agent-acp

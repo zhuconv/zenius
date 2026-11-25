@@ -750,6 +750,13 @@ read.
   `.claude/settings.json`) are written afresh right before each session
   starts, not only at startup, and read back afterwards. If that fails, no
   agent starts.
+- Work's `CLAUDE.md` and `AGENTS.md` name the working folder, where a file
+  the agent's task downloads lands, so the agent, which can't open files,
+  tells the user where to look. Without a working folder, they give the
+  reason every download is refused. The sidebar takes the folder from the
+  runtime's `loadWorkingFolder()`, which reads it once per run of Zen, so
+  a change of folder reaches the agents at the next start, as it does the
+  downloads.
 - The zenius-only hook stays in zenius's installed code
   (`chrome/JS/agent-sidebar/…/zenius-only.mjs`) and is never copied into a
   workspace. settings.json names it by its absolute path, quoted, and the
