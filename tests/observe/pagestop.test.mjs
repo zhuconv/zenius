@@ -14,7 +14,7 @@ let site;
 // is done with the page.
 const LOOP_START_MS = 500;
 const PAGE = `<!doctype html><meta charset=utf-8><title>page stop</title><body><script>
-window.__loop = { iters: 0, done: false, last: 0 };
+window.__loop = { iters: 0, done: false, last: 0, began: 0 };
 window.spin = ms => {
   const end = Date.now() + ms;
   while (Date.now() < end) {}
@@ -24,6 +24,7 @@ const kind = new URLSearchParams(location.search).get("loop");
 if (kind) {
   setTimeout(() => {
     const s = window.__loop;
+    s.began = Date.now();
     const end = Date.now() + 15000;
     while (Date.now() < end) {
       const f = document.createElement("iframe");
@@ -62,31 +63,63 @@ const pageWorld = (page, code) => env.call("dev.evalContent", { ...page.P, privi
 const OBSERVE = `const M = ChromeUtils.importESModule("chrome://userscripts/content/zenius/methods/observe.sys.mjs");
   const browser = ctx.resolvePage(arg).browser;`;
 
+// The call goes this long after the page's loop is due to begin. A busy
+// machine can run the page's timer late, and a call that comes before the
+// loop isn't held by it at all.
+const SLACK_MS = 1500;
+
+/**
+ * An evaluate sent while the page's own loop (`kind`) runs: the call's
+ * outcome (when the agent's code ran, or the error's code), how long it
+ * took, and the loop's record once the page answers. `held` says whether
+ * the loop held the call; one whose timer ran past the call didn't, and
+ * then the case never happened.
+ */
+async function overrun(page, kind) {
+  await page.goto(url(`/?loop=${kind}`));
+  await sleep(LOOP_START_MS + SLACK_MS);
+  const t0 = Date.now();
+  const { value: outcome, ms } = await timed(() =>
+    page.call("page.evaluate", { fn: "Date.now()", isFunction: false, responseTimeout: 2000 }).then(
+      v => v,
+      e => e.code
+    )
+  );
+  const loop = await pageGlobal(page, "__loop");
+  // Held: the agent's code ran only once the loop had begun, or not at all.
+  const held = loop.began > 0 && (typeof outcome !== "number" || outcome >= loop.began);
+  return { outcome, ms, loop, t0, held };
+}
+
+/** What a failure says of the case: the call's outcome and the loop's times, from when the call was sent. */
+function told({ outcome, ms, loop, t0 }) {
+  const call =
+    typeof outcome === "number"
+      ? `the agent's code ran at ${outcome - t0} ms and the call took ${Math.round(ms)} ms`
+      : `the call gave ${outcome} after ${Math.round(ms)} ms`;
+  const began = loop.began ? `began at ${loop.began - t0} ms and ran ${loop.last - loop.began} ms` : "hadn't begun when it was read";
+  return `${call}; the page's loop ${began}`;
+}
+const NOT_HELD = "the page's loop began after the call (its timer ran late), so nothing held the call";
+
 test("an evaluate that overruns while the page's own loop makes frames ends that loop, and the call has its result", () =>
   env.inSpace("page stop frames", async page => {
-    await page.goto(url("/?loop=remove"));
-    await sleep(LOOP_START_MS + 300);
-    const { value, ms } = await timed(() => page.call("page.evaluate", { fn: "1 + 1", isFunction: false, responseTimeout: 2000 }));
-    assert.equal(value, 2);
-    assert.ok(ms < 2000, `took ${ms} ms`);
-    const loop = await pageGlobal(page, "__loop");
-    assert.equal(loop.done, false, "the page's loop ran to its end");
+    const run = await overrun(page, "remove");
+    assert.ok(run.held, `${NOT_HELD}: ${told(run)}`);
+    assert.equal(typeof run.outcome, "number", told(run));
+    assert.ok(run.ms < 2000, told(run));
+    assert.equal(run.loop.done, false, `the page's loop ran to its end: ${told(run)}`);
   }));
 
 test("the stops go on past the call until the page answers: a page that only appends frames takes hundreds", () =>
   env.inSpace("page stop appends", async page => {
-    await page.goto(url("/?loop=append"));
-    await sleep(LOOP_START_MS + 300);
-    const t0 = Date.now();
     // In time for the call or after it: the stops go on up to 5 s.
-    const outcome = await page.call("page.evaluate", { fn: "1 + 1", isFunction: false, responseTimeout: 2000 }).then(
-      v => v,
-      e => e.code
-    );
-    assert.ok(outcome === 2 || outcome === "ZEN_PAGE_EVALUATION_TIMED_OUT", `the call gave ${outcome}`);
-    const loop = await pageGlobal(page, "__loop");
-    assert.equal(loop.done, false, "the page's loop ran to its end");
-    assert.ok(loop.last - t0 < 2000 + 5000, `the loop ran ${loop.last - t0} ms past the call`);
+    const run = await overrun(page, "append");
+    const { outcome, loop, t0 } = run;
+    assert.ok(run.held, `${NOT_HELD}: ${told(run)}`);
+    assert.ok(typeof outcome === "number" || outcome === "ZEN_PAGE_EVALUATION_TIMED_OUT", told(run));
+    assert.equal(loop.done, false, `the page's loop ran to its end: ${told(run)}`);
+    assert.ok(loop.last - t0 < 2000 + 5000, `the loop ran ${loop.last - t0} ms past the call: ${told(run)}`);
     // Gecko ends only code whose global is a page's window, and zenius's
     // install runs none: the frame being made when the loop was ended has
     // every guard. Told by how each behaves, with nothing opened, written,
