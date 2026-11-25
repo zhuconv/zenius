@@ -314,7 +314,7 @@ export const API_SCHEMA: readonly ApiEntry[] = [
   {
     name: "Download.path",
     signature: "await download.path()",
-    summary: "Wait for completion and return the round-local temporary file path.",
+    summary: "Wait for completion and return the absolute path of the finished file in the working folder.",
   },
   {
     name: "Download.failure",
@@ -329,7 +329,7 @@ export const API_SCHEMA: readonly ApiEntry[] = [
   {
     name: "Download.delete",
     signature: "await download.delete()",
-    summary: "Delete this download's round-local temporary files.",
+    summary: "Wait for completion and delete this download's file from the working folder.",
   },
   {
     name: "Page.waitForTimeout",
