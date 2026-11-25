@@ -19,6 +19,15 @@
 #                                     its zen binary; list the copies; remove every copy that no
 #                                     Zen runs from
 #
+# The log, logs/<name>.log in ~/.zenius-dev, holds what Zen prints from its
+# latest start; "log" prints it. Each earlier start's log is kept too: the
+# core suite restarts Zen between tests, and a failing test's lines must
+# outlive the starts after it. At each start the last log moves into
+# logs/<name>/, named by the time its start began (UTC), as
+# <YYYYMMDDTHHMMSSZ>.log; the ones before it are gzipped. An instance keeps
+# its newest ZENIUS_KEEP_LOGS (default 50), and none stays past 3 days,
+# whichever instance's it is.
+#
 # On the Mac a dev Zen never runs the user's Zen.app itself, but a copy with
 # an identity of its own, made once per Zen version under
 # ~/.zenius-dev/app.noindex/ (see ensure_dev_app). ZEN_APP=<app> copies
@@ -99,6 +108,8 @@ PROFILE=$DEV/profiles/$NAME
 PIDFILE=$DEV/run/$NAME.pid
 WATCHDOG=$DEV/run/$NAME.watchdog
 LOG=$DEV/logs/$NAME.log
+# Earlier starts' logs (keep_log).
+KEPT_LOGS=$DEV/logs/$NAME
 CRASH_LOG=$DEV/logs/startup-crashes.log
 CRASH_SIGNAL=
 CRASH_WHAT=
@@ -875,6 +886,42 @@ EOF
   done
 }
 
+# Moves the last start's log into KEPT_LOGS before a launch writes a new one,
+# named by the time that start began (its first line says), or by now for a
+# log without that line. Then gzips the ones before it and keeps the
+# instance's newest ZENIUS_KEEP_LOGS. A step that fails costs only that log:
+# the start goes on.
+keep_log() {
+  [[ -s $LOG ]] || return 0
+  local keep=50 stamp file n=1 old
+  # Base 10: a leading 0 would read as octal, and 08 would stop the start.
+  [[ ${ZENIUS_KEEP_LOGS:-} =~ ^[0-9]{1,6}$ ]] && keep=$((10#$ZENIUS_KEEP_LOGS))
+  (umask 077 && mkdir -p "$KEPT_LOGS") || return 0
+  stamp=$(head -n 1 "$LOG" | sed -n 's/^\[zen-dev\] started at \([0-9]\{4\}\)-\([0-9]\{2\}\)-\([0-9]\{2\}\)T\([0-9]\{2\}\):\([0-9]\{2\}\):\([0-9]\{2\}\)Z.*/\1\2\3T\4\5\6Z/p') || stamp=
+  [[ -n $stamp ]] || stamp=$(date -u +%Y%m%dT%H%M%SZ)
+  # Two starts in one second: the later one's gets -2, -3 and so on.
+  file=$KEPT_LOGS/$stamp.log
+  while [[ -e $file || -e $file.gz ]]; do
+    n=$((n + 1))
+    file=$KEPT_LOGS/$stamp-$n.log
+  done
+  mv -f "$LOG" "$file" || return 0
+  for old in "$KEPT_LOGS"/*.log; do
+    if [[ $old != "$file" && -f $old ]]; then gzip -q -f "$old" || true; fi
+  done
+  # Newest first, by when each was last written: the rest past the newest
+  # $keep go.
+  ls -t "$KEPT_LOGS" 2>/dev/null | tail -n +$((keep + 1)) | while IFS= read -r old; do rm -f "$KEPT_LOGS/$old"; done || true
+}
+
+# Drops every instance's kept logs after 3 days, so a name no longer started
+# (a removed checkout's) doesn't keep them for good; then the folders left
+# empty that long, never one another start has just made.
+expire_kept_logs() {
+  find "$DEV/logs" -mindepth 2 -maxdepth 2 -type f \( -name '*.log' -o -name '*.log.gz' \) -mmin +4320 -exec rm -f {} + 2>/dev/null || true
+  find "$DEV/logs" -mindepth 1 -maxdepth 1 -type d -empty -mmin +4320 -exec rmdir {} + 2>/dev/null || true
+}
+
 # One launch. Returns 0 once the runtime is ready, 2 if Zen died of a signal
 # before that (CRASH_SIGNAL holds it), 3 if its start stalled before the
 # runtime's first line (STALL_FILE names its threads' state), 1 otherwise.
@@ -884,7 +931,13 @@ launch() {
   local args=(--profile "$PROFILE" --no-remote)
   [[ -n ${ZENIUS_INSTALLED:-} ]] || args+=(-purgecaches)
   [[ ${1:-} == --headed ]] || args+=(--headless)
-  : > "$LOG"
+  keep_log
+  expire_kept_logs
+  # The start line, which keep_log names the file by once the next start
+  # moves it.
+  local how=headless
+  [[ ${1:-} == --headed ]] && how=headed
+  printf '[zen-dev] started at %s: %s, %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$NAME" "$how" >"$LOG"
   # What Zen starts (the sidebar's agents and their zenius servers) writes
   # its files in the instance's working folder, never the user's, and finds
   # this checkout's plain zenius first on PATH: an installed sandboxed

@@ -57,6 +57,9 @@ for (let i = 2; i < process.argv.length; i++) {
 if (!["restart", "edge", "crash"].includes(opts.case)) throw new Error("--case is restart, edge or crash");
 if (!["default", "0"].includes(opts.startupPage)) throw new Error("--startup-page is default or 0");
 const name = opts.name ?? `zen-eval-restart-${opts.case}${opts.startupPage === "0" ? "-p0" : ""}`;
+// zen-dev.sh's names only: the cleanup removes folders named after it, and
+// "--name .." would name the dev home itself.
+if (!/^[a-z0-9][a-z0-9_-]*$/.test(name) || name === "default") throw new Error("--name must match [a-z0-9][a-z0-9_-]*, not default, as zen-dev.sh's names do");
 const profile = join(DEV_HOME, "profiles", name);
 const stateDir = join(homedir(), ".zenius", "state", name);
 
@@ -409,6 +412,8 @@ try {
     rmSync(join(homedir(), ".zenius", "run", `${name}.sock`), { force: true });
     rmSync(join(homedir(), ".zenius", "instances", `${name}.json`), { force: true });
     rmSync(join(DEV_HOME, "logs", `${name}.log`), { force: true });
+    // and the logs of its earlier starts, which zen-dev.sh keeps.
+    rmSync(join(DEV_HOME, "logs", name), { recursive: true, force: true });
     rmSync(join(DEV_HOME, "run", `${name}.pid`), { force: true });
   }
   if (devEnv.ZENIUS_DEV_PREFS) rmSync(devEnv.ZENIUS_DEV_PREFS, { force: true });
