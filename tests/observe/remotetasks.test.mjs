@@ -27,6 +27,7 @@ const sleep = ms => new Promise(r => win.setTimeout(r, ms));
 
 let env;
 let dir;
+let cliWas = null; // the dev profile's own CLI pref, put back at the end
 const chrome = (code, arg) => env.chrome(PRELUDE + code, arg);
 const lines = file => (existsSync(file) ? readFileSync(file, "utf8").trim().split("\n").filter(Boolean).map(l => JSON.parse(l)) : []);
 const received = method => lines(join(dir, "mock.log")).filter(m => m.method === method);
@@ -105,15 +106,17 @@ before(async () => {
   dir = mkdtempSync(join(tmpdir(), "zenius-remote-"));
   mkdirSync(join(dir, "agent-cwd"));
   writeFileSync(join(dir, "config.json"), JSON.stringify(config()));
-  await chrome(
-    `Services.prefs.setStringPref("uc.agent-sidebar.config", arg.config);
-     Services.prefs.setStringPref("uc.agent-sidebar.zenius-cli", arg.cli);
+  cliWas = await chrome(
+    `const cliPref = "uc.agent-sidebar.zenius-cli";
+     const cliWas = Services.prefs.prefHasUserValue(cliPref) ? Services.prefs.getStringPref(cliPref) : null;
+     Services.prefs.setStringPref("uc.agent-sidebar.config", arg.config);
+     Services.prefs.setStringPref(cliPref, arg.cli);
      Services.prefs.setBoolPref("zenius.agentSidebar.allowUnknownAgents", true);
      Services.prefs.setIntPref(arg.window, arg.seconds);
      Services.prefs.clearUserPref("uc.agent-sidebar.harness");
      await A.loadConfig();
      if (!A.base) throw new Error("the sidebar's service never started (agent-sidebar.uc.js)");
-     return true;`,
+     return cliWas;`,
     { config: join(dir, "config.json"), cli: CLI, window: PREFS.window, seconds: WINDOW_S }
   );
 });
@@ -127,10 +130,13 @@ after(async () => {
   await chrome(
     `for (const conv of [...A.tasks.values()]) A.removeTask(conv);
      for (const conn of [...A.conns.values()]) A.stop(conn);
-     for (const p of ["uc.agent-sidebar.config", "uc.agent-sidebar.zenius-cli", "zenius.agentSidebar.allowUnknownAgents", ...arg]) Services.prefs.clearUserPref(p);
+     for (const p of ["uc.agent-sidebar.config", "zenius.agentSidebar.allowUnknownAgents", ...arg.prefs]) Services.prefs.clearUserPref(p);
+     // zen-dev.sh's own, which names the checkout's plain CLI.
+     if (arg.cliWas === null) Services.prefs.clearUserPref("uc.agent-sidebar.zenius-cli");
+     else Services.prefs.setStringPref("uc.agent-sidebar.zenius-cli", arg.cliWas);
      A.config = null;
      return true;`,
-    Object.values(PREFS)
+    { prefs: Object.values(PREFS), cliWas }
   ).catch(() => {});
   try {
     await removeScratch(dir);

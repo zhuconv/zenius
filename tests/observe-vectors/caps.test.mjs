@@ -4,6 +4,8 @@
 // task ends.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
+import { readdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { checkView, pageHelpers, setup } from "../observe/lib.mjs";
 
 let env;
@@ -227,6 +229,15 @@ const downloadState = space =>
     { space, DOWNLOADS }
   );
 
+/** This dev profile's working folder, where finished downloads move. */
+const workingFolder = async () =>
+  (
+    await env.chrome(
+      `const W = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/workingfolder.sys.mjs");
+       return await W.loadWorkingFolder();`
+    )
+  ).path;
+
 /** Let the fixture site start downloads without a click, or forget that again. */
 const automaticDownloads = allow =>
   env.chrome(
@@ -243,10 +254,13 @@ const burst = (n, tag) =>
 
 const refusedDownloads = events => events.filter(e => e.method === "Zenius.refused" && e.params.kind === "download");
 
-test("a page firing downloads in a loop stops at the task's cap of 50, and finishing the task deletes its files", async () => {
+test("a page firing downloads in a loop stops at the task's cap of 50; finishing the task forgets them, and their files stay in the working folder", async () => {
   const userView = await env.call("dev.viewState");
   const { id } = await env.call("spaces.create", { name: `caps downloads ${Date.now() % 100000}` });
   const page = pageHelpers(env, id, "p1");
+  const folder = await workingFolder();
+  const held = new Set(readdirSync(folder));
+  const added = () => readdirSync(folder).filter(name => !held.has(name));
   // A site the user let download many files: Firefox's own guard is off,
   // and zenius's cap is all that stops it.
   await automaticDownloads(true);
@@ -270,24 +284,29 @@ test("a page firing downloads in a loop stops at the task's cap of 50, and finis
     for (const r of refused) {
       assert.match(
         r.params.message,
-        /^zenius refused a download from http:\/\/127\.0\.0\.1:\d+\/api\/download\?burst=\d+: the task holds 50 downloads, the most it may \(zenius\.observe\.downloads\.maxCount\)\. Save the downloads the task needs \(download\.saveAs\(\) or download\.path\(\)\), then delete them with download\.delete\(\) to make room, or ask the user to raise the limit\.$/
+        /^zenius refused a download from http:\/\/127\.0\.0\.1:\d+\/api\/download\?burst=\d+: the task holds 50 downloads, the most it may \(zenius\.observe\.downloads\.maxCount\)\. Its finished downloads are in the working folder, and download\.delete\(\) deletes one there: delete the ones the task no longer needs to make room, or ask the user to raise the limit\.$/
       );
     }
     assert.equal(events.filter(e => e.method === "Page.downloadWillBegin").length, 50);
-    // A refused download leaves no folder behind.
-    assert.equal(now.folders - start.folders, 50);
+    // Each finished one moved into the working folder, and left no staging
+    // folder; a refused one left nothing.
+    await until(() => added().length === 50, 5000);
+    await until(async () => (await downloadState(id)).folders === start.folders, 5000);
 
-    // Deleting makes room again.
+    // Deleting makes room again, and deletes its file.
     const one = events.find(e => e.method === "Page.downloadWillBegin").params.guid;
     await env.call("download.delete", { download: one });
     assert.equal((await downloadState(id)).count, 49);
+    assert.equal(added().length, 49);
 
     await env.call("spaces.finish", { space: id, keep: [] });
-    await until(async () => (await downloadState(id)).folders === start.folders, 5000);
-    assert.equal((await downloadState(id)).count, 0);
+    await until(async () => (await downloadState(id)).count === 0, 5000);
+    assert.equal(added().length, 49, "finishing the task took the files in the working folder");
   } finally {
     await automaticDownloads(false);
     await env.call("spaces.finish", { space: id, keep: [] }).catch(() => {});
+    // The test's own cleanup: the user's files would stay.
+    for (const name of added()) rmSync(join(folder, name), { force: true });
   }
   await checkView("caps downloads", userView, await env.call("dev.viewState"), {});
 });
@@ -319,7 +338,7 @@ test("a download that would take the task past its byte cap is canceled and its 
       if (w.value) {
         // Known to the agent before it grew too big: it failed, for that reason.
         assert.equal(await env.call("download.failure", { download: w.value.download }), r.params.message);
-        const e = await env.fail("download.read", { download: w.value.download });
+        const e = await env.fail("download.path", { download: w.value.download });
         assert.equal(e.code, "ZEN_DOWNLOAD_FAILED");
       } else {
         assert.equal(w.error.code, "ZEN_DOWNLOAD_FAILED", w.error.message);

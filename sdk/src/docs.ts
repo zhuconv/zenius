@@ -54,7 +54,6 @@ export const RUNTIME_LIMITS = {
     value: 32767,
     pref: "zenius.input.agentPointerId",
   },
-  outputDays: { file: "sdk/sandbox/launcher.sh", name: "OUT_KEEP_DAYS", value: 7 },
 } satisfies Record<string, SourcedLimit>;
 
 /** What each MCP tool calls in the SDK, for an error's next step, which names the script's call. */
@@ -205,8 +204,9 @@ function filesBody(): string {
     "",
     "page.screenshot({ path }), page.fetch()'s saveAs and download.saveAs() write the file the path names; page.setInputFiles() and fileChooser.setFiles() read the files their paths name and send the bytes. The CLI reads and writes these files, never Zen.",
     "",
-    "- The plain CLI runs a script with the user's own access to files. Give absolute paths, as in Ego.",
-    `- The sandboxed CLI (zenius --version ends in sandboxed) keeps a script to a few folders. A script writes only to ${writeFolders("process.env.ZENIUS_OUTPUT_DIR")}. A relative path lands in the output folder, the files a run wrote are listed after its output under [zenius:files], and a run's output folder is kept ${RUNTIME_LIMITS.outputDays.value} days. A script reads files to upload only in ${readFolders("the folder the install lets scripts read (install-cli.sh --read-dir, such as ~/Downloads; process.env.ZENIUS_READ_DIR)")}, and a link that leads outside them is refused too.`,
+    "- The working folder, ~/zenius-files unless the install set another, is where a relative path lands, and where a finished download is: download.path() returns its path there, and it stays after the script ends. The files a run wrote there are listed after its output under [zenius:files].",
+    "- The plain CLI runs a script with the user's own access to files.",
+    `- The sandboxed CLI (zenius --version ends in sandboxed) keeps a script to a few folders. A script writes only to ${writeFolders("process.env.ZENIUS_WORKING_DIR")}. A script reads files to upload only in ${readFolders("the folder the install lets scripts read (install-cli.sh --read-dir, such as ~/Downloads; process.env.ZENIUS_READ_DIR)")}, and a link that leads outside them is refused too.`,
     `- An upload sends at most ${mb} MB in all. A folder's path uploads that one folder alone, at most ${UPLOAD_LIMIT_FILES.toLocaleString("en-US")} files.`,
     "",
     codeSection("ZEN_PATH_NOT_ALLOWED"),

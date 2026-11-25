@@ -101,6 +101,7 @@ import { PUBLIC_CONTROL, canaryPrompt, canaryScript, localTools, scoreCanary } f
 import { runJudge, trajectory } from "./judge.mjs";
 import { removeEmptySessionEnv, removeRunProjectDir, removeStaleSessionFiles } from "./sessions.mjs";
 import { COMMON_TAIL, TASKS } from "./tasks.mjs";
+import { guardHome } from "../lib/scratch-home.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
 const HOOK = join(ROOT, "tests", "live", "allow-cli.mjs");
@@ -236,13 +237,21 @@ function makeRun(id) {
   // The first install builds the bundle when the checkout can; the rest reuse it.
   const install = spawnSync(INSTALL, ["--sandbox", "--skill", "--output-dir", run.out], {
     cwd: root,
-    env: {
-      ...cleanEnv(run.tmp, { PATH: `${dirname(NODE)}:${BASE_PATH}` }),
-      ZENIUS_CLI_DIR: run.cli,
-      ZENIUS_BIN_DIR: dirname(run.launcher),
-      ZENIUS_SKILL_DIRS: run.skills,
-      ...(bundleBuilt && { ZENIUS_INSTALL_NO_BUILD: "1" }),
-    },
+    // An installer writes its zenius home's config.json and makes the working
+    // folder, so it runs only with a HOME and ZENIUS_HOME that aren't the
+    // account's own (tests/lib/scratch-home.mjs). With the real ones it
+    // refuses, until this run moves to a scratch home whose run folder is the
+    // dev Zen's (scratchHome's shareRuntime).
+    env: guardHome(
+      {
+        ...cleanEnv(run.tmp, { PATH: `${dirname(NODE)}:${BASE_PATH}` }),
+        ZENIUS_CLI_DIR: run.cli,
+        ZENIUS_BIN_DIR: dirname(run.launcher),
+        ZENIUS_SKILL_DIRS: run.skills,
+        ...(bundleBuilt && { ZENIUS_INSTALL_NO_BUILD: "1" }),
+      },
+      "tests/live/run.mjs's install-cli.sh"
+    ),
     encoding: "utf8",
     timeout: 300_000,
   });

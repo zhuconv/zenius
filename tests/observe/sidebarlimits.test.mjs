@@ -38,6 +38,12 @@ async function until(fn, ms = 10000) {
 let env;
 let dir;
 let zenEnv = {}; // the canaries' values in Zen before the test
+// The CLI pref's value before the test: a dev profile names this checkout's
+// CLI (scripts/zen-dev.sh), which goes back after.
+let cliWas = null;
+// This Zen's instance, zenius home and working folder, as an agent's
+// process and its zenius server get them (workspace.sys.mjs's zeniusEnv).
+let zenius = {};
 const chrome = (code, arg) => env.chrome(PRELUDE + code, arg);
 const lines = file => (existsSync(file) ? readFileSync(file, "utf8").trim().split("\n").filter(Boolean).map(l => JSON.parse(l)) : []);
 const requests = (file, method) => lines(file).filter(e => e.event === "request" && e.method === method).map(e => e.params);
@@ -110,19 +116,26 @@ before(async () => {
   mkdirSync(join(dir, "codex-home"));
   writeFileSync(join(dir, "codex-home", "config.toml"), '[mcp_servers.node_repl]\ncommand = "node"\n\n[mcp_servers."google-slides"]\ncommand = "x"\n');
   writeFileSync(join(dir, "config.json"), JSON.stringify(config(), null, 2));
-  zenEnv = await chrome(
+  const found = await chrome(
     `const was = {};
      for (const [k, v] of Object.entries(arg.canaries)) {
        was[k] = Services.env.exists(k) ? Services.env.get(k) : "";
        Services.env.set(k, v);
      }
+     const cliPref = "uc.agent-sidebar.zenius-cli";
+     const cliWas = Services.prefs.prefHasUserValue(cliPref) ? Services.prefs.getStringPref(cliPref) : null;
      Services.prefs.setStringPref("uc.agent-sidebar.config", arg.config);
-     Services.prefs.setStringPref("uc.agent-sidebar.zenius-cli", arg.cli);
+     Services.prefs.setStringPref(cliPref, arg.cli);
      await A.loadConfig();
      if (!A.base) throw new Error("the sidebar's service never started (agent-sidebar.uc.js)");
-     return was;`,
+     const zenius = { ZENIUS_INSTANCE: Services.prefs.getStringPref("zenius.instance", "default") };
+     for (const name of ["ZENIUS_HOME", "ZENIUS_WORKING_DIR"]) {
+       if (Services.env.get(name)) zenius[name] = Services.env.get(name);
+     }
+     return { was, cliWas, zenius };`,
     { canaries: CANARIES, config: join(dir, "config.json"), cli: CLI }
   );
+  ({ was: zenEnv, cliWas, zenius } = found);
 });
 
 after(async () => {
@@ -133,9 +146,11 @@ after(async () => {
      }
      for (const conn of [...A.conns.values()]) A.stop(conn);
      for (const [k, v] of Object.entries(arg.was)) Services.env.set(k, v);
-     for (const p of ["uc.agent-sidebar.config", "uc.agent-sidebar.zenius-cli", "zenius.agentSidebar.allowCodex"]) Services.prefs.clearUserPref(p);
+     for (const p of ["uc.agent-sidebar.config", "zenius.agentSidebar.allowCodex"]) Services.prefs.clearUserPref(p);
+     if (arg.cliWas === null) Services.prefs.clearUserPref("uc.agent-sidebar.zenius-cli");
+     else Services.prefs.setStringPref("uc.agent-sidebar.zenius-cli", arg.cliWas);
      A.config = null;`,
-    { was: zenEnv }
+    { was: zenEnv, cliWas }
   ).catch(() => {});
   try {
     await removeScratch(dir);
@@ -166,7 +181,7 @@ test("a Claude Code session's limits are set in memory over config.json's: setti
   assert.equal(chatParams.cwd, join(ws, "chat"));
   assert.deepEqual(
     chatParams.mcpServers.map(s => [s.name, s.command, s.args, s.env.map(e => e.name)]),
-    [["zenius", CLI, ["mcp", "--docs-only"], ["ZENIUS_INSTANCE"]]]
+    [["zenius", CLI, ["mcp", "--docs-only"], Object.keys(zenius)]]
   );
   const c = chatParams._meta.claudeCode.options;
   assert.deepEqual(c.settingSources, ["project"]);
@@ -535,8 +550,15 @@ test("the agent's process gets none of Zen's environment but a few names, starts
   // the chat's thinking row shows (zen-sidebar, 2026-11-22): this process's
   // only, never the user's ~/.claude.
   assert.equal(start.env.CLAUDE_CODE_THINKING_DISPLAY, "summarized");
+  // Its own zenius commands reach this Zen and write in its working folder,
+  // as its zenius server does: never the user's own Zen, the default
+  // instance (config.json here names none).
+  for (const name of ["ZENIUS_INSTANCE", "ZENIUS_HOME", "ZENIUS_WORKING_DIR"]) {
+    assert.equal(start.env[name], zenius[name], name);
+  }
   const allowed = new Set([
     ...Object.keys(config().agents.claude.env),
+    ...Object.keys(zenius),
     "CLAUDE_CODE_THINKING_DISPLAY",
     "HOME", "USER", "LOGNAME", "SHELL", "PATH", "TMPDIR", "TZ", "LANG", "LANGUAGE", "__CF_USER_TEXT_ENCODING",
     "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "no_proxy", "all_proxy",
@@ -666,7 +688,7 @@ test("Codex is on by default, its limits merged in memory with zenius's server i
   }
   // Chat's process has zenius's docs alone, with no chat's task or uid.
   assert.deepEqual(chatConfig.mcp_servers.zenius.args, ["mcp", "--docs-only"]);
-  assert.deepEqual(Object.keys(chatConfig.mcp_servers.zenius.env), ["ZENIUS_INSTANCE"]);
+  assert.deepEqual(Object.keys(chatConfig.mcp_servers.zenius.env), Object.keys(zenius));
   assert.deepEqual(workConfig.mcp_servers.zenius.args, ["mcp"]);
   // Codex 0.169.0 offers request_user_input in its Default mode only with
   // this feature: Work's agent asks with it (AgentService's onAsk); Chat has
@@ -795,7 +817,7 @@ test("a Work chat's live zenius task goes to its zenius server, at session/new a
     // one the chat names.
     assert.deepEqual(
       chat.mcpServers.map(s => [s.name, s.args, s.env.map(e => e.name)]),
-      [["zenius", ["mcp", "--docs-only"], ["ZENIUS_INSTANCE"]]],
+      [["zenius", ["mcp", "--docs-only"], Object.keys(zenius)]],
       "a Chat's zenius server is its docs alone, with no task"
     );
     await env.call("spaces.finish", { space: space.id, keep: [] });
@@ -1095,4 +1117,40 @@ test("'none' and a config.json that can't be read leave no agents, and an agent 
   assert.match(result.missing, /could not read/);
   assert.deepEqual(result.missingList, []);
   assert.deepEqual(result.other, { ok: false, reason: "zenius can't hold this agent to the browser" });
+});
+
+test("every agent process and zenius server the sidebar starts in a dev Zen carries that Zen's instance, zenius home and working folder, never the user's own Zen's: Claude Code's process and Codex's, each Codex Work chat's own among them, and the zenius servers of new, resumed and forked sessions (a load takes a resume's params)", () => {
+  // The tests above started them all; this reads what the mock recorded.
+  assert.equal(zenius.ZENIUS_INSTANCE, process.env.ZENIUS_INSTANCE, "the dev Zen's own instance");
+  assert.notEqual(zenius.ZENIUS_INSTANCE, "default", "the user's own Zen's");
+  assert.ok(zenius.ZENIUS_WORKING_DIR, "a dev Zen has a working folder of its own (scripts/zen-dev.sh)");
+  const names = ["ZENIUS_INSTANCE", "ZENIUS_HOME", "ZENIUS_WORKING_DIR"];
+  const folders = env => Object.fromEntries(names.map(name => [name, env?.[name]]));
+  const want = folders(zenius);
+  const seen = { claude: { start: 0 }, codex: { start: 0 } };
+  for (const harness of ["claude", "codex"]) {
+    for (const e of lines(join(dir, `${harness}.log`))) {
+      if (e.event === "start") {
+        seen[harness].start++;
+        assert.deepEqual(folders(e.env), want, `${harness}'s process`);
+        if (harness === "codex") {
+          // Codex starts its MCP servers from CODEX_CONFIG, with only a few
+          // variables of the process's own.
+          assert.deepEqual(folders(JSON.parse(e.env.CODEX_CONFIG).mcp_servers.zenius?.env), want, "Codex's zenius server");
+        }
+      } else if (e.event === "request" && /^session\/(new|resume|load|fork)$/.test(e.method)) {
+        const server = e.params.mcpServers?.find(s => s.name === "zenius");
+        if (harness === "claude") {
+          assert.ok(server, `Claude Code's ${e.method} has zenius's server`);
+          assert.deepEqual(folders(Object.fromEntries(server.env.map(v => [v.name, v.value]))), want, `Claude Code's ${e.method}`);
+        } else {
+          assert.equal(server, undefined, "Codex's is in its process's CODEX_CONFIG");
+        }
+        seen[harness][e.method] = (seen[harness][e.method] ?? 0) + 1;
+      }
+    }
+  }
+  // Claude Code's Chat and Work sessions share its one process.
+  assert.ok(seen.claude.start >= 1 && seen.claude["session/new"] >= 2 && seen.claude["session/resume"] >= 1, JSON.stringify(seen));
+  assert.ok(seen.codex.start >= 3 && seen.codex["session/resume"] >= 1 && seen.codex["session/fork"] >= 1, JSON.stringify(seen));
 });

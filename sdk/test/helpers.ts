@@ -2,8 +2,11 @@
 // way to run the real CLI against one.
 
 import { spawn } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { guardHome } from "../../tests/lib/scratch-home.mjs";
 import { resetOutput } from "../src/output.ts";
 import { Round, setRound } from "../src/round.ts";
 import { RpcClient } from "../src/rpc.ts";
@@ -20,16 +23,21 @@ export async function withMock(body: (context: MockContext) => Promise<void>): P
   const round = new Round({ client });
   setRound(round);
   resetOutput();
+  // The install's config names the mock's working folder, where a relative
+  // path a script writes lands: never the user's own.
+  const home = process.env.ZENIUS_HOME;
+  process.env.ZENIUS_HOME = join(mock.dir, "zhome");
+  mkdirSync(process.env.ZENIUS_HOME, { mode: 0o700 });
+  writeFileSync(join(process.env.ZENIUS_HOME, "config.json"), `{\n  "workingFolder": "${mock.workingDir}"\n}\n`, { mode: 0o600 });
   try {
     await body({ mock, client, round });
   } finally {
     client.close();
     setRound(undefined);
     resetOutput();
+    if (home === undefined) delete process.env.ZENIUS_HOME;
+    else process.env.ZENIUS_HOME = home;
     await mock.stop();
-    // As the CLI does when a script ends: a download makes the round a
-    // folder in the temporary folder.
-    round.removeDownloadsFolder();
   }
 }
 
@@ -43,16 +51,19 @@ export function runCli(
   return new Promise((resolve, reject) => {
     const started = performance.now();
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const child = spawn(process.execPath, [...(options.nodeArgs ?? []), CLI, ...args], {
-      env: {
+    // The test process's HOME and ZENIUS_HOME are scratch ones (scratch-env.ts);
+    // a test may pass others, never the account's own.
+    const env = guardHome(
+      {
         ...process.env,
         ZENIUS_INSTANCE: "",
         ZENIUS_TIMING: "",
         ...(options.socketPath ? { ZENIUS_SOCKET: options.socketPath } : {}),
         ...options.env,
       },
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+      "runCli",
+    );
+    const child = spawn(process.execPath, [...(options.nodeArgs ?? []), CLI, ...args], { env, stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
     child.stdout.setEncoding("utf8").on("data", (chunk) => (stdout += chunk));

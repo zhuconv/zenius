@@ -82,7 +82,10 @@ curl -fsSL https://github.com/zhuconv/zenius/releases/latest/download/install.sh
 
 It downloads the latest release and checks its SHA-256. Then it installs
 zen(ius) into your Zen profile, the `zenius` command into `~/.local/bin`,
-and the zen(ius) skill for Claude Code and Codex. For Zen's sidebar, it adds
+and the zen(ius) skill for Claude Code and Codex. It makes `~/zenius-files`,
+the working folder, where your agent's downloads and the files its scripts
+write land; `| bash -s -- --working-dir <folder>` names another. For Zen's
+sidebar, it adds
 the two adapters that run your own Claude Code and Codex there: npm installs
 them into `~/.zenius/agents` at pinned versions, with no install scripts
 and none of the CLIs they would bundle. It prints each change and backs up

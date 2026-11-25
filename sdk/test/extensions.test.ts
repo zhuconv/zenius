@@ -11,6 +11,8 @@ import { join, sep } from "node:path";
 import { after, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { guardHome } from "../../tests/lib/scratch-home.mjs";
+
 const SDK = fileURLToPath(new URL("../", import.meta.url)).replace(/\/$/, "");
 const REPO = join(SDK, "..");
 
@@ -47,7 +49,7 @@ function build(sdk: string): string {
 }
 
 function zenius(bin: string, args: string[], cwd: string) {
-  const result = spawnSync(process.execPath, [bin, ...args], { cwd, encoding: "utf8", env: { ...process.env, ZENIUS_INSTANCE: "extensions-test" } });
+  const result = spawnSync(process.execPath, [bin, ...args], { cwd, encoding: "utf8", env: guardHome({ ...process.env, ZENIUS_INSTANCE: "extensions-test" }, "extensions.test") });
   return { code: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 

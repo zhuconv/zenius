@@ -13,6 +13,7 @@ import path from "node:path";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { connect } from "../../scripts/lib/rpc.mjs";
+import { guardHome, realPath } from "../lib/scratch-home.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const RUNTIME = path.join(ROOT, "runtime/JS");
@@ -38,12 +39,20 @@ let tmp;
 before(() => {
   tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "zenius-install-")));
 });
-after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+// Folders a case made unlistable (mode 000). rmSync can't remove one, even
+// an empty one, so after() gives each its mode back first.
+const unlistable = [];
+after(() => {
+  for (const folder of unlistable) {
+    fs.chmodSync(folder, 0o700);
+  }
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
 
 /** A fake HOME, ZENIUS_HOME and profile root for one test. */
 function sandbox(name) {
   const dir = path.join(tmp, name);
-  const s = { dir, home: path.join(dir, "home"), zhome: path.join(dir, "zenius") };
+  const s = { dir, home: path.join(dir, "home"), zhome: path.join(dir, "home", ".zenius") };
   fs.mkdirSync(s.home, { recursive: true });
   s.record = path.join(s.zhome, "install.json");
   s.profile = (pname = "profile") => {
@@ -56,7 +65,11 @@ function sandbox(name) {
   };
   s.run = (args, { script = path.join(ROOT, "scripts/install.sh"), env = {} } = {}) => {
     const fullEnv = { ...process.env, HOME: s.home, ZENIUS_HOME: s.zhome, ...env };
-    delete fullEnv.ZEN_BIN;
+    // ZEN_BIN only when a test names an app of its own.
+    if (!("ZEN_BIN" in env)) {
+      delete fullEnv.ZEN_BIN;
+    }
+    guardHome(fullEnv, "install.test.mjs");
     const r = spawnSync("bash", [script, ...args], { env: fullEnv, encoding: "utf8" });
     return { status: r.status, out: r.stdout, err: r.stderr };
   };
@@ -84,6 +97,95 @@ function tree(dir, prefix = "") {
 const readJSON = file => JSON.parse(fs.readFileSync(file, "utf8"));
 const mode = file => fs.statSync(file).mode & 0o777;
 const backupFrom = out => out.match(/backed up .* to (\S+)$/m)?.[1];
+
+/**
+ * tests/fixtures/working-folder.json: the working folder's rules as cases
+ * that every reader of them runs, install.sh here. Its "about" says how a
+ * case runs.
+ */
+const FIXTURE = JSON.parse(fs.readFileSync(path.join(ROOT, "tests/fixtures/working-folder.json"), "utf8"));
+/** config.json as the installers write it. */
+const naming = folder => `{\n  "workingFolder": "${folder}"\n}\n`;
+const lines = out => out.split("\n");
+
+/** A case's folder, entry or env value in sandbox `s`, with ~ as its HOME and `tokens` filled in. */
+function caseFiller(s, tokens) {
+  return text =>
+    text.replace(/^~(?=\/|$)/, s.home).replace(/\{(\w+)\}/g, (all, name) => {
+      assert.ok(name in tokens, `install.sh's cases have no ${all}`);
+      return tokens[name];
+    });
+}
+
+/** Root reads any folder, so a case with one that can't be listed proves nothing then. */
+const AS_ROOT = process.getuid?.() === 0;
+
+/** Makes a case's folders that can't be listed (mode 000), after its entries. */
+function makeUnlistable(folders, fill) {
+  for (const folder of folders ?? []) {
+    const p = fill(folder);
+    fs.mkdirSync(p, { recursive: true });
+    fs.chmodSync(p, 0);
+    unlistable.push(p);
+  }
+}
+
+/** A case's environment: the fixture's defaults, then the case's own, filled in. */
+const caseEnv = (c, fill) => Object.fromEntries(Object.entries({ ...FIXTURE.env, ...c.env }).map(([name, value]) => [name, fill(value)]));
+
+/** Makes a case's entries: 'x/' a folder, 'x' an empty file, 'x -> y' a link. One that's there stays. */
+function makeEntries(entries, fill) {
+  for (const entry of entries ?? []) {
+    const [from, to] = entry.split(" -> ");
+    const p = fill(from);
+    const bare = p.replace(/\/$/, "");
+    if (fs.lstatSync(bare, { throwIfNoEntry: false })) {
+      continue;
+    }
+    fs.mkdirSync(path.dirname(bare), { recursive: true });
+    if (to !== undefined) {
+      fs.symlinkSync(fill(to), bare);
+    } else if (p.endsWith("/")) {
+      fs.mkdirSync(bare);
+    } else {
+      fs.writeFileSync(bare, "");
+    }
+  }
+}
+
+const within = (p, folder) => p === folder || p.startsWith(`${folder}/`);
+
+/**
+ * install.sh's reason for refusing a case's folder, as it prints it:
+ * `folder` as given, and the folder the reason names by its real path.
+ */
+function refusal(c, folder, fill) {
+  const cant = `the working folder can't be ${folder}`;
+  switch (c.outcome) {
+    case "not-plain":
+      return `the working folder must be an absolute path with no double quote, backslash or control character: ${folder}`;
+    case "not-a-folder":
+    case "not-yours":
+      return `the working folder must be a folder of yours: ${folder}`;
+    case "no-parent":
+      return `the working folder's parent folder must exist: ${folder}`;
+    case "shared":
+      return `${cant}: it's your home folder, a temporary folder, or a folder above one`;
+    case "kept": {
+      const kept = realPath(fill(c.kept));
+      // A kept folder the folder is, or holds, comes first.
+      return `${cant}: ${within(kept, realPath(folder)) ? "it holds" : "it's inside"} ${kept}, which the agent's scripts must not reach`;
+    }
+    case "project":
+      return fs.lstatSync(path.join(realPath(folder), ".git"), { throwIfNoEntry: false })
+        ? `${cant}: it holds .git, so it's a project's folder`
+        : `${cant}: it holds .envrc, which direnv runs`;
+    case "worktree":
+      return `${cant}: it's inside a git work tree, ${realPath(fill(c.repo))}`;
+    default:
+      throw new Error(`${c.name}: no wording for the outcome ${c.outcome}`);
+  }
+}
 
 /** Write a tree under dir: a string is a file's text, an object a folder. */
 function writeTree(dir, spec) {
@@ -441,7 +543,10 @@ test("it warns, without stopping, when another Zen from the same app runs: how t
     // others, and the Dock never opens it: no warning there.
     // (Its own record, since one install record names one profile.)
     const devTarget = s.profile("home/.zenius-dev/profiles/target");
-    const d = s.run(["--profile", devTarget], { env: { ...env, ZENIUS_HOME: path.join(s.dir, "zenius-dev-target") } });
+    // ZENIUS_HOME elsewhere has no default working folder, so it's named.
+    const d = s.run(["--profile", devTarget, "--working-dir", path.join(s.home, "dev-files")], {
+      env: { ...env, ZENIUS_HOME: path.join(s.dir, "zenius-dev-target") },
+    });
     assert.equal(d.status, 0, d.err);
     assert.doesNotMatch(d.out, /another Zen/);
 
@@ -787,6 +892,7 @@ function checkoutWith(name, agent) {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(path.join(dir, "scripts"), { recursive: true });
     fs.copyFileSync(path.join(ROOT, "scripts/install.sh"), path.join(dir, "scripts/install.sh"));
+    fs.copyFileSync(path.join(ROOT, "scripts/working-folder.sh"), path.join(dir, "scripts/working-folder.sh"));
     fs.mkdirSync(path.join(dir, "runtime/JS"), { recursive: true });
     fs.copyFileSync(path.join(RUNTIME, "zenius.uc.js"), path.join(dir, "runtime/JS/zenius.uc.js"));
     fs.cpSync(path.join(RUNTIME, "zenius"), path.join(dir, "runtime/JS/zenius"), { recursive: true });
@@ -1024,6 +1130,235 @@ test("Undo leaves a sidebar the user put there after zenius's", () => {
   assert.ok(!fs.existsSync(prior));
 });
 
+// The working folder: where the agent's downloads land, named in
+// ZENIUS_HOME's config.json (scripts/working-folder.sh).
+
+test("install sets the working folder, ~/zenius-files unless --working-dir says, readable only by you; a reinstall keeps it, and uninstall leaves it with its files", () => {
+  const s = sandbox("working");
+  const p = s.profile();
+  const config = path.join(s.zhome, "config.json");
+  const files = path.join(s.home, "zenius-files");
+  const first = s.install(p);
+  assert.ok(lines(first.out).includes(`  set the working folder: ${files}, in ${config}`), first.out);
+  assert.ok(lines(first.out).includes(`  made ${files}, readable only by you`), first.out);
+  assert.equal(fs.readFileSync(config, "utf8"), naming(files), "byte for byte, as every reader reads it");
+  assert.equal(mode(config), 0o600);
+  assert.equal(mode(files), 0o700);
+  fs.writeFileSync(path.join(files, "report.pdf"), "a download");
+
+  const again = s.install(p);
+  assert.ok(lines(again.out).includes(`  the working folder stays ${files} (${config})`), again.out);
+  assert.doesNotMatch(again.out, /^ {2}(set|made) /m);
+
+  // Another folder: set, and made. The files stay where they were.
+  const work = path.join(s.home, "work");
+  const moved = s.install(p, "--working-dir", work);
+  assert.ok(lines(moved.out).includes(`  set the working folder: ${work}, in ${config}`), moved.out);
+  assert.ok(lines(moved.out).includes(`  made ${work}, readable only by you`), moved.out);
+  assert.equal(fs.readFileSync(config, "utf8"), naming(work));
+  assert.equal(fs.readFileSync(path.join(files, "report.pdf"), "utf8"), "a download", "changing it moves no files");
+  const kept = s.install(p);
+  assert.ok(lines(kept.out).includes(`  the working folder stays ${work} (${config})`), kept.out);
+
+  // A folder that's there keeps its mode and files: here one outside the
+  // home folder, in the temporary folder. The option's = form, and a slash
+  // at the end, which config.json leaves off.
+  const mine = path.join(s.dir, "mine");
+  fs.mkdirSync(mine);
+  fs.chmodSync(mine, 0o750);
+  fs.writeFileSync(path.join(mine, "notes.txt"), "mine");
+  const taken = s.install(p, `--working-dir=${mine}/`);
+  assert.ok(lines(taken.out).includes(`  set the working folder: ${mine}, in ${config}`), taken.out);
+  assert.doesNotMatch(taken.out, /^ {2}made /m);
+  assert.equal(fs.readFileSync(config, "utf8"), naming(mine));
+  assert.equal(mode(mine), 0o750);
+  assert.deepEqual(fs.readdirSync(mine), ["notes.txt"]);
+
+  // A dry run says what it would set and make, and does neither.
+  const other = path.join(s.home, "other");
+  const dry = s.run(["--profile", p, "--dry-run", "--working-dir", other]);
+  assert.equal(dry.status, 0, dry.err);
+  assert.ok(lines(dry.out).includes(`  would set the working folder: ${other}, in ${config}`), dry.out);
+  assert.ok(lines(dry.out).includes(`  would make ${other}, readable only by you`), dry.out);
+  assert.ok(!fs.existsSync(other));
+  assert.equal(fs.readFileSync(config, "utf8"), naming(mine));
+
+  // Uninstall leaves the setting, and each folder with its files, and says so.
+  const un = s.run(["--uninstall", "--profile", p]);
+  assert.equal(un.status, 0, un.err);
+  assert.match(un.out, new RegExp(`^ {2}left in place: .*the working folder's setting\\), the working folder and its files \\(${mine.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\), `, "m"));
+  assert.equal(fs.readFileSync(config, "utf8"), naming(mine));
+  for (const folder of [files, work, mine]) {
+    assert.ok(fs.existsSync(folder), folder);
+  }
+  assert.equal(fs.readFileSync(path.join(files, "report.pdf"), "utf8"), "a download");
+});
+
+test("install refuses each folder tests/fixtures/working-folder.json refuses, with the reason, before anything changes, and takes each one it allows", () => {
+  const s = sandbox("working-rules");
+  // The profile sits in a folder of its own, which holds no home folder.
+  const p = s.profile("profiles/p");
+  const app = path.join(s.dir, "app");
+  fs.mkdirSync(app);
+  const tokens = { profile: p, profiles: path.join(s.dir, "profiles"), app };
+  const fill = caseFiller(s, tokens);
+  s.install(p);
+  const config = path.join(s.zhome, "config.json");
+  const before = fs.readFileSync(config, "utf8");
+  const profile = snap(p, false);
+  const failed = [];
+  let ran = 0;
+  for (const c of FIXTURE.cases) {
+    if (c.outcome === "allowed" || (c.by && !c.by.includes("install.sh")) || (c.unlistable && AS_ROOT)) {
+      continue;
+    }
+    // install.sh names Zen's app by ZEN_BIN on Linux; on a Mac it's /Applications/Zen.app.
+    const inApp = c.folder.includes("{app}");
+    if (inApp && process.platform === "darwin") {
+      continue;
+    }
+    makeEntries(c.make, fill);
+    makeUnlistable(c.unlistable, fill);
+    const folder = fill(c.folder);
+    const there = fs.lstatSync(folder, { throwIfNoEntry: false });
+    const env = { ...caseEnv(c, fill), ...(inApp ? { ZEN_BIN: path.join(app, "zen") } : {}) };
+    const r = s.run(["--profile", p, "--working-dir", folder], { env });
+    const want = `install.sh: ${refusal(c, folder, fill)}\n`;
+    const wrong = [];
+    if (r.status !== 1 || !r.err.endsWith(want)) {
+      wrong.push(`exit ${r.status}, not 1 and ${JSON.stringify(want)}, after:\n${r.out}${r.err}`);
+    }
+    if (fs.readFileSync(config, "utf8") !== before) {
+      wrong.push("config.json changed");
+      fs.writeFileSync(config, before);
+    }
+    if (!there && fs.lstatSync(folder, { throwIfNoEntry: false })) {
+      wrong.push("the folder was made");
+    }
+    if (wrong.length) {
+      failed.push(`${c.name}: ${wrong.join("; ")}`);
+    }
+    ran++;
+  }
+  assert.deepEqual(failed, []);
+  assert.ok(ran >= 30, `${ran} cases`);
+  assert.deepEqual(snap(p, false), profile, "the profile is as the first install left it");
+
+  let n = 0;
+  for (const c of FIXTURE.cases) {
+    if (c.outcome !== "allowed" || (c.by && !c.by.includes("install.sh")) || (c.unlistable && AS_ROOT)) {
+      continue;
+    }
+    const t = sandbox(`working-allowed-${n++}`);
+    const tp = t.profile();
+    const tfill = caseFiller(t, {});
+    makeEntries(c.make, tfill);
+    makeUnlistable(c.unlistable, tfill);
+    const folder = tfill(c.folder);
+    const env = caseEnv(c, tfill);
+    const there = fs.lstatSync(folder, { throwIfNoEntry: false });
+    const r = t.run(["--profile", tp, "--working-dir", folder], { env });
+    assert.equal(r.status, 0, `${c.name}: ${r.out}${r.err}`);
+    assert.equal(fs.readFileSync(path.join(env.ZENIUS_HOME, "config.json"), "utf8"), naming(folder), c.name);
+    assert.ok(fs.existsSync(folder), c.name);
+    if (!there) {
+      assert.equal(mode(folder), 0o700, `${c.name}: made readable only by you`);
+    }
+  }
+  assert.ok(n >= 5, `${n} allowed cases`);
+});
+
+test("a config.json edited so it doesn't name the folder as the installers write it stops install with the reason, never falling back to ~/zenius-files, and --working-dir writes it again", () => {
+  const s = sandbox("working-configs");
+  const p = s.profile();
+  const work = path.join(s.home, "work");
+  s.install(p, "--working-dir", work);
+  const config = path.join(s.zhome, "config.json");
+  const files = path.join(s.home, "zenius-files");
+  const profile = snap(p, false);
+  const reason = `install.sh: ${config} doesn't name the working folder on a line of its own, as the installer writes it: pass --working-dir <folder> to write it again\n`;
+  for (const c of FIXTURE.configs.unreadable) {
+    const text = c.text.replaceAll("{folder}", work);
+    fs.writeFileSync(config, text);
+    for (const more of [[], ["--dry-run"]]) {
+      const r = s.run(["--profile", p, ...more]);
+      assert.equal(r.status, 1, `${c.name}: ${r.out}${r.err}`);
+      assert.ok(r.err.endsWith(reason), `${c.name}: ${r.err}`);
+    }
+    assert.equal(fs.readFileSync(config, "utf8"), text, `${c.name}: config.json is as it was`);
+    assert.ok(!fs.existsSync(files), `${c.name}: no ~/zenius-files`);
+  }
+  assert.deepEqual(snap(p, false), profile, "the profile is as it was");
+
+  // Uninstall takes zenius out all the same, and leaves the file be.
+  const un = s.run(["--uninstall", "--profile", p]);
+  assert.equal(un.status, 0, un.err);
+  assert.doesNotMatch(un.out, /the working folder and its files/);
+  assert.equal(fs.readFileSync(config, "utf8"), FIXTURE.configs.unreadable.at(-1).text.replaceAll("{folder}", work));
+
+  // A file that still names it on a line of its own is taken, and written whole again.
+  for (const c of FIXTURE.configs.readable) {
+    fs.writeFileSync(config, c.text.replaceAll("{folder}", work));
+    s.install(p);
+    assert.equal(fs.readFileSync(config, "utf8"), naming(work), `${c.name}: written whole again`);
+  }
+
+  // A folder no install would take stops it the same way.
+  fs.writeFileSync(config, naming(s.home));
+  const wide = s.run(["--profile", p]);
+  assert.equal(wide.status, 1, wide.out);
+  assert.ok(wide.err.endsWith(`install.sh: the working folder can't be ${s.home}: it's your home folder, a temporary folder, or a folder above one\n`), wide.err);
+
+  // --working-dir writes it again, whatever it held.
+  fs.writeFileSync(config, FIXTURE.configs.unreadable[0].text.replaceAll("{folder}", work));
+  const fixed = s.install(p, "--working-dir", work);
+  assert.ok(lines(fixed.out).includes(`  set the working folder: ${work}, in ${config}`), fixed.out);
+  assert.equal(fs.readFileSync(config, "utf8"), naming(work));
+  assert.ok(!fs.existsSync(files));
+});
+
+test("--working-dir takes an absolute path and goes with an install, not --uninstall; either mistake stops at once and changes nothing", () => {
+  const s = sandbox("working-args");
+  const p = s.profile();
+  const before = snap(s.dir, false);
+  const absolute = "install.sh: --working-dir takes an absolute path\n";
+  for (const [args, message] of [
+    [["--working-dir", "zenius-files"], absolute],
+    [["--working-dir", "~/zenius-files"], absolute],
+    [["--working-dir=zenius-files"], absolute],
+    [["--working-dir"], absolute],
+    [["--uninstall", "--working-dir", path.join(s.home, "work")], "install.sh: --working-dir goes with an install, not --uninstall\n"],
+  ]) {
+    const r = s.run(["--profile", p, ...args]);
+    assert.equal(r.status, 2, `${args.join(" ")}: ${r.out}${r.err}`);
+    assert.equal(r.err, message, args.join(" "));
+    assert.equal(r.out, "", args.join(" "));
+    assert.deepEqual(snap(s.dir, false), before, args.join(" "));
+  }
+});
+
+test("with ZENIUS_HOME anywhere but ~/.zenius there's no default working folder: install stops without --working-dir and makes nothing, and installs with it", () => {
+  const s = sandbox("working-elsewhere");
+  const p = s.profile();
+  const zhome = path.join(s.dir, "zhome");
+  const env = { ZENIUS_HOME: zhome };
+  const before = snap(s.dir, false);
+  for (const more of [[], ["--dry-run"]]) {
+    const r = s.run(["--profile", p, ...more], { env });
+    assert.equal(r.status, 2, `${more.join(" ")}: ${r.out}${r.err}`);
+    assert.equal(r.err, `install.sh: there's no default working folder: ZENIUS_HOME is ${zhome}, not ~/.zenius, and it holds no config.json: pass --working-dir <folder>\n`);
+    assert.deepEqual(snap(s.dir, false), before, "nothing made");
+  }
+  const work = path.join(s.home, "work");
+  const given = s.run(["--profile", p, "--working-dir", work], { env });
+  assert.equal(given.status, 0, given.err);
+  assert.equal(fs.readFileSync(path.join(zhome, "config.json"), "utf8"), naming(work));
+  const again = s.run(["--profile", p], { env });
+  assert.equal(again.status, 0, again.err);
+  assert.ok(lines(again.out).includes(`  the working folder stays ${work} (${path.join(zhome, "config.json")})`), again.out);
+  assert.ok(!fs.existsSync(path.join(s.home, "zenius-files")), "never ~/zenius-files");
+});
+
 test("in Zen: the installed runtime runs, and a reinstall loads at the next start without a cache purge", async t => {
   const dev = process.env.ZENIUS_DEV ?? path.join(ROOT, "scripts/zen-dev.sh");
   const name = `${process.env.ZENIUS_INSTANCE ?? "coretest"}-inst`;
@@ -1041,6 +1376,7 @@ test("in Zen: the installed runtime runs, and a reinstall loads at the next star
     const dir = path.join(s.dir, tag);
     fs.mkdirSync(path.join(dir, "scripts"), { recursive: true });
     fs.copyFileSync(path.join(ROOT, "scripts/install.sh"), path.join(dir, "scripts/install.sh"));
+    fs.copyFileSync(path.join(ROOT, "scripts/working-folder.sh"), path.join(dir, "scripts/working-folder.sh"));
     fs.cpSync(RUNTIME, path.join(dir, "runtime/JS"), { recursive: true });
     const file = path.join(dir, "runtime/JS/zenius/modules/util.sys.mjs");
     fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace(/^(export const RUNTIME_VERSION = ").*(";)$/m, `$1${tag}$2`));

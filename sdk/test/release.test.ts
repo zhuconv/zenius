@@ -9,12 +9,13 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { appendFileSync, chmodSync, copyFileSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, copyFileSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, before, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
+import { guardHome } from "../../tests/lib/scratch-home.mjs";
 
 const REPO = fileURLToPath(new URL("../../", import.meta.url)).replace(/\/$/, "");
 const VENDOR = join(REPO, "runtime/vendor/fx-autoconfig");
@@ -36,6 +37,13 @@ function run(command: string, args: string[], env: Record<string, string | undef
   const result = spawnSync(command, args, { cwd, encoding: "utf8", env: { ...process.env, PATH, ...env } });
   return { code: result.status, out: `${result.stdout}${result.stderr}` };
 }
+
+/** The working folder's shared cases (tests/fixtures/working-folder.json): here, its hand-edited configs. */
+const FIXTURE = JSON.parse(readFileSync(join(REPO, "tests/fixtures/working-folder.json"), "utf8")) as {
+  configs: { unreadable: { name: string; text: string }[] };
+};
+/** config.json as the installers write it. */
+const naming = (folder: string) => `{\n  "workingFolder": "${folder}"\n}\n`;
 
 const sha256 = (file: string) => createHash("sha256").update(readFileSync(file)).digest("hex");
 const version = JSON.parse(readFileSync(join(REPO, "sdk/package.json"), "utf8")).version as string;
@@ -134,10 +142,17 @@ function machine(options: { app?: boolean; loader?: boolean } = {}) {
   mkdirSync(join(profile, "chrome/JS"), { recursive: true });
   if (options.loader !== false) cpSync(join(VENDOR, "profile/chrome/utils"), join(profile, "chrome/utils"), { recursive: true });
   writeFileSync(join(zenData, "profiles.ini"), "[Profile0]\nName=Default\nIsRelative=1\nPath=Profiles/test.Default\nDefault=1\n\n[General]\nStartWithLastProfile=1\nVersion=2\n");
-  const env = { HOME: home, PATH: `${fakeBin}:${PATH}`, ZEN_APP: MAC ? app : undefined, ZEN_BIN: MAC ? undefined : bin, ZENIUS_APP_BIN: bin, ZENIUS_HOME: undefined, ZENIUS_CLI_DIR: undefined, ZENIUS_BIN_DIR: undefined, ZENIUS_SKILL_DIRS: undefined, ZENIUS_RELEASE_URL: undefined, ZENIUS_INSTALL_NO_BUILD: undefined, NPM_FAIL: undefined };
-  const installer = (args: string[] = [], more: Record<string, string> = {}, script = join(assets, "install.sh")) =>
-    run("bash", [script, ...args], { ...env, ...more }, home);
-  return { home, appdir, profile, npmLog, installer, env };
+  const env = { HOME: home, PATH: `${fakeBin}:${PATH}`, ZEN_APP: MAC ? app : undefined, ZEN_BIN: MAC ? undefined : bin, ZENIUS_APP_BIN: bin, ZENIUS_HOME: join(home, ".zenius"), ZENIUS_CLI_DIR: undefined, ZENIUS_BIN_DIR: undefined, ZENIUS_SKILL_DIRS: undefined, ZENIUS_RELEASE_URL: undefined, ZENIUS_INSTALL_NO_BUILD: undefined, NPM_FAIL: undefined };
+  const installer = (args: string[] = [], more: Record<string, string> = {}, script = join(assets, "install.sh")) => {
+    guardHome({ ...process.env, ...env, ...more }, "release.test.ts");
+    return run("bash", [script, ...args], { ...env, ...more }, home);
+  };
+  /** Runs a command the install put in the fake HOME, such as ~/.local/bin/zenius. */
+  const command = (file: string, args: string[] = []) => {
+    guardHome({ ...process.env, ...env }, "release.test.ts");
+    return run(file, args, env, home);
+  };
+  return { home, appdir, profile, npmLog, installer, command, env };
 }
 
 /**
@@ -188,6 +203,7 @@ describe("scripts/release.sh", () => {
       "skill/zenius/SKILL.md",
       "scripts/install.sh",
       "scripts/install-cli.sh",
+      "scripts/working-folder.sh",
     ]) {
       assert.ok(listing.includes(`${name}/${path}`), `the package has no ${path}`);
     }
@@ -341,7 +357,7 @@ describe("the release's install.sh", () => {
     );
     assert.ok(existsSync(join(m.profile, "chrome/JS/zenius.uc.js")), "the runtime is in the profile");
     assert.ok(existsSync(join(m.home, ".zenius/release/RELEASE")), "the release stays for --uninstall");
-    const cli = run(join(m.home, ".local/bin/zenius"), ["--version"], { HOME: m.home });
+    const cli = m.command(join(m.home, ".local/bin/zenius"), ["--version"]);
     assert.equal(cli.code, 0, cli.out);
     assert.ok(cli.out.includes(version), cli.out);
     // The package has no git, and the fake HOME sits in no repo: the commit is RELEASE's.
@@ -447,7 +463,7 @@ describe("the release's install.sh", () => {
     // launcher holds it from then on.
     const downloads = join(m.home, "Downloads");
     mkdirSync(downloads);
-    const chosen = run(join(m.home, ".zenius/release/scripts/install-cli.sh"), ["--sandbox", "--read-dir", downloads], m.env, m.home);
+    const chosen = m.command(join(m.home, ".zenius/release/scripts/install-cli.sh"), ["--sandbox", "--read-dir", downloads]);
     assert.equal(chosen.code, 0, chosen.out);
     const launcher = join(m.home, ".local/bin/zenius");
     assert.match(readFileSync(launcher, "utf8").split("\n")[1], /\(zenius-sandbox-launcher /);
@@ -548,6 +564,102 @@ describe("the release's install.sh", () => {
     assert.ok(!existsSync(join(m.home, ".local/bin/zenius")), "no CLI");
   });
 
+  it("a first install sets the working folder for Zen and the zenius command alike, ~/zenius-files unless --working-dir says, and an update keeps it", () => {
+    const m = machine();
+    const config = join(m.home, ".zenius/config.json");
+    const files = join(m.home, "zenius-files");
+    const first = m.installer();
+    assert.equal(first.code, 0, first.out);
+    for (const line of [`  set the working folder: ${files}, in ${config}`, `  made ${files}, readable only by you`, `ok       the working folder: ${files}`]) {
+      assert.ok(first.out.split("\n").includes(line), `${line} in:\n${first.out}`);
+    }
+    assert.equal(readFileSync(config, "utf8"), naming(files));
+    assert.equal(lstatSync(files).mode & 0o777, 0o700);
+    writeFileSync(join(files, "report.pdf"), "a download");
+
+    const work = join(m.home, "work");
+    const chosen = m.installer(["--working-dir", work]);
+    assert.equal(chosen.code, 0, chosen.out);
+    for (const line of [`  set the working folder: ${work}, in ${config}`, `  made ${work}, readable only by you`, `ok       the working folder: ${work}`]) {
+      assert.ok(chosen.out.split("\n").includes(line), `${line} in:\n${chosen.out}`);
+    }
+    assert.equal(readFileSync(config, "utf8"), naming(work));
+    assert.equal(readFileSync(join(files, "report.pdf"), "utf8"), "a download", "changing it moves no files");
+
+    const update = m.installer();
+    assert.equal(update.code, 0, update.out);
+    for (const line of [`  the working folder stays ${work} (${config})`, `ok       the working folder: ${work}`]) {
+      assert.ok(update.out.split("\n").includes(line), `${line} in:\n${update.out}`);
+    }
+    assert.equal(readFileSync(config, "utf8"), naming(work));
+  });
+
+  it("--working-dir reaches install-cli.sh's own checks, which stop the install before anything changes", () => {
+    const m = machine();
+    // Only install-cli.sh keeps the working folder out of the zenius command's node.
+    const tools = join(m.home, "tools");
+    mkdirSync(tools);
+    symlinkSync(process.execPath, join(tools, "node"));
+    const folder = join(tools, "files");
+    const result = m.installer(["--working-dir", folder], { PATH: `${tools}:${m.env.PATH}` });
+    assert.equal(result.code, 1, result.out);
+    assert.ok(result.out.includes(`error    the working folder can't be ${folder}: it's inside ${realpathSync(tools)}, which the agent's scripts must not reach\n`), result.out);
+    assert.match(result.out, /nothing has changed/);
+    assert.ok(!existsSync(join(m.home, ".zenius")), "nothing in ~/.zenius");
+    assert.ok(!existsSync(folder), "no folder made");
+    assert.ok(!existsSync(join(m.profile, "chrome/JS/zenius.uc.js")), "the profile is untouched");
+  });
+
+  it("a working folder the rules refuse, or a config.json edited so it doesn't name one as the installers write it, stops the install with the reason before anything changes, and never falls back to ~/zenius-files", () => {
+    const m = machine();
+    mkdirSync(join(m.home, ".ssh"));
+    const ssh = join(m.home, ".ssh/work");
+    const refused = m.installer(["--working-dir", ssh]);
+    assert.equal(refused.code, 1, refused.out);
+    assert.ok(refused.out.includes(`error    the working folder can't be ${ssh}: it's inside ${join(realpathSync(m.home), ".ssh")}, which the agent's scripts must not reach\n`), refused.out);
+    assert.match(refused.out, /nothing has changed/);
+    assert.ok(!existsSync(join(m.home, ".zenius")), "nothing in ~/.zenius");
+
+    const config = join(m.home, ".zenius/config.json");
+    mkdirSync(join(m.home, ".zenius"));
+    const work = join(m.home, "work");
+    const reason = `error    ${config} doesn't name the working folder on a line of its own, as the installer writes it: pass --working-dir <folder> to write it again\n`;
+    for (const name of ["on one line", "named on two lines", "a relative path", "an escaped quote in the path"]) {
+      const c = FIXTURE.configs.unreadable.find((entry) => entry.name === name);
+      assert.ok(c, name);
+      const text = c.text.replaceAll("{folder}", work);
+      writeFileSync(config, text);
+      const result = m.installer();
+      assert.equal(result.code, 1, `${name}: ${result.out}`);
+      assert.ok(result.out.includes(reason), `${name}: ${result.out}`);
+      assert.match(result.out, /nothing has changed/, name);
+      assert.equal(readFileSync(config, "utf8"), text, `${name}: config.json is as it was`);
+      assert.ok(!existsSync(join(m.home, "zenius-files")), `${name}: no ~/zenius-files`);
+      assert.ok(!existsSync(join(m.home, ".zenius/release")), `${name}: nothing unpacked`);
+      assert.ok(!existsSync(join(m.profile, "chrome/JS/zenius.uc.js")), `${name}: the profile is untouched`);
+    }
+    const fixed = m.installer(["--working-dir", work]);
+    assert.equal(fixed.code, 0, fixed.out);
+    assert.equal(readFileSync(config, "utf8"), naming(work));
+    assert.ok(!existsSync(join(m.home, "zenius-files")), "never ~/zenius-files");
+  });
+
+  it("with ZENIUS_HOME anywhere but ~/.zenius there's no default working folder: the install stops without --working-dir, before anything changes, and installs with it", () => {
+    const m = machine();
+    const zhome = join(m.home, "zhome");
+    const result = m.installer([], { ZENIUS_HOME: zhome });
+    assert.equal(result.code, 2, result.out);
+    assert.ok(result.out.endsWith(`zen(ius): there's no default working folder: ZENIUS_HOME is ${zhome}, not ~/.zenius, and it holds no config.json: pass --working-dir <folder>\n`), result.out);
+    assert.ok(!existsSync(zhome), "nothing in ZENIUS_HOME");
+    assert.ok(!existsSync(join(m.home, "zenius-files")), "no ~/zenius-files");
+    assert.ok(!existsSync(join(m.profile, "chrome/JS/zenius.uc.js")), "the profile is untouched");
+    const work = join(m.home, "work");
+    const given = m.installer(["--working-dir", work], { ZENIUS_HOME: zhome });
+    assert.equal(given.code, 0, given.out);
+    assert.equal(readFileSync(join(zhome, "config.json"), "utf8"), naming(work));
+    assert.ok(!existsSync(join(m.home, "zenius-files")), "never ~/zenius-files");
+  });
+
   it("a wrong choice is a wrong argument (exit 2), and nothing changes", () => {
     const m = machine();
     const cases: [string[], RegExp][] = [
@@ -556,6 +668,11 @@ describe("the release's install.sh", () => {
       [["--sandbox", "--read-dir"], /--read-dir takes a folder/],
       [["--sandbox", "--read-dir", "Downloads"], /--read-dir takes an absolute path/],
       [["--read-dir", join(m.home, "Downloads")], /--read-dir goes with --sandbox/],
+      [["--working-dir"], /--working-dir takes a folder/],
+      [["--working-dir", "zenius-files"], /--working-dir takes an absolute path/],
+      [["--uninstall", "--working-dir", join(m.home, "work")], /go with an install, not --uninstall/],
+      [["--output-dir", join(m.home, "out")], /--output-dir is gone: scripts write their files in the working folder, which --working-dir sets \(~\/zenius-files by default\)/],
+      [["--sandbox", "--output-dir", join(m.home, "out")], /--output-dir is gone/],
     ];
     for (const [args, reason] of cases) {
       const result = m.installer(args);

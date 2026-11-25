@@ -34,6 +34,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { guardHome } from "../lib/scratch-home.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const arg = (name, fallback) => {
@@ -124,13 +125,21 @@ try {
   writeFileSync(join(work, "zenius"), '#!/bin/sh\necho "DECOY: ./zenius ran, not the sandboxed launcher"\n');
   chmodSync(join(work, "zenius"), 0o755);
   execFileSync(join(ROOT, "scripts", "install-cli.sh"), ["--sandbox"], {
-    env: {
-      ...cleanEnv(),
-      PATH: `${NODE_BIN}:/usr/bin:/bin:/usr/sbin:/sbin`,
-      ZENIUS_CLI_DIR: join(run, "cli"),
-      ZENIUS_BIN_DIR: join(run, "bin"),
-      ZENIUS_SKILL_DIRS: join(run, "skills"),
-    },
+    // An installer writes its zenius home's config.json and makes the working
+    // folder, so it runs only with a HOME and ZENIUS_HOME that aren't the
+    // account's own (tests/lib/scratch-home.mjs). With the real ones it
+    // refuses, until this run moves to a scratch home whose run folder is the
+    // dev Zen's (scratchHome's shareRuntime).
+    env: guardHome(
+      {
+        ...cleanEnv(),
+        PATH: `${NODE_BIN}:/usr/bin:/bin:/usr/sbin:/sbin`,
+        ZENIUS_CLI_DIR: join(run, "cli"),
+        ZENIUS_BIN_DIR: join(run, "bin"),
+        ZENIUS_SKILL_DIRS: join(run, "skills"),
+      },
+      "tests/live/allow-rule.mjs's install-cli.sh"
+    ),
     stdio: "ignore",
   });
   report.claudeVersion = execFileSync(CLAUDE, ["--version"], { encoding: "utf8", env: cleanEnv() }).trim();

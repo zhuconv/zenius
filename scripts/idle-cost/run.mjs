@@ -16,6 +16,7 @@ import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
+import { guardHome } from "../../tests/lib/scratch-home.mjs";
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
 const ROOT = path.resolve(HERE, "../..");
@@ -219,6 +220,24 @@ async function run(arm, label, { t1 = T1, tmem = TMEM, t2 = T2 } = {}) {
   return result;
 }
 
+// ---- install -----------------------------------------------------------------
+/**
+ * scripts/install.sh on arm b's profile, in a HOME and zenius home of the
+ * tool's own (in OUT), so it never reads or writes the user's
+ * ~/.zenius/config.json. An install names a working folder in that HOME,
+ * which the installer needs under a zenius home other than ~/.zenius (an
+ * uninstall takes none). Arm b's Zen keeps the real HOME: its profile, in
+ * ~/.zenius-dev/profiles/, is a dev profile, whose runtime takes its working
+ * folder from a pref, never from a config.json.
+ */
+function installer(args = []) {
+  const home = `${OUT}/home`;
+  fs.mkdirSync(home, { recursive: true, mode: 0o700 });
+  const env = guardHome({ ...process.env, HOME: home, ZENIUS_HOME: `${OUT}/zhome` }, "the I4 tool's install.sh");
+  const working = args.includes("--uninstall") ? [] : ["--working-dir", `${home}/files`];
+  execFileSync(`${ROOT}/scripts/install.sh`, [...args, "--profile", profileOf("b"), ...working], { env, stdio: "inherit" });
+}
+
 // ---- plan ------------------------------------------------------------------
 const plan = process.argv[2] ?? "all";
 if (plan === "all" || plan === "prepare") {
@@ -226,10 +245,7 @@ if (plan === "all" || plan === "prepare") {
     freshProfile(arm);
     await run(arm, `init-${arm}`, { t1: 4000, tmem: 6000, t2: 8000 });
   }
-  execFileSync(`${ROOT}/scripts/install.sh`, ["--profile", profileOf("b")], {
-    env: { ...process.env, ZENIUS_HOME: `${OUT}/zhome` },
-    stdio: "inherit",
-  });
+  installer();
   await run("b", "cold-b");
   await run("a", "warm-a", { t1: 4000, tmem: 6000, t2: 8000 });
 }
@@ -242,10 +258,7 @@ if (plan === "guard") {
     freshProfile(arm);
     await run(arm, `init-${arm}`, { t1: 2000, tmem: 3000, t2: 4000 });
   }
-  execFileSync(`${ROOT}/scripts/install.sh`, ["--profile", profileOf("b")], {
-    env: { ...process.env, ZENIUS_HOME: `${OUT}/zhome` },
-    stdio: "inherit",
-  });
+  installer();
   // Each profile as both runs start from it. Under a parallel test-all a
   // run can come back without the probe's tabs, and its Zen may have been
   // stopped: a second run of that profile alone would start differently
@@ -287,11 +300,6 @@ if (plan === "variants") {
   // DOMWindowCreated event (what the actor costs tab processes). u: zenius
   // uninstalled (what differs between the two profiles themselves).
   const n = Number(process.env.I4_VARIANT_RUNS ?? 3);
-  const installer = args =>
-    execFileSync(`${ROOT}/scripts/install.sh`, [...args, "--profile", profileOf("b")], {
-      env: { ...process.env, ZENIUS_HOME: `${OUT}/zhome` },
-      stdio: "inherit",
-    });
   const svc = `${profileOf("b")}/chrome/JS/zenius/modules/service.sys.mjs`;
   const text = fs.readFileSync(svc, "utf8");
   const patched = text.replace("events: { DOMWindowCreated: {} },", "");

@@ -3,8 +3,9 @@
 //
 // Semantics follow Ego (page-model.ts page.fetch, driver/downloads.ts). I5
 // (SPEC §3.9): the runtime reads or writes no file an agent names. Bodies
-// and downloads leave as bytes, and the client writes saveAs and path
-// targets itself.
+// leave as bytes. A finished download moves into the working folder, which
+// the install names (observe/downloads.sys.mjs), download.path returns its
+// path there, and the client copies saveAs targets itself.
 
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
 import { setupObserve } from "chrome://userscripts/content/zenius/observe/setup.sys.mjs";
@@ -12,12 +13,12 @@ import {
   getDownload,
   whenStopped,
   failureOf,
-  finishedFile,
   cancelDownload,
   deleteDownload,
+  downloadPath,
 } from "chrome://userscripts/content/zenius/observe/downloads.sys.mjs";
 import * as msg from "chrome://userscripts/content/zenius/observe/messages.sys.mjs";
-import { FETCH_TIMEOUT_MS, timeoutOption, toBase64 } from "chrome://userscripts/content/zenius/observe/common.sys.mjs";
+import { FETCH_TIMEOUT_MS, timeoutOption } from "chrome://userscripts/content/zenius/observe/common.sys.mjs";
 
 setupObserve();
 
@@ -33,20 +34,6 @@ function downloadFor(params) {
 
 /** A call's whole result stays under Playwright's remote limit, as uploads do (zen-input). */
 const MAX_BYTES = 50 * 1024 * 1024;
-/** download.read's largest chunk. */
-const MAX_CHUNK = 8 * 1024 * 1024;
-
-/** The finished file's path, or Ego's "download failed: …". */
-async function finishedPath(entry) {
-  await whenStopped(entry);
-  // finishedFile fails the download when its file isn't zenius's own any more.
-  const path = failureOf(entry) ? null : finishedFile(entry);
-  const failure = failureOf(entry);
-  if (failure) {
-    throw msg.downloadFailed(`download failed: ${failure}`, { failure });
-  }
-  return path;
-}
 
 // ---------------------------------------------------------------------------
 // page.fetch
@@ -141,22 +128,18 @@ async function gateDownload(ctx, entry) {
   }
 }
 
-/** No Download method takes or returns a path any more (I5). */
-function noPaths(method) {
-  return new ZenError(
-    "ZEN_INVALID_ARGUMENT",
-    `${method} takes and returns no path: read the file's bytes with download.read {download, offset, length}, and the client writes them`
-  );
+/** The runtime writes no path an agent names (I5): the client copies the file download.path names. */
+function noSaveAs() {
+  return new ZenError("ZEN_INVALID_ARGUMENT", "download.saveAs takes no path here: the client copies the file that download.path names");
 }
 
 // ---------------------------------------------------------------------------
 // Methods
 
 // Gate classes: access for the control gate (I3), i5 for the web-content
-// gate (I5). The Download methods touch only the agent's own temporary
-// files. Reading them changes nothing; cancel and delete change them, so
-// they run the control gate for the download's task themselves (they name
-// no space).
+// gate (I5). The Download methods touch only the agent's own downloads.
+// Reading them changes nothing; cancel and delete change them, so they run
+// the control gate for the download's task themselves (they name no space).
 export const access = {
   "page.fetch": "mutate",
   "download.read": "read",
@@ -180,30 +163,26 @@ export const i5 = {
 export const methods = {
   "page.fetch": pageFetch,
 
-  // Once the download has finished: bytes [offset, offset + length) of its
-  // file, at most 8 MiB. The SDK's saveAs() and path() write them out.
-  "download.read": async (_ctx, params) => {
-    const entry = downloadFor(params);
-    const offset = params.offset ?? 0;
-    const length = params.length ?? MAX_CHUNK;
-    if (!Number.isInteger(offset) || offset < 0) {
-      throw new ZenError("ZEN_INVALID_ARGUMENT", "download.read offset must be a non-negative integer");
-    }
-    if (!Number.isInteger(length) || length < 1 || length > MAX_CHUNK) {
-      throw new ZenError("ZEN_INVALID_ARGUMENT", `download.read length must be an integer from 1 to ${MAX_CHUNK}`);
-    }
-    const source = await finishedPath(entry);
-    const { size } = await IOUtils.stat(source);
-    const bytes = offset < size ? await IOUtils.read(source, { offset, maxBytes: Math.min(length, size - offset) }) : new Uint8Array();
-    return { base64: toBase64(bytes), size, eof: offset + bytes.length >= size };
+  // Gone since the working folder: a client from before it gets the way now.
+  "download.read": async () => {
+    throw new ZenError(
+      "ZEN_INVALID_ARGUMENT",
+      "download.read is gone: download.path returns the finished file's path in the working folder, where the client reads it"
+    );
   },
 
   "download.saveAs": async () => {
-    throw noPaths("download.saveAs");
+    throw noSaveAs();
   },
 
-  "download.path": async () => {
-    throw noPaths("download.path");
+  // Once the download has finished and moved into the working folder: its
+  // path there, or Ego's "download failed: ...".
+  "download.path": async (_ctx, params) => {
+    const found = await downloadPath(downloadFor(params));
+    if (found.failure) {
+      throw msg.downloadFailed(`download failed: ${found.failure}`, { failure: found.failure });
+    }
+    return { path: found.path };
   },
 
   "download.failure": async (_ctx, params) => {

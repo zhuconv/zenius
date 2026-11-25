@@ -13,13 +13,20 @@
 #                                        sdk/sandbox/launcher.sh. It needs Node 24 first on
 #                                        PATH, and agents then run that node, not the PATH's.
 #                                        A later install keeps it, with or without --sandbox.
-#                                        A script reads its working folder and writes only
-#                                        its run's output folder, in ~/.zenius/out
-#   ... --sandbox --output-dir DIR       put runs' output folders in DIR instead (absolute,
-#                                        outside your projects); later installs keep it
+#                                        A script reads and writes the working folder, reads
+#                                        the folder it started in, and writes nothing else
 #   ... --sandbox --read-dir DIR         also let scripts read DIR (absolute), such as
 #                                        ~/Downloads, for uploads, and never write it;
 #                                        later installs keep it, and --read-dir none drops it
+#   scripts/install-cli.sh --working-dir DIR
+#                                        the working folder (absolute): downloads land there,
+#                                        and scripts read, write and delete files there.
+#                                        ~/zenius-files by default (none with a ZENIUS_HOME
+#                                        other than ~/.zenius); later installs keep it.
+#                                        It's written to ~/.zenius/config.json, which Zen's
+#                                        runtime reads too, and made if missing. Changing it
+#                                        moves no files. It can't be a project's folder
+#                                        (see scripts/working-folder.sh)
 #   scripts/install-cli.sh --no-sandbox  make ~/.local/bin/zenius a link to the copy again
 #   scripts/install-cli.sh --uninstall   remove the copy, the links to it and the launcher
 #   scripts/install-cli.sh --dry-run ... print what would change, and with --sandbox the
@@ -47,15 +54,23 @@ BUNDLE=$ROOT/sdk/dist/zenius.mjs
 # fs.promises calls outside the grants throw uncaught.
 SANDBOX_NODE_MAJOR=24
 
-skill=0 uninstall=0 dry=0 sandbox=0 no_sandbox=0 output_dir= take_output=0 read_dir= read_set=0 take_read=0
+# The working folder's rules and its config file.
+# shellcheck source=working-folder.sh
+. "$ROOT/scripts/working-folder.sh"
+
+skill=0 uninstall=0 dry=0 sandbox=0 no_sandbox=0 working_dir= take_working=0 read_dir= read_set=0 take_read=0
 # ${1+"$@"}: with no arguments, macOS's bash 3.2 under set -u calls "$@" unbound.
 for arg in ${1+"$@"}; do
-  if ((take_output)); then output_dir=$arg take_output=0; continue; fi
+  if ((take_working)); then working_dir=$arg take_working=0; continue; fi
   if ((take_read)); then read_dir=$arg read_set=1 take_read=0; continue; fi
   case $arg in
     --skill) skill=1 ;;
-    --output-dir) take_output=1 ;;
-    --output-dir=*) output_dir=${arg#--output-dir=} ;;
+    --working-dir) take_working=1 ;;
+    --working-dir=*) working_dir=${arg#--working-dir=} ;;
+    --output-dir | --output-dir=*)
+      echo "install-cli.sh: --output-dir is gone: scripts write their files in the working folder, which --working-dir sets (~/zenius-files by default)" >&2
+      exit 2
+      ;;
     --read-dir) take_read=1 ;;
     --read-dir=*) read_dir=${arg#--read-dir=} read_set=1 ;;
     --sandbox) sandbox=1 ;;
@@ -66,8 +81,8 @@ for arg in ${1+"$@"}; do
     *) echo "install-cli.sh: unknown argument: $arg (see --help)" >&2; exit 2 ;;
   esac
 done
-if ((take_output)) || [[ -n $output_dir && $output_dir != /* ]]; then
-  echo "install-cli.sh: --output-dir takes an absolute path" >&2
+if ((take_working)) || [[ -n $working_dir && $working_dir != /* ]]; then
+  echo "install-cli.sh: --working-dir takes an absolute path" >&2
   exit 2
 fi
 if ((take_read)) || { ((read_set)) && [[ $read_dir != none && $read_dir != /* ]]; }; then
@@ -167,7 +182,7 @@ resolve() {
   echo "$(cd "$path" && pwd -P)$rest"
 }
 
-# A value the launcher at $BIN_DIR/zenius was written with, such as OUT_ROOT.
+# A value the launcher at $BIN_DIR/zenius was written with, such as READ_DIR.
 launcher_value() {
   node - "$BIN_DIR/zenius" "$1" <<'EOF'
 const [file, name] = process.argv.slice(2);
@@ -181,6 +196,29 @@ EOF
 if ((!sandbox && !no_sandbox)) && is_launcher "$BIN_DIR/zenius"; then
   sandbox=1
   echo "note     $BIN_DIR/zenius is the sandboxed launcher, and this install keeps it (--no-sandbox makes it a link again)"
+fi
+
+# The working folder: --working-dir, else the one ~/.zenius/config.json
+# names, else ~/zenius-files. It may neither hold nor be inside the CLI copy,
+# the zenius command's folder or its node.
+kept=("$(resolve "$DEST")" "$(resolve "$BIN_DIR")")
+if command -v node >/dev/null; then
+  node_real=$(node -p 'require("node:fs").realpathSync(process.execPath)')
+  kept+=("$(dirname "$(dirname "$node_real")")" "$(resolve "$(dirname "$(command -v node)")")")
+fi
+picked=0
+working=$(wf_pick "$working_dir" "${kept[@]}") || picked=$?
+if ((picked)); then
+  echo "error    $working" >&2
+  # 2 when there's no folder to pick without --working-dir, as for a wrong
+  # argument.
+  exit $((picked == 2 ? 2 : 1))
+fi
+working_real=$(wf_resolve "$working")
+# An earlier sandboxed launcher kept runs' output folders (--output-dir); the
+# working folder takes their place.
+if ((sandbox)) && is_launcher "$BIN_DIR/zenius" && old_out=$(launcher_value OUT_ROOT) && [[ -n $old_out ]]; then
+  echo "note     scripts now write in the working folder, $working, not in runs' output folders: $old_out keeps earlier runs' files, which zenius no longer uses"
 fi
 
 # --sandbox needs the OS sandbox and Node's permission model, or it installs nothing.
@@ -208,20 +246,13 @@ if ((sandbox)); then
   node_version=$(node -p process.versions.node 2>/dev/null || echo none)
   [[ ${node_version%%.*} == "$SANDBOX_NODE_MAJOR" ]] ||
     sandbox_error "it needs Node $SANDBOX_NODE_MAJOR first on PATH, and found $node_version ($(command -v node || echo "no node")); Homebrew's Node 24 is in /opt/homebrew/opt/node@24/bin"
-  # Where runs' output folders go: --output-dir, else where the launcher
-  # there has them, else ~/.zenius/out.
-  if [[ -z $output_dir ]] && is_launcher "$BIN_DIR/zenius"; then output_dir=$(launcher_value OUT_ROOT); fi
-  out_root=$(resolve "${output_dir:-${ZENIUS_HOME:-$HOME/.zenius}/out}")
   home_real=$(cd "$HOME" && pwd -P)
-  case $home_real/ in "${out_root%/}"/*) sandbox_error "--output-dir can't be your home folder or above it: $out_root" ;; esac
-  case $out_root/ in "$(resolve "$DEST")"/* | "$(resolve "$BIN_DIR")"/*)
-    sandbox_error "--output-dir can't be inside the CLI copy or $BIN_DIR: $out_root" ;;
-  esac
   # The folder scripts may also read (--read-dir), such as ~/Downloads: as
   # given, else what the launcher there has, else none. It's held to the
-  # rules the launcher puts the working folder to, and the launcher checks it
-  # again at each start. A kept folder that has since gone stays: the
-  # launcher doesn't grant it while it's missing.
+  # rules the launcher puts the current folder to, can't be the working folder
+  # or inside it, and the launcher checks it again at each start. A kept
+  # folder that has since gone stays: the launcher doesn't grant it while
+  # it's missing.
   if ((!read_set)) && is_launcher "$BIN_DIR/zenius"; then read_dir=$(launcher_value READ_DIR); fi
   [[ $read_dir == none ]] && read_dir=
   if [[ -n $read_dir && -d $read_dir ]]; then
@@ -229,20 +260,17 @@ if ((sandbox)); then
     for shared in "$home_real" /tmp /var/tmp /private/tmp /private/var/tmp /dev/shm "$(resolve "${TMPDIR:-/tmp}")"; do
       case $shared/ in "${read_real%/}"/*) sandbox_error "--read-dir can't be your home folder, a temporary folder or above one: $read_real" ;; esac
     done
-    node_real=$(node -p 'require("node:fs").realpathSync(process.execPath)')
-    for kept in "$(resolve "${ZENIUS_HOME:-$HOME/.zenius}")" "$(resolve "$DEST")" "$(resolve "$BIN_DIR")" "$out_root" \
-      "$(dirname "$(dirname "$node_real")")" "$(dirname "$(command -v node)")" "/run/user/$(id -u)" "$home_real/.zenius-dev" "$home_real/.zen" \
+    for kept in "$(resolve "${ZENIUS_HOME:-$HOME/.zenius}")" "$(resolve "$DEST")" "$(resolve "$BIN_DIR")" \
+      "$(dirname "$(dirname "$node_real")")" "$(resolve "$(dirname "$(command -v node)")")" "/run/user/$(id -u)" "$home_real/.zenius-dev" "$home_real/.zen" \
       "$home_real/.config" "$home_real/.local" "$home_real/.ssh" "$home_real/.gnupg" "$home_real/.aws" "$home_real/.docker" "$home_real/.kube" "$home_real/Library"; do
       case $kept/ in "$read_real"/*) sandbox_error "--read-dir can't hold or be inside zenius, its node, Zen's profiles, or a folder of settings or credentials: $read_real" ;; esac
       case $read_real/ in "$kept"/*) sandbox_error "--read-dir can't hold or be inside zenius, its node, Zen's profiles, or a folder of settings or credentials: $read_real" ;; esac
     done
+    case $read_real/ in "${working_real%/}"/*) sandbox_error "--read-dir can't be the working folder or inside it, where scripts read and write already: $read_real" ;; esac
   elif [[ -n $read_dir ]] && ((read_set)); then
     sandbox_error "--read-dir must be a folder that exists: $read_dir"
   fi
   read_dir=${read_dir%/}
-elif [[ -n $output_dir ]]; then
-  echo "install-cli.sh: --output-dir goes with --sandbox" >&2
-  exit 2
 elif ((read_set)); then
   echo "install-cli.sh: --read-dir goes with --sandbox" >&2
   exit 2
@@ -269,10 +297,10 @@ launcher_text() {
     done
   fi
   node - "$ROOT/sdk/sandbox/launcher.sh" "$(resolve "$DEST")" "$(resolve "${ZENIUS_HOME:-$HOME/.zenius}")" \
-    "$node_path" "$SANDBOX_NODE_MAJOR" "$platform" "$(id -u)" "${sysbinds# }" "$bwrap" "$(resolve "$BIN_DIR")" "$out_root" "$read_dir" <<'EOF'
-const [template, cli, zhome, node, nodeMajor, platform, uid, sysbinds, bwrap, binDir, outRoot, readDir] = process.argv.slice(2);
+    "$node_path" "$SANDBOX_NODE_MAJOR" "$platform" "$(id -u)" "${sysbinds# }" "$bwrap" "$(resolve "$BIN_DIR")" "$read_dir" <<'EOF'
+const [template, cli, zhome, node, nodeMajor, platform, uid, sysbinds, bwrap, binDir, readDir] = process.argv.slice(2);
 const quote = (text) => `'${text.replace(/'/g, "'\\''")}'`;
-const values = { CLI: quote(cli), ZHOME: quote(zhome), NODE: quote(node), NODE_MAJOR: nodeMajor, BIN_DIR: quote(binDir), OUT_ROOT: quote(outRoot), READ_DIR: quote(readDir), PLATFORM: platform, UID: uid, SYSBINDS: sysbinds, BWRAP: quote(bwrap) };
+const values = { CLI: quote(cli), ZHOME: quote(zhome), NODE: quote(node), NODE_MAJOR: nodeMajor, BIN_DIR: quote(binDir), READ_DIR: quote(readDir), PLATFORM: platform, UID: uid, SYSBINDS: sysbinds, BWRAP: quote(bwrap) };
 const text = require("node:fs").readFileSync(template, "utf8").replace(/@([A-Z_]+)@/g, (match, key) => {
   if (!(key in values)) throw new Error(`unknown placeholder ${match}`);
   return values[key];
@@ -402,6 +430,19 @@ if ((!dry)); then
   fi
 fi
 report installed install "$DEST: zenius $describe"
+
+# The working folder, in the config file the launcher reads at each start,
+# and made if missing.
+if ! wf_current "$working"; then
+  act wf_write "$working"
+  report set set "the working folder: $working ($(wf_config))"
+elif [[ -d $working ]]; then
+  echo "ok       the working folder: $working"
+fi
+if [[ ! -d $working ]]; then
+  act wf_make "$working"
+  report made make "$working, the working folder, readable only by you"
+fi
 
 status=0
 if ((sandbox)); then

@@ -2,6 +2,7 @@
 # Install the zenius runtime into a Zen profile, or remove it.
 #
 #   scripts/install.sh [--profile <dir>] [--loader] [--dry-run] [--while-running] [--disable-ipv6]
+#                      [--working-dir <dir>]
 #   scripts/install.sh --uninstall [--profile <dir>] [--dry-run] [--while-running]
 #
 # Install copies (never links) runtime/JS/zenius.uc.js and runtime/JS/zenius/
@@ -15,6 +16,14 @@
 # DNS_PREF. Nothing else in the profile changes: the user's other scripts in
 # chrome/JS/ and fx-autoconfig stay as they are. See docs/SPI.md "Install
 # layout".
+#
+# Install also sets the working folder, where the agent's downloads land:
+# --working-dir (absolute), else the one an earlier install set, else
+# ~/zenius-files. It goes in ~/.zenius/config.json, which the runtime reads
+# at each start, and is made if missing (scripts/working-folder.sh). With a
+# ZENIUS_HOME other than ~/.zenius and no config file there, there's no
+# default, and install needs --working-dir (exit 2 without it).
+# Uninstall leaves both, and the files in the folder, in place.
 #
 # With --loader, a profile without fx-autoconfig's loader
 # (chrome/utils/boot.sys.mjs), a fresh Zen's, gets the copy in
@@ -69,6 +78,7 @@ PROFILE=
 DRY=0
 WHILE_RUNNING=0
 DISABLE_IPV6=0
+WORKING_DIR=
 while (($#)); do
   case $1 in
     --profile)
@@ -81,6 +91,16 @@ while (($#)); do
     --dry-run) DRY=1; shift ;;
     --while-running) WHILE_RUNNING=1; shift ;;
     --disable-ipv6) DISABLE_IPV6=1; shift ;;
+    --working-dir)
+      [[ $# -ge 2 && $2 == /* ]] || { echo "install.sh: --working-dir takes an absolute path" >&2; exit 2; }
+      WORKING_DIR=$2
+      shift 2
+      ;;
+    --working-dir=*)
+      WORKING_DIR=${1#--working-dir=}
+      [[ $WORKING_DIR == /* ]] || { echo "install.sh: --working-dir takes an absolute path" >&2; exit 2; }
+      shift
+      ;;
     -h | --help)
       awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"
       exit 0
@@ -88,6 +108,15 @@ while (($#)); do
     *) echo "install.sh: unknown argument: $1 (see --help)" >&2; exit 2 ;;
   esac
 done
+
+if [[ $MODE == uninstall && -n $WORKING_DIR ]]; then
+  echo "install.sh: --working-dir goes with an install, not --uninstall" >&2
+  exit 2
+fi
+
+# The working folder's rules and its config file.
+# shellcheck source=working-folder.sh
+. "$ROOT/scripts/working-folder.sh"
 
 say() { printf '%s\n' "$*"; }
 # "1 preference", "2 preferences".
@@ -727,6 +756,16 @@ install() {
     fi
   fi
   now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  # The working folder, checked before anything changes. It may neither
+  # hold nor be inside the profile, or Zen's app.
+  local working app
+  app=$(zen_app)
+  local picked=0
+  working=$(wf_pick "$WORKING_DIR" "$(wf_resolve "$PROFILE")" ${app:+"$(wf_resolve "$app")"}) || picked=$?
+  # 2 when there's no folder to pick without --working-dir, as for a wrong
+  # argument.
+  if ((picked == 2)); then echo "install.sh: $working" >&2; exit 2; fi
+  ((picked == 0)) || die "$working"
 
   say "Installing zenius $version (protocol $protocol, commit $commit) into $PROFILE"
   describe_target
@@ -848,19 +887,53 @@ install() {
     mv "$RECORD.tmp-$$" "$RECORD"
     say "  wrote $count files in the profile (listed in $RECORD)"
   fi
+  set_working_folder "$working"
   if ((DISABLE_IPV6)); then set_dns_pref; else keep_dns_pref; fi
   check_program
   finish_message "load zenius $version"
 }
 
+# The working folder, in the config file the runtime reads at each start,
+# and made if missing. A folder that's there keeps its files and mode.
+set_working_folder() {
+  local folder=$1
+  if wf_current "$folder"; then
+    say "  the working folder stays $folder ($(wf_config))"
+  elif ((DRY)); then
+    say "  would set the working folder: $folder, in $(wf_config)"
+  else
+    ensure_home
+    wf_write "$folder"
+    say "  set the working folder: $folder, in $(wf_config)"
+  fi
+  if [[ ! -d $folder ]]; then
+    if ((DRY)); then say "  would make $folder, readable only by you"; else wf_make "$folder" && say "  made $folder, readable only by you"; fi
+  fi
+}
+
+# Zen's app, as release-install.sh finds it: on a Mac ZEN_APP's .app
+# (/Applications/Zen.app by default), elsewhere the folder of the zen binary
+# ZEN_BIN names, or PATH's, links followed. Nothing if there's none.
+zen_app() {
+  local bin
+  if [[ $(uname) == Darwin ]]; then
+    printf '%s\n' "${ZEN_APP:-/Applications/Zen.app}"
+    return
+  fi
+  bin=${ZEN_BIN:-$(command -v zen || true)}
+  [[ -n $bin ]] || return 0
+  (cd "$(dirname "$(readlink -f "$bin" 2>/dev/null || printf '%s' "$bin")")" 2>/dev/null && pwd -P) || true
+}
+
 # fx-autoconfig's program part lives in the Zen app, which only the user
 # changes, and a Zen update deletes its config.js.
 check_program() {
-  local appdir=
+  local appdir= app
+  app=$(zen_app)
   if [[ $(uname) == Darwin ]]; then
-    [[ -d /Applications/Zen.app ]] && appdir=/Applications/Zen.app/Contents/Resources
-  elif [[ -n ${ZEN_BIN:-} ]]; then
-    appdir=$(dirname "$ZEN_BIN")
+    [[ -d $app ]] && appdir=$app/Contents/Resources
+  else
+    appdir=$app
   fi
   if [[ -n $appdir && ! -f $appdir/config.js ]]; then
     say "Warning: $appdir/config.js is missing (a Zen update removes it), so Zen won't load zenius."
@@ -986,7 +1059,9 @@ uninstall() {
   restore_dns_pref
   if ((DRY)); then say "  would back up what it removes to $BACKUP"; else say "  backed up what it removed to $BACKUP"; fi
   if ((mine)); then run rm -f "$RECORD"; fi
-  local kept="$ZHOME (backups, zenius's task records, the CLI if installed)"
+  local kept="$ZHOME (backups, zenius's task records, the CLI if installed, the working folder's setting)"
+  local working
+  if working=$(wf_saved) && [[ -n $working && -d $working ]]; then kept+=", the working folder and its files ($working)"; fi
   # The user's chats with zenius's sidebar, its Work tasks and each tab's
   # Chat: theirs, so Undo neither removes nor copies them (zen-sdk's runbook
   # lists them as staying).

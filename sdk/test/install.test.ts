@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
+  chmodSync,
   cpSync,
   existsSync,
   lstatSync,
@@ -22,13 +23,18 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
+import { guardHome, realPath } from "../../tests/lib/scratch-home.mjs";
 
 const REPO = fileURLToPath(new URL("../../", import.meta.url)).replace(/\/$/, "");
 const SCRIPT = join(REPO, "scripts/install-cli.sh");
 const LAUNCHER = join(REPO, "sdk/bin/zenius");
 
 const temporary: string[] = [];
+// Folders a case made unlistable (mode 000). rmSync can't remove one, even
+// an empty one, so after() gives each its mode back first.
+const unlistable: string[] = [];
 after(() => {
+  for (const folder of unlistable) chmodSync(folder, 0o700);
   for (const dir of temporary) rmSync(dir, { recursive: true, force: true });
 });
 function scratch(prefix: string): string {
@@ -41,18 +47,30 @@ function scratch(prefix: string): string {
 // where each run's entries would pile up.
 process.env.NODE_COMPILE_CACHE = join(scratch("zenius-install-"), "compile-cache");
 
+/**
+ * The environment of a run of an installer, the launcher or the CLI: HOME
+ * and ZENIUS_HOME in the scratch folder `home` (ZENIUS_HOME as HOME/.zenius,
+ * where the installers' default working folder applies), unless `extra`
+ * names others. guardHome fails the run before it starts if either is the
+ * account's own.
+ */
+function scratchEnv(home: string, extra: Record<string, string | undefined> = {}): NodeJS.ProcessEnv {
+  return guardHome({ ...process.env, HOME: home, ZENIUS_HOME: join(home, ".zenius"), ...extra }, "install.test.ts");
+}
+
 function install(home: string, args: string[] = [], options: { script?: string; build?: boolean; env?: Record<string, string> } = {}) {
   const result = spawnSync("bash", [options.script ?? SCRIPT, ...args], {
     encoding: "utf8",
-    env: {
-      ...process.env,
+    // Each install sets the working folder, ~/zenius-files unless
+    // --working-dir says, in ~/.zenius/config.json: both in the scratch home.
+    env: scratchEnv(home, {
       ZENIUS_CLI_DIR: join(home, "cli"),
       ZENIUS_BIN_DIR: join(home, "bin"),
       ZENIUS_SKILL_DIRS: `${join(home, "claude")} ${join(home, "agents")}`,
       // The SDK suites run dist/; rebuilding it here would race them.
       ...(options.build ? {} : { ZENIUS_INSTALL_NO_BUILD: "1" }),
       ...options.env,
-    },
+    }),
   });
   return { code: result.status, out: `${result.stdout}${result.stderr}` };
 }
@@ -62,6 +80,7 @@ function checkoutCopy(): string {
   const root = scratch("zenius-checkout-");
   for (const path of [
     "scripts/install-cli.sh",
+    "scripts/working-folder.sh",
     "sdk/bin",
     "sdk/src",
     "sdk/build.mjs",
@@ -78,15 +97,129 @@ function checkoutCopy(): string {
   return root;
 }
 
-/** Node with its TypeScript support off, as Node 23.0-23.5 and 22.6-22.17 run by default. */
+/**
+ * Node with its TypeScript support off, as Node 23.0-23.5 and 22.6-22.17 run
+ * by default, running `file`, the zenius command in a scratch home's bin.
+ */
 function withoutTypeScript(file: string, ...args: string[]) {
   const result = spawnSync(process.execPath, ["--no-experimental-strip-types", file, ...args], {
     encoding: "utf8",
-    // zenius doctor reads only these, and finds nothing there.
-    env: { ...process.env, ZENIUS_HOME: join(dirname(file), "zhome"), ZEN_BIN: "", ZENIUS_SOCKET: "" },
+    // zenius doctor reads only these, and finds no Zen there.
+    env: scratchEnv(dirname(dirname(file)), { ZEN_BIN: "", ZENIUS_SOCKET: "" }),
   });
   return { code: result.status, stdout: result.stdout, stderr: result.stderr };
 }
+
+/** Where an install in the scratch home keeps the working folder's setting. */
+const configOf = (home: string) => join(home, ".zenius/config.json");
+/** config.json as the installers write it. */
+const naming = (folder: string) => `{\n  "workingFolder": "${folder}"\n}\n`;
+const modeOf = (path: string) => lstatSync(path).mode & 0o777;
+const linesOf = (out: string) => out.split("\n");
+
+/**
+ * tests/fixtures/working-folder.json: the working folder's rules as cases
+ * that every reader of them runs, these installers and the launcher
+ * (tests/security) alike. Its "about" says how a case runs.
+ */
+type FolderCase = {
+  name: string;
+  folder: string;
+  make?: string[];
+  unlistable?: string[];
+  env?: Record<string, string>;
+  outcome: string;
+  kept?: string;
+  repo?: string;
+  by?: string[];
+};
+type ConfigCase = { name: string; text: string };
+const FIXTURE = JSON.parse(readFileSync(join(REPO, "tests/fixtures/working-folder.json"), "utf8")) as {
+  env: Record<string, string>;
+  cases: FolderCase[];
+  configs: { unreadable: ConfigCase[]; readable: ConfigCase[] };
+};
+/** Root reads any folder, so a case with one that can't be listed proves nothing then. */
+const AS_ROOT = process.getuid?.() === 0;
+/** The fixture's cases that hold for install-cli.sh. */
+const CASES = FIXTURE.cases.filter((c) => (!c.by || c.by.includes("install-cli.sh")) && !(c.unlistable && AS_ROOT));
+
+/** A case's folder, entry or env value, with ~ as the scratch root `home` and its tokens filled in. */
+function caseFiller(home: string): (text: string) => string {
+  const tokens: Record<string, string> = { cli: join(home, "cli"), bin: join(home, "bin"), node: process.execPath, PATH: process.env.PATH ?? "" };
+  return (text) =>
+    text.replace(/^~(?=\/|$)/, home).replace(/\{(\w+)\}/g, (all, name: string) => {
+      assert.ok(name in tokens, `install-cli.sh's cases have no ${all}`);
+      return tokens[name]!;
+    });
+}
+
+/** A case's environment: the fixture's defaults, then the case's own, filled in. */
+const caseEnv = (c: { env?: Record<string, string> }, fill: (text: string) => string): Record<string, string> =>
+  Object.fromEntries(Object.entries({ ...FIXTURE.env, ...c.env }).map(([name, value]) => [name, fill(value)]));
+
+/** Makes a case's entries: 'x/' a folder, 'x' an empty file, 'x -> y' a link. One that's there stays. */
+function makeEntries(entries: string[] | undefined, fill: (text: string) => string): void {
+  for (const entry of entries ?? []) {
+    const [from, to] = entry.split(" -> ");
+    const path = fill(from!);
+    const bare = path.replace(/\/$/, "");
+    if (lstatSync(bare, { throwIfNoEntry: false })) continue;
+    mkdirSync(dirname(bare), { recursive: true });
+    if (to !== undefined) symlinkSync(fill(to), bare);
+    else if (path.endsWith("/")) mkdirSync(bare);
+    else writeFileSync(bare, "");
+  }
+}
+
+/** Makes a case's folders that can't be listed (mode 000), after its entries. */
+function makeUnlistable(folders: string[] | undefined, fill: (text: string) => string): void {
+  for (const folder of folders ?? []) {
+    const path = fill(folder);
+    mkdirSync(path, { recursive: true });
+    chmodSync(path, 0);
+    unlistable.push(path);
+  }
+}
+
+/** Whether `path` is `folder` or inside it. */
+const within = (path: string, folder: string) => path === folder || path.startsWith(`${folder}/`);
+
+/**
+ * The installers' reason for refusing a case's folder, as they print it:
+ * `folder` as given, and the folder the reason names by its real path.
+ */
+function refusal(c: FolderCase, folder: string, fill: (text: string) => string): string {
+  const cant = `the working folder can't be ${folder}`;
+  switch (c.outcome) {
+    case "not-plain":
+      return `the working folder must be an absolute path with no double quote, backslash or control character: ${folder}`;
+    case "not-a-folder":
+    case "not-yours":
+      return `the working folder must be a folder of yours: ${folder}`;
+    case "no-parent":
+      return `the working folder's parent folder must exist: ${folder}`;
+    case "shared":
+      return `${cant}: it's your home folder, a temporary folder, or a folder above one`;
+    case "kept": {
+      const kept = realPath(fill(c.kept!));
+      // A kept folder the folder is, or holds, comes first.
+      const how = within(kept, realPath(folder)) ? "it holds" : "it's inside";
+      return `${cant}: ${how} ${kept}, which the agent's scripts must not reach`;
+    }
+    case "project":
+      return lstatSync(join(realPath(folder), ".git"), { throwIfNoEntry: false })
+        ? `${cant}: it holds .git, so it's a project's folder`
+        : `${cant}: it holds .envrc, which direnv runs`;
+    case "worktree":
+      return `${cant}: it's inside a git work tree, ${realPath(fill(c.repo!))}`;
+    default:
+      throw new Error(`${c.name}: no wording for the outcome ${c.outcome}`);
+  }
+}
+
+/** A fixture config.json naming `folder`. */
+const configText = (c: ConfigCase, folder: string) => c.text.replaceAll("{folder}", folder);
 
 describe("scripts/install-cli.sh", () => {
   it("installs a copy that always runs its bundle, links the CLI and the Skill to it, and uninstalls", () => {
@@ -142,7 +275,9 @@ describe("scripts/install-cli.sh", () => {
     writeFileSync(join(copy, "skill/zenius/learnings/my-site/manifest.json"), "{}\n");
     const again = install(home, ["--skill"]);
     assert.equal(again.code, 0, again.out);
-    assert.equal(again.out.match(/^ok /gm)?.length, 3);
+    // The three links, and the working folder the first install set.
+    assert.equal(again.out.match(/^ok /gm)?.length, 4);
+    assert.ok(linesOf(again.out).includes(`ok       the working folder: ${join(home, "zenius-files")}`), again.out);
     assert.match(again.out, /^kept {5}learnings\/my-site, added to the previous copy$/m);
     assert.ok(existsSync(join(copy, "skill/zenius/learnings/my-site/manifest.json")));
 
@@ -199,6 +334,7 @@ describe("scripts/install-cli.sh", () => {
     const root = scratch("zenius-checkout-");
     mkdirSync(join(root, "scripts"));
     cpSync(SCRIPT, join(root, "scripts/install-cli.sh"));
+    cpSync(join(REPO, "scripts/working-folder.sh"), join(root, "scripts/working-folder.sh"));
     mkdirSync(join(root, "sdk/bin"), { recursive: true });
     cpSync(LAUNCHER, join(root, "sdk/bin/zenius"));
     mkdirSync(join(root, "sdk/dist"));
@@ -304,14 +440,228 @@ describe("scripts/install-cli.sh", () => {
   });
 });
 
+describe("scripts/install-cli.sh --working-dir", () => {
+  it("sets the working folder in config.json, ~/zenius-files unless --working-dir says, makes it readable only by you, and later installs keep it", () => {
+    const home = scratch("zenius-install-");
+    const config = configOf(home);
+    const files = join(home, "zenius-files");
+    const first = install(home);
+    assert.equal(first.code, 0, first.out);
+    assert.ok(
+      first.out.includes(`\nset      the working folder: ${files} (${config})\nmade     ${files}, the working folder, readable only by you\n`),
+      first.out,
+    );
+    assert.equal(readFileSync(config, "utf8"), naming(files), "byte for byte, as the launcher and the runtime read it");
+    assert.equal(modeOf(config), 0o600);
+    assert.equal(modeOf(files), 0o700);
+    writeFileSync(join(files, "report.pdf"), "a download");
+
+    const again = install(home);
+    assert.equal(again.code, 0, again.out);
+    assert.ok(linesOf(again.out).includes(`ok       the working folder: ${files}`), again.out);
+    assert.doesNotMatch(again.out, /^(set|made) /m);
+    assert.equal(readFileSync(config, "utf8"), naming(files));
+
+    // Another folder: set, and made. The files stay where they were.
+    const work = join(home, "work");
+    const moved = install(home, ["--working-dir", work]);
+    assert.equal(moved.code, 0, moved.out);
+    assert.ok(moved.out.includes(`\nset      the working folder: ${work} (${config})\nmade     ${work}, the working folder, readable only by you\n`), moved.out);
+    assert.equal(readFileSync(config, "utf8"), naming(work));
+    assert.equal(modeOf(work), 0o700);
+    assert.deepEqual(readdirSync(work), []);
+    assert.equal(readFileSync(join(files, "report.pdf"), "utf8"), "a download", "changing it moves no files");
+    const kept = install(home);
+    assert.equal(kept.code, 0, kept.out);
+    assert.ok(linesOf(kept.out).includes(`ok       the working folder: ${work}`), kept.out);
+    assert.equal(readFileSync(config, "utf8"), naming(work));
+
+    // A folder that's there keeps its mode and its files. The option's =
+    // form, and a slash at the end, which config.json leaves off.
+    const mine = join(home, "mine");
+    mkdirSync(mine);
+    chmodSync(mine, 0o750);
+    writeFileSync(join(mine, "notes.txt"), "mine");
+    const taken = install(home, [`--working-dir=${mine}/`]);
+    assert.equal(taken.code, 0, taken.out);
+    assert.ok(linesOf(taken.out).includes(`set      the working folder: ${mine} (${config})`), taken.out);
+    assert.doesNotMatch(taken.out, /^made /m);
+    assert.equal(readFileSync(config, "utf8"), naming(mine));
+    assert.equal(modeOf(mine), 0o750);
+    assert.deepEqual(readdirSync(mine), ["notes.txt"]);
+
+    // A dry run says what it would set and make, and does neither.
+    const other = join(home, "other");
+    const dry = install(home, ["--dry-run", "--working-dir", other]);
+    assert.equal(dry.code, 0, dry.out);
+    assert.ok(dry.out.includes(`\nwould set the working folder: ${other} (${config})\nwould make ${other}, the working folder, readable only by you\n`), dry.out);
+    assert.ok(!existsSync(other));
+    assert.equal(readFileSync(config, "utf8"), naming(mine));
+
+    // The folder config.json names is made again if it has gone.
+    rmSync(mine, { recursive: true });
+    const remade = install(home);
+    assert.equal(remade.code, 0, remade.out);
+    assert.ok(linesOf(remade.out).includes(`made     ${mine}, the working folder, readable only by you`), remade.out);
+    assert.equal(modeOf(mine), 0o700);
+
+    // --uninstall leaves the setting, and each folder with its files.
+    const removed = install(home, ["--uninstall"]);
+    assert.equal(removed.code, 0, removed.out);
+    assert.doesNotMatch(removed.out, /working folder|config\.json/);
+    assert.equal(readFileSync(config, "utf8"), naming(mine));
+    for (const folder of [files, work, mine]) assert.ok(existsSync(folder), folder);
+    assert.equal(readFileSync(join(files, "report.pdf"), "utf8"), "a download");
+  });
+
+  it("refuses each folder tests/fixtures/working-folder.json refuses, with the reason, and changes nothing", () => {
+    const home = scratch("zenius-install-");
+    const fill = caseFiller(home);
+    const first = install(home, [], { env: caseEnv({}, fill) });
+    assert.equal(first.code, 0, first.out);
+    const config = join(home, ".zenius/config.json");
+    const before = readFileSync(config, "utf8");
+    const failed: string[] = [];
+    let ran = 0;
+    for (const c of CASES.filter((c) => c.outcome !== "allowed")) {
+      makeEntries(c.make, fill);
+      makeUnlistable(c.unlistable, fill);
+      const folder = fill(c.folder);
+      const there = lstatSync(folder, { throwIfNoEntry: false });
+      const result = install(home, ["--working-dir", folder], { env: caseEnv(c, fill) });
+      const want = `error    ${refusal(c, folder, fill)}\n`;
+      const wrong: string[] = [];
+      if (result.code !== 1 || !result.out.endsWith(want)) wrong.push(`exit ${result.code}, not 1 and ${JSON.stringify(want)}, after:\n${result.out}`);
+      if (readFileSync(config, "utf8") !== before) {
+        wrong.push("config.json changed");
+        writeFileSync(config, before);
+      }
+      if (!there && lstatSync(folder, { throwIfNoEntry: false })) wrong.push("the folder was made");
+      if (wrong.length) failed.push(`${c.name}: ${wrong.join("; ")}`);
+      ran++;
+    }
+    assert.deepEqual(failed, []);
+    assert.ok(ran >= 30, `${ran} cases`);
+  });
+
+  it("takes each folder tests/fixtures/working-folder.json allows: in a temporary folder, below a stray repository at its root, in a home kept in git, through a link, with any other characters", () => {
+    for (const c of CASES.filter((c) => c.outcome === "allowed")) {
+      const home = scratch("zenius-install-");
+      const fill = caseFiller(home);
+      makeEntries(c.make, fill);
+      makeUnlistable(c.unlistable, fill);
+      const folder = fill(c.folder);
+      const env = caseEnv(c, fill);
+      const there = lstatSync(folder, { throwIfNoEntry: false });
+      const result = install(home, ["--working-dir", folder], { env });
+      assert.equal(result.code, 0, `${c.name}: ${result.out}`);
+      assert.equal(readFileSync(join(env.ZENIUS_HOME!, "config.json"), "utf8"), naming(folder), c.name);
+      assert.ok(existsSync(folder), c.name);
+      if (!there) assert.equal(modeOf(folder), 0o700, `${c.name}: made readable only by you`);
+    }
+  });
+
+  it("stops with the reason at a config.json edited so it doesn't name the folder as the installers write it, never falling back to ~/zenius-files, and --working-dir writes it again", () => {
+    const home = scratch("zenius-install-");
+    const work = join(home, "work");
+    assert.equal(install(home, ["--working-dir", work]).code, 0);
+    const config = configOf(home);
+    const files = join(home, "zenius-files");
+    const reason = `error    ${config} doesn't name the working folder on a line of its own, as the installer writes it: pass --working-dir <folder> to write it again\n`;
+    for (const c of FIXTURE.configs.unreadable) {
+      const text = configText(c, work);
+      writeFileSync(config, text);
+      for (const args of [[], ["--dry-run"]]) {
+        const result = install(home, args);
+        assert.equal(result.code, 1, `${c.name}: ${result.out}`);
+        assert.ok(result.out.endsWith(reason), `${c.name}: ${result.out}`);
+      }
+      assert.equal(readFileSync(config, "utf8"), text, `${c.name}: config.json is as it was`);
+      assert.ok(!existsSync(files), `${c.name}: no ~/zenius-files`);
+    }
+    for (const c of FIXTURE.configs.readable) {
+      writeFileSync(config, configText(c, work));
+      const result = install(home);
+      assert.equal(result.code, 0, `${c.name}: ${result.out}`);
+      assert.equal(readFileSync(config, "utf8"), naming(work), `${c.name}: written whole again, as the installers write it`);
+    }
+
+    // A folder no install would take stops it the same way.
+    writeFileSync(config, naming(home));
+    const wide = install(home);
+    assert.equal(wide.code, 1, wide.out);
+    assert.ok(wide.out.endsWith(`error    the working folder can't be ${home}: it's your home folder, a temporary folder, or a folder above one\n`), wide.out);
+    assert.equal(readFileSync(config, "utf8"), naming(home));
+
+    // --working-dir writes it again, whatever it held.
+    writeFileSync(config, configText(FIXTURE.configs.unreadable[0]!, work));
+    const fixed = install(home, ["--working-dir", work]);
+    assert.equal(fixed.code, 0, fixed.out);
+    assert.ok(linesOf(fixed.out).includes(`set      the working folder: ${work} (${config})`), fixed.out);
+    assert.equal(readFileSync(config, "utf8"), naming(work));
+    assert.ok(!existsSync(files));
+  });
+
+  it("with ZENIUS_HOME anywhere but ~/.zenius there's no default working folder: an install without --working-dir stops and makes nothing, and one with it installs", () => {
+    const home = scratch("zenius-install-");
+    const env = { ZENIUS_HOME: join(home, "zhome") };
+    const none = `error    there's no default working folder: ZENIUS_HOME is ${env.ZENIUS_HOME}, not ~/.zenius, and it holds no config.json: pass --working-dir <folder>\n`;
+    for (const args of [[], ["--dry-run"], ["--sandbox"]]) {
+      const result = install(home, args, { env });
+      assert.equal(result.code, 2, `${args.join(" ")}: ${result.out}`);
+      assert.ok(result.out.endsWith(none), `${args.join(" ")}: ${result.out}`);
+      assert.deepEqual(readdirSync(home), [], `${args.join(" ")}: no copy, no config.json, no ~/zenius-files`);
+    }
+    const work = join(home, "work");
+    const given = install(home, ["--working-dir", work], { env });
+    assert.equal(given.code, 0, given.out);
+    assert.equal(readFileSync(join(home, "zhome/config.json"), "utf8"), naming(work));
+    // Once config.json there names a folder, a later install keeps it.
+    const kept = install(home, [], { env });
+    assert.equal(kept.code, 0, kept.out);
+    assert.ok(linesOf(kept.out).includes(`ok       the working folder: ${work}`), kept.out);
+    assert.ok(!existsSync(join(home, "zenius-files")), "never ~/zenius-files");
+
+    // A ZENIUS_HOME that is ~/.zenius through a link is ~/.zenius.
+    const linked = scratch("zenius-install-");
+    mkdirSync(join(linked, "elsewhere"));
+    symlinkSync(join(linked, "elsewhere"), join(linked, ".zenius"));
+    const same = install(linked, [], { env: { ZENIUS_HOME: join(linked, "elsewhere") } });
+    assert.equal(same.code, 0, same.out);
+    assert.equal(readFileSync(join(linked, "elsewhere/config.json"), "utf8"), naming(join(linked, "zenius-files")));
+  });
+
+  it("--working-dir takes an absolute path, and --output-dir is gone: either stops at once and changes nothing", () => {
+    const home = scratch("zenius-install-");
+    const absolute = "install-cli.sh: --working-dir takes an absolute path\n";
+    const gone = "install-cli.sh: --output-dir is gone: scripts write their files in the working folder, which --working-dir sets (~/zenius-files by default)\n";
+    for (const [args, message] of [
+      [["--working-dir", "zenius-files"], absolute],
+      [["--working-dir", "~/zenius-files"], absolute],
+      [["--working-dir=zenius-files"], absolute],
+      [["--working-dir"], absolute],
+      [["--output-dir", join(home, "out")], gone],
+      [[`--output-dir=${join(home, "out")}`], gone],
+      [["--sandbox", "--output-dir", join(home, "out")], gone],
+      [["--output-dir"], gone],
+    ] as const) {
+      const result = install(home, [...args]);
+      assert.equal(result.code, 2, `${args.join(" ")}: ${result.out}`);
+      assert.equal(result.out, message, args.join(" "));
+      assert.deepEqual(readdirSync(home), [], args.join(" "));
+    }
+  });
+});
+
 describe("scripts/install-cli.sh --sandbox", () => {
   const linux = process.platform === "linux";
   const supported = linux
     ? spawnSync("bwrap", ["--ro-bind", "/", "/", "--unshare-all", "--die-with-parent", "true"]).status === 0
     : process.platform === "darwin" && existsSync("/usr/bin/sandbox-exec");
   const skip = supported ? false : "needs bubblewrap that works here, or macOS's sandbox-exec";
-  // The registry and the sandbox's temporary folder live in the scratch home too.
-  const sandboxEnv = (home: string) => ({ ZENIUS_HOME: join(home, "zhome"), TMPDIR: home });
+  // The registry, the working folder and the sandbox's temporary folder live
+  // in the scratch home too, for the launcher's runs as for the installs.
+  const sandboxEnv = (home: string) => ({ HOME: home, ZENIUS_HOME: join(home, ".zenius"), TMPDIR: home });
 
   it("a dry run prints the launcher with this machine's paths, and writes nothing", { skip }, () => {
     const home = scratch("zenius-install-");
@@ -321,9 +671,12 @@ describe("scripts/install-cli.sh --sandbox", () => {
     assert.deepEqual(readdirSync(home), [], result.out);
     assert.ok(result.out.includes(`\nwould write ${join(home, "bin/zenius")}: the sandboxed launcher\n    #!/bin/sh -p\n`), result.out);
     assert.match(result.out, /^ {4}# zenius, sandboxed \(zenius-sandbox-launcher 1\)\./m);
-    for (const line of [`CLI='${join(real, "cli")}'`, `ZHOME='${join(real, "zhome")}'`, `BIN_DIR='${join(real, "bin")}'`, `OUT_ROOT='${join(real, "zhome/out")}'`]) {
+    for (const line of [`CLI='${join(real, "cli")}'`, `ZHOME='${join(real, ".zenius")}'`, `BIN_DIR='${join(real, "bin")}'`]) {
       assert.ok(result.out.includes(`\n    ${line}\n`), `${line} in:\n${result.out}`);
     }
+    // The launcher reads the working folder from config.json at each start;
+    // runs' output folders are gone.
+    assert.doesNotMatch(result.out, /OUT_ROOT/);
     // The PATH's node as found, links kept, and the major each start checks.
     const found = spawnSync("bash", ["-c", "command -v node"], { encoding: "utf8" }).stdout.trim();
     assert.ok(result.out.includes(`\n    NODE='${found}'\n    NODE_MAJOR=24\n`), `NODE='${found}' in:\n${result.out}`);
@@ -399,47 +752,56 @@ describe("scripts/install-cli.sh --sandbox", () => {
     assert.equal(readFileSync(bin, "utf8"), MINE);
   });
 
-  it("puts runs' output folders where --output-dir says, keeps that, and never in the working folder", { skip }, () => {
+  it("the launcher keeps no output folders: at each start it takes the working folder config.json names, and makes it if it has gone", { skip }, () => {
     const home = scratch("zenius-install-");
-    const real = realpathSync(home);
     const env = sandboxEnv(home);
     const bin = join(home, "bin/zenius");
-    const outRoot = (text: string) => /^OUT_ROOT=(.*)$/m.exec(text)?.[1];
-    assert.equal(install(home, ["--sandbox", "--output-dir", join(home, "outputs")], { env }).code, 0);
-    assert.equal(outRoot(readFileSync(bin, "utf8")), `'${join(real, "outputs")}'`);
-    const kept = install(home, [], { env });
-    assert.equal(kept.code, 0, kept.out);
-    assert.equal(outRoot(readFileSync(bin, "utf8")), `'${join(real, "outputs")}'`, "a later install keeps it");
+    const files = join(home, "zenius-files");
+    const first = install(home, ["--sandbox"], { env });
+    assert.equal(first.code, 0, first.out);
+    const text = readFileSync(bin, "utf8");
+    assert.doesNotMatch(text, /^OUT_ROOT=/m);
+    const version = () => spawnSync(bin, ["--version"], { encoding: "utf8", cwd: home, env: scratchEnv(home, env) });
 
-    // Each start makes the run's folder: <root>/<working folder's name>-<cksum of its path>/run.XXXXXX.
-    const work = join(home, "project");
-    mkdirSync(work);
-    const version = (cwd: string) => spawnSync(bin, ["--version"], { encoding: "utf8", cwd, env: { ...process.env, ...env } });
-    assert.equal(version(work).status, 0);
-    const sum = spawnSync("sh", ["-c", 'printf %s "$1" | cksum', "-", realpathSync(work)], { encoding: "utf8" }).stdout.split(" ")[0];
-    const runs = readdirSync(join(home, "outputs", `project-${sum}`));
-    assert.equal(runs.length, 1);
-    assert.match(runs[0]!, /^run\.[A-Za-z0-9]{6}$/);
+    rmSync(files, { recursive: true });
+    const remade = version();
+    assert.equal(remade.status, 0, remade.stderr);
+    assert.equal(modeOf(files), 0o700, "made again, readable only by you");
 
-    // An output folder inside the working folder is refused outright.
-    assert.equal(install(home, ["--sandbox", "--output-dir", join(work, "out")], { env }).code, 0);
-    const inside = version(work);
-    assert.equal(inside.status, 70);
-    assert.match(inside.stderr, /^zenius \(sandboxed\): the output folder \(.*\/project\/out\) is inside the working folder, where a script must not write: /);
-    // (install-cli.sh's own --version check, run elsewhere, made the root.)
-    assert.ok(!existsSync(join(work, "out", `project-${sum}`)), "the refused run made no folder in the working folder");
+    // Another folder, set without --sandbox: the launcher stays as it was,
+    // and takes the new folder at its next start.
+    const work = join(home, "work");
+    const moved = install(home, ["--working-dir", work], { env });
+    assert.equal(moved.code, 0, moved.out);
+    assert.ok(linesOf(moved.out).includes(`ok       ${bin}: the sandboxed launcher`), moved.out);
+    assert.equal(readFileSync(bin, "utf8"), text);
+    rmSync(work, { recursive: true });
+    const next = version();
+    assert.equal(next.status, 0, next.stderr);
+    assert.equal(modeOf(work), 0o700, "the launcher made the folder config.json names now");
+  });
 
-    for (const [args, message, extra] of [
-      [["--sandbox", "--output-dir", "outputs"], "install-cli.sh: --output-dir takes an absolute path\n", {}],
-      [["--sandbox", "--output-dir"], "install-cli.sh: --output-dir takes an absolute path\n", {}],
-      [["--no-sandbox", "--output-dir", join(home, "o")], "install-cli.sh: --output-dir goes with --sandbox\n", {}],
-      [["--sandbox", "--output-dir", home], `error    --sandbox: --output-dir can't be your home folder or above it: ${real}\n`, { HOME: home }],
-      [["--sandbox", "--output-dir", join(home, "cli/out")], `error    --sandbox: --output-dir can't be inside the CLI copy or ${join(home, "bin")}: ${join(real, "cli/out")}\n`, {}],
-    ] as const) {
-      const result = install(home, [...args], { env: { ...env, ...extra } });
-      assert.equal(result.code, message.startsWith("error") ? 1 : 2, result.out);
-      assert.ok(result.out.endsWith(message), result.out);
-    }
+  it("an update from a launcher with runs' output folders says once that scripts now write in the working folder, and leaves those folders alone", { skip }, () => {
+    const home = scratch("zenius-install-");
+    const env = sandboxEnv(home);
+    const bin = join(home, "bin/zenius");
+    assert.equal(install(home, ["--sandbox"], { env }).code, 0);
+    const text = readFileSync(bin, "utf8");
+    const outputs = join(home, "outputs");
+    mkdirSync(join(outputs, "project-1/run.abcdef"), { recursive: true });
+    writeFileSync(join(outputs, "project-1/run.abcdef/shot.png"), "an earlier run's");
+    // An earlier launcher: this one with OUT_ROOT, as --output-dir set it.
+    writeFileSync(bin, text.replace(/^READ_DIR=/m, `OUT_ROOT='${outputs}'\nREAD_DIR=`), { mode: 0o755 });
+    const note = `note     scripts now write in the working folder, ${join(home, "zenius-files")}, not in runs' output folders: ${outputs} keeps earlier runs' files, which zenius no longer uses`;
+
+    const update = install(home, [], { env });
+    assert.equal(update.code, 0, update.out);
+    assert.deepEqual(update.out.match(/^note .*output folders.*$/gm), [note], update.out);
+    assert.equal(readFileSync(bin, "utf8"), text, "the launcher is written again, without them");
+    assert.equal(readFileSync(join(outputs, "project-1/run.abcdef/shot.png"), "utf8"), "an earlier run's");
+    const next = install(home, [], { env });
+    assert.equal(next.code, 0, next.out);
+    assert.doesNotMatch(next.out, /output folders/);
   });
 
   // --read-dir: one more folder scripts may read, such as ~/Downloads, for uploads.
@@ -456,6 +818,7 @@ describe("scripts/install-cli.sh --sandbox", () => {
     const fresh = install(home, ["--sandbox"], { env });
     assert.equal(fresh.code, 0, fresh.out);
     assert.equal(readDir(), "''", "none unless asked");
+    mkdirSync(join(home, "zenius-files/uploads"));
     const first = install(home, ["--sandbox", "--read-dir", downloads], { env });
     assert.equal(first.code, 0, first.out);
     assert.equal(readDir(), `'${downloads}'`, "the path as given, which the launcher resolves at each start");
@@ -480,8 +843,18 @@ describe("scripts/install-cli.sh --sandbox", () => {
         { HOME: home },
       ],
       [
-        ["--sandbox", "--read-dir", join(home, "zhome")],
-        `error    --sandbox: --read-dir can't hold or be inside zenius, its node, Zen's profiles, or a folder of settings or credentials: ${join(real, "zhome")}\n`,
+        ["--sandbox", "--read-dir", join(home, ".zenius")],
+        `error    --sandbox: --read-dir can't hold or be inside zenius, its node, Zen's profiles, or a folder of settings or credentials: ${join(real, ".zenius")}\n`,
+        {},
+      ],
+      [
+        ["--sandbox", "--read-dir", join(home, "zenius-files")],
+        `error    --sandbox: --read-dir can't be the working folder or inside it, where scripts read and write already: ${join(real, "zenius-files")}\n`,
+        {},
+      ],
+      [
+        ["--sandbox", "--read-dir", join(home, "zenius-files/uploads")],
+        `error    --sandbox: --read-dir can't be the working folder or inside it, where scripts read and write already: ${join(real, "zenius-files/uploads")}\n`,
         {},
       ],
     ] as const) {
@@ -545,7 +918,7 @@ describe("scripts/install-cli.sh --sandbox", () => {
     assert.equal(result.code, 0, result.out);
     const bin = join(home, "bin/zenius");
     assert.ok(readFileSync(bin, "utf8").includes(`\nNODE='${pinned}'\n`), "pinned by the link");
-    const version = () => spawnSync(bin, ["--version"], { encoding: "utf8", cwd: home, env: { ...process.env, ...env } });
+    const version = () => spawnSync(bin, ["--version"], { encoding: "utf8", cwd: home, env: scratchEnv(home, env) });
 
     // The upgrade: the link moves to a new version's folder (here, one whose
     // bin/node links to the same node).
@@ -599,14 +972,17 @@ describe("bin/zenius", () => {
   };
   const sources = ["sdk/src/cli.ts", "sdk/src/learning", "sdk/src", "skill/guide.md"];
   const run = (root: string, typescript = true) =>
-    spawnSync(process.execPath, [...(typescript ? [] : ["--no-experimental-strip-types"]), join(root, "sdk/bin/zenius")], { encoding: "utf8" });
+    spawnSync(process.execPath, [...(typescript ? [] : ["--no-experimental-strip-types"]), join(root, "sdk/bin/zenius")], {
+      encoding: "utf8",
+      env: scratchEnv(root),
+    });
 
   it("stops before the bundle when its node isn't the major the sandboxed launcher names", () => {
     const root = layout(false);
     const major = process.versions.node.split(".")[0]!;
     const other = String(Number(major) + 1);
     const start = (wanted: string) =>
-      spawnSync(process.execPath, [join(root, "sdk/bin/zenius")], { encoding: "utf8", env: { ...process.env, ZENIUS_NODE_MAJOR: wanted } });
+      spawnSync(process.execPath, [join(root, "sdk/bin/zenius")], { encoding: "utf8", env: scratchEnv(root, { ZENIUS_NODE_MAJOR: wanted }) });
     const refused = start(other);
     assert.equal(refused.status, 70);
     assert.equal(refused.stdout, "");

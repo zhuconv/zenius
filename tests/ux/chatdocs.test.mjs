@@ -3,36 +3,49 @@
 // means. Every other zenius tool stays out of Chat at each layer: Chat's
 // zenius server serves the docs alone (zenius mcp --docs-only), Claude
 // Code's options and settings allow no other, and the zenius-only hook
-// refuses the rest. The docs answer while no Zen runs.
+// refuses the rest. The docs answer while no Zen runs. The sidebar's agents
+// and their zenius servers also take this Zen's zenius home and working
+// folder, so a dev Zen's never reach the user's own.
 import assert from "node:assert/strict";
-import { spawn, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { after, before, test } from "node:test";
+import { guardHome, scratchHome } from "../lib/scratch-home.mjs";
 import { setup } from "./lib.mjs";
 
 const REPO = resolve(new URL("../..", import.meta.url).pathname);
 const CLI = join(REPO, "sdk/bin/zenius");
 const HOOK = join(REPO, "runtime/JS/agent-sidebar/zenius-only.mjs");
+const DEV = join(REPO, "scripts/zen-dev.sh");
 // An instance that no Zen answers on.
 const NO_ZEN = `nozen-chatdocs-${process.pid}`;
 
 let h;
 let lists;
+// The CLI's HOME and, unless a server's entry names this Zen's, its
+// ZENIUS_HOME: never the account's own (tests/lib/scratch-home.mjs).
+let cliHome;
 const chrome = (code, arg) => h.call("dev.evalChrome", { code, arg });
 
 before(async () => {
   h = await setup();
   lists = mkdtempSync(join(tmpdir(), "zenius-chatdocs-"));
+  cliHome = scratchHome("ux-docs");
 });
 
 after(async () => {
   rmSync(lists, { recursive: true, force: true });
+  cliHome?.remove();
   await h?.close();
 });
 
-/** What the sidebar gives a Chat session and a Work one, for Claude Code and Codex, with this checkout's CLI. */
+/**
+ * What the sidebar gives a Chat session and a Work one, for Claude Code and
+ * Codex, with this checkout's CLI; and zenius's folders as Zen has them and
+ * as an agent's own environment does.
+ */
 function sessions() {
   return chrome(
     `const W = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/workspace.sys.mjs");
@@ -44,8 +57,18 @@ function sessions() {
      try {
        const claude = { name: "Claude Code", command: "node", args: ["@agentclientprotocol/claude-agent-acp/dist/index.js"] };
        const chat = await W.sessionLimits(claude, "chat", A.base);
+       const work = await W.sessionLimits(claude, "work", A.base);
        const codex = kind => W.codexEnvironment({}, kind, []).then(env => JSON.parse(env.CODEX_CONFIG).mcp_servers.zenius);
-       return { claude: chat.mcpServers, options: chat.meta.claudeCode.options, codex: await codex("chat"), codexWork: await codex("work") };
+       const folders = env => ({ ZENIUS_HOME: env.ZENIUS_HOME, ZENIUS_WORKING_DIR: env.ZENIUS_WORKING_DIR });
+       return {
+         claude: chat.mcpServers,
+         claudeWork: work.mcpServers,
+         options: chat.meta.claudeCode.options,
+         codex: await codex("chat"),
+         codexWork: await codex("work"),
+         zen: folders({ ZENIUS_HOME: Services.env.get("ZENIUS_HOME"), ZENIUS_WORKING_DIR: Services.env.get("ZENIUS_WORKING_DIR") }),
+         agent: folders(W.agentEnvironment({})),
+       };
      } finally {
        if (had === null) Services.prefs.clearUserPref(pref);
        else Services.prefs.setStringPref(pref, had);
@@ -56,7 +79,7 @@ function sessions() {
 
 /** A server's answers to `requests`, after initialize; then its stdin closes and it exits. */
 async function mcp(command, args, env, requests) {
-  const child = spawn(command, args, { env: { ...process.env, ...env }, stdio: ["pipe", "pipe", "pipe"] });
+  const child = spawn(command, args, { env: cliHome.env(env), stdio: ["pipe", "pipe", "pipe"] });
   let out = "";
   let err = "";
   child.stdout.setEncoding("utf8").on("data", d => (out += d));
@@ -108,11 +131,12 @@ async function zeniusTools() {
 
 test("Chat's zenius server is zenius mcp --docs-only, for Claude Code and Codex alike, and Claude Code's Chat allows only its docs of zenius's tools", async () => {
   const s = await sessions();
+  const env = ["ZENIUS_INSTANCE", "ZENIUS_HOME", "ZENIUS_WORKING_DIR"];
   assert.deepEqual(
     s.claude.map(server => [server.name, server.command, server.args, server.env.map(e => e.name)]),
-    [["zenius", CLI, ["mcp", "--docs-only"], ["ZENIUS_INSTANCE"]]]
+    [["zenius", CLI, ["mcp", "--docs-only"], env]]
   );
-  assert.deepEqual([s.codex.command, s.codex.args, Object.keys(s.codex.env)], [CLI, ["mcp", "--docs-only"], ["ZENIUS_INSTANCE"]]);
+  assert.deepEqual([s.codex.command, s.codex.args, Object.keys(s.codex.env)], [CLI, ["mcp", "--docs-only"], env]);
   assert.deepEqual(s.codexWork.args, ["mcp"], "Work's server is the whole one");
   const zenius = list => list.filter(tool => tool.startsWith("mcp__"));
   assert.deepEqual(zenius(s.options.allowedTools), ["mcp__zenius__docs"]);
@@ -120,6 +144,29 @@ test("Chat's zenius server is zenius mcp --docs-only, for Claude Code and Codex 
   assert.equal(s.options.settings.permissions.defaultMode, "dontAsk", "a tool not allowed is refused, not asked about");
   assert.equal(s.options.strictMcpConfig, true);
   assert.deepEqual(s.options.mcpServers, {});
+});
+
+test("the sidebar's agents and their zenius servers, Chat's and Work's, take this Zen's zenius home and working folder, a scratch home's and the dev Zen's, so none reaches the user's own Zen, config.json or working folder", async () => {
+  const s = await sessions();
+  const want = {
+    ZENIUS_HOME: process.env.ZENIUS_HOME,
+    ZENIUS_WORKING_DIR: execFileSync(DEV, [process.env.ZENIUS_INSTANCE, "work"], { encoding: "utf8" }).trim(),
+  };
+  // tests/ux/run.sh gives the run a scratch zenius home, never the account's own.
+  guardHome({ HOME: cliHome.home, ZENIUS_HOME: want.ZENIUS_HOME }, "chatdocs.test.mjs");
+  assert.deepEqual(s.zen, want, "Zen has them (tests/ux/run.sh, scripts/zen-dev.sh)");
+  assert.deepEqual(s.agent, want, "an agent's own environment");
+  const folders = env => ({ ZENIUS_HOME: env.ZENIUS_HOME, ZENIUS_WORKING_DIR: env.ZENIUS_WORKING_DIR });
+  const entry = server => folders(Object.fromEntries(server.env.map(e => [e.name, e.value])));
+  assert.deepEqual(s.claudeWork.map(server => server.name), ["zenius"]);
+  for (const [server, env] of [
+    ["Claude Code's Chat", entry(s.claude[0])],
+    ["Claude Code's Work", entry(s.claudeWork[0])],
+    ["Codex's Chat", folders(s.codex.env)],
+    ["Codex's Work", folders(s.codexWork.env)],
+  ]) {
+    assert.deepEqual(env, want, `${server} zenius server`);
+  }
 });
 
 test("Chat's server, run as the sidebar runs it, answers with zenius's docs while no Zen runs, and has no other tool", async () => {

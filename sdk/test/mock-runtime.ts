@@ -3,7 +3,7 @@
 // (spaces, pages, dialogs, downloads) to exercise every SDK path, records every
 // request, and lets a test override any method.
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -88,10 +88,14 @@ export class MockRuntime {
   readonly requests: RequestRecord[] = [];
   readonly spaces = new Map<number, MockSpace>();
   pageBudget = 8;
-  /** Bytes download.read serves for a download id (default "download <id>"). */
+  /** The working folder finished downloads move into, as the runtime moves them. */
+  readonly workingDir: string;
+  /** Bytes a download's finished file holds, by its id (default "download <id>"). */
   readonly downloadBodies = new Map<string, Buffer>();
-  /** Download ids whose download.read fails, as a failed transfer's does. */
+  /** Download ids whose download.path fails, as a failed transfer's does. */
   readonly failingDownloads = new Set<string>();
+  /** Each finished download's file in the working folder, by its id. */
+  readonly #downloadFiles = new Map<string, string>();
   hello: Record<string, unknown> = { protocol: 1, instance: "mock", runtimeVersion: "0.0.0-mock", zenVersion: "1.24.2b" };
   #server: Server | undefined;
   #nextSpace = 1;
@@ -106,6 +110,19 @@ export class MockRuntime {
   constructor(options: { socketPath?: string } = {}) {
     this.dir = mkdtempSync(join(tmpdir(), "zenius-mock-"));
     this.socketPath = options.socketPath ?? join(this.dir, "mock.sock");
+    this.workingDir = join(this.dir, "zenius-files");
+    mkdirSync(this.workingDir, { mode: 0o700 });
+  }
+
+  /** A finished download's file in the working folder: its suggested name, or "name(1).ext" when that's taken, as the runtime names it. */
+  #downloadFile(id: string): string {
+    let file = this.#downloadFiles.get(id);
+    if (!file) {
+      for (let n = 0; !file || existsSync(file); n++) file = join(this.workingDir, n ? `report(${n}).pdf` : "report.pdf");
+      writeFileSync(file, this.downloadBodies.get(id) ?? Buffer.from(`download ${id}`), { mode: 0o600 });
+      this.#downloadFiles.set(id, file);
+    }
+    return file;
   }
 
   async start(): Promise<this> {
@@ -657,22 +674,21 @@ export class MockRuntime {
         return {};
       },
       "filechooser.setFiles": () => ({}),
-      "download.read": (params) => {
-        if (mock.failingDownloads.has(params.download)) throw new MockError("ZEN_DOWNLOAD_FAILED", `download ${params.download} failed: NETWORK_FAILED`);
-        const body = mock.downloadBodies.get(params.download) ?? Buffer.from(`download ${params.download}`);
-        const offset = params.offset ?? 0;
-        const chunk = body.subarray(offset, offset + Math.min(params.length ?? DOWNLOAD_CHUNK, DOWNLOAD_CHUNK));
-        return { base64: chunk.toString("base64"), size: body.length, eof: offset + chunk.length >= body.length };
-      },
       "download.saveAs": () => {
-        throw new MockError("ZEN_INVALID_ARGUMENT", "download.saveAs takes no path: read the bytes with download.read");
+        throw new MockError("ZEN_INVALID_ARGUMENT", "download.saveAs takes no path here: the client copies the file that download.path names");
       },
-      "download.path": () => {
-        throw new MockError("ZEN_INVALID_ARGUMENT", "download.path gives no path: read the bytes with download.read");
+      "download.path": (params) => {
+        if (mock.failingDownloads.has(params.download)) throw new MockError("ZEN_DOWNLOAD_FAILED", `download failed: NETWORK_FAILED`);
+        return { path: mock.#downloadFile(params.download) };
       },
       "download.failure": () => null,
       "download.cancel": () => ({ ok: true }),
-      "download.delete": () => ({ ok: true }),
+      "download.delete": (params) => {
+        const file = mock.#downloadFiles.get(params.download);
+        if (file) rmSync(file, { force: true });
+        mock.#downloadFiles.delete(params.download);
+        return { ok: true };
+      },
       "events.subscribe": () => ({ ok: true }),
     };
     return handlers[method];
@@ -681,7 +697,6 @@ export class MockRuntime {
 
 /** What the mock's screenshots hold: a PNG signature, so tests can check what was written. */
 export const MOCK_PNG = Buffer.from("89504e470d0a1a0a6d6f636b", "hex");
-const DOWNLOAD_CHUNK = 8 * 1024 * 1024;
 
 /** A result JSON can't carry; sent as the frame-level `unserializable` string. */
 export class Unserializable {

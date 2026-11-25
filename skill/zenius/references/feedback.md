@@ -34,6 +34,6 @@ Then finish the task another way with zenius's other calls if there is one, and 
 
 ## When no sidebar can show it
 
-If Zen has no agent sidebar, if Zen's zenius is older than `zenius feedback`, or if Zen doesn't answer, the command writes the report as a draft on this computer. A closed sidebar is no reason: the report waits there until the user opens it. It prints the draft's path and a link to GitHub's issue form with the report's title only. In the sandbox, the draft goes in the run's output folder.
+If Zen has no agent sidebar, if Zen's zenius is older than `zenius feedback`, or if Zen doesn't answer, the command writes the report as a draft on this computer. A closed sidebar is no reason: the report waits there until the user opens it. It prints the draft's path and a link to GitHub's issue form with the report's title only. In the sandbox, the draft goes in the working folder.
 
 zenius sends nothing then, and neither do you: never open the link or fill in the form. Give the user the path and the link: they read the draft, take out anything they'd rather not share, and file it themselves. Then, as after a report in the sidebar, finish the task another way with zenius's other calls if there is one, and otherwise stop and tell the user what failed.

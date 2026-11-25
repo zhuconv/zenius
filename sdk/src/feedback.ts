@@ -12,7 +12,7 @@
 
 import { cliCommit, doctor } from "./doctor.ts";
 import { ZeniusError } from "./errors.ts";
-import { sandboxOutputDir } from "./files.ts";
+import { workingDir } from "./files.ts";
 import { taskSource, type TaskSource } from "./globals.ts";
 import { instanceName, socketPath, zeniusHome } from "./instance.ts";
 import { fs, inSandbox, os, path } from "./node.ts";
@@ -276,7 +276,8 @@ const DRAFT_HEAD = [
 
 /** Write a draft for the user to file, and tell the agent where it is. */
 function draft(text: string, title: string, why: string): number {
-  const dir = sandboxOutputDir() ?? path.join(zeniusHome(), "feedback");
+  // A sandboxed script writes the working folder, and not ~/.zenius.
+  const dir = inSandbox() ? workingDir() : path.join(zeniusHome(), "feedback");
   let file: string;
   try {
     file = writeDraft(dir, text, new Date());

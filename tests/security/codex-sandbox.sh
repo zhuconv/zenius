@@ -2,7 +2,7 @@
 # Does zenius work inside Codex's sandbox? Runs, through Codex's own sandbox
 # runner (`codex sandbox`), a probe and zenius itself under each policy:
 #
-#   - the probe: may the command write its working folder, ~/.zenius/run and
+#   - the probe: may the command write its current folder, ~/.zenius/run and
 #     /tmp, and connect to a Unix socket in ~/.zenius/run and to loopback TCP?
 #   - zenius --version, zenius doctor and a short zenius nodejs script, for a
 #     plain CLI and for the sandboxed launcher.
@@ -10,8 +10,12 @@
 # No credentials, no model calls, and the user's Codex config stays out of it:
 # CODEX_HOME is a fresh folder. The CLI copies are installed as
 # tests/security/run.sh does, into the work folder, so ~/.local/bin, the skill
-# folders and ~/.zenius/cli stay as they are. A headless dev instance,
-# zen-sdk-codex, runs for the check and stops at the end.
+# folders and ~/.zenius/cli stay as they are. They're installed and run with a
+# scratch HOME and ZENIUS_HOME (tests/lib/scratch-home.sh) and a working
+# folder of their own, so ~/.zenius/config.json and ~/zenius-files stay as
+# they are too; the scratch zenius home's run/, instances/ and selfcheck/ are
+# links to the dev Zens' own. A headless dev instance, zen-sdk-codex, runs for
+# the check and stops at the end.
 #
 #   PATH=<Node 24>/bin:$PATH tests/security/codex-sandbox.sh
 #   ZENIUS_CODEX_POLICIES="proxy+sockets" ...   (only these rows)
@@ -25,6 +29,8 @@
 
 set -uo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+# shellcheck source=../lib/scratch-home.sh
+. "$ROOT/tests/lib/scratch-home.sh"
 WORK=${ZENIUS_CODEX_CHECK_DIR:-$HOME/.zenius-dev/codex-check}
 NAME=zen-sdk-codex
 CODEX=${CODEX:-$(type -P codex || true)}
@@ -32,7 +38,7 @@ NODE=$(type -P node || true)
 [[ -x $CODEX ]] || { echo "codex-sandbox.sh: no codex on PATH; set CODEX=<path>" >&2; exit 2; }
 [[ -x $NODE && $("$NODE" -p 'process.versions.node.split(".")[0]') == 24 ]] ||
   { echo "codex-sandbox.sh: put Node 24 first on PATH" >&2; exit 2; }
-POLICIES="read-only workspace-write +network +network+out full-access profile+sockets proxy+sockets"
+POLICIES="read-only workspace-write +network +network+files full-access profile+sockets proxy+sockets"
 for p in ${ZENIUS_CODEX_POLICIES-}; do
   case " $POLICIES " in *" $p "*) ;; *) echo "codex-sandbox.sh: no policy $p; the policies are: $POLICIES" >&2; exit 2 ;; esac
 done
@@ -54,8 +60,10 @@ if printf '%s\n' "$help" | grep -qE "^  $sub( |$)"; then SANDBOX=(sandbox "$sub"
 # A time limit that macOS has too (it has no timeout(1)).
 limited() { perl -e '$s = shift; alarm $s; exec @ARGV or die "exec: $!"' "$@"; }
 
-SOCKET=$HOME/.zenius/run/$NAME.sock
-PROBE_SOCKET=$HOME/.zenius/run/.codex-probe-socket
+# The dev Zens' zenius home, where the instance's socket and record are.
+RUNTIME_HOME=${ZENIUS_HOME:-$HOME/.zenius}
+SOCKET=$RUNTIME_HOME/run/$NAME.sock
+PROBE_SOCKET=$RUNTIME_HOME/run/.codex-probe-socket
 
 cat > "$WORK/bin/probe.mjs" <<'EOF'
 // Inside Codex's sandbox: what may this command write, and reach?
@@ -97,35 +105,50 @@ process.on("SIGTERM", stop);
 setTimeout(stop, 30 * 60_000);
 EOF
 
-# What the run starts or makes outside the work folder goes at exit, however
-# it ends: the probe's servers, the dev instance and the checkout's copy. The
+# What the run starts or makes goes at exit, however it ends: the probe's
+# servers, the dev instance, the checkout's copy and the scratch home. The
 # trap comes before the install, so a failed install cleans up too.
-copy= servers= started=
+copy= servers= started= SCRATCH_ROOT=
 cleanup() {
   [[ -n $servers ]] && kill "$servers" 2>/dev/null
   [[ -n $started ]] && "$ROOT/scripts/zen-dev.sh" "$NAME" stop >/dev/null 2>&1
   [[ -n $copy ]] && rm -rf "${copy:?}"
+  [[ -n $SCRATCH_ROOT ]] && rm -rf "${SCRATCH_ROOT:?}"
   return 0
 }
 trap cleanup EXIT
+
+# The scratch home the CLIs are installed and run with, in the work folder.
+# Their working folder is in it, as ~/zenius-files is in a home, since the
+# working folder's git work tree check stops at home (the work folder may be
+# in one, below the account's own home). It's made now, so a policy that
+# can't write the work folder still finds it.
+scratch_home codex "$WORK" || exit 1
+FILES=$SCRATCH_HOME/zenius-files
+mkdir -m 700 "$FILES" || exit 1
+for sub in run instances selfcheck; do
+  (umask 077 && mkdir -p "$RUNTIME_HOME/$sub") && ln -s "$RUNTIME_HOME/$sub" "$SCRATCH_ZHOME/$sub" || exit 1
+done
+# The CLIs' environment inside Codex's sandbox.
+AS_SCRATCH=(env "HOME=$SCRATCH_HOME" "ZENIUS_HOME=$SCRATCH_ZHOME")
 
 # The two CLIs, from a copy of this checkout whose bundle is built for it,
 # in the system's temp folder: the install copies what it needs.
 copy=$(mktemp -d "${TMPDIR:-/tmp}/zenius-codex-check.XXXXXX") || exit 1
 mkdir -p "$copy/scripts" "$copy/sdk" "$copy/skill" "$copy/runtime/vendor"
-cp "$ROOT/scripts/install-cli.sh" "$copy/scripts/"
+cp "$ROOT/scripts/install-cli.sh" "$ROOT/scripts/working-folder.sh" "$copy/scripts/"
 for path in bin src sandbox package.json; do cp -R "$ROOT/sdk/$path" "$copy/sdk/"; done
 cp -R "$ROOT/skill/zenius" "$ROOT/skill/guide.md" "$copy/skill/"
 cp -R "$ROOT/runtime/vendor/fx-autoconfig" "$copy/runtime/vendor/"
 (cd "$ROOT/sdk" && ZENIUS_BUILD_DIST="$copy/sdk/dist" "$NODE" build.mjs >/dev/null) || exit 1
+guard_home "$SCRATCH_HOME" "$SCRATCH_ZHOME" codex-sandbox.sh || exit 1
 for kind in plain sandboxed; do
-  flags=()
-  [[ $kind == sandboxed ]] && flags=(--sandbox --output-dir "$WORK/sandboxed/out")
-  # ${flags[@]+...}: macOS's bash 3.2 calls an empty array unbound under set -u.
+  flags=(--working-dir "$FILES")
+  [[ $kind == sandboxed ]] && flags+=(--sandbox)
   mkdir -p "$WORK/$kind/tmp"
-  if ! ZENIUS_INSTALL_NO_BUILD=1 ZENIUS_CLI_DIR=$WORK/$kind/cli ZENIUS_BIN_DIR=$WORK/$kind/bin \
+  if ! HOME=$SCRATCH_HOME ZENIUS_HOME=$SCRATCH_ZHOME ZENIUS_INSTALL_NO_BUILD=1 ZENIUS_CLI_DIR=$WORK/$kind/cli ZENIUS_BIN_DIR=$WORK/$kind/bin \
     ZENIUS_SKILL_DIRS=$WORK/$kind/skills TMPDIR=$WORK/$kind/tmp \
-    "$copy/scripts/install-cli.sh" ${flags[@]+"${flags[@]}"} >"$WORK/logs/install-$kind.log" 2>&1; then
+    "$copy/scripts/install-cli.sh" "${flags[@]}" >"$WORK/logs/install-$kind.log" 2>&1; then
     echo "codex-sandbox.sh: install-cli.sh for the $kind CLI failed; see $WORK/logs/install-$kind.log" >&2
     exit 1
   fi
@@ -153,14 +176,15 @@ await task.finish({ keep: [] });'
 # the old row's allow_unix_sockets is a requirements.toml key, which a
 # profile doesn't have. So the header line checks each profile key below:
 # Codex must refuse a wrongly typed value for it.
-UNIX_SOCKETS="{\"$SOCKET\" = \"allow\", \"$PROBE_SOCKET\" = \"allow\"}"
+# The CLIs may reach the instance's socket by the scratch home's link too.
+UNIX_SOCKETS="{\"$SOCKET\" = \"allow\", \"$SCRATCH_ZHOME/run/$NAME.sock\" = \"allow\", \"$PROBE_SOCKET\" = \"allow\"}"
 policy() {
   case $1 in
     read-only) args=(-c 'sandbox_mode="read-only"') ;;
     workspace-write) args=(-c 'sandbox_mode="workspace-write"' -c 'sandbox_workspace_write.network_access=false') ;;
     +network) args=(-c 'sandbox_mode="workspace-write"' -c 'sandbox_workspace_write.network_access=true') ;;
-    +network+out) args=(-c 'sandbox_mode="workspace-write"' -c 'sandbox_workspace_write.network_access=true'
-      -c "sandbox_workspace_write.writable_roots=[\"$WORK/sandboxed/out\"]") ;;
+    +network+files) args=(-c 'sandbox_mode="workspace-write"' -c 'sandbox_workspace_write.network_access=true'
+      -c "sandbox_workspace_write.writable_roots=[\"$FILES\"]") ;;
     full-access) args=(-c 'sandbox_mode="danger-full-access"') ;;
     profile+sockets) args=(-P zenius -C "$WORK/project" -c 'permissions.zenius.extends=":workspace"'
       -c "permissions.zenius.network.unix_sockets=$UNIX_SOCKETS") ;;
@@ -199,9 +223,9 @@ for p in ${ZENIUS_CODEX_POLICIES:-$POLICIES}; do
     for what in version doctor script; do
       log=$WORK/logs/$p.$kind.$what.log
       case $what in
-        version) cmd=("$zen" --version) ;;
-        doctor) cmd=("$zen" doctor --instance "$NAME") ;;
-        script) cmd=(bash -c "\"$zen\" nodejs --instance $NAME <<'JS'
+        version) cmd=("${AS_SCRATCH[@]}" "$zen" --version) ;;
+        doctor) cmd=("${AS_SCRATCH[@]}" "$zen" doctor --instance "$NAME") ;;
+        script) cmd=("${AS_SCRATCH[@]}" bash -c "\"$zen\" nodejs --instance $NAME <<'JS'
 $SCRIPT
 JS") ;;
       esac
@@ -210,4 +234,24 @@ JS") ;;
     done
   done
 done
+# What a command under Codex's sandbox leaves in a writable root on disk,
+# seen from outside, as Zen, an install or another zenius run would see it:
+# while the command runs (on Linux, the mount points of what Codex protects
+# there, such as an empty .git) and after it.
+case " ${ZENIUS_CODEX_POLICIES:-$POLICIES} " in
+  *" +network+files "*)
+    policy +network+files
+    limited 60 "$CODEX" "${SANDBOX[@]}" "${args[@]}" -- /bin/sh -c 'sleep 3' >"$WORK/logs/disk.log" 2>&1 &
+    pid=$!
+    during=
+    for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
+      during=$(ls -A "$FILES")
+      [[ -n $during ]] && break
+      perl -e 'select(undef, undef, undef, 0.25)'
+    done
+    wait "$pid"
+    after=$(ls -A "$FILES")
+    echo "the working folder on disk, from outside, in +network+files: during a command [$(echo $during)], after it [$(echo $after)]"
+    ;;
+esac
 echo "logs: $WORK/logs"

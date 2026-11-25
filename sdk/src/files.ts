@@ -1,9 +1,12 @@
 // The CLI does all the file I/O an agent asks for (SPEC §3.9 I5). The browser
 // runs with the user's full rights, outside any sandbox the agent's CLI runs
 // in, so it never opens a path an agent names: uploads reach the runtime as
-// bytes, and the CLI writes what comes back.
+// bytes, and the CLI writes what comes back. A finished download moves into
+// the working folder, which the install names, and the CLI copies it from
+// there.
 
 import { ZeniusError } from "./errors.ts";
+import { zeniusHome } from "./instance.ts";
 import { fs, inSandbox, path as nodePath, os } from "./node.ts";
 import { noteWrittenFile } from "./output.ts";
 
@@ -302,13 +305,13 @@ function notAllowed(method: string, file: string, where: string, data: Record<st
  */
 export function readFolders(reads: string | undefined): string {
   return reads
-    ? `its working folder, its runs' output folders, its temporary folder and ${reads}`
-    : "its working folder, its runs' output folders and its temporary folder";
+    ? `the working folder, the folder it started in, its temporary folder and ${reads}`
+    : "the working folder, the folder it started in and its temporary folder";
 }
 
-/** The folders a sandboxed script writes, in the same words: `out` names its run's output folder. */
-export function writeFolders(out: string): string {
-  return `its output folder, ${out}, and its temporary folder, never its working folder`;
+/** The folders a sandboxed script writes, in the same words: `working` names the working folder. */
+export function writeFolders(working: string): string {
+  return `the working folder, ${working}, and its temporary folder, never the folder it started in`;
 }
 
 /**
@@ -355,35 +358,134 @@ function tooLarge(method: string, total: number): ZeniusError {
 }
 
 /**
- * The run's output folder in the sandboxed CLI (install-cli.sh --sandbox),
- * which the launcher makes and names in ZENIUS_OUTPUT_DIR. A sandboxed
- * script writes only there and in its temporary folder: never in its working
- * folder, whose hooks, scripts and configs other programs run outside the
- * sandbox.
+ * The config file's workingFolder line, as scripts/working-folder.sh's
+ * wf_saved, the launcher and the runtime read it: the key on a line of its
+ * own, any spacing, a value with no double quote or backslash, and an
+ * optional comma.
  */
-export function sandboxOutputDir(): string | undefined {
-  const dir = process.env.ZENIUS_OUTPUT_DIR;
-  return inSandbox() && typeof dir === "string" && nodePath.isAbsolute(dir) ? dir : undefined;
+const CONFIG_LINE = /^[ \t\v\f\r]*"workingFolder"[ \t\v\f\r]*:[ \t\v\f\r]*"([^"\\]*)"[ \t\v\f\r]*,?[ \t\v\f\r]*$/;
+
+/**
+ * The working folder (docs/SPI.md "The working folder"): where finished
+ * downloads land, and where a relative path a script writes goes. The
+ * sandboxed launcher names it in ZENIUS_WORKING_DIR, and so does a dev Zen
+ * for what it starts. Otherwise the CLI reads it as the launcher does: the
+ * one line in the install's
+ * ~/.zenius/config.json, or ~/zenius-files without that file. A file that
+ * line doesn't fit is refused with the reason, never read another way.
+ * ~/zenius-files is the default only while zenius's home is ~/.zenius: a
+ * ZENIUS_HOME elsewhere has none, so a test or runner that moves zenius's
+ * home alone can't reach the user's own folder.
+ */
+export function workingDir(env: NodeJS.ProcessEnv = process.env): string {
+  const given = env.ZENIUS_WORKING_DIR;
+  if (inSandbox()) {
+    if (typeof given === "string" && nodePath.isAbsolute(given)) return given;
+    throw new ZeniusError("ZEN_INTERNAL", "the sandboxed launcher named no working folder (ZENIUS_WORKING_DIR): reinstall the zenius command");
+  }
+  // Set outside the sandbox too by a dev Zen (scripts/zen-dev.sh) for what
+  // it starts, so their files land in its working folder, never the user's.
+  if (given) {
+    if (!nodePath.isAbsolute(given)) {
+      throw new ZeniusError("ZEN_PATH_NOT_ALLOWED", `ZENIUS_WORKING_DIR must be an absolute path: ${given}`, { path: given });
+    }
+    return given.length > 1 ? given.replace(/\/+$/, "") : given;
+  }
+  const home = zeniusHome(env);
+  const file = nodePath.join(home, "config.json");
+  let text: string;
+  try {
+    text = fs.readFileSync(file, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      if (realPath(home) !== realPath(nodePath.join(os.homedir(), ".zenius"))) {
+        throw new ZeniusError(
+          "ZEN_PATH_NOT_ALLOWED",
+          `there's no default working folder: ZENIUS_HOME is ${home}, not ~/.zenius, and it holds no config.json: ask the user to run the installer again with --working-dir <folder>`,
+          { path: file },
+        );
+      }
+      return nodePath.join(os.homedir(), "zenius-files");
+    }
+    throw new ZeniusError(
+      "ZEN_PATH_NOT_ALLOWED",
+      `zenius can't read ${file}, which names the working folder (${readFailure(error)}): ask the user to run the installer again with --working-dir <folder>`,
+      { path: file },
+    );
+  }
+  const found = text.split("\n").flatMap((line) => CONFIG_LINE.exec(line)?.[1] ?? []);
+  const [dir] = found;
+  if (found.length !== 1 || !dir?.startsWith("/") || /[\u0000-\u001f\u007f]/.test(dir)) {
+    throw new ZeniusError(
+      "ZEN_PATH_NOT_ALLOWED",
+      `${file} doesn't name the working folder on a line of its own, as the installer writes it: ask the user to run the installer again with --working-dir <folder>`,
+      { path: file },
+    );
+  }
+  return dir.length > 1 ? dir.replace(/\/+$/, "") : dir;
+}
+
+/** `path` with its existing part's links resolved, as scripts/working-folder.sh's wf_resolve compares paths. */
+function realPath(path: string): string {
+  let head = nodePath.resolve(path);
+  let rest = "";
+  for (;;) {
+    try {
+      return nodePath.join(fs.realpathSync(head), rest);
+    } catch {
+      const parent = nodePath.dirname(head);
+      if (parent === head) return nodePath.join(head, rest);
+      rest = nodePath.join(nodePath.basename(head), rest);
+      head = parent;
+    }
+  }
+}
+
+/** The working folder, if it can be found: for listing what a run wrote there. */
+function knownWorkingDir(): string | undefined {
+  try {
+    return workingDir();
+  } catch {
+    return undefined;
+  }
 }
 
 /**
  * The file an output method writes: a screenshot's path, fetch's saveAs or
- * download.saveAs(). Outside the sandbox it must be absolute, as in Ego. In
- * the sandbox a relative path lands in the run's output folder, and an
- * absolute one must be in that or in the temporary folder.
+ * download.saveAs(). A relative path lands in the working folder, which is
+ * made (readable only by the user) if it's missing. In the sandbox an
+ * absolute one must be in the working folder or the temporary folder.
  */
-export function outputPath(path: unknown, label: string, notAbsolute = `${label} must be an absolute file path`): string {
-  const out = sandboxOutputDir();
-  if (typeof path !== "string" || path.length === 0 || (!out && !nodePath.isAbsolute(path))) throw new TypeError(notAbsolute);
-  if (!out) return path;
-  const file = nodePath.resolve(out, path);
-  if (within(file, out) || within(file, os.tmpdir())) return file;
+export function outputPath(path: unknown, label: string): string {
+  if (typeof path !== "string" || path.length === 0) throw new TypeError(`${label} must be a file path`);
+  if (nodePath.isAbsolute(path) && !inSandbox()) return path;
+  const dir = workingDir();
+  const file = nodePath.resolve(dir, path);
+  if (within(file, dir)) {
+    makeWorkingDir(dir);
+    return file;
+  }
+  if (!inSandbox() || within(file, os.tmpdir())) return file;
   throw new ZeniusError(
     "ZEN_PATH_NOT_ALLOWED",
-    `${label}: a sandboxed script writes only to ${writeFolders(out)}. ` +
-      "Pass a relative path, which lands in the output folder.",
-    { path: file, outputDir: out },
+    `${label}: a sandboxed script writes only to ${writeFolders(dir)}. ` + "Pass a relative path, which lands in the working folder.",
+    { path: file, workingDir: dir },
   );
+}
+
+/** Make the working folder if it's missing, as the installer does: readable only by the user, and only when its parent is there. */
+function makeWorkingDir(dir: string): void {
+  try {
+    fs.mkdirSync(dir, { mode: 0o700 });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+      throw new ZeniusError(
+        "ZEN_PATH_NOT_ALLOWED",
+        `zenius can't make the working folder, ${dir} (${readFailure(error)}): ask the user to make it, or to run the installer again with --working-dir <folder>`,
+        { path: dir },
+      );
+    }
+  }
 }
 
 function within(file: string, folder: string): boolean {
@@ -391,9 +493,30 @@ function within(file: string, folder: string): boolean {
   return relative !== "" && relative !== ".." && !relative.startsWith(`..${nodePath.sep}`) && !nodePath.isAbsolute(relative);
 }
 
-/** In the sandbox, lists a file the SDK wrote after the script's output, since the agent didn't pick its folder. */
+/**
+ * Lists a file the SDK wrote after the script's output, when the agent may
+ * not know where it is: in the sandbox, and in the working folder, where a
+ * relative path lands.
+ */
 export function reportWritten(path: string): void {
-  if (sandboxOutputDir()) noteWrittenFile(path);
+  if (inSandbox()) {
+    noteWrittenFile(path);
+    return;
+  }
+  const dir = knownWorkingDir();
+  if (dir && within(path, dir)) noteWrittenFile(path);
+}
+
+/**
+ * Copies a finished download from the working folder to `path`, making its
+ * folders, as download.saveAs() does in Ego. The copy is readable only by the
+ * user; a file already at `path` is replaced.
+ */
+export async function copyDownload(source: string, path: string): Promise<void> {
+  if (nodePath.resolve(source) === nodePath.resolve(path)) return;
+  await fs.promises.mkdir(nodePath.dirname(path), { recursive: true });
+  await fs.promises.copyFile(source, path);
+  await fs.promises.chmod(path, OUTPUT_MODE);
 }
 
 /**
@@ -418,44 +541,6 @@ export function bytesFrom(answer: unknown, field: string, method: string): Buffe
   const value = (answer as Record<string, unknown> | null)?.[field];
   if (typeof value !== "string") throw new ZeniusError("ZEN_INTERNAL", `${method} got no ${field} from the runtime`);
   return Buffer.from(value, "base64");
-}
-
-/** The most download.read returns in one answer (PROTOCOL). */
-export const DOWNLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
-
-type DownloadChunk = { base64?: unknown; size?: unknown; eof?: unknown };
-
-/**
- * Writes a download to `path` from download.read's chunks, making its folders.
- * The first chunk comes before the file is opened, so a failed download
- * leaves an existing file alone; a transfer that breaks off removes the part
- * it wrote.
- */
-export async function writeDownload(read: (offset: number, length: number) => Promise<unknown>, path: string): Promise<void> {
-  let chunk = (await read(0, DOWNLOAD_CHUNK_BYTES)) as DownloadChunk | null;
-  await fs.promises.mkdir(nodePath.dirname(path), { recursive: true });
-  const handle = await fs.promises.open(path, "w", OUTPUT_MODE);
-  let offset = 0;
-  let complete = false;
-  try {
-    for (;;) {
-      const bytes = bytesFrom(chunk, "base64", "download.read");
-      for (let written = 0; written < bytes.length; ) {
-        written += (await handle.write(bytes, written, bytes.length - written)).bytesWritten;
-      }
-      offset += bytes.length;
-      if (chunk?.eof === true) break;
-      if (bytes.length === 0) throw new ZeniusError("ZEN_INTERNAL", "download.read returned no bytes before the end of the download");
-      chunk = (await read(offset, DOWNLOAD_CHUNK_BYTES)) as DownloadChunk | null;
-    }
-    if (typeof chunk?.size === "number" && chunk.size !== offset) {
-      throw new ZeniusError("ZEN_INTERNAL", `download.read gave ${offset} bytes of a ${chunk.size}-byte download`);
-    }
-    complete = true;
-  } finally {
-    await handle.close();
-    if (!complete) await fs.promises.rm(path, { force: true });
-  }
 }
 
 /** A suggested file name as one safe path component. */

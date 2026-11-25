@@ -264,7 +264,7 @@ export const API_SCHEMA: readonly ApiEntry[] = [
     signature: "await page.screenshot({ path?, fullPage?, clip?, scale?, raw? })",
     summary: "Capture this Page to a PNG file and return its path.",
     options: {
-      path: option("string", "Absolute output path (sandboxed CLI: or relative to the run's output folder; outside it and the temporary folder, ZEN_PATH_NOT_ALLOWED); missing parent directories are created."),
+      path: option("string", "Output path: absolute, or relative to the working folder, where it lands (sandboxed CLI: outside the working folder and the temporary folder, ZEN_PATH_NOT_ALLOWED); missing parent directories are created."),
       fullPage: option("boolean", "Capture the full scrollable page."),
       clip: option("clip", "CSS-pixel clipping rectangle."),
       scale: option("string", "Output scale mode; css uses CSS-pixel sizing and is the default.", ["css"]),
@@ -309,7 +309,7 @@ export const API_SCHEMA: readonly ApiEntry[] = [
     name: "Download.saveAs",
     signature: "await download.saveAs(path)",
     summary:
-      "Wait for completion, copy the download to an absolute path (sandboxed CLI: or one relative to the run's output folder), creating missing parent directories, and return the file's absolute path.",
+      "Wait for completion, copy the download from the working folder to an absolute path or one relative to the working folder (sandboxed CLI: in the working folder or the temporary folder), creating missing parent directories, and return the copy's absolute path.",
   },
   {
     name: "Download.path",
@@ -387,7 +387,7 @@ export const API_SCHEMA: readonly ApiEntry[] = [
       timeout,
       saveAs: option(
         "nonEmptyString",
-        "Write the response body to this absolute path (sandboxed CLI: or one relative to the run's output folder) without text conversion; savedPath is the file's absolute path.",
+        "Write the response body to this absolute path, or one relative to the working folder (sandboxed CLI: in the working folder or the temporary folder), without text conversion; savedPath is the file's absolute path.",
       ),
       method: option("string", "HTTP method."),
       headers: option("stringRecord", "Request headers."),
@@ -514,7 +514,7 @@ export const API_SCHEMA: readonly ApiEntry[] = [
     name: "Page.setInputFiles",
     signature: "await page.setInputFiles(selector, pathOrPaths)",
     summary:
-      "Set files on a file input resolved from the input, its label, or a unique descendant. The CLI reads the files and sends their contents, at most 50 MB per call. A folder's path, alone, uploads the folder to an input with webkitdirectory: the CLI walks it without following links and sends each file with its path in the folder, at most 1000 files; a link, socket or FIFO inside fails the call. In the sandboxed CLI a file or folder outside the working folder, the runs' output folders and the temporary folder, or a link to one, fails with ZEN_PATH_NOT_ALLOWED.",
+      "Set files on a file input resolved from the input, its label, or a unique descendant. The CLI reads the files and sends their contents, at most 50 MB per call. A folder's path, alone, uploads the folder to an input with webkitdirectory: the CLI walks it without following links and sends each file with its path in the folder, at most 1000 files; a link, socket or FIFO inside fails the call. In the sandboxed CLI a file or folder outside the working folder, the folder the command started in, the temporary folder and the folder the install lets scripts read, or a link to one, fails with ZEN_PATH_NOT_ALLOWED.",
   },
   {
     name: "Page.waitForFileChooser",

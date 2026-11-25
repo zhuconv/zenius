@@ -20,8 +20,18 @@
 # Scripts run through a private build of this checkout's CLI, so the SDK
 # suites rebuilding sdk/dist beside this one in scripts/test-all.sh can't
 # change it mid-run.
+#
+# Every CLI and launcher run gets a scratch HOME and ZENIUS_HOME
+# (tests/lib/scratch-home.sh), never the user's ~/.zenius/config.json or
+# ~/zenius-files. The launcher's config names the scratch home's files/,
+# which the dev Zen takes as its working folder too (ZENIUS_DEV_WORKING_DIR),
+# so a script reads the download the runtime moved there. The scratch zenius
+# home's run/, instances/ and selfcheck/ are links to the dev Zens' own, where
+# the instance's socket, record and self-check socket are.
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+# shellcheck source=../lib/scratch-home.sh
+. "$ROOT/tests/lib/scratch-home.sh"
 [[ -d $HOME/opt/node-v24.22.2-linux-x64/bin ]] && export PATH=$HOME/opt/node-v24.22.2-linux-x64/bin:$PATH
 suffix=$(basename "$ROOT" | sed 's/^zenius-\{0,1\}//' | tr 'A-Z' 'a-z' | tr -c 'a-z0-9_\n-' '-')
 NAME=${ZENIUS_SECURITY_INSTANCE:-sectest-${suffix:-main}}
@@ -48,6 +58,18 @@ if [[ ! -d $ROOT/sdk/node_modules/esbuild ]]; then
 fi
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/zenius-security.XXXXXX")
+# The dev Zens' zenius home, where the instance's socket and record are.
+RUNTIME_HOME=${ZENIUS_HOME:-$HOME/.zenius}
+scratch_home sec "$WORK"
+mkdir -m 700 "$SCRATCH_FILES"
+mkdir -p "$RUNTIME_HOME"
+for sub in run instances selfcheck; do
+  (umask 077 && mkdir -p "$RUNTIME_HOME/$sub")
+  ln -s "$RUNTIME_HOME/$sub" "$SCRATCH_ZHOME/$sub"
+done
+export ZENIUS_SECURITY_HOME=$SCRATCH_HOME ZENIUS_SECURITY_ZHOME=$SCRATCH_ZHOME ZENIUS_SECURITY_WORKING=$SCRATCH_FILES
+# The dev Zen's downloads land where the launcher's scripts read and write.
+export ZENIUS_DEV_WORKING_DIR=$SCRATCH_FILES
 run=; watchdog=
 cleanup() {
   # Nothing here may end the cleanup early (set -e), or Zen stays open.
@@ -82,20 +104,20 @@ sandbox_ready() {
 
 # The launcher, as scripts/install-cli.sh --sandbox installs it, from a copy
 # of this checkout whose bundle is built for it (the SDK suites rebuild
-# sdk/dist beside this one). The launcher's ~/.zenius stays the real one: it
-# holds the instance's registry record and socket.
+# sdk/dist beside this one), into the scratch home.
 install_launcher() {
   local copy=$WORK/checkout path
   mkdir -p "$copy/scripts" "$copy/sdk" "$copy/skill" "$copy/runtime/vendor"
-  cp "$ROOT/scripts/install-cli.sh" "$copy/scripts/"
+  cp "$ROOT/scripts/install-cli.sh" "$ROOT/scripts/working-folder.sh" "$copy/scripts/"
   for path in bin src sandbox package.json; do cp -R "$ROOT/sdk/$path" "$copy/sdk/"; done
   cp -R "$ROOT/skill/zenius" "$ROOT/skill/guide.md" "$copy/skill/"
   cp -R "$ROOT/runtime/vendor/fx-autoconfig" "$copy/runtime/vendor/"
   (cd "$ROOT/sdk" && ZENIUS_BUILD_DIST="$copy/sdk/dist" node build.mjs >/dev/null)
   mkdir -p "$WORK/sandbox/tmp" "$WORK/sandbox/downloads"
-  if ! ZENIUS_INSTALL_NO_BUILD=1 ZENIUS_CLI_DIR=$WORK/sandbox/cli ZENIUS_BIN_DIR=$WORK/sandbox/bin \
+  guard_home "$SCRATCH_HOME" "$SCRATCH_ZHOME" tests/security/run.sh || return 1
+  if ! HOME=$SCRATCH_HOME ZENIUS_HOME=$SCRATCH_ZHOME ZENIUS_INSTALL_NO_BUILD=1 ZENIUS_CLI_DIR=$WORK/sandbox/cli ZENIUS_BIN_DIR=$WORK/sandbox/bin \
     ZENIUS_SKILL_DIRS=$WORK/sandbox/skills TMPDIR=$WORK/sandbox/tmp \
-    "$copy/scripts/install-cli.sh" --sandbox --output-dir "$WORK/sandbox/out" --read-dir "$WORK/sandbox/downloads" >"$WORK/sandbox/install.log" 2>&1; then
+    "$copy/scripts/install-cli.sh" --sandbox --working-dir "$SCRATCH_FILES" --read-dir "$WORK/sandbox/downloads" >"$WORK/sandbox/install.log" 2>&1; then
     echo "tests/security/run.sh: install-cli.sh --sandbox failed:" >&2
     sed 's/^/  /' "$WORK/sandbox/install.log" >&2
     return 1
@@ -115,7 +137,9 @@ for part in "${parts[@]}"; do
   fi
   if [[ $part == escape ]]; then "$DEV" "$NAME" restart >/dev/null
   else ZENIUS_DEV_METHODS=0 "$DEV" "$NAME" restart >/dev/null; fi
-  node --test --test-concurrency=1 --test-timeout=600000 --test-reporter=spec "$ROOT/tests/security/$part.test.mjs" &
+  files=("$ROOT/tests/security/$part.test.mjs")
+  [[ $part != sandbox ]] || files+=("$ROOT/tests/security/working-folder.test.mjs")
+  node --test --test-concurrency=1 --test-timeout=600000 --test-reporter=spec "${files[@]}" &
   run=$!
   wait "$run" || status=1
   run=

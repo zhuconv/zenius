@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, it } from "node:test";
 
+import { guardHome } from "../../tests/lib/scratch-home.mjs";
 import { ZeniusError } from "../src/errors.ts";
 import { claimTaskSpace, listTaskSpaces, profiles, startTaskSpace, takeOverTaskSpace, taskSource, taskSpace } from "../src/globals.ts";
 import { flushOutput, hasHardStop } from "../src/output.ts";
@@ -753,7 +754,6 @@ describe("Page", () => {
         [() => page.keyboard.up(""), /^Error: Unknown key: ""$/],
         [() => page.click("#a", { position: { x: 1 } }), /position must be point/],
         [() => page.click("#a", { clickCount: 0 }), /clickCount must be a positive integer/],
-        [() => page.screenshot({ path: "relative.png" }), /page.screenshot path must be an absolute file path/],
         [() => page.screenshot({ clip: { x: 0, y: 0, width: 0, height: 1 } }), /clip must be clip/],
         [() => page.setInputFiles("input", "relative.txt"), /requires absolute file paths/],
         [() => page.snapshot({ scope: "subtree" }), /subtree scope requires root/],
@@ -775,7 +775,6 @@ describe("Page", () => {
         [() => page.keyboard.type(5 as never), /page.keyboard.type text must be a string/],
         [() => page.mouse.click(Number.NaN, 1), /requires finite x and y coordinates/],
         [() => page.mouse.wheel(0, Infinity), /requires finite deltaX and deltaY/],
-        [() => page.fetch("/x", { saveAs: "out.bin" }), /page.fetch saveAs must be an absolute file path/],
         [() => page.fetch("/x", { headers: { a: 1 } } as never), /headers must be an object with string values/],
         [() => page.acceptDialog(5 as never), /promptText must be a string/],
       ];
@@ -933,13 +932,13 @@ describe("Page", () => {
       const target = join(mock.dir, "nested", "..", "report.pdf");
       await download.saveAs(target);
       assert.equal(readFileSync(target, "utf8"), "download d1");
-      await assert.rejects(() => download.saveAs("relative.pdf"), /download.saveAs requires an absolute file path/);
       assert.equal(await download.failure(), null);
-      const copy = await download.path();
-      assert.match(copy, /\/zenius-downloads-[^/]+\/d1\/report\.pdf$/);
-      assert.equal(readFileSync(copy, "utf8"), "download d1");
-      assert.equal(await download.path(), copy, "path() writes one copy");
-      assert.ok(!mock.methods().some((method) => method === "download.saveAs" || method === "download.path"), "no path goes to the runtime");
+      // The finished file is in the working folder, where the runtime moved it.
+      const file = await download.path();
+      assert.equal(file, join(mock.workingDir, "report.pdf"));
+      assert.equal(readFileSync(file, "utf8"), "download d1");
+      assert.equal(await download.path(), file);
+      assert.ok(!mock.methods().includes("download.saveAs"), "the CLI makes the copy, and no path to write goes to the runtime");
 
       const chooserPromise = page.waitForFileChooser({ timeout: 2000 });
       assert.throws(() => page.waitForFileChooser(), /already waiting for a file chooser/);
@@ -960,25 +959,28 @@ describe("Page", () => {
       await assert.rejects(() => chooser.setFiles(a), /already handled/);
     }));
 
-  it("downloads: the CLI writes every copy from the runtime's bytes, in chunks", () =>
-    withMock(async ({ mock, round }) => {
-      const page = (await taskSpace("download bytes")).page("p1");
+  it("downloads: saveAs copies the finished file from the working folder, a relative path lands there too, and delete() removes it", () =>
+    withMock(async ({ mock }) => {
+      const page = (await taskSpace("download files")).page("p1");
       const big = Buffer.alloc(8 * 1024 * 1024 + 100, 7);
       big.write("first", 0);
       big.write("last", big.length - 4);
       mock.downloadBodies.set("d1", big);
       const [download] = (await Promise.all([page.waitForEvent("download"), page.click("a.download")])) as [Download, unknown];
       const target = join(mock.dir, "deep", "big.bin");
-      await download.saveAs(target);
+      assert.equal(await download.saveAs(target), target);
       assert.ok(readFileSync(target).equals(big));
-      assert.deepEqual(
-        mock.requests.filter((request) => request.method === "download.read").map((request) => [request.params.offset, request.params.length]),
-        [[0, 8 * 1024 * 1024], [8 * 1024 * 1024, 8 * 1024 * 1024]],
-      );
-      const copy = await download.path();
-      assert.ok(readFileSync(copy).equals(big));
+      const file = await download.path();
+      assert.equal(file, join(mock.workingDir, "report.pdf"));
+      assert.ok(readFileSync(file).equals(big), "the copy left the file in the working folder");
+      // A relative path names a file in the working folder, beside the download.
+      assert.equal(await download.saveAs("copies/big.bin"), join(mock.workingDir, "copies/big.bin"));
+      assert.ok(readFileSync(join(mock.workingDir, "copies/big.bin")).equals(big));
+      // saveAs onto the file itself leaves it be.
+      assert.equal(await download.saveAs(file), file);
+      assert.ok(readFileSync(file).equals(big));
       await download.delete();
-      assert.equal(existsSync(copy), false, "delete() removes the copy");
+      assert.equal(existsSync(file), false, "delete() removes the file in the working folder");
 
       // A failed transfer leaves a file already at the target alone.
       mock.failingDownloads.add("d2");
@@ -988,15 +990,75 @@ describe("Page", () => {
       assert.equal(readFileSync(target, "utf8"), "kept");
       await assert.rejects(() => failed.path(), (error: ZeniusError) => error.code === "ZEN_DOWNLOAD_FAILED");
 
-      // The run's copies go when the script ends.
+      // The end of a script deletes nothing: the files are the user's.
       const [third] = (await Promise.all([page.waitForEvent("download"), page.click("a.download")])) as [Download, unknown];
-      const left = await third.path();
-      await round.disposeDownloads();
-      assert.equal(existsSync(left), false);
+      const kept = await third.path();
+      assert.equal(mock.requests.filter((request) => request.method === "download.delete").length, 1, "only the delete() above");
+      assert.ok(existsSync(kept));
+    }));
+
+  it("outside the sandbox, a relative path lands in the working folder the install's config names, and is listed; a config the installer's line doesn't fit is refused", () =>
+    withMock(async ({ mock }) => {
+      const page = (await taskSpace("working folder")).page("p1");
+      assert.equal(await page.screenshot({ path: "shots/a.png" }), join(mock.workingDir, "shots/a.png"));
+      assert.ok(readFileSync(join(mock.workingDir, "shots/a.png")).equals(MOCK_PNG));
+      const fetched = await page.fetch("/image.png", { saveAs: "image.png" });
+      assert.equal(fetched.savedPath, join(mock.workingDir, "image.png"));
+      const printed: string[] = [];
+      flushOutput(false, (chunk) => printed.push(chunk));
+      assert.equal(printed.join(""), ["[zenius:files]", `Wrote ${join(mock.workingDir, "shots/a.png")}`, `Wrote ${join(mock.workingDir, "image.png")}`, ""].join("\n"));
+      // Read by the line the shell reads, never another way or the default.
+      const config = join(process.env.ZENIUS_HOME!, "config.json");
+      for (const text of [`{"workingFolder": "${mock.workingDir}"}`, `{\n  "workingFolder": "relative"\n}\n`, `{\n  "workingFolder": "/a",\n  "workingFolder": "/b"\n}\n`, "{}"]) {
+        writeFileSync(config, text);
+        await assert.rejects(
+          () => page.screenshot({ path: "b.png" }),
+          (error: Error) => error instanceof ZeniusError && error.code === "ZEN_PATH_NOT_ALLOWED" && /doesn't name the working folder on a line of its own/.test(error.message),
+          text,
+        );
+      }
+      // An absolute path outside it is the plain CLI's to write.
+      const elsewhere = join(mock.dir, "elsewhere.png");
+      assert.equal(await page.screenshot({ path: elsewhere }), elsewhere);
+    }));
+
+  it("outside the sandbox, with no config, ~/zenius-files is the default only while ZENIUS_HOME is ~/.zenius, links resolved; elsewhere there's none, and nothing is made", () =>
+    withMock(async ({ mock }) => {
+      // HOME is the scratch one scratch-env.ts set: this writes in its zenius-files.
+      const home = guardHome({ ...process.env }, "this test").HOME!;
+      const saved = process.env.ZENIUS_HOME;
+      const page = (await taskSpace("no default")).page("p1");
+      try {
+        const elsewhere = join(mock.dir, "elsewhere");
+        process.env.ZENIUS_HOME = elsewhere;
+        await assert.rejects(
+          () => page.screenshot({ path: "c.png" }),
+          (error: Error) =>
+            error instanceof ZeniusError &&
+            error.code === "ZEN_PATH_NOT_ALLOWED" &&
+            error.message ===
+              `there's no default working folder: ZENIUS_HOME is ${elsewhere}, not ~/.zenius, and it holds no config.json: ask the user to run the installer again with --working-dir <folder>`,
+        );
+        assert.equal(existsSync(join(home, "zenius-files")), false, "nothing made");
+        assert.equal(existsSync(elsewhere), false, "nothing made");
+        // ~/.zenius itself, a link to it, and no ZENIUS_HOME keep the default.
+        mkdirSync(join(home, ".zenius"), { recursive: true, mode: 0o700 });
+        symlinkSync(join(home, ".zenius"), join(mock.dir, "link"));
+        for (const zhome of [join(home, ".zenius"), join(mock.dir, "link"), undefined]) {
+          if (zhome === undefined) delete process.env.ZENIUS_HOME;
+          else process.env.ZENIUS_HOME = zhome;
+          assert.equal(await page.screenshot({ path: "d.png" }), join(home, "zenius-files", "d.png"), String(zhome));
+        }
+      } finally {
+        if (saved === undefined) delete process.env.ZENIUS_HOME;
+        else process.env.ZENIUS_HOME = saved;
+        rmSync(join(home, "zenius-files"), { recursive: true, force: true });
+        rmSync(join(home, ".zenius"), { recursive: true, force: true });
+      }
     }));
 
   it("screenshots, saved bodies and downloads are new files only the user can read", () =>
-    withMock(async ({ mock, round }) => {
+    withMock(async ({ mock }) => {
       const page = (await taskSpace("private files")).page("p1");
       const mode = (file: string) => statSync(file).mode & 0o777;
       // The default one lands in the system's temporary folder, shared on Linux.
@@ -1017,8 +1079,7 @@ describe("Page", () => {
       const target = join(mock.dir, "downloads", "file.bin");
       await download.saveAs(target);
       assert.equal(mode(target), 0o600);
-      assert.equal(mode(await download.path()), 0o600, "the run's own copy");
-      await round.disposeDownloads();
+      assert.equal(mode(await download.path()), 0o600, "the file in the working folder");
     }));
 
   // With I5 the CLI does the file I/O, so a sandbox around it covers uploads.
@@ -1042,7 +1103,7 @@ try { console.log("sent", (await readUploads([${JSON.stringify(file)}], "page.se
       return result.stdout.trim() || result.stderr;
     };
     const refusal = (where: string) =>
-      `ZEN_PATH_NOT_ALLOWED page.setInputFiles: a sandboxed script reads files only in its working folder, its runs' output folders and its temporary folder, and ${where}. If the task needs this file, ask the user to copy it into the working folder.`;
+      `ZEN_PATH_NOT_ALLOWED page.setInputFiles: a sandboxed script reads files only in the working folder, the folder it started in and its temporary folder, and ${where}. If the task needs this file, ask the user to copy it into the working folder.`;
     try {
       assert.equal(upload(secret), refusal(`${secret} is outside them`));
       // Node's permission model follows a link anywhere, so the CLI checks where it leads.
@@ -1077,13 +1138,13 @@ try { console.log("sent", (await readUploads([${JSON.stringify(file)}], "page.se
       return result.stdout.trim() || result.stderr;
     };
     const refusal = (where: string) =>
-      `ZEN_PATH_NOT_ALLOWED page.setInputFiles: a sandboxed script reads files only in its working folder, its runs' output folders, its temporary folder and ${downloads}, and ${where}. If the task needs this file, ask the user to copy it into the working folder or ${downloads}.`;
+      `ZEN_PATH_NOT_ALLOWED page.setInputFiles: a sandboxed script reads files only in the working folder, the folder it started in, its temporary folder and ${downloads}, and ${where}. If the task needs this file, ask the user to copy it into the working folder or ${downloads}.`;
     try {
       assert.equal(upload(join(downloads, "report.txt"), downloads), "sent report");
       assert.equal(upload(secret, downloads), refusal(`${secret} is outside them`));
       assert.equal(upload(join(downloads, "link.txt"), downloads), refusal(`${join(downloads, "link.txt")} leads outside them, to ${secret}`));
       // A relative ZENIUS_READ_DIR isn't the launcher's: the message names no such folder.
-      assert.match(upload(secret, "Downloads"), /its runs' output folders and its temporary folder, and /);
+      assert.match(upload(secret, "Downloads"), /the folder it started in and its temporary folder, and /);
     } finally {
       rmSync(outside, { recursive: true, force: true });
       rmSync(downloads, { recursive: true, force: true });
@@ -1276,68 +1337,67 @@ describe("unhandled pages", () => {
     }));
 });
 
-describe("the sandboxed CLI's output folder", () => {
+describe("the sandboxed CLI's working folder", () => {
   /**
    * Runs `body` as the sandboxed launcher runs the CLI: Node's permission
-   * model on (stubbed here), the run's output folder in ZENIUS_OUTPUT_DIR,
-   * and a temporary folder of its own as TMPDIR.
+   * model on (stubbed here), the working folder in ZENIUS_WORKING_DIR, and a
+   * temporary folder of its own as TMPDIR. `work` stands for the folder the
+   * command started in, which it only reads.
    */
-  async function sandboxed(body: (folders: { out: string; box: string; work: string }) => Promise<void>): Promise<void> {
+  async function sandboxed(body: (folders: { working: string; box: string; work: string }) => Promise<void>): Promise<void> {
     const base = mkdtempSync(join(tmpdir(), "zenius-sbx-"));
-    const folders = { out: join(base, "out"), box: join(base, "box"), work: join(base, "work") };
+    const folders = { working: join(base, "zenius-files"), box: join(base, "box"), work: join(base, "work") };
     for (const folder of Object.values(folders)) mkdirSync(folder);
     const tmp = process.env.TMPDIR;
     Object.defineProperty(process, "permission", { value: { has: () => false }, configurable: true });
-    process.env.ZENIUS_OUTPUT_DIR = folders.out;
+    process.env.ZENIUS_WORKING_DIR = folders.working;
     process.env.TMPDIR = folders.box;
     try {
       await body(folders);
     } finally {
       delete (process as { permission?: unknown }).permission;
-      delete process.env.ZENIUS_OUTPUT_DIR;
+      delete process.env.ZENIUS_WORKING_DIR;
       if (tmp === undefined) delete process.env.TMPDIR;
       else process.env.TMPDIR = tmp;
       rmSync(base, { recursive: true, force: true });
     }
   }
 
-  it("writes what a relative path names in the run's output folder, returns its absolute path, and lists it after the output", () =>
+  it("writes what a relative path names in the working folder, returns its absolute path, and lists it after the output", () =>
     withMock(() =>
-      sandboxed(async ({ out, box }) => {
+      sandboxed(async ({ working, box }) => {
         const page = (await taskSpace("output")).page("p1");
-        assert.equal(await page.screenshot({ path: "shots/a.png" }), join(out, "shots/a.png"));
-        assert.ok(readFileSync(join(out, "shots/a.png")).equals(MOCK_PNG));
+        assert.equal(await page.screenshot({ path: "shots/a.png" }), join(working, "shots/a.png"));
+        assert.ok(readFileSync(join(working, "shots/a.png")).equals(MOCK_PNG));
         const fetched = await page.fetch("/image.png", { saveAs: "image.png" });
-        assert.equal(fetched.savedPath, join(out, "image.png"));
+        assert.equal(fetched.savedPath, join(working, "image.png"));
         const downloadPromise = page.waitForEvent("download", { timeout: 2000 });
         await page.click("button.download");
         const download: any = await downloadPromise;
-        assert.equal(await download.saveAs("report.pdf"), join(out, "report.pdf"));
-        assert.equal(readFileSync(join(out, "report.pdf"), "utf8"), "download d1");
+        assert.equal(await download.saveAs("copy.pdf"), join(working, "copy.pdf"));
+        assert.equal(readFileSync(join(working, "copy.pdf"), "utf8"), "download d1");
         // The temporary folder takes absolute paths, and a screenshot without a path goes there.
         assert.equal(await page.screenshot({ path: join(box, "t.png") }), join(box, "t.png"));
         const unnamed = await page.screenshot();
         assert.ok(unnamed.startsWith(`${box}/zenius-shot-`), unnamed);
-        // download.path()'s copy goes when the script ends, so it isn't listed.
-        await download.path();
         const printed: string[] = [];
         flushOutput(false, (chunk) => printed.push(chunk));
         assert.equal(
           printed.join(""),
-          ["[zenius:files]", ...[join(out, "shots/a.png"), join(out, "image.png"), join(out, "report.pdf"), join(box, "t.png"), unnamed].map((file) => `Wrote ${file}`), ""].join("\n"),
+          ["[zenius:files]", ...[join(working, "shots/a.png"), join(working, "image.png"), join(working, "copy.pdf"), join(box, "t.png"), unnamed].map((file) => `Wrote ${file}`), ""].join("\n"),
         );
       })));
 
-  it("refuses to write anywhere else, the working folder above all, before asking the runtime", () =>
+  it("refuses to write anywhere else, the folder it started in above all, before asking the runtime", () =>
     withMock(({ mock }) =>
-      sandboxed(async ({ out, work }) => {
+      sandboxed(async ({ working, work }) => {
         const page = (await taskSpace("refused")).page("p1");
         const downloadPromise = page.waitForEvent("download", { timeout: 2000 });
         await page.click("button.download");
         const download: any = await downloadPromise;
         const start = mock.requests.length;
         const refused = (label: string) =>
-          new RegExp(`^${label}: a sandboxed script writes only to its output folder, ${out}, and its temporary folder, never its working folder\\. Pass a relative path, which lands in the output folder\\.$`);
+          new RegExp(`^${label}: a sandboxed script writes only to the working folder, ${working}, and its temporary folder, never the folder it started in\\. Pass a relative path, which lands in the working folder\\.$`);
         for (const [call, label] of [
           [() => page.screenshot({ path: join(work, "shot.png") }), "page.screenshot path"],
           [() => page.screenshot({ path: "../escape.png" }), "page.screenshot path"],

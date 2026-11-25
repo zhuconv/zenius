@@ -1,6 +1,9 @@
 // Downloads from agent tabs (zen-observe): no panel, no toolbar animation,
-// nothing in ~/Downloads or in history. Each file lands in its own folder
-// under the profile's zenius-downloads until the agent reads or deletes it.
+// nothing in ~/Downloads or in history. Each file is staged in a folder of its
+// own under the profile's zenius-downloads, out of the agent's reach, and once
+// finished it moves into the working folder (modules/workingfolder.sys.mjs),
+// where the agent's scripts read it and the user finds it. It stays there
+// until the agent deletes it (download.delete) or the user does.
 //
 // Three hooks:
 //  1. The tab's downloadFolderOverride puts the .part file in our directory.
@@ -12,6 +15,7 @@
 
 import { reportRefused } from "chrome://userscripts/content/zenius/observe/refusals.sys.mjs";
 import { cut } from "chrome://userscripts/content/zenius/observe/textcap.sys.mjs";
+import { loadWorkingFolder, makeWorkingFolder, workingFolder } from "chrome://userscripts/content/zenius/modules/workingfolder.sys.mjs";
 
 const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
 const { DownloadPaths } = ChromeUtils.importESModule("resource://gre/modules/DownloadPaths.sys.mjs");
@@ -19,6 +23,8 @@ const { nsUnknownContentTypeDialog } = ChromeUtils.importESModule("resource://gr
 const { setTimeout, clearTimeout } = ChromeUtils.importESModule("resource://gre/modules/Timer.sys.mjs");
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
+  NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
   DownloadIntegration: "resource://gre/modules/DownloadIntegration.sys.mjs",
   PdfJsParent: "resource://pdf.js/PdfJsParent.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
@@ -54,6 +60,9 @@ function limits() {
  * @property {Set<() => void>} changes
  * @property {string} [refusal]          why zenius stopped it, once it did
  * @property {boolean} [checked]         its finished file was checked to be zenius's own
+ * @property {Promise<void>} [moved]     settles once the finished file is in the working folder, or failed to get there
+ * @property {string} [path]             the file in the working folder, once it's there
+ * @property {boolean} [deleted]         download.delete() asked for it to go
  */
 
 /** @type {Map<string, DownloadEntry>} */
@@ -229,6 +238,11 @@ export async function installDownloads({ isAgent, pageOf: findPage }) {
   rootReady = remakeDownloadRoot();
   // Without a root, the hooks still go in: agent downloads are refused.
   await rootReady.catch(e => console.error("[zenius] agent downloads have no folder; each is refused", e));
+  // Read at each start. Without one to use, each download is refused with the reason.
+  const folder = await loadWorkingFolder().catch(e => ({ error: `zenius couldn't read its working folder (${e.message})` }));
+  if (folder.error) {
+    console.warn(`[zenius] agent downloads have no working folder; each is refused: ${folder.error}`);
+  }
 
   const proto = nsUnknownContentTypeDialog.prototype;
   const originalPrompt = proto.promptForSaveToFileAsync;
@@ -262,6 +276,11 @@ export async function installDownloads({ isAgent, pageOf: findPage }) {
     if (!temp || !root || PathUtils.parent(temp) !== root) {
       refuse(outsideRefusal(url));
       prepareBrowser(browser);
+      return undefined;
+    }
+    const folder = workingFolder();
+    if (!folder || folder.error) {
+      refuse(noFolderRefusal(url, folder?.error ?? "zenius hasn't read its working folder yet"));
       return undefined;
     }
     targetFile(defaultName, extension).then(
@@ -436,6 +455,16 @@ function stagingRefusal(url, why) {
   return `zenius refused a download from ${cut(String(url), 256)}: the folder it keeps downloads in had changed${reason ? ` (${reason})` : ""}, so the file could have landed somewhere else. Nothing was saved. Something other than zenius is changing Zen's profile folder; tell the user.`;
 }
 
+/** What the agent is told when there's no working folder to put a download in (`why`, the reason). */
+function noFolderRefusal(url, why) {
+  return `zenius refused a download from ${cut(String(url), 256)}: ${why}, so the file had nowhere to go. Nothing was saved. Tell the user.`;
+}
+
+/** What the agent is told when its finished download couldn't move into the working folder. */
+function moveRefusal(url, why) {
+  return `zenius couldn't move the download from ${cut(String(url), 256)} into the working folder (${why}), so it removed the file. Tell the user.`;
+}
+
 /** What the agent is told when Gecko began a download outside zenius's folder. */
 function outsideRefusal(url) {
   return `zenius refused a download from ${cut(String(url), 256)}: the browser began it outside the folder zenius keeps downloads in, so zenius canceled it before saving anything. Start it again: the tab uses that folder now.`;
@@ -518,7 +547,7 @@ function usageOf(spaceId) {
 }
 
 function limitText(url, why) {
-  return `zenius refused a download from ${cut(String(url), 256)}: ${why}. Save the downloads the task needs (download.saveAs() or download.path()), then delete them with download.delete() to make room, or ask the user to raise the limit.`;
+  return `zenius refused a download from ${cut(String(url), 256)}: ${why}. Its finished downloads are in the working folder, and download.delete() deletes one there: delete the ones the task no longer needs to make room, or ask the user to raise the limit.`;
 }
 
 /** Why a new download would take its task past a limit, or null. */
@@ -735,7 +764,9 @@ function register(browser, download, source = {}) {
     }
     if (!entry.refusal && download.succeeded && !entry.checked) {
       entry.checked = true;
-      finishedFile(entry);
+      if (finishedFile(entry)) {
+        entry.moved = moveFinished(entry, browser);
+      }
     }
     for (const fn of entry.changes) {
       fn();
@@ -845,17 +876,195 @@ export async function cancelDownload(entry) {
   await d.finalize(true).catch(() => {});
 }
 
-/** Remove the download's files and forget it. */
-export async function deleteDownload(entry) {
+/**
+ * Forget a download: one still running is canceled and its staged files go,
+ * and a finished one stays in the working folder, which is the user's.
+ */
+export async function forgetDownload(entry) {
   entries.delete(entry.id);
   entry.owner?.state?.zeniusDownloads?.delete(entry);
   await cancelDownload(entry);
+  await entry.moved;
   await removeOwnFolder(entry.dir);
 }
 
-/** A finished task's downloads go, files and all, whoever received them. */
+/**
+ * download.delete(): forget the download and delete its file, in the working
+ * folder too. Only the file zenius put there goes: IOUtils.remove unlinks a
+ * link in its place and never follows one, and leaves a folder.
+ */
+export async function deleteDownload(entry) {
+  entry.deleted = true;
+  await forgetDownload(entry);
+  if (entry.path) {
+    await IOUtils.remove(entry.path, { ignoreAbsent: true, recursive: false }).catch(e =>
+      console.warn("[zenius] couldn't delete a download in the working folder", e.message)
+    );
+  }
+}
+
+/** A finished task's downloads are forgotten, whoever received them: the finished files stay in the working folder. */
 export async function deleteTaskDownloads(spaceId) {
-  await Promise.all([...entries.values()].filter(e => e.spaceId === spaceId).map(deleteDownload));
+  await Promise.all([...entries.values()].filter(e => e.spaceId === spaceId).map(forgetDownload));
+}
+
+/**
+ * The finished file in the working folder, once it's there, or the download's
+ * failure (Gecko's, zenius's refusal, or "canceled") as `{failure}`.
+ *
+ * @returns {Promise<{path: string}|{failure: string}>}
+ */
+export async function downloadPath(entry) {
+  await whenStopped(entry);
+  await entry.moved;
+  const failure = failureOf(entry);
+  if (failure) {
+    return { failure };
+  }
+  return entry.path ? { path: entry.path } : { failure: "the file isn't in the working folder" };
+}
+
+// Gecko marks a finished file (its mode, and on macOS its quarantine and
+// where it came from) in downloadDone, which runs just after the change that
+// says the download succeeded. The move waits for it, this long at most.
+const MARK_WAIT_MS = 5000;
+
+/** Tests only (dev profiles): what each finished download's move waits for first, or null. */
+let movesHeld = null;
+
+/**
+ * Tests only: hold each finished download's move until `until` settles, so
+ * a test can change its files or folders first; null lets moves go at once.
+ *
+ * @param {Promise<unknown>|null} until
+ */
+export function holdMoves(until) {
+  movesHeld = until ?? null;
+}
+
+/**
+ * Move a finished download into the working folder, under a name of its
+ * own, readable only by the user. On failure the download fails with the
+ * reason, and its files go. Never rejects.
+ */
+async function moveFinished(entry, browser) {
+  let timer;
+  await Promise.race([
+    entry.download.whenSucceeded().catch(() => {}),
+    new Promise(resolve => (timer = setTimeout(resolve, MARK_WAIT_MS))),
+  ]);
+  clearTimeout(timer);
+  if (movesHeld) {
+    await Promise.resolve(movesHeld).catch(() => {});
+  }
+  // A forgotten one still moves: the task ended as it finished, and the file
+  // is the user's.
+  if (entry.refusal || entry.deleted) {
+    return;
+  }
+  const staged = finishedFile(entry);
+  if (!staged) {
+    return;
+  }
+  try {
+    entry.path = await intoWorkingFolder(staged);
+  } catch (e) {
+    entry.refusal = moveRefusal(entry.url, e?.message ?? String(e));
+    await removeOwnFolder(entry.dir);
+    if (browser?.isConnected) {
+      reportRefused(browser, "download", entry.refusal, entry.url);
+    }
+    return;
+  }
+  await removeOwnFolder(entry.dir);
+}
+
+/**
+ * Put the staged file at `staged` into the working folder, and return its
+ * path there. The name is Gecko's own unique one ("report(1).pdf"), made
+ * exclusively, so nothing already there is replaced. A rename keeps the
+ * file's mode and macOS marks, and replaces only the empty file it made
+ * (rename never follows a link put in its place). Across volumes, where no
+ * rename reaches, the copy goes into a file made exclusively, so a link put
+ * in its place fails it rather than being written through.
+ */
+async function intoWorkingFolder(staged) {
+  const folder = workingFolder();
+  if (!folder || folder.error) {
+    throw new Error(folder?.error ?? "zenius hasn't read its working folder");
+  }
+  await makeWorkingFolder(folder);
+  await IOUtils.setPermissions(staged, 0o600);
+  const named = DownloadPaths.createNiceUniqueFile(localFile(PathUtils.join(folder.path, PathUtils.filename(staged))));
+  try {
+    localFile(staged).renameTo(localFile(folder.path), named.leafName);
+  } catch (e) {
+    // renameTo fails this way on another volume (and for a folder it can't
+    // write, where the empty file couldn't have been made).
+    if (e.result !== Cr.NS_ERROR_FILE_ACCESS_DENIED) {
+      await IOUtils.remove(named.path, { ignoreAbsent: true, recursive: false }).catch(() => {});
+      throw new Error(`the move failed (${e.message})`);
+    }
+    await copyAcross(staged, named);
+  }
+  return named.path;
+}
+
+const PR_RDONLY = 0x01;
+const PR_WRONLY = 0x02;
+const PR_CREATE_FILE = 0x08;
+const PR_EXCL = 0x80;
+
+/** Copy `staged` to the empty file `named` made, on another volume, with its macOS marks, then remove `staged`. */
+async function copyAcross(staged, named) {
+  // The empty file goes, and the copy is made exclusively in its place.
+  await IOUtils.remove(named.path, { ignoreAbsent: true, recursive: false });
+  const out = Cc["@mozilla.org/network/file-output-stream;1"].createInstance(Ci.nsIFileOutputStream);
+  try {
+    out.init(named, PR_WRONLY | PR_CREATE_FILE | PR_EXCL, 0o600, 0);
+  } catch (e) {
+    throw new Error(`something took the file's place in the working folder (${e.message})`);
+  }
+  const input = Cc["@mozilla.org/network/file-input-stream;1"].createInstance(Ci.nsIFileInputStream);
+  input.init(localFile(staged), PR_RDONLY, 0, 0);
+  await new Promise((resolve, reject) =>
+    lazy.NetUtil.asyncCopy(input, out, status =>
+      Components.isSuccessCode(status) ? resolve() : reject(new Components.Exception("copying the file failed", status))
+    )
+  ).catch(async e => {
+    await IOUtils.remove(named.path, { ignoreAbsent: true, recursive: false }).catch(() => {});
+    throw e;
+  });
+  try {
+    await copyMarks(staged, named.path);
+  } catch (e) {
+    // A copy without its marks doesn't stay. Whatever took its place is the
+    // scripts' own: a link goes, never what it names.
+    await IOUtils.remove(named.path, { ignoreAbsent: true, recursive: false }).catch(() => {});
+    throw e;
+  }
+  await IOUtils.remove(staged, { ignoreAbsent: true });
+}
+
+/** The macOS marks a copy must keep: Gatekeeper's quarantine, and where the file came from. */
+const MAC_MARKS = ["com.apple.quarantine", "com.apple.metadata:kMDItemWhereFroms"];
+
+async function copyMarks(from, to) {
+  if (lazy.AppConstants.platform !== "macosx" || typeof IOUtils.getMacXAttr !== "function") {
+    return;
+  }
+  for (const name of MAC_MARKS) {
+    let value;
+    try {
+      value = await IOUtils.getMacXAttr(from, name);
+    } catch {
+      continue;
+    }
+    if (entryKind(to) !== "file") {
+      throw new Error("the copy in the working folder was replaced before its marks were set");
+    }
+    await IOUtils.setMacXAttr(to, name, value);
+  }
 }
 
 /** For tests and the SPI: what a task's downloads hold now. */
@@ -865,7 +1074,8 @@ export function taskDownloads(spaceId) {
 
 /**
  * Tie a download to the connection that received it: when that connection
- * closes, its temporary files go (a promise the SDK's guide makes).
+ * closes, it's forgotten, and one still running is canceled. A finished file
+ * stays in the working folder.
  */
 export function claimDownload(entry, conn) {
   if (!conn || entry.owner) {
@@ -877,7 +1087,7 @@ export function claimDownload(entry, conn) {
     state.zeniusDownloads = new Set();
     (state.onClose ??= []).push(() => {
       for (const owned of state.zeniusDownloads) {
-        deleteDownload(owned);
+        forgetDownload(owned);
       }
       state.zeniusDownloads.clear();
     });
@@ -885,11 +1095,11 @@ export function claimDownload(entry, conn) {
   state.zeniusDownloads.add(entry);
 }
 
-/** Delete unclaimed downloads of tabs that are gone. */
+/** Forget unclaimed downloads of tabs that are gone. */
 export function sweepDownloads() {
   for (const entry of entries.values()) {
     if (!entry.owner && !BrowsingContext.getCurrentTopByBrowserId(entry.browserId)) {
-      deleteDownload(entry);
+      forgetDownload(entry);
     }
   }
 }

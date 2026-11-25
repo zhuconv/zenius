@@ -4,20 +4,19 @@
 ; from zen-eval's tests/live/cli-sandbox.sb, whose rules ran rubric C's live
 ; agents. The CLI runs agent-written scripts, and agents read untrusted pages,
 ; so this confines that process: it reads only the CLI copy, the instance
-; registry, its own temporary and output folders, the output folders of the
-; working folder's other runs, the working folder and the folder the install
-; lets scripts read (install-cli.sh --read-dir); writes only its own
-; temporary and output folders; starts no process; and connects only to the
-; instance's socket.
+; registry, its own temporary folder, the working folder, the current folder
+; and the folder the install lets scripts read (install-cli.sh --read-dir);
+; writes only its own temporary folder and the working folder; starts no
+; process; and connects only to the instance's socket.
 ;
 ; Parameters, all real paths: CLI (the copy), REGISTRY (~/.zenius/instances),
-; SOCK (the instance's socket), BOX (the temporary folder), OUTS (the working
-; folder's runs' output folders), OUT (this run's, inside OUTS), WORK (the
-; working folder, or a path that doesn't exist when it isn't granted), READ
-; (the install's read folder, such as ~/Downloads, or a path that doesn't
-; exist when there is none), NODE (the node binary, which the launcher
-; resolves at each start) and NODE_HOME (its install). In this language later
-; rules win.
+; SOCK (the instance's socket), BOX (the temporary folder), WORKING (the
+; working folder, which ~/.zenius/config.json names), CURRENT (the folder the
+; command started in, or a path that doesn't exist when it isn't granted),
+; READ (the install's read folder, such as ~/Downloads, or a path that
+; doesn't exist when there is none), NODE (the node binary, which the
+; launcher resolves at each start) and NODE_HOME (its install). In this
+; language later rules win.
 (allow default)
 
 ; No reads under the users' homes, the shared temp folders or other volumes...
@@ -31,21 +30,22 @@
   (subpath (param "CLI"))
   (subpath (param "REGISTRY"))
   (subpath (param "BOX"))
-  (subpath (param "OUTS"))
-  (subpath (param "WORK"))
+  (subpath (param "WORKING"))
+  (subpath (param "CURRENT"))
   (subpath (param "READ"))
   (subpath (param "NODE_HOME"))
   (literal (param "SOCK")))
 ; Metadata stays visible: Node resolves module paths through their parents.
 (allow file-read-metadata)
 
-; Writes only in the run's temporary and output folders. Never in the
-; working folder: git, direnv, npm, pytest, make and agents run what a project
-; holds, outside the sandbox, and no list of such files is ever complete.
+; Writes only in the run's temporary folder and the working folder, which the
+; launcher refuses when it's a project's. Never in the current folder: git,
+; direnv, npm, pytest, make and agents run what a project holds, outside the
+; sandbox, and no list of such files is ever complete.
 (deny file-write*)
 (allow file-write*
   (subpath (param "BOX"))
-  (subpath (param "OUT"))
+  (subpath (param "WORKING"))
   (literal "/dev/null"))
 
 ; No new processes. sandbox-exec's own exec of node is the one exec allowed,

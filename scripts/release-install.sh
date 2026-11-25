@@ -16,7 +16,12 @@
 #                        (install-cli.sh --sandbox); it needs Node 24 first on PATH
 #   --read-dir <dir>     with --sandbox: scripts may also read <dir>, such as
 #                        ~/Downloads, for uploads, and never write it
-#   --output-dir <dir>   with --sandbox: runs' output folders go in <dir>
+#   --working-dir <dir>  the working folder, ~/zenius-files unless this says:
+#                        the agent's downloads land there, and its scripts read,
+#                        write and delete files there. It goes in
+#                        ~/.zenius/config.json, and changing it moves no files.
+#                        Needed with a ZENIUS_HOME other than ~/.zenius that
+#                        holds no config.json yet
 #   --disable-ipv6       Zen makes no IPv6 lookups (scripts/install.sh
 #                        --disable-ipv6, a line in the profile's user.js), for a
 #                        network that has only IPv4
@@ -77,7 +82,7 @@ die() { printf 'zen(ius): %s\n' "$*" >&2; exit 1; }
 # The choices go to the installers as given, and those check them. Under
 # set -u, bash 3.2 (macOS's /bin/bash) treats an empty array, and an empty
 # "$@", as unset, so they expand as ${a[@]+"${a[@]}"} and ${1+"$@"}.
-mode=install profile='' choices=0 cli_args=() install_args=()
+mode=install profile='' choices=0 cli_args=() install_args=() working=''
 while (($#)); do
   case $1 in
     --uninstall) mode=uninstall; shift ;;
@@ -85,9 +90,15 @@ while (($#)); do
       [[ $# -ge 2 && -n $2 ]] || { echo "zen(ius): --profile takes a folder" >&2; exit 2; }
       profile=$2; shift 2 ;;
     --sandbox) cli_args+=(--sandbox); choices=1; shift ;;
-    --read-dir | --output-dir)
+    --read-dir)
       [[ $# -ge 2 && -n $2 ]] || { echo "zen(ius): $1 takes a folder" >&2; exit 2; }
       cli_args+=("$1" "$2"); choices=1; shift 2 ;;
+    --working-dir)
+      [[ $# -ge 2 && -n $2 ]] || { echo "zen(ius): $1 takes a folder" >&2; exit 2; }
+      cli_args+=("$1" "$2"); install_args+=("$1" "$2"); working=$2; choices=1; shift 2 ;;
+    --output-dir)
+      echo "zen(ius): --output-dir is gone: scripts write their files in the working folder, which --working-dir sets (~/zenius-files by default)" >&2
+      exit 2 ;;
     --disable-ipv6) install_args+=(--disable-ipv6); choices=1; shift ;;
     -h | --help) sed -n '2,/^$/{s/^# \{0,1\}//;p;}' "$0" 2>/dev/null || echo "See https://github.com/zhuconv/zenius"; exit 0 ;;
     *) echo "zen(ius): unknown argument: $1 (try --help)" >&2; exit 2 ;;
@@ -95,7 +106,24 @@ while (($#)); do
 done
 
 if [[ $mode == uninstall ]] && ((choices)); then
-  echo "zen(ius): --sandbox, --read-dir, --output-dir and --disable-ipv6 go with an install, not --uninstall" >&2
+  echo "zen(ius): --sandbox, --read-dir, --working-dir and --disable-ipv6 go with an install, not --uninstall" >&2
+  exit 2
+fi
+
+# $1 with its existing part's links resolved, as scripts/working-folder.sh
+# compares paths.
+real_path() {
+  local path=$1 rest=
+  while [[ ! -e $path ]]; do rest=/$(basename "$path")$rest path=$(dirname "$path"); done
+  echo "$(cd "$path" && pwd -P)$rest"
+}
+
+# ~/zenius-files is the default working folder only while zenius's home is
+# ~/.zenius. A ZENIUS_HOME elsewhere without a config file naming one needs
+# --working-dir, as both installers check; this says so before the download.
+if [[ $mode == install && -z $working && -n ${ZENIUS_HOME:-} && ! -e $ZHOME/config.json ]] &&
+  [[ "$(real_path "$ZENIUS_HOME")" != "$(real_path "$HOME/.zenius")" ]]; then
+  echo "zen(ius): there's no default working folder: ZENIUS_HOME is $ZENIUS_HOME, not ~/.zenius, and it holds no config.json: pass --working-dir <folder>" >&2
   exit 2
 fi
 
@@ -106,9 +134,12 @@ esac
 
 # The installers' own arguments for the profile, without an empty array (bash
 # 3.2, macOS's, treats "${a[@]}" of an empty array as unset under set -u).
-run_install() {
-  if [[ -n $profile ]]; then "$RELEASE/scripts/install.sh" "$@" --profile "$profile"; else "$RELEASE/scripts/install.sh" "$@"; fi
+run_install_from() {
+  local root=$1
+  shift
+  if [[ -n $profile ]]; then "$root/scripts/install.sh" "$@" --profile "$profile"; else "$root/scripts/install.sh" "$@"; fi
 }
+run_install() { run_install_from "$RELEASE" "$@"; }
 
 if [[ $mode == uninstall ]]; then
   [[ -x $RELEASE/scripts/install.sh && -x $RELEASE/scripts/install-cli.sh ]] ||
@@ -233,6 +264,16 @@ if ((rc)); then
   printf '%s\n' "${reasons:-$checked}" >&2
   ((rc != 2)) || { echo "zen(ius): a wrong argument (above): nothing has changed" >&2; exit 2; }
   die "the zenius command can't be installed with these choices (above): nothing has changed"
+fi
+# And install.sh's (the profile, the working folder against Zen's profile
+# and app), so a refusal there also comes before the release is swapped in.
+rc=0
+checked=$(run_install_from "$src" --dry-run --loader ${install_args[@]+"${install_args[@]}"} 2>&1) || rc=$?
+if ((rc)); then
+  reasons=$(printf '%s\n' "$checked" | grep -E '^install\.sh: ' || true)
+  printf '%s\n' "${reasons:-$checked}" >&2
+  ((rc != 2)) || { echo "zen(ius): a wrong argument (above): nothing has changed" >&2; exit 2; }
+  die "zen(ius) can't be installed in Zen with these choices (above): nothing has changed"
 fi
 
 # The release stays in ~/.zenius/release: it's what --uninstall and doctor's

@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { after, describe, it } from "node:test";
 
+import { guardHome } from "../../tests/lib/scratch-home.mjs";
 import { CLI } from "./helpers.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "zcc-"));
@@ -32,7 +33,7 @@ function place(): { home: string; tmp: string } {
 function version(home: string, tmp: string, env: Record<string, string> = {}): void {
   const { NODE_COMPILE_CACHE: _cache, NODE_DISABLE_COMPILE_CACHE: _off, ...inherited } = process.env;
   const result = spawnSync(process.execPath, [CLI, "--version"], {
-    env: { ...inherited, ZENIUS_HOME: home, TMPDIR: tmp, ...env },
+    env: guardHome({ ...inherited, ZENIUS_HOME: home, TMPDIR: tmp, ...env }, "compile-cache.test"),
     encoding: "utf8",
   });
   assert.equal(result.status, 0, result.stderr);

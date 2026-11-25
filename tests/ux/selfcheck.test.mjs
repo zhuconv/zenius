@@ -26,6 +26,7 @@ import { existsSync, lstatSync, mkdtempSync, readdirSync, readFileSync, rmSync }
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
+import { scratchHome } from "../lib/scratch-home.mjs";
 import { setup } from "./lib.mjs";
 
 const CLI = new URL("../../sdk/bin/zenius", import.meta.url).pathname;
@@ -48,16 +49,20 @@ const run = Date.now().toString(36).slice(-5);
 
 let h;
 let scratch;
+// The CLI's HOME: never the account's own (tests/lib/scratch-home.mjs).
+let cliHome;
 
 before(async () => {
   h = await setup();
   scratch = mkdtempSync(join(tmpdir(), "zenius-ux-selfcheck-"));
+  cliHome = scratchHome("ux-check");
 });
 
 after(async () => {
   if (scratch) {
     rmSync(scratch, { recursive: true, force: true });
   }
+  cliHome?.remove();
   await h?.close();
 });
 
@@ -399,10 +404,16 @@ test("a self-check whose task comes to need the user, as a failed turn leaves on
   assert.equal(out.result?.ok, true, `the run still passed: ${JSON.stringify(out.result)}`);
 });
 
-/** Run the CLI as the user's shell would; resolves with its exit code and output. */
+/**
+ * Run the CLI as the user's shell would, with a scratch HOME and the run's
+ * zenius home, where this Zen keeps its self-check socket (tests/ux/run.sh
+ * makes it a scratch one too); resolves with its exit code and output. It
+ * refuses the account's own home or ~/.zenius, and the test fails.
+ */
 function cli(args, timeout) {
   return new Promise(resolve => {
-    execFile(process.execPath, [CLI, ...args], { timeout, env: { ...process.env } }, (error, stdout, stderr) => {
+    const env = cliHome.env({ ZENIUS_HOME: home });
+    execFile(process.execPath, [CLI, ...args], { timeout, env }, (error, stdout, stderr) => {
       resolve({ code: error ? (error.code ?? error.signal) : 0, stdout, stderr });
     });
   });

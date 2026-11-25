@@ -132,6 +132,15 @@ function deniedFor(kind, list) {
  */
 const CLAUDE_KEPT_OPTIONS = ["model", "fallbackModel", "effort", "thinking", "maxThinkingTokens", "maxTurns", "maxBudgetUsd", "betas", "env"];
 
+/**
+ * Zen's variables that name zenius's own folders: ZENIUS_HOME (the sockets,
+ * the instance records and config.json) and ZENIUS_WORKING_DIR (where
+ * scripts and downloads write). Whatever starts a Zen other than the user's
+ * own sets them: a dev Zen gets its own working folder from
+ * scripts/zen-dev.sh, and a test run its own zenius home (zeniusEnv).
+ */
+const ZENIUS_ENV = ["ZENIUS_HOME", "ZENIUS_WORKING_DIR"];
+
 /** What the agent's own environment keeps of Zen's; the rest is the agent's config. */
 const PASSED_ENV = [
   "HOME", "USER", "LOGNAME", "SHELL", "PATH", "TMPDIR", "TZ",
@@ -140,6 +149,30 @@ const PASSED_ENV = [
   "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "no_proxy", "all_proxy",
   "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR",
 ];
+
+/**
+ * What tells a zenius command which Zen to reach and where to write: this
+ * Zen's instance (the zenius.instance pref, as the runtime names itself),
+ * and its zenius home and working folder when Zen has them (ZENIUS_ENV).
+ * An agent's process and its zenius server both get it: without it, a dev
+ * Zen's agent, its own shell's zenius or its zenius server, would reach the
+ * user's own Zen, the default instance, and write in the user's own working
+ * folder. The server's entry carries it as well as the agent's environment,
+ * since Codex starts an MCP server with a few variables of its own and the
+ * entry's, not the agent's whole environment.
+ *
+ * @returns {Record<string, string>}
+ */
+function zeniusEnv() {
+  const env = { ZENIUS_INSTANCE: Services.prefs.getStringPref("zenius.instance", "default") };
+  for (const name of ZENIUS_ENV) {
+    const value = Services.env.get(name);
+    if (value) {
+      env[name] = value;
+    }
+  }
+  return env;
+}
 
 /**
  * CLAUDE.md and AGENTS.md: what the folder tells the agent, by kind. The
@@ -364,9 +397,11 @@ function settingsFor(agent, kind, base) {
 
 /**
  * The zenius MCP server for this Zen: the installed CLI, or the pref's. Null
- * without one. Chat's is `zenius mcp --docs-only`, which serves the docs tool
- * alone and never reaches Zen. A CLI older than the flag refuses it and
- * doesn't start, so Chat goes without docs rather than get browser tools.
+ * without one. Its env is zeniusEnv(): this Zen's instance, zenius home
+ * and working folder. Chat's is `zenius mcp --docs-only`, which serves the
+ * docs tool alone and never reaches Zen. A CLI older than the flag refuses
+ * it and doesn't start, so Chat goes without docs rather than get browser
+ * tools.
  *
  * @param {"chat"|"work"} [kind]
  */
@@ -380,7 +415,7 @@ export async function zeniusServer(kind = "work") {
   return {
     command: cli,
     args: kindOf(kind) === "chat" ? ["mcp", "--docs-only"] : ["mcp"],
-    env: { ZENIUS_INSTANCE: Services.prefs.getStringPref("zenius.instance", "default") },
+    env: zeniusEnv(),
   };
 }
 
@@ -419,9 +454,11 @@ export async function processFolder(agent) {
 
 /**
  * The environment an agent's process starts with: a few of Zen's variables
- * (PASSED_ENV), then the agent's own from config.json, then `overrides`.
- * Nothing else of Zen's environment reaches it (no SSH_AUTH_SOCK, no
- * MOZ_*, no NODE_OPTIONS, no CLAUDE_* of whatever started Zen).
+ * (PASSED_ENV), this Zen's instance, zenius home and working folder
+ * (zeniusEnv, as its zenius server gets them), then the agent's own from
+ * config.json, then `overrides`. Nothing else of Zen's environment reaches
+ * it (no SSH_AUTH_SOCK, no MOZ_*, no NODE_OPTIONS, no CLAUDE_* of whatever
+ * started Zen).
  *
  * @param {object} agent
  * @param {object} [overrides]
@@ -434,6 +471,7 @@ export function agentEnvironment(agent, overrides = {}) {
       env[name] = Services.env.get(name);
     }
   }
+  Object.assign(env, zeniusEnv());
   for (const [name, value] of Object.entries({ ...agent?.env, ...overrides })) {
     if (value !== undefined && value !== null) {
       env[name] = String(value);

@@ -45,9 +45,9 @@ export const CODE_GUIDE: Record<string, CodeGuide> = {
     said: /open it again|try again once nothing is writing/,
   },
   ZEN_PATH_NOT_ALLOWED: {
-    what: "In the sandboxed CLI, a write outside the run's output and temporary folders, or an upload of a file outside the working folder, the runs' output folders, the temporary folder and the folder the install lets scripts read (install-cli.sh --read-dir, such as ~/Downloads), or of a link to one.",
-    next: "Give screenshot() and saveAs() a relative path, which lands in the output folder. For an upload, ask the user to copy the file into the working folder, or into the folder the message names that scripts may read.",
-    said: /Pass a relative path|ask the user to copy/,
+    what: "In the sandboxed CLI, a write outside the working folder and the temporary folder, or an upload of a file outside the working folder, the folder the command started in, the temporary folder and the folder the install lets scripts read (install-cli.sh --read-dir, such as ~/Downloads), or of a link to one. In either CLI, a working folder zenius can't use: one it can't make, or a config file that doesn't name it as the installer writes it.",
+    next: "Give screenshot() and saveAs() a relative path, which lands in the working folder. For an upload, ask the user to copy the file into the working folder, or into the folder the message names that scripts may read. When the message is about the working folder itself, ask the user to run the installer again with --working-dir <folder>.",
+    said: /Pass a relative path|ask the user to copy|--working-dir/,
   },
   ZEN_UNSUPPORTED: {
     what: "zenius has no such method, option or combination, such as CDP or a drag between frames.",
@@ -443,7 +443,7 @@ export const REFUSAL_GUIDE: Record<string, RefusalGuide> = {
   },
   download: {
     what: "zenius refused a download, as its message says: the task holds as many downloads, or as many MB, as it may.",
-    next: "Save the downloads the task needs (download.saveAs() or download.path()), then delete them with download.delete() to make room, or ask the user to raise the limit.",
+    next: "Delete the downloads the task no longer needs with download.delete(), which deletes their files in the working folder, to make room, or ask the user to raise the limit.",
   },
   audio: {
     what: "The tab plays sound while the user can't see it, so zenius muted it: muted, not refused.",

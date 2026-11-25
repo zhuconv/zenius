@@ -234,11 +234,9 @@ async function nodejs(args: ParsedArgs, launch: LaunchTimes): Promise<number> {
   // it earlier measured no faster: the connect and hello take under 1 ms.
   const round = new Round({ client });
   setRound(round);
-  // A script that calls process.exit() still gets its buffered output out,
-  // and leaves no download copies behind.
+  // A script that calls process.exit() still gets its buffered output out.
   process.on("exit", () => {
     flushOutput(true);
-    round.removeDownloadsFolder();
   });
 
   if (code === undefined) {
@@ -250,7 +248,6 @@ async function nodejs(args: ParsedArgs, launch: LaunchTimes): Promise<number> {
 
   const result = await runScript(code, scriptGlobals());
   if (result.exitCode === 0) await round.reportUnhandledPages();
-  await round.disposeDownloads();
   const exitCode = finishRun(result);
   heldNotice(client);
   client.close();

@@ -7,7 +7,7 @@
 import { apiEntry, validateOptions } from "./api-schema.ts";
 import { CODE_GUIDE } from "./error-guide.ts";
 import { unsupportedCdpError, ZeniusError } from "./errors.ts";
-import { bytesFrom, outputPath, readUploads, reportWritten, safeFileName, writeDownload, writeOutput } from "./files.ts";
+import { bytesFrom, copyDownload, outputPath, readUploads, reportWritten, writeOutput } from "./files.ts";
 import { CONSTRUCT, EXPLAIN_PAGE_ERROR, NOTE_ENTRY, REQUEST } from "./internal.ts";
 import { fs, path as nodePath, os } from "./node.ts";
 import { round } from "./round.ts";
@@ -594,14 +594,12 @@ export class PageKeyboard {
   }
 }
 
-/** A download started by a Page; the runtime owns the file. */
+/** A download started by a Page. Once finished, the file is in the working folder. */
 export class Download {
   readonly #page: Page;
   readonly #id: string;
   readonly #url: string;
   readonly #suggestedFilename: string;
-  /** The copy path() wrote, once it has. */
-  #copy?: Promise<string>;
 
   constructor(page: Page, result: Record<string, unknown>) {
     const id = result.download ?? result.id;
@@ -612,7 +610,6 @@ export class Download {
     this.#id = String(id);
     this.#url = stringOr(result.url) ?? "";
     this.#suggestedFilename = stringOr(result.suggestedFilename) ?? "";
-    round().noteDownload(this.#id);
   }
 
   page(): Page {
@@ -627,29 +624,23 @@ export class Download {
     return this.#suggestedFilename;
   }
 
-  // The runtime keeps the file to itself and sends its bytes (SPEC I5): the
-  // CLI writes every copy an agent asks for.
+  // The runtime writes no path an agent names (SPEC I5): the CLI makes every
+  // copy an agent asks for, from the file in the working folder.
   async saveAs(path: string): Promise<string> {
-    const file = outputPath(path, "download.saveAs", "download.saveAs requires an absolute file path");
-    await writeDownload(this.#read, file);
+    const file = outputPath(path, "download.saveAs");
+    const source = await this.path();
+    await copyDownload(source, file);
     reportWritten(file);
     return file;
   }
 
-  /** A copy in this run's temporary folder, which goes when the script ends, as Ego's file does. */
+  /** The finished file in the working folder, which stays there after the script ends. */
   async path(): Promise<string> {
-    this.#copy ??= (async () => {
-      const file = nodePath.join(round().downloadsFolder(), this.#id, safeFileName(this.#suggestedFilename));
-      await writeDownload(this.#read, file);
-      return file;
-    })().catch((error: unknown) => {
-      this.#copy = undefined;
-      throw error;
-    });
-    return this.#copy;
+    const result = await this.#request("download.path", {});
+    const path = stringOr((result as { path?: unknown } | null)?.path);
+    if (!path) throw new ZeniusError("ZEN_INTERNAL", "download.path got no path from the runtime");
+    return path;
   }
-
-  readonly #read = (offset: number, length: number): Promise<unknown> => this.#request("download.read", { offset, length });
 
   async failure(): Promise<string | null> {
     const result = await this.#request("download.failure", {});
@@ -662,12 +653,9 @@ export class Download {
     await this.#request("download.cancel", {});
   }
 
+  /** Deletes the file from the working folder too. */
   async delete(): Promise<void> {
     await this.#request("download.delete", {});
-    round().forgetDownload(this.#id);
-    const copy = await this.#copy?.catch(() => undefined);
-    this.#copy = undefined;
-    if (copy) await fs.promises.rm(nodePath.dirname(copy), { recursive: true, force: true });
   }
 
   // Completion can take as long as the transfer, so no client limit applies.

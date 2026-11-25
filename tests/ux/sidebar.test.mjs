@@ -1169,6 +1169,8 @@ test("Archive and Remove while the agent's first open is still loading its page 
       const PICK = "uc.agent-sidebar.harness";
       const picked = Services.prefs.prefHasUserValue(PICK) ? Services.prefs.getStringPref(PICK) : null;
       Services.prefs.setStringPref(${JSON.stringify(PREF)}, arg.file);
+      // A dev profile names this checkout's CLI (scripts/zen-dev.sh): it goes back after.
+      const cliWas = Services.prefs.prefHasUserValue("uc.agent-sidebar.zenius-cli") ? Services.prefs.getStringPref("uc.agent-sidebar.zenius-cli") : null;
       Services.prefs.setStringPref("uc.agent-sidebar.zenius-cli", arg.cli);
       Services.prefs.setStringPref(PICK, "mockcodex");
       try {
@@ -1238,7 +1240,8 @@ test("Archive and Remove while the agent's first open is still loading its page 
           g.setMode("chat");
         }
       } finally {
-        Services.prefs.clearUserPref("uc.agent-sidebar.zenius-cli");
+        if (cliWas === null) Services.prefs.clearUserPref("uc.agent-sidebar.zenius-cli");
+        else Services.prefs.setStringPref("uc.agent-sidebar.zenius-cli", cliWas);
         if (picked === null) Services.prefs.clearUserPref(PICK);
         else Services.prefs.setStringPref(PICK, picked);
       }
@@ -3959,6 +3962,8 @@ test("a Work chat on Codex that the idle stop parked goes on in its own task onc
     const PICK = "uc.agent-sidebar.harness";
     const picked = Services.prefs.prefHasUserValue(PICK) ? Services.prefs.getStringPref(PICK) : null;
     Services.prefs.setStringPref(${JSON.stringify(PREF)}, arg.file);
+    // A dev profile names this checkout's CLI (scripts/zen-dev.sh): it goes back after.
+    const cliWas = Services.prefs.prefHasUserValue("uc.agent-sidebar.zenius-cli") ? Services.prefs.getStringPref("uc.agent-sidebar.zenius-cli") : null;
     Services.prefs.setStringPref("uc.agent-sidebar.zenius-cli", arg.cli);
     Services.prefs.setStringPref(PICK, "mockcodex");
     try {
@@ -3981,7 +3986,8 @@ test("a Work chat on Codex that the idle stop parked goes on in its own task onc
       ${END_CHAT}
       return res;
     } finally {
-      Services.prefs.clearUserPref("uc.agent-sidebar.zenius-cli");
+      if (cliWas === null) Services.prefs.clearUserPref("uc.agent-sidebar.zenius-cli");
+      else Services.prefs.setStringPref("uc.agent-sidebar.zenius-cli", cliWas);
       if (picked === null) Services.prefs.clearUserPref(PICK);
       else Services.prefs.setStringPref(PICK, picked);
     }

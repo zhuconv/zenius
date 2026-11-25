@@ -593,14 +593,18 @@ test("the runtime never opens a path an agent names: uploads, screenshots, fetch
       const download = started.value.download;
       const saveAs = await call("download.saveAs", { download, path: join(untouched, "download.bin") });
       f.check("download.saveAs with a path", () => refusedArgument(saveAs));
+      // The finished file is the one the runtime moved into the working
+      // folder, by a name of the runtime's own: the CLI copies it from there.
       const path = await call("download.path", { download });
-      f.check("download.path", () => refusedArgument(path));
-      // The bytes are the way out instead, for the CLI to write.
+      f.check("download.path", () => {
+        assert.ok(path.ok, `failed: ${path.code} ${path.message}`);
+        assert.ok(path.value.path.startsWith(`${S.WORKING}/`), `${path.value.path} isn't in the working folder, ${S.WORKING}`);
+        assert.equal(sha256(readFileSync(path.value.path)), sha256(S.REPORT), "must be the download's bytes");
+      });
       const read = await call("download.read", { download, offset: 0, length: 8 * 1024 * 1024 });
-      f.check("download.read", () => {
-        assert.ok(read.ok, `failed: ${read.code} ${read.message}`);
-        assert.equal(sha256(Buffer.from(read.value.base64, "base64")), sha256(S.REPORT), "must give the download's bytes");
-        assert.equal(read.value.eof, true);
+      f.check("download.read, which is gone", () => {
+        refusedArgument(read);
+        assert.match(read.message, /download\.path/);
       });
     } else f.check("the download", () => assert.fail(`didn't start: ${started.code} ${started.message}`));
 

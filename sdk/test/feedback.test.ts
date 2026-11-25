@@ -223,17 +223,17 @@ describe("zenius feedback", () => {
     assert.equal(link.searchParams.get("title"), `zenius ${VERSION}: a problem report`);
   });
 
-  it("in the sandbox, says it's sandboxed, and writes a draft in the run's output folder and nowhere else", async () => {
+  it("in the sandbox, says it's sandboxed, and writes a draft in the working folder and nowhere else", async () => {
     cardRuntime(() => {
       throw new MockError("ZEN_UNSUPPORTED", "no agent sidebar can show the report", { reason: "no_sidebar" });
     });
     const { zhome, env } = home("sandboxed");
-    const out = join(base, "sandboxed-out");
+    const out = join(base, "sandboxed-zenius-files");
     mkdirSync(out);
     const from = mock.requests.length;
     const result = await runCli(["feedback", "page.screenshot fails"], {
       socketPath: mock.socketPath,
-      env: { ...env, ZENIUS_OUTPUT_DIR: out },
+      env: { ...env, ZENIUS_WORKING_DIR: out },
       // The launcher's grants, without the OS sandbox around them.
       nodeArgs: ["--permission", `--allow-fs-read=${ROOT}`, `--allow-fs-read=${mock.socketPath}`, `--allow-fs-read=${out}`, `--allow-fs-write=${out}`],
     });

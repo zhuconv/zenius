@@ -25,8 +25,9 @@
 # The assets, in --out:
 #   zenius-<version>.tar.gz         zenius-<version>/ with runtime/, skill/,
 #                                   sdk/ (the CLI, its bundle built here, no
-#                                   tests), scripts/install.sh and
-#                                   install-cli.sh, LICENSE, LICENSES/,
+#                                   tests), scripts/install.sh,
+#                                   install-cli.sh and working-folder.sh,
+#                                   which both source, LICENSE, LICENSES/,
 #                                   THIRD_PARTY.md, and RELEASE (the version
 #                                   and the commit's short hash, which the
 #                                   installers record, as git has none there),
@@ -125,7 +126,7 @@ fi
 # What the release needs to install and run: the installers, the runtime,
 # the CLI (with its sources, against which install-cli.sh checks that the
 # bundle is current), the skill, and the license files.
-packaged=(runtime sdk skill scripts/install.sh scripts/install-cli.sh LICENSE LICENSES THIRD_PARTY.md)
+packaged=(runtime sdk skill scripts/install.sh scripts/install-cli.sh scripts/working-folder.sh LICENSE LICENSES THIRD_PARTY.md)
 git -C "$ROOT" archive --format=tar "$sha" "${packaged[@]}" | tar -x -C "$tree"
 rm -rf "$tree/sdk/test" "$tree/sdk/scripts"
 

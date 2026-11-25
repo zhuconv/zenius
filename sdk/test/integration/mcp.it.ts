@@ -6,6 +6,8 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import path from "node:path";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
+
+import { guardHome } from "../../../tests/lib/scratch-home.mjs";
 import { unique, useContext } from "./context.ts";
 
 const SDK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -23,7 +25,7 @@ class Client {
 
   constructor(instance: string, env: Record<string, string> = {}) {
     this.child = spawn(process.execPath, [path.join(SDK, "bin/zenius"), "mcp"], {
-      env: { ...process.env, ZENIUS_INSTANCE: instance, ...env },
+      env: guardHome({ ...process.env, ZENIUS_INSTANCE: instance, ...env }, "mcp.it"),
       stdio: ["pipe", "pipe", "pipe"],
     });
     this.child.stdout.setEncoding("utf8");

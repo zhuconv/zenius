@@ -6,7 +6,7 @@
 // case passes, it moves from contract() to verified().
 
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { after, describe, it, type TestContext } from "node:test";
@@ -17,6 +17,16 @@ import { noted } from "./fixtures.ts";
 const context = useContext();
 const scratch = mkdtempSync(join(tmpdir(), "zenius-it-"));
 after(() => rmSync(scratch, { recursive: true, force: true }));
+
+/** The dev Zen's working folder (test-integration.sh), where finished downloads land. */
+const WORKING = process.env.ZENIUS_IT_WORKING_DIR ?? "";
+
+/** A finished download's file, which stays in the working folder, readable only by the user. */
+function keptInWorkingFolder(path: string): void {
+  assert.ok(path.startsWith(`${WORKING}/`), `download.path() is ${path}, not a file in the working folder ${WORKING}`);
+  assert.equal(readFileSync(path, "utf8"), "zenius download fixture\n", "the finished file stays in the working folder after the script");
+  assert.equal(statSync(path).mode & 0o777, 0o600);
+}
 
 function verified(name: string, methods: string[], body: (t: TestContext) => Promise<void>) {
   it(name, async (t) => {
@@ -574,12 +584,12 @@ console.log(JSON.stringify({ gotoError, url: download.url(), name: download.sugg
       assert.equal(out.name, "report.txt");
       assert.equal(out.failure, null);
       assert.equal(readFileSync(target, "utf8"), "zenius download fixture\n");
-      assert.equal(existsSync(out.path), false, "the temporary download is removed when the script ends");
+      keptInWorkingFolder(out.path);
     },
   );
 
   verified(
-    "waitForEvent('download') returns a Download that saves where asked",
+    "waitForEvent('download') returns a Download that saves where asked, and its file stays in the working folder",
     ["spaces.create", "page.goto", "page.click", "page.waitForEvent", "download.saveAs", "download.path", "download.failure"],
     async () => {
       const target = join(scratch, "downloads", "report.txt");
@@ -595,7 +605,7 @@ console.log(JSON.stringify({ url: download.url(), name: download.suggestedFilena
       assert.equal(out.name, "report.txt");
       assert.equal(out.failure, null);
       assert.equal(readFileSync(target, "utf8"), "zenius download fixture\n");
-      assert.equal(existsSync(out.path), false, "the temporary download is removed when the script ends");
+      keptInWorkingFolder(out.path);
     },
   );
 

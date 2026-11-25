@@ -49,8 +49,8 @@ export const RUNTIME_METHODS: Readonly<Record<string, readonly string[]>> = {
   "page.mouse": ["page.mouse.*"],
   "page.keyboard": ["page.keyboard.*"],
   "filechooser.setFiles": ["fileChooser.setFiles"],
-  // saveAs() and path() write what download.read sends (SPEC I5).
-  "download.read": ["download.saveAs", "download.path"],
+  // saveAs() copies the file path() names in the working folder (SPEC I5).
+  "download.path": ["download.saveAs", "download.path"],
   "download.failure": ["download.failure"],
   "download.cancel": ["download.cancel"],
   "download.delete": ["download.delete"],

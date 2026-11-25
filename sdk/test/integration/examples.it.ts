@@ -1,7 +1,9 @@
 // Every code example in the zenius Skill (SKILL.md, guide.md, references/)
 // runs on the dev instance as its text says, through the plain CLI and
 // through the sandboxed launcher (scripts/install-cli.sh --sandbox), and
-// prints what the text says. Agents copy these before anything else, so each
+// prints what the text says. Both run with the scratch HOME and ZENIUS_HOME
+// test/integration/scratch-env.ts made, whose config names the dev Zen's
+// working folder. Agents copy these before anything else, so each
 // example has a check below, keyed by its first line: an example that's new,
 // or whose first line changed, fails "has a check" until it gets one, and
 // one that stops working fails its own test.
@@ -19,6 +21,7 @@ import { dirname, join } from "node:path";
 import { after, before, describe, it, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { guardHome } from "../../../tests/lib/scratch-home.mjs";
 import { socketPath } from "../../src/instance.ts";
 import { answerClaims, needs, unique, useContext, zeniusJson, type Context } from "./context.ts";
 import { FIXTURE_PNG, noted } from "./fixtures.ts";
@@ -60,12 +63,16 @@ const context = useContext();
 
 /** The scratch folders, made by its real path: on macOS the temp folder is a link. */
 const root = realpathSync(mkdtempSync(join(tmpdir(), "zenius-examples-")));
-/** The working folder every run starts in: the sandbox may read it, never write it. */
+/** The folder every run starts in, its current folder: the sandbox may read it, never write it. */
 const work = join(root, "project");
 /** Where a plain run's absolute paths point. */
 const files = join(root, "files");
-/** The sandboxed runs' output folders (--output-dir). */
-const outputs = join(root, "out");
+/**
+ * The working folder, the dev Zen's own (test-integration.sh): finished
+ * downloads land there, and a sandboxed run's relative paths. As the config
+ * names it, which is how the launcher passes it on.
+ */
+const working = process.env.ZENIUS_IT_WORKING_DIR ?? "";
 /** A `zenius` for shell examples in the plain CLI: this checkout's, on this Node. */
 const shim = join(root, "shim");
 /** The sandboxed launcher's folder. */
@@ -80,18 +87,24 @@ before(() => {
   chmodSync(join(shim, "zenius"), 0o755);
   for (const dir of [files, work]) writeFileSync(join(dir, "report.pdf"), "%PDF-1.4 zenius example\n");
   if (!SANDBOX) return;
-  const install = spawnSync("bash", [join(ROOT, "scripts/install-cli.sh"), "--sandbox", "--output-dir", outputs], {
+  // The scratch zenius home's config names the working folder, and the
+  // install keeps it.
+  const install = spawnSync("bash", [join(ROOT, "scripts/install-cli.sh"), "--sandbox"], {
     encoding: "utf8",
-    env: {
-      ...process.env,
-      ZENIUS_CLI_DIR: join(root, "cli"),
-      ZENIUS_BIN_DIR: launcherDir,
-      ZENIUS_SKILL_DIRS: `${join(root, "claude")} ${join(root, "agents")}`,
-      // test-integration.sh built dist/ already; another build would race the suite.
-      ZENIUS_INSTALL_NO_BUILD: "1",
-    },
+    env: guardHome(
+      {
+        ...process.env,
+        ZENIUS_CLI_DIR: join(root, "cli"),
+        ZENIUS_BIN_DIR: launcherDir,
+        ZENIUS_SKILL_DIRS: `${join(root, "claude")} ${join(root, "agents")}`,
+        // test-integration.sh built dist/ already; another build would race the suite.
+        ZENIUS_INSTALL_NO_BUILD: "1",
+      },
+      "examples.it",
+    ),
   });
   assert.equal(install.status, 0, `${install.stdout}${install.stderr}`);
+  assert.ok(install.stdout.includes(`ok       the working folder: ${working}`), install.stdout);
 });
 
 after(async () => {
@@ -136,7 +149,10 @@ class Runner {
 
   #env(): NodeJS.ProcessEnv {
     // The sandbox's own temporary folder goes in the scratch folder too.
-    return { ...process.env, ZENIUS_INSTANCE: context.instance, ZENIUS_TIMING: "", ...(this.sandboxed ? { TMPDIR: root } : {}) };
+    return guardHome(
+      { ...process.env, ZENIUS_INSTANCE: context.instance, ZENIUS_TIMING: "", ...(this.sandboxed ? { TMPDIR: root } : {}) },
+      "examples.it",
+    );
   }
 
   /** `zenius nodejs` with `code` on stdin. */
@@ -154,7 +170,7 @@ class Runner {
     return spawnRun("bash", ["-c", command], { env });
   }
 
-  /** Where an example's /absolute/path/ points: anywhere in a plain run, the working folder for a sandboxed upload. */
+  /** Where an example's /absolute/path/ points: anywhere in a plain run, the current folder for a sandboxed upload. */
   readable(): string {
     return this.sandboxed ? work : files;
   }
@@ -328,7 +344,7 @@ const CHECKS: Record<string, Check> = {
         refusedPath(await r.script(`${opened("/ex-visual").code}${block.code}`));
         const run = ok(await r.script(`${opened("/ex-visual").code}${fill(block.code, ["/absolute/path/", ""])}${typed}`));
         const [listed] = listedFiles(run);
-        assert.ok(listed?.startsWith(`${outputs}/`) && listed.endsWith("/before.png"), run.stdout);
+        assert.equal(listed, join(working, "before.png"), run.stdout);
         assert.ok(run.stdout.includes(`{ screenshot: '${listed}' }`), run.stdout);
         assert.ok(readFileSync(listed!).subarray(1, 4).toString() === "PNG");
         assert.deepEqual(lastJson(run), { typed: "hello" });
@@ -395,7 +411,7 @@ const CHECKS: Record<string, Check> = {
         refusedPath(refused);
         const run = ok(await r.script(`${opened("/ex-download").code}${fill(block.code, ["/absolute/path/", ""])}${FINISH}`));
         const [listed] = listedFiles(run);
-        assert.ok(listed?.startsWith(`${outputs}/`) && listed.endsWith("/report.pdf"), run.stdout);
+        assert.equal(listed, join(working, "report.pdf"), run.stdout);
         assert.equal(readFileSync(listed!, "utf8"), "zenius download fixture\n");
         return;
       }
@@ -418,7 +434,7 @@ const CHECKS: Record<string, Check> = {
         refusedPath(await r.script(`${opened("/").code}${block.code}`));
         const run = ok(await r.script(`${opened("/").code}${fill(block.code, ["/absolute/path/", ""])}${FINISH}`));
         const [listed] = listedFiles(run);
-        assert.ok(listed?.startsWith(`${outputs}/`) && listed.endsWith("/image.png"), run.stdout);
+        assert.equal(listed, join(working, "image.png"), run.stdout);
         assert.deepEqual(readFileSync(listed!), FIXTURE_PNG);
         return;
       }
@@ -509,7 +525,7 @@ console.log(JSON.stringify({ ...stored, refused }));${FINISH}`;
   // references/feedback.md: the report. This lane's profile has no agent
   // sidebar (zen-dev.sh leaves its scripts out), so no card can open and the
   // command writes a draft: in a zenius home of the check's own for the plain
-  // CLI, never the user's, and in the run's output folder in the sandbox.
+  // CLI, never the user's, and in the working folder in the sandbox.
   // tests/core/feedback.test.mjs answers the card itself.
   'zenius feedback "clicking a button inside a shadow root failed twice with ZEN_INTERNAL"': {
     run: async (r, block, t) => {
@@ -519,7 +535,7 @@ console.log(JSON.stringify({ ...stored, refused }));${FINISH}`;
       const run = ok(await r.shell(command));
       const [first, , link] = run.stdout.split("\n");
       const file = /^No agent sidebar can show the report, so zenius feedback wrote the report as a draft: (.+)$/.exec(first!)?.[1];
-      assert.ok(file?.startsWith(`${r.sandboxed ? outputs : join(home, "feedback")}/`), run.stdout);
+      assert.ok(file?.startsWith(`${r.sandboxed ? working : join(home, "feedback")}/`), run.stdout);
       const draft = readFileSync(file!, "utf8");
       assert.ok(draft.includes("\n    clicking a button inside a shadow root failed twice with ZEN_INTERNAL\n"), draft);
       const form = new URL(link!);

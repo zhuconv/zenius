@@ -206,7 +206,11 @@ is retired: a registration from its days with
 ## Registering it
 
 Agents in zenius's sidebar need no registration: the sidebar passes this
-server to each session it starts (zen-ux's). For the user's own Claude Code
+server to each session it starts (zen-ux's), with its Zen's instance in
+`ZENIUS_INSTANCE`, and its zenius home and working folder in `ZENIUS_HOME`
+and `ZENIUS_WORKING_DIR` when that Zen has them, as a dev Zen does. The
+agent's own process gets the same three, so a `zenius` command it runs
+reaches the same Zen. For the user's own Claude Code
 or Codex in a terminal, the user registers it, or someone at the user's
 request; zenius never writes `~/.claude` or `~/.codex`. `zenius` below is
 `~/.local/bin/zenius` from `scripts/install-cli.sh`. Without the CLI

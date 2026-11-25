@@ -27,6 +27,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { browserProbeScript, probeFixture, scoreProbes } from "./browser-probes.mjs";
+import { guardHome } from "../lib/scratch-home.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const ZEN_DEV = join(ROOT, "scripts", "zen-dev.sh");
@@ -100,7 +101,15 @@ try {
   const env = { HOME, USER: process.env.USER, LANG: "en_US.UTF-8", PATH: BASE_PATH, TMPDIR: cliTmp };
   const install = spawnSync(join(ROOT, "scripts", "install-cli.sh"), ["--sandbox", "--output-dir", join(cliHome, "out")], {
     cwd: cliRoot,
-    env: { ...env, PATH: `${dirname(NODE)}:${BASE_PATH}`, ZENIUS_CLI_DIR: join(cliHome, "cli"), ZENIUS_BIN_DIR: join(cliHome, "bin") },
+    // An installer writes its zenius home's config.json and makes the working
+    // folder, so it runs only with a HOME and ZENIUS_HOME that aren't the
+    // account's own (tests/lib/scratch-home.mjs). With the real ones it
+    // refuses, until this run moves to a scratch home whose run folder is the
+    // dev Zen's (scratchHome's shareRuntime).
+    env: guardHome(
+      { ...env, PATH: `${dirname(NODE)}:${BASE_PATH}`, ZENIUS_CLI_DIR: join(cliHome, "cli"), ZENIUS_BIN_DIR: join(cliHome, "bin") },
+      "tests/live/probe-browser.mjs's install-cli.sh"
+    ),
     encoding: "utf8",
     timeout: 300000,
   });

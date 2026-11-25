@@ -31,6 +31,10 @@ Until an agent connects, nothing the user can see:
   an IPv4-only network. The cost: a site reachable only over IPv6
   doesn't load in Zen. It's the only preference the install changes, and
   only with that flag. Undo restores its earlier value.
+- **One new folder.** The install makes the working folder, `~/zenius-files`
+  unless `--working-dir` names another ("The working folder", in step 2).
+  Agents' downloads, and the files their scripts write, land there and stay
+  until the user deletes them.
 - **Hidden task strip.** The strip above the sidebar's foot buttons stays
   hidden while no agent task exists.
 - **Prompts and dialogs as before.** Popups, permission prompts, dialogs and
@@ -164,8 +168,9 @@ What agents can't do:
   and what for. Every other permission request (the location, camera,
   microphone, notifications, MIDI, persistent storage and the rest) is
   refused at once, with no prompt, even while the user holds the task.
-- **Capped downloads.** A task's downloads are capped at 50 files and 1 GiB,
-  and deleted when it ends.
+- **Capped downloads.** A task's downloads are capped at 50 files and 1 GiB.
+  Each finished one moves into the working folder, under a name no file
+  there has yet, and stays there after the task ends.
 - **No hidden video.** Video in an agent tab the user can't see pauses until
   they look.
 - **No code planted for later.** Agent tabs can't register service workers
@@ -304,10 +309,10 @@ What the installer does, in order:
    and Zen's app.
 2. It downloads the release's package, and stops unless the package's
    SHA-256 is the one the installer carries.
-3. It runs the package's `install-cli.sh --dry-run` with the choices below.
-   A choice that can't work (the sandbox without Node 24, a folder it won't
-   take, a file in the way) stops it there, with the reason and `nothing has
-   changed`.
+3. It runs the package's `install-cli.sh --dry-run`, then its `install.sh
+   --dry-run --loader`, with the choices below. A choice that can't work (the
+   sandbox without Node 24, a folder it won't take, a file in the way) stops
+   it there, with the reason and `nothing has changed`.
 4. It unpacks the package into `~/.zenius/release`, which Undo and doctor's
    fixes run from.
 5. `scripts/install.sh --loader` puts the runtime into the profile Zen opens,
@@ -331,7 +336,9 @@ The choices are made at the first install, and an update keeps them:
   Node 24, so the line below puts Homebrew's first on the PATH.
 - `--read-dir <folder>`, with `--sandbox`: one more folder scripts may read,
   such as `~/Downloads` for uploads.
-- `--output-dir <folder>`, with `--sandbox`: where runs' output folders go.
+- `--working-dir <folder>`: the working folder, where agents' downloads and
+  their scripts' files land; `~/zenius-files` by default ("The working
+  folder", in step 2).
 - `--disable-ipv6`: Zen makes no IPv6 lookups ("The one pref", in step 4).
 
 A first install, with three of the choices. `<install.sh URL>` is the
@@ -354,9 +361,12 @@ Installing zenius <version> (protocol 1, commit <commit>) into /Users/<user>/Lib
   no zenius files to back up: the profile has none yet
   the profile has fx-autoconfig's loader already: --loader leaves it as it is
   wrote <n> files in the profile (listed in /Users/<user>/.zenius/install.json)
+  set the working folder: /Users/<user>/zenius-files, in /Users/<user>/.zenius/config.json
+  made /Users/<user>/zenius-files, readable only by you
   set network.dns.disableIPv6 to true in user.js (no IPv6 lookups in Zen); uninstall restores its previous value
 Done. The next time Zen starts, it will load zenius <version>.
 installed /Users/<user>/.zenius/cli: zenius <version>, commit <commit>
+ok       the working folder: /Users/<user>/zenius-files
 wrote    /Users/<user>/.local/bin/zenius: the sandboxed launcher
 linked   /Users/<user>/.claude/skills/zenius -> /Users/<user>/.zenius/cli/skill/zenius
 linked   /Users/<user>/.agents/skills/zenius -> /Users/<user>/.zenius/cli/skill/zenius
@@ -403,8 +413,16 @@ Expect the lines above, with these changes:
   back up`.
 - The IPv6 line reads `network.dns.disableIPv6 stays true in user.js, from an
   earlier install with --disable-ipv6; …`.
+- `  the working folder stays /Users/<user>/zenius-files (…)` replaces the
+  `set the working folder` and `made` lines.
 - With the sandboxed CLI, `note     … is the sandboxed launcher, and this
   install keeps it …` comes first, and `ok` replaces `wrote` and `linked`.
+- From a release before the working folder, the profile's part sets it as a
+  first install does. With the sandboxed CLI, `note     scripts now write in
+  the working folder, …, not in runs' output folders: …/.zenius/out keeps
+  earlier runs' files, which zenius no longer uses` follows the first
+  `note`, once. The user can delete that folder when they don't need those
+  files.
 
 Then steps 5 and 6.
 
@@ -465,6 +483,8 @@ Expect these lines, and no others (with `/Users/<user>` for `~`):
 ```
 would build sdk/dist/zenius.mjs
 would install ~/.zenius/cli: zenius <version>, commit <commit>
+would set the working folder: ~/zenius-files (~/.zenius/config.json)
+would make ~/zenius-files, the working folder, readable only by you
 would link ~/.local/bin/zenius -> ~/.zenius/cli/sdk/bin/zenius
 would link ~/.claude/skills/zenius -> ~/.zenius/cli/skill/zenius
 would link ~/.agents/skills/zenius -> ~/.zenius/cli/skill/zenius
@@ -472,7 +492,8 @@ would link ~/.agents/skills/zenius -> ~/.zenius/cli/skill/zenius
 
 Two other lines are fine:
 
-- `ok …`: a link already points at the copy.
+- `ok …`: a link already points at the copy, or the working folder is set
+  already.
 - `note … is not on PATH`: agents won't find `zenius` by name (see below).
 
 Stop if it names anything else, or prints a `skip … left alone` line. That
@@ -492,7 +513,8 @@ done
 ```
 
 The install prints the dry run's lines as done (`built`, `installed`,
-`linked`), and its last line is `check    zenius <version> (protocol 1)`.
+`set`, `made`, `linked`), and its last line is `check    zenius <version>
+(protocol 1)`.
 The loop should print `--- 2` and the path for each link. Claude Code reads
 `~/.claude/skills/<name>/SKILL.md` and Codex reads `~/.agents/skills`, both
 through links (checked with Claude Code 2.1.329 and Codex 0.169.0;
@@ -510,6 +532,36 @@ PATH` note), `~/.local/bin` isn't on the PATH. Use `~/.local/bin/zenius` in
 the steps below, and add `~/.local/bin` to the PATH: the user's agents
 need it there.
 
+### The working folder
+
+Each install sets the working folder: where an agent's finished downloads
+land, and where a script's file goes when it names a relative path. It's
+`~/zenius-files` unless `--working-dir <absolute folder>` names another, with
+either CLI, `install.sh` and the release's installer alike. The install
+writes it in `~/.zenius/config.json`, which Zen reads at each start and the
+`zenius` command at each run, and makes the folder, readable only by the
+user, if it's missing. Later installs keep it: pass `--working-dir` again
+only to change it.
+
+- Changing it moves no files: the earlier folder keeps its own.
+- Undo leaves the folder, its files and `config.json` as they are.
+- The installers refuse a folder an agent's scripts mustn't write, with the
+  reason, and change nothing: the home folder, a temporary folder or a
+  folder above one; one that holds or is inside `~/.zenius`, Zen's profiles
+  or app, `~/.config`, `~/.local`, `~/Library`, the CLI's copy, Node's
+  folder, or `~/.ssh` or another credentials folder; and a project's folder,
+  one that holds `.git` or `.envrc` or sits in a git work tree.
+- A folder inside a temporary folder, such as `/tmp/zenius-files`, is
+  allowed, but the system may empty it: keep files that matter elsewhere.
+- A `config.json` edited by hand must name the folder as the installer
+  writes it, on a line of its own. Otherwise Zen, the `zenius` command and
+  the installers stop with the reason, and never fall back to
+  `~/zenius-files`. `--working-dir` writes it again.
+- zenius's own folder is `~/.zenius`. When `ZENIUS_HOME` moves it elsewhere,
+  there's no default working folder: pass `--working-dir` too, or each
+  installer stops with `there's no default working folder: …` and makes
+  nothing.
+
 ### The sandboxed CLI
 
 Run this install instead of the plain one above.
@@ -522,18 +574,16 @@ inside it. Agents then run Homebrew's Node 24,
 
 A script that `zenius nodejs` runs can then:
 
+- read, write and delete files in the working folder ("The working
+  folder", above). A relative path given to `screenshot()` or `saveAs()`
+  lands there, and the script's output lists each such file under
+  `[zenius:files]`;
 - read the folder it starts in, but write nowhere in it. git, direnv, npm,
   pytest, make and agents run what a project holds (hooks, `.envrc`,
   `.venv/bin`, `conftest.py`), outside the sandbox;
 - read the folder `--read-dir` names, such as `~/Downloads` for uploads,
   but write nothing there. An upload of a link in it to a file outside it
-  is refused, as in the working folder;
-- write an output folder of its own run,
-  `~/.zenius/out/<folder name>-<checksum>/run.XXXXXX`. A relative path given
-  to `screenshot()` or `saveAs()` lands there, and the script's output lists
-  each such file under `[zenius:files]`. A run can also read the same
-  folder's earlier runs. Runs over 7 days old, and empty ones over a day
-  old, are removed;
+  is refused, as in the other folders;
 - read and write a temporary folder of its own run;
 - read the CLI copy and the instance registry, and connect to the
   instance's socket.
@@ -546,11 +596,13 @@ It can't:
 - see environment variables beyond a short list (no `NODE_OPTIONS`, no
   tokens).
 
-The working folder isn't granted when it is `$HOME`, a temp folder or above
-one, or when it holds or sits inside `~/.zenius`, Zen's profiles,
-`~/.config`, `~/.local`, `~/Library`, Node 24's folder or a credentials
-folder such as `~/.ssh`. The script then starts in its temporary folder. The
-browser adds nothing to what a script can reach (I5).
+The folder a script starts in isn't granted when it is `$HOME`, a temp
+folder or above one, or when it holds or sits inside `~/.zenius`, Zen's
+profiles, `~/.config`, `~/.local`, `~/Library`, Node 24's folder or a
+credentials folder such as `~/.ssh`. The script then starts in the working
+folder. A working folder that breaks the same rules, as after a hand edit
+of `config.json`, stops every `zenius` command with the reason. The browser
+adds nothing to what a script can reach (I5).
 
 Checked on the Mac:
 
@@ -558,8 +610,8 @@ Checked on the Mac:
   node@24, with ssh-agent and other sockets probed. Every reach it probes
   fails for a script: planted `.git/hooks`, `core.fsmonitor` and
   `.venv/bin/git` all fail to write. A pilot's work still works: goto, a
-  snapshot, an upload from the working folder, a screenshot to its run's
-  folder. Each run also gets output and temporary folders of its own.
+  snapshot, an upload from the folder it starts in, a screenshot to the
+  working folder. Each run also gets a temporary folder of its own.
 - In Claude Code 2.1.329, nothing gets past an allow rule `Bash(zenius:*)`:
   variables in front, chaining and heredoc tails were all denied. Still,
   never approve by hand a `zenius` command that starts with a variable: the
@@ -586,6 +638,8 @@ nothing.
 ```
 would build sdk/dist/zenius.mjs
 would install ~/.zenius/cli: zenius <version>, commit <commit>
+would set the working folder: ~/zenius-files (~/.zenius/config.json)
+would make ~/zenius-files, the working folder, readable only by you
 would write ~/.local/bin/zenius: the sandboxed launcher
     #!/bin/sh -p
     # zenius, sandboxed (zenius-sandbox-launcher 1). scripts/install-cli.sh
@@ -605,15 +659,14 @@ The printed launcher names this Mac's paths in these lines:
     NODE='/opt/homebrew/opt/node@24/bin/node'
     NODE_MAJOR=24
     BIN_DIR='/Users/<user>/.local/bin'
-    OUT_ROOT='/Users/<user>/.zenius/out'
-    OUT_KEEP_DAYS=7
     READ_DIR='/Users/<user>/Downloads'
     case macos in
 ```
 
 These lines are fine too:
 
-- `ok …`: a Skill link already points at the copy.
+- `ok …`: a Skill link already points at the copy, or the working folder is
+  set already.
 - `would write ~/.local/bin/zenius: the sandboxed launcher (was a link to
   ~/.zenius/cli/sdk/bin/zenius)`: a plain install was there before.
 - `note … is not on PATH`, as above.
@@ -621,9 +674,8 @@ These lines are fine too:
 Stop on any other line. After an `error    --sandbox: …` line, the install
 has changed nothing, and the line says what's missing.
 
-To keep runs' output somewhere else, the user can name a folder outside
-every project. Add `--output-dir <absolute folder>` to both commands; later
-installs keep it. `OUT_ROOT` in the printed launcher then names it.
+For a working folder other than `~/zenius-files`, add `--working-dir
+<absolute folder>` to both commands ("The working folder", above).
 
 Then install and check:
 
@@ -655,7 +707,7 @@ With the sandbox, later steps change:
 
 - **Step 7** runs as written.
 - **Updating later.** `scripts/install-cli.sh --skill` keeps the sandbox,
-  with its `--output-dir` and `--read-dir`. Its first line is
+  with its `--read-dir`, and the working folder. Its first line is
   `note     ~/.local/bin/zenius is the sandboxed launcher, and this install
   keeps it (--no-sandbox makes it a link again)`.
 - **Homebrew upgrades.** `brew upgrade node@24` leaves zenius working: the
@@ -676,8 +728,7 @@ To undo the sandbox:
 
 Either way, `$TMPDIR/zenius-sandbox-<uid>/` stays behind. It holds each
 run's temporary folder, with screenshots taken without a path. Delete it by
-hand. Runs' output folders stay in `~/.zenius/out/` (or the
-`--output-dir`), with the rest of `~/.zenius/`.
+hand. The working folder stays, with its files.
 
 ### Codex: a rule for the sandboxed CLI
 
@@ -959,7 +1010,7 @@ old, and all but the 10 newest.
 The agent builds its page in the task's blank tab, so nothing loads from
 the network. Then it tries two things the runtime and the sandbox must
 refuse (I5): loading `about:config`, and, with the sandboxed CLI, writing a
-screenshot outside the run's own folders.
+screenshot outside the working folder and the run's temporary folder.
 
 ```bash
 zenius nodejs <<'JS'
@@ -1237,15 +1288,20 @@ listed.
 These stay behind:
 
 - `~/.zenius/`: backups, zenius's task records (`state/default/`), the
-  instance registry, and, with the sandboxed CLI, runs' output folders
+  instance registry, the working folder's setting (`config.json`), and,
+  from a sandboxed CLI before the working folder, runs' output folders
   (`out/`). Delete it by hand once nobody needs the backups.
+- The working folder, `~/zenius-files` unless the install set another, with
+  agents' downloads and the files their scripts wrote. The user keeps or
+  deletes it.
 - `<profile>/agent-sidebar-tasks.json` and
   `<profile>/agent-sidebar-chats.json`: the chats from zenius's sidebar,
   with their messages: its Work tasks in the first, each tab's Chat in the
   second. Delete them by hand if the user doesn't want those chats kept.
   Undo's `left in place:` line names those it finds: `~/.zenius
-  (backups, zenius's task records, the CLI if installed), the sidebar's
-  chats (<profile>/agent-sidebar-tasks.json,
+  (backups, zenius's task records, the CLI if installed, the working
+  folder's setting), the working folder and its files (<folder>), the
+  sidebar's chats (<profile>/agent-sidebar-tasks.json,
   <profile>/agent-sidebar-chats.json), and the Agents Space …`.
 - In the temporary folder (`$TMPDIR`): the CLI's compile cache,
   `zenius-compile-cache-<uid>/` (from a CLI before 0.1.4, Node's
@@ -1301,15 +1357,16 @@ A later install backs up the version it replaces under
 
 The install's steps, with the new commit as `<commit>`. An update replaces
 zenius's runtime in the profile and the CLI's copy. It keeps what the user
-set up: the CLI's sandbox and its folders, the Skill links, zenius's
+set up: the CLI's sandbox and its folders, the working folder, the Skill
+links, zenius's
 preferences (the allowlist, the page-code setting and its sites), the
 backups, and the Agents Space's tasks, which come back after the restart.
 
 1. Rerun the block in "1. Get the code". It checks out `<commit>` and
    reruns `npm ci`, with Node 24 in front.
-2. Reinstall the CLI, with Node 24 in front. `--sandbox`, `--output-dir` and
-   `--read-dir` aren't needed again: a later install keeps them, from the
-   launcher.
+2. Reinstall the CLI, with Node 24 in front. `--sandbox`, `--read-dir` and
+   `--working-dir` aren't needed again: a later install keeps them, from
+   the launcher and `~/.zenius/config.json`.
 
    ```bash
    PATH=/opt/homebrew/opt/node@24/bin:$PATH scripts/install-cli.sh --skill
@@ -1321,6 +1378,7 @@ backups, and the Agents Space's tasks, which come back after the restart.
    note     ~/.local/bin/zenius is the sandboxed launcher, and this install keeps it (--no-sandbox makes it a link again)
    built    sdk/dist/zenius.mjs
    installed ~/.zenius/cli: zenius <version>, commit <commit>
+   ok       the working folder: ~/zenius-files
    ok       ~/.local/bin/zenius: the sandboxed launcher
    ok       ~/.claude/skills/zenius -> ~/.zenius/cli/skill/zenius
    ok       ~/.agents/skills/zenius -> ~/.zenius/cli/skill/zenius
@@ -1332,6 +1390,15 @@ backups, and the Agents Space's tasks, which come back after the restart.
    last line ends `(protocol 1)`. The `ok` lines mean the launcher and the
    Skill links stay as they were; the copy they lead to now holds the new
    version. Stop on a `skip … left alone` line.
+
+   An update from a version before the working folder sets it, as a first
+   install does: `set      the working folder: ~/zenius-files
+   (~/.zenius/config.json)` and `made     ~/zenius-files, the working
+   folder, readable only by you` take the `ok` line's place. With the
+   sandboxed CLI, `note     scripts now write in the working folder,
+   ~/zenius-files, not in runs' output folders: ~/.zenius/out keeps earlier
+   runs' files, which zenius no longer uses` follows the first `note`,
+   once. The user can delete that folder when they don't need those files.
 
    When a version changes the launcher's text, as when it passes one more
    variable in, the launcher's line reads `updated  ~/.local/bin/zenius: the
@@ -1358,6 +1425,7 @@ backups, and the Agents Space's tasks, which come back after the restart.
      no running Zen has this profile open
      backed up the zenius files it replaces to /Users/<user>/.zenius/backups/<UTC time>
      wrote <n> files in the profile (listed in /Users/<user>/.zenius/install.json)
+     the working folder stays /Users/<user>/zenius-files (/Users/<user>/.zenius/config.json)
      network.dns.disableIPv6 is already true in user.js
    Done. The next time Zen starts, it will load zenius <version>.
    ```
@@ -1448,6 +1516,12 @@ which a copy doesn't. Going back to a commit whose `install-cli.sh` has no
 `--read-dir` rewrites the launcher without that folder, so the next update
 takes `--read-dir` again. The CLI has no
 backup, so only the checkout can put back its earlier version.
+
+Going back to a version from before the working folder: its runtime
+deletes a task's downloads when the task ends again, and its sandboxed
+launcher writes runs' output folders in `~/.zenius/out`. The working folder,
+its files and `~/.zenius/config.json` stay as they are, unused until an
+update brings the working folder back.
 
 To go back to a version from before zenius's sidebar, run "Undo" with the
 current checkout first, which takes zenius's sidebar out and puts back the

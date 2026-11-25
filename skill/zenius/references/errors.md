@@ -26,9 +26,9 @@ Next: Fix the call: help("<method>") prints its signature and options.
 
 ### ZEN_PATH_NOT_ALLOWED
 
-In the sandboxed CLI, a write outside the run's output and temporary folders, or an upload of a file outside the working folder, the runs' output folders, the temporary folder and the folder the install lets scripts read (install-cli.sh --read-dir, such as ~/Downloads), or of a link to one.
+In the sandboxed CLI, a write outside the working folder and the temporary folder, or an upload of a file outside the working folder, the folder the command started in, the temporary folder and the folder the install lets scripts read (install-cli.sh --read-dir, such as ~/Downloads), or of a link to one. In either CLI, a working folder zenius can't use: one it can't make, or a config file that doesn't name it as the installer writes it.
 
-Next: Give screenshot() and saveAs() a relative path, which lands in the output folder. For an upload, ask the user to copy the file into the working folder, or into the folder the message names that scripts may read.
+Next: Give screenshot() and saveAs() a relative path, which lands in the working folder. For an upload, ask the user to copy the file into the working folder, or into the folder the message names that scripts may read. When the message is about the working folder itself, ask the user to run the installer again with --working-dir <folder>.
 
 ### ZEN_UNSUPPORTED
 
@@ -428,7 +428,7 @@ Next: Nothing to do; your own paste still works.
 
 zenius refused a download, as its message says: the task holds as many downloads, or as many MB, as it may.
 
-Next: Save the downloads the task needs (download.saveAs() or download.path()), then delete them with download.delete() to make room, or ask the user to raise the limit.
+Next: Delete the downloads the task no longer needs with download.delete(), which deletes their files in the working folder, to make room, or ask the user to raise the limit.
 
 ### audio
 

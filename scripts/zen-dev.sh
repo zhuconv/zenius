@@ -7,6 +7,7 @@
 #                                     (--headed: a visible window that closes itself after
 #                                     ZENIUS_HEADED_MAX_S seconds, default 1200; 0 = never)
 #   scripts/zen-dev.sh <name> stop | restart [--headed] | status | log [-f] | path | reset
+#   scripts/zen-dev.sh <name> work    the instance's working folder (below)
 #   scripts/zen-dev.sh <name> quit    exit through the app, so Zen saves its session (stop kills)
 #   scripts/zen-dev.sh <name> fresh   before a test run: reset on Linux; on the Mac keep the
 #                                     profile (a first start there relaunches Zen and takes ~13 s)
@@ -63,6 +64,16 @@
 # user.js stays a user value even when it equals the default (for example
 # browser.startup.page, whose default in Zen 1.24.2b is 3).
 #
+# ZENIUS_DEV_WORKING_DIR=<dir> start: the instance's working folder, where its
+# finished downloads land (absolute; made 0700 if missing). By default it's
+# zenius-dev-<uid>/<name> in the caller's TMPDIR (/tmp), made 0700, and fresh
+# and reset remove it. A dev profile's runtime reads its pref,
+# zenius.dev.workingFolder, never ~/.zenius/config.json, and what Zen starts
+# gets ZENIUS_WORKING_DIR, which the CLI takes before that config, with this
+# checkout's sdk/bin first on PATH, so its `zenius` is the plain CLI: no dev
+# or test run reaches the user's own working folder. It can't be inside
+# ~/.zenius-dev, which the agent's scripts must not reach.
+#
 # Never point this at the user's daily profile: it always uses ~/.zenius-dev/profiles/<name>.
 set -euo pipefail
 
@@ -108,6 +119,11 @@ mkdir -p "$DEV/profiles" "$DEV/run" "$DEV/logs"
 # and the one Zen's content sandbox there allows.
 ZEN_TMP=
 [[ $(uname) == Linux ]] && ZEN_TMP=$DEV/tmp/$NAME
+# The instance's working folder (ZENIUS_DEV_WORKING_DIR above).
+WORK_PARENT=${TMPDIR:-/tmp}
+WORK_PARENT=${WORK_PARENT%/}/zenius-dev-$(id -u)
+WORK=${ZENIUS_DEV_WORKING_DIR:-$WORK_PARENT/$NAME}
+[[ $WORK == / ]] || WORK=${WORK%/}
 
 # Is the pid file's process alive? Only for the launch, which wrote it a
 # moment ago: anything that signals a pid asks ours/our_pid first.
@@ -825,6 +841,18 @@ EOF
   downloads=${downloads//\\/\\\\}
   downloads=${downloads//\"/\\\"}
   printf 'user_pref("browser.download.folderList", 2);\nuser_pref("browser.download.dir", "%s");\n' "$downloads" >>"$PROFILE/user.js"
+  # Finished downloads then move into the instance's working folder.
+  local work=${WORK//\\/\\\\}
+  work=${work//\"/\\\"}
+  printf 'user_pref("zenius.dev.workingFolder", "%s");\n' "$work" >>"$PROFILE/user.js"
+  # A dev sidebar's zenius server is this checkout's plain CLI, the one being
+  # tested: an installed sandboxed launcher would read the user's own config
+  # (and refuses the dev Zen's ZENIUS_WORKING_DIR). ZENIUS_DEV_PREFS can name
+  # another.
+  local cli=$ROOT/sdk/bin/zenius
+  cli=${cli//\\/\\\\}
+  cli=${cli//\"/\\\"}
+  printf 'user_pref("uc.agent-sidebar.zenius-cli", "%s");\n' "$cli" >>"$PROFILE/user.js"
   if [[ $(uname) == Darwin ]]; then
     # macOS asks the user before an app's first notification, and the dev copy
     # is an app of its own: Gecko's own notification windows instead. A test
@@ -857,11 +885,15 @@ launch() {
   [[ -n ${ZENIUS_INSTALLED:-} ]] || args+=(-purgecaches)
   [[ ${1:-} == --headed ]] || args+=(--headless)
   : > "$LOG"
-  local tmp=()
+  # What Zen starts (the sidebar's agents and their zenius servers) writes
+  # its files in the instance's working folder, never the user's, and finds
+  # this checkout's plain zenius first on PATH: an installed sandboxed
+  # launcher reads the user's own config, whatever this environment says.
+  local tmp=(ZENIUS_WORKING_DIR="$WORK" PATH="$ROOT/sdk/bin:$PATH")
   if [[ -n $ZEN_TMP ]]; then
     rm -rf "$ZEN_TMP"
     (umask 077; mkdir -p "$ZEN_TMP")
-    tmp=(TMPDIR="$ZEN_TMP")
+    tmp+=(TMPDIR="$ZEN_TMP")
   fi
   # MOZ_DISABLE_UPDATE_PROCESSING: the second layer behind refuse_waiting_update.
   if [[ ${1:-} == --headed ]]; then
@@ -971,6 +1003,26 @@ record_crash() {
   } >>"$CRASH_LOG"
 }
 
+# Make the instance's working folder (0700) if it's missing. The default's
+# parent sits in a temporary folder other accounts may share, so it must be
+# this account's own folder, not a link.
+ensure_working_folder() {
+  [[ $WORK == /?* ]] || { echo "zen-dev.sh: ZENIUS_DEV_WORKING_DIR must be an absolute path: $WORK" >&2; exit 1; }
+  if [[ -z ${ZENIUS_DEV_WORKING_DIR:-} ]]; then
+    [[ -e $WORK_PARENT || -L $WORK_PARENT ]] || mkdir -m 700 "$WORK_PARENT" 2>/dev/null || true
+    if [[ -L $WORK_PARENT || ! -d $WORK_PARENT || ! -O $WORK_PARENT ]]; then
+      echo "zen-dev.sh: $WORK_PARENT isn't a folder of this account's own: remove it, or set ZENIUS_DEV_WORKING_DIR" >&2
+      exit 1
+    fi
+    chmod 700 "$WORK_PARENT"
+  fi
+  if [[ -L $WORK ]] || { [[ -e $WORK ]] && [[ ! -d $WORK || ! -O $WORK ]]; }; then
+    echo "zen-dev.sh: the working folder, $WORK, isn't a folder of this account's own" >&2
+    exit 1
+  fi
+  [[ -d $WORK ]] || mkdir -m 700 "$WORK"
+}
+
 start() {
   local pid
   pid=$(our_pid)
@@ -981,6 +1033,7 @@ start() {
   local profile_state=kept
   [[ -d $PROFILE ]] || profile_state=fresh
   ensure_program_files
+  ensure_working_folder
   ensure_profile
   # A crash comes in bursts under load: twice on 2026-11-20 (the Linux server, load 30+)
   # the retry died in the same second as the first try. So retry up to
@@ -1083,6 +1136,12 @@ quit() {
   echo "$NAME quit"
 }
 
+# The default working folder and what tests downloaded into it go with the
+# profile. One ZENIUS_DEV_WORKING_DIR names is the caller's to remove.
+remove_default_work() {
+  [[ -n ${ZENIUS_DEV_WORKING_DIR:-} ]] || rm -rf "${WORK_PARENT:?}/${NAME:?}"
+}
+
 case $CMD in
   start) start "$@" ;;
   stop) stop ;;
@@ -1093,6 +1152,7 @@ case $CMD in
   status) pid=$(our_pid); if [[ -n $pid ]]; then echo "$NAME running (pid $pid)"; else echo "$NAME not running"; exit 1; fi ;;
   log) if [[ ${1:-} == -f ]]; then tail -f "$LOG"; else cat "$LOG"; fi ;;
   path) echo "$PROFILE" ;;
+  work) echo "$WORK" ;;
   updates) updates ;;
   reset)
     stop
@@ -1101,6 +1161,7 @@ case $CMD in
     # kept, an ended task's name stays taken in the next run (zen-ux's
     # clipboard suite).
     rm -rf "${ZENIUS_HOME:-$HOME/.zenius}/state/$NAME"
+    remove_default_work
     echo "$NAME profile removed"
     ;;
   fresh)
@@ -1109,6 +1170,7 @@ case $CMD in
       rm -rf "$PROFILE"
       # zenius's records of that profile's workspaces and tasks go with it.
       rm -rf "${ZENIUS_HOME:-$HOME/.zenius}/state/$NAME"
+      remove_default_work
       echo "$NAME profile removed"
     else
       echo "$NAME profile kept (Mac; ZENIUS_FRESH=1 removes it)"

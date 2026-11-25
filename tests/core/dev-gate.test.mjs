@@ -17,6 +17,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { after, test } from "node:test";
 import { Client } from "../../scripts/lib/rpc.mjs";
+import { guardHome } from "../lib/scratch-home.mjs";
 import { setup, sleep } from "./lib.mjs";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
@@ -88,8 +89,12 @@ test(
     const zhome = join(work, "z");
     const instance = `dg${process.pid}`;
     mkdirSync(profile);
-    execFileSync(join(root, "scripts/install.sh"), ["--profile", profile, "--loader"], {
-      env: { ...process.env, ZENIUS_HOME: zhome },
+    // A HOME and zenius home of the test's own: the installer never reads or
+    // writes the user's ~/.zenius/config.json.
+    const home = join(work, "home");
+    mkdirSync(home, { mode: 0o700 });
+    execFileSync(join(root, "scripts/install.sh"), ["--profile", profile, "--loader", "--working-dir", join(work, "files")], {
+      env: guardHome({ ...process.env, HOME: home, ZENIUS_HOME: zhome }, "dev-gate's install.sh"),
       encoding: "utf8",
     });
     // The prefs zen-dev.sh gives every dev Zen (no update downloads, no

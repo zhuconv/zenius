@@ -48,12 +48,13 @@ import Playwright or launch another browser.
 
 It runs as an ES module body with top-level `await`, in a new Node.js process
 started in your shell's working directory and environment; load built-ins with
-dynamic imports such as `await import("node:fs/promises")`. Every method that
-reads or writes a file, such as `screenshot()`, `setInputFiles()`, and
-`saveAs()`, takes only absolute paths. In the sandboxed CLI (`zenius --version`
-ends in `sandboxed`), give `screenshot()` and `saveAs()` relative paths, which
-land in the run's output folder; `references/files.md` in the zenius Skill
-directory says which other folders scripts may read and write.
+dynamic imports such as `await import("node:fs/promises")`. Methods that
+read files, such as `setInputFiles()`, take absolute paths. `screenshot()` and
+`saveAs()` also take a relative path, which lands in the working folder
+(`~/zenius-files` unless the install set another), as finished downloads do;
+in the sandboxed CLI (`zenius --version` ends in `sandboxed`), use relative
+ones. `references/files.md` in the zenius Skill directory says which other
+folders scripts may read and write.
 
 zenius has a small API of its own, not Playwright's, even where names and
 options look alike: use only the TaskSpace, Page, FileChooser, mouse, and
@@ -409,9 +410,10 @@ console.log({ url: download.url(), name: download.suggestedFilename() });
 await download.saveAs("/absolute/path/report.pdf");
 ```
 
-`download.saveAs()` waits for completion and creates missing parent
-directories. `download.path()` returns a temporary copy, removed when the
-script ends; `failure()`, `cancel()`, and `delete()` manage it.
+`download.path()` waits for completion and returns the file's path in the
+working folder, where it stays after the script ends. `download.saveAs()`
+copies it, creating missing parent directories; `failure()`, `cancel()`, and
+`delete()` manage it.
 
 `page.fetch()` runs `window.fetch()` in the Page: relative URLs, cookies, and
 service workers use that Page, and browser CORS still applies. It returns

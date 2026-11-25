@@ -11,6 +11,8 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { crc32 } from "node:zlib";
 
+import { guardHome } from "../lib/scratch-home.mjs";
+
 export const INSTANCE = process.env.ZENIUS_SECURITY_INSTANCE ?? "";
 const CLI = process.env.ZENIUS_SECURITY_CLI ?? "";
 if (!INSTANCE || !CLI) throw new Error("run tests/security through tests/security/run.sh");
@@ -74,10 +76,17 @@ export function disguisedUrls(planted) {
   ];
 }
 
-/** Runs `script` with `zenius nodejs`, as an agent's shell would. */
+/** The working folder run.sh made, which the dev Zen and the CLI's config name. */
+export const WORKING = process.env.ZENIUS_SECURITY_WORKING ?? "";
+
+/**
+ * Runs `script` with `zenius nodejs`, as an agent's shell would, in run.sh's
+ * scratch home: never the user's ~/.zenius/config.json or ~/zenius-files.
+ */
 export function zenius(script, { timeoutMs = 120_000 } = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [CLI, "nodejs", "--instance", INSTANCE], { stdio: ["pipe", "pipe", "pipe"] });
+    const env = guardHome({ ...process.env, HOME: process.env.ZENIUS_SECURITY_HOME, ZENIUS_HOME: process.env.ZENIUS_SECURITY_ZHOME }, "tests/security zenius()");
+    const child = spawn(process.execPath, [CLI, "nodejs", "--instance", INSTANCE], { env, stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk) => (stdout += chunk));

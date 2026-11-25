@@ -8,6 +8,13 @@
 #                                                   use an instance that is already running
 #
 # One instance per checkout, so workers sharing a machine don't collide.
+#
+# The dev Zen gets a working folder of this run's own (ZENIUS_DEV_WORKING_DIR,
+# removed at the end), and the tests' CLI and launcher runs get a scratch
+# HOME and ZENIUS_HOME whose config names it (test/integration/scratch-env.ts):
+# nothing reaches the user's own ~/.zenius/config.json or ~/zenius-files. A
+# reused instance keeps the folder it was started with, which
+# `zen-dev.sh <name> work` names.
 set -euo pipefail
 SDK=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 ROOT=$(cd "$SDK/.." && pwd)
@@ -17,11 +24,15 @@ NAME=${ZENIUS_IT_INSTANCE:-sdk-it-${suffix:-main}}
 DEV="$ROOT/scripts/zen-dev.sh"
 
 if [[ ${1:-} != --reuse ]]; then
+  TMP=${TMPDIR:-/tmp}
+  WORKING=$(mktemp -d "${TMP%/}/zt-it-files-XXXXXX")
+  trap '"$DEV" "$NAME" stop >/dev/null || true; rm -rf -- "$WORKING"' EXIT
   "$DEV" "$NAME" fresh >/dev/null
-  trap '"$DEV" "$NAME" stop >/dev/null || true' EXIT
-  "$DEV" "$NAME" start
+  ZENIUS_DEV_WORKING_DIR=$WORKING "$DEV" "$NAME" start
+else
+  WORKING=$("$DEV" "$NAME" work)
 fi
 (cd "$SDK" && node build.mjs)
 node "$SDK/scripts/protocol-coverage.ts" --instance "$NAME" | head -1 || true
 cd "$SDK"
-ZENIUS_INSTANCE=$NAME node --test --test-concurrency=1 --test-reporter=spec "test/integration/*.it.ts"
+ZENIUS_INSTANCE=$NAME ZENIUS_IT_WORKING_DIR=$WORKING node --import ./test/integration/scratch-env.ts --test --test-concurrency=1 --test-reporter=spec "test/integration/*.it.ts"

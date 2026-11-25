@@ -36,6 +36,7 @@ let env;
 let s; // the scratch folder
 let api;
 let planted = []; // CLAUDE.md files above the workspace, removed at the end
+let cliWas = null; // the dev profile's own CLI pref, put back at the end
 const chrome = (code, arg) => env.chrome(PRELUDE + code, arg);
 const canary = name => join(s, `canary-${name}`);
 const q = path => `'${path}'`;
@@ -206,13 +207,16 @@ before(async () => {
   // Never the Linux server's own ~/.claude, where our sessions live.
   assert.ok(config.agents.claude.env.CLAUDE_CONFIG_DIR.startsWith(s) && config.agents.claude.env.HOME.startsWith(s));
   writeFileSync(join(s, "config.json"), JSON.stringify(config, null, 2));
-  const profile = await chrome(
-    `Services.prefs.setStringPref("uc.agent-sidebar.config", arg.config);
-     Services.prefs.setStringPref("uc.agent-sidebar.zenius-cli", arg.cli);
+  let profile;
+  ({ profile, cliWas } = await chrome(
+    `const cliPref = "uc.agent-sidebar.zenius-cli";
+     const cliWas = Services.prefs.prefHasUserValue(cliPref) ? Services.prefs.getStringPref(cliPref) : null;
+     Services.prefs.setStringPref("uc.agent-sidebar.config", arg.config);
+     Services.prefs.setStringPref(cliPref, arg.cli);
      await A.loadConfig();
-     return PathUtils.profileDir;`,
+     return { profile: PathUtils.profileDir, cliWas };`,
     { config: join(s, "config.json"), cli: join(repo, "sdk/bin/zenius") }
-  );
+  ));
   // Memory files above a session's folder: the profile (on the Mac, the
   // user's home is further up), and the workspace's own root.
   mkdirSync(join(profile, "agent-sidebar-workspace"), { recursive: true });
@@ -236,9 +240,13 @@ after(async () => {
      }
      await new Promise(r => win.setTimeout(r, 1000));
      for (const conn of [...A.conns.values()]) A.stop(conn);
-     for (const p of ["uc.agent-sidebar.config", "uc.agent-sidebar.zenius-cli"]) Services.prefs.clearUserPref(p);
+     Services.prefs.clearUserPref("uc.agent-sidebar.config");
+     // zen-dev.sh's own, which names the checkout's plain CLI.
+     if (arg === null) Services.prefs.clearUserPref("uc.agent-sidebar.zenius-cli");
+     else Services.prefs.setStringPref("uc.agent-sidebar.zenius-cli", arg);
      A.config = null;
-     return PathUtils.join(PathUtils.profileDir, "agent-sidebar-workspace");`
+     return PathUtils.join(PathUtils.profileDir, "agent-sidebar-workspace");`,
+    cliWas
   ).catch(() => null);
   // No CLI of these sessions may outlive them: they ran in the workspace.
   if (workspace) {

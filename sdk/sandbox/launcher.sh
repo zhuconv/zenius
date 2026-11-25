@@ -9,20 +9,24 @@
 # The CLI, and the scripts it runs, can:
 #   - read the CLI copy and the instance registry;
 #   - read and write a temporary folder of this run's own, which is their
-#     TMPDIR (screenshots without a path, download copies);
-#   - read and write an output folder of this run's own, outside the working
-#     folder, where the CLI writes what a relative path names; and read the
-#     output folders of the same working folder's earlier runs;
-#   - read the working folder, unless it is $HOME, a temp folder or above
+#     TMPDIR (screenshots without a path);
+#   - read, write and delete files in the working folder, where downloads
+#     land and the CLI writes what a relative path names. The install sets
+#     it (install-cli.sh --working-dir, ~/zenius-files by default), and
+#     ~/.zenius/config.json names it. If it is $HOME, a temp folder or above
 #     one, or holds or is inside the CLI, ~/.zenius, Zen's profiles, this
 #     launcher, the node it runs, ~/.config, ~/.local, ~/Library, a
-#     credentials folder or /run/user. Never write it: git, direnv, npm,
-#     pytest, make and agents run what a project holds, outside the sandbox
-#     (hooks, core.fsmonitor, .envrc, .venv/bin, conftest.py, Makefile). On
-#     Linux, a socket inside it can be reached;
+#     credentials folder or /run/user, or is a project's (it holds .git or
+#     .envrc, or sits in a git work tree), every command stops with the
+#     reason: git, direnv, npm, pytest, make and agents run what a project
+#     holds, outside the sandbox;
+#   - read the current folder, where the command started, held to the same
+#     rules, unless it holds more than a task's files. Never write it, for
+#     the same reason (hooks, core.fsmonitor, .envrc, .venv/bin, conftest.py,
+#     Makefile). On Linux, a socket inside it can be reached;
 #   - read the folder the install names for it (install-cli.sh --read-dir),
-#     such as ~/Downloads, for uploads, held to the working folder's rules;
-#     never write it;
+#     such as ~/Downloads, for uploads, held to the same rules; never write
+#     it;
 #   - connect to the instance's socket, which it picks as the CLI does.
 # Nothing else: no other files, no programs, no network or other sockets,
 # and only the environment variables listed below. The browser adds nothing
@@ -43,10 +47,6 @@ ZHOME=@ZHOME@
 NODE=@NODE@
 NODE_MAJOR=@NODE_MAJOR@
 BIN_DIR=@BIN_DIR@
-# Where runs' output folders go (install-cli.sh --output-dir), and how many
-# days a run's folder is kept.
-OUT_ROOT=@OUT_ROOT@
-OUT_KEEP_DAYS=7
 # The folder scripts may also read (install-cli.sh --read-dir), such as
 # ~/Downloads, as given; empty for none.
 READ_DIR=@READ_DIR@
@@ -87,6 +87,9 @@ if [ -z "$nodebin" ] || [ -L "$node" ] || [ ! -f "$node" ] || [ ! -x "$node" ]; 
 fi
 node_home=${nodebin%/*}
 case $node_home in '' | /) node_home=$nodebin ;; esac
+# The folder of the node as installed, such as Homebrew's opt/node@24/bin, by
+# its real path, as the folders it's compared with are.
+node_dir=$(cd -P "${NODE%/*}" 2>/dev/null && pwd -P) || node_dir=${NODE%/*}
 
 # The instance, picked as the CLI picks it: the last --instance, which takes
 # the next argument whatever it is, then ZENIUS_INSTANCE.
@@ -119,7 +122,7 @@ too_wide() {
   for shared in "$home" /tmp /var/tmp /private/tmp /private/var/tmp /dev/shm "$tmp" "/private$tmp"; do
     case $shared/ in "$1"/*) return 0 ;; esac
   done
-  for kept in "$ZHOME" "$CLI" "$BIN_DIR" "$node_home" "${NODE%/*}" /run/user/@UID@ "$home/.zenius-dev" "$home/.zen" \
+  for kept in "$ZHOME" "$CLI" "$BIN_DIR" "$node_home" "$node_dir" /run/user/@UID@ "$home/.zenius-dev" "$home/.zen" \
     "$home/.config" "$home/.local" "$home/.ssh" "$home/.gnupg" "$home/.aws" "$home/.docker" "$home/.kube" "$home/Library"; do
     case $kept/ in "$1"/*) return 0 ;; esac
     case $1/ in "$kept"/*) return 0 ;; esac
@@ -127,23 +130,119 @@ too_wide() {
   return 1
 }
 
-# The working folder, unless granting it would hand over more than a task's.
+# $1's real path: its existing part's links resolved, the rest kept, as the
+# installer resolves the paths it writes in here.
+real_path() {
+  rp=$1 rest=
+  case $rp in /*) ;; *) rp=$(pwd -P)/$rp ;; esac
+  while [ "$rp" != / ] && [ "${rp%/}" != "$rp" ]; do rp=${rp%/}; done
+  while [ "$rp" != / ] && [ ! -d "$rp" ]; do
+    rest=/${rp##*/}$rest
+    rp=${rp%/*}
+    [ -n "$rp" ] || rp=/
+  done
+  rp=$(cd -P "$rp" 2>/dev/null && pwd -P) || rp=
+  rp=${rp%/}$rest
+  printf '%s\n' "${rp:-/}"
+}
+
+# Whether the .git at $1 makes its folder a project's, as git takes it
+# (scripts/working-folder.sh's wf_git_found). An empty folder (a real one,
+# not a link, that can be listed) is no repository to git, which looks on
+# above it, nor here: Codex's sandbox on Linux makes one in each folder its
+# commands may write, while each runs. Anything else there counts: a link
+# (dangling or not), a file, a folder with anything in it, or one that can't
+# be listed.
+git_found() {
+  [ -e "$1" ] || [ -L "$1" ] || return 1
+  [ -d "$1" ] && [ ! -L "$1" ] || return 0
+  inside=$(ls -A -- "$1" 2>/dev/null) || return 0
+  [ -n "$inside" ]
+}
+
+# A ZENIUS_HOME or ZENIUS_WORKING_DIR from outside never moves what this
+# install grants. One that names another folder than this install's stops
+# every command: whoever set it (a dev Zen, a test) meant another install's
+# folders, and this one would reach the user's own instead. One that names
+# the same folder, by any path, or is empty, changes nothing.
+if [ -n "${ZENIUS_HOME:-}" ] && [ "$(real_path "$ZENIUS_HOME")" != "$(real_path "$ZHOME")" ]; then
+  fail "ZENIUS_HOME is $ZENIUS_HOME here, but this install's zenius home is $ZHOME: unset it, or run the zenius installed with it (a dev Zen's agents run its checkout's plain CLI)"
+fi
+
+# The working folder: the one ~/.zenius/config.json names, on a line of its
+# own as the installer writes it (scripts/working-folder.sh), else
+# ~/zenius-files. It's made if it's missing, as the installer makes it. It is
+# the install's choice, so one that holds more than a task's files, or a
+# project's, stops every command with the reason. ~/zenius-files is the
+# default only while this install's zenius home is ~/.zenius: one moved
+# elsewhere (ZENIUS_HOME at install) has none, and without its config file
+# every command stops, making nothing.
+config=$ZHOME/config.json
+reinstall="reinstall with scripts/install-cli.sh --working-dir <a folder such as ~/zenius-files>"
+if [ -e "$config" ]; then
+  wf=$(sed -n 's/^[[:space:]]*"workingFolder"[[:space:]]*:[[:space:]]*"\([^"\\]*\)"[[:space:]]*,\{0,1\}[[:space:]]*$/\1/p' "$config" 2>/dev/null) || wf=
+  plain=$(printf '%s' "$wf" | tr -d '[:cntrl:]')
+  case $wf in
+    /*) [ "$plain" = "$wf" ] || wf= ;;
+    *) wf= ;;
+  esac
+  [ -n "$wf" ] || fail "$config doesn't name the working folder on a line of its own, as the installer writes it: $reinstall"
+else
+  dot=$(cd -P "$home/.zenius" 2>/dev/null && pwd -P) || dot=$home/.zenius
+  [ "$ZHOME" = "$dot" ] || fail "there's no default working folder: this install's zenius home, $ZHOME, isn't ~/.zenius, and it holds no config.json: $reinstall"
+  wf=$HOME/zenius-files
+fi
+[ "$wf" = / ] || wf=${wf%/}
+cant_make="can't make the working folder, $wf: make it, or $reinstall; if this runs inside another sandbox, it must let zenius write $wf (Codex: sandbox_workspace_write.writable_roots)"
+# Its real path. One that's missing is checked by its parent's, and made
+# only once every check below passes, so a refused one is never made.
+missing=0
+if [ -e "$wf" ] || [ -L "$wf" ]; then
+  works=$(cd -P "$wf" 2>/dev/null && pwd -P) || fail "the working folder, $wf, isn't a folder: $reinstall"
+  [ -O "$works" ] || fail "the working folder, $wf, isn't a folder of yours: $reinstall"
+else
+  parent=${wf%/*}
+  works=$(cd -P "${parent:-/}" 2>/dev/null && pwd -P) || fail "$cant_make"
+  works=${works%/}/${wf##*/}
+  missing=1
+fi
+if [ -n "${ZENIUS_WORKING_DIR:-}" ] && [ "$(real_path "$ZENIUS_WORKING_DIR")" != "$works" ]; then
+  fail "ZENIUS_WORKING_DIR is $ZENIUS_WORKING_DIR here, but this install's working folder is $wf: unset it, or run the zenius whose install names it (a dev Zen's agents run its checkout's plain CLI)"
+fi
+too_wide "$works" && fail "the working folder, $wf, holds more than a task's files ($works): $reinstall"
+if git_found "$works/.git" || [ -e "$works/.envrc" ] || [ -L "$works/.envrc" ]; then
+  fail "the working folder, $wf, holds .git or .envrc, so it's a project's, and tools there run what scripts write: $reinstall"
+fi
+# Nor in a project's work tree, above it. A repository at the home folder or
+# a temporary folder itself (dotfiles, or a stray one on a shared machine)
+# doesn't count: every folder below sits in its work tree, and its .git is
+# out of the scripts' reach.
+dir=$works
+while [ -n "${dir%/*}" ]; do
+  dir=${dir%/*}
+  case $dir in "$home" | /tmp | /var/tmp | /private/tmp | /private/var/tmp | /dev/shm | "$tmp" | "/private$tmp") break ;; esac
+  if git_found "$dir/.git"; then
+    fail "the working folder, $wf, is inside a git work tree ($dir), and tools there run what scripts write: $reinstall"
+  fi
+done
+if [ "$missing" = 1 ]; then
+  mkdir -m 700 "$works" 2>/dev/null || fail "$cant_make"
+fi
+
+# The current folder, unless granting it would hand over more than a task's.
 work=$(pwd -P)
 grant=1
 too_wide "$work" && grant=0
 
 # The folder the install lets scripts read (--read-dir), by its real path. It
-# is held to the same rules, and to the runs' output folders, which a script
-# reads only for its own working folder. Unlike a working folder, which an
-# agent picks, it is the install's choice, so a wide one stops every command
-# with the reason. One that has gone is simply not granted.
+# is held to the same rules, and can't be the working folder or inside it,
+# which scripts write. Unlike a current folder, which an agent picks, it is
+# the install's choice, so a wide one stops every command with the reason.
+# One that has gone is simply not granted.
 reads=
 if [ -n "$READ_DIR" ] && reads=$(cd -P "$READ_DIR" 2>/dev/null && pwd -P); then
-  wide=0
-  too_wide "$reads" && wide=1
-  case $OUT_ROOT/ in "$reads"/*) wide=1 ;; esac
-  case $reads/ in "$OUT_ROOT"/*) wide=1 ;; esac
-  [ "$wide" = 0 ] || fail "the folder this install lets scripts read, $READ_DIR, holds more than a task's files ($reads): reinstall with scripts/install-cli.sh --sandbox --read-dir <a folder such as ~/Downloads>, or --read-dir none"
+  too_wide "$reads" && fail "the folder this install lets scripts read, $READ_DIR, holds more than a task's files ($reads): reinstall with scripts/install-cli.sh --sandbox --read-dir <a folder such as ~/Downloads>, or --read-dir none"
+  case $reads/ in "$works"/*) fail "the folder this install lets scripts read, $READ_DIR, is the working folder or inside it ($reads), where scripts write: reinstall with scripts/install-cli.sh --sandbox --read-dir <another folder>, or --read-dir none" ;; esac
 else
   reads=
 fi
@@ -169,32 +268,6 @@ if [ $(($$ % 16)) = 0 ]; then
 fi
 box=$(mktemp -d "$box/run.XXXXXX") || fail "can't make a folder in $box"
 
-# The run's output folder: OUT_ROOT/<working folder's name>-<cksum of its
-# path>/run.XXXXXX. The run writes only its own; it can read the others of
-# the same working folder (a download to upload later), and none of another
-# folder's. It must never land inside the working folder. Now and then, runs
-# over OUT_KEEP_DAYS days old go, and empty ones over a day old.
-sum=$(printf '%s' "$work" | cksum) || fail "can't name the output folder"
-name=${work##*/}
-outs=$OUT_ROOT/${name:-root}-${sum%% *}
-if [ "$grant" = 1 ]; then
-  case $outs/ in "$work"/*) fail "the output folder ($OUT_ROOT) is inside the working folder, where a script must not write: reinstall with scripts/install-cli.sh --sandbox --output-dir <a folder outside your projects>" ;; esac
-fi
-[ -e "$OUT_ROOT" ] || mkdir -p -m 700 "$OUT_ROOT" 2>/dev/null || true
-if [ -L "$OUT_ROOT" ] || [ ! -d "$OUT_ROOT" ] || [ ! -O "$OUT_ROOT" ]; then
-  fail "$OUT_ROOT isn't a folder of yours: remove it, or reinstall with scripts/install-cli.sh --sandbox --output-dir <folder>"
-fi
-# A day's grace for empty folders, so no start removes one that another has
-# just made.
-if [ $(($$ % 16)) = 0 ]; then
-  find "$OUT_ROOT" -mindepth 2 -maxdepth 2 -name 'run.*' -type d \( -mtime +"$OUT_KEEP_DAYS" -o -empty -mmin +1440 \) \
-    -exec rm -rf {} + 2>/dev/null || true
-  find "$OUT_ROOT" -mindepth 1 -maxdepth 1 -type d -empty -mmin +1440 -exec rmdir {} + 2>/dev/null || true
-fi
-[ -d "$outs" ] || mkdir -m 700 "$outs" 2>/dev/null || true
-[ -d "$outs" ] && [ ! -L "$outs" ] || fail "can't make the output folder $outs; if this runs inside another sandbox, it must let zenius write $OUT_ROOT (Codex: sandbox_workspace_write.writable_roots)"
-out=$(mktemp -d "$outs/run.XXXXXX") || fail "can't make a folder in $outs; if this runs inside another sandbox, it must let zenius write $OUT_ROOT (Codex: sandbox_workspace_write.writable_roots)"
-
 # Node's permission model, inside the OS sandbox: no child processes,
 # workers, add-ons, WASI or inspector, and files only where granted.
 if [ "$grant" = 1 ]; then
@@ -202,32 +275,38 @@ if [ "$grant" = 1 ]; then
 else
   set -- "$CLI/sdk/bin/zenius" "$@"
 fi
-# The read folder by its real path and as given, since a script names it as
-# given (~/Downloads under a home that is itself a link).
+# The read and working folders by their real paths and as given, since a
+# script names them as given (~/Downloads under a home that is itself a
+# link).
 if [ -n "$reads" ]; then
   set -- --allow-fs-read="$reads" "$@"
   [ "$READ_DIR" = "$reads" ] || set -- --allow-fs-read="$READ_DIR" "$@"
 fi
+set -- --allow-fs-read="$works" --allow-fs-write="$works" "$@"
+[ "$wf" = "$works" ] || set -- --allow-fs-read="$wf" --allow-fs-write="$wf" "$@"
 set -- --permission --allow-fs-read="$CLI" --allow-fs-read="$ZHOME/instances" --allow-fs-read="$sock" \
-  --allow-fs-read="$box" --allow-fs-write="$box" --allow-fs-read="$outs" --allow-fs-write="$out" "$@"
+  --allow-fs-read="$box" --allow-fs-write="$box" "$@"
 
 case @PLATFORM@ in
 linux)
   # A new mount namespace that holds only the system, node, the CLI copy,
-  # the registry, the instance's socket, the working folder and the output
-  # folders of its runs (all read-only), and the run's temporary and output
-  # folders; and new network, PID, IPC and user namespaces. The socket is
-  # bound as a file: the folder holds every instance's. Later binds win, so
-  # the run's output folder comes after the folder of runs.
-  if [ "$grant" = 1 ]; then
-    set -- --ro-bind "$work" "$work" --ro-bind "$outs" "$outs" --bind "$out" "$out" --chdir "$work" "$node" "$@"
-  else
-    set -- --ro-bind "$outs" "$outs" --bind "$out" "$out" --chdir "$box" "$node" "$@"
-  fi
-  # The read folder comes before the output folders, so their binds win.
+  # the registry, the instance's socket, the current and read folders (all
+  # read-only), and the working folder and the run's temporary folder; and
+  # new network, PID, IPC and user namespaces. The socket is bound as a file:
+  # the folder holds every instance's. Later binds win, so the working
+  # folder comes last: inside the current or read folder, it stays writable,
+  # and a current folder inside it does too. Without a current folder, a
+  # script starts in the working folder.
+  set -- --bind "$works" "$works" "$node" "$@"
+  [ "$wf" = "$works" ] || set -- --bind "$works" "$wf" "$@"
   if [ -n "$reads" ]; then
     set -- --ro-bind "$reads" "$reads" "$@"
     [ "$READ_DIR" = "$reads" ] || set -- --ro-bind "$reads" "$READ_DIR" "$@"
+  fi
+  if [ "$grant" = 1 ]; then
+    set -- --ro-bind "$work" "$work" --chdir "$work" "$@"
+  else
+    set -- --chdir "$works" "$@"
   fi
   set -- @BWRAP@ --ro-bind /usr /usr @SYSBINDS@ --ro-bind /etc /etc \
     --proc /proc --dev /dev --tmpfs /tmp \
@@ -237,17 +316,17 @@ linux)
   ;;
 macos)
   # sdk/sandbox/zenius.sb in the copy: reads, writes, processes and sockets.
-  # Without a working folder a script starts in the temporary one, as
+  # Without a current folder a script starts in the working folder, as
   # bubblewrap's --chdir does on Linux.
-  if [ "$grant" = 1 ]; then granted=$work; else granted=$box/no-working-folder; cd "$box"; fi
+  if [ "$grant" = 1 ]; then granted=$work; else granted=$box/no-current-folder; cd "$works"; fi
   set -- /usr/bin/sandbox-exec -f "$CLI/sdk/sandbox/zenius.sb" \
-    -D "CLI=$CLI" -D "REGISTRY=$registry" -D "SOCK=$sock" \
-    -D "BOX=$box" -D "OUTS=$outs" -D "OUT=$out" -D "WORK=$granted" -D "READ=${reads:-$box/no-read-folder}" -D "NODE=$node" -D "NODE_HOME=$node_home" "$node" "$@"
+    -D "CLI=$CLI" -D "REGISTRY=$registry" -D "SOCK=$sock" -D "BOX=$box" -D "WORKING=$works" \
+    -D "CURRENT=$granted" -D "READ=${reads:-$box/no-read-folder}" -D "NODE=$node" -D "NODE_HOME=$node_home" "$node" "$@"
   ;;
 esac
 
 # The task's source for the sidebar's list of tasks (globals.ts's taskSource):
-# the hc terminal's id, if it's a plain one, and the working folder's name,
+# the hc terminal's id, if it's a plain one, and the current folder's name,
 # never its path, even when the folder isn't granted. Both are display text,
 # which the runtime keeps only within its label set.
 case ${HC_TERMINAL_ID-} in '' | *[!A-Za-z0-9._-]*) terminal= ;; *) terminal=$HC_TERMINAL_ID ;; esac
@@ -276,7 +355,7 @@ fi
 # ZENIUS_TASK_SPACE is the task id the agent sidebar gives a resumed chat's
 # zenius mcp (docs/mcp.md). The server checks it, and a script can already
 # name any task by its id, so it adds no reach.
-exec /usr/bin/env -i HOME="$HOME" PATH=/usr/bin:/bin TMPDIR="$box" ZENIUS_OUTPUT_DIR="$out" \
+exec /usr/bin/env -i HOME="$HOME" PATH=/usr/bin:/bin TMPDIR="$box" ZENIUS_WORKING_DIR="$wf" \
   ZENIUS_HOME="$ZHOME" ZENIUS_INSTANCE="$instance" ZENIUS_SOCKET="$sock" ZENIUS_NODE_MAJOR="$NODE_MAJOR" \
   NODE_DISABLE_COMPILE_CACHE=1 ${client:+"ZENIUS_CLIENT=$client"} ${reads:+"ZENIUS_READ_DIR=$READ_DIR"} \
   ${terminal:+"HC_TERMINAL_ID=$terminal"} ${folder:+"ZENIUS_FOLDER=$folder"} ${sidebar:+"ZENIUS_SIDEBAR_TASK=$sidebar"} \

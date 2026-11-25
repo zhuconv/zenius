@@ -124,8 +124,9 @@ test("an agent's download shows no UI and stays out of the user's downloads", ()
     await page.evaluate(`location.href = ${JSON.stringify(`${env.base}/api/download`)}`);
     const d = await waiting;
     assert.equal(d.suggestedFilename, "ego-download.txt");
-    const { base64 } = await env.call("download.read", { download: d.download });
-    assert.equal(Buffer.from(base64, "base64").toString("utf8"), "ego-browser download fixture\n");
+    // The finished file, in the dev profile's working folder.
+    const { path } = await env.call("download.path", { download: d.download });
+    assert.equal(await readFile(path, "utf8"), "ego-browser download fixture\n");
     await sleep(500); // the animation would have started by now
     const ui = await env.chrome(
       `const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
@@ -144,6 +145,7 @@ test("an agent's download shows no UI and stays out of the user's downloads", ()
       "ego-download.txt"
     );
     assert.deepEqual(ui, { added: [], animations: 0, buttonAttention: false, panelOpen: false, inUserDownloads: false });
+    await env.call("download.delete", { download: d.download });
   }));
 
 test("an agent's JS dialog shows no UI and asks for no attention", () =>

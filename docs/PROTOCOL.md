@@ -236,8 +236,9 @@ a pending navigation, and `page.evaluate`'s budget.
 | `page.acceptDialog` | `{space, page, promptText?}` | `true`, or `false` when no dialog is open. A dialog of a document that isn't web content (an add-on's frame) is never the agent's (I5): no event, no answer. While the user can't see the tab it's dismissed unseen (`confirm` false, `prompt` null); when they can, Firefox shows it to them |
 | `page.dismissDialog` | `{space, page}` | `true` or `false` |
 | `page.events` | `{space, page}` | `[{method, params}]`, CDP-shaped, drained; the newest 10000 kept, and at most 1 MiB of them. Nothing from a document that isn't web content (I5): not its console, and not the requests it or an add-on makes in the tab. Nothing from a sign-in result or its frames either: not its console, dialogs, downloads or requests (Errors, `ZEN_SIGN_IN_PAGE`). |
-| `download.read` | `{download, offset?, length?}` | `{base64, size, eof}`: bytes `[offset, offset + length)` of the finished file (`offset` 0, `length` at most and by default 8 MiB). It waits for the download to finish, and fails as Ego's `path()` does for a failed one. The SDK's `saveAs()` and `path()` read it in chunks and write the file themselves |
-| `download.saveAs`, `download.path` | `{download, ...}` | `ZEN_INVALID_ARGUMENT`, naming `download.read`: no Download method takes or returns a path |
+| `download.path` | `{download}` | `{path}`: the finished file in the working folder (below), readable only by the user. It waits for the download to finish and move there, and fails as Ego's `path()` does for a failed one. The SDK's `path()` returns it, and its `saveAs()` copies it to the path given |
+| `download.saveAs` | `{download, ...}` | `ZEN_INVALID_ARGUMENT`, naming `download.path`: the runtime writes no path an agent names |
+| `download.read` | `{download, ...}` | `ZEN_INVALID_ARGUMENT`, naming `download.path`: gone since finished downloads move into the working folder |
 | `download.failure` | `{download}` | string or null |
 | `download.cancel` | `{download}` | `{ok}`; like a mutation in the download's own task (I3): waits at a takeover prompt, and fails with `ZEN_TASK_SPACE_USER_IN_CONTROL` while the user holds the task |
 | `download.delete` | `{download}` | `{ok}`; under the same control check as `download.cancel` |
@@ -250,16 +251,33 @@ a pending navigation, and `page.evaluate`'s budget.
   of starts no `Page.downloadWillBegin`, and a `page.waitForEvent`
   download wait fails with `ZEN_DOWNLOAD_FAILED` (`data.refused`). One it
   already has fails with the refusal as its `download.failure()`.
-  `download.delete` makes room. When the task finishes, its downloads and
-  their files go, whoever received them. If the user turns on Firefox's
+  `download.delete` makes room, and deletes the file in the working
+  folder. When the task finishes, its downloads are forgotten, whoever
+  received them, and their finished files stay in the working folder. If
+  the user turns on Firefox's
   block of repeated downloads without a click (Zen ships it off), a
   blocked one is refused the same way, and nothing shows in the user's
   window.
+- **A finished download moves into the working folder.** zenius stages
+  each download in a folder of its own under the profile, out of the
+  agent's reach, then moves the finished file into the working folder: the
+  one `config.json` names (the installers' `--working-dir`,
+  `~/zenius-files` by default), or on a dev profile
+  `zenius.dev.workingFolder`. Its name is Gecko's unique one for that
+  folder (`report(1).pdf` when `report.pdf` is there), made exclusively,
+  so nothing there is replaced, and only the user can read it. On another
+  volume it's copied, with macOS's quarantine and where-from marks. It
+  stays until `download.delete` or the user deletes it: a download
+  forgotten when its script's connection closes, or its task finishes,
+  keeps its file. With no working folder to use (one its rules refuse;
+  none when `ZENIUS_HOME` isn't `~/.zenius` and holds no `config.json`;
+  or one that changed since Zen started), each download fails with the
+  reason, and nothing is saved.
 - **A download whose folder changed is refused the same way.** zenius keeps
   downloads in a folder of its own under the profile. If a link stands in
   place of that folder, of a download's folder or of its file, the
   download is refused ("the folder it keeps downloads in had changed …"):
-  a new one before it starts, a finished one at its next `download.read`.
+  a new one before it starts, a finished one before it moves.
   Nothing is read or written through the link. So is one the browser began
   outside that folder ("the browser began it outside the folder zenius
   keeps downloads in …"); starting it again works.
@@ -1335,7 +1353,7 @@ ZEN_DIALOG_NOT_FOUND        ZEN_DOWNLOAD_FAILED
 - `ZEN_FILE_CHOOSER_TIMEOUT` (zen-input): `page.waitForFileChooser` timed out.
 - `ZEN_TIMEOUT` (zen-input): an action or a `page.mouse` call waited out its timeout for another tab of its process; `data.reason` is `"user_composing"` (the user is composing text there, which a press would commit), `"mouse_held_elsewhere"` (a press held there would take the event) or `"user_scrolling"` (the user is scrolling there, and the process's wheel transaction would send the wheel to their page), and `data.timeoutMs` is the timeout.
 - `ZEN_PAGE_UNRESPONSIVE` (zen-input): an action, or raw `page.mouse` or `page.keyboard` input, hasn't come back from the page 5 s past its deadline; `data.reason: "input_stuck"`, `data.prompt` (a browser prompt is open in the tab, which the agent can't see or answer), `data.mayHaveLateEffects: true`.
-- `ZEN_PATH_NOT_ALLOWED` (zen-sdk, the sandboxed CLI): raised in the CLI before any request, never by the runtime. A script's screenshot, download or fetch `saveAs` would write outside its run's output folder and temporary folder, or an upload would read a file outside its working folder, its runs' output folders and its temporary folder, a link to one included; `data.path`, and `data.realPath` for a link.
+- `ZEN_PATH_NOT_ALLOWED` (zen-sdk, the CLI): raised in the CLI before any request, never by the runtime. In the sandboxed CLI, a script's screenshot, download or fetch `saveAs` would write outside the working folder and its temporary folder (a relative path lands in the working folder), or an upload would read a file outside the working folder, the folder the script started in, its temporary folder and the install's read folder (`--read-dir`), a link to one included; `data.path`, and `data.realPath` for a link. In any CLI, when there's no working folder to use: none while `ZENIUS_HOME` isn't `~/.zenius` and holds no `config.json`, a `ZENIUS_WORKING_DIR` that isn't absolute, or one the CLI can't make.
 - `ZEN_REMOTE_OFF` (zen-observe): the user turned remote tasks off (`data.pref`: `zenius.agentSidebar.allowRemoteTasks`).
 - `ZEN_REMOTE_LIMIT` (zen-observe): a remote-task limit; `data.limit` is `running` or `hourly`, `data.max`, and `data.retryAfterMs` for `hourly`.
 - `ZEN_REMOTE_TASK_NOT_FOUND` (zen-observe): no remote task has that `taskId` (`data.taskId`).

@@ -16,8 +16,16 @@
 # It needs sdk/node_modules ('npm ci' in sdk/), as the SDK suites do. The
 # results file goes to a private temporary folder, which stays, and is
 # named, only when cases ran and the suite failed.
+#
+# The cases' CLI runs get a scratch HOME and ZENIUS_HOME
+# (tests/lib/scratch-home.sh), whose config names the dev Zen's working
+# folder, one of this run's own: nothing reaches the user's own
+# ~/.zenius/config.json or ~/zenius-files. Its run/ and instances/ are links
+# to the dev Zens' zenius home, where the instance's socket is.
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+# shellcheck source=../lib/scratch-home.sh
+. "$ROOT/tests/lib/scratch-home.sh"
 [[ -d $HOME/opt/node-v24.22.2-linux-x64/bin ]] && export PATH=$HOME/opt/node-v24.22.2-linux-x64/bin:$PATH
 suffix=$(basename "$ROOT" | sed 's/^zenius-\{0,1\}//' | tr 'A-Z' 'a-z' | tr -c 'a-z0-9_\n-' '-')
 NAME=${ZENIUS_E2E_INSTANCE:-e2e-${suffix:-main}}
@@ -32,16 +40,19 @@ fi
 
 TMP=${TMPDIR:-/tmp}
 WORK=$(mktemp -d "${TMP%/}/zenius-e2e.XXXXXX")
-run=; watchdog=
+run=; watchdog=; SCRATCH_ROOT=
+# The dev Zens' zenius home, before the cases' scratch one takes its name.
+RUNTIME_HOME=${ZENIUS_HOME:-$HOME/.zenius}
 cleanup() {
   # Nothing here may end the cleanup early (set -e), or Zen stays open.
   set +e
   if [[ -n $watchdog ]]; then pkill -P "$watchdog"; kill "$watchdog"; fi 2>/dev/null
   if [[ -n $run ]]; then pkill -P "$run"; kill "$run"; fi 2>/dev/null
   "$DEV" "$NAME" stop >/dev/null 2>&1
-  # A failed run's results stay; the CLI copy, the temporary files, and a
-  # folder with no results, go.
+  # A failed run's results stay; the CLI copy, the temporary files, the
+  # scratch home and working folder, and a folder with no results, go.
   rm -rf -- "$WORK/cli" "$WORK/tmp"
+  [[ -z $SCRATCH_ROOT ]] || rm -rf -- "$SCRATCH_ROOT"
   [[ -s $WORK/results.json ]] || rm -rf -- "$WORK"
 }
 trap cleanup EXIT
@@ -70,15 +81,23 @@ cp "$ROOT/sdk/bin/zenius" "$WORK/cli/bin/zenius"
 NODE=$(node -e 'import(process.argv[1]).then(m => process.stdout.write(m.zeniusNode()))' "$ROOT/tests/lib/targets.mjs")
 export ZENIUS_CLI="$NODE $WORK/cli/bin/zenius"
 
+# The cases' scratch home, and the dev Zen's working folder in it.
+scratch_home e2e "$WORK"
+mkdir -m 700 "$SCRATCH_FILES"
+
 # fresh: a new profile on Linux; on the Mac the profile stays unless
 # ZENIUS_FRESH=1, as for the other suites.
 "$DEV" "$NAME" fresh >/dev/null
-"$DEV" "$NAME" start
+ZENIUS_DEV_WORKING_DIR=$SCRATCH_FILES "$DEV" "$NAME" start
+ln -s "$RUNTIME_HOME/run" "$SCRATCH_ZHOME/run"
+ln -s "$RUNTIME_HOME/instances" "$SCRATCH_ZHOME/instances"
+guard_home "$SCRATCH_HOME" "$SCRATCH_ZHOME" tests/e2e/run.sh
 # The runner's files, and the cases' screenshots without a path (Ego's
 # default, the CLI's temporary folder), go in a folder the run removes.
 (umask 077; mkdir "$WORK/tmp")
 # In the background, so the watchdog's TERM ends the wait at once.
-TMPDIR=$WORK/tmp node "$ROOT/tests/e2e/runner.mjs" --target zenius --instance "$NAME" --results "$WORK/results.json" ${1+"$@"} &
+HOME=$SCRATCH_HOME ZENIUS_HOME=$SCRATCH_ZHOME TMPDIR=$WORK/tmp \
+  node "$ROOT/tests/e2e/runner.mjs" --target zenius --instance "$NAME" --results "$WORK/results.json" ${1+"$@"} &
 run=$!
 status=0
 wait "$run" || status=$?

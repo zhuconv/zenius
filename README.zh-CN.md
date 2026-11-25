@@ -58,7 +58,7 @@ zen(ius) 支持 macOS 和 Linux，配合 Zen 1.24 使用。我们每天在 macOS
 curl -fsSL https://github.com/zhuconv/zenius/releases/latest/download/install.sh | bash
 ```
 
-它会下载最新的发布包并校验 SHA-256，然后把 zen(ius) 装进你的 Zen 配置文件（profile），把 `zenius` 命令装到 `~/.local/bin`，并为 Claude Code 和 Codex 装上 zen(ius) Skill。它还会为 Zen 侧边栏装上两个适配器，让侧边栏运行你自己的 Claude Code 和 Codex：由 npm 按锁定的版本装到 `~/.zenius/agents`，不运行安装脚本，也不带它们原本捆绑的 CLI。每一处改动它都会打印出来，被替换的文件都备份在 `~/.zenius/backups/` 下。它从不退出或重启 Zen：装完后重新打开 Zen 即可。安装程序就是本仓库的 [`scripts/release-install.sh`](scripts/release-install.sh)，只是填入了该版本的版本号和 SHA-256，运行前可以先读一读它做了什么。
+它会下载最新的发布包并校验 SHA-256，然后把 zen(ius) 装进你的 Zen 配置文件（profile），把 `zenius` 命令装到 `~/.local/bin`，并为 Claude Code 和 Codex 装上 zen(ius) Skill。它还会建好工作文件夹 `~/zenius-files`，agent 下载的文件和它的脚本写出的文件都放在这里；用 `| bash -s -- --working-dir <文件夹>` 可以换成别的文件夹。它还会为 Zen 侧边栏装上两个适配器，让侧边栏运行你自己的 Claude Code 和 Codex：由 npm 按锁定的版本装到 `~/.zenius/agents`，不运行安装脚本，也不带它们原本捆绑的 CLI。每一处改动它都会打印出来，被替换的文件都备份在 `~/.zenius/backups/` 下。它从不退出或重启 Zen：装完后重新打开 Zen 即可。安装程序就是本仓库的 [`scripts/release-install.sh`](scripts/release-install.sh)，只是填入了该版本的版本号和 SHA-256，运行前可以先读一读它做了什么。
 
 Zen 通过 [fx-autoconfig](https://github.com/MrOtherGuy/fx-autoconfig) 加载 zen(ius)。如果你的配置文件里还没有 fx-autoconfig，安装程序会把它的加载器装进去。它另外两个文件要放在 Zen 的应用目录里，而 zen(ius) 把 Zen 的应用留给你自己处理：它只改动你的配置文件，在那里备份它替换的文件，也能把装的东西全部撤掉。所以缺这两个文件时，安装程序最后会打印出复制它们的两条命令：运行这两条命令，再打开 Zen 即可。Zen 更新时会替换整个应用目录，这两个文件也会随之消失，zen(ius) 就会停止加载，直到你把它们复制回去。再运行一次安装程序，或者运行 `zenius doctor`，都会再次打印这两条命令。
 

@@ -4,7 +4,6 @@
 // the run can point out Pages that appeared without the agent noticing.
 
 import { isHardStopCode, ZeniusError } from "./errors.ts";
-import { fs, os, path as nodePath } from "./node.ts";
 import { addNotice } from "./output.ts";
 import { RpcClient, type CallOptions } from "./rpc.ts";
 
@@ -28,10 +27,6 @@ export class Round {
   readonly startedAt = Date.now();
   readonly timings: TimingRecord[] = [];
   readonly #spaces = new Map<number, SpaceState>();
-  /** Downloads this run received and hasn't deleted. */
-  readonly #downloads = new Set<string>();
-  /** Where download.path() copies go, made on first use. */
-  #downloadsFolder?: string;
 
   constructor(options: RoundOptions) {
     this.client = options.client;
@@ -58,43 +53,6 @@ export class Round {
     return state;
   }
 
-  noteDownload(id: string): void {
-    this.#downloads.add(id);
-  }
-
-  forgetDownload(id: string): void {
-    this.#downloads.delete(id);
-  }
-
-  /** A private folder for this run's download copies (mode 700), removed with the run's downloads. */
-  downloadsFolder(): string {
-    this.#downloadsFolder ??= fs.mkdtempSync(nodePath.join(os.tmpdir(), "zenius-downloads-"));
-    return this.#downloadsFolder;
-  }
-
-  /** Synchronous, so it also runs when a script calls process.exit(). */
-  removeDownloadsFolder(): void {
-    if (this.#downloadsFolder) fs.rmSync(this.#downloadsFolder, { recursive: true, force: true });
-    this.#downloadsFolder = undefined;
-  }
-
-  /**
-   * Delete the run's temporary download files before the CLI exits, as Ego's
-   * SDK does when it disposes: the guide promises they are gone when the
-   * script ends. The runtime also deletes them once the connection closes,
-   * but that is a moment after the CLI has exited. Bounded, because a
-   * takeover holds the calls; the runtime still cleans up on disconnect.
-   */
-  async disposeDownloads(limitMs = 1000): Promise<void> {
-    this.removeDownloadsFolder();
-    if (this.#downloads.size === 0 || this.client.failed) return;
-    const ids = [...this.#downloads];
-    this.#downloads.clear();
-    const deleted = Promise.allSettled(ids.map((download) => this.client.call("download.delete", { download }, { op: "download.delete" })));
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    await Promise.race([deleted, new Promise((resolve) => (timer = setTimeout(resolve, limitMs)))]);
-    clearTimeout(timer);
-  }
 
   observe(spaceId: number, label: string): void {
     this.space(spaceId).observed.add(label);

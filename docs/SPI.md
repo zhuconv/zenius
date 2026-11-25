@@ -2932,19 +2932,23 @@ first chunk to be parsed, as Chromium hands it over with the commit. Gecko
 doesn't parse a document whose charset isn't declared before 1024 bytes or
 its end.
 
-**Downloads.** A download started from an agent tab goes to zenius's own
-folder, with no downloads panel, no toolbar animation and nothing in
-`~/Downloads` or history. `page.waitForEvent("download")` returns it.
+**Downloads.** A download started from an agent tab is staged in zenius's
+own folder, with no downloads panel, no toolbar animation and nothing in
+`~/Downloads` or history. Once finished, it moves into the working folder
+(below). `page.waitForEvent("download")` returns it, and `download.path`
+names the moved file.
 
-- **The folder is under the profile:** `<profile>/zenius-downloads`, 0700,
-  with each download in a folder of its own inside (`d<random>`, 0700).
+- **The staging folder is under the profile:** `<profile>/zenius-downloads`,
+  0700, with each download in a folder of its own inside (`d<random>`,
+  0700).
   - The browser writes downloads outside any agent's sandbox, so the whole
-    path must be out of the agent's reach.
+    path must be out of the agent's reach until the file is finished and
+    checked.
   - The temp folder isn't. A sandboxed CLI may write it (Codex's
     workspace-write can), and a link put in place of a folder there has the
     browser write a site's bytes wherever the link points. A link there
-    also has `download.read` hand the agent a file from outside its
-    sandbox, or the cleanup delete outside (zen-snapshot's
+    also has the move take a file from outside into the working folder, or
+    the cleanup delete outside (zen-snapshot's
     `tests/snapshot/tools/staging-probe.mjs`).
   - No sandboxed CLI writes the profile. zen-input's uploads live beside
     the downloads, in `<profile>/zenius-uploads`.
@@ -2972,9 +2976,11 @@ folder, with no downloads panel, no toolbar animation and nothing in
     in".
 - **Every remove unlinks a link and never follows one.** `IOUtils.remove`
   is `nsIFile::Remove`, which looks at each entry with lstat, inside a
-  recursive remove too. `discard` and `deleteDownload` remove only a folder
-  directly in the root, and only while the root is still zenius's own
-  (`removeOwnFolder`).
+  recursive remove too. `discard` removes only a folder directly in the
+  root, and only while the root is still zenius's own (`removeOwnFolder`).
+  `deleteDownload` removes that, and the moved file in the working folder,
+  not recursively: a link in its place is unlinked, and a folder there
+  stays.
 - **Old roots in the temp folder** (`zenius-downloads-<profile hash>`, `-1`,
   …, from before 2026-11-21) stay there, for install.sh's uninstall (its
   `rm -rf` doesn't follow links) and the system's temp cleanup. zenius never
@@ -2996,7 +3002,7 @@ folder, with no downloads panel, no toolbar animation and nothing in
     `.part` goes;
   - `register`, when Gecko's transfer joins;
   - when the download succeeds;
-  - each `download.read`, through `finishedFile(entry)`.
+  - just before the move, through `finishedFile(entry)`.
 
   A failed check refuses the download (`download` refusal kind, "the folder
   it keeps downloads in had changed …") and removes what zenius can without
@@ -3007,6 +3013,69 @@ folder, with no downloads panel, no toolbar animation and nothing in
     so the refusal removes it by the launcher's `targetFile`.
   - These checks only narrow a race: a path can't be checked and used in
     one step. The profile's placement is the fix.
+
+**The working folder** (`modules/workingfolder.sys.mjs`): where finished
+downloads go, and where the agent's scripts read, write and delete files.
+The installers set it, and the sandboxed launcher grants it read-write.
+
+- **Where it comes from,** read once per start (`loadWorkingFolder`; tests
+  on a dev profile call `reloadWorkingFolder`):
+  - on a dev profile, pref `zenius.dev.workingFolder`, which
+    `scripts/zen-dev.sh` sets (and passes to Zen as `ZENIUS_WORKING_DIR`),
+    never the config, so no dev or test run reaches the user's folder;
+  - else `<zenius home>/config.json`, by the shell's line rule
+    (`configuredFolder`): exactly one `"workingFolder": "<absolute path>"`
+    line, with no double quote, backslash or control character in the
+    path, and an optional comma. A file that doesn't match is refused,
+    never read another way;
+  - with no config file, `~/zenius-files`, but only while the zenius home
+    is `~/.zenius` by real path. A zenius home moved elsewhere has no
+    default.
+
+  `workingFolder()` is null until `loadWorkingFolder` has read it, and
+  `{error}` when there's none to use. Then every download is refused with
+  that reason (`noFolderRefusal`), and the sidebar shows it.
+- **The rules** are `scripts/working-folder.sh`'s (`whyNot`), with Zen's own
+  profile and app among the folders it may neither hold nor be inside, and
+  `/run/user/<uid>`. `tests/fixtures/working-folder.json` holds the cases
+  every reader runs: the installers' suites, the launcher's
+  (`tests/security`) and the runtime's (`tests/core/workingfolder.test.mjs`).
+  - A `.git` counts as git takes it (`gitFound`). An empty folder there (a
+    real one, not a link, that can be listed) is no repository, and the
+    walk above goes on past it; Codex's sandbox on Linux makes one in each
+    folder its commands may write. Anything else at `.git` counts.
+  - A missing folder is fine while its parent is there: the first move
+    makes it, 0700.
+- **The move** (`moveFinished`). Gecko marks a finished file (its mode, and
+  on macOS its quarantine and where it came from) in `downloadDone`, just
+  after the change that says it succeeded. So the move waits for
+  `whenSucceeded`, 5 s at most. (`holdMoves` holds every move until a
+  promise settles, for tests.) Then:
+  - `finishedFile(entry)` checks the staged file is still zenius's own;
+  - `makeWorkingFolder` makes the folder if it's missing, and checks it's
+    still a folder that resolves where it did at the start;
+  - the file gets mode 0600, and its name is Gecko's unique one for that
+    folder (`DownloadPaths.createNiceUniqueFile`, made exclusively), so
+    nothing there is replaced;
+  - `renameTo` replaces only that empty file, keeps the file's mode and
+    marks, and never follows a link put in its place;
+  - on another volume, where `renameTo` fails with
+    `NS_ERROR_FILE_ACCESS_DENIED`, the empty file goes and the copy is made
+    exclusively in its place (`PR_EXCL`), so a link put there fails it
+    rather than being written through. On macOS it gets the quarantine and
+    where-from marks (`copyMarks`); a copy without them is removed, a link
+    in its place unlinked;
+  - the staging folder goes.
+
+  A move that fails fails the download (`entry.refusal`: "zenius couldn't
+  move the download … into the working folder (…), so it removed the
+  file") and reports a `download` refusal.
+- **Forgetting keeps the file.** `forgetDownload` runs when the download's
+  connection closes (`claimDownload`), its task finishes
+  (`deleteTaskDownloads` at `spaceFinished`), or its tab is gone
+  (`sweepDownloads`). It cancels one still running and removes its staging
+  folder. A finished one stays in the working folder: it's the user's.
+  `download.delete` (`deleteDownload`) deletes it there.
 
 **Download caps.** `observe/downloads.sys.mjs` counts a task's live
 downloads and their `currentBytes` (`taskDownloads(spaceId)`). It checks a
@@ -4157,7 +4226,8 @@ statuses, and its source, as a task's. Then it proposes the report with a 100 s 
 600) and prints the outcome. When no card can open (`no_sidebar`, a runtime
 without `feedback.*`, or Zen not answering), it writes the report as a
 draft for the user: `~/.zenius/feedback/<UTC time>.md`, 0600 in a 0700
-folder, or the sandboxed run's output folder. It also prints GitHub's form
+folder, or in the sandboxed CLI the working folder, which it may write.
+It also prints GitHub's form
 with the title only.
 
 **The MCP server.** `zenius mcp`'s `report_problem` sends the same, through

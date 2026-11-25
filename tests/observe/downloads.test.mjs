@@ -1,19 +1,33 @@
 // Downloads from agent tabs: no panel, nothing in the user's Downloads folder
-// or list, a temporary file whose bytes the agent reads (download.read; I5:
-// the client writes saveAs and path copies) or deletes, removed when the
-// script's connection closes.
+// or list. Each is staged in a folder of its own under the profile's
+// zenius-downloads, out of the agent's reach, and once finished it moves into
+// the working folder (on a dev profile, zenius.dev.workingFolder, which
+// zen-dev.sh sets), under a name of its own, readable only by the user.
+// download.path names it there (I5: the runtime opens no path an agent
+// names, and the client copies saveAs targets itself), and download.delete
+// deletes it. A download that's forgotten (its script's connection closed,
+// or its task finished) leaves its file there: the file is the user's.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { connect } from "../../scripts/lib/rpc.mjs";
 import { setup } from "./lib.mjs";
 
+const DOWNLOADS = `const D = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/downloads.sys.mjs");`;
+const WORKING = `const W = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/workingfolder.sys.mjs");`;
+const FIXTURE_TEXT = "ego-browser download fixture\n";
+
 let env;
+/** This dev profile's working folder, as the runtime read it: {path, real, source}. */
+let working;
 before(async () => {
   env = await setup();
+  working = await env.chrome(`${WORKING} return await W.loadWorkingFolder();`);
+  assert.equal(working.source, "dev", JSON.stringify(working));
+  assert.ok(working.path && !working.error, JSON.stringify(working));
 });
 after(() => env.close());
 
@@ -28,98 +42,19 @@ const userDownloads = () =>
     return { files: files.length, list: list.length, panel: !!win.DownloadsPanel?.isPanelShowing };
   `);
 
-/** All of a download's bytes, read in chunks of `length` as the SDK does. */
-async function readAll(download, length, client = env) {
-  const chunks = [];
-  for (let offset = 0; ; ) {
-    const { base64, size, eof } = await client.call("download.read", { download, offset, ...(length ? { length } : {}) });
-    const chunk = Buffer.from(base64, "base64");
-    chunks.push(chunk);
-    offset += chunk.length;
-    if (eof) {
-      assert.equal(offset, size);
-      return Buffer.concat(chunks);
-    }
-    assert.ok(chunk.length > 0, "a chunk before the end is never empty");
-  }
-}
-
-/** Where the runtime keeps a download's temporary file (tests only; agents never see it). */
-const tempFile = download =>
-  env.chrome(
-    `const { getDownload } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/downloads.sys.mjs");
-     return getDownload(arg)?.download.target.path ?? null;`,
-    download
-  );
+/** The finished file's path in the working folder, from download.path. */
+const pathOf = async (download, client = env) => (await client.call("download.path", { download })).path;
+/** The finished file's bytes, read where download.path names it, as the client reads them. */
+const bytesOf = async (download, client = env) => readFileSync(await pathOf(download, client));
+/** Where the runtime staged a download's file (tests only; agents never see it). */
+const stagedFile = download => env.chrome(`${DOWNLOADS} return D.getDownload(arg)?.download.target.path ?? null;`, download);
+/** Whether the runtime still knows a download. */
+const known = download => env.chrome(`${DOWNLOADS} return !!D.getDownload(arg);`, download);
+const downloadRoot = () => env.chrome(`${DOWNLOADS} return D.downloadRoot();`);
 
 /** Start a download from the page the way a link click does. */
 const startDownload = (page, query = "") =>
   page.evaluate(`(() => { const a = document.createElement("a"); a.href = "/api/download${query}"; document.body.append(a); a.click(); return 1 })()`);
-
-test("a download lands in a temporary file, out of the user's view", () =>
-  env.inSpace("download", async page => {
-    await page.goto(`${env.base}/nav-target`);
-    const before = await userDownloads();
-    const waiting = page.call("page.waitForEvent", { event: "download", options: { timeout: 5000 } });
-    await startDownload(page);
-    const d = await waiting;
-    assert.equal(d.suggestedFilename, "ego-download.txt");
-    assert.equal(d.url, `${env.base}/api/download`);
-    const path = await tempFile(d.download);
-    const profileDir = await env.chrome(`return PathUtils.profileDir;`);
-    assert.equal(dirname(dirname(path)), join(profileDir, "zenius-downloads"));
-    assert.match(path, /\/zenius-downloads\/d[0-9a-z]+\/ego-download\.txt$/);
-    const text = "ego-browser download fixture\n";
-    assert.equal((await readAll(d.download)).toString("utf8"), text);
-    // Chunks: offsets and lengths as the SDK sends them, past the end too.
-    assert.equal((await readAll(d.download, 5)).toString("utf8"), text);
-    assert.deepEqual(await env.call("download.read", { download: d.download, offset: 100, length: 4 }), { base64: "", size: text.length, eof: true });
-    assert.equal(await env.call("download.failure", { download: d.download }), null);
-    assert.deepEqual(await userDownloads(), before, "the download reached the user's folder, list or panel");
-
-    await env.call("download.delete", { download: d.download });
-    assert.equal(existsSync(path), false);
-    const gone = await env.fail("download.read", { download: d.download });
-    assert.equal(gone.code, "ZEN_DOWNLOAD_FAILED");
-  }));
-
-test("no Download method takes or returns a path (I5); read's chunks are bounded", () =>
-  env.inSpace("download paths", async page => {
-    await page.goto(`${env.base}/nav-target`);
-    const waiting = page.call("page.waitForEvent", { event: "download", options: { timeout: 5000 } });
-    await startDownload(page);
-    const d = await waiting;
-    for (const [method, params] of [
-      ["download.saveAs", { path: "/tmp/zenius-i5-saved.txt" }],
-      ["download.path", {}],
-    ]) {
-      const e = await env.fail(method, { download: d.download, ...params });
-      assert.equal(e.code, "ZEN_INVALID_ARGUMENT");
-      assert.match(e.message, new RegExp(`^${method.replace(".", "\\.")} takes and returns no path: read the file's bytes with download\\.read`));
-    }
-    assert.equal(existsSync("/tmp/zenius-i5-saved.txt"), false);
-    for (const params of [{ length: 8 * 1024 * 1024 + 1 }, { length: 0 }, { offset: -1 }, { offset: 1.5 }]) {
-      const e = await env.fail("download.read", { download: d.download, ...params });
-      assert.equal(e.code, "ZEN_INVALID_ARGUMENT", JSON.stringify(params));
-    }
-    await env.call("download.delete", { download: d.download });
-  }));
-
-const DOWNLOADS = `const D = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/downloads.sys.mjs");`;
-const downloadRoot = () => env.chrome(`${DOWNLOADS} return D.downloadRoot();`);
-const FIXTURE_TEXT = "ego-browser download fixture\n";
-
-/** Poll `check` until it gives true or `ms` pass; its last value. */
-async function until(check, ms = 3000) {
-  const end = Date.now() + ms;
-  for (;;) {
-    const v = check();
-    if (v === true || Date.now() > end) {
-      return v;
-    }
-    await new Promise(r => setTimeout(r, 50));
-  }
-}
 
 /** A download from the page, waited for. */
 async function downloadOn(page) {
@@ -127,6 +62,27 @@ async function downloadOn(page) {
   await startDownload(page);
   return waiting;
 }
+
+/** Poll `check` (sync or async) until it gives true or `ms` pass; its last value. */
+async function until(check, ms = 3000) {
+  const end = Date.now() + ms;
+  for (;;) {
+    const v = await check();
+    if (v === true || Date.now() > end) {
+      return v;
+    }
+    await new Promise(r => setTimeout(r, 50));
+  }
+}
+
+const everything = dir => readdirSync(dir, { recursive: true }).sort();
+const lstatOrNull = path => {
+  try {
+    return lstatSync(path);
+  } catch {
+    return null;
+  }
+};
 
 /**
  * Put a link to a fresh folder outside in the download folder's place, as
@@ -148,16 +104,104 @@ async function withRootSwapped(fn) {
   }
 }
 
-const everything = dir => readdirSync(dir, { recursive: true }).sort();
-const lstatOrNull = path => {
+/**
+ * For `fn(release)`: each finished download's move waits until `release()`
+ * (or fn's end), so the test can change the download's files or folders
+ * first.
+ */
+async function withMovesHeld(fn) {
+  const release = () =>
+    env.chrome(`${DOWNLOADS} D.holdMoves(null); win.zeniusTestReleaseMoves?.(); delete win.zeniusTestReleaseMoves; return true;`);
+  await env.chrome(`${DOWNLOADS} let release; D.holdMoves(new Promise(r => (release = r))); win.zeniusTestReleaseMoves = release; return true;`);
   try {
-    return lstatSync(path);
-  } catch {
-    return null;
+    return await fn(release);
+  } finally {
+    await release();
   }
-};
+}
 
-test("downloads land in the profile's own 0700 folder; a start makes it afresh, unlinking links there and following none", async () => {
+/** Point this dev profile at `folder` and read it again, as a new start would: its error, or null. */
+async function useWorkingFolder(folder) {
+  const found = await env.chrome(`${WORKING} Services.prefs.setStringPref(W.DEV_PREF, arg); return await W.reloadWorkingFolder();`, folder);
+  return found.error ?? null;
+}
+
+test("a finished download moves into the working folder, readable only by the user, and nothing reaches the user's downloads", () =>
+  env.inSpace("download", async page => {
+    await page.goto(`${env.base}/nav-target`);
+    const before = await userDownloads();
+    const d = await downloadOn(page);
+    assert.equal(d.suggestedFilename, "ego-download.txt");
+    assert.equal(d.url, `${env.base}/api/download`);
+    const path = await pathOf(d.download);
+    assert.equal(dirname(path), working.path);
+    assert.match(basename(path), /^ego-download(\(\d+\))?\.txt$/);
+    assert.equal(readFileSync(path, "utf8"), FIXTURE_TEXT);
+    assert.equal(statSync(path).mode & 0o777, 0o600);
+    // It was staged in a folder of its own under the profile's, gone now.
+    const staged = await stagedFile(d.download);
+    assert.equal(dirname(dirname(staged)), await downloadRoot());
+    assert.equal(lstatOrNull(dirname(staged)), null, "the staging folder stayed");
+    assert.equal(await env.call("download.failure", { download: d.download }), null);
+    assert.deepEqual(await userDownloads(), before, "the download reached the user's folder, list or panel");
+
+    await env.call("download.delete", { download: d.download });
+    assert.equal(existsSync(path), false);
+    const gone = await env.fail("download.path", { download: d.download });
+    assert.equal(gone.code, "ZEN_DOWNLOAD_FAILED");
+    assert.match(gone.message, /unknown download/);
+  }));
+
+test("download.read is gone and download.saveAs takes no path (I5): each names download.path", () =>
+  env.inSpace("download paths", async page => {
+    await page.goto(`${env.base}/nav-target`);
+    const d = await downloadOn(page);
+    const saved = join(tmpdir(), `zenius-i5-saved-${process.pid}.txt`);
+    for (const [method, params] of [
+      ["download.saveAs", { path: saved }],
+      ["download.read", { offset: 0, length: 1024 }],
+    ]) {
+      const e = await env.fail(method, { download: d.download, ...params });
+      assert.equal(e.code, "ZEN_INVALID_ARGUMENT", method);
+      assert.match(e.message, /download\.path/, method);
+    }
+    assert.equal(existsSync(saved), false);
+    await env.call("download.delete", { download: d.download });
+  }));
+
+test("a download never replaces what the working folder holds: each gets a name of its own", () =>
+  env.inSpace("download names", async page => {
+    await page.goto(`${env.base}/nav-target`);
+    // A file of the user's, by the name the next downloads suggest.
+    const mine = join(working.path, "ego-download.txt");
+    const had = existsSync(mine);
+    if (!had) {
+      writeFileSync(mine, "the user's own\n", { mode: 0o600 });
+    }
+    const before = readFileSync(mine);
+    try {
+      const first = await downloadOn(page);
+      const second = await downloadOn(page);
+      const paths = [await pathOf(first.download), await pathOf(second.download)];
+      assert.equal(new Set([mine, ...paths]).size, 3, paths.join(", "));
+      for (const path of paths) {
+        assert.equal(dirname(path), working.path);
+        assert.match(basename(path), /^ego-download\(\d+\)\.txt$/);
+        assert.equal(readFileSync(path, "utf8"), FIXTURE_TEXT);
+      }
+      assert.deepEqual(readFileSync(mine), before, "a download replaced the user's file");
+      for (const d of [first, second]) {
+        await env.call("download.delete", { download: d.download });
+      }
+      assert.deepEqual(readFileSync(mine), before, "download.delete took the user's file");
+    } finally {
+      if (!had) {
+        rmSync(mine, { force: true });
+      }
+    }
+  }));
+
+test("downloads are staged in the profile's own 0700 folder; a start makes it afresh, unlinking links there and following none", async () => {
   const { profileDir, root, permissions } = await env.chrome(
     `${DOWNLOADS} const root = D.downloadRoot(); return { profileDir: PathUtils.profileDir, root, permissions: (await IOUtils.stat(root)).permissions };`
   );
@@ -192,8 +236,9 @@ test("downloads land in the profile's own 0700 folder; a start makes it afresh, 
   await env.inSpace("download after remake", async page => {
     await page.goto(`${env.base}/nav-target`);
     const d = await downloadOn(page);
-    assert.equal(dirname(dirname(await tempFile(d.download))), root);
-    assert.equal((await readAll(d.download)).toString("utf8"), FIXTURE_TEXT);
+    assert.equal(dirname(dirname(await stagedFile(d.download))), root);
+    assert.equal((await bytesOf(d.download)).toString("utf8"), FIXTURE_TEXT);
+    await env.call("download.delete", { download: d.download });
   });
 });
 
@@ -233,9 +278,10 @@ test("a sweep touches only the download folder: earlier versions' folders in the
   }
 });
 
-test("a link in the download folder's place before a task's download: refused, and the browser leaves nothing outside (I5)", () =>
+test("a link in the download folder's place before a task's download: refused, and the browser leaves nothing outside or in the working folder (I5)", () =>
   env.inSpace("download root link", async page => {
     await page.goto(`${env.base}/nav-target`);
+    const held = everything(working.path);
     await withRootSwapped(async outside => {
       const e = await downloadOn(page).then(
         d => ({ downloaded: d.suggestedFilename }),
@@ -246,68 +292,175 @@ test("a link in the download folder's place before a task's download: refused, a
       // The browser's own temporary file goes with its cancel.
       assert.equal(await until(() => everything(outside).length === 0 || everything(outside).join(", ")), true);
     });
+    assert.deepEqual(everything(working.path), held, "something landed in the working folder");
   }));
 
-test("a link in the download folder's place mid-task: the next download is refused, and an earlier one isn't read through it (I5)", () =>
+test("a link in the download folder's place mid-task: the next download is refused, and the one already in the working folder stays as it was (I5)", () =>
   env.inSpace("download root swap", async page => {
     await page.goto(`${env.base}/nav-target`);
     const first = await downloadOn(page);
-    assert.equal((await readAll(first.download)).toString("utf8"), FIXTURE_TEXT);
-    const firstPath = await tempFile(first.download);
-    await withRootSwapped(async (outside, root) => {
-      // Outside, a file where the first download's is, seen through the link.
-      const rel = relative(root, firstPath);
-      mkdirSync(join(outside, dirname(rel)));
-      writeFileSync(join(outside, rel), "SECRET from outside the folder\n");
-      const read = await env.fail("download.read", { download: first.download });
-      assert.equal(read.code, "ZEN_DOWNLOAD_FAILED");
-      assert.match(read.message, /the folder it keeps downloads in had changed \(a link stood in its place\)/);
+    const firstPath = await pathOf(first.download);
+    await withRootSwapped(async outside => {
       const second = await downloadOn(page).then(
         d => ({ downloaded: d.suggestedFilename }),
         e => e
       );
       assert.equal(second.code, "ZEN_DOWNLOAD_FAILED", JSON.stringify(second));
-      const planted = [dirname(rel), rel].sort();
-      assert.equal(await until(() => everything(outside).join() === planted.join() || everything(outside).join(", ")), true);
-      assert.equal(readFileSync(join(outside, rel), "utf8"), "SECRET from outside the folder\n");
+      assert.match(second.message, /the folder it keeps downloads in had changed \(a link stood in its place\)/);
+      assert.equal(await until(() => everything(outside).length === 0 || everything(outside).join(", ")), true);
+      // The first left the staging folder when it finished: the link changes nothing for it.
+      assert.equal(await pathOf(first.download), firstPath);
+      assert.equal(readFileSync(firstPath, "utf8"), FIXTURE_TEXT);
     });
-    // Once refused, it stays failed; the task's end removes its folder.
-    assert.match(await env.call("download.failure", { download: first.download }), /had changed/);
+    assert.equal(await env.call("download.failure", { download: first.download }), null);
+    await env.call("download.delete", { download: first.download });
   }));
 
-test("a finished download's file, or its folder, swapped for a link: download.read refuses it rather than read outside (I5)", () =>
+test("a staged file, or its folder, swapped for a link before the move: the download fails, and nothing outside is moved or followed (I5)", () =>
   env.inSpace("download file swap", async page => {
     await page.goto(`${env.base}/nav-target`);
     const secret = mkdtempSync(join(tmpdir(), "zenius-i5-secret-"));
     writeFileSync(join(secret, "ego-download.txt"), "SECRET from outside the folder\n");
+    const held = everything(working.path);
     try {
       for (const swap of ["file", "folder"]) {
-        const d = await downloadOn(page);
-        const path = await tempFile(d.download);
-        assert.equal((await readAll(d.download)).toString("utf8"), FIXTURE_TEXT);
-        const [from, to] = swap === "file" ? [path, join(secret, "ego-download.txt")] : [dirname(path), secret];
-        renameSync(from, `${from}.gone`);
-        symlinkSync(to, from);
-        try {
-          const e = await env.fail("download.read", { download: d.download });
-          assert.equal(e.code, "ZEN_DOWNLOAD_FAILED", swap);
-          assert.match(e.message, /the folder it keeps downloads in had changed \(a link stood in (its|the file's) place\)/, swap);
-          // The refusal removes the download's folder: the link in it, or in
-          // its place, is unlinked, never followed.
-          assert.equal(await until(() => !existsSync(dirname(path)) && !lstatOrNull(dirname(path))), true, `${swap}: the folder stayed`);
-          assert.deepEqual(readdirSync(secret), ["ego-download.txt"], swap);
-          assert.equal(readFileSync(join(secret, "ego-download.txt"), "utf8"), "SECRET from outside the folder\n", swap);
-          assert.match(await env.call("download.failure", { download: d.download }), /had changed/);
-        } finally {
-          rmSync(from, { force: true });
-          rmSync(`${from}.gone`, { recursive: true, force: true });
-        }
-        await env.call("download.delete", { download: d.download });
+        await withMovesHeld(async release => {
+          const d = await downloadOn(page);
+          // Finished, its move held.
+          assert.equal(await env.call("download.failure", { download: d.download }), null, swap);
+          const path = await stagedFile(d.download);
+          const [from, to] = swap === "file" ? [path, join(secret, "ego-download.txt")] : [dirname(path), secret];
+          renameSync(from, `${from}.gone`);
+          symlinkSync(to, from);
+          try {
+            await release();
+            const e = await env.fail("download.path", { download: d.download });
+            assert.equal(e.code, "ZEN_DOWNLOAD_FAILED", swap);
+            assert.match(e.message, /the folder it keeps downloads in had changed \(a link stood in (its|the file's) place\)/, swap);
+            // The refusal removes the download's folder: the link in it, or
+            // in its place, is unlinked, never followed.
+            assert.equal(await until(() => !lstatOrNull(swap === "file" ? dirname(path) : from)), true, `${swap}: the folder stayed`);
+            assert.deepEqual(readdirSync(secret), ["ego-download.txt"], swap);
+            assert.equal(readFileSync(join(secret, "ego-download.txt"), "utf8"), "SECRET from outside the folder\n", swap);
+            assert.deepEqual(everything(working.path), held, `${swap}: something moved into the working folder`);
+            assert.match(await env.call("download.failure", { download: d.download }), /had changed/);
+          } finally {
+            rmSync(from, { force: true });
+            rmSync(`${from}.gone`, { recursive: true, force: true });
+          }
+          await env.call("download.delete", { download: d.download });
+        });
       }
     } finally {
       rmSync(secret, { recursive: true, force: true });
     }
   }));
+
+test("the working folder swapped for a link before the move: the download fails with the reason, and nothing lands where the link leads", () =>
+  env.inSpace("download folder swap", async page => {
+    await page.goto(`${env.base}/nav-target`);
+    const outside = mkdtempSync(join(tmpdir(), "zenius-wf-outside-"));
+    const kept = `${working.path}.kept`;
+    try {
+      await withMovesHeld(async release => {
+        const d = await downloadOn(page);
+        assert.equal(await env.call("download.failure", { download: d.download }), null);
+        const staged = await stagedFile(d.download);
+        renameSync(working.path, kept);
+        try {
+          symlinkSync(outside, working.path);
+          await release();
+          const e = await env.fail("download.path", { download: d.download });
+          assert.equal(e.code, "ZEN_DOWNLOAD_FAILED");
+          assert.match(
+            e.message,
+            /couldn't move the download from .* into the working folder \(the working folder, .*, has changed since Zen started: restart Zen to read it again\), so it removed the file/
+          );
+          assert.deepEqual(everything(outside), []);
+          assert.equal(lstatOrNull(dirname(staged)), null, "the staged file stayed");
+        } finally {
+          rmSync(working.path, { force: true });
+          renameSync(kept, working.path);
+        }
+        await env.call("download.delete", { download: d.download });
+      });
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  }));
+
+test("a working folder that's gone is made again, readable only by the user, when a download moves in", () =>
+  env.inSpace("download folder made", async page => {
+    await page.goto(`${env.base}/nav-target`);
+    const kept = `${working.path}.kept`;
+    renameSync(working.path, kept);
+    try {
+      const d = await downloadOn(page);
+      const path = await pathOf(d.download);
+      assert.equal(dirname(path), working.path);
+      assert.equal(statSync(working.path).mode & 0o777, 0o700);
+      assert.equal(readFileSync(path, "utf8"), FIXTURE_TEXT);
+      await env.call("download.delete", { download: d.download });
+    } finally {
+      rmSync(working.path, { recursive: true, force: true });
+      renameSync(kept, working.path);
+    }
+  }));
+
+test("a working folder the rules refuse stops each download with the reason, and nothing is saved anywhere", () =>
+  env.inSpace("download folder refused", async page => {
+    await page.goto(`${env.base}/nav-target`);
+    const project = mkdtempSync(join(tmpdir(), "zenius-wf-project-"));
+    mkdirSync(join(project, ".git"));
+    writeFileSync(join(project, ".git", "HEAD"), "ref: refs/heads/main\n");
+    const root = await downloadRoot();
+    const held = { working: everything(working.path), root: everything(root) };
+    try {
+      assert.match((await useWorkingFolder(project)) ?? "", /it holds \.git, so it's a project's folder/);
+      const e = await downloadOn(page).then(
+        d => ({ downloaded: d.suggestedFilename }),
+        e => e
+      );
+      assert.equal(e.code, "ZEN_DOWNLOAD_FAILED", JSON.stringify(e));
+      assert.match(e.message, /: the working folder can't be .*: it holds \.git, so it's a project's folder, so the file had nowhere to go\. Nothing was saved/);
+      assert.deepEqual(readdirSync(project), [".git"]);
+      assert.deepEqual(everything(working.path), held.working);
+      assert.equal(await until(() => everything(root).join() === held.root.join() || everything(root).join(", ")), true);
+    } finally {
+      assert.equal(await useWorkingFolder(working.path), null);
+      rmSync(project, { recursive: true, force: true });
+    }
+  }));
+
+test(
+  "a working folder on another volume gets a copy, readable only by the user, and the staged file goes",
+  { skip: !existsSync("/dev/shm") && "no /dev/shm here" },
+  async t => {
+    const profileDir = await env.chrome(`return PathUtils.profileDir;`);
+    const other = mkdtempSync("/dev/shm/zenius-wf-");
+    try {
+      if (statSync(other).dev === statSync(profileDir).dev) {
+        t.skip("/dev/shm is on the profile's volume here");
+        return;
+      }
+      assert.equal(await useWorkingFolder(other), null);
+      await env.inSpace("download across volumes", async page => {
+        await page.goto(`${env.base}/nav-target`);
+        const d = await downloadOn(page);
+        const path = await pathOf(d.download);
+        assert.equal(dirname(path), other);
+        assert.equal(readFileSync(path, "utf8"), FIXTURE_TEXT);
+        assert.equal(statSync(path).mode & 0o777, 0o600);
+        assert.equal(lstatOrNull(dirname(await stagedFile(d.download))), null, "the staged file stayed");
+        await env.call("download.delete", { download: d.download });
+        assert.equal(existsSync(path), false);
+      });
+    } finally {
+      assert.equal(await useWorkingFolder(working.path), null);
+      rmSync(other, { recursive: true, force: true });
+    }
+  }
+);
 
 // A site of its own for the tests below: loopback only, reached as
 // localhost so that it is another site than the fixture's 127.0.0.1.
@@ -410,7 +563,7 @@ for (const [kind, path, name] of [
           assert.equal(seen.length, 1, JSON.stringify(seen));
           assert.equal(dirname(seen[0]), root, `Gecko's temporary file: ${seen[0]}`);
           assert.deepEqual(everything(scratch), []);
-          assert.equal((await readAll(d.download)).toString("utf8"), "cross-site download\n");
+          assert.equal((await bytesOf(d.download)).toString("utf8"), "cross-site download\n");
           await env.call("download.delete", { download: d.download });
         });
       } finally {
@@ -452,34 +605,40 @@ test("a download Gecko began outside zenius's folder is refused before it's save
     });
   }));
 
-test("a canceled download reports canceled", () =>
-  env.inSpace("download cancel", async page => {
-    // The shared fixture has no download whose body stalls; serve one here
-    // (loopback only): headers and a first chunk, then nothing.
-    const stalled = createServer((_req, res) => {
-      res.writeHead(200, {
-        "content-type": "application/octet-stream",
-        "content-disposition": 'attachment; filename="stalled.bin"',
-        "content-length": "1000000",
-      });
-      res.write("x".repeat(1000));
+/** A loopback server whose download sends headers and a first chunk, then nothing. */
+async function stalledServer() {
+  const server = createServer((_req, res) => {
+    res.writeHead(200, {
+      "content-type": "application/octet-stream",
+      "content-disposition": 'attachment; filename="stalled.bin"',
+      "content-length": "1000000",
     });
-    await new Promise(resolve => stalled.listen(0, "127.0.0.1", resolve));
+    res.write("x".repeat(1000));
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  return { url: `http://127.0.0.1:${server.address().port}/stalled`, close: () => (server.closeAllConnections(), server.close()) };
+}
+
+const stalledInWorking = () => everything(working.path).filter(name => name.startsWith("stalled"));
+
+test("a canceled download reports canceled, and nothing of it reaches the working folder", () =>
+  env.inSpace("download cancel", async page => {
+    const stalled = await stalledServer();
     try {
       await page.goto(`${env.base}/nav-target`);
       const waiting = page.call("page.waitForEvent", { event: "download", options: { timeout: 5000 } });
-      await page.evaluate(`location.href = "http://127.0.0.1:${stalled.address().port}/stalled"`);
+      await page.evaluate(`location.href = ${JSON.stringify(stalled.url)}`);
       const d = await waiting;
       assert.equal(d.suggestedFilename, "stalled.bin");
       await env.call("download.cancel", { download: d.download });
       assert.equal(await env.call("download.failure", { download: d.download }), "canceled");
-      // Ego's path() throws for a failed download, as read does.
-      const e = await env.fail("download.read", { download: d.download });
+      // Ego's path() throws for a failed download.
+      const e = await env.fail("download.path", { download: d.download });
       assert.equal(e.code, "ZEN_DOWNLOAD_FAILED");
       assert.equal(e.data.plain, true);
       assert.equal(e.message, "download failed: canceled");
+      assert.deepEqual(stalledInWorking(), []);
     } finally {
-      stalled.closeAllConnections();
       stalled.close();
     }
   }));
@@ -487,11 +646,9 @@ test("a canceled download reports canceled", () =>
 test("cancel and delete change a download only while the agent controls its task (I3)", () =>
   env.inSpace("download control", async page => {
     await page.goto(`${env.base}/nav-target`);
-    const waiting = page.call("page.waitForEvent", { event: "download", options: { timeout: 5000 } });
-    await startDownload(page);
-    const d = await waiting;
+    const d = await downloadOn(page);
     assert.equal(await env.call("download.failure", { download: d.download }), null, "the download finished");
-    const path = await tempFile(d.download);
+    const path = await pathOf(d.download);
     // They name a download, not a space: the handler gates on the task the
     // download came from.
     await page.call("spaces.handOff", { reason: "manual_takeover" });
@@ -500,7 +657,7 @@ test("cancel and delete change a download only while the agent controls its task
         const e = await env.fail(method, { download: d.download });
         assert.equal(e.code, "ZEN_TASK_SPACE_USER_IN_CONTROL", `${method}: ${e.code} ${e.message}`);
       }
-      assert.equal(existsSync(path), true, "the file stays while the user holds the task");
+      assert.equal(existsSync(path), true, "the file goes only by a delete the agent may make");
     } finally {
       await page.call("spaces.takeOver");
     }
@@ -508,22 +665,62 @@ test("cancel and delete change a download only while the agent controls its task
     assert.equal(existsSync(path), false);
   }));
 
-test("temporary files go when the script's connection closes", () =>
+test("when its script's connection closes, a finished download is forgotten and its file stays in the working folder", () =>
   env.inSpace("download cleanup", async page => {
     await page.goto(`${env.base}/nav-target`);
     const other = await connect(process.env.ZENIUS_INSTANCE);
     const waiting = other.call("page.waitForEvent", { ...page.P, event: "download", options: { timeout: 5000 } });
     await startDownload(page);
     const d = await waiting;
-    assert.equal((await readAll(d.download, undefined, other)).toString("utf8"), "ego-browser download fixture\n");
-    const path = await tempFile(d.download);
+    const path = await pathOf(d.download, other);
+    assert.equal(readFileSync(path, "utf8"), FIXTURE_TEXT);
     other.close();
-    const end = Date.now() + 3000;
-    while (existsSync(path)) {
-      assert.ok(Date.now() < end, "the temporary file outlived its connection");
-      await new Promise(r => setTimeout(r, 50));
+    try {
+      assert.equal(await until(async () => !(await known(d.download))), true, "the download outlived its connection");
+      assert.equal(readFileSync(path, "utf8"), FIXTURE_TEXT, "the file went with its connection");
+    } finally {
+      // The test's own cleanup: the user's file would stay.
+      rmSync(path, { force: true });
     }
   }));
+
+test("when its script's connection closes, a running download is canceled, and its staged files go", () =>
+  env.inSpace("download cleanup running", async page => {
+    const stalled = await stalledServer();
+    try {
+      await page.goto(`${env.base}/nav-target`);
+      const other = await connect(process.env.ZENIUS_INSTANCE);
+      const waiting = other.call("page.waitForEvent", { ...page.P, event: "download", options: { timeout: 5000 } });
+      await page.evaluate(`location.href = ${JSON.stringify(stalled.url)}`);
+      const d = await waiting;
+      const staged = await stagedFile(d.download);
+      assert.ok(lstatOrNull(dirname(staged)), "no staging folder while it runs");
+      other.close();
+      assert.equal(await until(async () => !(await known(d.download))), true, "the download outlived its connection");
+      assert.equal(await until(() => !lstatOrNull(dirname(staged))), true, "its staging folder stayed");
+      assert.deepEqual(stalledInWorking(), []);
+    } finally {
+      stalled.close();
+    }
+  }));
+
+test("a finished task's downloads are forgotten, and their files stay in the working folder", async () => {
+  let download;
+  let path;
+  await env.inSpace("download task end", async page => {
+    await page.goto(`${env.base}/nav-target`);
+    const d = await downloadOn(page);
+    download = d.download;
+    path = await pathOf(d.download);
+  });
+  try {
+    // inSpace finished the task.
+    assert.equal(await until(async () => !(await known(download))), true, "the download outlived its task");
+    assert.equal(readFileSync(path, "utf8"), FIXTURE_TEXT, "the file went with its task");
+  } finally {
+    rmSync(path, { force: true });
+  }
+});
 
 test("waitForEvent(download) times out", () =>
   env.inSpace("download timeout", async page => {
@@ -545,7 +742,7 @@ test("pdf.js's download button gives an ordinary agent download, with no picker"
     assert.equal(d.url, pdf);
     assert.equal(d.suggestedFilename, "openai-gpt-4-system-card.pdf");
     const served = Buffer.from(await (await fetch(pdf)).arrayBuffer());
-    assert.ok((await readAll(d.download)).equals(served), "the saved bytes are the PDF the server sent");
+    assert.ok((await bytesOf(d.download)).equals(served), "the saved bytes are the PDF the server sent");
     assert.equal(await env.call("download.failure", { download: d.download }), null);
     // No Save As picker, nothing in the user's downloads.
     const pickers = await env.chrome(
@@ -563,6 +760,6 @@ test("pdf.js's download button gives an ordinary agent download, with no picker"
     await env.chrome(`ctx.resolvePage(arg).browser.sendMessageToActor("PDFJS:Save", {}, "PdfJs"); return true;`, page.P);
     const k = await viaKey;
     assert.equal(k.url, pdf);
-    assert.ok((await readAll(k.download)).equals(served));
+    assert.ok((await bytesOf(k.download)).equals(served));
     await env.call("download.delete", { download: k.download });
   }));

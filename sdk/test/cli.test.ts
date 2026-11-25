@@ -2,12 +2,13 @@
 // output conventions, exit codes and the other subcommands.
 
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { after, before, describe, it } from "node:test";
 
+import { guardHome } from "../../tests/lib/scratch-home.mjs";
 import { runCli } from "./helpers.ts";
 import { MockRuntime } from "./mock-runtime.ts";
 
@@ -35,7 +36,7 @@ console.log(await page.snapshot());
     assert.match(result.stdout, /^\{ taskSpaceId: \d+, page: 'p1' \}\n\[p1 "Title of https:\/\/example.com\/"/);
   });
 
-  it("deletes the run's temporary downloads before it exits, as Ego does", async () => {
+  it("leaves the run's finished downloads in the working folder when it exits: only the script's own delete() deletes one", async () => {
     const start = mock.requests.length;
     const result = await run(`const page = (await taskSpace("cli downloads")).page("p1");
 const kept = page.waitForEvent("download");
@@ -47,12 +48,13 @@ await (await gone).delete();
 console.log("done");`);
     assert.equal(result.code, 0, result.stderr);
     const requests = mock.requests.slice(start);
-    const saved = requests.find((request) => request.method === "download.read")!.params.download;
+    const saved = requests.find((request) => request.method === "download.path")!.params.download;
     const deletes = requests.filter((request) => request.method === "download.delete").map((request) => request.params.download);
-    // The script deleted one itself; the CLI deletes the one it only saved, once.
-    assert.equal(deletes.length, 2, JSON.stringify(deletes));
+    // The script deleted one itself, and the CLI deletes nothing more.
+    assert.equal(deletes.length, 1, JSON.stringify(deletes));
     assert.notEqual(deletes[0], saved);
-    assert.equal(deletes[1], saved);
+    assert.equal(readFileSync(join(mock.dir, "saved.pdf"), "utf8"), `download ${saved}`);
+    assert.equal(readFileSync(join(mock.workingDir, "report.pdf"), "utf8"), `download ${saved}`, "the file stays in the working folder");
   });
 
   it("never shows Node's warning about the vm loader, and shows every other warning", async () => {
@@ -329,7 +331,7 @@ describe("other subcommands", () => {
     const { spawnSync } = await import("node:child_process");
     for (const entry of ["../dist/zenius.mjs", "../src/cli.ts"]) {
       const path = fileURLToPath(new URL(entry, import.meta.url));
-      const result = spawnSync(process.execPath, [path, "nodejs", "-e", "console.log(typeof taskSpace)"], { encoding: "utf8" });
+      const result = spawnSync(process.execPath, [path, "nodejs", "-e", "console.log(typeof taskSpace)"], { encoding: "utf8", env: guardHome({ ...process.env }, "cli.test") });
       assert.equal(result.status, 0, `${entry}: ${result.stderr}`);
       assert.equal(result.stdout, "function\n", entry);
     }
@@ -345,15 +347,15 @@ describe("other subcommands", () => {
 });
 
 describe("zenius nodejs in the sandbox", () => {
-  it("writes a relative path to the run's output folder, lists it, and can't write the working folder", async () => {
+  it("writes a relative path to the working folder, lists it, and can't write the folder it started in", async () => {
     const base = mkdtempSync(join(tmpdir(), "zenius-cli-sbx-"));
-    const [out, box, work] = ["out", "box", "work"].map((name) => join(base, name));
+    const [out, box, work] = ["zenius-files", "box", "work"].map((name) => join(base, name));
     for (const folder of [out, box, work]) mkdirSync(folder);
     try {
       const repo = fileURLToPath(new URL("../..", import.meta.url));
       const result = await runCli(["nodejs"], {
         socketPath: mock.socketPath,
-        env: { ZENIUS_OUTPUT_DIR: out, TMPDIR: box },
+        env: { ZENIUS_WORKING_DIR: out, TMPDIR: box },
         // The launcher's grants, without the OS sandbox around them.
         nodeArgs: ["--permission", `--allow-fs-read=${repo}`, `--allow-fs-read=${work}`, `--allow-fs-read=${box}`, `--allow-fs-write=${box}`, `--allow-fs-read=${out}`, `--allow-fs-write=${out}`],
         stdin: `
@@ -368,7 +370,7 @@ try { process.getBuiltinModule("node:fs").writeFileSync(${JSON.stringify(join(wo
         result.stdout,
         [
           join(out, "shot.png"),
-          `ZEN_PATH_NOT_ALLOWED page.screenshot path: a sandboxed script writes only to its output folder, ${out}, and its temporary folder, never its working folder. Pass a relative path, which lands in the output folder.`,
+          `ZEN_PATH_NOT_ALLOWED page.screenshot path: a sandboxed script writes only to the working folder, ${out}, and its temporary folder, never the folder it started in. Pass a relative path, which lands in the working folder.`,
           "ERR_ACCESS_DENIED",
           "[zenius:files]",
           `Wrote ${join(out, "shot.png")}`,
