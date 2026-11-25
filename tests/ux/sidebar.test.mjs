@@ -3625,6 +3625,11 @@ test("a task another agent drives (a terminal's Claude Code) shows in the direct
       await openDir();
       await S.until(() => rowOf(uid)?.status === 'Type into "Email"', 5000);
       res.statusAfter = rowOf(uid).status;
+      // A call its client canceled ends without acting: stopped, not failed.
+      step(arg.id, { id: 4, at: Date.now(), ms: 10, method: "page.waitFor", text: "Wait for the page", outcome: "stopped", page: "p2" });
+      await S.until(() => doc.querySelector('.ext-step[data-step="4"]')?.dataset.outcome === "stopped", 3000).catch(() => {});
+      const stoppedRow = doc.querySelector('.ext-step[data-step="4"]');
+      res.stoppedStep = stoppedRow && { ...view().steps.find(s => s.text === "Wait for the page"), mark: doc.defaultView.getComputedStyle(stoppedRow, "::before").content };
       // The agent hands off: Needs you, with its words.
       spaces.setStateText(rec, "Log in to continue");
       entries.set(arg.id, { ...entries.get(arg.id), state: "needs_you", message: "Log in to continue" });
@@ -3721,6 +3726,7 @@ test("a task another agent drives (a terminal's Claude Code) shows in the direct
   assert.deepEqual(out.failed, { outcome: "failed", text: 'Type into "Email"', names: ["Email|auto"], code: "ZEN_ELEMENT_NOT_FOUND", page: "p2" });
   assert.deepEqual(out.pages, ["p1", "p1", "p2"], "a page chip once the task has more than one page");
   assert.equal(out.statusAfter, 'Type into "Email"', "a working row shows the latest step");
+  assert.deepEqual(out.stoppedStep, { outcome: "stopped", text: "Wait for the page", names: [], code: "", page: "p2", mark: '"–"' }, "a canceled call shows stopped, with no code");
   assert.deepEqual(out.needs.row, { group: "needs", src: `From ${from}`, chip: "laptop/t5x", status: "Log in to continue" });
   assert.deepEqual(out.needs.card, ["Needs you", "Log in to continue", "Watch"]);
   assert.equal(out.needs.count, out.needs.ui, "Work's count is zenius's");

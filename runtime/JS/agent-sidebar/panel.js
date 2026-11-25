@@ -323,9 +323,11 @@ function clockTime(at) {
 
 /** A step's row: its text, its page when the task has more than one, its
  * outcome, its time. `prev` is the step before it: the look shows a page
- * where it changes (data-same-page). */
+ * where it changes (data-same-page). A call its client canceled, or whose
+ * connection closed, ended without acting: the runtime's "stopped", shown
+ * as the sidebar's own stopped steps are, not as a failure. */
 function stepRow(step, withPage, prev = null) {
-  const outcome = step.outcome === "running" ? "running" : step.outcome === "ok" ? "ok" : "failed";
+  const outcome = ["running", "ok", "stopped"].includes(step.outcome) ? step.outcome : "failed";
   const row = div("ext-step");
   row.dataset.step = String(step.id);
   row.dataset.outcome = outcome;

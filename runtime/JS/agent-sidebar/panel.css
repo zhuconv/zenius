@@ -2279,6 +2279,12 @@ body.dragging::after {
   color: var(--danger);
 }
 
+/* Canceled by its client, or its connection closed: as .step[data-status="stopped"]. */
+.ext-step[data-outcome="stopped"]::before {
+  content: "–";
+  color: var(--faint);
+}
+
 .ext-step[data-outcome="running"]::before {
   content: "";
   box-sizing: border-box;
@@ -2326,7 +2332,7 @@ body.dragging::after {
   color: var(--fg);
 }
 
-.ext-step[data-outcome="ok"] .ext-text {
+.ext-step:is([data-outcome="ok"], [data-outcome="stopped"]) .ext-text {
   color: color-mix(in srgb, var(--fg) 78%, var(--bg));
 }
 
