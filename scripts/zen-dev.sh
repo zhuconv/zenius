@@ -71,7 +71,7 @@
 # default, as an untouched daily profile has them: their lines are dropped
 # from user.js and prefs.js. user_pref() can't do that, since a value read from
 # user.js stays a user value even when it equals the default (for example
-# browser.startup.page, whose default in Zen 1.24.2b is 3).
+# browser.startup.page, whose default in Zen 1.24.3b is 3).
 #
 # ZENIUS_DEV_WORKING_DIR=<dir> start: the instance's working folder, where its
 # finished downloads land (absolute; made 0700 if missing). By default it's
@@ -118,7 +118,7 @@ if [[ $(uname) == Darwin ]]; then
   # Empty: the dev copy of Zen.app, made when a command needs it (need_zen).
   ZEN=${ZEN_BIN:-}
 else
-  ZEN=${ZEN_BIN:-$HOME/opt/zen-1.24.2b/zen}
+  ZEN=${ZEN_BIN:-$HOME/opt/zen-1.24.3b/zen}
 fi
 READY_MARK="[zenius] window loaded, instance=$NAME"
 mkdir -p "$DEV/profiles" "$DEV/run" "$DEV/logs"

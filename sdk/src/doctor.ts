@@ -56,7 +56,7 @@ export type DoctorOptions = {
   mcpTimeoutMs?: number;
 };
 
-const TESTED_ZEN = "1.24.2b";
+const TESTED_ZEN = "1.24.3b";
 const TESTED_GECKO = 160;
 const FX_AUTOCONFIG = "fx-autoconfig 0.10.16";
 const CALL_TIMEOUT_MS = 3000;

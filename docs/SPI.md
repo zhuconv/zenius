@@ -4272,7 +4272,7 @@ Provided by the user's Zen (fx-autoconfig 0.10.16). zenius never edits the
 app bundle, and writes the loader only with `--loader`:
 - `<app>/config.js` and `<app>/defaults/pref/config-prefs.js`. `<app>` is
   `/Applications/Zen.app/Contents/Resources` on the Mac, and the directory
-  of the `zen` binary on Linux (`~/opt/zen-1.24.2b` on the Linux server). A Zen update
+  of the `zen` binary on Linux (`~/opt/zen-1.24.3b` on the Linux server). A Zen update
   deletes `config.js`; putting it back needs the user's OK. `install.sh`
   warns when it's missing.
 - `<profile>/chrome/utils/boot.sys.mjs` and

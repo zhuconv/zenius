@@ -1,7 +1,7 @@
 # Zenius: Agentic Zen
 
 Zenius brings agent browsing on Ego Lite's level to the user's existing Zen
-Browser (Zen 1.24.2b, Gecko 160), without forking Zen. Agents such as Claude
+Browser (Zen 1.24.3b, Gecko 160), without forking Zen. Agents such as Claude
 Code and Codex drive it with zenius's JavaScript API, each task in its own Zen
 Space, while the user keeps browsing in theirs.
 
@@ -524,10 +524,10 @@ SDK's tests stay in `sdk/test/`.
     `PROTOCOL.md`.
   - `docs/native-*-requirement.md`.
   - `package/ego-browser/scripts/real-browser-e2e/`: rubric A.
-- Zen internals: unzip the installed 1.24.2b `omni.ja` (Mac:
+- Zen internals: unzip the installed 1.24.3b `omni.ja` (Mac:
   `/Applications/Zen.app/Contents/Resources/omni.ja`; Linux:
-  `~/opt/zen-1.24.2b/omni.ja` and `browser/omni.ja`) for the exact
-  `gZenWorkspaces` code, or read zen-browser/desktop at tag `1.24.2b`.
+  `~/opt/zen-1.24.3b/omni.ja` and `browser/omni.ja`) for the exact
+  `gZenWorkspaces` code, or read zen-browser/desktop at tag `1.24.3b`.
 - Prior art:
   - spaxe-dev/zen-mcp (MIT): Marionette chrome-scope injection, Space API
     calls, background tabs.

@@ -23,7 +23,7 @@ const ROOT = path.resolve(HERE, "../..");
 // The prefs that keep every dev and test Zen off outside services, as zen-dev.sh gives its profiles.
 const NO_OUTSIDE_TRAFFIC = fs.readFileSync(path.join(ROOT, "scripts/dev/no-outside-traffic.js"), "utf8");
 const OUT = process.env.IDLE_COST_DIR ?? `${os.homedir()}/.zenius-dev/idle-cost`;
-const ZEN = process.env.ZEN_BIN ?? `${os.homedir()}/opt/zen-1.24.2b/zen`;
+const ZEN = process.env.ZEN_BIN ?? `${os.homedir()}/opt/zen-1.24.3b/zen`;
 const DEV = process.env.ZENIUS_DEV_HOME ?? `${os.homedir()}/.zenius-dev`;
 const RESULTS = path.join(OUT, "results");
 const T1 = Number(process.env.I4_T1 ?? 30000);

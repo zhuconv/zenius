@@ -84,7 +84,7 @@ test(
     // Zen started from it would first try to apply. It exits 3 if one does.
     execFileSync(join(root, "scripts/zen-dev.sh"), [lane, "updates"], { encoding: "utf8" });
 
-    const zen = process.env.ZEN_BIN ?? join(homedir(), "opt/zen-1.24.2b/zen");
+    const zen = process.env.ZEN_BIN ?? join(homedir(), "opt/zen-1.24.3b/zen");
     const profile = join(work, "daily");
     const zhome = join(work, "z");
     const instance = `dg${process.pid}`;
