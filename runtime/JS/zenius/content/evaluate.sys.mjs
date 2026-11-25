@@ -140,6 +140,16 @@ function runIn(win, target, url, { fn, isFunction, hasArg, arg }, rewrite = null
 }
 
 /**
+ * `reply`, with `hooked` when the call's code left something in a document
+ * that wasn't hooked before (the world's report): the page now loads afresh
+ * before the user acts there and at the task's end, and the call's final
+ * frame says so (PROTOCOL "hooked"). Whatever else the call ended with.
+ */
+function withHooked(reply, hooked) {
+  return hooked ? { ...reply, hooked } : reply;
+}
+
+/**
  * The call fails when its code read a page global it couldn't see, even when
  * the code caught the throw: a difference never passes silently.
  */
@@ -372,22 +382,23 @@ export async function evaluate(actor, args) {
     // Chromium's "Execution context was destroyed."
     return { destroyed: true };
   }
+  const hooked = outcome.report?.hooked?.[0];
   if (outcome.terminated) {
-    return { terminated: true };
+    return withHooked({ terminated: true }, hooked);
   }
   const refused = worldRefusal(outcome.report);
   if (refused) {
-    return refused;
+    return withHooked(refused, hooked);
   }
   if (outcome.threw) {
-    return { exception: describeError(outcome.error, outcome.at, outcome.edits) };
+    return withHooked({ exception: describeError(outcome.error, outcome.at, outcome.edits) }, hooked);
   }
   // Chrome reports a returned Error object as a failed evaluation too.
   if (isError(outcome.value)) {
     const { description } = describeError(outcome.value);
-    return { exception: { description: description.split("\n")[0] } };
+    return withHooked({ exception: { description: description.split("\n")[0] } }, hooked);
   }
-  return byValue(outcome.value);
+  return withHooked(byValue(outcome.value), hooked);
 }
 
 /**
@@ -426,33 +437,37 @@ export async function waitForFunction(actor, { id, polling = 100, timeoutMs = 10
         return { navigated: true };
       }
     }
+    // What a poll's predicate left that loads the page afresh: the first
+    // one's, said in whatever reply ends the wait.
+    let hooked = null;
     for (;;) {
       // A predicate that runs past the wait's end is stopped there.
       const budgetMs = Math.max(1, deadline - ChromeUtils.now());
       const outcome = await Promise.race([runInWorld(win, { ...args, budgetMs }), hidden.promise, cancelled]);
+      hooked ??= outcome.report?.hooked?.[0] ?? null;
       if (outcome.cancelled) {
-        return { cancelled: true };
+        return withHooked({ cancelled: true }, hooked);
       }
       if (outcome.hidden) {
-        return { navigated: true };
+        return withHooked({ navigated: true }, hooked);
       }
       if (outcome.terminated) {
-        return { terminated: true };
+        return withHooked({ terminated: true }, hooked);
       }
       const refused = worldRefusal(outcome.report);
       if (refused) {
-        return refused;
+        return withHooked(refused, hooked);
       }
       if (outcome.threw) {
         if (win.document.readyState !== "loading") {
-          return { exception: describeError(outcome.error, outcome.at, outcome.edits) };
+          return withHooked({ exception: describeError(outcome.error, outcome.at, outcome.edits) }, hooked);
         }
       } else if (outcome.value) {
-        return { ok: true };
+        return withHooked({ ok: true }, hooked);
       }
       const left = deadline - ChromeUtils.now();
       if (left <= 0) {
-        return { timedOut: true, url: win.location.href, title: win.document.title };
+        return withHooked({ timedOut: true, url: win.location.href, title: win.document.title }, hooked);
       }
       const slept = await Promise.race([
         new Promise(resolve => setTimeout(resolve, Math.min(polling, left))),
@@ -460,10 +475,10 @@ export async function waitForFunction(actor, { id, polling = 100, timeoutMs = 10
         cancelled,
       ]);
       if (slept?.cancelled) {
-        return { cancelled: true };
+        return withHooked({ cancelled: true }, hooked);
       }
       if (slept?.hidden) {
-        return { navigated: true };
+        return withHooked({ navigated: true }, hooked);
       }
     }
   } finally {

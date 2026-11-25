@@ -56,6 +56,8 @@ const PASSED = new Set([
   "HOME", "PATH", "PWD", "TMPDIR", "ZENIUS_HOME", "ZENIUS_INSTANCE", "ZENIUS_SOCKET", "ZENIUS_NODE_MAJOR", "ZENIUS_WORKING_DIR", "ZENIUS_CLIENT", "NODE_DISABLE_COMPILE_CACHE",
   "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TZ", "COLUMNS", "NO_COLOR", "FORCE_COLOR", "ZENIUS_TIMING",
   "EGO_BROWSER_PAGE_BUDGET", "EGO_BROWSER_RESPONSE_TIMEOUT_MS", "ZENIUS_TASK_SPACE", "ZENIUS_READ_DIR", "HC_TERMINAL_ID", "ZENIUS_FOLDER", "ZENIUS_SIDEBAR_TASK",
+  // zenius mcp's: the sidebar's grants (--sidebar), and the client's tool timeout.
+  "ZENIUS_GRANTS", "ZENIUS_TOOL_TIMEOUT",
 ]);
 // On macOS, CoreFoundation sets this one inside node itself when it's missing
 // (the uid and the text encoding): `env -i node` has it, `env -i env` doesn't.
@@ -934,3 +936,71 @@ test("zenius mcp through the launcher offers no tool for the self-check", async 
   assert.ok(init && Array.isArray(tools) && tools.length > 0, result.stdout);
   assert.doesNotMatch(JSON.stringify({ init, tools }), /self.?check/i);
 });
+
+/** zenius mcp through `launcher` with `args`: the replies to `messages`, by id, once its input ends. */
+async function mcpReplies(args, messages, env = {}) {
+  const head = [
+    { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "security-canary", version: "0" } } },
+    { jsonrpc: "2.0", method: "notifications/initialized" },
+  ];
+  const result = await launch(["mcp", ...args, "--instance", INSTANCE], { stdin: [...head, ...messages].map((message) => `${JSON.stringify(message)}\n`).join(""), env });
+  assert.equal(result.code, 0, result.stderr);
+  const replies = new Map(result.stdout.trim().split("\n").map((line) => JSON.parse(line)).map((reply) => [reply.id, reply]));
+  return { replies, stderr: result.stderr };
+}
+
+test("zenius mcp --sidebar through the launcher: its script works in the working folder alone, with a temporary folder of its own, and no programs or workers", async () => {
+  const reads = launcherValue("READ_DIR");
+  const code = `const fs = await import("node:fs");
+const path = await import("node:path");
+const cp = await import("node:child_process");
+const wt = await import("node:worker_threads");
+const out = { cwd: process.cwd(), tmp: process.env.TMPDIR ?? null, grants: process.env.ZENIUS_GRANTS ?? null, timeout: process.env.ZENIUS_TOOL_TIMEOUT ?? null };
+const probe = (name, fn) => { try { out[name] = fn(); } catch (e) { out[name] = "refused: " + (e?.code ?? e?.name); } };
+probe("readCurrent", () => fs.readFileSync(${JSON.stringify(join(task, "mine.txt"))}, "utf8"));
+probe("readFolder", () => (${JSON.stringify(reads)} ? fs.readdirSync(${JSON.stringify(reads || "/")}).length : "none"));
+probe("readHome", () => fs.readdirSync(${JSON.stringify(SCRATCH_HOME)}).length);
+probe("writeWorking", () => {
+  const file = path.join(${JSON.stringify(WORKING_REAL)}, "zsb-sidebar-probe.txt");
+  fs.writeFileSync(file, "x");
+  const back = fs.readFileSync(file, "utf8");
+  fs.unlinkSync(file);
+  return back + (fs.existsSync(file) ? " left" : "");
+});
+probe("writeTmp", () => { const file = path.join(process.env.TMPDIR, "probe.txt"); fs.writeFileSync(file, "y"); return fs.readFileSync(file, "utf8"); });
+probe("spawn", () => { const r = cp.spawnSync("/bin/true"); return r.error ? "refused: " + (r.error.code ?? r.error.name) : r.status; });
+probe("worker", () => { new wt.Worker("1", { eval: true }); return "started"; });
+return out;`;
+  const { replies, stderr } = await mcpReplies(
+    ["--sidebar"],
+    [
+      { jsonrpc: "2.0", id: 2, method: "tools/list" },
+      { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "script", arguments: { purpose: "Probe the grants", code } } },
+    ],
+    { ZENIUS_TOOL_TIMEOUT: "120" },
+  );
+  assert.ok(replies.get(2)?.result?.tools?.some((tool) => tool.name === "script"), `the sidebar's server offers script: ${stderr}`);
+  const text = replies.get(3)?.result?.content?.[0]?.text ?? "";
+  assert.ok(!replies.get(3)?.result?.isError, text);
+  const out = JSON.parse(text.slice(text.indexOf("Returned: ") + "Returned: ".length));
+  assert.equal(out.cwd, WORKING_REAL, "a script starts in the working folder");
+  assert.equal(out.grants, "sidebar");
+  assert.equal(out.timeout, "120");
+  for (const name of ["readCurrent", "readFolder", "readHome", "spawn", "worker"]) {
+    if (name === "readFolder" && !reads) continue;
+    assert.match(String(out[name]), /^refused: /, `${name}: ${out[name]}`);
+  }
+  assert.equal(out.writeWorking, "x", "the working folder is read, written and deleted");
+  assert.equal(out.writeTmp, "y");
+  assert.ok(out.tmp && basename(out.tmp).startsWith("script-"), `its own temporary folder: ${out.tmp}`);
+  assert.ok(!existsSync(out.tmp), "the script's temporary folder goes with its call");
+});
+
+test("zenius mcp through the launcher, a terminal's, offers script too, with the CLI's grants: the current folder to read", async () => {
+  const code = `const fs = await import("node:fs"); return fs.readFileSync(${JSON.stringify(join(task, "mine.txt"))}, "utf8");`;
+  const { replies } = await mcpReplies([], [{ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "script", arguments: { purpose: "Read a file of the task's", code } } }]);
+  const text = replies.get(2)?.result?.content?.[0]?.text ?? "";
+  assert.ok(!replies.get(2)?.result?.isError, text);
+  assert.match(text, /Returned: "the agent's own file\\n"/);
+});
+

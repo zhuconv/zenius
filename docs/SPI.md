@@ -130,8 +130,8 @@ export const methods = {
    |---|---|---|
    | `mutate` | The agent must control the space; waits while a takeover prompt is open. | every method not listed below |
    | `read` | The agent must control the space; never waits. | `pages.list`, `tabs.list`, `pages.userPage`, `spaces.open`, `page.info`, `page.url`, `page.title`, `page.snapshot`, `page.screenshot`, `page.events`, `page.waitFor*`, `download.path`, `download.failure` |
-   | `task` | An agent task must be in progress, even one handed to the user. | `spaces.handOff`, `spaces.setState` |
-   | `none` | No gate (the method checks ownership itself, or is a tool). | `spaces.list`, `spaces.create`, `spaces.claim`, `spaces.takeOver`, `spaces.waitForControl`, `events.subscribe`, `calls.cancel`, `ui.state`, `browser.*`, `profiles.list`, `dev.*` |
+   | `task` | An agent task must be in progress, even one handed to the user. | `spaces.handOff`, `spaces.setState`, `script.begin` |
+   | `none` | No gate (the method checks ownership itself, or is a tool). | `spaces.list`, `spaces.create`, `spaces.claim`, `spaces.takeOver`, `spaces.waitForControl`, `events.subscribe`, `calls.cancel`, `script.end`, `ui.state`, `browser.*`, `profiles.list`, `dev.*` |
 
    Each method module declares every method's level, `export const access
    = { "page.foo": "read" };`. `tests/core/registry.test.mjs` fails on a
@@ -271,6 +271,7 @@ Rules:
 | `ctx.stopped()` | The error this call ends with once its request stopped (its client canceled it, or its connection closed), else `null`. Throw it from a wait's loop. See "Dispatch". |
 | `ctx.onStopped(fn)` | `fn()` when the call's request stops, at once if it has; returns `off()`, which a handler calls as it ends. Never for the runtime's own calls. |
 | `ctx.unlessStopped(promise, cleanup?)` | `promise`, or `ctx.stopped()`'s error once the request stops first, after `cleanup()` ends what the wait holds (a timer, a waiter). |
+| `ctx.noteHooked(detail)` | The agent's code left `detail` (zen-observe's words, such as "a style sheet") in a page that wasn't hooked before. The request's final frame carries the first as `hooked` (PROTOCOL), result or error. page.evaluate and page.waitForFunction call it with the world's report; other values are ignored. |
 | `ctx.pageBudget` | The page budget for this request: its top-level `pageBudget` (PROTOCOL "Frames"), else pref `zenius.pageBudget`, else 8. `pages.new` and `pages.adopt` enforce it; snapshot headers show it. `ctx.call` passes it on. |
 | `ctx.watchPopups(spaceId, label)` | Collects the popups that page `label` opens: `w.stop()` returns `[{label, targetId}]` for the action receipt. |
 | `ctx.emit(event, params)` | Emits an event to in-process listeners and to clients that called `events.subscribe`. |
@@ -1351,8 +1352,15 @@ Entry points (`modules/service.sys.mjs`):
     ownership event. Every discard goes out at once: the `{task}` one, and
     `discard(browser)` for the group of each of the task's tabs, kept pages
     included. Then each tab that stays open and needs a clean copy loads
-    afresh the same way, each on its own (`reloadHookedAfterTask`). One
-    whose load brings no new document keeps its evidence.
+    afresh the same way, each on its own (`reloadHookedAfterTask`, which
+    answers with those whose load went through). One whose load brings no
+    new document keeps its evidence.
+    - **`pagesReloaded`**, an in-process event (`service.emitLocal`), for
+      the agent sidebar's note in the task's chat: `{space, pages: [{page,
+      url}]}` once those loads settle, only when one went through. `page`
+      is the task's label for it (null if it had none), `url` its address
+      after the load. Never to a connection: a client subscribed with no
+      space would read other tasks' addresses.
     - The ownership event stops keeping the task's pages alive in the same
       turn, so a kept page that isn't shown is a background tab before its
       discard answers, and Gecko lowers a process whose tabs are all
@@ -3844,7 +3852,9 @@ written as their trigger. Written stays until no defense reads it.
     brings the danger back;
   - `markHooked(target, detail)` marks the window's document and the other
     documents of its group in that process, at once and through the
-    `zenius:evident` message;
+    `zenius:evident` message. It answers the detail as recorded, or null
+    when the document was hooked already: the world's report of the call
+    then carries it, and the call's final frame says `hooked` (PROTOCOL);
   - `hookedMarkup(node)`: the check of inserted markup that the world and
     zen-input's paste share.
 - The parent takes `zenius:evident` only for the sending process's own
@@ -4066,13 +4076,31 @@ the agent's steps from `input/steps.sys.mjs`.
     code), its run time without held time, and the name the action found.
     A call that failed once its client canceled it, or its connection
     closed, gets "stopped" ("Dispatch", "Stopped requests").
+  - A script of zenius mcp's script tool is a step of its own, method
+    "script". The script's connection begins it with `script.begin` as the
+    script starts, or once the script starts the server's task, and ends
+    it with `script.end` (`methods/script.sys.mjs`). It ends "ok", with a
+    zenius error code, or "failed"; a connection that closes first ends it
+    "stopped". While it runs, each step of that connection's calls in the
+    task carries `within`, its id.
 - **Reading.** zen-ux reads the steps beside zen-core's task feed. The feed
   carries a task's life only.
   - `stepsOf(spaceId)` gives the task's last 50 steps,
-    `{id, at, ms, method, text, outcome, page}`, in the order their calls
-    began.
+    `{id, at, ms, method, text, outcome, page, within?}`, in the order their
+    calls began. Past 50 the oldest that have ended go first: a running
+    step stays while it runs, such as a script's own step under the steps
+    of its calls, so its end is still told.
   - `onStep(fn)` calls `fn({space, step})` when a step begins and again
     when it ends, with the same `id`.
+  - `stopScript(id)`, the sidebar's Stop for a running script step: the
+    step ends "stopped", and its connection gets a `scriptStopped` event,
+    then ends, which stops its waits and page code ("Dispatch", "Stopped
+    requests") and runs none of its later calls. It ends with the
+    connection's `end()` (modules/server.sys.mjs), which lets the frames
+    already sent reach the client: `close()` drops what the socket thread
+    hasn't copied out yet. It returns whether that script
+    was running. So the user's Stop stops the script whatever the agent's
+    client does with the call.
   - A task's steps stay after it ends. The 32 most recently active tasks
     keep theirs.
 - **What a step may show.** Steps last, so these rules hold (zen-snapshot's
@@ -4083,7 +4111,10 @@ the agent's steps from `input/steps.sys.mjs`.
     query or userinfo;
   - an element's name from the page, put on one line, stripped of invisible
     and control characters, capped at 60 characters, and quoted. Quote
-    marks inside it become apostrophes.
+    marks inside it become apostrophes;
+  - a script's title, `Run a script: "<purpose>"`: the tool's purpose, the
+    agent's own words, made a line as an element's name is. It reads as the
+    agent's claim, and the steps under it as what happened.
 - **Names.** Content's `stepName` (`content/actions.sys.mjs`) reads the name
   before the action, without layout. It tries, in order: aria-label,
   aria-labelledby, a field's label, a button's value, placeholder, alt,

@@ -14,10 +14,14 @@
 import { CODE_GUIDE, codeParts, REFUSAL_GUIDE, REFUSED_KINDS } from "./error-guide.ts";
 import { MAX_LINE, MAX_WAIT_S } from "./feedback.ts";
 import { readFolders, UPLOAD_LIMIT_BYTES, UPLOAD_LIMIT_FILES, writeFolders } from "./files.ts";
+import { defaultEntries, formatEntry } from "./help.ts";
 import {
+  CALL_MARGIN_S,
   MAX_RESULT_CHARS,
   MAX_SNAPSHOT_CHARS,
   REPORT_CALL_S,
+  SCRIPT_DEFAULT_S,
+  SCRIPT_MAX_S,
   TASK_NAME_MAX,
   WAIT_DEFAULT_S,
   WAIT_MAX_S,
@@ -67,7 +71,8 @@ export const TOOL_CALLS: Array<[tools: string, calls: string]> = [
   ["finish", "task.finish()"],
 ];
 
-type Topic = { name: string; title: string; summary: string; body: () => string };
+/** `skill: false`: zenius mcp's alone, so the skill, for the CLI, has no reference of it. */
+type Topic = { name: string; title: string; summary: string; body: () => string; skill?: false };
 
 const TOPICS: Topic[] = [
   {
@@ -80,7 +85,17 @@ const TOPICS: Topic[] = [
   { name: "urls", title: "URLs", summary: "which URLs agents may load, and the pages where they can't act.", body: urlsBody },
   { name: "files", title: "Files", summary: "where a script's files go, and which files it may upload.", body: filesBody },
   { name: "limits", title: "Limits", summary: "this version's limits and default timeouts, and the agent's pointer id.", body: limitsBody },
+  {
+    name: "script",
+    title: "Scripts in zenius mcp",
+    summary: "how zenius mcp's script tool runs a script: its task, the user, its files, its time limit, and the API.",
+    body: scriptBody,
+    skill: false,
+  },
 ];
+
+/** The topics the skill has as references (sdk/scripts/write-references.ts). */
+export const SKILL_TOPICS: readonly string[] = TOPICS.filter((topic) => topic.skill !== false).map((topic) => topic.name);
 
 /** The topics, in the order the index lists them. */
 export const DOC_TOPICS: ReadonlyArray<Pick<Topic, "name" | "title" | "summary">> = TOPICS.map(({ name, title, summary }) => ({
@@ -213,7 +228,68 @@ function filesBody(): string {
     "",
     "## Through the MCP tools",
     "",
-    "The MCP tools read and write no files: they offer no upload and no screenshot. A file a page downloads in the task lands in the working folder, and a later result says where, under which name, or why it failed. wait with downloads: true waits for the downloads still running, and finish refuses while one runs, since the task's end would cancel it, unless cancel_downloads is true.",
+    "The one-step MCP tools read and write no files: they offer no upload and no screenshot. A file a page downloads in the task lands in the working folder, and a later result says where, under which name, or why it failed. wait with downloads: true waits for the downloads still running, and finish refuses while one runs, since the task's end would cancel it, unless cancel_downloads is true.",
+    "",
+    "The script tool, which only a server under the sandboxed launcher offers, runs a script with the launcher's folders:",
+    "",
+    "- In Zen's agent sidebar (zenius mcp --sidebar): the working folder, to read, write and delete, and the script's own temporary folder, its TMPDIR, which goes when its call ends. No other folder: a script starts in the working folder, and keeps a screenshot by saving it there.",
+    "- In a terminal: the folders its zenius nodejs gets from the same folder.",
+    "- Its result lists the files it read, wrote, deleted and uploaded, as far as the server saw.",
+  ].join("\n");
+}
+
+/**
+ * The API's task functions, which a script in zenius mcp gets in the
+ * server's own versions (mcp-script.ts): the topic says what those do.
+ */
+const SERVER_TASK_FUNCTIONS = new Set(["profiles", "listTaskSpaces", "taskSpace", "claimTaskSpace", "takeOverTaskSpace"]);
+
+/**
+ * The script edition of the guide, which the script tool's description and
+ * the sidebar's Work point to before a first script. It stays within what
+ * both clients keep of a result (Codex about 10,000 tokens).
+ */
+function scriptBody(): string {
+  return [
+    "# Scripts in zenius mcp",
+    "",
+    "The script tool runs a zenius nodejs script in this server's task: JavaScript with zenius's Page and TaskSpace API, for work of many steps in one call, such as a loop over pages or over files in the working folder. Only a server under the sandboxed launcher offers it.",
+    "",
+    "## A call",
+    "",
+    `- code is the body of an async function: top-level await and return work. Its console output, then what it returns, as JSON, come back; past ${MAX_RESULT_CHARS.toLocaleString("en-US")} characters they're cut.`,
+    "- purpose is one line the user reads as the step, such as Compare the three flights' prices. Never a password, card number or code.",
+    '- task is this server\'s task, null until open or taskSpace("<a name>") starts it. page is the current tab, or the one the call\'s page names (p1, p2, ...).',
+    "- One call runs at a time. The task, its tabs and the working folder carry over to the next call; a script's variables don't, so return or write what the next one needs.",
+    `- Its time limit is seconds, else ${SCRIPT_DEFAULT_S} s, at most ${SCRIPT_MAX_S} s, and never past the client's tool timeout less ${CALL_MARGIN_S} s. At the limit its call answers with the output so far, and its later calls to Zen fail.`,
+    "- Wait with page.waitForSelector(), waitForURL() and waitForLoadState(), or with the wait tool, never with a busy loop: a loop with no await holds the server until the client gives up.",
+    "",
+    "## The task",
+    "",
+    '- taskSpace() returns this server\'s task, by its name or id too. With no task yet, taskSpace("<a name>") starts one, as open does. Any other task is refused.',
+    "- listTaskSpaces() lists this server's task alone.",
+    "- claimTaskSpace() and takeOverTaskSpace() are refused: here only the user gives a task back.",
+    "",
+    "## The user",
+    "",
+    "- To hand the task to the user, for signing in, paying, a captcha or a code, end the script with task.handOff(), since its later calls are refused. Then call the wait tool with user: true.",
+    "- After the user's Take over, the script's next call fails with ZEN_TASK_SPACE_USER_IN_CONTROL. Let that end the script rather than catching it, then ask the user to press Resume agent in Zen, and call the wait tool with user: true.",
+    "- When the user stops the script with Stop in Zen's sidebar, its call ends: don't run it again unless they ask.",
+    "",
+    "## Files",
+    "",
+    "- In Zen's agent sidebar a script starts in the working folder, where relative paths and downloads land, and it may read, write and delete there. Its own temporary folder, TMPDIR, goes when its call ends. No other folder is open to it. In a terminal it has the folders zenius nodejs has there.",
+    "- The result lists the files it read, wrote, deleted and uploaded, as far as the server saw.",
+    "- The files topic has the rules for paths and uploads.",
+    "",
+    "## The API",
+    "",
+    'The CLI\'s API as help() in a script lists it, without the task functions above. help("<name>") in a script gives one entry, and the errors topic every error code.',
+    "",
+    defaultEntries()
+      .filter((entry) => !SERVER_TASK_FUNCTIONS.has(entry.name))
+      .map(formatEntry)
+      .join("\n\n"),
   ].join("\n");
 }
 
@@ -247,6 +323,13 @@ function limitsBody(): string {
     "",
     `- The agent's mouse events carry pointerId ${L.agentPointer.value} (PointerEvent.pointerId), not the real mouse's 0, so that a page's pointer capture of the agent's press can't take the user's mouse. If a site breaks on that id, the user can set ${L.agentPointer.pref} to 0 in about:config, which gives the agent's events the real mouse's id again.`,
     "",
+    "## Pages that load afresh",
+    "",
+    "- Page code (page.evaluate(), waitForFunction()) that leaves code in a page, or a change to what the user types into, hooks the page: a script element, an inline handler (onclick=...), a javascript: URL, the page's eval or Function, a string timer, a frame, an object or embed, a form or field, an editable area, a base element, a meta refresh, a style sheet, style rule or font face, a shadow root, document.write. Reading the page, clicking, and setting values, text, classes, inline styles or other attributes don't.",
+    "- zenius loads a hooked page afresh when it's handed to the user, before the user clicks or types there, and at the task's end. The load carries the form's fields over, but what the page keeps only in its memory, such as a game's moves or an editor's undo, is lost.",
+    "- The call that hooks a page says so in a notice, which zenius mcp's evaluate tool and script result show, and at the task's end Zen's agent sidebar names the pages that loaded afresh.",
+    "- To keep such state, leave nothing in the page, or reach the state's own address first with page.goto(), such as a board's position in its URL. An address the agent's code sets in place (history.pushState(), the hash) doesn't keep it: the load goes to the address the page had before.",
+    "",
     "## The MCP tools",
     "",
     `- read_page returns at most ${MAX_SNAPSHOT_CHARS.toLocaleString("en-US")} characters: read a part with root: ref=N.`,
@@ -254,6 +337,8 @@ function limitsBody(): string {
     `- open names the task in at most ${TASK_NAME_MAX} characters.`,
     `- wait: ${WAIT_DEFAULT_S} s unless its seconds says otherwise, at most ${WAIT_MAX_S} s. With user: true, ${WAIT_USER_DEFAULT_S} s, at most ${WAIT_USER_MAX_S} s.`,
     `- report_problem answers within ${REPORT_CALL_S} s, unless its wait asks for longer: at most ${WAIT_USER_MAX_S} s.`,
+    `- script: ${SCRIPT_DEFAULT_S} s unless its seconds says otherwise, at most ${SCRIPT_MAX_S} s. At its limit its call ends with the output so far, and its later calls fail.`,
+    `- No call goes past the client's tool timeout less ${CALL_MARGIN_S} s: a script's limit, wait and report_problem. The client's server entry gives it as ZENIUS_TOOL_TIMEOUT, in seconds; without it, Codex and other clients get 60 s, and Claude Code none.`,
     "",
     "## Problem reports",
     "",

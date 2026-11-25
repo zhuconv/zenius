@@ -6,7 +6,9 @@
 //
 // zenius mcp runs each tool call with an AbortSignal (withSignal): a call made
 // for a tool call that its client cancels fails here at once, and the runtime
-// stops it (calls.cancel), so a canceled wait ends there too.
+// stops it (calls.cancel), so a canceled wait ends there too. A script tool
+// call's script runs with a signal of its own, which also aborts as that call
+// ends (SCRIPT_CALL_OVER), so what the script left running gets no more calls.
 
 import type { Socket } from "node:net";
 
@@ -43,6 +45,8 @@ type Pending = {
   quiet?: boolean;
   /** Stops listening to the canceling signal (withSignal). */
   unlisten?: () => void;
+  /** CallOptions.onHooked. */
+  onHooked?: (detail: string) => void;
 };
 
 export type CallOptions = {
@@ -55,9 +59,18 @@ export type CallOptions = {
    * not recorded, since the script didn't meet it and may never.
    */
   quiet?: boolean;
+  /**
+   * The call's page code left something in the page that loads it afresh:
+   * the runtime's `hooked` beside its result or error (PROTOCOL "Frames"),
+   * once per document. Called before the call settles, whatever it ends with.
+   */
+  onHooked?: (detail: string) => void;
 };
 
 export type EventListener = (event: string, params: unknown) => void;
+
+/** The reason a script's own signal aborts with once its tool call is over (zenius mcp's script tool). */
+export const SCRIPT_CALL_OVER: unique symbol = Symbol("the script's call is over");
 
 /** The tool call that code runs for in zenius mcp, made on its first one: a `zenius nodejs` run has none. */
 let callSignals: import("node:async_hooks").AsyncLocalStorage<AbortSignal> | undefined;
@@ -71,7 +84,10 @@ export function withSignal<T>(signal: AbortSignal, fn: () => T): T {
   return callSignals.run(signal, fn);
 }
 
-function canceledError(op: string): ZeniusError {
+function canceledError(op: string, reason: unknown): ZeniusError {
+  if (reason === SCRIPT_CALL_OVER) {
+    return new ZeniusError("ZEN_CANCELED", `${op}: canceled, since the script tool call it was for is over, and its calls end with it`);
+  }
   return new ZeniusError("ZEN_CANCELED", `${op}: canceled, since the client canceled the tool call it was for`);
 }
 
@@ -143,12 +159,16 @@ export class RpcClient {
     const op = options.op ?? method;
     const site: { stack?: string } = {};
     Error.captureStackTrace(site, this.call);
-    if (this.#failure) return Promise.reject(atSite(this.#rebrand(this.#failure, op), site));
+    // Refused after a turn of the event loop: a script that retries in a loop
+    // must not starve the process, which in zenius mcp is the server's.
+    if (this.#failure) return later(atSite(this.#rebrand(this.#failure, op), site));
     if (this.#closed) {
-      return Promise.reject(atSite(new ZeniusError("ZEN_BROWSER_UNAVAILABLE", `${op}: the connection was already closed`), site));
+      return later(atSite(new ZeniusError("ZEN_BROWSER_UNAVAILABLE", `${op}: the connection was already closed`), site));
     }
     const signal = callSignals?.getStore();
-    if (signal?.aborted) return Promise.reject(atSite(canceledError(op), site));
+    // After a turn too: a script past its limit that retries in a loop
+    // would otherwise spin on refusals and starve the server's own work.
+    if (signal?.aborted) return later(atSite(canceledError(op, signal.reason), site));
     this.connect();
     const id = this.#nextId++;
     return new Promise<T>((resolve, reject) => {
@@ -161,6 +181,7 @@ export class RpcClient {
         startedAt: performance.now(),
         heldMs: 0,
         ...(options.quiet ? { quiet: true } : {}),
+        ...(options.onHooked ? { onHooked: options.onHooked } : {}),
         ...(typeof (params as { space?: unknown } | undefined)?.space === "number" ? { space: (params as { space: number }).space } : {}),
         ...(options.safetyTimeoutMs !== undefined && Number.isFinite(options.safetyTimeoutMs) ? { safetyTimeoutMs: options.safetyTimeoutMs } : {}),
       };
@@ -173,7 +194,7 @@ export class RpcClient {
       const pageBudget = configuredPageBudget();
       this.#socket!.write(`${JSON.stringify({ id, method, params, progress: true, ...(pageBudget ? { pageBudget } : {}) })}\n`);
       if (signal) {
-        const cancel = () => this.#cancel(id);
+        const cancel = () => this.#cancel(id, signal.reason);
         signal.addEventListener("abort", cancel, { once: true });
         pending.unlisten = () => signal.removeEventListener("abort", cancel);
       }
@@ -181,11 +202,11 @@ export class RpcClient {
   }
 
   /**
-   * The tool call this call was for was canceled: the runtime stops the call
-   * (its wait ends, its page code stops) and sends no answer, and it fails
-   * here at once.
+   * The tool call this call was for was canceled, or the script it was for
+   * is over: the runtime stops the call (its wait ends, its page code stops)
+   * and sends no answer, and it fails here at once.
    */
-  #cancel(id: number): void {
+  #cancel(id: number, reason: unknown): void {
     const pending = this.#pending.get(id);
     if (!pending) return;
     this.#settle(id);
@@ -193,7 +214,7 @@ export class RpcClient {
       // Its own answer has no pending call, so it's dropped.
       this.#socket.write(`${JSON.stringify({ id: this.#nextId++, method: "calls.cancel", params: { id } })}\n`);
     }
-    pending.reject(atSite(canceledError(pending.op), pending.site));
+    pending.reject(atSite(canceledError(pending.op, reason), pending.site));
   }
 
   onEvent(listener: EventListener): () => void {
@@ -278,6 +299,11 @@ export class RpcClient {
       return;
     }
     this.#settle(frame.id);
+    if (typeof frame.hooked === "string" && frame.hooked) {
+      try {
+        pending.onHooked?.(frame.hooked);
+      } catch {}
+    }
     const ok = !frame.error;
     if (pending.heldSince !== undefined) this.#release(pending);
     this.#onTiming?.(pending.method, performance.now() - pending.startedAt, ok, pending.heldMs);
@@ -381,4 +407,9 @@ export function decodeUnserializable(value: string): unknown {
   if (value === "-0") return -0;
   if (/^-?\d+n$/.test(value)) return BigInt(value.slice(0, -1));
   return value;
+}
+
+/** A rejection with `error` once the event loop has turned (setImmediate: after pending I/O). */
+function later<T>(error: Error): Promise<T> {
+  return new Promise<T>((_, reject) => setImmediate(() => reject(error)));
 }

@@ -30,5 +30,22 @@ export const WAIT_USER_DEFAULT_S = 50;
 export const REPORT_CALL_S = 50;
 export const REPORT_DOCTOR_MS = 15_000;
 export const REPORT_WAIT_MIN_S = 10;
+/**
+ * The script tool's limit, in seconds: 50 unless the agent asks, at most
+ * 600. Every call also stays within the client's tool timeout less
+ * CALL_MARGIN_S (TOOL_TIMEOUT_S below), so the server answers first.
+ */
+export const SCRIPT_DEFAULT_S = 50;
+export const SCRIPT_MAX_S = 600;
+/**
+ * The client's tool timeout, which the agent sidebar passes as
+ * ZENIUS_TOOL_TIMEOUT. Without it: Codex's default, 60 s, for Codex and any
+ * client the server doesn't know; none for Claude Code, whose default is
+ * about 27.8 hours. A call stays within it less CALL_MARGIN_S, and never
+ * under CALL_MIN_S.
+ */
+export const TOOL_TIMEOUT_S = 60;
+export const CALL_MARGIN_S = 10;
+export const CALL_MIN_S = 5;
 /** The only pages open and goto load: a file:, data: or browser URL would reach past the web. */
 export const WEB_PROTOCOLS = ["http:", "https:"] as const;

@@ -157,11 +157,14 @@ export function evidenceFlag(target) {
  *
  * @param {Window|BrowsingContext} target  the document's window
  * @param {string} detail  what was left, in a few words ("a script element")
+ * @returns {string|null} the detail as recorded, when this marked the
+ *   document; null when it was hooked already, or isn't a document here. The
+ *   agent's call that marked it is told (content/agentworld.sys.mjs).
  */
 export function markHooked(target, detail) {
   const bc = contextOf(target);
   if (!bc) {
-    return;
+    return null;
   }
   const text = evidenceDetail(detail);
   let id = 0;
@@ -169,7 +172,7 @@ export function markHooked(target, detail) {
     id = bc.docShell?.domWindow?.windowGlobalChild?.innerWindowId ?? 0;
   } catch {}
   if (!id || hookedHere.has(id) || sharedFlags()?.get?.(id)?.hooked !== undefined) {
-    return;
+    return null;
   }
   hookedHere.set(id, text);
   if (!watching) {
@@ -181,6 +184,7 @@ export function markHooked(target, detail) {
   } catch (e) {
     console.error("[zenius] telling the parent of a hooked page", e);
   }
+  return text;
 }
 
 /** Tests and diagnostics: what this module holds. */

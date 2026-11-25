@@ -28,6 +28,9 @@
 #     such as ~/Downloads, for uploads, held to the same rules; never write
 #     it;
 #   - connect to the instance's socket, which it picks as the CLI does.
+# With --sidebar (zenius mcp --sidebar, the agent sidebar's server), neither
+# the current folder nor the read folder: the working folder alone, where the
+# command starts (docs/mcp.md, "script").
 # Nothing else: no other files, no programs, no network or other sockets,
 # and only the environment variables listed below. The browser adds nothing
 # to that: zenius gives agents only web pages, and opens no path they name.
@@ -95,11 +98,14 @@ node_dir=$(cd -P "${NODE%/*}" 2>/dev/null && pwd -P) || node_dir=${NODE%/*}
 # the next argument whatever it is, then ZENIUS_INSTANCE.
 instance=${ZENIUS_INSTANCE:-default}
 take=0
+# --sidebar only narrows what this grants, so it's taken wherever it stands.
+narrow=0
 for arg in "$@"; do
   if [ "$take" = 1 ]; then instance=$arg take=0; continue; fi
   case $arg in
     --instance) take=1 ;;
     --instance=*) instance=${arg#--instance=} ;;
+    --sidebar) narrow=1 ;;
   esac
 done
 case $instance in '' | *[!A-Za-z0-9._-]*) fail "an instance name has only letters, digits, '.', '_' and '-'" ;; esac
@@ -233,10 +239,13 @@ if [ "$missing" = 1 ]; then
   mkdir -m 700 "$works" 2>/dev/null || fail "$cant_make"
 fi
 
-# The current folder, unless granting it would hand over more than a task's.
+# The current folder, unless granting it would hand over more than a task's,
+# or the sidebar's server asked for the working folder alone. The sidebar's
+# agents start in Zen's profile, which too_wide refuses anyway.
 work=$(pwd -P)
 grant=1
 too_wide "$work" && grant=0
+[ "$narrow" = 0 ] || grant=0
 # The same folder as the agent's shell names it (PWD), when that is another
 # spelling of it, through a link (macOS's /tmp and /var are links into
 # /private). Node's permission model checks the path a script names, so it is
@@ -254,9 +263,9 @@ esac
 # is held to the same rules, and can't be the working folder or inside it,
 # which scripts write. Unlike a current folder, which an agent picks, it is
 # the install's choice, so a wide one stops every command with the reason.
-# One that has gone is simply not granted.
+# One that has gone is simply not granted, and the sidebar's server gets none.
 reads=
-if [ -n "$READ_DIR" ] && reads=$(cd -P "$READ_DIR" 2>/dev/null && pwd -P); then
+if [ "$narrow" = 0 ] && [ -n "$READ_DIR" ] && reads=$(cd -P "$READ_DIR" 2>/dev/null && pwd -P); then
   too_wide "$reads" && fail "the folder this install lets scripts read, $READ_DIR, holds more than a task's files ($reads): reinstall with scripts/install-cli.sh --sandbox --read-dir <a folder such as ~/Downloads>, or --read-dir none"
   case $reads/ in "$works"/*) fail "the folder this install lets scripts read, $READ_DIR, is the working folder or inside it ($reads), where scripts write: reinstall with scripts/install-cli.sh --sandbox --read-dir <another folder>, or --read-dir none" ;; esac
 else
@@ -359,6 +368,16 @@ folder=${work##*/}
 case ${ZENIUS_SIDEBAR_TASK-} in '' | *[!A-Za-z0-9-]*) sidebar= ;; *) sidebar=$ZENIUS_SIDEBAR_TASK ;; esac
 [ ${#sidebar} -le 64 ] || sidebar=
 
+# What the server learns from here (docs/mcp.md, "script"): that it got the
+# sidebar's grants, which it needs before it offers scripts to the sidebar,
+# so an older launcher's wider grants never come with them; and the client's
+# tool timeout in seconds, which the sidebar gives its server, as a whole
+# number or not at all.
+grants=
+[ "$narrow" = 0 ] || grants=sidebar
+case ${ZENIUS_TOOL_TIMEOUT-} in '' | *[!0-9]*) tool_timeout= ;; *) tool_timeout=$ZENIUS_TOOL_TIMEOUT ;; esac
+[ ${#tool_timeout} -le 6 ] || tool_timeout=
+
 # The claim prompt's label for the agent (globals.ts's clientLabel), worked
 # out here because the agent's own variables stay outside. It's a display
 # name the runtime treats as untrusted, so it adds no reach.
@@ -384,6 +403,7 @@ exec /usr/bin/env -i HOME="$HOME" PATH=/usr/bin:/bin TMPDIR="$box" ZENIUS_WORKIN
   ${NO_COLOR+"NO_COLOR=$NO_COLOR"} ${FORCE_COLOR+"FORCE_COLOR=$FORCE_COLOR"} \
   ${ZENIUS_TIMING+"ZENIUS_TIMING=$ZENIUS_TIMING"} \
   ${ZENIUS_TASK_SPACE+"ZENIUS_TASK_SPACE=$ZENIUS_TASK_SPACE"} \
+  ${grants:+"ZENIUS_GRANTS=$grants"} ${tool_timeout:+"ZENIUS_TOOL_TIMEOUT=$tool_timeout"} \
   ${EGO_BROWSER_PAGE_BUDGET+"EGO_BROWSER_PAGE_BUDGET=$EGO_BROWSER_PAGE_BUDGET"} \
   ${EGO_BROWSER_RESPONSE_TIMEOUT_MS+"EGO_BROWSER_RESPONSE_TIMEOUT_MS=$EGO_BROWSER_RESPONSE_TIMEOUT_MS"} \
   "$@"

@@ -24,6 +24,17 @@ export function inSandbox(): boolean {
   return typeof (process as { permission?: unknown }).permission === "object";
 }
 
+/**
+ * Whether this process runs under the sandboxed launcher itself: Node's
+ * permission model is on, and the launcher's own variable is there
+ * (ZENIUS_NODE_MAJOR, which only sdk/sandbox/launcher.sh sets). zenius mcp
+ * offers its script tool only then: unsandboxed, a script would have the
+ * user's whole account.
+ */
+export function underLauncher(env: NodeJS.ProcessEnv = process.env): boolean {
+  return inSandbox() && typeof env.ZENIUS_NODE_MAJOR === "string" && env.ZENIUS_NODE_MAJOR !== "";
+}
+
 /** node:net takes ~3 ms to load, so only scripts that reach the browser pay for it. */
 export function net(): typeof import("node:net") {
   return require("node:net");
@@ -33,7 +44,12 @@ export function tty(): typeof import("node:tty") {
   return require("node:tty");
 }
 
-/** For zenius mcp's tool calls alone (rpc.ts withSignal): a `zenius nodejs` run never loads it. */
+/** For zenius mcp alone: its tool calls (rpc.ts withSignal) and its scripts' rounds (round.ts); a `zenius nodejs` run never loads it. */
 export function asyncHooks(): typeof import("node:async_hooks") {
   return require("node:async_hooks");
+}
+
+/** For zenius mcp's scripts alone (mcp-script.ts: a script's empty stdin). */
+export function stream(): typeof import("node:stream") {
+  return require("node:stream");
 }

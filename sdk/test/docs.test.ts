@@ -11,7 +11,7 @@ import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { apiEntry, normalizeApiName } from "../src/api-schema.ts";
-import { DOC_TOPICS, docsText, referenceText, RUNTIME_LIMITS, TOOL_CALLS } from "../src/docs.ts";
+import { DOC_TOPICS, docsText, referenceText, RUNTIME_LIMITS, SKILL_TOPICS, TOOL_CALLS } from "../src/docs.ts";
 import { CODE_GUIDE, REFUSAL_GUIDE } from "../src/error-guide.ts";
 import { WEB_PROTOCOLS } from "../src/limits.ts";
 import { callTool, handle, toolList } from "../src/mcp.ts";
@@ -117,8 +117,27 @@ describe("zenius docs", () => {
     }
   });
 
+  it("script: the script tool's rules and the API without the CLI's task functions, within what both clients keep of a result", () => {
+    const { text, found } = docsText("script");
+    assert.ok(found);
+    // About 8,000 tokens at most, inside Codex's 10,000.
+    assert.ok(text.length < 32_000, `${text.length} characters`);
+    for (const rule of [
+      /end the script with task\.handOff\(\), since its later calls are refused\. Then call the wait tool with user: true/,
+      /ZEN_TASK_SPACE_USER_IN_CONTROL\. Let that end the script rather than catching it, then ask the user to press Resume agent/,
+      /never with a busy loop/,
+      /claimTaskSpace\(\) and takeOverTaskSpace\(\) are refused/,
+    ]) {
+      assert.match(text, rule);
+    }
+    // The API's own entries for these would say what the CLI's do.
+    for (const name of ["claimTaskSpace", "takeOverTaskSpace", "taskSpace", "profiles"]) assert.doesNotMatch(text, new RegExp(`^${name}$`, "m"), name);
+    assert.match(text, /^Page\.click$|^page\.click$/m);
+  });
+
   it("the skill's references are what sdk/scripts/write-references.ts writes", () => {
-    for (const { name } of DOC_TOPICS) {
+    assert.deepEqual(SKILL_TOPICS, ["errors", "urls", "files", "limits"], "script is zenius mcp's alone: the skill is the CLI's");
+    for (const name of SKILL_TOPICS) {
       const file = `skill/zenius/references/${name}.md`;
       assert.ok(read(file) === referenceText(name), `${file} is out of date: run node sdk/scripts/write-references.ts`);
     }

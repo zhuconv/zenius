@@ -19,4 +19,10 @@ Next: Give screenshot() and saveAs() a relative path, which lands in the working
 
 ## Through the MCP tools
 
-The MCP tools read and write no files: they offer no upload and no screenshot. A file a page downloads in the task lands in the working folder, and a later result says where, under which name, or why it failed. wait with downloads: true waits for the downloads still running, and finish refuses while one runs, since the task's end would cancel it, unless cancel_downloads is true.
+The one-step MCP tools read and write no files: they offer no upload and no screenshot. A file a page downloads in the task lands in the working folder, and a later result says where, under which name, or why it failed. wait with downloads: true waits for the downloads still running, and finish refuses while one runs, since the task's end would cancel it, unless cancel_downloads is true.
+
+The script tool, which only a server under the sandboxed launcher offers, runs a script with the launcher's folders:
+
+- In Zen's agent sidebar (zenius mcp --sidebar): the working folder, to read, write and delete, and the script's own temporary folder, its TMPDIR, which goes when its call ends. No other folder: a script starts in the working folder, and keeps a screenshot by saving it there.
+- In a terminal: the folders its zenius nodejs gets from the same folder.
+- Its result lists the files it read, wrote, deleted and uploaded, as far as the server saw.

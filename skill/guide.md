@@ -301,8 +301,9 @@ Use `page.evaluate()` for bulk extraction or complex in-page work. Its
 callback runs in a sandbox that sees the Page's DOM, not your script's
 variables, Node.js modules or page globals. Read the DOM: reading a page global
 (`window.app`, `typeof jQuery`) fails the call, even if caught. Code you hand
-the page itself (`<script>`, `eval()`, string timers) runs there; zenius then
-reloads that page before the user uses it.
+the page itself (`<script>`, `eval()`, string timers) runs there. It, or a
+style or form you add, reloads the page before the user uses it and at the
+task's end, losing its in-memory state.
 Pass one JSON-serializable value as its second argument; it returns one:
 
 ```js

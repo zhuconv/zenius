@@ -90,9 +90,12 @@ export class Client {
   /**
    * @param {string} method
    * @param {object} [params]
-   * @param {{timeout?: number}} [opts]  overrides the client's callTimeout
+   * @param {{timeout?: number, frame?: boolean}} [opts]  timeout overrides
+   *   the client's callTimeout; frame: resolve with the whole final frame,
+   *   an error's too, for what it carries beside the result (PROTOCOL
+   *   "Frames": unserializable, hooked)
    */
-  call(method, params = {}, { timeout = this.#callTimeout } = {}) {
+  call(method, params = {}, { timeout = this.#callTimeout, frame = false } = {}) {
     if (this.#closedError) {
       return Promise.reject(this.#closedError);
     }
@@ -117,7 +120,7 @@ export class Client {
       // A call held at a takeover prompt hasn't started: its timer stops
       // while held and starts afresh at release (PROTOCOL "Frames").
       const onHeld = held => (held ? clearTimeout(timer) : arm());
-      this.#pending.set(id, { resolve: done(resolve), reject: done(reject), method, onHeld });
+      this.#pending.set(id, { resolve: done(resolve), reject: done(reject), method, onHeld, frame });
       arm();
       this.#sock.write(JSON.stringify({ id, method, params, progress: true, pageBudget: this.#pageBudget }) + "\n");
     });
@@ -181,7 +184,9 @@ export class Client {
       return;
     }
     this.#pending.delete(frame.id);
-    if (frame.error) {
+    if (pending.frame) {
+      pending.resolve(frame);
+    } else if (frame.error) {
       pending.reject(new RpcError(frame.error, pending.method));
     } else if (typeof frame.unserializable === "string") {
       pending.resolve(decodeUnserializable(frame.unserializable));

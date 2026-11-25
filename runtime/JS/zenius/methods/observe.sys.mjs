@@ -250,6 +250,9 @@ async function runEvaluation(ctx, target, args, params, apiName) {
     if (reply === TIMEOUT) {
       reply = await recoverEvaluation(ctx, target, call, outcome, { apiName, executionMs, transportMs, started });
     }
+    // What the agent's code left that loads the page afresh, whatever the
+    // call ends with: its final frame says so (PROTOCOL "hooked").
+    ctx.noteHooked(reply.hooked);
     if (reply.lost || lost) {
       await stopIfRunning(ctx, target);
       throw stoppedError(reply.lost ?? lost, target.space, apiName);
@@ -423,11 +426,15 @@ async function waitForFunction(ctx, params) {
           transportMs: timeoutMs,
           started: ChromeUtils.now() - timeoutMs,
         });
+        ctx.noteHooked(r.hooked);
         if (r.terminated) {
           throw timedOut();
         }
         reply = r;
       }
+      // A predicate that left something loading the page afresh, in this
+      // round's document: the call's final frame says so.
+      ctx.noteHooked(reply.hooked);
       if (reply.lost) {
         // The pause reached us before the user's input reached the page
         // (zen-ux pauses first, in the parent), and this message goes to the

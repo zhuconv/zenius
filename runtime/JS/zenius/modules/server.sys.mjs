@@ -8,9 +8,15 @@ const lazy = {};
 // not at startup (I4).
 ChromeUtils.defineESModuleGetters(lazy, {
   redactText: "chrome://userscripts/content/zenius/content/signin.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
 let nextConnectionId = 1;
+
+// How long a connection that ends after its last frames (end()) waits for its
+// client to close its side before the socket closes anyway.
+const END_GRACE_MS = 5000;
 
 export class RpcServer {
   QueryInterface = ChromeUtils.generateQI(["nsIServerSocketListener"]);
@@ -100,6 +106,9 @@ export class Connection {
   #out;
   #rawOut;
   #pump;
+  /** end()'s grace timer, while it waits for the client to close its side. */
+  #ending = null;
+  #transportClosed = false;
   #decoder = new TextDecoder();
   /** Pieces of a frame whose newline hasn't arrived yet. */
   #pieces = [];
@@ -167,7 +176,35 @@ export class Connection {
     }
   }
 
+  /**
+   * Closes the socket at once. Frames sent just before may not reach the
+   * client: the socket thread copies the output pipe to the socket on its
+   * own, and closing the transport drops what it hasn't copied yet. Use
+   * end() after a frame the client must get.
+   */
   close() {
+    if (this.closed) {
+      // An end() whose client closed its side, or whose grace ran out.
+      this.#closeTransport();
+      return;
+    }
+    this.closed = true;
+    try {
+      this.#out?.close();
+    } catch {}
+    this.#closeTransport();
+    this.#server._forget(this);
+  }
+
+  /**
+   * Closes after the frames already sent, which the client then gets in
+   * full: the output pipe is closed, so the socket thread copies what's left
+   * in it, and the socket closes once the client closes its side, or
+   * END_GRACE_MS later. For the service the connection ends now, as with
+   * close(): send() sends nothing more, and frames that arrive meanwhile are
+   * read and dropped, never run.
+   */
+  end() {
     if (this.closed) {
       return;
     }
@@ -175,10 +212,22 @@ export class Connection {
     try {
       this.#out?.close();
     } catch {}
+    this.#ending = lazy.setTimeout(() => this.#closeTransport(), END_GRACE_MS);
+    this.#server._forget(this);
+  }
+
+  #closeTransport() {
+    if (this.#transportClosed) {
+      return;
+    }
+    this.#transportClosed = true;
+    if (this.#ending) {
+      lazy.clearTimeout(this.#ending);
+      this.#ending = null;
+    }
     try {
       this.#transport.close(Cr.NS_OK);
     } catch {}
-    this.#server._forget(this);
   }
 
   // nsIStreamListener
@@ -187,6 +236,11 @@ export class Connection {
   onDataAvailable(_request, _stream, _offset, count) {
     const buf = new ArrayBuffer(count);
     this.#binIn.readArrayBuffer(count, buf);
+    // Ended (end()): read, so the pump goes on until the client closes, and
+    // dropped, since nothing of this connection runs any more.
+    if (this.closed) {
+      return;
+    }
     const text = this.#decoder.decode(new Uint8Array(buf), { stream: true });
     // Requests can be many MiB. Search only the new text and join a frame's
     // pieces once its newline arrives: growing one string and searching it

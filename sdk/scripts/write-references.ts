@@ -10,10 +10,10 @@
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { DOC_TOPICS, referenceText } from "../src/docs.ts";
+import { referenceText, SKILL_TOPICS } from "../src/docs.ts";
 
 const folder = new URL("../../skill/zenius/references/", import.meta.url);
-for (const { name } of DOC_TOPICS) {
+for (const name of SKILL_TOPICS) {
   const file = new URL(`${name}.md`, folder);
   writeFileSync(file, referenceText(name));
   console.log(`wrote ${fileURLToPath(file)}`);

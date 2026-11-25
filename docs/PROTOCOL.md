@@ -26,10 +26,12 @@ Each frame is one JSON object followed by `\n`, over the Unix socket
 {"id": 7, "result": {"popups": [{"label": "p2"}]}}
 // failure
 {"id": 7, "error": {"code": "ZEN_SELECTOR_AMBIGUOUS", "message": "…", "data": {"matches": 3}}}
-// event (only after events.subscribe)
+// event (only after events.subscribe, but for a script's scriptStopped: "Scripts")
 {"event": "download", "params": {"space": 3, "page": "p1", "download": "d1", "url": "…"}}
 // a result JSON can't carry
 {"id": 8, "result": null, "unserializable": "NaN"}
+// page code that left a page loading afresh, beside a result or an error
+{"id": 10, "result": 3, "hooked": "a style sheet"}
 // progress, only for a request that set "progress": true
 {"id": 9, "held": true, "reason": "paused"}
 {"id": 9, "held": false}
@@ -45,6 +47,16 @@ Each frame is one JSON object followed by `\n`, over the Unix socket
 - `unserializable`: a result JSON can't carry, as text: `NaN`, `Infinity`,
   `-Infinity`, `-0`, `123n` (a BigInt) or `undefined`. `result` is then
   `null`. Inside objects such values follow JSON (`null`, `0`, `"123n"`).
+- `hooked`: the agent's code in `page.evaluate` or `page.waitForFunction`
+  left something in the page that zenius counts as hooked, in a document
+  that wasn't before: code in the page's own realm, or a change that
+  redirects what the user types next, such as a style sheet, a form or a
+  field. Its value says what, in a few words. zenius then loads that page
+  afresh when it's handed to the user, before the user clicks or types
+  there, and at the task's end, so what the page keeps only in its memory
+  is lost (SPI "The evidence flag"). It comes beside `result` or `error`, once
+  per document: a later call that adds more says nothing. zenius mcp and
+  the SDK say it as a notice.
 - Held calls. While the user decides on a takeover prompt, a call that
   would change the page is held: it hasn't started, and its timeouts start
   at release. A request with top-level `"progress": true` gets `{id, held:
@@ -1263,6 +1275,24 @@ cut: return it in parts.
 | Method | Params | Result |
 |---|---|---|
 | `calls.cancel` | `{id}` | `{canceled}`: stops this connection's request `id` ("Frames", "Stopping a request"), which then gets no answer. `canceled` is `false` when that request has already answered, or never came. |
+
+### Scripts
+
+zenius mcp's script tool runs each script on a connection of its own,
+whose script step the sidebar shows with the steps of its calls under it
+(SPI "Each task's steps").
+
+| Method | Params | Result |
+|---|---|---|
+| `script.begin` | `{space, purpose?}` | `{step}`: this connection's script step begins in the task `space`, running, titled with `purpose`, the agent's one line. Each step this connection's calls make in that task then carries `within: step`. One per connection: a second fails with `ZEN_INVALID_ARGUMENT`. Access `task`: it never waits for a takeover prompt. |
+| `script.end` | `{outcome}` | `{ended}`: the step ends with `outcome`, `"ok"` or a zenius error code; anything else reads `"failed"`. `ended` is `false` once it has ended. A connection that closes first ends it `"stopped"`. |
+
+When the user stops a running script in the sidebar, its connection gets
+`{"event": "scriptStopped", "params": {"step"}}`, with no subscription,
+after every frame sent before it, and then the runtime ends the
+connection: the script's waits and page code stop, and nothing it sends
+later runs or gets an answer. The socket closes once the client closes
+its side, as the SDK does on the event, or 5 s later.
 
 ### Events (zen-core)
 

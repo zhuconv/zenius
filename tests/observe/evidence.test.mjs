@@ -230,6 +230,8 @@ const SITE = `document.body.innerHTML = "<form id=f action='/x'><input id=i name
   document.getElementById("b").onclick = () => document.body.insertAdjacentHTML("beforeend", "<form id=pf><input type=password></form>");
   return 1;`;
 const world = (P, fn) => env.call("page.evaluate", { ...P, fn, isFunction: true });
+/** The agent's code run as `world` does, and the call's whole final frame: what it carries beside the result (PROTOCOL "hooked"). */
+const worldFrame = (P, fn, method = "page.evaluate", more = {}) => env.client.call(method, { ...P, fn, isFunction: true, ...more }, { frame: true });
 const hookedIn = P => inContent(P, "EV.evidenceOf(window).hooked ?? null");
 const ranInPage = P => env.call("dev.evalContent", { ...P, code: "return document.documentElement.dataset.ran ?? null;" });
 let fresh = 0;
@@ -301,9 +303,14 @@ test("each route that outlives the discard marks the page hooked, with what it l
       ["document.write", `() => { document.getElementById("zo-frame").contentDocument.write("<p>x</p>"); }`],
     ];
     const missed = [];
+    // Each call's final frame says what it left (PROTOCOL "hooked").
+    const unsaid = [];
     for (const [detail, fn, ran] of routes) {
       await sitePage(page);
-      await world(page.P, fn);
+      const frame = await worldFrame(page.P, fn);
+      if (frame.hooked !== detail) {
+        unsaid.push([fn, frame.hooked ?? null, frame.error?.code ?? null]);
+      }
       let got = null;
       for (let i = 0; i < 20 && got === null; i++) {
         got = await hookedIn(page.P);
@@ -319,9 +326,34 @@ test("each route that outlives the discard marks the page hooked, with what it l
       }
     }
     assert.deepEqual(missed, [], "routes with no mark or another detail");
+    assert.deepEqual(unsaid, [], "routes whose call's frame didn't say what they left");
     // The parent has it too.
     await until("the parent's copy", async () => (await parentOf(page.P)).evident);
     assert.deepEqual(await parentOf(page.P), { evident: true, of: { hooked: "document.write" } });
+  }));
+
+test("the call that hooks a page says so in its final frame, once per document: page.evaluate's, an error's too, and page.waitForFunction's; a call that leaves nothing says nothing", () =>
+  env.inSpace("hooked frames", async page => {
+    await sitePage(page);
+    const read = await worldFrame(page.P, `() => document.querySelectorAll("*").length`);
+    assert.ok(read.result > 5 && !("hooked" in read), JSON.stringify(read));
+    const first = await worldFrame(page.P, `() => { document.head.append(document.createElement("style")); return 1; }`);
+    assert.deepEqual([first.result, first.hooked], [1, "a style sheet"]);
+    // Hooked already: more of the same, or another route, says nothing.
+    const more = await worldFrame(page.P, `() => { document.body.insertAdjacentHTML("beforeend", "<form><input></form>"); return 2; }`);
+    assert.deepEqual([more.result, "hooked" in more], [2, false]);
+
+    // Code that throws after it hooked: the error's frame says it.
+    await sitePage(page);
+    const threw = await worldFrame(page.P, `() => { document.head.append(document.createElement("style")); throw new Error("after"); }`);
+    assert.equal(threw.error?.code, "ZEN_EVALUATION_FAILED", JSON.stringify(threw));
+    assert.equal(threw.hooked, "a style sheet");
+
+    // A wait's predicate: the frame that ends the wait says it.
+    await sitePage(page);
+    const waited = await worldFrame(page.P, `() => { document.getElementById("i").type = "password"; return true; }`, "page.waitForFunction", { options: { timeout: 5000 } });
+    assert.equal(waited.result, true, JSON.stringify(waited));
+    assert.equal(waited.hooked, "a password field");
   }));
 
 test("a callback the agent's code left counts when it runs: a timer that adds a script element marks the page then", () =>

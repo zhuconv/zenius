@@ -254,6 +254,7 @@ describe("globals", () => {
         method: "spaces.claim",
         params: { space: space.id, name: "finished task", source: taskSource({}, process.cwd(), false) },
         receivedAt: mock.requests.at(-1)!.receivedAt,
+        connection: mock.requests.at(-1)!.connection,
       });
       const userPage = task.userPage();
       assert.ok(userPage instanceof UnmanagedPage);

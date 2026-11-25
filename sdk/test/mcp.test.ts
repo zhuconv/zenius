@@ -6,16 +6,20 @@
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import type { Socket } from "node:net";
+import { homedir, tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 
 import { guardHome } from "../../tests/lib/scratch-home.mjs";
 import { ZeniusError } from "../src/errors.ts";
 import { settleWithin } from "../src/feedback.ts";
 import { callTool, reportWaitS, Session, stepFor, toolList } from "../src/mcp.ts";
+import { insideFolder } from "../src/mcp-script.ts";
 import { CLI } from "./helpers.ts";
-import { MockRuntime } from "./mock-runtime.ts";
+import { hookedNotice } from "../src/page.ts";
+import { Hooked, MockError, MockRuntime } from "./mock-runtime.ts";
 
 describe("zenius mcp steps", () => {
   it("name the kind of a secret field and never show what was typed into it", () => {
@@ -368,10 +372,37 @@ describe("zenius mcp downloads", () => {
 
 type Answer = { id?: unknown; result?: { content: Array<{ text: string }>; isError?: boolean }; error?: unknown };
 
-/** zenius mcp itself on stdio, against `mock`, as a client starts it. */
-function startServer(mock: MockRuntime) {
-  const env = guardHome({ ...process.env, ZENIUS_INSTANCE: "", ZENIUS_TIMING: "", ZENIUS_SOCKET: mock.socketPath }, "zenius mcp's cancel test");
-  const child = spawn(process.execPath, [CLI, "mcp"], { env, stdio: ["pipe", "pipe", "pipe"] });
+/** The checkout: what the launcher grants a server to read. */
+const CHECKOUT = dirname(dirname(dirname(CLI)));
+
+/**
+ * zenius mcp itself on stdio, against `mock`, as a client starts it. With
+ * `sandbox`, under Node's permission model as the launcher starts it, with
+ * its grants, so the server offers its script tool.
+ */
+function startServer(mock: MockRuntime, sandbox?: { tmp: string; work: string }) {
+  const env = guardHome(
+    {
+      ...process.env,
+      ZENIUS_INSTANCE: "",
+      ZENIUS_TIMING: "",
+      ZENIUS_SOCKET: mock.socketPath,
+      ...(sandbox ? { ZENIUS_NODE_MAJOR: process.versions.node.split(".")[0], TMPDIR: sandbox.tmp, ZENIUS_WORKING_DIR: sandbox.work } : {}),
+    },
+    "zenius mcp's tests",
+  );
+  const grants = sandbox
+    ? [
+        "--permission",
+        `--allow-fs-read=${CHECKOUT}`,
+        `--allow-fs-read=${mock.dir}`,
+        `--allow-fs-read=${sandbox.tmp}`,
+        `--allow-fs-write=${sandbox.tmp}`,
+        `--allow-fs-read=${sandbox.work}`,
+        `--allow-fs-write=${sandbox.work}`,
+      ]
+    : [];
+  const child = spawn(process.execPath, [...grants, CLI, "mcp"], { env, stdio: ["pipe", "pipe", "pipe"] });
   const answered: unknown[] = [];
   const waiting = new Map<unknown, (answer: Answer) => void>();
   let stderr = "";
@@ -419,6 +450,25 @@ async function until(check: () => boolean, ms = 5000): Promise<void> {
   }
 }
 
+describe("zenius mcp pages that load afresh", () => {
+  it("evaluate's result says what its code left that loads the page afresh, a failed call's too, and the next tool's result doesn't say it again", async () => {
+    await withSession(async ({ mock, call }) => {
+      mock.handle("page.evaluate", (params) => {
+        if (String(params.fn).includes("throw")) throw Object.assign(new MockError("ZEN_EVALUATION_FAILED", "Error: after"), { hooked: "a style sheet" });
+        return new Hooked(3, "a form");
+      });
+      const ran = await call("evaluate", { code: "() => 3" });
+      assert.equal(ran.text, ["Run code in the page", "3", hookedNotice("page.evaluate", "p1", "a form")].join("\n"));
+      const failed = await call("evaluate", { code: "() => { throw new Error('after'); }" });
+      assert.equal(failed.isError, true);
+      assert.ok(failed.text.endsWith(`\n${hookedNotice("page.evaluate", "p1", "a style sheet")}`), failed.text);
+      mock.unhandle("page.evaluate");
+      const again = await call("evaluate", { code: "() => document.title" });
+      assert.doesNotMatch(again.text, /costs it a reload/);
+    });
+  });
+});
+
 describe("zenius mcp cancel", () => {
   it("answers a canceled call nothing, stops its wait in the runtime, and starts the next call at once, skipping one canceled in the queue", async () => {
     const mock = await new MockRuntime().start();
@@ -452,5 +502,209 @@ describe("zenius mcp cancel", () => {
       await server.stop();
       await mock.stop();
     }
+  });
+});
+
+/** A scratch TMPDIR and working folder for a sandboxed server, gone after `body`. */
+async function withSandbox(body: (sandbox: { tmp: string; work: string }) => Promise<void>): Promise<void> {
+  const root = mkdtempSync(join(tmpdir(), "zmcp-"));
+  chmodSync(root, 0o700);
+  const sandbox = { tmp: join(root, "tmp"), work: join(root, "work") };
+  mkdirSync(sandbox.tmp, { mode: 0o700 });
+  mkdirSync(sandbox.work, { mode: 0o700 });
+  try {
+    await body(sandbox);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/** A sandboxed server on a mock runtime, initialized. */
+async function withScriptServer(body: (context: { server: ReturnType<typeof startServer>; mock: MockRuntime }) => Promise<void>): Promise<void> {
+  const mock = await new MockRuntime().start();
+  try {
+    await withSandbox(async (sandbox) => {
+      const server = startServer(mock, sandbox);
+      try {
+        await server.request(1, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test-client" } });
+        await body({ server, mock });
+      } finally {
+        await server.stop();
+      }
+    });
+  } finally {
+    await mock.stop();
+  }
+}
+
+const textOf = (answer: Answer): string => (answer.result?.content ?? []).map((part) => part.text).join("\n");
+
+describe("zenius mcp script", () => {
+  it("is never offered outside the permission model: a plain CLI's server leaves it out, and its instructions don't name it", async () => {
+    const mock = await new MockRuntime().start();
+    const server = startServer(mock);
+    try {
+      const init = (await server.request(1, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test-client" } })) as {
+        result?: { instructions?: string };
+      };
+      assert.doesNotMatch(String(init.result?.instructions), /\bscript\b/);
+      const tools = (await server.request(2, "tools/list", {})) as { result?: { tools?: Array<{ name: string }> } };
+      assert.ok(tools.result?.tools?.length, "it lists the other tools");
+      assert.ok(!tools.result!.tools!.some((tool) => tool.name === "script"));
+      const called = await server.request(3, "tools/call", { name: "script", arguments: { code: "return 1", purpose: "p" } });
+      assert.equal(called.result?.isError, true);
+      assert.match(textOf(called), /There is no tool named "script"/);
+    } finally {
+      await server.stop();
+      await mock.stop();
+    }
+  });
+
+  it("runs a script on a connection of its own, whose step begins in the server's task with its purpose and ends with ok", async () => {
+    await withScriptServer(async ({ server, mock }) => {
+      const tools = (await server.request(2, "tools/list", {})) as { result?: { tools?: Array<{ name: string }> } };
+      assert.ok(tools.result?.tools?.some((tool) => tool.name === "script"), "offered under the permission model");
+      const opened = await server.request(3, "tools/call", { name: "open", arguments: { url: "https://shop.example.com/" } });
+      assert.equal(opened.result?.isError, undefined, textOf(opened));
+      const ran = await server.request(4, "tools/call", {
+        name: "script",
+        arguments: { code: "console.log('title:', await page.title()); return 42;", purpose: "Read the title" },
+      });
+      assert.equal(ran.result?.isError, undefined, textOf(ran));
+      assert.match(textOf(ran), /^Run a script: "Read the title"\ntitle: .*\nReturned: 42/);
+      const [space] = [...mock.spaces.keys()];
+      const begin = mock.requests.find((request) => request.method === "script.begin")!;
+      assert.deepEqual(begin.params, { space, purpose: "Read the title" });
+      const own = mock.requests.find((request) => request.method === "page.goto")!.connection;
+      assert.notEqual(begin.connection, own, "not the server's own connection");
+      assert.deepEqual(
+        mock.requests.filter((request) => request.connection === begin.connection && ["script.begin", "page.title", "script.end"].includes(request.method)).map((request) => request.method),
+        ["script.begin", "page.title", "script.end"],
+        "its calls go between its step's begin and end, on its connection",
+      );
+      assert.deepEqual(mock.requests.find((request) => request.method === "script.end")!.params, { outcome: "ok" });
+    });
+  });
+
+  it("ends the step with failed for the script's own error, and ZEN_TIMEOUT at its time limit", async () => {
+    await withScriptServer(async ({ server, mock }) => {
+      await server.request(2, "tools/call", { name: "open", arguments: { url: "https://shop.example.com/" } });
+      const failed = await server.request(3, "tools/call", { name: "script", arguments: { code: "throw new Error('boom')", purpose: "Fail" } });
+      assert.equal(failed.result?.isError, true, textOf(failed));
+      const late = await server.request(4, "tools/call", { name: "script", arguments: { code: "await new Promise((resolve) => setTimeout(resolve, 4000))", purpose: "Wait", seconds: 1 } });
+      assert.match(textOf(late), /ran past its 1 s limit/);
+      assert.deepEqual(
+        mock.requests.filter((request) => request.method === "script.end").map((request) => request.params.outcome),
+        ["failed", "ZEN_TIMEOUT"],
+      );
+    });
+  });
+
+  it("lists what the script's page code left that loads a page afresh among the server's lines", async () => {
+    await withScriptServer(async ({ server, mock }) => {
+      mock.handle("page.evaluate", () => new Hooked(1, "a style sheet"));
+      const opened = await server.request(3, "tools/call", { name: "open", arguments: { url: "https://shop.example.com/" } });
+      assert.equal(opened.result?.isError, undefined, textOf(opened));
+      const ran = await server.request(4, "tools/call", {
+        name: "script",
+        arguments: { code: "return await page.evaluate(() => 1);", purpose: "Move a piece" },
+      });
+      assert.equal(ran.result?.isError, undefined, textOf(ran));
+      const blocks = (ran.result?.content ?? []).map((part) => part.text);
+      assert.match(blocks[0] ?? "", /^Run a script: "Move a piece"\nReturned: 1/);
+      assert.deepEqual(blocks[1]?.split("\n"), [hookedNotice("page.evaluate", "p1", "a style sheet")], textOf(ran));
+    });
+  });
+
+  it("begins the step in the task the script starts, on its own connection, once the task is there", async () => {
+    await withScriptServer(async ({ server, mock }) => {
+      const ran = await server.request(2, "tools/call", { name: "script", arguments: { code: "return (await taskSpace('Flights')).name;", purpose: "Start the task" } });
+      assert.equal(ran.result?.isError, undefined, textOf(ran));
+      assert.match(textOf(ran), /Started the task "Flights"\./);
+      const created = mock.requests.find((request) => request.method === "spaces.create")!;
+      const begin = mock.requests.find((request) => request.method === "script.begin")!;
+      assert.equal(begin.connection, created.connection);
+      assert.ok(mock.requests.indexOf(begin) > mock.requests.indexOf(created));
+      assert.deepEqual(begin.params, { space: [...mock.spaces.keys()][0], purpose: "Start the task" });
+    });
+  });
+
+  it("gives what a script left running no more calls once its call is over: a later call fails at once, and one still waiting stops in the runtime, while the server ends the step", async () => {
+    await withScriptServer(async ({ server, mock }) => {
+      await server.request(2, "tools/call", { name: "open", arguments: { url: "https://shop.example.com/" } });
+      // The step's end holds the connection a while, as a slow runtime's would.
+      mock.handle("script.end", () => new Promise((resolve) => setTimeout(() => resolve({ ended: true }), 800)));
+      let waitId: number | undefined;
+      mock.handle("page.waitForSelector", (_params, { frame }) => {
+        waitId = frame.id;
+        return new Promise(() => {});
+      });
+      const ran = await server.request(3, "tools/call", {
+        name: "script",
+        arguments: {
+          code: "page.waitForSelector('#never', { timeout: 60000 }).catch(() => {}); setTimeout(() => page.title().catch(() => {}), 300); return 1;",
+          purpose: "Leave work behind",
+        },
+      });
+      assert.equal(ran.result?.isError, undefined, textOf(ran));
+      assert.match(textOf(ran), /Returned: 1/);
+      assert.ok(waitId !== undefined, "the wait reached the runtime");
+      assert.deepEqual(mock.canceled, [waitId], "the wait it left stops in the runtime");
+      // The open tool reads the title on the server's own connection.
+      const script = mock.requests.find((request) => request.method === "script.begin")!.connection;
+      assert.deepEqual(
+        mock.requests.filter((request) => request.connection === script && request.method === "page.title"),
+        [],
+        "the call its timer makes later never reaches the runtime",
+      );
+      assert.deepEqual(mock.requests.find((request) => request.method === "script.end")!.params, { outcome: "ok" });
+    });
+  });
+
+  it("stays responsive when a script past its limit retries a call in a loop: each refusal waits a turn of the event loop", async () => {
+    await withScriptServer(async ({ server }) => {
+      await server.request(2, "tools/call", { name: "open", arguments: { url: "https://shop.example.com/" } });
+      const late = await server.request(3, "tools/call", {
+        name: "script",
+        arguments: { code: "for (;;) { try { await page.title(); } catch {} }", purpose: "Loop", seconds: 1 },
+      });
+      assert.match(textOf(late), /ran past its 1 s limit/);
+      const read = await server.request(4, "tools/call", { name: "read_page", arguments: {} });
+      assert.equal(read.result?.isError, undefined, `the server goes on: ${textOf(read)}`);
+    });
+  });
+
+  it("counts a file whose name starts with two dots as the working folder's own: only .. and what's under it are outside", () => {
+    assert.equal(insideFolder("/w", "/w/..notes.txt"), "..notes.txt");
+    assert.equal(insideFolder("/w", "/w/a/..b"), "a/..b");
+    assert.equal(insideFolder("/w", "/w"), "");
+    assert.equal(insideFolder("/w", "/"), undefined);
+    assert.equal(insideFolder("/w", "/w2/x"), undefined);
+    assert.equal(insideFolder("/w", "/x/..notes.txt"), undefined);
+  });
+
+  it("ends the call at once when the user stops the script in the sidebar, says so, and sends no end: the runtime ended its step", async () => {
+    await withScriptServer(async ({ server, mock }) => {
+      await server.request(2, "tools/call", { name: "open", arguments: { url: "https://shop.example.com/" } });
+      let script: Socket | undefined;
+      mock.handle("page.waitForSelector", (_params, { socket }) => {
+        script = socket;
+        return new Promise(() => {});
+      });
+      const stopped = server.request(3, "tools/call", {
+        name: "script",
+        arguments: { code: "await page.waitForSelector('#never', { timeout: 60000 }); return 1;", purpose: "Wait for the button" },
+      });
+      await until(() => script !== undefined);
+      // As the runtime's stopScript does: say why, then close.
+      script!.write(`${JSON.stringify({ event: "scriptStopped", params: { step: 1 } })}\n`);
+      script!.destroy();
+      const answer = await stopped;
+      assert.equal(answer.result?.isError, true);
+      assert.match(textOf(answer), /^Run a script: "Wait for the button" stopped\.\nThe user stopped the script with Stop in Zen's sidebar/);
+      assert.equal(mock.requests.filter((request) => request.method === "script.end").length, 0);
+      const read = await server.request(4, "tools/call", { name: "read_page", arguments: {} });
+      assert.equal(read.result?.isError, undefined, `the server's own connection goes on: ${textOf(read)}`);
+    });
   });
 });

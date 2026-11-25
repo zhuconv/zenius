@@ -1136,7 +1136,20 @@ function onNative(world, callee, reason) {
 /** The world left code in the page's own realm, or a change only its built-in shows: the page is hooked, and written. */
 function leftCode(world, detail) {
   flagWritten(world);
-  markHooked(world.win, detail);
+  noteHooked(world, markHooked(world.win, detail));
+}
+
+/**
+ * The world's call left what `text` says in a document that wasn't hooked
+ * before (markHooked's answer): the call's reply says so, since the page now
+ * loads afresh before the user acts there and at the task's end
+ * (content/evaluate.sys.mjs, PROTOCOL "hooked"). A world with no call
+ * running drops it at its next call's start (takeReport).
+ */
+function noteHooked(world, text) {
+  if (text) {
+    world.report.hooked.push(text);
+  }
 }
 
 /** The shadow roots in `doc`, nested ones too. */
@@ -1258,7 +1271,7 @@ function checkRecords(world, records) {
     }
     const detail = hookedRecord(record);
     if (detail) {
-      markHooked(win, detail);
+      noteHooked(world, markHooked(win, detail));
       marked.add(win);
     }
   }
@@ -1336,7 +1349,12 @@ function onPageScript(group, script) {
     }
     const target = win ?? group_[0]?.win;
     if (target) {
-      markHooked(target, detail);
+      // Whichever world of the group compiled it: the one whose call runs
+      // reports it, the others drop it at their next call's start.
+      const text = markHooked(target, detail);
+      for (const world of group_) {
+        noteHooked(world, text);
+      }
     }
   } catch (e) {
     console.error("[zenius] marking the agent's code in the page", e);
@@ -1639,7 +1657,7 @@ export function worldFor(win) {
     dS,
     group: win.browsingContext.group.id,
     browserId: win.browsingContext.top.browserId,
-    report: { missed: [] },
+    report: { missed: [], hooked: [] },
     // Debugger.Object → its kind (SAFE, WRITE, …), and our wrappers.
     kinds: new WeakMap(),
     ours: new WeakSet(),
@@ -1739,10 +1757,13 @@ export function worldFor(win) {
   return world;
 }
 
-/** What the world's code met since the last take: {missed: [names]}. */
+/**
+ * What the world's code met since the last take: {missed: [names], hooked:
+ * [what it left in a document that wasn't hooked before]}.
+ */
 export function takeReport(world) {
   const report = world.report;
-  world.report = { missed: [] };
+  world.report = { missed: [], hooked: [] };
   return report;
 }
 

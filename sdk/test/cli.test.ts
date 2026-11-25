@@ -9,8 +9,9 @@ import { fileURLToPath } from "node:url";
 import { after, before, describe, it } from "node:test";
 
 import { guardHome } from "../../tests/lib/scratch-home.mjs";
+import { hookedNotice } from "../src/page.ts";
 import { runCli } from "./helpers.ts";
-import { MockRuntime } from "./mock-runtime.ts";
+import { Hooked, MockError, MockRuntime } from "./mock-runtime.ts";
 
 let mock: MockRuntime;
 before(async () => {
@@ -219,6 +220,27 @@ await new Promise((resolve) => setTimeout(resolve, 60));
 console.log("clicked");`);
     assert.equal(result.code, 0, result.stderr);
     assert.equal(result.stdout, "clicked\n[zenius:pages]\nUnhandled page p2 from p1: https://example.com/late\n");
+  });
+
+  it("says after the script's output what its page code left that loads a page afresh, for each call that hooked one, a failed call's too", async () => {
+    const space = mock.addSpace("cli hooked", "agent");
+    mock.addPage(space);
+    mock.handle("page.evaluate", (params) => {
+      if (String(params.fn).includes("throw")) throw Object.assign(new MockError("ZEN_EVALUATION_FAILED", "Error: after"), { hooked: "a style sheet" });
+      return new Hooked(3, "a form");
+    });
+    try {
+      const result = await run(`const page = (await taskSpace(${space.id})).page("p1");
+console.log(await page.evaluate(() => 3));
+try { await page.evaluate(() => { throw new Error("after"); }); } catch { console.log("caught"); }`);
+      assert.equal(result.code, 0, result.stderr);
+      assert.equal(
+        result.stdout,
+        ["3", "caught", "[zenius:reload]", hookedNotice("page.evaluate", "p1", "a form"), "[zenius:reload]", hookedNotice("page.evaluate", "p1", "a style sheet"), ""].join("\n"),
+      );
+    } finally {
+      mock.unhandle("page.evaluate");
+    }
   });
 
   it("says once, on stderr, that the user paused the task space while actions waited", async () => {

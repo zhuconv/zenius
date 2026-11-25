@@ -26,8 +26,9 @@ the same words (zen-sdk's error guide).
 | `wait` | `Wait for "<text>"`, `Wait for the tab to reach example.com/done`, `Wait for the page to load`, `Wait 1 second`, `Wait for the downloads to finish`, `Wait for the user to resume the agent` | Waits for text, an element, a URL, a load state, a time, the task's downloads, or the user. |
 | `hand_off` | `Ask the user: "<message>"` | Hands the task to the user, for signing in, paying or a captcha. Zen's card in the tab shows the message, and Zen names the reason (`sign_in`, `irreversible`, `human_check` or `other`) where the task waits for the user. |
 | `finish` | `Finish, keeping 1 tab`, then each kept tab's title and host; `Finish, closing the task's tabs` | Ends the task, keeping the tabs the user should see. While a download still runs, it refuses, naming it, unless `cancel_downloads` is true (Downloads, below). |
-| `evaluate` | `Run code in the page` | Runs JavaScript in the agent's isolated world, which sees the page's DOM but not its scripts. From the first update, the user's page-code setting decides whether it's offered. |
+| `evaluate` | `Run code in the page` | Runs JavaScript in the agent's isolated world, which sees the page's DOM but not its scripts. From the first update, the user's page-code setting decides whether it's offered. When the code leaves something in the page that zenius counts as a hook, such as a style sheet or a form, the result says so after the value: zenius loads that page afresh when it's handed to the user, before the user clicks or types there, and at the task's end, so what the page keeps only in its memory is lost (the limits topic, "Pages that load afresh"). |
 | `report_problem` | `Report a problem with zenius: "<line>"` | Shows the user a problem report about zenius itself in Zen's agent sidebar, for them to send, copy, keep working on with the agent, or discard (below). |
+| `script` | `Run a script: "<purpose>"`, with its steps under it in the sidebar | Runs a `zenius nodejs` script in the task, for work of many steps, within a time limit. Only under the sandboxed launcher (Scripts, below). |
 | `docs` | `Read zenius's docs`, `Read zenius's docs: "<topic>"` | Returns zenius's own docs for the version installed: what an error code means, which URLs agents may load, where a script's files go, and the limits (below). It needs no Zen. |
 
 `element` is required wherever a tool takes a target. It's the element's
@@ -153,6 +154,85 @@ still running, so `finish` refuses while one runs, naming it: the agent
 waits for it, or passes `cancel_downloads: true` when the user doesn't need
 the file.
 
+## Scripts
+
+`script` runs a `zenius nodejs` script in the server's task, for work of
+many steps: a loop over pages, or over files in the working folder. The
+server offers it only when it runs under the sandboxed launcher
+(`install-cli.sh --sandbox`), with Node's permission model on and the
+launcher's grants (below). A plain install's server leaves it out.
+
+- **Arguments:** `code`, the body of an async function as `zenius nodejs`
+  runs it (top-level `await` and `return` work); `purpose`, one line the
+  user reads as the step; `seconds`, its time limit; `page`, the tab the
+  `page` global starts as, the current one if left out.
+- **What it sees:** the CLI's globals and API, plus `task`, the server's
+  task (null before it has one), and `page`. The task functions keep to
+  the server's own task:
+  - `taskSpace(name)` starts it, as `open` does, when there's none yet,
+    and returns it after; any other task is refused, by name or id;
+  - `listTaskSpaces()` lists it alone;
+  - `claimTaskSpace` and `takeOverTaskSpace` are refused: here only the
+    user gives a task back.
+
+  These guard against mistakes, not abuse: a script can reach Zen on a
+  connection of its own, and the runtime's rules bind it as they bind any
+  client. Page code follows the user's setting, as for every client.
+- **How it runs:** in the server's own process, one call at a time, on a
+  connection of its own to Zen that closes when its call ends. What the
+  script leaves running then, a timer or a promise it didn't await, gets
+  no more calls: a later one fails at once with `ZEN_CANCELED`, and one
+  still waiting stops in Zen, as for a canceled call. Its console output
+  is its own, and `process.exit()` ends the script, not the server.
+  After each script the server puts back its folder, its environment and
+  the globals the script added; `page`, `task` and the API's functions
+  stay until the next script sets them, so what the script left running
+  meets a refused call there rather than a missing name.
+- **The result:** the step line, the script's output, then what it
+  returned, as JSON. Past 20,000 characters the output and the value are
+  cut, never the step line. A second block holds the server's own lines,
+  which the script can't write: `Started the task "...".` when the script
+  started it, the files it touched, download lines, and the CLI's
+  end-of-run notices, among them a line for each page its page code left
+  something in that costs the page a reload, as the evaluate tool says.
+  A failure reads `<step> failed.`, then the error's code with the
+  guide's words, and the script's line.
+- **The files it touched,** as far as the server saw:
+  `Read "invoice-1.pdf", "invoice-2.pdf" and 3 more`, `Wrote "summary.csv"`,
+  `Deleted "report(1).pdf"` and `Uploaded "passport.jpg" to https://visa.example`.
+  Writes and deletes come from a listing of the working folder before and
+  after the script, reads from node:fs's calls. A script in the server's
+  process could hide what it did from both, so these lines are a record
+  for the user, not a guard.
+- **Its time limit:** `seconds`, else 50 s, at most 600 s, and never past
+  the client's tool timeout less 10 s (`ZENIUS_TOOL_TIMEOUT`, in
+  Registering it). At the limit its call answers with the output so far,
+  its connection closes, and its later calls fail. Longer work goes in
+  several calls: the task, its tabs and the working folder carry over, a
+  script's variables don't. To wait for the user, hand off, end the
+  script, then call `wait` with `user: true`.
+- **Stopping it:** a cancel from the client ends the call at once, as for
+  any tool. The user's Stop in Zen's sidebar stops the script too, whatever
+  the client does with the call: the runtime closes the script's
+  connection, and the call answers that the user stopped it. Either way
+  the script's waits and page code stop in Zen, and the next call starts.
+  A script that never yields, a loop with no `await`, holds the server
+  until its client gives up: wait with `page.waitFor*` or `wait`, never
+  with a busy loop.
+- **In the sidebar,** the task shows the script as one step,
+  `Run a script: "<purpose>"` in the agent's own quoted words, with the
+  steps of its calls under it as they happen (SPI, "Each task's steps").
+
+**The grants.** The sidebar's Work runs `zenius mcp --sidebar`. Seeing the
+flag, the launcher grants the working folder (read, write and delete) and
+the server's run folder, where each script gets a temporary folder of its
+own as `TMPDIR`, removed when its call ends. There's no read folder and no
+current folder: a script starts in the working folder. A terminal's
+`zenius mcp` gets what its `zenius nodejs` gets from the same folder: the
+current folder to read, the read folder and the working folder, which an
+agent with a shell reaches anyway. Neither gets programs, workers, the
+network beyond Zen's socket, `dev.*` or settings.
+
 ## Reporting a problem with zenius
 
 `report_problem` is `zenius feedback` for an agent without a shell, such
@@ -201,6 +281,10 @@ installed version's own code (`sdk/src/docs.ts`):
 - `urls`: which URLs agents may load, and the pages where they can't act.
 - `files`: where a script's files go, and which files it may upload.
 - `limits`: the default timeouts and limits.
+- `script`: how the script tool runs a script, what to do when the user
+  takes the task or stops the script, and the API without the CLI's task
+  functions. The script tool's description points to it. It's zenius
+  mcp's alone, so the skill has no reference of it.
 
 With no topic it lists them. It reads no page and never connects to Zen,
 so it answers while Zen is closed.
@@ -211,8 +295,9 @@ The same text is there in three other forms:
   that read resources. A code's URI works too, such as
   `zenius://docs/ZEN_URL_NOT_ALLOWED`.
 - `zenius docs [topic]`, for an agent with a shell.
-- The skill's `references/<topic>.md`, which `sdk/scripts/write-references.ts`
-  writes. `sdk/test/docs.test.ts` fails while they differ.
+- The skill's `references/<topic>.md`, but for `script`, which
+  `sdk/scripts/write-references.ts` writes. `sdk/test/docs.test.ts` fails
+  while they differ.
 
 `zenius mcp --docs-only` serves the `docs` tool alone, and never reaches
 Zen. The agent sidebar's Chat runs it that way: Chat can say what an error
@@ -220,6 +305,12 @@ means, and has none of the browser tools. A CLI older than the flag refuses
 it and doesn't start.
 
 ## What it never offers
+
+The one-step tools offer none of these. A script works within the
+launcher's grants instead (Scripts, above): it reads and writes the
+working folder, uploads what it can read, saves screenshots into its own
+folders, and may use `page.fetch`; the runtime's URL rules hold for it.
+`dev.*`, settings and a shell stay out for both.
 
 - No `dev.*` method, no zenius or Zen settings, no shell, no file system.
 - No file upload. It would let the agent send any local file to a site.
@@ -281,6 +372,24 @@ tool_timeout_sec = 120
 
 Codex gives a tool call 60 s by default. That's why no `wait` goes past
 50 s unless the agent asks; `tool_timeout_sec` raises the limit.
+
+### The tool timeout
+
+`ZENIUS_TOOL_TIMEOUT`, in the server's environment, is the client's tool
+timeout in seconds. The server keeps every call 10 s inside it: a script's
+limit, `wait` and `report_problem`. Without it, the server goes by the
+client `initialize` names: 60 s for Codex and any other client, and none
+for Claude Code, whose default is about 27.8 h, so the server's own caps
+hold. The sidebar passes 120 for both of its agents. A client given a
+longer timeout passes the same number, as Codex's `env` does:
+
+```toml
+[mcp_servers.zenius]
+command = "zenius"
+args = ["mcp"]
+tool_timeout_sec = 120
+env = { ZENIUS_TOOL_TIMEOUT = "120" }
+```
 
 ## Tests
 

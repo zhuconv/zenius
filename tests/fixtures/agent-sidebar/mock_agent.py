@@ -321,6 +321,14 @@ SCENARIOS = {
         ("tool", "finish", {"keep": ["p1"]}),
         ("say", "Saved the article for the weekend: it's open in your Agents space."),
     ],
+    # The agent's code hooks the page (a style sheet), so zenius loads it
+    # afresh when finish ends the task (pagesReloaded).
+    "reloadend": [
+        ("tool", "open", {"url": f"{WWW}/article.html", "task": "Article check"}),
+        ("tool", "evaluate", {"code": "() => { document.head.append(document.createElement('style')); return 1; }"}),
+        ("tool", "finish", {"keep": ["p1"]}),
+        ("say", "Checked the article: it's open in your Agents space."),
+    ],
 }
 
 

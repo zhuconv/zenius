@@ -7,9 +7,10 @@
 import { apiEntry, validateOptions } from "./api-schema.ts";
 import { CODE_GUIDE } from "./error-guide.ts";
 import { unsupportedCdpError, ZeniusError } from "./errors.ts";
-import { bytesFrom, copyDownload, outputPath, readUploads, reportWritten, writeOutput } from "./files.ts";
+import { bytesFrom, copyDownload, type FilePayload, outputPath, readUploads, reportWritten, writeOutput } from "./files.ts";
 import { CONSTRUCT, EXPLAIN_PAGE_ERROR, NOTE_ENTRY, REQUEST } from "./internal.ts";
 import { fs, path as nodePath, os } from "./node.ts";
+import { addNotice } from "./output.ts";
 import { round } from "./round.ts";
 import type { TaskSpace } from "./task-space.ts";
 import { configuredResponseTimeout } from "./config.ts";
@@ -79,6 +80,20 @@ export type PageActionReceipt = {
 type PageOptions = Record<string, unknown>;
 type PageEntry = { targetId?: string; openedBy?: string };
 
+/**
+ * What the agent hears when `op`'s page code left `detail` in the page
+ * `label`, which then loads afresh (the runtime's `hooked`, PROTOCOL
+ * "Frames"; the docs' limits topic, "Pages that load afresh"). One line:
+ * zenius mcp's results list notices by line.
+ */
+export function hookedNotice(op: string, label: string, detail: string): string {
+  return (
+    `${op} left something in ${label} that costs it a reload (${detail}): zenius loads ${label} afresh when it's handed to the user, ` +
+    `before the user clicks or types there, and at the task's end, so what ${label} keeps only in its memory, such as a game's moves, ` +
+    "is lost then. To keep that, leave nothing in the page, or reach the state's own address with page.goto first."
+  );
+}
+
 export class Page {
   readonly label: string;
   readonly spaceId: number;
@@ -123,8 +138,11 @@ export class Page {
     current.observe(this.spaceId, this.label);
     const responseTimeout = configuredResponseTimeout();
     const request = { space: this.spaceId, page: this.label, ...params, ...(responseTimeout === undefined ? {} : { responseTimeout }) };
+    // Page code that left something loading the page afresh: the script's
+    // output, zenius mcp's script result and its evaluate tool say so.
+    const onHooked = (detail: string) => addNotice(`[zenius:reload]\n${hookedNotice(op, this.label, detail)}`);
     return current
-      .call<T>(method, request, { op, safetyTimeoutMs })
+      .call<T>(method, request, { op, safetyTimeoutMs, onHooked })
       .catch((error) => {
         throw this.#task[EXPLAIN_PAGE_ERROR](this.label, error);
       });
@@ -464,10 +482,11 @@ export class Page {
 
   async setInputFiles(selector: string, path: string | string[]): Promise<PageActionReceipt> {
     assertSelector(selector);
-    const files = await readUploads(normalizeFilePaths(path, "page.setInputFiles"), "page.setInputFiles");
-    return receipt(
-      await this[REQUEST]("page.setInputFiles", "page.setInputFiles", { target: selector, files }, limit({})),
-    );
+    const paths = normalizeFilePaths(path, "page.setInputFiles");
+    const files = await readUploads(paths, "page.setInputFiles");
+    const result = receipt(await this[REQUEST]("page.setInputFiles", "page.setInputFiles", { target: selector, files }, limit({})));
+    round().noteUploads({ space: this.spaceId, label: this.label, paths, names: uploadNames(files) });
+    return result;
   }
 
   waitForFileChooser(options: PageOptions = {}): Promise<FileChooser> {
@@ -688,18 +707,26 @@ export class FileChooser {
   async setFiles(path: string | string[]): Promise<PageActionReceipt> {
     if (this.#handled) throw new Error("this file chooser was already handled");
     // A file that can't be read leaves the chooser open for another call.
-    const files = await readUploads(normalizeFilePaths(path, "fileChooser.setFiles"), "fileChooser.setFiles");
+    const paths = normalizeFilePaths(path, "fileChooser.setFiles");
+    const files = await readUploads(paths, "fileChooser.setFiles");
     if (this.#handled) throw new Error("this file chooser was already handled");
     this.#handled = true;
     round().observe(this.#page.spaceId, this.#page.label);
-    return receipt(
+    const result = receipt(
       await round().call(
         "filechooser.setFiles",
         { chooser: this.#id, files },
         { op: "fileChooser.setFiles", safetyTimeoutMs: UNSPECIFIED_LIMIT_MS },
       ),
     );
+    round().noteUploads({ space: this.#page.spaceId, label: this.#page.label, paths, names: uploadNames(files) });
+    return result;
   }
+}
+
+/** Each uploaded file as the page gets it: a folder upload's by its path in the folder. */
+function uploadNames(files: readonly FilePayload[]): string[] {
+  return files.map((file) => file.relativePath ?? file.name);
 }
 
 /** @internal Pages are only created by TaskSpace. */

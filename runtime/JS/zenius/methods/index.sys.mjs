@@ -17,4 +17,5 @@ export const methodModules = [
   "sidebar", // zen-observe: remote tasks, in zen-ux's sidebar
   "feedback", // zen-core: zenius feedback's report, for the sidebar's card
   "calls", // zen-runtime: calls.cancel, a client's request it gave up on
+  "script", // zen-runtime: script.begin and script.end, a script tool call's step
 ];

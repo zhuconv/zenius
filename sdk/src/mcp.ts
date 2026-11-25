@@ -7,9 +7,11 @@
 // It goes through the SDK's own task spaces and Pages on the instance socket
 // (the daily Zen's, "default", unless ZENIUS_INSTANCE names another), so
 // the runtime's checks and the error guide's words are the same as a
-// script's. It offers no dev.* method, no setting, no shell, no file system
-// and no upload: only the tools below, and only http and https pages
-// (docs/mcp.md). It tells the agent about the task's downloads, which the
+// script's. Its one-step tools offer no dev.* method, no setting, no shell,
+// no file system and no upload, and only http and https pages
+// (docs/mcp.md). Under the sandboxed launcher alone, its script tool runs a
+// `zenius nodejs` script in the task, with the launcher's grants
+// (mcp-script.ts). It tells the agent about the task's downloads, which the
 // runtime puts in the working folder, from the runtime's download events,
 // and never reads them.
 
@@ -19,38 +21,56 @@ import { basename, dirname } from "node:path";
 import { HAND_OFF_REASONS } from "./api-schema.ts";
 import { DOC_TOPICS, docsText } from "./docs.ts";
 import { ZeniusError } from "./errors.ts";
+import { workingDir } from "./files.ts";
 import { cleanLine, composeFacts, declinedText, MAX_LINE, outcomeText, showReport, type Shown } from "./feedback.ts";
 import { taskSpace, startTaskSpace, clientLabel } from "./globals.ts";
 import { instanceName, socketPath } from "./instance.ts";
 import {
+  CALL_MARGIN_S,
+  CALL_MIN_S,
   MAX_RESULT_CHARS,
   MAX_SNAPSHOT_CHARS,
   REPORT_CALL_S,
   REPORT_DOCTOR_MS,
   REPORT_WAIT_MIN_S,
+  SCRIPT_DEFAULT_S,
+  SCRIPT_MAX_S,
   TASK_NAME_MAX,
+  TOOL_TIMEOUT_S,
   WAIT_DEFAULT_S,
   WAIT_MAX_S,
   WAIT_USER_DEFAULT_S,
   WAIT_USER_MAX_S,
   WEB_PROTOCOLS,
 } from "./limits.ts";
+import { armScripts, runScriptCall, strayError, type ScriptHost, type ScriptOutcome } from "./mcp-script.ts";
+import { fs, os, underLauncher } from "./node.ts";
 import type { Page, PageActionReceipt } from "./page.ts";
 import { Round, setRound } from "./round.ts";
 import { RpcClient, withSignal } from "./rpc.ts";
+import { formatScriptError, scriptFrames } from "./script-errors.ts";
+import { formatValue, takeNotices } from "./output.ts";
 import type { TaskSpace } from "./task-space.ts";
 import { VERSION } from "./version.ts";
+import { clean, cut, quoted, quotedName } from "./step-text.ts";
 
 /** MCP revisions this server speaks, newest first. */
 const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
-/** report_problem's wait for the user, in seconds: what the agent asked for, or what's left of the call's 50 s after `spentMs`, at least 10. */
-export function reportWaitS(asked: number | undefined, spentMs: number): number {
-  return asked ?? Math.max(REPORT_WAIT_MIN_S, Math.floor(REPORT_CALL_S - spentMs / 1000));
+/** report_problem's wait for the user, in seconds: what the agent asked for, or what's left of the call's 50 s (or `callS`) after `spentMs`, at least 10. */
+export function reportWaitS(asked: number | undefined, spentMs: number, callS: number = REPORT_CALL_S): number {
+  return asked ?? Math.max(REPORT_WAIT_MIN_S, Math.floor(callS - spentMs / 1000));
 }
 
 type Json = Record<string, unknown>;
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
+/**
+ * What a tool's run gives back: its text, or the text with a step that what
+ * the call learned made truer. A script's also carries `isError`, since it
+ * fails with its output, and `server`: the server's own lines, which go in
+ * a content block of their own, where the script's output can't reach.
+ */
+type ToolOutcome = string | { step: string; text: string; isError?: boolean; server?: string[] };
 type Tool = {
   name: string;
   title: string;
@@ -59,8 +79,8 @@ type Tool = {
   annotations: Json;
   /** The step as the user reads it, from the call's arguments: what a failure shows. */
   step: (args: Json) => string;
-  /** The result's text, or the text and a step that what the call learned made truer. */
-  run: (args: Json, session: Session) => Promise<string | { step: string; text: string }>;
+  /** The result (ToolOutcome), or CANCELED once the client canceled the call; `signal` aborts then. */
+  run: (args: Json, session: Session, signal: AbortSignal) => Promise<ToolOutcome | typeof CANCELED>;
   /** It answers without Zen: callTool neither connects nor resumes a task for it. */
   offline?: boolean;
 };
@@ -77,31 +97,6 @@ const TARGET_PARAM = {
   type: "string",
   description: 'The element: its ref from read_page (such as ref=12), or a selector (text=Sign in, role:button[name="Save"], a CSS selector).',
 };
-
-// Steps are lines the user reads, built from what the agent sends and what
-// pages say, so nothing in them may read as something else.
-
-/** Characters that change how a line reads without showing: bidi controls, zero-width and other format characters, controls. */
-const INVISIBLE = /[\p{Cc}\p{Cf}\p{Default_Ignorable_Code_Point}]/gu;
-
-/** Text on one line, without invisible characters: an RLO copied from a page would reverse what follows it. */
-function clean(text: unknown): string {
-  return String(text ?? "")
-    .replace(/\s+/g, " ")
-    .replace(INVISIBLE, "")
-    .replace(/ {2,}/g, " ")
-    .trim();
-}
-
-/** At most `max` characters, counted as the user sees them (code points), with … where it's cut. */
-function cut(text: string, max: number): string {
-  const chars = Array.from(text);
-  return chars.length > max ? `${chars.slice(0, max - 1).join("")}…` : text;
-}
-
-function quoted(text: unknown, max = 60): string {
-  return `"${cut(clean(text), max)}"`;
-}
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
@@ -255,6 +250,8 @@ function positive(args: Json, name: string, fallback: number, max: number, unit:
   return Math.min(value, max);
 }
 const seconds = (args: Json, name: string, fallback: number, max: number) => positive(args, name, fallback, max, " of seconds");
+/** A call's seconds, held within the client's tool timeout less its margin (Session.callCapS). */
+const capped = (session: Session, s: number) => Math.min(s, session.callCapS());
 
 /**
  * A download of the task, as the runtime's download events tell it
@@ -320,7 +317,7 @@ function downloadNames(downloads: DownloadEvent[]): string {
 }
 
 /** The connection, the task and its current tab, for one MCP session. */
-export class Session {
+export class Session implements ScriptHost {
   label: string | undefined;
   #client: RpcClient | undefined;
   #task: TaskSpace | undefined;
@@ -348,14 +345,56 @@ export class Session {
 
   /** --docs-only: the docs tool alone, which never reaches Zen. */
   readonly docsOnly: boolean;
+  /**
+   * Whether the script tool is offered: only under the sandboxed launcher,
+   * and for the sidebar's server (--sidebar) only once the launcher says it
+   * gave the sidebar's grants (ZENIUS_GRANTS=sidebar): an older launcher
+   * would pass the flag through with the install's read folder granted.
+   */
+  readonly scripts: boolean;
+  /** ZENIUS_TOOL_TIMEOUT: the client's tool timeout, in seconds, as the agent sidebar passes it. */
+  readonly #toolTimeout: number | undefined;
+  /** The launcher's run folder (TMPDIR at the start), where each script gets a folder of its own. */
+  readonly #tmpRoot: string;
   /** The tools/call requests running, by request id, to cancel. */
   readonly #calls = new Map<string, AbortController>();
   /** Requests the client canceled while they waited in the queue: each begins canceled. */
   readonly #canceled = new Set<string>();
 
-  constructor(env: NodeJS.ProcessEnv = process.env, { docsOnly = false }: { docsOnly?: boolean } = {}) {
+  constructor(
+    env: NodeJS.ProcessEnv = process.env,
+    { docsOnly = false, sidebar = false, scripts }: { docsOnly?: boolean; sidebar?: boolean; scripts?: boolean } = {},
+  ) {
     this.#resume = env.ZENIUS_TASK_SPACE;
     this.docsOnly = docsOnly;
+    this.scripts = !docsOnly && (scripts ?? (underLauncher(env) && (!sidebar || env.ZENIUS_GRANTS === "sidebar")));
+    const timeout = Number(env.ZENIUS_TOOL_TIMEOUT);
+    this.#toolTimeout = Number.isFinite(timeout) && timeout > 0 ? timeout : undefined;
+    this.#tmpRoot = os.tmpdir();
+  }
+
+  /**
+   * How long a call may take, in seconds: the client's tool timeout less a
+   * margin, so the server answers before the client gives up. Infinity for
+   * Claude Code without ZENIUS_TOOL_TIMEOUT: its default is about 27.8 h.
+   */
+  callCapS(): number {
+    const timeout = this.#toolTimeout ?? (this.label === "Claude Code" ? Infinity : TOOL_TIMEOUT_S);
+    return timeout === Infinity ? Infinity : Math.max(CALL_MIN_S, timeout - CALL_MARGIN_S);
+  }
+
+  /** The working folder, as given and by its real path, for a script's file lines. */
+  workingFolders(): string[] {
+    const given = workingDir();
+    let resolved = given;
+    try {
+      resolved = fs.realpathSync(given);
+    } catch {}
+    return [given, resolved];
+  }
+
+  get tmpRoot(): string {
+    return this.#tmpRoot;
   }
 
   /** A tools/call request begins: its signal aborts when the client cancels it, or already has. */
@@ -521,6 +560,45 @@ export class Session {
     return this.#task;
   }
 
+  /** The server's task, or undefined before it has one (a script's view). */
+  get ownTask(): TaskSpace | undefined {
+    return this.#task;
+  }
+
+  /** Start the server's task: always one of its own, since another chat's agent may have named its task alike. */
+  async startTask(name: string | undefined): Promise<TaskSpace> {
+    if (this.#task) return this.#task;
+    this.#task = await startTaskSpace(clean(name) || `${this.label ?? clientLabel() ?? "Agent"} task`, { maxLength: TASK_NAME_MAX });
+    // Before its first page, whose URL may be a download.
+    await this.watchDownloads();
+    return this.#task;
+  }
+
+  /** The Page a call names, or the current one; undefined with neither (a script starts without one then). */
+  pageIfAny(args: Json): Page | undefined {
+    try {
+      return this.#task ? this.page(args) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** After a script: go on where it last worked, and forget a task it finished. */
+  async afterScript(outcome: ScriptOutcome): Promise<void> {
+    const task = this.#task;
+    if (!task) return;
+    if (outcome.finished) {
+      this.ended();
+      return;
+    }
+    const last = outcome.lastPage;
+    if (last && last.space === task.id && last.label !== this.#current?.label) {
+      const open = await task.pages().catch(() => [] as Page[]);
+      const page = open.find((p) => p.label === last.label);
+      if (page) this.#current = page;
+    }
+  }
+
   page(args: Json): Page {
     const label = str(args, "page", false);
     if (label) {
@@ -537,19 +615,16 @@ export class Session {
   async open(url: string, name: string | undefined): Promise<{ page: Page; created: boolean }> {
     let created = false;
     if (!this.#task) {
-      // Always a task of its own: another chat's agent may have named its task alike.
-      this.#task = await startTaskSpace(clean(name) || `${this.label ?? clientLabel() ?? "Agent"} task`, { maxLength: TASK_NAME_MAX });
+      await this.startTask(name);
       created = true;
-      // Before its first page, whose URL may be a download.
-      await this.watchDownloads();
     }
     // A new task comes with a blank p1: the first page goes there.
     let page: Page | undefined;
     if (created) {
-      const [first, ...rest] = await this.#task.pages();
+      const [first, ...rest] = await this.#task!.pages();
       if (first && rest.length === 0 && (await first.url().catch(() => "")) === "about:blank") page = first;
     }
-    page ??= await this.#task.newPage();
+    page ??= await this.#task!.newPage();
     this.#current = page;
     await page.goto(url);
     return { page, created };
@@ -615,6 +690,15 @@ async function act(session: Session, page: Page, run: () => Promise<PageActionRe
   if (after && after !== before) lines.push(`The tab went to ${await where(page)}`);
   return lines.join("\n");
 }
+
+/** The script tool's description: a summary, since clients keep 4,096 characters of it; help() in a script has the API. */
+const SCRIPT_DESCRIPTION = [
+  "Run a zenius nodejs script in your task: JavaScript with zenius's Page and TaskSpace API, for work of many steps in one call, such as a loop over pages or files.",
+  'task is your task (null until open, or taskSpace("<a name>") in a script, starts it) and page the current tab, or the one you name. Read the docs tool\'s script topic before your first script: its rules and the API.',
+  "Its console output and return value come back. At its time limit (seconds) its call ends, and its later calls to Zen fail.",
+  "It can read, write and delete files in the working folder, where downloads land, and the user sees each file it touched.",
+  "Wait with page.waitFor* or end the script and call wait, never with a busy loop. To wait for the user, hand off, end the script, then call wait with user: true.",
+].join(" ");
 
 const TOOLS: Tool[] = [
   {
@@ -850,7 +934,7 @@ const TOOLS: Tool[] = [
       const conditions = ["text", "target", "url", "load", "user", "downloads"].filter((name) => args[name] !== undefined && args[name] !== false);
       if (conditions.length > 1) throw new CallError(`wait for one thing at a time, not ${conditions.join(" and ")}`);
       if (args.user) {
-        const limit = seconds(args, "seconds", WAIT_USER_DEFAULT_S, WAIT_USER_MAX_S);
+        const limit = seconds(args, "seconds", capped(session, WAIT_USER_DEFAULT_S), capped(session, WAIT_USER_MAX_S));
         try {
           await session.task.waitForControl({ timeout: limit * 1000 });
         } catch (error) {
@@ -871,7 +955,7 @@ const TOOLS: Tool[] = [
         ].join("\n");
       }
       if (args.downloads) {
-        const limit = seconds(args, "seconds", WAIT_DEFAULT_S, WAIT_MAX_S);
+        const limit = seconds(args, "seconds", capped(session, WAIT_DEFAULT_S), capped(session, WAIT_MAX_S));
         await session.heardDownloads();
         const running = await session.downloadsEnded(limit * 1000);
         return running.length
@@ -879,12 +963,12 @@ const TOOLS: Tool[] = [
           : "No download of the task is running now.";
       }
       if (conditions.length === 0) {
-        const s = seconds(args, "seconds", WAIT_DEFAULT_S, WAIT_MAX_S);
+        const s = seconds(args, "seconds", capped(session, WAIT_DEFAULT_S), capped(session, WAIT_MAX_S));
         await session.page(args).waitForTimeout(s * 1000);
         return `Waited ${plural(s, "second")}.`;
       }
       const page = session.page(args);
-      const timeout = seconds(args, "seconds", WAIT_DEFAULT_S, WAIT_MAX_S) * 1000;
+      const timeout = seconds(args, "seconds", capped(session, WAIT_DEFAULT_S), capped(session, WAIT_MAX_S)) * 1000;
       if (args.text !== undefined) await page.waitForSelector(`text=${str(args, "text")!}`, { timeout });
       else if (args.target !== undefined) await page.waitForSelector(str(args, "target")!, { timeout });
       else if (args.url !== undefined) await page.waitForURL(str(args, "url")!, { timeout });
@@ -1057,6 +1141,56 @@ const TOOLS: Tool[] = [
     },
   },
   {
+    name: "script",
+    title: "Run a script",
+    description: SCRIPT_DESCRIPTION,
+    inputSchema: {
+      type: "object",
+      properties: {
+        code: { type: "string", description: "The script: the body of an async function, as zenius nodejs runs it (top-level await and return work)." },
+        purpose: {
+          type: "string",
+          description: "One line the user reads as the step, such as Compare the three flights' prices. Never a password, card number or code.",
+        },
+        seconds: {
+          type: "number",
+          description: `Its time limit: ${SCRIPT_DEFAULT_S} s if left out, at most ${SCRIPT_MAX_S}, and never past your client's tool timeout less ${CALL_MARGIN_S} s.`,
+        },
+        page: { type: "string", description: "The tab the page global starts as (p1, p2, …); the current tab if left out." },
+      },
+      required: ["code", "purpose"],
+    },
+    // It can delete files in the working folder.
+    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+    // The agent's words, quoted as a page's names are in the runtime's
+    // steps: its own quote marks can't close the quote.
+    step: (args) => `Run a script: ${quotedName(typeof args.purpose === "string" ? args.purpose : "", 80)}`,
+    run: async (args, session, signal) => {
+      const code = str(args, "code")!;
+      if (!code.trim()) throw new CallError("code is empty: give the script, the body of an async function as zenius nodejs runs it");
+      if (!clean(str(args, "purpose"))) throw new CallError("purpose must say in one line what the script does: the user reads it as the step");
+      const cap = session.callCapS();
+      const limitS = seconds(args, "seconds", Math.min(SCRIPT_DEFAULT_S, cap), Math.min(SCRIPT_MAX_S, cap));
+      const outcome = await runScriptCall(session, {
+        code,
+        purpose: clean(str(args, "purpose")),
+        page: session.pageIfAny(args),
+        limitMs: limitS * 1000,
+        signal,
+        working: session.workingFolders(),
+        tmpRoot: session.tmpRoot,
+      });
+      await session.afterScript(outcome);
+      if (outcome.end.kind === "canceled") return CANCELED;
+      if (outcome.end.kind === "failed" && outcome.end.error instanceof ZeniusError) {
+        const code = outcome.end.error.code;
+        if (code === "ZEN_BROWSER_UNAVAILABLE") session.drop();
+        if (code === "ZEN_TASK_SPACE_INACTIVE" || code === "ZEN_TASK_SPACE_NOT_FOUND") session.ended();
+      }
+      return scriptResult(stepFor("script", args), outcome, limitS, Math.min(SCRIPT_MAX_S, cap));
+    },
+  },
+  {
     name: "report_problem",
     title: "Report a problem with zenius",
     description:
@@ -1083,11 +1217,11 @@ const TOOLS: Tool[] = [
       const line = cleanLine(str(args, "line")!);
       if (!line) throw new CallError("line must say, in one line, what you were doing when zenius failed");
       // Checked before doctor runs, so a bad wait fails at once.
-      const asked = args.wait === undefined || args.wait === null ? undefined : seconds(args, "wait", REPORT_WAIT_MIN_S, WAIT_USER_MAX_S);
+      const asked = args.wait === undefined || args.wait === null ? undefined : seconds(args, "wait", REPORT_WAIT_MIN_S, capped(session, WAIT_USER_MAX_S));
       const started = performance.now();
       // The CLI's own facts and card: zenius feedback (src/feedback.ts), without its draft, which an agent here couldn't point the user to.
       const facts = await composeFacts(instanceName(undefined), REPORT_DOCTOR_MS);
-      const waitS = () => reportWaitS(asked, performance.now() - started);
+      const waitS = () => reportWaitS(asked, performance.now() - started, capped(session, REPORT_CALL_S));
       return reportText(await showReport(session.client, line, facts, waitS, "zenius mcp report_problem"));
     },
   },
@@ -1095,7 +1229,7 @@ const TOOLS: Tool[] = [
     name: "docs",
     title: "Read zenius's docs",
     description:
-      "Reads zenius's own docs for the version installed, for questions about zenius itself, without touching the browser or needing Zen: what an error code means and what to do next (topic errors, or the code itself, such as ZEN_URL_NOT_ALLOWED), which URLs agents may load (urls), where a script's files go (files), and zenius's limits and default timeouts (limits).",
+      "Reads zenius's own docs for the version installed, for questions about zenius itself, without touching the browser or needing Zen: what an error code means and what to do next (topic errors, or the code itself, such as ZEN_URL_NOT_ALLOWED), which URLs agents may load (urls), where a script's files go (files), zenius's limits and default timeouts (limits), and how the script tool runs a script, with its API (script).",
     inputSchema: {
       type: "object",
       properties: {
@@ -1118,7 +1252,9 @@ const TOOLS: Tool[] = [
  * sidebar's Chat) the docs alone, which never reach Zen.
  */
 function toolsFor(session: Session): Tool[] {
-  return session.docsOnly ? TOOLS.filter((tool) => tool.name === "docs") : TOOLS;
+  if (session.docsOnly) return TOOLS.filter((tool) => tool.name === "docs");
+  // The script tool only under the sandboxed launcher (Session.scripts).
+  return session.scripts ? TOOLS : TOOLS.filter((tool) => tool.name !== "script");
 }
 
 /** The docs as MCP resources, zenius://docs/<topic>, for clients that read resources; the docs tool serves the same text. */
@@ -1192,6 +1328,72 @@ function readable(error: unknown): string {
     .filter((line) => !/\bhelp\(/.test(line))
     .join("\n")
     .trim();
+}
+
+
+/** INSTRUCTIONS' line about the script tool, when the server offers it. */
+const SCRIPT_INSTRUCTION =
+  "For work of many steps, such as a loop over pages or files in the working folder, script runs a zenius nodejs script in your task, within a time limit.";
+
+/**
+ * A script's result (docs/mcp.md, "script"): the step line, then its output
+ * and value, which are cut first, never the step line; and the server's
+ * lines, which the script can't write, in a content block of their own.
+ */
+function scriptResult(step: string, outcome: ScriptOutcome, limitS: number, maxS: number): ToolOutcome {
+  const server = [...(outcome.started ? [`Started the task ${quoted(outcome.started, TASK_NAME_MAX)}.`] : []), ...outcome.files, ...outcome.notices];
+  const output = outcome.output.replace(/\n$/, "");
+  const failed = (why: string, rest = output) => ({
+    step: `${step} failed.`,
+    text: rest ? `${why}\n${fitted(rest, MAX_RESULT_CHARS - why.length, "Its output before that:\n")}` : why,
+    isError: true,
+    server,
+  });
+  // As the CLI: guidance alone, not what the script printed before the user had the task.
+  if (outcome.hardStop) {
+    const { error, guidance } = outcome.hardStop;
+    return failed(error ? `${error.code}: ${hardStop(error) ?? guidance.trim()}` : guidance.trim(), "");
+  }
+  const { end } = outcome;
+  if (end.kind === "stopped") {
+    const why = "The user stopped the script with Stop in Zen's sidebar, so zenius ended its call: its connection to Zen is closed, and its later calls fail. Don't run it again unless the user asks.";
+    return { ...failed(why), step: `${step} stopped.` };
+  }
+  if (end.kind === "failed") return failed(fitted(scriptFailure(end.error), MAX_RESULT_CHARS / 2));
+  if (end.kind === "limit") {
+    const longer = limitS < maxS ? ` Give it up to ${maxS} s with seconds, or split` : " Split";
+    return failed(
+      `The script ran past its ${limitS} s limit, so zenius ended its call: its connection to Zen is closed, and its later calls fail.${longer} the work into scripts that each finish sooner, each returning what the next one needs.`,
+    );
+  }
+  const value = end.kind === "done" && end.value !== undefined ? `Returned: ${asJson(end.value)}` : "";
+  const shownValue = fitted(value, Math.max(MAX_RESULT_CHARS / 2, MAX_RESULT_CHARS - output.length));
+  const text = [fitted(output, MAX_RESULT_CHARS - shownValue.length), shownValue].filter(Boolean).join("\n");
+  return { step, text: text || "Done: it printed and returned nothing.", server };
+}
+
+/** A script's value as evaluate gives one: JSON, or as the console prints it where JSON can't say it. */
+function asJson(value: unknown): string {
+  try {
+    const json = JSON.stringify(value, null, 2);
+    if (json !== undefined) return json;
+  } catch {}
+  return formatValue(value);
+}
+
+/** `text` within `max` characters, saying where it's cut; `label` leads it when there's any. */
+function fitted(text: string, max: number, label = ""): string {
+  if (!text) return "";
+  const room = Math.max(0, Math.floor(max) - label.length);
+  if (text.length <= room) return `${label}${text}`;
+  const kept = Math.max(0, room - 50);
+  return `${label}${text.slice(0, kept)}\n(cut at ${kept} of its ${text.length} characters)`;
+}
+
+/** Why a script failed: the code and the server's or the guide's words, as a one-step tool's failure, then the script's own frames. */
+function scriptFailure(error: unknown): string {
+  if (error instanceof ZeniusError) return [`${error.code}: ${hardStop(error) ?? error.message.trim()}`, ...scriptFrames(error.stack)].join("\n");
+  return formatScriptError(error);
 }
 
 const INSTRUCTIONS = [
@@ -1294,8 +1496,10 @@ export async function callTool(session: Session, name: string, args: Json, signa
   const step = stepFor(name, args);
   const canceledResult: ToolResult = { content: [{ type: "text", text: `${step}\nThe client canceled the call.` }], isError: true };
   if (signal.aborted) return canceledResult;
-  // What the task's downloads did, for a tool that reaches Zen; an offline one leaves it to the next.
-  const news = () => (tool.offline ? [] : session.downloadNews());
+  // What the SDK noticed in the call (page code that left a page loading
+  // afresh), then what the task's downloads did, for a tool that reaches
+  // Zen; an offline one leaves those to the next.
+  const news = () => (tool.offline ? [] : [...takeNotices(), ...session.downloadNews()]);
   const aborted = whenAborted(signal);
   try {
     const run = withSignal(signal, async () => {
@@ -1304,14 +1508,20 @@ export async function callTool(session: Session, name: string, args: Json, signa
         await session.resume();
         await session.watchDownloads();
       }
-      return tool.run(args, session);
+      return tool.run(args, session, signal);
     });
     // Once canceled, what's left of it fails as its runtime calls do, unheard.
     run.catch(() => {});
     const outcome = await Promise.race([run, aborted.canceled]);
     if (outcome === CANCELED) return canceledResult;
-    const [shown, text] = typeof outcome === "string" ? [step, outcome] : [outcome.step, outcome.text];
-    return { content: [{ type: "text", text: [`${shown}\n${text}`, ...news()].join("\n") }] };
+    if (typeof outcome === "string") return { content: [{ type: "text", text: [`${step}\n${outcome}`, ...news()].join("\n") }] };
+    if (!outcome.server) return { content: [{ type: "text", text: [`${outcome.step}\n${outcome.text}`, ...news()].join("\n") }] };
+    // A script's: its own text, then the server's lines in a block of their own.
+    const server = [...outcome.server, ...news()];
+    return {
+      content: [{ type: "text", text: `${outcome.step}\n${outcome.text}` }, ...(server.length ? [{ type: "text" as const, text: server.join("\n") }] : [])],
+      ...(outcome.isError ? { isError: true } : {}),
+    };
   } catch (error) {
     const code = error instanceof ZeniusError ? error.code : undefined;
     if (code === "ZEN_BROWSER_UNAVAILABLE") session.drop();
@@ -1353,7 +1563,7 @@ export async function handle(session: Session, message: Json): Promise<Json | un
         protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0],
         capabilities: { tools: { listChanged: false }, resources: { listChanged: false } },
         serverInfo: { name: "zenius", title: "zenius (Zen browser)", version: VERSION },
-        instructions: session.docsOnly ? DOCS_ONLY_INSTRUCTIONS : INSTRUCTIONS,
+        instructions: session.docsOnly ? DOCS_ONLY_INSTRUCTIONS : session.scripts ? `${INSTRUCTIONS} ${SCRIPT_INSTRUCTION}` : INSTRUCTIONS,
       });
     }
     case "ping":
@@ -1397,13 +1607,25 @@ export async function handle(session: Session, message: Json): Promise<Json | un
 }
 
 /** `zenius mcp [--docs-only]`: serve one client on stdin and stdout until stdin closes. */
-export async function serveMcp(options: { docsOnly?: boolean } = {}): Promise<number> {
+export async function serveMcp(options: { docsOnly?: boolean; sidebar?: boolean } = {}): Promise<number> {
   const session = new Session(process.env, options);
+  if (session.scripts) {
+    // A script's callback that throws, or a promise of its that nobody
+    // awaited, fails into the running script's output, as the CLI would
+    // print it; the server goes on.
+    const stray = (error: unknown) => {
+      if (!strayError(error)) process.stderr.write(`zenius mcp: an error after a script's call ended: ${readable(error)}\n`);
+    };
+    process.on("uncaughtException", stray);
+    process.on("unhandledRejection", stray);
+  }
   // stdout carries the protocol alone: anything else written there (a notice,
   // a console.log) goes to stderr.
   const out = process.stdout.write.bind(process.stdout);
   process.stdout.write = process.stderr.write.bind(process.stderr) as typeof process.stdout.write;
   const send = (message: Json) => out(`${JSON.stringify(message)}\n`);
+  // After stdout's own writer is taken: a script's writes go in its output.
+  if (session.scripts) armScripts();
   // One call at a time: a task's steps depend on the ones before.
   let queue: Promise<void> = Promise.resolve();
   let buffer = "";

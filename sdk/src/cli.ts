@@ -51,9 +51,11 @@ export function usage(): string {
   zenius status                  list Zen instances and whether they answer
   zenius doctor [--json]         check Zen, the zenius install and the instance; changes nothing
                                  (--profile <dir> and --app <path> pick what to check)
-  zenius mcp [--docs-only]       serve browser tools to Claude Code or Codex over MCP (stdio);
+  zenius mcp [--docs-only | --sidebar]
+                                 serve browser tools to Claude Code or Codex over MCP (stdio);
                                  see docs/mcp.md for registering it. --docs-only serves the
-                                 docs tool alone, which needs no Zen
+                                 docs tool alone, which needs no Zen; --sidebar narrows the
+                                 sandboxed launcher's grants to the agent sidebar's
   zenius sidebar start|send|status|list|stop
                                  remote tasks in the sidebar: zenius sidebar --help
   zenius feedback "<one line>"   when zenius itself fails: show the user a problem report in the
@@ -147,12 +149,17 @@ export async function main(argv: string[], launch: LaunchTimes = {}): Promise<nu
     case "mcp": {
       // --docs-only: the docs tool alone, for the agent sidebar's Chat. A CLI
       // older than it refuses the flag, so it never serves Chat its browser tools.
-      const docsOnly = args.rest.length === 1 && args.rest[0] === "--docs-only";
-      if (args.rest.length > 0 && !docsOnly) return usageError(`zenius mcp takes no arguments but --docs-only`);
+      // --sidebar: Work's server. The sandboxed launcher grants it the working
+      // folder alone, and the server offers its script tool only once that
+      // launcher says so (docs/mcp.md, "script").
+      const flag = args.rest.length === 1 ? args.rest[0] : undefined;
+      const docsOnly = flag === "--docs-only";
+      const sidebar = flag === "--sidebar";
+      if (args.rest.length > 0 && !docsOnly && !sidebar) return usageError(`zenius mcp takes no arguments but --docs-only or --sidebar`);
       // zen-core's MCP server (src/mcp.ts), loaded on demand like doctor.
       if (args.instance) process.env.ZENIUS_INSTANCE = args.instance;
       const { serveMcp } = await import("./mcp.ts");
-      return serveMcp({ docsOnly });
+      return serveMcp({ docsOnly, sidebar });
     }
     case "sidebar": {
       // Loaded on demand, like doctor and mcp.

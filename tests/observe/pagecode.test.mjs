@@ -34,6 +34,8 @@ const NO_PAGE_CODE = [
   "feedback.compose", "feedback.propose",
   // A client gives up on a request of its own: it stops that request, and runs nothing.
   "calls.cancel",
+  // A script tool call's step: its connection begins and ends it in the task's steps.
+  "script.begin", "script.end",
 ];
 
 let env;

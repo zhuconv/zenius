@@ -1075,6 +1075,16 @@ test("landing (2): at the task's end, a hooked page that stays open loads afresh
     await flagWritten(space, c.label);
     // Long enough for A's load while test-all runs every suite at once.
     await h.chrome(`ctx.service.quietLoadTimeoutMs = 5000; return true;`);
+    // The sidebar's note: the in-process pagesReloaded, kept on the window
+    // (evalChrome's calls share no globals).
+    await h.chrome(
+      `win.__zrReloaded = [];
+       win.__zrReloadedOff = ctx.service.addEventListener((event, params) => {
+         if (event === "pagesReloaded" && params.space === arg) win.__zrReloaded.push(params);
+       });
+       return true;`,
+      space
+    );
     await h.call("spaces.finish", { space, keep: [a.label, b.label, c.label] });
     const finishedAt = Date.now();
     const byId = `const W = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/windows.sys.mjs");
@@ -1099,7 +1109,15 @@ test("landing (2): at the task's end, a hooked page that stays open loads afresh
     const sc = await state(c.id);
     assert.equal(sc.inner, c.inner, "written is no evidence: no load");
     assert.match(sc.read, /^typed,planted,secret,true,b,area\|/);
+    // Once B's load gave up: one note, naming the page that loaded afresh
+    // (A) by its label and its address, and neither B nor C.
+    let notes = [];
+    await h.until(async () => (notes = await h.chrome(`return win.__zrReloaded;`)).length > 0, 5000).catch(() => {});
+    await new Promise(r => setTimeout(r, 300));
+    notes = await h.chrome(`return win.__zrReloaded;`);
+    assert.deepEqual(notes, [{ space, pages: [{ page: a.label, url: a.url }] }]);
   } finally {
+    await h.chrome(`win.__zrReloadedOff?.(); delete win.__zrReloadedOff; delete win.__zrReloaded; return true;`).catch(() => {});
     await h.chrome(`delete ctx.service.quietLoadTimeoutMs; return true;`).catch(() => {});
     await h
       .chrome(

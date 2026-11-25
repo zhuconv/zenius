@@ -5,8 +5,9 @@
 // and shows its guidance exactly once. Unlike Ego, a hard stop the user ends
 // during the run, by handing the space back to a waitForControl() the script
 // made after catching it, no longer holds, so the output shows. Each run is a
-// fresh process, so this module-level state is per run; reset() exists for
-// in-process tests.
+// fresh process, so this module-level state is per run; resetOutput() exists
+// for in-process tests, and takeOutput() for zenius mcp's scripts, which run
+// one at a time in the server's process.
 
 import { fs, util } from "./node.ts";
 
@@ -49,6 +50,20 @@ export function hasHardStop(): boolean {
 /** A tagged block printed after the script's own output, e.g. unhandled Pages. */
 export function addNotice(text: string): void {
   notices.push(text.endsWith("\n") ? text : `${text}\n`);
+}
+
+/**
+ * zenius mcp's tools but script: the notices the SDK raised during the call,
+ * as lines without their [zenius:...] tags, which then start afresh. A
+ * script's are its own (takeOutput), taken before its call ends.
+ */
+export function takeNotices(): string[] {
+  const lines = notices
+    .join("")
+    .split("\n")
+    .filter((line) => line && !line.startsWith("[zenius:"));
+  notices = [];
+  return lines;
 }
 
 /** A file the SDK wrote, listed in a [zenius:files] block after the script's output. */
@@ -95,6 +110,17 @@ export function flushOutput(thrown: boolean, write: Writer = writeStdout): void 
   buffer = [];
   notices = [];
   written = [];
+}
+
+/**
+ * zenius mcp: what a script left in the run's state (its output, the SDK's
+ * notices, the files it wrote, a hard stop that still holds), which then
+ * starts afresh for the next script in the same process.
+ */
+export function takeOutput(): { text: string; notices: string; written: string[]; hardStop: string | undefined } {
+  const taken = { text: buffer.join(""), notices: notices.join(""), written: [...written], hardStop: hardStops.values().next().value };
+  resetOutput();
+  return taken;
 }
 
 export function resetOutput(): void {

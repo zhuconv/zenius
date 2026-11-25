@@ -42,7 +42,8 @@ export type MockSpace = {
   refuseHandOff?: string;
 };
 
-export type RequestRecord = { method: string; params: Record<string, any>; receivedAt: number; pageBudget?: unknown };
+/** `connection`: which of the mock's connections sent it, numbered from 1 as they came. */
+export type RequestRecord = { method: string; params: Record<string, any>; receivedAt: number; connection: number; pageBudget?: unknown };
 
 type Context = {
   socket: Socket;
@@ -75,10 +76,22 @@ function groupMates(space: MockSpace, page: MockPage): MockPage[] {
 export class MockError extends Error {
   code: string;
   data?: Record<string, unknown>;
+  /** Sent as the error frame's `hooked`, as the runtime's for page code that hooked a page and then threw. */
+  hooked?: string;
   constructor(code: string, message: string, data?: Record<string, unknown>) {
     super(message);
     this.code = code;
     this.data = data;
+  }
+}
+
+/** A handler's result whose frame says the call's page code left `detail` in the page (PROTOCOL "hooked"). */
+export class Hooked {
+  readonly value: unknown;
+  readonly detail: string;
+  constructor(value: unknown, detail: string) {
+    this.value = value;
+    this.detail = detail;
   }
 }
 
@@ -98,6 +111,9 @@ export class MockRuntime {
   readonly failingDownloads = new Set<string>();
   /** Each finished download's file in the working folder, by its id. */
   readonly #downloadFiles = new Map<string, string>();
+  /** Each connection's number, in the order they came. */
+  readonly #connections = new Map<Socket, number>();
+  #nextStep = 1;
   hello: Record<string, unknown> = { protocol: 1, instance: "mock", runtimeVersion: "0.0.0-mock", zenVersion: "1.24.2b" };
   #server: Server | undefined;
   #nextSpace = 1;
@@ -144,6 +160,11 @@ export class MockRuntime {
     this.#overrides.set(method, handler);
   }
 
+  /** The built-in handler for `method` again, after handle(). */
+  unhandle(method: string): void {
+    this.#overrides.delete(method);
+  }
+
   methods(): string[] {
     return this.requests.map((request) => request.method);
   }
@@ -172,6 +193,7 @@ export class MockRuntime {
 
   #accept(socket: Socket): void {
     this.#sockets.add(socket);
+    this.#connections.set(socket, this.#connections.size + 1);
     socket.on("close", () => this.#sockets.delete(socket));
     socket.on("error", () => {});
     socket.setEncoding("utf8");
@@ -190,7 +212,13 @@ export class MockRuntime {
 
   #request(socket: Socket, frame: Context["frame"]): void {
     const params = frame.params ?? {};
-    this.requests.push({ method: frame.method, params, receivedAt: Date.now(), ...("pageBudget" in frame ? { pageBudget: frame.pageBudget } : {}) });
+    this.requests.push({
+      method: frame.method,
+      params,
+      receivedAt: Date.now(),
+      connection: this.#connections.get(socket) ?? 0,
+      ...("pageBudget" in frame ? { pageBudget: frame.pageBudget } : {}),
+    });
     const handler = this.#overrides.get(frame.method) ?? this.#builtin(frame.method);
     const reply = (body: Record<string, unknown>) => {
       if (!socket.destroyed) socket.write(`${JSON.stringify({ id: frame.id, ...body })}\n`);
@@ -206,13 +234,16 @@ export class MockRuntime {
       // before the next frame on this connection is handled.
       result = handler(params, { socket, mock: this, frame, progress: reply });
     } catch (error) {
-      reply({ error: wireError(error) });
+      reply({ error: wireError(error), ...hookedOf(error) });
       return;
     }
     Promise.resolve(result).then(
-      (value) =>
-        reply(value instanceof Unserializable ? { result: null, unserializable: value.text } : { result: value === undefined ? null : value }),
-      (error) => reply({ error: wireError(error) }),
+      (outcome) => {
+        const value = outcome instanceof Hooked ? outcome.value : outcome;
+        const body = value instanceof Unserializable ? { result: null, unserializable: value.text } : { result: value === undefined ? null : value };
+        reply({ ...body, ...hookedOf(outcome) });
+      },
+      (error) => reply({ error: wireError(error), ...hookedOf(error) }),
     );
   }
 
@@ -339,6 +370,8 @@ export class MockRuntime {
         mock.canceled.push(params.id);
         return { canceled: true };
       },
+      "script.begin": () => ({ step: mock.#nextStep++ }),
+      "script.end": () => ({ ended: true }),
       "feedback.compose": () => ({ id: "{00000000-0000-4000-8000-000000000000}", title: "zenius 0.0.0-mock: a problem report", body: "From `zenius feedback`.\n" }),
       "feedback.propose": () => ({ outcome: "pending" }),
       "browser.health": () => ({
@@ -711,6 +744,13 @@ export class MockRuntime {
 
 /** What the mock's screenshots hold: a PNG signature, so tests can check what was written. */
 export const MOCK_PNG = Buffer.from("89504e470d0a1a0a6d6f636b", "hex");
+
+/** The frame's `hooked`, for a Hooked result or a MockError that carries one. */
+function hookedOf(outcome: unknown): { hooked?: string } {
+  if (outcome instanceof Hooked) return { hooked: outcome.detail };
+  if (outcome instanceof MockError && outcome.hooked) return { hooked: outcome.hooked };
+  return {};
+}
 
 /** A result JSON can't carry; sent as the frame-level `unserializable` string. */
 export class Unserializable {

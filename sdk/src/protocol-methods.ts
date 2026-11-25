@@ -65,6 +65,8 @@ export const RUNTIME_METHODS: Readonly<Record<string, readonly string[]>> = {
   "browser.version": ["zenius doctor", "zenius feedback", "zenius mcp wait and finish (the task's download events so far)"],
   "events.subscribe": ["zenius mcp (the task's download events)"],
   "calls.cancel": ["zenius mcp (a tool call its client canceled)"],
+  "script.begin": ["zenius mcp (a script tool call's step)"],
+  "script.end": ["zenius mcp (a script tool call's step)"],
 };
 
 /**

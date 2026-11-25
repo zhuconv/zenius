@@ -1139,6 +1139,9 @@ class Service {
     // Once per end: later events of the user's space don't run it again.
     this.#codeEnded.add(rec);
     const tabs = this.pages.tabsOf(rec);
+    // The task's names for its pages, read while the tabs are still the
+    // task's: the sidebar's note names those that load afresh.
+    const labels = new Map(tabs.map(tab => [tab.linkedBrowser, this.pages.forBrowser(tab.linkedBrowser)?.label ?? null]));
     const groups = new Map();
     for (const tab of tabs) {
       let id = null;
@@ -1156,7 +1159,7 @@ class Service {
     return Promise.all(discards)
       .then(() => this.reloadHookedAfterTask(stays, held))
       .then(
-        () => {},
+        reloaded => this.#notePagesReloaded(rec, reloaded, labels),
         e => log("reloading the hooked pages at the task's end failed:", e.message)
       )
       .finally(() => {
@@ -1175,7 +1178,8 @@ class Service {
    * @param {Element[]} browsers  the task's pages that stay open
    * @param {Map<Element, () => void>} [held]  their process holds
    *   (endTaskCode): each is released once its page is done with
-   * @returns {Promise<number>} how many were to load afresh
+   * @returns {Promise<Element[]>} those whose clean load went through, in
+   *   the order given
    */
   async reloadHookedAfterTask(browsers, held = new Map()) {
     const done = browser => {
@@ -1186,7 +1190,7 @@ class Service {
     // hand-off's and Resume's loads skip too; never off otherwise).
     if (!Services.prefs.getBoolPref("zenius.handoff.quietReload", true)) {
       browsers.forEach(done);
-      return 0;
+      return [];
     }
     const hooked = browsers.filter(b => b?.isConnected && b.browsingContext?.currentWindowGlobal && this.needsCleanCopy(b));
     for (const browser of browsers) {
@@ -1194,15 +1198,46 @@ class Service {
         done(browser);
       }
     }
+    const loaded = new Set();
     await Promise.all(
       hooked.map(b =>
         this.#cleanCopy(b, { recordMs: lazy.TASK_END_RECORD_TIMEOUT_MS })
-          .then(() => log("a hooked page reloaded at its task's end"))
+          .then(() => {
+            loaded.add(b);
+            log("a hooked page reloaded at its task's end");
+          })
           .catch(e => log("a hooked page didn't reload at its task's end, so it keeps its evidence:", e.message))
           .finally(() => done(b))
       )
     );
-    return hooked.length;
+    return hooked.filter(b => loaded.has(b));
+  }
+
+  /**
+   * The pages of `rec` that loaded afresh at its end, for the sidebar's note
+   * in the task's chat: the in-process event pagesReloaded, {space, pages:
+   * [{page, url}]}, once per end and only when one did. page is the task's
+   * label for it (null if it had none), url its address after the load.
+   * Never to a connection (emitLocal): a client subscribed with no space
+   * would read other tasks' addresses.
+   *
+   * @param {object} rec
+   * @param {Element[]} reloaded  reloadHookedAfterTask's answer
+   * @param {Map<Element, string|null>} labels  the task's labels, read at its end
+   */
+  #notePagesReloaded(rec, reloaded, labels) {
+    if (!reloaded.length) {
+      return;
+    }
+    const pages = reloaded.map(browser => {
+      let url = null;
+      try {
+        url = browser.currentURI?.spec ?? null;
+      } catch {}
+      return { page: labels.get(browser) ?? null, url };
+    });
+    log(`the task's end: ${pages.length} page(s) loaded afresh`);
+    this.emitLocal("pagesReloaded", { space: rec.id, pages });
   }
 
   /**
@@ -2091,15 +2126,15 @@ class Service {
     const request = this.#beginRequest(conn, id);
     this.dispatch(method, frame.params ?? {}, conn, { onHold, pageBudget, request })
       .then(
-        result => request.stopped !== "canceled" && conn.send(resultFrame(id, result)),
-        error => request.stopped !== "canceled" && conn.send({ id, error: toWireError(error) })
+        result => request.stopped !== "canceled" && conn.send(withHooked(resultFrame(id, result), request)),
+        error => request.stopped !== "canceled" && conn.send(withHooked({ id, error: toWireError(error) }, request))
       )
       .finally(() => this.#endRequest(conn, request));
   }
 
   /** A client's request, by its id on its connection, while it runs. */
   #beginRequest(conn, id) {
-    const request = { id, stopped: null, hooks: new Set() };
+    const request = { id, stopped: null, hooks: new Set(), hooked: null };
     if (typeof id === "number" || typeof id === "string") {
       (conn.state.requests ??= new Map()).set(id, request);
     }
@@ -2189,7 +2224,9 @@ class Service {
     // A client's call shows in its task's steps while it runs (zen-input's
     // ring); a handler's own calls don't.
     const startedAt = Date.now();
-    const step = conn ? this.#noteStep("beginCall", { method, params, at: startedAt }) : null;
+    // A script's connection (methods/script.sys.mjs) nests its steps under
+    // the script's own.
+    const step = conn ? this.#noteStep("beginCall", { method, params, at: startedAt, script: conn.state.script }) : null;
     let heldMs = 0;
     let promise;
     let ctx = null;
@@ -2269,7 +2306,7 @@ class Service {
       const held = heldMs ? ` (held ${heldMs.toFixed(0)}ms)` : "";
       log(`rpc ${method} ${ms.toFixed(1)}ms ${outcome}${held}${conn ? "" : " (internal)"}`);
       if (conn) {
-        this.#noteStep("endCall", step, { method, params, outcome, ms, at: startedAt, found: ctx?.step });
+        this.#noteStep("endCall", step, { method, params, outcome, ms, at: startedAt, found: ctx?.step, script: conn.state.script });
         this.#noteCall(method, ms, outcome);
       }
     };
@@ -2555,6 +2592,15 @@ class Service {
       stopped: () => (request?.stopped ? stopError(request.stopped, method) : null),
       onStopped: fn => onStopped(request, fn),
       unlessStopped: (promise, cleanup) => unlessStopped(request, method, promise, cleanup),
+      // The agent's code left `detail` in a page that wasn't hooked before
+      // (zen-observe's evidence): the request's final frame carries the
+      // first such, as `hooked`, so its client can say the page now loads
+      // afresh before the user acts there and at the task's end.
+      noteHooked: detail => {
+        if (request && typeof detail === "string" && detail && request.hooked === null) {
+          request.hooked = detail;
+        }
+      },
       // Nested calls keep the request's budget, and stop with it.
       call: (m, p) => this.dispatch(m, p, null, { pageBudget, request }),
       emit: (event, params) => this.emit(event, params),
@@ -2915,6 +2961,11 @@ function isThenable(value) {
 }
 
 /** A response frame. NaN, ±Infinity, -0 and BigInt results go in `unserializable`. */
+/** A request's final frame, with what its page code left that loads a page afresh (ctx.noteHooked), if anything. */
+function withHooked(frame, request) {
+  return request.hooked === null ? frame : { ...frame, hooked: request.hooked };
+}
+
 function resultFrame(id, result) {
   if (result === undefined) {
     return { id, result: null };

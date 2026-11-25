@@ -4,9 +4,18 @@
 // own agents), and its view lists what the agent did there. zen-core's
 // dispatcher tells this module of each call a client makes, as it begins and
 // as it ends (beginCall, endCall). The calls that are steps go into their
-// task's ring, running until they end, and the oldest go past
-// STEPS_PER_TASK. zen-ux reads the rings beside zen-core's task feed
-// (stepsOf, onStep).
+// task's ring, running until they end; past STEPS_PER_TASK the oldest that
+// have ended go first, so a running one, such as a script's own step under
+// its calls' steps, stays while it runs. zen-ux reads the rings beside
+// zen-core's task feed (stepsOf, onStep).
+//
+// A script that zenius mcp's script tool runs is a step of its own, which
+// its connection begins and ends (zen-core's script.begin and script.end):
+// each step that connection's calls make in the task carries `within`, the
+// script step's id, so the sidebar shows them under it. Its title is the
+// tool's purpose, the agent's own words, quoted as a page's names are, so
+// it reads as the agent's claim and the steps under it as what happened.
+// The sidebar's Stop is stopScript.
 //
 // A step is a line the user reads, and it lasts (zen-snapshot's points):
 // - It never holds what the agent typed, pasted or chose, nor code, a value
@@ -35,16 +44,20 @@ const NAME_MAX = 60;
 const rings = new Map();
 const listeners = new Set();
 let nextId = 1;
+/** The scripts running, by their step's id (beginScript). */
+const scripts = new Map();
 
 /**
  * zen-core's dispatcher: a client's call begins. A call on a task that's a
  * step joins the task's ring at once, running, so a long wait shows while
  * it lasts; endCall settles it.
  *
- * @param {{method: string, params: object, at: number}} call  `at`: when it began (epoch ms)
+ * @param {{method: string, params: object, at: number, script?: object|null}} call
+ *   `at`: when it began (epoch ms); `script`: the script its connection
+ *   runs (beginScript), whose step a step in its task is `within`
  * @returns {object|null} the running step, for endCall; null when the call is none (yet)
  */
-export function beginCall({ method, params, at } = {}) {
+export function beginCall({ method, params, at, script } = {}) {
   const space = params?.space;
   if (!Number.isSafeInteger(space)) {
     return null;
@@ -61,7 +74,13 @@ export function beginCall({ method, params, at } = {}) {
     text,
     outcome: "running",
     page: typeof params.page === "string" ? params.page : null,
+    ...withinOf(script, space),
   });
+}
+
+/** A step's `within`: the script step of the connection that made it, while that runs in the same task. */
+function withinOf(script, space) {
+  return script && !script.ended && script.space === space ? { within: script.id } : {};
 }
 
 /**
@@ -71,14 +90,14 @@ export function beginCall({ method, params, at } = {}) {
  * becomes a step here, once its handler has found the task.
  *
  * @param {object|null} step  beginCall's
- * @param {{method: string, params: object, outcome: string, ms: number, at: number, found?: {target?: object, space?: number, page?: string}}} call
+ * @param {{method: string, params: object, outcome: string, ms: number, at: number, found?: {target?: object, space?: number, page?: string}, script?: object|null}} call
  *   `outcome` is "ok" or the error's code; `ms` the run time, held time left
  *   out; `found` what the handler learned (ctx.step): the element it acted
  *   on, as content's stepName gives it, and the task and tab of a call that
  *   names a chooser instead of a page
  * @returns {object|null} the step as it ended
  */
-export function endCall(step, { method, params, outcome, ms, at, found } = {}) {
+export function endCall(step, { method, params, outcome, ms, at, found, script } = {}) {
   const space = step?.space ?? (Number.isSafeInteger(params?.space) ? params.space : found?.space);
   if (!Number.isSafeInteger(space)) {
     return null;
@@ -98,7 +117,85 @@ export function endCall(step, { method, params, outcome, ms, at, found } = {}) {
   if (!text) {
     return null;
   }
-  return add(space, settle({ id: nextId++, at: Number.isFinite(at) ? at : Date.now(), method, text, page: typeof found?.page === "string" ? found.page : null }));
+  return add(
+    space,
+    settle({ id: nextId++, at: Number.isFinite(at) ? at : Date.now(), method, text, page: typeof found?.page === "string" ? found.page : null, ...withinOf(script, space) })
+  );
+}
+
+/**
+ * zen-core's script.begin: a script of zenius mcp's script tool begins in
+ * the task `space`, on a connection of its own. Its step, method "script",
+ * runs until endScript; the steps of its connection's calls in the task
+ * carry its id as `within` meanwhile.
+ *
+ * @param {{space: number, purpose?: string, at?: number, stop: () => void}} begin
+ *   `purpose`: the tool's, the agent's own words; `stop`: tells the
+ *   script's client and closes its connection, for stopScript
+ * @returns {{id: number, space: number, at: number, ended: boolean}} the
+ *   script, for beginCall's and endCall's `script`, and endScript
+ */
+export function beginScript({ space, purpose, at, stop }) {
+  const title = quoted(purpose);
+  const step = add(space, {
+    id: nextId++,
+    at: Number.isFinite(at) ? at : Date.now(),
+    ms: null,
+    method: "script",
+    text: title ? `Run a script: ${title}` : "Run a script",
+    outcome: "running",
+    page: null,
+  });
+  const script = { id: step.id, space, at: step.at, ended: false, stop };
+  scripts.set(script.id, script);
+  return script;
+}
+
+/**
+ * The script's step ends: zen-core's script.end with "ok", an error's code
+ * or "failed", or "stopped" when its connection closed first or the user
+ * stopped it (stopScript).
+ *
+ * @param {object} script  beginScript's
+ * @param {{outcome: string}} end
+ * @returns {boolean} whether it was running
+ */
+export function endScript(script, { outcome } = {}) {
+  if (!script || script.ended) {
+    return false;
+  }
+  script.ended = true;
+  scripts.delete(script.id);
+  const held = rings.get(script.space)?.find(s => s.id === script.id);
+  // Gone past the ring's end while it ran: nothing shows it any more.
+  if (held) {
+    held.ms = Math.max(0, Date.now() - script.at);
+    held.outcome = typeof outcome === "string" && outcome ? outcome : "ok";
+    tell(script.space, held);
+  }
+  return true;
+}
+
+/**
+ * The sidebar's Stop for a script: its step ends as stopped, and its
+ * connection closes, which stops that connection's waits and page code and
+ * refuses its later calls (zen-core's dispatcher). So the user's Stop stops
+ * the script, whatever the agent's client does with the call.
+ *
+ * @param {number} id  the script step's id
+ * @returns {boolean} whether that script was running
+ */
+export function stopScript(id) {
+  const script = scripts.get(id);
+  if (!script || !endScript(script, { outcome: "stopped" })) {
+    return false;
+  }
+  try {
+    script.stop();
+  } catch (e) {
+    console.error("[zenius] stopping a script failed", e);
+  }
+  return true;
 }
 
 /** A new step at the end of its task's ring. */
@@ -107,13 +204,33 @@ function add(space, step) {
   rings.delete(space);
   rings.set(space, ring);
   ring.push(step);
-  if (ring.length > STEPS_PER_TASK) {
-    ring.splice(0, ring.length - STEPS_PER_TASK);
-  }
+  trim(ring);
   while (rings.size > TASKS_KEPT) {
     rings.delete(rings.keys().next().value);
   }
   return { ...tell(space, step), space };
+}
+
+/**
+ * Back to STEPS_PER_TASK: the oldest steps that have ended go first. A
+ * running one stays while it runs, so its end is still told (endCall,
+ * endScript): a script's own step begins before the steps of its calls and
+ * runs under them all. Only when every step left runs do the oldest of
+ * those go.
+ */
+function trim(ring) {
+  let over = ring.length - STEPS_PER_TASK;
+  for (let i = 0; over > 0 && i < ring.length; ) {
+    if (ring[i].outcome === "running") {
+      i++;
+    } else {
+      ring.splice(i, 1);
+      over--;
+    }
+  }
+  if (over > 0) {
+    ring.splice(0, over);
+  }
 }
 
 function tell(space, step) {
@@ -129,12 +246,14 @@ function tell(space, step) {
 
 /**
  * The task's recent steps, in the order their calls began, oldest first:
- * `{id, at, ms, method, text, outcome, page}`. `outcome` is "running" until
+ * `{id, at, ms, method, text, outcome, page, within?}`. `outcome` is "running" until
  * the call ends, then "ok" or the error's code, or "stopped" for one that
  * failed once its client canceled it or its connection closed (zen-core's
  * dispatcher), and `ms` null until then.
  * `id` grows from step to step, across tasks; `page` is the tab's label,
- * null for a call that names none (pages.new).
+ * null for a call that names none (pages.new). A script's own step has
+ * method "script"; `within` is that step's id on each step its calls made
+ * while it ran (beginScript).
  *
  * @param {number} space  the task's space id
  * @returns {object[]}

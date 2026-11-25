@@ -2573,6 +2573,44 @@ test("a Work chat whose task ended gets zen-core's pagesReloaded as a note: afte
   assert.equal(out.shown, true);
 });
 
+test("end to end: a page the agent's code hooked loads afresh at its task's end, and the chat says so after the agent's last words (zen-core's pagesReloaded)", async () => {
+  await useMock();
+  const out = await chrome(`
+    const g = win.ucAgentSidebar;
+    const AS = g.AgentService;
+    await S.openPanel();
+    const userSpace = win.gZenWorkspaces.activeWorkspace;
+    const userTab0 = win.gBrowser.selectedTab;
+    const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
+    // The scenario opens a page, hooks it with its code (a style sheet),
+    // finishes keeping it, then says its last words.
+    const uid = await startWorkChat(win, { text: "SCENARIO:reloadend", source: "urlbar" });
+    const conv = AS.tasks.get(uid);
+    const res = {};
+    let url = null;
+    try {
+      await S.until(() => !conv.busy && conv.messages.some(m => m.role === "note" && m.text.startsWith("Reloaded ")), 60000);
+      url = new URL(conv.messages.find(m => m.role === "tool" && m.zen === "open").args.url);
+      res.where = url.host + url.pathname;
+      res.steps = conv.messages.filter(m => m.role === "tool").map(m => [m.zen, m.status]);
+      res.tail = conv.messages.slice(-2).map(m => (m.role === "note" ? m.text : m.role));
+    } finally {
+      AS.cancel(conv);
+      await S.until(() => !conv.busy, 10000).catch(() => {});
+      // The tab the task kept.
+      for (const tab of [...win.gBrowser.tabs]) {
+        if (url && tab.linkedBrowser?.currentURI?.spec === url.href) win.gBrowser.removeTab(tab, { animate: false });
+      }
+      if (win.gZenWorkspaces.activeWorkspace !== userSpace) await win.gZenWorkspaces.changeWorkspaceWithID(userSpace);
+      if (userTab0.isConnected) win.gBrowser.selectedTab = userTab0;
+      g.setMode("chat");
+    }
+    return res;
+  `);
+  assert.deepEqual(out.steps, [["open", "completed"], ["evaluate", "completed"], ["finish", "completed"]]);
+  assert.deepEqual(out.tail, ["assistant", `Reloaded ${out.where} to undo the agent's changes. Anything the page hadn't saved is gone.`]);
+});
+
 test("where an edit takes the agent back (editPlan): to the newest answer (or, with Claude Code, thought) of its session, in a turn that ended, that nothing finished after before the user's next message; it keeps everything when only steps the edit's message cut short or moved lie between, and otherwise counts the steps and messages the agent forgets, all of them when no such point exists", async () => {
   const out = await chrome(`
     const { editPlan, editLossText } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentService.sys.mjs");

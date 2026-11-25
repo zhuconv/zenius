@@ -367,7 +367,7 @@ export const API_SCHEMA: readonly ApiEntry[] = [
     name: "Page.evaluate",
     signature: "await page.evaluate(fnOrString, argument?)",
     summary:
-      "Run JavaScript in this Page; callbacks receive JSON data but cannot capture Node.js variables. Safety-timeout errors report executionStopped, pageResponsive, and mayHaveLateEffects.",
+      "Run JavaScript in this Page; callbacks receive JSON data but cannot capture Node.js variables. Safety-timeout errors report executionStopped, pageResponsive, and mayHaveLateEffects. Code that leaves something zenius counts as a hook (a style sheet, a form or field, a script) costs the page a reload: zenius loads it afresh when it's handed to the user, before the user clicks or types there, and at the task's end, losing what it keeps only in memory, and a [zenius:reload] notice after the output says so (zenius docs limits).",
   },
   {
     name: "Page.waitForFunction",

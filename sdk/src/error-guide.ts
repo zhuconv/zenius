@@ -313,10 +313,11 @@ export const CODE_GUIDE: Record<string, CodeGuide> = {
     owned: true,
     unlisted: true,
   },
-  // Only zenius mcp cancels a call, for a tool call its client canceled,
-  // and it answers that client nothing then.
+  // Only zenius mcp cancels a call: for a tool call its client canceled,
+  // which it answers nothing then, or for a script whose tool call is over,
+  // whose leftover work nobody waits for.
   ZEN_CANCELED: {
-    what: "zenius mcp's client canceled the tool call this call was for, so zenius stopped the call.",
+    what: "zenius mcp stopped the call: its client canceled the tool call this call was for, or the script it was for had ended.",
     next: "Nothing: the client stopped waiting for it, and its next call runs.",
     owned: true,
     unlisted: true,
