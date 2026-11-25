@@ -490,11 +490,13 @@ would link ~/.claude/skills/zenius -> ~/.zenius/cli/skill/zenius
 would link ~/.agents/skills/zenius -> ~/.zenius/cli/skill/zenius
 ```
 
-Two other lines are fine:
+Three other lines are fine:
 
 - `ok …`: a link already points at the copy, or the working folder is set
   already.
 - `note … is not on PATH`: agents won't find `zenius` by name (see below).
+- `note a running Zen keeps the working folder it started with, …`:
+  `--working-dir` changes the folder ("The working folder", below).
 
 Stop if it names anything else, or prints a `skip … left alone` line. That
 means a file, folder or link there isn't zenius's. The script won't touch
@@ -543,7 +545,11 @@ writes it in `~/.zenius/config.json`, which Zen reads at each start and the
 user, if it's missing. Later installs keep it: pass `--working-dir` again
 only to change it.
 
-- Changing it moves no files: the earlier folder keeps its own.
+- Changing it moves no files: the earlier folder keeps its own. A Zen
+  that's running keeps the folder it started with, so its downloads land
+  there until you quit and reopen it, while the `zenius` command takes the
+  new one at its next run. `install-cli.sh` says so when it changes the
+  folder.
 - Undo leaves the folder, its files and `config.json` as they are.
 - The installers refuse a folder an agent's scripts mustn't write, with the
   reason, and change nothing: the home folder, a temporary folder or a

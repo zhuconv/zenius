@@ -433,7 +433,9 @@ report installed install "$DEST: zenius $describe"
 
 # The working folder, in the config file the launcher reads at each start,
 # and made if missing.
+before=
 if ! wf_current "$working"; then
+  before=$(wf_saved 2>/dev/null) || before=
   act wf_write "$working"
   report set set "the working folder: $working ($(wf_config))"
 elif [[ -d $working ]]; then
@@ -442,6 +444,11 @@ fi
 if [[ ! -d $working ]]; then
   act wf_make "$working"
   report made make "$working, the working folder, readable only by you"
+fi
+# The runtime reads the config once, at Zen's start, while the launcher reads
+# it at each command: a Zen that's running goes on with the folder it read.
+if [[ -n $before && "$(wf_resolve "$before")" != "$working_real" ]]; then
+  echo "note     a running Zen keeps the working folder it started with, $before, until its next start, so its downloads land there until then"
 fi
 
 status=0

@@ -454,6 +454,7 @@ describe("scripts/install-cli.sh --working-dir", () => {
     assert.equal(readFileSync(config, "utf8"), naming(files), "byte for byte, as the launcher and the runtime read it");
     assert.equal(modeOf(config), 0o600);
     assert.equal(modeOf(files), 0o700);
+    assert.doesNotMatch(first.out, /^note +a running Zen/m, "a first install changes no folder a Zen could be using");
     writeFileSync(join(files, "report.pdf"), "a download");
 
     const again = install(home);
@@ -467,6 +468,13 @@ describe("scripts/install-cli.sh --working-dir", () => {
     const moved = install(home, ["--working-dir", work]);
     assert.equal(moved.code, 0, moved.out);
     assert.ok(moved.out.includes(`\nset      the working folder: ${work} (${config})\nmade     ${work}, the working folder, readable only by you\n`), moved.out);
+    // A Zen that's running read the old one at its start, and keeps it.
+    assert.ok(
+      linesOf(moved.out).includes(
+        `note     a running Zen keeps the working folder it started with, ${files}, until its next start, so its downloads land there until then`,
+      ),
+      moved.out,
+    );
     assert.equal(readFileSync(config, "utf8"), naming(work));
     assert.equal(modeOf(work), 0o700);
     assert.deepEqual(readdirSync(work), []);
@@ -474,6 +482,7 @@ describe("scripts/install-cli.sh --working-dir", () => {
     const kept = install(home);
     assert.equal(kept.code, 0, kept.out);
     assert.ok(linesOf(kept.out).includes(`ok       the working folder: ${work}`), kept.out);
+    assert.doesNotMatch(kept.out, /^note +a running Zen/m, "the same folder again changes nothing");
     assert.equal(readFileSync(config, "utf8"), naming(work));
 
     // A folder that's there keeps its mode and its files. The option's =
