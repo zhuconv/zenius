@@ -1,12 +1,18 @@
 // Mouse input state that Gecko shares between the tabs of a content process
 // (zen-input).
 //
-// - Mouse capture is per process, and the parent keeps one pointer capture
-//   per pointer, across processes. While zenius held a press in a hidden
-//   agent page, the user's moves and clicks in their own tab went there (a
-//   raw mouse.down, the selection drag it starts, a slider that captures the
-//   pointer, the instant of a click). While the user, or another task, held
-//   a press, zenius's events went to that tab instead of the agent's.
+// - A page's pointer capture holds one pointer id, in its process and in
+//   the parent, which sends that id's input to the capturing page's
+//   process until it hears the capture is gone. With the real mouse's id, a
+//   slider that captured the pointer at the agent's press in a hidden agent
+//   page took the user's moves and clicks from their own tab. So zenius's
+//   mouse events carry an id of their own (agentPointerId).
+// - Mouse capture is per process, whatever the pointer. While zenius held a
+//   press in a hidden agent page, the user's moves and clicks in another
+//   tab of its process went there (a raw mouse.down, the selection drag it
+//   starts, a scrollbar's or a range input's drag, the instant of a click).
+//   While the user, or another task, held a press, zenius's events went to
+//   that tab instead of the agent's.
 // - IMEStateManager is per process: any mouse button event zenius sends in
 //   the process commits the composition the user has open in another tab.
 // - The mouse's last point is per process: a move's movementX/Y
@@ -42,6 +48,24 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 const POLL_MS = 50;
 const MOZ_SOURCE_MOUSE = 1;
+
+/**
+ * The pointer id of zenius's mouse events: not the real mouse's 0, so that
+ * a page's pointer capture of the agent's press holds the agent's pointer
+ * only, and clear of Gecko's own pen (1) and touch (2) ids and the small ids
+ * real touches get. A page can read it (PointerEvent.pointerId), which no
+ * real Firefox mouse shows: docs/SPI.md, "The agent's pointer".
+ */
+export const AGENT_POINTER_ID = 32767;
+// 0 puts zenius's mouse back on the real mouse's id, if a site breaks on
+// the agent's own.
+const AGENT_POINTER_ID_PREF = "zenius.input.agentPointerId";
+
+/** The pointer id zenius's mouse events carry now. */
+export function agentPointerId() {
+  const id = Services.prefs.getIntPref(AGENT_POINTER_ID_PREF, AGENT_POINTER_ID);
+  return id >= 0 ? id : AGENT_POINTER_ID;
+}
 
 /** The tab a zenius input event is for, while Gecko dispatches it. */
 let dispatching = null;
@@ -94,9 +118,10 @@ const ending = new Set();
  * Process-top document → zenius's releases in it that the parent hasn't
  * heard yet. A page's pointer capture is the parent's too: it sends that
  * pointer's input to the capturing page's process until a message from
- * there says the capture is gone. So for a moment after each release, the
- * user's input in their own tab still comes here, and the guard drops it
- * as it did while the press was held. The hold is its document's, not the
+ * there says the capture is gone. On the real mouse's pointer id
+ * (agentPointerId 0), for a moment after each release, the user's input in
+ * their own tab still comes here, and the guard drops it as it did while
+ * the press was held. The hold is its document's, not the
  * window's: a page that navigates after the agent's click commits long
  * after the parent heard the release, so the new document needs no hold,
  * and the old one's frames, which would end it, stop.
@@ -144,9 +169,10 @@ export function setReleaser(fn) {
 }
 
 /**
- * After zenius released a press in `top`, drop the user's input in its
- * document until everything the parent sent here by the old capture has
- * come, in three steps:
+ * After zenius released a press in `top` on the real mouse's pointer id
+ * (agentPointerId 0), drop the user's input in its document until
+ * everything the parent sent here by the old capture has come, in three
+ * steps:
  * - The parent answers the query after the capture's release, which went
  *   before it on the process's one channel. After the answer it sends
  *   nothing more here by that capture.
@@ -162,6 +188,13 @@ export function setReleaser(fn) {
  * @param {Window} top  the tab's process-top window
  */
 export function holdUntilParentHears(top) {
+  // On the agent's own pointer id, the parent sends the user's mouse here by
+  // no capture of the agent's press, and Gecko's per-process mouse capture
+  // ends with the release itself. A hold would only drop the user's own
+  // input in a task page they're looking at.
+  if (agentPointerId() !== 0) {
+    return;
+  }
   let actor = null;
   try {
     actor = top.windowGlobalChild?.getActor("ZeniusInput") ?? null;
@@ -307,7 +340,7 @@ function park(top) {
       return;
     }
     unparked.delete(top);
-    const data = { identifier: at.windowUtils.DEFAULT_MOUSE_POINTER_ID, button: 0, buttons: 0, clickCount: 0, modifiers: 0, inputSource: MOZ_SOURCE_MOUSE };
+    const data = { identifier: agentPointerId(), button: 0, buttons: 0, clickCount: 0, modifiers: 0, inputSource: MOZ_SOURCE_MOUSE };
     const send = (type, widget) =>
       at.synthesizeMouseEvent(type, same ? last.x : 0, same ? last.y : 0, data, {
         isDOMEventSynthesized: true,

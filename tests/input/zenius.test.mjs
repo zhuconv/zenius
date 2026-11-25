@@ -29,9 +29,16 @@ const opened = [];
 const track = page => (opened.push(page), page);
 const homePage = async () => track(await h.newPageAt(task, `${h.baseUrl}/?run=${Date.now()}`));
 
+// A test that put the agent's mouse on the real mouse's pointer id (shareMousePointerId).
+let pointerShared = false;
+
 afterEach(async () => {
   while (opened.length) {
     await opened.pop().close().catch(() => {});
+  }
+  if (pointerShared) {
+    pointerShared = false;
+    await h.call("dev.evalChrome", { code: 'Services.prefs.clearUserPref("zenius.input.agentPointerId"); return true;' });
   }
 });
 const value = (page, selector) => page.evaluate(sel => document.querySelector(sel).value, selector);
@@ -2419,6 +2426,18 @@ const LAB_PAGE = who => `
   return true;`;
 
 /**
+ * Put the agent's mouse on the real mouse's pointer id for the rest of the
+ * test (zenius.input.agentPointerId 0, the switch if a site breaks on the
+ * agent's own id). A page's pointer capture of the agent's press then takes
+ * the user's mouse too, through the parent, and the guard is what keeps it
+ * out of the agent's page. afterEach puts the id back.
+ */
+async function shareMousePointerId() {
+  pointerShared = true;
+  await h.call("dev.evalChrome", { code: 'Services.prefs.setIntPref("zenius.input.agentPointerId", 0); return true;' });
+}
+
+/**
  * Open each new tab of a site in one content process while `fn` runs, as
  * tests/snapshot/tools/process-input-probe.mjs does: with one process
  * allowed, Gecko's MinTabSelector always picks the site's first.
@@ -2621,10 +2640,11 @@ test("the input guard listens only in processes where a task page lives, and lea
   }
 });
 
-test("a press the agent holds keeps the user's mouse in the user's tab: a selection in its process, a pointer capture in any", { timeout: 90_000 }, async () => {
+test("a press the agent holds keeps the user's mouse in the user's tab: a selection in its process, a pointer capture in any, on the real mouse's pointer id", { timeout: 90_000 }, async () => {
   // While zenius held a press in a hidden agent page, a selection drag there
   // took the user's moves and first press in the same process, and the
   // page's pointer capture took the user's whole gesture in any process.
+  await shareMousePointerId();
   const before = await h.call("dev.viewState");
   for (const [where, url, target] of [
     ["same process, a selection drag", `${h.baseUrl}/?user=${Date.now()}`, [30, 230]],
@@ -2701,7 +2721,8 @@ for (const [when, release] of [
   ["as the user's first event ends the agent's press", null],
   ["right behind the agent's own release", page => page.mouse.up()],
 ]) {
-  test(`the user's quickest click ${when} stays out of the agent's page, whose pointer capture the parent still follows`, { timeout: 120_000 }, async () => {
+  test(`the user's quickest click ${when} stays out of the agent's page, whose pointer capture the parent still follows, on the real mouse's pointer id`, { timeout: 120_000 }, async () => {
+    await shareMousePointerId();
     // The parent sends the user's mouse to the process of a page that holds
     // the pointer capture until a message from that process says it's gone.
     // Each release, the guard's or the agent's, holds the user's input in
@@ -2756,7 +2777,8 @@ for (const [when, release] of [
     ["moves", USER_MOVES],
     ["click and then moves", USER_CLICK_THEN_MOVES],
   ]) {
-    test(`the user's ${what}, with no button after them, ${when}, stay out of the agent's page`, { timeout: 180_000 }, async () => {
+    test(`the user's ${what}, with no button after them, ${when}, stay out of the agent's page, on the real mouse's pointer id`, { timeout: 180_000 }, async () => {
+      await shareMousePointerId();
       const before = await h.call("dev.viewState");
       const heard = [];
       for (let run = 1; run <= 10; run++) {
@@ -2828,7 +2850,9 @@ for (const [when, agentClick, clicks] of [
     ["click@agentpad"],
   ],
 ]) {
-  test(`the agent's release ${when}, after the user's press that the guard dropped in its page, makes no click but its own`, { timeout: 120_000 }, async () => {
+  test(`the agent's release ${when}, after the user's press that the guard dropped in its page, makes no click but its own (the real mouse's pointer id)`, { timeout: 120_000 }, async () => {
+    // The parent sends the user's press there by the page's capture of the agent's press.
+    await shareMousePointerId();
     const before = await h.call("dev.viewState");
     for (let run = 1; run <= 3; run++) {
       let page = null;
@@ -2872,9 +2896,11 @@ for (const [when, agentClick, clicks] of [
   });
 }
 
-test("the release that ends the agent's double press unseen makes no click or dblclick in its page", { timeout: 120_000 }, async () => {
+test("the release that ends the agent's double press unseen makes no click or dblclick in its page (the real mouse's pointer id)", { timeout: 120_000 }, async () => {
   // Gecko makes a dblclick of a release whose press counted two clicks, and
-  // the hidden release stopped only the click.
+  // the hidden release stopped only the click. The user's move that ends
+  // the press comes there by the page's capture of the agent's press.
+  await shareMousePointerId();
   const before = await h.call("dev.viewState");
   for (let run = 1; run <= 3; run++) {
     let page = null;
@@ -2909,6 +2935,59 @@ test("the release that ends the agent's double press unseen makes no click or db
   }
   assert.deepEqual(await h.call("dev.viewState"), before, "the user's view is back as it was");
 });
+
+// zenius's mouse events carry a pointer id of their own, so a page's pointer
+// capture of the agent's press holds the agent's pointer only: the parent
+// never sends the user's mouse there, and nothing ends the agent's drag.
+for (const [where, site] of [
+  ["another process", () => h.crossUrl],
+  ["the same process", () => h.baseUrl],
+]) {
+  test(`the agent's drag on a page that captures its pointer leaves the user's mouse with their tab in ${where}, and ends on the capturing element`, { timeout: 120_000 }, async () => {
+    const before = await h.call("dev.viewState");
+    for (let run = 1; run <= 2; run++) {
+      let page = null;
+      try {
+        const pair = await labPair(`${site()}/?user=${Date.now()}`);
+        page = pair.page;
+        assert.equal(pair.same, where === "the same process", `the user's tab is ${pair.same ? "in" : "outside"} the agent's process`);
+        await page.mouse.move(60, 140);
+        await page.mouse.down();
+        const id = await page.evaluate(() => (window.__captured?.el.hasPointerCapture(window.__captured.id) ? window.__captured.id : null));
+        assert.ok(id !== null && id !== 0, `run ${run}: the page holds the agent's own pointer, not the real mouse's: ${id}`);
+        await page.evaluate(() => window.__log.splice(0));
+        await inUserLab("window.__log.splice(0); return true;");
+        await userMouse(USER_CLICK_THEN_MOVES, -1);
+        await afterFrames(page);
+        await h.sleep(200);
+        const userLog = await inUserLab("return window.__log.splice(0)");
+        assert.ok(userLog[0]?.startsWith("mousemove@"), `run ${run}: the user's first event, a move, reached their tab: ${JSON.stringify(userLog)}`);
+        for (const e of ["mousedown@userbtn", "mouseup@userbtn", "click@userbtn"]) {
+          assert.ok(userLog.includes(e), `run ${run}: ${e} reached the user's tab: ${JSON.stringify(userLog)}`);
+        }
+        assert.deepEqual(await page.evaluate(() => window.__log.splice(0)), [], `run ${run}: the agent's page heard none of the user's input`);
+        assert.ok(await page.evaluate(() => window.__captured.el.hasPointerCapture(window.__captured.id)), `run ${run}: the agent's press still holds the capture`);
+        await page.mouse.move(300, 250, { steps: 3 });
+        await page.mouse.up();
+        // The page's pending capture is taken at the agent's own next move,
+        // as at a real mouse's: every move past the pad goes to the pad.
+        assert.deepEqual(
+          await page.evaluate(() => window.__log.splice(0)),
+          ["gotpointercapture@agentpad", "mousemove@agentpad", "mousemove@agentpad", "mousemove@agentpad", "mouseup@agentpad", "click@agentpad"],
+          `run ${run}: the drag went on on the pad and ended there, with its click`
+        );
+      } finally {
+        await page?.mouse.up().catch(() => {});
+        await closeUserLab();
+        if (page) {
+          await page.close().catch(() => {});
+          if (opened.includes(page)) opened.splice(opened.indexOf(page), 1);
+        }
+      }
+    }
+    assert.deepEqual(await h.call("dev.viewState"), before, "the user's view is back as it was");
+  });
+}
 
 test("the user's moves that a tab's process coalesced reach its page by the first frame after a later request, as the moves cases' read needs", { timeout: 60_000 }, async () => {
   // afterFrames rests on two things: the user's input reaches a page's
@@ -3000,9 +3079,9 @@ for (const [what, navigates] of [
   ["once the hold after the agent's click there has ended", false],
   ["right after the agent's click navigated it: no hold outlives its document", true],
 ]) {
-  test(`the user's click reaches an agent page they're looking at ${what}`, { timeout: 300_000 }, async t => {
-    // Each release holds the user's input in its tab's document for a
-    // moment: a click there meanwhile is lost. The hold ends two frames
+  test(`the user's click reaches an agent page they're looking at ${what}, on the real mouse's pointer id`, { timeout: 300_000 }, async t => {
+    // On the real mouse's pointer id, each release holds the user's input
+    // in its tab's document for a moment: a click there meanwhile is lost. The hold ends two frames
     // after the parent's answer, long before its cap. A page the agent's
     // click navigated to is a new document, which no hold covers: the old
     // document's frames, which would end its hold, may never come. Here
@@ -3011,6 +3090,7 @@ for (const [what, navigates] of [
     // its cap and drop the user's click on the new one. The old page can't
     // go into the back/forward cache (it listens for unload), so the new
     // document gets the old one's window, as on many sites.
+    await shareMousePointerId();
     const before = await h.call("dev.viewState");
     // Gecko drops the user's input in a new document for its first refresh
     // ticks and milliseconds, so that a click can't land on what a page
@@ -3093,6 +3173,90 @@ for (const [what, navigates] of [
     if (!counted) {
       t.skip(`no run's click came within ${COUNTS_WITHIN_MS} ms of the agent's, so none could show a hold that outlived it`);
     }
+  });
+}
+
+/** The user's mouse over the agent's page they're looking at, through the parent, all at once. */
+function userMouseOnAgent(page, steps) {
+  return h.call("dev.evalChrome", {
+    arg: { at: { space: page.spaceId, page: page.label }, steps },
+    code: `const r = ctx.resolvePage(arg.at).browser.getBoundingClientRect();
+      for (const [type, x, y, buttons] of arg.steps) {
+        win.synthesizeMouseEvent(type, r.left + x, r.top + y, { identifier: 0, button: 0, buttons, clickCount: 1, modifiers: 0, inputSource: 1 },
+          { isDOMEventSynthesized: false, isWidgetEventSynthesized: false, isAsyncEnabled: false });
+      }
+      return true;`,
+  });
+}
+
+/** Whether the task's Take over prompt is open; `reset` first closes any and ends the grace after "continue". */
+function takeoverPrompt(page, reset = false) {
+  return h.call("dev.evalChrome", {
+    arg: { space: page.spaceId, reset },
+    code: `const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;
+      if (arg.reset) UI.takeover.reset();
+      return !!UI.takeover.promptState(arg.space);`,
+  });
+}
+
+// The agent page's frames stand still from before the agent's click, so a
+// hold after its release, which ends two frames after the parent's answer,
+// would run to its 1 s cap and drop the user's input meanwhile. On the
+// agent's own pointer id there is no hold: nothing comes to the page by a
+// capture of the agent's press, so the user's input in a page they're
+// looking at goes through the guard as any of theirs does. The parent sees
+// their press at the <browser> either way: a Take over.
+for (const [id, shared] of [
+  ["the agent's own pointer id", false],
+  ["the real mouse's pointer id", true],
+]) {
+  test(`on ${id}, the user's moves and click in an agent page they're looking at, right after the agent's click, ${shared ? "wait out the hold" : "reach it at once"}, and their press is a Take over`, { timeout: 120_000 }, async () => {
+    if (shared) {
+      await shareMousePointerId();
+    }
+    const before = await h.call("dev.viewState");
+    let page = null;
+    try {
+      ({ page } = await labPair(`${h.crossUrl}/?user=${Date.now()}`));
+      assert.ok(await showAgentPage(page), "the agent's page is shown");
+      await until("the agent's page has focus", () => page.evaluate(() => document.hasFocus()));
+      assert.equal(await takeoverPrompt(page, true), false, "no Take over prompt yet");
+      const refresh = how =>
+        h.call("dev.evalContent", { space: page.spaceId, page: page.label, privileged: true, code: `actor.contentWindow.windowUtils.${how}; return true;` });
+      await refresh("advanceTimeAndRefresh(0)");
+      try {
+        // The agent's raw press and release: a click's checks wait for frames.
+        await page.mouse.move(60, 140);
+        await page.mouse.down();
+        await page.mouse.up();
+        await page.evaluate(() => window.__log.splice(0));
+        await userMouseOnAgent(page, [["mousemove", 60, 30, 0], ["mousemove", 90, 40, 0], ["mousedown", 90, 40, 1], ["mouseup", 90, 40, 0]]);
+        // Behind the user's input, which runs first there.
+        await page.evaluate(() => 1);
+      } finally {
+        await refresh("restoreNormalRefresh()");
+      }
+      await afterFrames(page);
+      const heard = await page.evaluate(() => window.__log.splice(0));
+      const moves = heard.filter(e => e.startsWith("mousemove@"));
+      const buttons = heard.filter(e => BUTTON_EVENTS.test(e));
+      if (shared) {
+        assert.deepEqual([...moves, ...buttons], [], "the hold dropped the user's moves and click");
+      } else {
+        assert.ok(moves.length, `the user's moves reached the page: ${JSON.stringify(heard)}`);
+        assert.deepEqual(buttons, ["mousedown@agentbtn", "mouseup@agentbtn", "click@agentbtn"], "the user's click reached the page");
+      }
+      assert.equal(await takeoverPrompt(page), true, "the user's press in the agent's page asks them to take over");
+    } finally {
+      await page?.mouse.up().catch(() => {});
+      if (page) await backToUserTab(page).catch(() => {});
+      await closeUserLab();
+      if (page) {
+        await page.close().catch(() => {});
+        if (opened.includes(page)) opened.splice(opened.indexOf(page), 1);
+      }
+    }
+    assert.deepEqual(await h.call("dev.viewState"), before, "the user's view is back as it was");
   });
 }
 

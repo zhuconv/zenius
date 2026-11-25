@@ -3959,6 +3959,52 @@ the agent's steps from `input/steps.sys.mjs`.
     chooser, not a page.
 - **Tests.** `tests/input/steps.test.mjs`.
 
+### The agent's pointer
+
+zenius's mouse events carry pointer id 32767 (`AGENT_POINTER_ID`,
+`content/capture.sys.mjs`), not the real mouse's 0.
+
+- **Why.** Gecko keeps a page's pointer capture per pointer id, in the
+  page's process and in the parent. The parent sends the captured id's
+  input to that process until it hears the capture is gone. With the real
+  mouse's id, a page that captured the pointer at the agent's press
+  (sliders, drag handles, drawing canvases) took the user's mouse from
+  their own tab. The guard dropped what came: the user lost their first
+  event and up to a click, and the agent's drag ended at the user's first
+  move. With an id of its own, the parent never sends the user's mouse
+  there, and the agent's drag goes on.
+- **The id.** It stays clear of Gecko's own pen (1) and touch (2) ids and of
+  the small ids that real touches get.
+- **The tell.** A page can read the id (`PointerEvent.pointerId`), and no
+  real Firefox mouse shows one other than 0. It is one more property a page
+  can check. Pages could already tell zenius's input apart by:
+  - several `pointermove`s in one frame;
+  - moves that don't wait for a frame;
+  - `document.hasFocus()` false during a click in a background task;
+  - a click that holds its button 2 ms.
+- **The switch.** `zenius.input.agentPointerId`, an integer pref, read at
+  each mouse event. If a site breaks on the agent's id, set it to 0. A
+  page's pointer capture of the agent's press then takes the user's mouse
+  again, and the guard drops what comes, as before. A negative value means
+  the default.
+- **No hold after a release at the agent's id.** At 0, each release holds
+  the user's input in its document until the parent has heard that the
+  capture is gone (`holdUntilParentHears`: the parent's answer, the input
+  queue, two frames, capped at 1 s). At the agent's own id, nothing comes
+  there by a capture of the agent's press, and Gecko's mouse capture ends
+  with the release in its own process. So there's no hold, and the user's
+  moves and clicks in a task page they're looking at reach it at once.
+  Their press there goes through the guard as any user press does: a Take
+  over while the agent drives.
+- **Still per process, whatever the pointer:** Gecko's mouse capture (a
+  selection drag, and a press on a scrollbar, a range input or a list box,
+  which keeps it), the IME, the wheel transaction and the last point. The
+  guard still covers them.
+- **Tests.** `tests/input/zenius.test.mjs`: the agent's drag on a page that
+  captures its pointer, with the user's click in their own tab, in another
+  process and in the same one. The guard's routing cases run with the pref
+  at 0.
+
 ## Testing
 
 - `scripts/zen-dev.sh <name> start|stop|restart|log|reset` runs your own

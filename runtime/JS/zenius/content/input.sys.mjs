@@ -8,7 +8,7 @@
 
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
 import { keyDefinition, MODIFIER_NAMES } from "chrome://userscripts/content/zenius/content/keys.sys.mjs";
-import { blockedError, blocker, dispatchIn, dispatchPointer, pressElsewhere } from "chrome://userscripts/content/zenius/content/capture.sys.mjs";
+import { agentPointerId, blockedError, blocker, dispatchIn, dispatchPointer, pressElsewhere } from "chrome://userscripts/content/zenius/content/capture.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -101,7 +101,8 @@ export function mouseEvent(win, type, x, y, { button = 0, buttons, clickCount = 
   }
   const utils = win.windowUtils;
   const data = {
-    identifier: utils.DEFAULT_MOUSE_POINTER_ID,
+    // The agent's own pointer: a page's pointer capture of it never takes the user's mouse.
+    identifier: agentPointerId(),
     button,
     clickCount,
     modifiers: modifierMask(utils, mods),

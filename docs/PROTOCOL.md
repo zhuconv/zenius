@@ -895,8 +895,13 @@ goes away or the element is garbage-collected.
     captures the mouse for the whole process (for auto-scroll), which took
     the user's next press or release into the agent's tab. The agent's
     selection drag goes on without it. A press on a scrollbar, a range
-    input or a list box keeps its capture, which its drag needs, and so
-    does a page's pointer capture.
+    input or a list box keeps its capture, which its drag needs.
+  - The agent's mouse events carry a pointer id of their own (32767), not
+    the real mouse's 0. So a page's pointer capture of the agent's press
+    holds the agent's pointer only, and the user's mouse stays with their
+    own tab while the agent drags. Pages can read the id. The pref
+    `zenius.input.agentPointerId` set to 0 puts the agent's mouse back on
+    the real mouse's id, if a site breaks on it.
   - The user's mouse input that such a capture pulls into the agent's tab
     never reaches the agent's page. The press ends there, unseen by the
     page, and the user's next events go to their own tab. The event that
