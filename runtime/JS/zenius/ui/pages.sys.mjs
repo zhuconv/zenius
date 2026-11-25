@@ -53,3 +53,34 @@ export function onNotePage(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
 }
+
+/** @type {Set<(tab: Element) => void>} */
+const callListeners = new Set();
+
+/**
+ * Note that an agent's call names `tab`, a page of its task, whether it acts
+ * there or only reads it (zen-core's call context, before the call runs):
+ * the UI controller takes the cursor off the task's other pages, since the
+ * agent works here now. Unlike notePage, it leaves the page the Space opens
+ * on as it is.
+ *
+ * @param {Element} tab
+ */
+export function notePageCall(tab) {
+  for (const fn of callListeners) {
+    try {
+      fn(tab);
+    } catch (e) {
+      console.error("[zenius] notePageCall listener failed", e);
+    }
+  }
+}
+
+/**
+ * @param {(tab: Element) => void} fn
+ * @returns {() => void} unsubscribe
+ */
+export function onNotePageCall(fn) {
+  callListeners.add(fn);
+  return () => callListeners.delete(fn);
+}

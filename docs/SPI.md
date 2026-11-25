@@ -1629,6 +1629,17 @@ deadline += await ctx.gate();
   Space (`notePage()` in `ui/pages.sys.mjs`). Call `notePage(tab)` yourself
   after actions without a cursor, such as `goto`, so the user lands on the
   agent's page instead of an empty tab.
+- A page's cursor goes once the agent's call names another page of the same
+  task, a read too, since the agent works there now. zen-core's call context
+  tells zen-ux of each agent call's page as it resolves it (`ctx.resolvePage`
+  calls `notePageCall(tab)` in `ui/pages.sys.mjs`, except for `dev.*`
+  methods). The cursor is forgotten, not hidden, so a hold's end doesn't
+  bring it back; the agent's next action on that page draws it again.
+- It hides while Take over's prompt is open on its page, and comes back with
+  its label when the agent goes on (Resume agent, or the countdown after
+  clicks only). A call waits before it starts while the prompt is open, but
+  an action already under way may move meanwhile: that move draws nothing
+  then, and the cursor comes back at its point.
 - Then pass the control gate (`await ctx.gate()`, see "Held calls" below)
   before dispatching. The user watching may have clicked during the
   120–380 ms flight and opened the takeover prompt. Add the ms it returns to

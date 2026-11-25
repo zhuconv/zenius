@@ -139,7 +139,7 @@ export const stats = {
   },
 };
 
-/** @type {((tab: Element) => boolean)|null} */
+/** @type {((tab: Element) => boolean|"hold")|null} */
 let mayDraw = null;
 
 /**
@@ -147,7 +147,11 @@ let mayDraw = null;
  * controls. The UI controller sets it; without one, every managed tab may
  * show the cursor.
  *
- * @param {((tab: Element) => boolean)|null} fn  false: draw nothing
+ * @param {((tab: Element) => boolean|"hold")|null} fn  true: draw. false:
+ *   draw nothing and keep the last point, as the user has control and the
+ *   move's action will be refused. "hold": draw nothing, but keep the
+ *   move's point and label for showCursor(), as the action waits to go on
+ *   there (Take over's prompt).
  */
 export function setCursorPolicy(fn) {
   mayDraw = fn;
@@ -161,7 +165,9 @@ export function setCursorPolicy(fn) {
  * fail the action it illustrates. It doesn't wait for the agent's turn
  * either: the caller passes the control gate after it (SPI "UI hooks"),
  * because the user watching may click during the flight. While the user
- * controls the Space it draws nothing and forgets the tab's cursor.
+ * controls the Space it draws nothing and keeps the cursor's last point,
+ * for when control returns; under Take over's prompt it draws nothing and
+ * keeps this move's point (setCursorPolicy).
  *
  * @param {Element} tab  a tabbrowser tab
  * @param {{x: number, y: number}} point  top-level viewport CSS px
@@ -176,27 +182,20 @@ export async function moveCursor(tab, point, opts = {}) {
     throw new TypeError("moveCursor: point needs finite x and y");
   }
   stats.moves++;
-  if (mayDraw && !mayDraw(tab)) {
+  const may = mayDraw ? mayDraw(tab) : true;
+  if (may === "hold") {
+    // The action waits to go on here: showCursor() draws it at this point
+    // when it does, not at the move before.
+    place(tab, x, y, opts);
     hideCursor(tab);
     return { visible: false, animated: false, ms: ChromeUtils.now() - t0 };
   }
-  let st = states.get(tab);
-  if (!st) {
-    st = new CursorState();
-    states.set(tab, st);
-    live.add(tab);
-    watchWindow(tab.ownerDocument.defaultView);
+  if (!may) {
+    hideCursor(tab);
+    return { visible: false, animated: false, ms: ChromeUtils.now() - t0 };
   }
+  const st = place(tab, x, y, opts);
   st.hidden = false;
-  st.x = x;
-  st.y = y;
-  st.kind = opts.kind ?? "move";
-  if (opts.label !== undefined) {
-    st.label = String(opts.label ?? "").slice(0, MAX_LABEL);
-  }
-  // The page the agent acts on is the one to show when the user opens the
-  // Space.
-  notePage(tab);
 
   if (!isTabVisible(tab)) {
     st.stale = true;
@@ -213,6 +212,35 @@ export async function moveCursor(tab, point, opts = {}) {
     console.error("[zenius] cursor render failed", e);
   }
   return { visible: true, animated, ms: ChromeUtils.now() - t0 };
+}
+
+/**
+ * Record a move's point, kind and label in `tab`'s cursor state, making one
+ * if it has none, and note the tab as the page the agent acts on: the one to
+ * show when the user opens the Space.
+ *
+ * @param {Element} tab
+ * @param {number} x
+ * @param {number} y
+ * @param {CursorOptions} opts
+ * @returns {CursorState}
+ */
+function place(tab, x, y, opts) {
+  let st = states.get(tab);
+  if (!st) {
+    st = new CursorState();
+    states.set(tab, st);
+    live.add(tab);
+    watchWindow(tab.ownerDocument.defaultView);
+  }
+  st.x = x;
+  st.y = y;
+  st.kind = opts.kind ?? "move";
+  if (opts.label !== undefined) {
+    st.label = String(opts.label ?? "").slice(0, MAX_LABEL);
+  }
+  notePage(tab);
+  return st;
 }
 
 /**

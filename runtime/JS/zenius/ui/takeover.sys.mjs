@@ -324,6 +324,8 @@ export class Takeover {
     } else if (st.tab !== tab) {
       removeNotice(st.tab, PROMPT);
       st.tab = tab;
+      // The prompt follows the user to this page of the task.
+      this.host.onChange?.(rec, "moved");
     }
     st.inputs++;
     if (kind !== "pointer") {

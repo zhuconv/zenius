@@ -211,6 +211,8 @@ class Service {
   /** @type {JsonStore|null} */
   #store = null;
   #notePage = undefined;
+  /** zen-ux's notePageCall (ui/pages.sys.mjs), null without it. */
+  #notePageCall = undefined;
   /** zen-input's step ring (input/steps.sys.mjs), null without it. */
   #steps = undefined;
   /** browserIds last published as agent task pages (publishAgentBrowsers). */
@@ -2413,6 +2415,14 @@ class Service {
     return this.#notePage;
   }
 
+  #notePageCallFn() {
+    if (this.#notePageCall === undefined) {
+      const url = `${BASE_URL}ui/pages.sys.mjs`;
+      this.#notePageCall = (chromeFileExists(url) && ChromeUtils.importESModule(url).notePageCall) || null;
+    }
+    return this.#notePageCall;
+  }
+
   #record(method, ms) {
     let samples = this.#stats.get(method);
     if (!samples) {
@@ -2502,7 +2512,19 @@ class Service {
       ...extras,
       pageBudget,
       resolveSpace: params => this.resolveSpace(params),
-      resolvePage: params => this.resolvePage(params),
+      resolvePage: params => {
+        const resolved = this.resolvePage(params);
+        // The agent's call names this page of its task: zen-ux takes the
+        // cursor off its other pages (notePageCall). Not a dev method's.
+        if (i5 !== "dev" && this.spaces.isAgentTask(resolved.space)) {
+          try {
+            this.#notePageCallFn()?.(resolved.tab);
+          } catch (e) {
+            log(`notePageCall for ${method} failed: ${e.message}`);
+          }
+        }
+        return resolved;
+      },
       watchPopups: (spaceId, openerLabel) => this.watchPopups(spaceId, openerLabel),
       // The method's declared I5 class: what its gates and content calls do.
       i5,

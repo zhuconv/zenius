@@ -28,7 +28,7 @@ import {
   removeNotice,
   showNotice,
 } from "chrome://userscripts/content/zenius/ui/notices.sys.mjs";
-import { landOn, onNotePage } from "chrome://userscripts/content/zenius/ui/pages.sys.mjs";
+import { landOn, onNotePage, onNotePageCall } from "chrome://userscripts/content/zenius/ui/pages.sys.mjs";
 import { askPageCode, endPageCodeAsks } from "chrome://userscripts/content/zenius/ui/pagecode.sys.mjs";
 import {
   closeTasksPanel,
@@ -441,18 +441,28 @@ class UiController {
       setOwnership: (rec, ownership, opts) => service.spaces.setOwnership(rec, ownership, opts),
       // The prompt's Take over, pressed or at the end of its countdown.
       takeOver: (rec, tab) => this.#takeOver(rec, tab?.linkedBrowser ?? null),
-      onChange: rec => this.#refreshBadge(rec),
+      onChange: (rec, what) => {
+        this.#promptCursor(rec, what);
+        this.#refreshBadge(rec);
+      },
       held: rec => this.#userPaused.has(rec.id),
       noteUserInput: rec => service.spaces.noteUserInput?.(rec),
     });
-    // No agent cursor in a Space the user controls.
+    // No agent cursor in a Space the user controls. On a page whose Take
+    // over prompt is open, the agent's action waits: its cursor shows there
+    // when the agent goes on (#promptCursor).
     setCursorPolicy(tab => {
-      const ownership = this.lookup(tab)?.rec.ownership;
-      return ownership !== "agentDelegatedToUser" && ownership !== "user";
+      const rec = this.lookup(tab)?.rec;
+      const ownership = rec?.ownership;
+      if (ownership === "agentDelegatedToUser" || ownership === "user") {
+        return false;
+      }
+      return rec && this.takeover.promptState(rec.id)?.tab === tab ? "hold" : true;
     });
     this.#unsubscribe.push(
       service.addEventListener((event, params) => this.#onServiceEvent(event, params)),
-      onNotePage(tab => this.#onAgentPage(tab))
+      onNotePage(tab => this.#onAgentPage(tab)),
+      onNotePageCall(tab => this.#onAgentCall(tab))
     );
     // zen-observe refuses a load the user started to the local network in
     // an agent's tab: the tab says why (observe/localnet.sys.mjs, which its
@@ -870,6 +880,53 @@ class UiController {
       this.#spaces.set(id, ui);
     }
     return ui;
+  }
+
+  /**
+   * An agent's call names `tab`, a page of its task, before it runs, a read
+   * too (zen-core's notePageCall): the cursor leaves the task's other pages.
+   * It showed where the agent last acted there, which is stale once the
+   * agent works on another page, and sitting at its last click it reads as
+   * the agent still being there. It's forgotten, not hidden, so the end of
+   * a hold doesn't bring it back; the agent's next action there draws it
+   * afresh. Every call checks them all, whatever the call before named: a
+   * cursor may have been drawn without one.
+   */
+  #onAgentCall(tab) {
+    const hit = this.lookup(tab);
+    if (!hit) {
+      return;
+    }
+    for (const other of this.#tabsOf(hit.rec)) {
+      if (other !== tab) {
+        forgetCursor(other);
+      }
+    }
+  }
+
+  /**
+   * Take over's prompt (takeover.sys.mjs): the cursor on the page it opened
+   * on hides while it's open, as the agent waits, and comes back when the
+   * agent goes on (Resume agent, or the countdown with nothing typed), at
+   * the point of the action that waited, if one did (the policy's "hold").
+   * A Take over hides or forgets it as every hold does, when the ownership
+   * changes.
+   *
+   * @param {object} rec
+   * @param {"opened"|"moved"|"takeover"|"continue"|"cancel"} what  moved: it
+   *   followed the user's input to another of the task's pages
+   */
+  #promptCursor(rec, what) {
+    if (what === "opened" || what === "moved") {
+      const tab = this.takeover.promptState(rec.id)?.tab;
+      if (tab) {
+        hideCursor(tab);
+      }
+    } else if (what === "continue" && rec.ownership === "agent") {
+      for (const tab of this.#tabsOf(rec)) {
+        showCursor(tab);
+      }
+    }
   }
 
   /** The agent acted on `tab` (cursor move, or zen-core's notePage). */

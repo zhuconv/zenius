@@ -385,6 +385,61 @@ test("IME composition counts as typing; an input-source switch doesn't", async (
   await sleep(3200); // the grace period after Resume agent
 });
 
+// Issue #3, R2: the arrow stayed at the agent's last click in one page while
+// the agent worked in another, and under the prompt.
+test("the agent's cursor leaves a page once the agent's call names another page of the task, a read too, and comes back with its next action there", async () => {
+  const p2 = await h.call("pages.new", { space, url: `${h.base}/` });
+  try {
+    // The user still looks at p1.
+    await h.chrome(`${P} gBrowser.selectedTab = tab; await until(() => gBrowser.selectedTab === tab);`);
+    await h.call("ui.cursor", { space, page: "p1", x: 200, y: 150, label: "Click Next", kind: "click" });
+    const shown = await h.chrome(`${P} const s = C.cursorState(tab); return s && { hidden: s.hidden, inDom: s.inDom };`);
+    await h.call("page.title", { space, page: p2.label });
+    const left = await h.chrome(`${P} return { state: C.cursorState(tab), layer: !!browser.parentElement.querySelector(".zenius-cursor-layer") };`);
+    await h.call("ui.cursor", { space, page: "p1", x: 220, y: 160, label: "Click Done", kind: "click" });
+    const back = await h.chrome(`${P} const s = C.cursorState(tab); return s && { hidden: s.hidden, inDom: s.inDom, label: s.label };`);
+    assert.deepEqual(shown, { hidden: false, inDom: true });
+    assert.deepEqual(left, { state: null, layer: false }, "a read in p2 takes the cursor off p1");
+    assert.deepEqual(back, { hidden: false, inDom: true, label: "Click Done" });
+  } finally {
+    await h.call("pages.close", { space, page: p2.label }).catch(() => {});
+    await h.chrome(`${P} gBrowser.selectedTab = tab; await until(() => gBrowser.selectedTab === tab);`);
+  }
+});
+
+test("while Take over's prompt is open on a page, the agent's cursor there hides; Resume agent brings it back at the point of the action that waited, with its label", async () => {
+  await h.call("ui.cursor", { space, page: "p1", x: 200, y: 150, label: "Click Next", kind: "click" });
+  // Long enough that the countdown can't end the prompt before the test's
+  // Resume agent.
+  await h.chrome(`Services.prefs.setIntPref("zenius.ux.takeover.quietMs", 20000);`);
+  let out;
+  try {
+    out = await h.chrome(`${P}
+      const pick = s => s && { hidden: s.hidden, inDom: s.inDom, x: s.x, y: s.y, label: s.label };
+      const shown = pick(C.cursorState(tab));
+      userClick();
+      await waitPrompt();
+      const during = pick(C.cursorState(tab));
+      // A call waits before it starts while the prompt is open, but one
+      // already past that check may still move: a drag's way to its target.
+      const r = await C.moveCursor(tab, { x: 300, y: 210 }, { label: "Drop on Done", kind: "move" });
+      const held = { ...pick(C.cursorState(tab)), visible: r.visible };
+      await clickNoticeButton(T.PROMPT, "Resume agent");
+      await until(() => C.cursorState(tab)?.inDom);
+      return { shown, during, held, after: pick(C.cursorState(tab)) };
+    `);
+  } finally {
+    await h.chrome(`Services.prefs.setIntPref("zenius.ux.takeover.quietMs", ${QUIET_MS});`);
+  }
+  const was = { x: 200, y: 150, label: "Click Next" };
+  const goes = { x: 300, y: 210, label: "Drop on Done" };
+  assert.deepEqual(out.shown, { hidden: false, inDom: true, ...was });
+  assert.deepEqual(out.during, { hidden: true, inDom: false, ...was }, "hidden while the prompt is open there");
+  assert.deepEqual(out.held, { hidden: true, inDom: false, ...goes, visible: false }, "the waiting action's point, not drawn");
+  assert.deepEqual(out.after, { hidden: false, inDom: true, ...goes });
+  await sleep(3200); // the grace period after Resume agent
+});
+
 test("the user's view ends as it started", async () => {
   await h.chrome(`
     await gZenWorkspaces.changeWorkspaceWithID(${JSON.stringify(userView.windows[0].activeWorkspace)});
