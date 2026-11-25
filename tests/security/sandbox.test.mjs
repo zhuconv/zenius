@@ -13,7 +13,7 @@
 // and `zenius mcp` offers no tool for it.
 
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createSocket } from "node:dgram";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { connect, createServer } from "node:net";
@@ -570,6 +570,72 @@ console.log(JSON.stringify(out));
     rmSync(file, { force: true });
   }
   assert.deepEqual(got, []);
+});
+
+test("a script started in a folder reached through a link reads and uploads its files by the name the shell gives it, and gains nothing else", async (t) => {
+  // As an agent's shell names a folder under macOS's /tmp or /var, both
+  // links into /private: PWD spells it through the link, and Node's
+  // permission model checks the path a script names. The real path is still
+  // what the upload's check and the OS sandbox go by.
+  const via = realpathSync(mkdtempSync(join(tmpdir(), "zsb-via-")));
+  cleanups.push(() => rmSync(via, { recursive: true, force: true }));
+  const named = join(via, "task");
+  symlinkSync(task, named);
+  writeFileSync(join(via, "beside.txt"), "beside the link\n");
+  const C = { named, beside: join(via, "beside.txt"), base: fixtures.base };
+  const { out, leaks } = await script(`const C = ${JSON.stringify(C)};${PRELUDE}
+out.cwd = process.cwd();
+await attempt("read by the shell's name", () => fs.readFileSync(C.named + "/mine.txt", "utf8"));
+await attempt("read beside the link", () => fs.readFileSync(C.beside, "utf8"));
+await attempt("write by the shell's name", () => { fs.writeFileSync(C.named + "/written-via.txt", "x"); return "wrote"; });
+let task;
+try {
+  task = await taskSpace("it security linked start " + process.pid + " " + Date.now());
+  const page = task.page("p1");
+  await page.goto(C.base + "/upload");
+  await attempt("upload by the shell's name", async () => {
+    await page.setInputFiles("#files", C.named + "/mine.txt");
+    await page.waitForFunction(() => JSON.parse(document.documentElement.dataset.uploaded ?? "null") !== null);
+    return page.evaluate(() => JSON.parse(document.documentElement.dataset.uploaded ?? "null").map(({ name, text }) => ({ name, text })));
+  });
+  await attempt("upload a link there to a file outside the grants", () => page.setInputFiles("#files", C.named + "/hosts.txt").then(() => "uploaded"));
+} catch (error) {
+  out.browser = { ok: false, code: error?.code ?? error?.name ?? null, message: String(error?.message ?? error).slice(0, 300) };
+} finally {
+  await task?.finish({ keep: [] }).catch(() => {});
+}
+console.log(JSON.stringify(out));
+`, { cwd: named, env: { PWD: named } });
+  const got = leaks.map((name) => `the canary reached the script through ${name}`);
+  if (out.browser) got.push(`the browser half stopped: ${out.browser.code}: ${out.browser.message}`);
+  if (out.cwd !== task) got.push(`process.cwd() is ${out.cwd}, not the real path ${task}`);
+  const said = (name) => `${name}: ${JSON.stringify(out[name])}`;
+  if (out["read by the shell's name"]?.value !== "the agent's own file\n") got.push(said("read by the shell's name"));
+  const mine = [{ name: "mine.txt", text: "the agent's own file\n" }];
+  if (JSON.stringify(out["upload by the shell's name"]?.value) !== JSON.stringify(mine)) got.push(said("upload by the shell's name"));
+  for (const name of ["read beside the link", "write by the shell's name"]) if (out[name]?.ok !== false) got.push(said(name));
+  if (out["upload a link there to a file outside the grants"]?.code !== "ZEN_PATH_NOT_ALLOWED") got.push(said("upload a link there to a file outside the grants"));
+  if (existsSync(join(task, "written-via.txt"))) got.push("the script wrote in the current folder by the shell's name");
+  rmSync(join(task, "written-via.txt"), { force: true });
+
+  // A spelling with a "." or ".." part names the folder only to the kernel:
+  // Node resolves a grant by its text. So the launcher grants only the real
+  // path then. macOS's /bin/sh (bash in POSIX mode) tidies PWD itself before
+  // the launcher reads it, so there's nothing to see.
+  const dotted = `${named}/../task`;
+  const seen = spawnSync("/bin/sh", ["-p", "-c", 'printf %s "$PWD"'], { cwd: named, env: { ...process.env, PWD: dotted }, encoding: "utf8" }).stdout;
+  if (seen === dotted) {
+    const second = await script(`${PRELUDE}
+await attempt("read by the shell's name", () => fs.readFileSync(${JSON.stringify(join(named, "mine.txt"))}, "utf8"));
+await attempt("read by the real path", () => fs.readFileSync(${JSON.stringify(join(task, "mine.txt"))}, "utf8"));
+console.log(JSON.stringify(out));
+`, { cwd: named, env: { PWD: dotted } });
+    if (second.out["read by the shell's name"]?.ok !== false) got.push(`with PWD ${dotted}, read by the shell's name: ${JSON.stringify(second.out["read by the shell's name"])}`);
+    if (second.out["read by the real path"]?.ok !== true) got.push(`with PWD ${dotted}, read by the real path: ${JSON.stringify(second.out["read by the real path"])}`);
+  } else {
+    t.diagnostic(`/bin/sh gives the launcher PWD ${seen}, not ${dotted}: the launcher's own check of it isn't reached`);
+  }
+  assert.deepEqual(got, [], `${got.length} problem${got.length === 1 ? "" : "s"}:\n- ${got.join("\n- ")}`);
 });
 
 test("the launcher's own shell runs nothing the caller's environment names: SHELLOPTS and PS4, BASH_ENV, functions, PATH", async () => {

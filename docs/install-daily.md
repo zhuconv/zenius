@@ -597,9 +597,11 @@ A script that `zenius nodejs` runs can then:
   folder", above). A relative path given to `screenshot()` or `saveAs()`
   lands there, and the script's output lists each such file under
   `[zenius:files]`;
-- read the folder it starts in, but write nowhere in it. git, direnv, npm,
-  pytest, make and agents run what a project holds (hooks, `.envrc`,
-  `.venv/bin`, `conftest.py`), outside the sandbox;
+- read the folder it starts in, by its real path or as the shell names it
+  through a link (`/tmp/x` for `/private/tmp/x` on macOS), but write
+  nowhere in it. git, direnv, npm, pytest, make and agents run what a
+  project holds (hooks, `.envrc`, `.venv/bin`, `conftest.py`), outside the
+  sandbox;
 - read the folder `--read-dir` names, such as `~/Downloads` for uploads,
   but write nothing there. An upload of a link in it to a file outside it
   is refused, as in the other folders;

@@ -237,6 +237,18 @@ fi
 work=$(pwd -P)
 grant=1
 too_wide "$work" && grant=0
+# The same folder as the agent's shell names it (PWD), when that is another
+# spelling of it, through a link (macOS's /tmp and /var are links into
+# /private). Node's permission model checks the path a script names, so it is
+# granted too, read-only like the real path. Only a tidy spelling, with no
+# ".", ".." or empty part, is taken: Node resolves a grant by its text, and
+# after a link ".." leads elsewhere for the kernel than for that text.
+named=
+case ${PWD-} in
+  */ | *//* | */./* | */. | */../* | */..) ;;
+  /*) if [ "$(cd -P "$PWD" 2>/dev/null && pwd -P)" = "$work" ]; then named=$PWD; fi ;;
+esac
+[ "$named" != "$work" ] || named=
 
 # The folder the install lets scripts read (--read-dir), by its real path. It
 # is held to the same rules, and can't be the working folder or inside it,
@@ -276,6 +288,7 @@ box=$(mktemp -d "$box/run.XXXXXX") || fail "can't make a folder in $box"
 # workers, add-ons, WASI or inspector, and files only where granted.
 if [ "$grant" = 1 ]; then
   set -- --allow-fs-read="$work" "$CLI/sdk/bin/zenius" "$@"
+  [ -z "$named" ] || set -- --allow-fs-read="$named" "$@"
 else
   set -- "$CLI/sdk/bin/zenius" "$@"
 fi
@@ -309,6 +322,9 @@ linux)
   fi
   if [ "$grant" = 1 ]; then
     set -- --ro-bind "$work" "$work" --chdir "$work" "$@"
+    # So the name the shell gives it is there too, before the read and
+    # working folders' binds, which win.
+    [ -z "$named" ] || set -- --ro-bind "$work" "$named" "$@"
   else
     set -- --chdir "$works" "$@"
   fi
