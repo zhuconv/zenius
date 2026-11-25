@@ -1266,6 +1266,19 @@ reasons: `hooked`, `made`, `listed`, `flagged`); or `paused`, or
 `spaceFinished {space, closedSpace}`, `pageClosed {space, page, tab}`,
 `popup {space, page, tab, opener}`.
 
+zen-observe's: `download {space, page, download, url, suggestedFilename,
+state, path?, failure?}`, for each download in a task's page, so that a
+client can show it with no call or wait of its own. `state` is `started` as
+the download begins (when `page.waitForEvent` resolves for it), then once
+either `finished`, with `path`, the file in the working folder, once it's
+there, or `failed`, with `failure` as `download.failure` gives it
+(`deleted` when `download.delete` came before the file moved in). A
+download zenius refuses at its start has only `failed`, and its `download`
+is `refused-<n>`, which no `download.*` method knows. `page` is the page's
+label; `url` is cut to 256 characters; `suggestedFilename` is empty when
+zenius refused the download before it had a file. A download that a
+sign-in result starts is the user's, and has none.
+
 ### Self-check (zen-core)
 
 The post-install self-check has a socket of its

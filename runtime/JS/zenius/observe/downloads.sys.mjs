@@ -63,6 +63,7 @@ function limits() {
  * @property {Promise<void>} [moved]     settles once the finished file is in the working folder, or failed to get there
  * @property {string} [path]             the file in the working folder, once it's there
  * @property {boolean} [deleted]         download.delete() asked for it to go
+ * @property {"finished"|"failed"} [told] how its end was told (onDownloadEvent), once it was
  */
 
 /** @type {Map<string, DownloadEntry>} */
@@ -71,7 +72,11 @@ const entries = new Map();
 const waiters = new Set();
 /** @type {Set<(e: DownloadEntry) => void>} */
 const downloadListeners = new Set();
+/** @type {Set<(event: object) => void>} */
+const eventListeners = new Set();
 let seq = 0;
+/** Refusals at a download's start have no download, and ids of their own. */
+let refusedSeq = 0;
 let agentBrowser = _browser => false;
 let pageOf = _browser => null;
 let installed = false;
@@ -412,8 +417,12 @@ export function downloadsActive() {
   return blockedActive === watchingContexts ? blockedActive : "partly";
 }
 
-/** Tell the agent, its waits for a download included. */
-function refused(browser, message, url) {
+/**
+ * Tell the agent, its waits for a download included, and the downloads'
+ * listeners: the end of `entry`, or without one, a refusal at the start,
+ * which has its file's `name` when the browser had named it.
+ */
+function refused(browser, message, url, { entry = null, name = "" } = {}) {
   reportRefused(browser, "download", message, url);
   for (const w of waiters) {
     if (w.browserId === browser.browserId) {
@@ -422,6 +431,16 @@ function refused(browser, message, url) {
       break;
     }
   }
+  if (entry) {
+    settle(entry, "failed", { failure: message });
+    return;
+  }
+  const page = pageOf(browser);
+  tell(
+    "failed",
+    { browserId: browser.browserId, spaceId: page?.spaceId, page: page?.label, id: `refused-${++refusedSeq}`, url, suggestedFilename: name },
+    { failure: message }
+  );
 }
 
 /** Cancel a download and remove what it wrote, its own folder under ours included. */
@@ -514,8 +533,9 @@ function refuseStaged(entry, why) {
   const browser = BrowsingContext.getCurrentTopByBrowserId(entry.browserId)?.embedderElement;
   discard(entry.download);
   if (browser) {
-    refused(browser, entry.refusal, entry.url);
+    refused(browser, entry.refusal, entry.url, { entry });
   }
+  settle(entry, "failed", { failure: entry.refusal });
 }
 
 /**
@@ -727,16 +747,17 @@ function register(browser, download, source = {}) {
   const url = source.url ?? download.source.url;
   // The folder may have changed since targetFile checked it.
   const misplaced = stagingFault(download.target?.path);
+  const name = source.suggestedFilename ?? PathUtils.filename(download.target?.path ?? "");
   if (misplaced) {
     discard(download);
-    refused(browser, stagingRefusal(url, misplaced), url);
+    refused(browser, stagingRefusal(url, misplaced), url, { name });
     return null;
   }
   const over = overOnStart(page?.spaceId, download);
   if (over) {
     // Never the agent's: no download to read, only the refusal.
     discard(download);
-    refused(browser, limitText(url, over), url);
+    refused(browser, limitText(url, over), url, { name });
     return null;
   }
   const entry = {
@@ -759,7 +780,7 @@ function register(browser, download, source = {}) {
         // The agent knows this download: it stays, failed with the reason.
         entry.refusal = limitText(entry.url, why);
         discard(download);
-        refused(browser, entry.refusal, entry.url);
+        refused(browser, entry.refusal, entry.url, { entry });
       }
     }
     if (!entry.refusal && download.succeeded && !entry.checked) {
@@ -768,11 +789,16 @@ function register(browser, download, source = {}) {
         entry.moved = moveFinished(entry, browser);
       }
     }
+    if (download.stopped && !download.succeeded) {
+      // Canceled, or failed on its way.
+      settle(entry, "failed", { failure: failureOf(entry) ?? "failed" });
+    }
     for (const fn of entry.changes) {
       fn();
     }
   };
   entries.set(entry.id, entry);
+  tell("started", entry);
   for (const fn of downloadListeners) {
     try {
       fn(entry);
@@ -826,6 +852,50 @@ export function waitForDownload(browserId, timeoutMs) {
 export function onDownload(fn) {
   downloadListeners.add(fn);
   return () => downloadListeners.delete(fn);
+}
+
+/**
+ * `fn(event)` as each agent download starts, and as it ends, which it does
+ * once: finished, with its file in the working folder, or failed, with the
+ * reason (observe/setup.sys.mjs gives the service's "download" event from
+ * these). The event is `{state, browserId, spaceId, page, download, url,
+ * suggestedFilename, path?, failure?}`, its url cut as the refusals cut it. A
+ * refusal at the start has no download to act on: it only fails, with an id
+ * of its own (refused-<n>).
+ */
+export function onDownloadEvent(fn) {
+  eventListeners.add(fn);
+  return () => eventListeners.delete(fn);
+}
+
+/** Give `state` of the download `entry` (or a refusal's stand-in for one) to the event listeners. */
+function tell(state, entry, extra = {}) {
+  const event = {
+    state,
+    browserId: entry.browserId,
+    spaceId: entry.spaceId,
+    page: entry.page ?? null,
+    download: entry.id,
+    url: cut(String(entry.url ?? ""), 256),
+    suggestedFilename: entry.suggestedFilename ?? "",
+    ...extra,
+  };
+  for (const fn of eventListeners) {
+    try {
+      fn(event);
+    } catch (e) {
+      console.error("[zenius] a download event listener failed", e);
+    }
+  }
+}
+
+/** The download's end, told once: "finished" with its path, or "failed" with the reason. */
+function settle(entry, state, extra) {
+  if (entry.told) {
+    return;
+  }
+  entry.told = state;
+  tell(state, entry, extra);
 }
 
 /** @returns {DownloadEntry|null} */
@@ -895,6 +965,8 @@ export async function forgetDownload(entry) {
  */
 export async function deleteDownload(entry) {
   entry.deleted = true;
+  // One deleted before its file moved in ends here: it never moves.
+  settle(entry, "failed", { failure: "deleted" });
   await forgetDownload(entry);
   if (entry.path) {
     await IOUtils.remove(entry.path, { ignoreAbsent: true, recursive: false }).catch(e =>
@@ -968,8 +1040,10 @@ async function moveFinished(entry, browser) {
   }
   try {
     entry.path = await intoWorkingFolder(staged);
+    settle(entry, "finished", { path: entry.path });
   } catch (e) {
     entry.refusal = moveRefusal(entry.url, e?.message ?? String(e));
+    settle(entry, "failed", { failure: entry.refusal });
     await removeOwnFolder(entry.dir);
     if (browser?.isConnected) {
       reportRefused(browser, "download", entry.refusal, entry.url);

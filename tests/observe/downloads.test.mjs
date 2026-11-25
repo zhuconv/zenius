@@ -763,3 +763,127 @@ test("pdf.js's download button gives an ordinary agent download, with no picker"
     assert.ok((await bytesOf(k.download)).equals(served));
     await env.call("download.delete", { download: k.download });
   }));
+
+/**
+ * A connection of its own that hears the task's "download" events, as a
+ * client subscribes: their params, as they came.
+ */
+async function downloadEvents(space) {
+  const client = await connect(process.env.ZENIUS_INSTANCE);
+  const seen = [];
+  client.onEvent((event, params) => {
+    if (event === "download") {
+      seen.push(params);
+    }
+  });
+  await client.call("events.subscribe", { names: ["download"], space });
+  return { seen, close: () => client.close() };
+}
+const eventsOf = (seen, download) => seen.filter(e => e.download === download);
+const pause = ms => new Promise(r => setTimeout(r, ms));
+
+test("a subscribed client hears a download start, then finish with its file in the working folder, and nothing more", () =>
+  env.inSpace("download events", async page => {
+    await page.goto(`${env.base}/nav-target`);
+    const events = await downloadEvents(page.P.space);
+    try {
+      const d = await downloadOn(page);
+      const path = await pathOf(d.download);
+      assert.equal(await until(() => eventsOf(events.seen, d.download).length === 2), true, JSON.stringify(events.seen));
+      const base = { space: page.P.space, page: page.P.page, download: d.download, url: d.url, suggestedFilename: "ego-download.txt" };
+      assert.deepEqual(eventsOf(events.seen, d.download), [
+        { ...base, state: "started" },
+        { ...base, state: "finished", path },
+      ]);
+      // Deleting a finished one changes nothing that was told.
+      await env.call("download.delete", { download: d.download });
+      await pause(300);
+      assert.equal(events.seen.length, 2, JSON.stringify(events.seen));
+    } finally {
+      events.close();
+    }
+  }));
+
+test("a subscribed client hears a canceled download fail as canceled, and one deleted before its move as deleted, once each", () =>
+  env.inSpace("download events end", async page => {
+    const stalled = await stalledServer();
+    await page.goto(`${env.base}/nav-target`);
+    const events = await downloadEvents(page.P.space);
+    const fixtures = () => everything(working.path).filter(name => name.startsWith("ego-download"));
+    try {
+      const waiting = page.call("page.waitForEvent", { event: "download", options: { timeout: 5000 } });
+      await page.evaluate(`location.href = ${JSON.stringify(stalled.url)}`);
+      const canceled = await waiting;
+      await env.call("download.cancel", { download: canceled.download });
+      assert.equal(await until(() => eventsOf(events.seen, canceled.download).length === 2), true, JSON.stringify(events.seen));
+
+      // download.delete waits for a download to stop; one that finished but
+      // hasn't moved in yet ends as deleted, and never moves.
+      const held = fixtures();
+      const deleted = await withMovesHeld(async release => {
+        const d = await downloadOn(page);
+        const deleting = env.call("download.delete", { download: d.download });
+        assert.equal(await until(() => eventsOf(events.seen, d.download).length === 2), true, JSON.stringify(events.seen));
+        await release();
+        await deleting;
+        return d;
+      });
+      await pause(300);
+      assert.deepEqual(
+        [canceled, deleted].map(d => eventsOf(events.seen, d.download).map(e => [e.state, e.failure ?? null, e.suggestedFilename, e.path ?? null])),
+        [
+          [["started", null, "stalled.bin", null], ["failed", "canceled", "stalled.bin", null]],
+          [["started", null, "ego-download.txt", null], ["failed", "deleted", "ego-download.txt", null]],
+        ]
+      );
+      assert.deepEqual(stalledInWorking(), []);
+      assert.deepEqual(fixtures(), held, "the deleted download moved in after all");
+    } finally {
+      events.close();
+      stalled.close();
+    }
+  }));
+
+test("a subscribed client hears a download refused at its start as one failure, with an id of its own that no download method knows", () =>
+  env.inSpace("download events refused", async page => {
+    const pref = "zenius.observe.downloads.maxCount";
+    const was = await env.chrome(`return Services.prefs.prefHasUserValue(arg) ? Services.prefs.getIntPref(arg) : null;`, pref);
+    await page.goto(`${env.base}/nav-target`);
+    const events = await downloadEvents(page.P.space);
+    try {
+      await env.chrome(`Services.prefs.setIntPref(arg, 0); return true;`, pref);
+      const waiting = page.call("page.waitForEvent", { event: "download", options: { timeout: 5000 } });
+      await startDownload(page);
+      const e = await waiting.then(
+        () => null,
+        error => error
+      );
+      assert.equal(e?.code, "ZEN_DOWNLOAD_FAILED", JSON.stringify(e));
+      assert.equal(await until(() => events.seen.length === 1), true, JSON.stringify(events.seen));
+      await pause(300);
+      assert.equal(events.seen.length, 1, JSON.stringify(events.seen));
+      const [only] = events.seen;
+      assert.match(only.download, /^refused-\d+$/);
+      assert.deepEqual(
+        { ...only, download: "refused" },
+        {
+          space: page.P.space,
+          page: page.P.page,
+          download: "refused",
+          url: `${env.base}/api/download`,
+          suggestedFilename: "ego-download.txt",
+          state: "failed",
+          failure: only.failure,
+        }
+      );
+      assert.match(only.failure, /^zenius refused a download from .*: the task holds 0 downloads, the most it may \(zenius\.observe\.downloads\.maxCount\)/);
+      const unknown = await env.fail("download.failure", { download: only.download });
+      assert.match(unknown.message, /unknown download/);
+    } finally {
+      await env.chrome(
+        `if (arg.was === null) Services.prefs.clearUserPref(arg.pref); else Services.prefs.setIntPref(arg.pref, arg.was); return true;`,
+        { pref, was }
+      );
+      events.close();
+    }
+  }));

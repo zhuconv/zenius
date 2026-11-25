@@ -19,6 +19,7 @@ import {
   installDownloads,
   sweepDownloads,
   onDownload,
+  onDownloadEvent,
   deleteTaskDownloads,
   setDownloadsActive,
   downloadsActive,
@@ -369,6 +370,37 @@ export function setupObserve() {
       guid: entry.id,
       url: entry.url,
       suggestedFilename: entry.suggestedFilename,
+    });
+  });
+  // The service's "download" event (docs/PROTOCOL.md): each download's start
+  // and end in a task's tab, which a client shows with no call or wait of
+  // its own. One a sign-in result starts is the user's, decided at its start
+  // (the tab may be gone by its end); a refusal at the start asks its tab.
+  const usersDownloads = new Set();
+  onDownloadEvent(event => {
+    let users;
+    if (event.state === "started") {
+      users = tabTopIsSignInResult(event.browserId);
+      if (users) {
+        usersDownloads.add(event.download);
+      }
+    } else if (usersDownloads.delete(event.download)) {
+      users = true;
+    } else {
+      users = event.download.startsWith("refused-") && tabTopIsSignInResult(event.browserId);
+    }
+    if (users || typeof event.spaceId !== "number") {
+      return;
+    }
+    service.emit("download", {
+      space: event.spaceId,
+      page: event.page,
+      download: event.download,
+      url: event.url,
+      suggestedFilename: event.suggestedFilename,
+      state: event.state,
+      ...(event.path !== undefined && { path: event.path }),
+      ...(event.failure !== undefined && { failure: event.failure }),
     });
   });
   service.addEventListener((event, params) => {

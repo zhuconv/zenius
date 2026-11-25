@@ -3076,6 +3076,16 @@ The installers set it, and the sandboxed launcher grants it read-write.
   (`sweepDownloads`). It cancels one still running and removes its staging
   folder. A finished one stays in the working folder: it's the user's.
   `download.delete` (`deleteDownload`) deletes it there.
+- **What a client hears.** `onDownloadEvent` gives each download's start
+  (`register`) and its one end: `finished` once `moveFinished` has put the
+  file in the working folder, or `failed` with `failureOf`'s text (Gecko's
+  failure or cancel, from the download's `onchange`; a refusal of a running
+  one, `refused` with its entry; or a failed move), or with `deleted` when
+  `deleteDownload` came before the move. `entry.told` keeps it to one end.
+  A refusal at the start, which has no entry, is told as a failure with an
+  id of its own (`refused-<n>`). `observe/setup.sys.mjs` emits each one in
+  a task's page as the service's `download` event, but none for a download
+  a sign-in result started, decided at its start.
 
 **Download caps.** `observe/downloads.sys.mjs` counts a task's live
 downloads and their `currentBytes` (`taskDownloads(spaceId)`). It checks a
