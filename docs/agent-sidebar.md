@@ -314,7 +314,7 @@ stable, and a change to one is announced to zen-eval first.
 | `agent-sidebar/AgentSidebarPicture{Parent,Child}.sys.mjs` | The live card's pictures, painted in the agent page's own process |
 | `agent-sidebar/AgentSidebar{Parent,Child}.sys.mjs` | The JSWindowActor that reads a tab's selection and text |
 | `agent-sidebar/attachments.mjs`, `saving.mjs` | Attached files; copying and saving answers |
-| `agent-sidebar/feedback.mjs` | The problem report card: a report from `zenius feedback` or a Work task's `report_problem`, sent, copied or discarded only on the user's click (below) |
+| `agent-sidebar/feedback.mjs` | The problem report card: a report from `zenius feedback` or a Work task's `report_problem`, sent, copied, left for the agent or discarded only on the user's click (below) |
 | `agent-sidebar/pencil.svg` | The question's Edit icon, zenius's own drawing (outline strokes, painted as a mask in the text's color) |
 | `agent-sidebar/send.svg` | Send's small up arrow, in the question box and the edit box: zenius's own drawing (a stem and a chevron, round strokes, painted as a mask in the button's text color) |
 | `agent-sidebar/vendor/marked.esm.js` | marked, MIT (THIRD_PARTY.md) |
@@ -441,15 +441,28 @@ either mode:
   editable. The title is one line, wrapped to the card's width so all of
   it shows (Enter adds no line, and a pasted line break becomes a space).
   The body is the report's Markdown, as text.
-- **With gh found: Send and Discard.** Send first looks for an open issue
-  with the same title. If there is one, the card asks once more: Add a
-  comment to #N (the body only: the issue keeps its title), or Post a new
-  issue. Then it says "Posted as #N", with Open #N.
+- **With gh found: Send, Not yet and Discard.** Send first looks for an
+  open issue with the same title. If there is one, the card asks once more:
+  Add a comment to #N (the body only: the issue keeps its title), or Post a
+  new issue. Then it says "Posted as #N", with Open #N.
 - **Without gh, with gh not signed in, or after gh failed: Copy and open
   GitHub.** The runtime puts the body on the clipboard and opens GitHub's
   new issue form with only the title in its address, and the user pastes
   the body there.
-- **Discard** drops the report.
+- **Not yet** leaves the report for the agent to revise: nothing is sent,
+  and the card goes. Its tooltip says so: "Not yet: nothing is sent. Keep
+  refining it: tell the agent what to change, and its new version shows
+  here." The agent hears `deferred`, and its new version is a new report,
+  which shows as a new card at once.
+- **Discard** drops the report and holds new ones off for a while, 10
+  minutes (the runtime's cooldown), which its tooltip says: "Discard. No
+  new reports for 10 min." The card then shrinks to one line, "Discarded.
+  No new reports for 10 min.", with Undo, until the cooldown ends. Its
+  minutes count down, and a screen reader hears the line once, not each
+  minute. A report the cooldown keeps out changes the line to "Discarded.
+  A new report couldn't show; reports open again in 7 min." Undo brings the
+  discarded report back, with what the user had typed into it in that
+  window, and ends the cooldown.
 
 The agent hears only the outcome, and for a post or a comment the issue's
 number and address: never the text the user sent, nor gh's messages.
@@ -461,7 +474,12 @@ Nothing goes out before the user's own click, and only the user can click:
 - Its buttons act only on a trusted click inside the card. They arm 400 ms
   after they appear, and again when the window comes to the front or the
   panel shows again, so a click meant for something else doesn't land on
-  Send.
+  Send, and a double click on Discard doesn't land on Undo. A new version
+  of a report after Not yet is a new card, armed the same way.
+- Undo is the line's own button: no method reaches it, so an agent can't
+  bring a report back or end a cooldown. A refusal noticed while the line
+  shows changes its words, not its Undo, so an agent that keeps proposing
+  can't keep Undo from arming.
 - The card takes no focus, and nothing opens the sidebar for it: the agent
   tells the user where the report waits.
 - A report the card couldn't show exactly as it would be posted never
@@ -473,18 +491,25 @@ Nothing goes out before the user's own click, and only the user can click:
 How the card and the runtime meet:
 
 - The runtime notifies the observer topic `zenius-feedback` with `asked`
-  once a report waits, and with `settled` once it's posted, copied or
-  discarded. `AgentService.init` observes it, which loads nothing of
-  zenius's at the sidebar's start. With no observer, `feedback.propose`
+  once a report waits (proposed, or brought back by Undo), `settled` once
+  it's posted, copied, left for the agent or discarded, `declined` when the
+  cooldown keeps a report out, and `reopened` when the cooldown ends.
+  `AgentService.init` observes it, which loads nothing of zenius's at the
+  sidebar's start. With no observer, `feedback.propose`
   fails at once (`ZEN_UNSUPPORTED`, `data.reason: "no_sidebar"`), and the
   CLI writes the report to a draft file instead.
 - On each notice, and as a panel opens, `AgentService.feedbackSync()` reads
-  `service.feedback.pending()`, `{id, title, body, canPost, repo, source?}`
-  or null, through `feedbackOf`, which keeps of the source only a
-  well-formed `sidebar` uid, and tells the panels (`subscribeFeedback`).
+  `service.feedback.pending()`, `{id, title, body, canPost, repo,
+  cooldownMs, source?}` or null, through `feedbackOf`, which keeps of the
+  source only a well-formed `sidebar` uid, and `service.feedback.cooldown()`,
+  `{until, discarded, refused}` or null, through `feedbackCooldownOf`. It
+  tells the panels when either changed (`subscribeFeedback`). The line comes
+  from the cooldown, so every window's sidebar shows it, one opened later
+  too, and it goes when the cooldown's time is up.
 - The card's clicks go through `AgentService.feedbackAction(action, id,
-  ...)` to `service.feedback`'s `send`, `postNew`, `comment`, `copyAndOpen`
-  and `discard`. A second action while one runs answers `{busy: true}`: in
+  ...)` to `service.feedback`'s `send`, `postNew`, `comment`, `copyAndOpen`,
+  `defer` (Not yet), `discard` and `undo` (with the cooldown's `discarded`
+  id). A second action while one runs answers `{busy: true}`: in
   two windows, the first click wins, and the other card says the report is
   being sent from another window. Each window's card keeps its own edits,
   and every card goes once the report settles, but for the one whose click
@@ -528,6 +553,7 @@ The panel (`panel.html`, its own document, so bare ids):
 | `#watch`, `#watch-hint`, `#take-over` | Watch, hidden while this window watches the task; in its place then, the hint "⌃Tab back to your tabs" ("Ctrl+Tab" off the Mac), not a button; Take over, shown while the agent has the page, except while zenius reports a Take over refused |
 | `#feedback` (`aria-label` "Problem report") | The problem report card, between `#header` and `#messages`; hidden while no report waits. While it shows, the empty chat's `#empty` gives way |
 | `#feedback` > `#fb-lead`, `#fb-issue-title`, `#fb-issue-body`, `#fb-status`, `#fb-actions` | Where the report would go and what Send or Copy does; the title (a `textarea` kept to one line) and the body, both editable while the report waits for the user and hidden once it's posted or copied; the state's line, `.error` after a failure; the buttons |
+| `#feedback.fb-one-line` > `#fb-line`, `#fb-actions` | After a Discard, until its cooldown ends: the one line, its minutes counting down, and Undo. `#fb-status` is then only for a screen reader, which it tells the line once |
 | `#fb-actions > button[data-action]` | `send` ("Send"), `copy` ("Copy and open GitHub"), `discard`, `comment` ("Add a comment to #N"), `postNew` ("Post a new issue"), `retry` ("Try again"), `open` ("Open #N") and `close`; `.primary` on the one in the accent color. Each is `disabled` until it arms |
 
 The directory (in browser.xhtml, so prefixed):

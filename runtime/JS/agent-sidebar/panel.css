@@ -1429,6 +1429,39 @@ body:has(#feedback:not([hidden])) #empty {
   cursor: default;
 }
 
+/* After a Discard: one line that says so, with Undo, for the whole
+ * cooldown. Nothing waits for the user there, so it takes the plain look. */
+#feedback.fb-one-line {
+  position: relative;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 12px;
+  border-color: var(--line);
+  background: var(--box-bg);
+}
+
+.fb-line {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+/* The line's own words show. The status only tells a screen reader, once. */
+#feedback.fb-one-line .fb-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+#feedback.fb-one-line .fb-actions {
+  flex: none;
+}
+
 #composer {
   padding: 6px 8px 8px;
   display: flex;

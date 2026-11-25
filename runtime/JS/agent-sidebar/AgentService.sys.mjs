@@ -177,16 +177,23 @@ const ZENIUS_UI = "chrome://userscripts/content/zenius/ui/index.sys.mjs";
 // sidebar's start loads no zenius module.
 const ZENIUS_UTIL = "chrome://userscripts/content/zenius/modules/util.sys.mjs";
 // The problem report card (`zenius feedback`): the runtime's service
-// notifies this topic with "asked" once a report waits for the user and
-// with "settled" once it's sent, copied or discarded. The sidebar observes
-// it from its start, which loads nothing of zenius's, and an observer here
-// is how the runtime knows a card can show at all.
+// notifies this topic with "asked" once a report waits for the user,
+// "settled" once it's sent, copied, left for the agent or discarded,
+// "declined" when a Discard's cooldown kept a report out, and "reopened"
+// when that cooldown ends. The sidebar observes it from its start, which
+// loads nothing of zenius's, and an observer here is how the runtime knows
+// a card can show at all.
 const FEEDBACK_TOPIC = "zenius-feedback";
 // What the card may ask the runtime to do, each on the user's own click.
-const FEEDBACK_ACTIONS = ["send", "postNew", "comment", "copyAndOpen", "discard"];
+const FEEDBACK_ACTIONS = ["send", "postNew", "comment", "copyAndOpen", "defer", "discard", "undo"];
 // GitHub's limits, which the runtime applies too.
 const FEEDBACK_TITLE_MAX = 256;
 const FEEDBACK_BODY_MAX = 65536;
+// A report's id, as the runtime makes them (a UUID, braces and all).
+const FEEDBACK_ID = /^[\w{}-]{1,100}$/;
+// The runtime's cooldown after a Discard is 10 minutes: anything past an
+// hour isn't one.
+const FEEDBACK_COOLDOWN_MAX = 60 * 60 * 1000;
 
 function debug(...args) {
   if (Services.prefs.getBoolPref(PREF_DEBUG, false)) {
@@ -988,18 +995,20 @@ export function oneLine(text, max = 120) {
  * one line, or text past GitHub's limits. Of its source (feedback.compose's,
  * kept beside the report and never posted), the card takes only `sidebar`:
  * the uid of the sidebar's task whose zenius server sent it, when it's one.
+ * `cooldownMs` is how long a Discard holds new reports off, which Discard's
+ * tooltip says, or null.
  *
- * @returns {{id: string, title: string, body: string, canPost: boolean, repo: string, sidebar: string|null} | null}
+ * @returns {{id: string, title: string, body: string, canPost: boolean, repo: string, cooldownMs: number|null, sidebar: string|null} | null}
  */
 export function feedbackOf(report) {
   if (!report || typeof report !== "object") {
     return null;
   }
-  const { id, title, body, repo } = report;
+  const { id, title, body, repo, cooldownMs } = report;
   const fits = (text, max) => typeof text === "string" && text.trim() !== "" && text.length <= max;
   if (
     typeof id !== "string" ||
-    !/^[\w{}-]{1,100}$/.test(id) ||
+    !FEEDBACK_ID.test(id) ||
     !fits(title, FEEDBACK_TITLE_MAX) ||
     /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(title) ||
     !fits(body, FEEDBACK_BODY_MAX) ||
@@ -1010,7 +1019,39 @@ export function feedbackOf(report) {
     return null;
   }
   const sidebar = report.source?.sidebar;
-  return { id, title, body, canPost: report.canPost === true, repo, sidebar: typeof sidebar === "string" && /^[A-Za-z0-9-]{1,64}$/.test(sidebar) ? sidebar : null };
+  return {
+    id,
+    title,
+    body,
+    canPost: report.canPost === true,
+    repo,
+    cooldownMs: Number.isSafeInteger(cooldownMs) && cooldownMs > 0 && cooldownMs <= FEEDBACK_COOLDOWN_MAX ? cooldownMs : null,
+    sidebar: typeof sidebar === "string" && /^[A-Za-z0-9-]{1,64}$/.test(sidebar) ? sidebar : null,
+  };
+}
+
+/**
+ * The runtime's cooldown after a Discard as the card takes it, or null:
+ * until when no new report shows, the discarded report's id (Undo's), and
+ * when the latest report it kept out came. A cooldown that's over, or one
+ * longer than any the runtime sets, is none.
+ *
+ * @returns {{until: number, discarded: string|null, refused: {at: number}|null} | null}
+ */
+export function feedbackCooldownOf(cooldown, now = Date.now()) {
+  if (!cooldown || typeof cooldown !== "object") {
+    return null;
+  }
+  const { until, discarded, refused } = cooldown;
+  if (!Number.isFinite(until) || until <= now || until > now + FEEDBACK_COOLDOWN_MAX) {
+    return null;
+  }
+  const at = refused && typeof refused === "object" && Number.isFinite(refused.at) ? refused.at : null;
+  return {
+    until,
+    discarded: typeof discarded === "string" && FEEDBACK_ID.test(discarded) ? discarded : null,
+    refused: at === null ? null : { at },
+  };
 }
 
 function quoted(text, max = 60) {
@@ -3694,32 +3735,40 @@ export const AgentService = {
 
   // --- The problem report card (zenius feedback) ------------------------------------
 
-  /** The report waiting for the user's Send, Copy or Discard (feedbackOf), or null. */
+  /** The report waiting for the user's Send, Copy, Not yet or Discard (feedbackOf), or null. */
   feedbackReport: null,
+  /** After a Discard, while new reports are held off (feedbackCooldownOf), or null. */
+  feedbackCooldown: null,
   feedbackListeners: new Set(),
 
   /**
-   * Reads the waiting report from zenius again (`service.feedback.pending()`)
-   * and tells the panels when it changed: on each of the runtime's
-   * zenius-feedback notices, and from a panel as it opens. A report's text
-   * never changes under its id, so the id tells.
+   * Reads the waiting report and the cooldown from zenius again
+   * (`service.feedback.pending()` and `cooldown()`) and tells the panels
+   * when either changed: on each of the runtime's zenius-feedback notices,
+   * from a panel as it opens, and from a card whose cooldown just ran out.
+   * A report's text never changes under its id, so the id tells.
    */
   feedbackSync() {
     let report = null;
+    let cooldown = null;
     try {
-      const pending = this.zenius()?.feedback?.pending?.() ?? null;
+      const feedback = this.zenius()?.feedback;
+      const pending = feedback?.pending?.() ?? null;
       report = feedbackOf(pending);
       if (pending && !report) {
         console.error(LOG, "a problem report the card can't show exactly as it would be posted: not shown");
       }
+      cooldown = feedbackCooldownOf(feedback?.cooldown?.() ?? null);
     } catch (e) {
       debug("could not read the problem report:", e.message);
     }
-    if (report?.id !== this.feedbackReport?.id) {
+    const key = c => (c ? `${c.until} ${c.discarded} ${c.refused?.at ?? ""}` : "");
+    if (report?.id !== this.feedbackReport?.id || key(cooldown) !== key(this.feedbackCooldown)) {
       this.feedbackReport = report;
+      this.feedbackCooldown = cooldown;
       for (const listener of [...this.feedbackListeners]) {
         try {
-          listener(report);
+          listener(report, cooldown);
         } catch (e) {
           console.error(LOG, e);
         }
@@ -3728,7 +3777,7 @@ export const AgentService = {
     return this.feedbackReport;
   },
 
-  /** @param {(report: object | null) => void} listener  @returns {() => void} unsubscribes */
+  /** @param {(report: object | null, cooldown: object | null) => void} listener  @returns {() => void} unsubscribes */
   subscribeFeedback(listener) {
     this.feedbackListeners.add(listener);
     return () => this.feedbackListeners.delete(listener);
@@ -3755,8 +3804,10 @@ export const AgentService = {
 
   /**
    * One of the card's actions on the waiting report, which the runtime's
-   * service carries out: send, postNew, comment, copyAndOpen or discard.
-   * Only the card calls it, on the user's own click (feedback.mjs).
+   * service carries out: send, postNew, comment, copyAndOpen, defer (Not
+   * yet), discard, or undo (of a Discard, while its cooldown runs). Only the
+   * card calls it, on the user's own click (feedback.mjs): no zenius method
+   * reaches these.
    *
    * @param {string} action
    * @param {string} id  the report's

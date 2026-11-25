@@ -4,20 +4,43 @@
  * GitHub issues and propose it. Each open agent sidebar then shows it here,
  * above the chat: the title and the body exactly as they'd be posted, and
  * the user can edit both. Nothing goes out before the user's own click: Send
- * (gh posts it as them), Copy and open GitHub, or Discard.
+ * (gh posts it as them), Copy and open GitHub, Not yet (the user goes on
+ * refining it with the agent, whose new version comes as a new card), or
+ * Discard.
+ *
+ * A Discard holds new reports off for a while (the runtime's cooldown).
+ * Meanwhile the card is one line that says so, in every window's sidebar,
+ * with an Undo that brings the report back and ends the cooldown.
  *
  * The card is chrome. No zenius method reaches it, since they act in web
  * pages only, and no page does. Its buttons take only trusted clicks inside
  * it. They arm 400 ms after they appear, after the window comes to the front
  * and after the panel shows again, so a click meant for what was there
- * before never lands on Send. The card never takes focus. AgentService reads
- * the report (feedbackSync) and passes the card's actions to the runtime
+ * before never lands on Send, and a double click on Discard never takes it
+ * back. The card never takes focus. AgentService reads the report and the
+ * cooldown (feedbackSync) and passes the card's actions to the runtime
  * (feedbackAction). */
 
 const ARM_MS = 400;
 // GitHub's limits, for what the user types; the runtime checks them too.
 const TITLE_MAX = 256;
 const BODY_MAX = 65536;
+// The line's words reach a screen reader once, through the status, which
+// is then emptied, so reading the card finds the line's own, current words.
+const SAID_MS = 2000;
+
+const NOT_YET_TIP = "Not yet: nothing is sent. Keep refining it: tell the agent what to change, and its new version shows here.";
+
+/** "10 min", or in its last minute "59 s" down to "1 s" (never "60 s"): how long new reports are held off. */
+function span(ms) {
+  return ms > 59000 ? `${Math.ceil(ms / 60000)} min` : `${Math.max(1, Math.ceil(ms / 1000))} s`;
+}
+
+/** The one line a Discard leaves, until its cooldown ends. */
+function lineText(cooldown, now) {
+  const left = span(cooldown.until - now);
+  return cooldown.refused ? `Discarded. A new report couldn't show; reports open again in ${left}.` : `Discarded. No new reports for ${left}.`;
+}
 
 const oneLine = (text, max = 300) => {
   const line = String(text ?? "").replace(/\s+/g, " ").trim();
@@ -99,13 +122,15 @@ export function mountFeedback({ el, service, openLink }) {
   resizing.observe(el);
   const body = make("textarea", { id: "fb-issue-body", className: "fb-field", maxLength: BODY_MAX, spellcheck: false, rows: 10 });
   body.setAttribute("aria-label", "Issue body");
+  // After a Discard, the card's one line (lineText), for the whole cooldown.
+  const line = make("div", { id: "fb-line", className: "fb-line", hidden: true });
   const status = make("div", { id: "fb-status", className: "fb-status" });
   status.setAttribute("role", "status");
   const actions = make("div", { id: "fb-actions", className: "fb-actions" });
-  el.replaceChildren(heading, lead, title, body, status, actions);
+  el.replaceChildren(heading, lead, title, body, line, status, actions);
   el.setAttribute("aria-label", "Problem report");
 
-  /** @type {{id: string, title: string, body: string, canPost: boolean, repo: string} | null} */
+  /** @type {{id: string, title: string, body: string, canPost: boolean, repo: string, cooldownMs: number|null} | null} */
   let report = null;
   // review, checking, duplicate, posting, posted, copied, error, busy or closed
   let phase = "closed";
@@ -116,18 +141,34 @@ export function mountFeedback({ el, service, openLink }) {
   let running = false; // an action of this card's waits for the runtime
   let armed = false;
   let armTimer = 0;
+  /** @type {{until: number, discarded: string|null, refused: {at: number}|null} | null} the runtime's, after a Discard */
+  let cooldown = null;
+  // What the user typed into a report that went unsent, for an Undo that
+  // brings it back: {id, title, body}.
+  let kept = null;
+  let lineFor = null; // the discarded report's id whose Undo the line shows, while it shows
+  let lineSaid = ""; // what the status last told a screen reader of the line
+  let lineProblem = null; // why the line's Undo failed
+  let tickTimer = 0;
+  let saidTimer = 0;
 
   function show(next) {
     report = next;
-    title.value = next.title;
-    body.value = next.body;
+    const edits = kept?.id === next.id ? kept : null;
+    title.value = edits ? edits.title : next.title;
+    body.value = edits ? edits.body : next.body;
+    kept = null;
     duplicate = result = problem = last = null;
     phase = "review";
     render();
   }
 
   // The card goes, unless a newer report waits: then it shows that one.
+  // While a Discard's cooldown runs, it goes to its one line.
   function close() {
+    if (report && phase !== "posted" && phase !== "copied" && (title.value !== report.title || body.value !== report.body)) {
+      kept = { id: report.id, title: title.value, body: body.value };
+    }
     const next = service.feedbackReport;
     if (next && next.id !== report?.id) {
       show(next);
@@ -146,7 +187,7 @@ export function mountFeedback({ el, service, openLink }) {
       case "duplicate":
         return `An open issue has this title: #${duplicate.number}. Add your report's body to it as a comment (its title stays as it is), or post a new issue?`;
       case "posting":
-        return { comment: `Adding a comment to #${duplicate?.number}…`, copy: "Copying…", discard: "Discarding…" }[last] ?? "Posting…";
+        return { comment: `Adding a comment to #${duplicate?.number}…`, copy: "Copying…", defer: "Telling the agent…", discard: "Discarding…" }[last] ?? "Posting…";
       case "posted":
         return result.commented ? `Added as a comment to #${result.number}.` : `Posted as #${result.number}.`;
       case "copied":
@@ -162,19 +203,22 @@ export function mountFeedback({ el, service, openLink }) {
     }
   }
 
-  /** The buttons each phase offers: [action, label, primary]. */
+  /**
+   * The buttons each phase offers: [action, label, primary]. Wherever the
+   * report can still be discarded, Not yet can leave it for the agent to
+   * revise, with no cooldown.
+   */
   function buttons() {
+    const leave = [["defer", "Not yet"], ["discard", "Discard"]];
     switch (phase) {
       case "review":
-        return report.canPost
-          ? [["send", "Send", true], ["discard", "Discard"]]
-          : [["copy", "Copy and open GitHub", true], ["discard", "Discard"]];
+        return report.canPost ? [["send", "Send", true], ...leave] : [["copy", "Copy and open GitHub", true], ...leave];
       case "duplicate":
-        return [["comment", `Add a comment to #${duplicate.number}`, true], ["postNew", "Post a new issue"], ["discard", "Discard"]];
+        return [["comment", `Add a comment to #${duplicate.number}`, true], ["postNew", "Post a new issue"], ...leave];
       case "error":
         return problem.signedOut || !report.canPost
-          ? [["copy", "Copy and open GitHub", true], ["retry", "Try again"], ["discard", "Discard"]]
-          : [["retry", "Try again", true], ["copy", "Copy and open GitHub"], ["discard", "Discard"]];
+          ? [["copy", "Copy and open GitHub", true], ["retry", "Try again"], ...leave]
+          : [["retry", "Try again", true], ["copy", "Copy and open GitHub"], ...leave];
       case "busy":
         return [["retry", "Try again"]];
       case "posted":
@@ -186,12 +230,50 @@ export function mountFeedback({ el, service, openLink }) {
     }
   }
 
+  // Says why a button does what it does: Not yet sends nothing, and Discard
+  // holds new reports off.
+  function tipFor(action) {
+    if (action === "defer") {
+      return NOT_YET_TIP;
+    }
+    if (action === "discard" && report?.cooldownMs) {
+      return `Discard. No new reports for ${span(report.cooldownMs)}.`;
+    }
+    return "";
+  }
+
+  function makeButton(action, label, primary) {
+    const button = make("button", { type: "button", textContent: label });
+    button.dataset.action = action;
+    button.classList.toggle("primary", !!primary);
+    const tip = tipFor(action);
+    if (tip) {
+      button.title = tip;
+    }
+    return button;
+  }
+
+  /** The cooldown whose line the card shows: only with no report on it, and only while it runs. */
+  function lineCooldown() {
+    return phase === "closed" && cooldown && cooldown.until > Date.now() ? cooldown : null;
+  }
+
   function render() {
-    el.hidden = phase === "closed";
-    if (phase === "closed") {
+    const one = lineCooldown();
+    el.hidden = phase === "closed" && !one;
+    el.classList.toggle("fb-one-line", !!one);
+    if (!one) {
+      leaveLine();
+    }
+    if (el.hidden) {
       win.clearTimeout(armTimer);
       return;
     }
+    if (one) {
+      renderLine(one);
+      return;
+    }
+    heading.hidden = false;
     const done = phase === "posted" || phase === "copied";
     lead.hidden = title.hidden = body.hidden = done;
     title.readOnly = body.readOnly = !["review", "duplicate", "error"].includes(phase);
@@ -204,16 +286,81 @@ export function mountFeedback({ el, service, openLink }) {
     status.textContent = statusText();
     status.hidden = !status.textContent;
     status.classList.toggle("error", phase === "error");
-    actions.replaceChildren(
-      ...buttons().map(([action, label, primary]) => {
-        const button = make("button", { type: "button", textContent: label });
-        button.dataset.action = action;
-        button.classList.toggle("primary", !!primary);
-        return button;
-      })
-    );
+    actions.replaceChildren(...buttons().map(([action, label, primary]) => makeButton(action, label, primary)));
     fitTitle();
     arm();
+  }
+
+  /**
+   * The one line after a Discard, with its Undo. Its minutes count down;
+   * a screen reader hears the line when it changes (a Discard, a report it
+   * kept out), not each minute. Undo is built and armed once for its
+   * report: a refusal noticed meanwhile changes the words, not the button,
+   * so an agent proposing again and again can't keep Undo from arming.
+   */
+  function renderLine(one) {
+    heading.hidden = lead.hidden = title.hidden = body.hidden = true;
+    line.hidden = false;
+    // "" for a cooldown with no report to bring back: a line with no Undo.
+    const key = one.discarded ?? "";
+    if (lineFor !== key) {
+      lineFor = key;
+      lineProblem = null;
+      actions.replaceChildren(...(one.discarded ? [makeButton("undo", "Undo", false)] : []));
+      arm();
+    }
+    const text = lineText(one, Date.now());
+    line.textContent = lineProblem ? `${text} Couldn't undo it: ${lineProblem}` : text;
+    status.classList.remove("error");
+    const say = one.refused ? "refused" : "discarded";
+    if (lineSaid !== say) {
+      lineSaid = say;
+      status.hidden = false;
+      status.textContent = line.textContent;
+      win.clearTimeout(saidTimer);
+      saidTimer = win.setTimeout(() => {
+        if (lineFor !== null && el.classList.contains("fb-one-line")) {
+          status.textContent = "";
+        }
+      }, SAID_MS);
+    }
+    tickAfter(one);
+  }
+
+  function leaveLine() {
+    if (lineFor === null && !lineSaid) {
+      return;
+    }
+    win.clearTimeout(tickTimer);
+    win.clearTimeout(saidTimer);
+    line.hidden = true;
+    line.textContent = "";
+    lineFor = null;
+    lineSaid = "";
+    lineProblem = null;
+    status.textContent = "";
+  }
+
+  // The next time the line's words change (span): at the next whole minute
+  // left, at 59 s, then each second. Once the time is up, the line goes (the
+  // runtime says "reopened" too).
+  function tickAfter(one) {
+    win.clearTimeout(tickTimer);
+    const left = one.until - Date.now();
+    const next = left > 60000 ? left % 60000 || 60000 : left > 59000 ? left - 59000 : left % 1000 || 1000;
+    tickTimer = win.setTimeout(tick, Math.max(0, Math.min(left, next)) + 5);
+  }
+
+  function tick() {
+    const one = lineCooldown();
+    if (!one) {
+      service.feedbackSync();
+      render();
+      return;
+    }
+    const text = lineText(one, Date.now());
+    line.textContent = lineProblem ? `${text} Couldn't undo it: ${lineProblem}` : text;
+    tickAfter(one);
   }
 
   // Buttons that just appeared, or that the user couldn't see a moment ago,
@@ -224,7 +371,8 @@ export function mountFeedback({ el, service, openLink }) {
     for (const button of actions.children) {
       button.disabled = true;
     }
-    if (phase === "closed" || doc.visibilityState !== "visible") {
+    // The line's Undo arms too: only a card that isn't there doesn't.
+    if (el.hidden || doc.visibilityState !== "visible") {
       return;
     }
     armTimer = win.setTimeout(() => {
@@ -262,7 +410,7 @@ export function mountFeedback({ el, service, openLink }) {
       phase = "posted";
     } else if (action === "copyAndOpen" && !answer?.error) {
       phase = "copied";
-    } else if (action === "discard" && !answer?.error) {
+    } else if ((action === "defer" || action === "discard") && !answer?.error) {
       close();
       return;
     } else {
@@ -287,6 +435,33 @@ export function mountFeedback({ el, service, openLink }) {
     return { number: issue.number, url, commented, repo };
   }
 
+  // Undo, on the line: the runtime shows the discarded report again under
+  // its id and ends the cooldown. Every window's card then shows it, this
+  // one with what the user had typed into it (kept).
+  async function undo() {
+    const id = cooldown?.discarded;
+    if (!id || running) {
+      return;
+    }
+    running = true;
+    for (const button of actions.children) {
+      button.disabled = true;
+    }
+    let answer;
+    try {
+      answer = await service.feedbackAction("undo", id);
+    } finally {
+      running = false;
+    }
+    lineProblem = answer?.error ? oneLine(answer.error) : null;
+    // The runtime's "asked" came while this waited: show what's there now,
+    // or the line again with why its Undo failed.
+    onFeedback(service.feedbackSync(), service.feedbackCooldown);
+    if (lineCooldown()) {
+      arm();
+    }
+  }
+
   function act(action) {
     if (action === "close") {
       close();
@@ -298,15 +473,19 @@ export function mountFeedback({ el, service, openLink }) {
       }
       return;
     }
+    if (action === "undo") {
+      undo();
+      return;
+    }
     if (!report) {
       return;
     }
     if (action === "retry") {
       action = last ?? "send";
     }
-    if (action === "discard") {
-      last = "discard";
-      run("discard", [], "posting");
+    if (action === "defer" || action === "discard") {
+      last = action;
+      run(action, [], "posting");
       return;
     }
     const fields = { title: title.value, body: body.value };
@@ -337,41 +516,46 @@ export function mountFeedback({ el, service, openLink }) {
   };
   actions.addEventListener("click", onClick);
 
-  const onReport = next => {
+  function onFeedback(next, nextCooldown) {
+    cooldown = nextCooldown ?? null;
+    // An action of this card's under way decides what shows once it ends.
+    if (running) {
+      return;
+    }
     if (next && next.id === report?.id) {
       return;
     }
     // This card's result (Posted, Copied) stays until Close, which then
     // shows a newer report. Shown at once, the newer one would put Send
     // where the user just clicked, armed before they had read the result.
-    const result = phase === "posted" || phase === "copied";
-    if (!next) {
-      // Settled: here (its result shows until Close), in another window, or
-      // with no card at all.
-      if (!running && !result) {
-        close();
-      }
+    if (phase === "posted" || phase === "copied") {
       return;
     }
-    if (!running && !result) {
-      show(next);
+    if (!next) {
+      // Settled: here, in another window, or with no card at all. Or only
+      // the cooldown changed: its line comes, changes or goes.
+      close();
+      return;
     }
-  };
-  const unsubscribe = service.subscribeFeedback(onReport);
+    show(next);
+  }
+  const unsubscribe = service.subscribeFeedback(onFeedback);
 
   const rearm = () => {
-    if (phase !== "closed") {
+    if (!el.hidden) {
       arm();
     }
   };
   doc.addEventListener("visibilitychange", rearm);
   topWin.addEventListener("activate", rearm);
 
-  onReport(service.feedbackSync());
+  onFeedback(service.feedbackSync(), service.feedbackCooldown);
 
   return () => {
     unsubscribe();
     win.clearTimeout(armTimer);
+    win.clearTimeout(tickTimer);
+    win.clearTimeout(saidTimer);
     resizing.disconnect();
     title.removeEventListener("keydown", onTitleKey);
     title.removeEventListener("input", onTitleInput);
