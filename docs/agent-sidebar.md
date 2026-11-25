@@ -664,12 +664,13 @@ The window while watching (browser.xhtml):
 | `#zenius-watch-pill` | zenius's chip, in the page area's top left corner, only while the window watches and the strip can't be read (a collapsed sidebar, compact mode): "Watching <task> [⌃Tab]", or once the task ended there, `[done]`: "Task done, [⌃Tab] back to your tabs", with "back to your tabs" in `.zenius-watch-rest`. Every click passes through it to the page |
 | ⌃Tab | Goes back while watching (stopped before Zen's tab box and ctrlTab see it); Zen's otherwise. Only trusted key events count. Tests send it through nsITextInputProcessor |
 
-The address bar: both rows are `.urlbarView-row[dynamicType="zeniusAskAgent"]`,
-from providers `ZeniusAskAgent` (the '>' first row) and
-`ZeniusAskAgentSuggest` (second, on other input). Find them by these, never
-by the icon, which may change. A test types '>' (the input field's
-value, then an `input` event): `gURLBar.search("> …")` reads '>' as
-Firefox's Actions restrict token and shows no row.
+The address bar: the '>' row is `.urlbarView-row[dynamicType="zeniusAskAgent"]`,
+the first row, from the provider `ZeniusAskAgent`. Find it by these, never
+by the icon, which may change. Input without '>' gets no such row, and the
+address bar searches as usual: since 0.1.8 there's no `ZeniusAskAgentSuggest`
+second row. A test types '>' (the input field's value, then an `input`
+event): `gURLBar.search("> …")` reads '>' as Firefox's Actions restrict
+token and shows no row.
 
 ## Doctor
 

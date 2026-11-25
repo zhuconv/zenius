@@ -108,10 +108,8 @@ export const MODULE = "chrome://userscripts/content/agent-sidebar/AgentSidebar.s
  */
 export const URLBAR = {
   dynamicType: "zeniusAskAgent",
-  /** The first row, after a '>' prefix. */
+  /** The first row, after a '>' prefix. Other input gets none (since 0.1.8). */
   first: "ZeniusAskAgent",
-  /** The second row, on any other input. */
-  second: "ZeniusAskAgentSuggest",
 };
 
 /**

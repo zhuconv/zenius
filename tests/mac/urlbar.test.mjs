@@ -3,8 +3,8 @@
 // input handling run, as for a person:
 // - with a '>' prefix, 'Ask agent' is the first row, and Enter starts a work
 //   chat with the rest of the text, without loading anything in a tab;
-// - without '>', the address bar searches as usual, and 'Ask agent' is the
-//   second row.
+// - without '>', the address bar searches as usual, with no 'Ask agent'
+//   row (since 0.1.8).
 // The row is found by its dynamicType and providerName (hooks.mjs), never by
 // its icon's file name, which zen-ux is changing.
 import assert from "node:assert/strict";
@@ -110,16 +110,14 @@ test("Cmd+T then '>': 'Ask agent' is the first row, and Enter starts a work chat
   await h.chrome(LEAVE);
 });
 
-test("Without '>': the search stays Zen's, and 'Ask agent' is the second row", async () => {
+test("Without '>': the search stays Zen's, and no row is 'Ask agent'", async () => {
   try {
     const rows = await h.chrome(TYPE_AND_READ, { text: "weather in tokyo" });
     const all = JSON.stringify(rows);
-    assert.ok(rows.length >= 2, `fewer than two rows: ${all}`);
+    assert.ok(rows.length >= 1, `no rows: ${all}`);
     assert.ok(rows[0].heuristic, `the first row isn't the URL bar's own (search) row: ${all}`);
-    assert.notEqual(rows[0].dynamicType, "zeniusAskAgent", `'Ask agent' is first without '>': ${all}`);
-    assert.equal(rows[1].provider, "ZeniusAskAgentSuggest", `the second row: ${all}`);
-    assert.equal(rows[1].dynamicType, "zeniusAskAgent", `the second row: ${all}`);
-    assert.match(rows[1].text, /Ask agent/i, `the second row: ${all}`);
+    const ours = rows.filter(r => r.dynamicType === "zeniusAskAgent" || /^ZeniusAskAgent/.test(r.provider ?? "") || /Ask agent/i.test(r.text));
+    assert.deepEqual(ours, [], `a row of the sidebar's without '>': ${all}`);
   } finally {
     // Leave without searching, so nothing loads from the network.
     await h.chrome(LEAVE);

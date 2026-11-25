@@ -5,8 +5,8 @@
 // ==/UserScript==
 
 /* Loads agent-urlbar/AgentUrlbar.sys.mjs, which adds the address bar's
- * "Ask agent" rows once per process and sends a picked one to the agent
- * sidebar (agent-sidebar.uc.js) of the window it was picked in. */
+ * "Ask agent" row for '>' input once per process and sends a picked one to
+ * the agent sidebar (agent-sidebar.uc.js) of the window it was picked in. */
 (function agentUrlbar() {
   "use strict";
   const SCRIPT_URL = Components.stack.filename.split(" -> ").pop();

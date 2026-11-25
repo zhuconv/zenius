@@ -4899,7 +4899,7 @@ test("an agent that asks, lists the choices, then says what it does once the use
   assert.equal(out.zenius, 1, "zenius's strip");
 });
 
-test("the address bar: with '>', 'Ask agent' is the first row and Enter starts a work chat with the text; without it, the row comes second and Enter isn't the sidebar's", async () => {
+test("the address bar: with '>', 'Ask agent' is the first row and Enter starts a work chat with the text; without it, no row is the sidebar's and the address bar searches as usual", async () => {
   await useMock();
   const out = await chrome(`
     const sidebar = win.ucAgentSidebar;
@@ -4911,21 +4911,38 @@ test("the address bar: with '>', 'Ask agent' is the first row and Enter starts a
     };
     const bar = win.gURLBar;
     // As typed: gURLBar.search() would take '>' for Firefox's Actions token.
-    const type = async (value, ours) => {
-      bar.view.close();
-      bar.focus();
-      bar.value = value;
-      bar.inputField.setSelectionRange(value.length, value.length);
-      bar.inputField.dispatchEvent(new win.InputEvent("input", { bubbles: true, inputType: "insertText", data: value.slice(-1) }));
-      await S.until(() => bar.view.isOpen && bar.view.visibleResults.some(r => r.providerName === ours), 5000);
+    // The rows once the query ended (lastQueryContextPromise). In a Zen that
+    // has just started, the box drops the first text typed into it about
+    // 20 ms later, and that query ends with no rows (seen when this test
+    // runs alone): then it types once more.
+    const type = async value => {
+      for (let attempt = 1; ; attempt++) {
+        bar.view.close();
+        bar.focus();
+        bar.value = value;
+        bar.inputField.setSelectionRange(value.length, value.length);
+        bar.inputField.dispatchEvent(new win.InputEvent("input", { bubbles: true, inputType: "insertText", data: value.slice(-1) }));
+        await S.until(() => (bar.view.isOpen && bar.view.visibleResults.length) || bar.value !== value, 5000);
+        await bar.lastQueryContextPromise;
+        if (bar.value === value && bar.view.isOpen && bar.view.visibleResults.length) {
+          break;
+        }
+        if (attempt === 2) {
+          throw new Error("no rows for " + JSON.stringify(value) + ": the box holds " + JSON.stringify(bar.value) + ", its view " + (bar.view.isOpen ? "open" : "closed"));
+        }
+      }
       const rows = [...bar.view.panel.querySelectorAll(".urlbarView-row")].filter(r => !r.hidden);
-      return bar.view.visibleResults.slice(0, 2).map((r, i) => ({ i, provider: r.providerName, heuristic: !!r.heuristic, dynamic: rows[i]?.getAttribute("dynamicType") ?? null }));
+      return {
+        first: bar.view.visibleResults.slice(0, 2).map((r, i) => ({ i, provider: r.providerName, heuristic: !!r.heuristic, dynamic: rows[i]?.getAttribute("dynamicType") ?? null })),
+        ours: bar.view.visibleResults.filter(r => r.providerName.startsWith("ZeniusAskAgent")).map(r => r.providerName),
+        dynamic: rows.filter(r => r.getAttribute("dynamicType") === "zeniusAskAgent").length,
+      };
     };
     try {
       // Plain input first: once a row is picked, the address bar reverts
       // its text a moment later.
-      const plain = await type("compare nonstop flights to Tokyo", "ZeniusAskAgentSuggest");
-      const prefixed = await type("> compare nonstop flights to Tokyo", "ZeniusAskAgent");
+      const plain = await type("compare nonstop flights to Tokyo");
+      const prefixed = await type("> compare nonstop flights to Tokyo");
       const selected = bar.view.selectedResult?.providerName ?? null;
       bar.handleCommand(new win.KeyboardEvent("keydown", { key: "Enter" }));
       await S.until(() => calls.length, 3000);
@@ -4936,12 +4953,13 @@ test("the address bar: with '>', 'Ask agent' is the first row and Enter starts a
       bar.handleRevert?.();
     }
   `);
-  assert.deepEqual(out.prefixed[0], { i: 0, provider: "ZeniusAskAgent", heuristic: true, dynamic: "zeniusAskAgent" });
+  assert.deepEqual(out.prefixed.first[0], { i: 0, provider: "ZeniusAskAgent", heuristic: true, dynamic: "zeniusAskAgent" });
+  assert.deepEqual(out.prefixed.ours, ["ZeniusAskAgent"], "one row, the first");
   assert.equal(out.selected, "ZeniusAskAgent", "Enter picks it");
   assert.deepEqual(out.calls, [{ text: "compare nonstop flights to Tokyo", source: "urlbar" }]);
-  assert.notEqual(out.plain[0].provider, "ZeniusAskAgentSuggest", "Enter without '>' searches");
-  assert.equal(out.plain[0].heuristic, true);
-  assert.deepEqual(out.plain[1], { i: 1, provider: "ZeniusAskAgentSuggest", heuristic: false, dynamic: "zeniusAskAgent" });
+  assert.equal(out.plain.first[0].heuristic, true, "the address bar's own first row: Enter searches");
+  assert.deepEqual(out.plain.ours, [], "no row of the sidebar's without '>'");
+  assert.equal(out.plain.dynamic, 0);
 });
 
 test("Enter on the address bar's 'Ask agent' row closes the box in that same moment: no frame shows the open box with the page's URL back in it (frame captures showed it for a few frames); the closed box shows the page's URL and the page has focus", async () => {

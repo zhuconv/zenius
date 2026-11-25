@@ -5,19 +5,18 @@
  * the '>'. Enter or a click on it starts a new work chat with <text>:
  * AgentSidebar.sys.mjs's startWorkChat, which opens the agent sidebar in
  * Work mode on a new task, bound to the task rather than the tab. The user
- * stays on their page. Other input gets the same row second, below the
- * address bar's own first row. Without that module (a sidebar from before
- * the two modes), the text goes to the tab's conversation, as before.
+ * stays on their page. Other input gets no such row, and the address bar
+ * searches as usual: since 0.1.8, plain input no longer gets it as a second
+ * row. Without that module (a sidebar from before the two modes), the text
+ * goes to the tab's conversation, as before.
  *
- * Two providers in the address bar's providers manager:
- *  - ZeniusAskAgent, a heuristic provider. For '>' input its priority leaves
- *    the query to it alone. Its row carries no keyword, so a typed "> " stays
- *    text instead of entering Firefox's Actions search mode, whose token is
- *    '>'.
- *  - ZeniusAskAgentSuggest, the second row (suggestedIndex 1) for other input.
- * Both rows are .urlbarView-row[dynamicType="zeniusAskAgent"]; tests find
- * them by that and the providerName (docs/agent-sidebar.md), not the icon.
- * The module is shared by the process's windows, so they're registered once.
+ * One provider in the address bar's providers manager, ZeniusAskAgent, a
+ * heuristic provider. For '>' input its priority leaves the query to it
+ * alone. Its row carries no keyword, so a typed "> " stays text instead of
+ * entering Firefox's Actions search mode, whose token is '>'. The row is
+ * .urlbarView-row[dynamicType="zeniusAskAgent"]; tests find it by that and
+ * the providerName (docs/agent-sidebar.md), not the icon. The module is
+ * shared by the process's windows, so it's registered once.
  */
 import { UrlbarProvider } from "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs";
 import { ProvidersManager } from "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs";
@@ -154,7 +153,6 @@ const VIEW_TEMPLATE = {
   ],
 };
 
-/** The browser window behind a query, when it has the agent sidebar. */
 /** The query's window, when its sidebar has an agent to ask: with no agent
  * configured (a profile without the sidebar's config) there is no row. */
 function sidebarWindow(controller) {
@@ -214,7 +212,35 @@ async function dispatchToTab(win, sidebar, text) {
   panel.compose(conv, { selection: "" });
 }
 
-class AgentAskBase extends UrlbarProvider {
+class AgentAskProvider extends UrlbarProvider {
+  get name() {
+    return "ZeniusAskAgent";
+  }
+
+  get type() {
+    return UrlbarShared.PROVIDER_TYPE.HEURISTIC;
+  }
+
+  async isActive(queryContext, controller) {
+    return (
+      queryContext.sapName == "urlbar" &&
+      !queryContext.searchMode &&
+      queryContext.searchString.trimStart().startsWith(">") &&
+      !!sidebarWindow(controller)
+    );
+  }
+
+  // Only for '>' input (isActive): the query is this provider's alone.
+  getPriority() {
+    return 99;
+  }
+
+  async startQuery(queryContext, addCallback) {
+    await loadIcons();
+    const text = queryContext.searchString.trimStart().slice(1).trim();
+    addCallback(this, this.result(queryContext, text, { heuristic: true }));
+  }
+
   getViewTemplate() {
     return VIEW_TEMPLATE;
   }
@@ -266,68 +292,10 @@ class AgentAskBase extends UrlbarProvider {
   }
 }
 
-class AgentAskProvider extends AgentAskBase {
-  get name() {
-    return "ZeniusAskAgent";
-  }
-
-  get type() {
-    return UrlbarShared.PROVIDER_TYPE.HEURISTIC;
-  }
-
-  async isActive(queryContext, controller) {
-    return (
-      queryContext.sapName == "urlbar" &&
-      !queryContext.searchMode &&
-      queryContext.searchString.trimStart().startsWith(">") &&
-      !!sidebarWindow(controller)
-    );
-  }
-
-  // Only for '>' input (isActive): the query is this provider's alone.
-  getPriority() {
-    return 99;
-  }
-
-  async startQuery(queryContext, addCallback) {
-    await loadIcons();
-    const text = queryContext.searchString.trimStart().slice(1).trim();
-    addCallback(this, this.result(queryContext, text, { heuristic: true }));
-  }
-}
-
-class AgentAskSuggestProvider extends AgentAskBase {
-  get name() {
-    return "ZeniusAskAgentSuggest";
-  }
-
-  get type() {
-    return UrlbarShared.PROVIDER_TYPE.PROFILE;
-  }
-
-  async isActive(queryContext, controller) {
-    const text = queryContext.trimmedSearchString;
-    return (
-      queryContext.sapName == "urlbar" &&
-      !queryContext.searchMode &&
-      !queryContext.restrictToken &&
-      !!text &&
-      !text.startsWith(">") &&
-      !!sidebarWindow(controller)
-    );
-  }
-
-  async startQuery(queryContext, addCallback) {
-    await loadIcons();
-    addCallback(this, this.result(queryContext, queryContext.trimmedSearchString, { suggestedIndex: 1 }));
-  }
-}
-
 const manager = ProvidersManager.getInstanceForSap("urlbar");
-for (const provider of [new AgentAskProvider(), new AgentAskSuggestProvider()]) {
-  if (!manager.getProvider(provider.name)) {
-    manager.registerProvider(provider);
-  }
+const provider = new AgentAskProvider();
+if (!manager.getProvider(provider.name)) {
+  manager.registerProvider(provider);
 }
 
 export const AgentUrlbar = { dispatch, loadIcons };
