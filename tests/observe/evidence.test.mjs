@@ -297,6 +297,7 @@ test("each route that outlives the discard marks the page hooked, with what it l
       ["a style rule", `() => { document.styleSheets[0].insertRule("input{}"); }`],
       ["a style rule", `() => { const s = new CSSStyleSheet(); s.replaceSync("input{}"); document.adoptedStyleSheets = [s]; }`],
       ["a shadow root", `() => { const h = document.createElement("div"); document.body.append(h); h.attachShadow({ mode: "open" }).innerHTML = "<input>"; }`],
+      ["a font face", `() => { document.fonts.add(new FontFace("x", "url(/f)")); }`],
       ["document.write", `() => { document.getElementById("zo-frame").contentDocument.write("<p>x</p>"); }`],
     ];
     const missed = [];

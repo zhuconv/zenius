@@ -3859,9 +3859,12 @@ written as their trigger. Written stays until no defense reads it.
   - Records are taken at each built-in the world calls. Only those a write
     made count, checked by `hookedRecord`. An action's records are the
     page's own doing: a click whose handler adds a form isn't the agent's.
-  - Style rules, `attachShadow` (also through `content/media.sys.mjs`'s
-    shim) and `document.write`/`open` leave no record. They mark the page
-    by their built-in.
+  - Style rules, a font face (`document.fonts.add`), `attachShadow` (also
+    through `content/media.sys.mjs`'s shim) and `document.write`/`open`
+    leave no record. They mark the page by their built-in. A face added
+    under a family the page's own CSS uses loads its URL for each
+    character the page then shows in that family, the user's typing
+    included, so it counts as a style rule does.
   - A mark takes only the document the agent's code wrote into: the
     defenses act on evidence. A same-site window of its group that page
     code left there could reach isn't hooked, a known gap with no reported

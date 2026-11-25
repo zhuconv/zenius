@@ -31,8 +31,8 @@
 //   ends, a MutationObserver watches its group's documents, and only the
 //   records a write made are checked, not those of an action such as a
 //   click, which are the page's own doing;
-// - style rules, a shadow root and document.write, which leave no record,
-//   by the built-in itself.
+// - style rules, a font face (document.fonts.add), a shadow root and
+//   document.write, which leave no record, by the built-in itself.
 
 import { MADE_DOCS_KEY, WORLD_URL, WRITTEN_DOCS_KEY } from "chrome://userscripts/content/zenius/content/worldkeys.sys.mjs";
 import { hookedRecord, markHooked } from "chrome://userscripts/content/zenius/content/evidence.sys.mjs";
@@ -470,7 +470,8 @@ const SHADOW = 6;
 const HOOK_STYLE = 7;
 const HOOK_SHADOW = 8;
 const HOOK_WRITE = 9;
-const HOOK_DETAILS = { [HOOK_STYLE]: "a style rule", [HOOK_SHADOW]: "a shadow root", [HOOK_WRITE]: "document.write" };
+const HOOK_FONT = 10;
+const HOOK_DETAILS = { [HOOK_STYLE]: "a style rule", [HOOK_SHADOW]: "a shadow root", [HOOK_WRITE]: "document.write", [HOOK_FONT]: "a font face" };
 const isWriteKind = kind => kind === WRITE || kind >= HOOK_STYLE;
 // Our shims of those built-ins in a task's pages (adopt): the world calls the
 // shim, which calls the native from chrome, where the hook doesn't see it.
@@ -649,6 +650,10 @@ function referenceTables(win) {
   put(desc(win.Document?.prototype, "adoptedStyleSheets")?.set, HOOK_STYLE);
   put(desc(win.ShadowRoot?.prototype, "adoptedStyleSheets")?.set, HOOK_STYLE);
   put(desc(win.Element?.prototype, "attachShadow")?.value, HOOK_SHADOW);
+  // A face added under a family the page's own CSS uses loads its URL for
+  // each character the page then shows in it, the user's typing included:
+  // a style rule's keylogger with no rule.
+  put(desc(win.FontFaceSet?.prototype, "add")?.value, HOOK_FONT);
   for (const name of ["write", "writeln", "open"]) {
     put(desc(win.Document?.prototype, name)?.value, HOOK_WRITE);
   }
@@ -1118,6 +1123,7 @@ function onNative(world, callee, reason) {
     case HOOK_STYLE:
     case HOOK_SHADOW:
     case HOOK_WRITE:
+    case HOOK_FONT:
       leftCode(world, HOOK_DETAILS[kind]);
       return undefined;
     default:
