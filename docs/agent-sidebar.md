@@ -290,6 +290,18 @@ stable, and a change to one is announced to zen-eval first.
   it running, at most 11. The user's next message takes it over as its
   turn. Not while a session opens (a load replays its history as updates),
   nor after the user's Stop.
+- **Pages reloaded at the task's end**: zenius loads afresh each page of an
+  ending task that stays open with what the agent's code left hooked in it
+  (`reloadHookedAfterTask`), which drops whatever the page hadn't saved.
+  zen-core's `pagesReloaded` names them, and the chat whose task it was
+  (`conv.zen`) adds a note: "Reloaded lichess.org/analysis to undo the
+  agent's changes. Anything the page hadn't saved is gone.", or for several,
+  "Reloaded 2 pages to undo the agent's changes: <page>, <page>. Anything
+  they hadn't saved is gone." Each page shows as its host and path, never
+  its query or fragment, and a page that isn't a web page as "a page"; past
+  five, the last ones as a count. While the agent answers or works on its
+  own, the note waits for that to end (`laterNote`), so the agent's last
+  words stay in one bubble.
 - **Live card, Watch and Take over**: at the end of a work chat, once its
   task has a tab, a picture of the page the agent is on (zenius's front tab
   of the task): one when the card appears (or the task moves to another

@@ -2495,6 +2495,84 @@ test("Claude Code's own words on a call (harnessWords): the moved and MCP-interr
   assert.deepEqual(out, { zenius: "moved", otherMcp: "cut", fetch: null, fetchCut: null, fetchStop: "cut", interrupted: "cut", plain: null });
 });
 
+test("the note on the pages zenius reloaded at a task's end (reloadedNote) names each by its host and path, never its query or fragment, a page that isn't a web page as 'a page', and more than five as a count", async () => {
+  const out = await chrome(`
+    const { reloadedNote } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentService.sys.mjs");
+    const pages = urls => urls.map((url, i) => ({ page: "p" + (i + 1), url }));
+    return {
+      none: reloadedNote([]),
+      junk: reloadedNote(null),
+      one: reloadedNote(pages(["https://lichess.org/analysis?fen=8/8/8#move-3"])),
+      root: reloadedNote(pages(["https://lichess.org/"])),
+      notWeb: reloadedNote(pages(["data:text/html,<p>hi</p>"])),
+      two: reloadedNote(pages(["https://www.example.com:8443/a/b/?token=SECRET", "about:blank"])),
+      seven: reloadedNote(pages(["https://a.example/1", "https://b.example/2", "https://c.example/3", "https://d.example/4", "https://e.example/5", "https://f.example/6", "https://g.example/7"])),
+      long: reloadedNote(pages(["https://example.com/" + "x".repeat(100)])),
+    };
+  `);
+  const one = (where, tail = "Anything the page hadn't saved is gone.") => `Reloaded ${where} to undo the agent's changes. ${tail}`;
+  assert.equal(out.none, null);
+  assert.equal(out.junk, null);
+  assert.equal(out.one, one("lichess.org/analysis"));
+  assert.equal(out.root, one("lichess.org"));
+  assert.equal(out.notWeb, one("a page"));
+  assert.equal(out.two, "Reloaded 2 pages to undo the agent's changes: www.example.com:8443/a/b, a page. Anything they hadn't saved is gone.");
+  assert.equal(out.seven, "Reloaded 7 pages to undo the agent's changes: a.example/1, b.example/2, c.example/3, d.example/4 and 3 more. Anything they hadn't saved is gone.");
+  assert.equal(out.long, one(`example.com/${"x".repeat(47)}…`));
+});
+
+test("a Work chat whose task ended gets zen-core's pagesReloaded as a note: after the turn when its agent is still answering, at once when idle, and never for another task", async () => {
+  await useMock();
+  const out = await chrome(`
+    const g = win.ucAgentSidebar;
+    const AS = g.AgentService;
+    await S.openPanel();
+    const userSpace = win.gZenWorkspaces.activeWorkspace;
+    const userTab0 = win.gBrowser.selectedTab;
+    const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
+    const uid = await startWorkChat(win, { text: "SCENARIO:flights", source: "urlbar" });
+    const conv = AS.tasks.get(uid);
+    const service = AS.zenius();
+    // zen-core's event goes to Zen's own listeners alone (emitLocal), where it has that.
+    const emit = (space, pages) => (service.emitLocal ?? service.emit).call(service, "pagesReloaded", { space, pages });
+    const notes = () => conv.messages.filter(m => m.role === "note").map(m => m.text);
+    const res = { space: null };
+    try {
+      // The flights scenario holds its last click: the turn stays open.
+      await S.until(() => conv.busy && AS.zenRecord(conv), 30000);
+      res.space = AS.zenRecord(conv).id;
+      emit(res.space, [{ page: "p1", url: "https://lichess.org/analysis?fen=x#y" }]);
+      await S.sleep(200);
+      res.during = notes();
+      AS.cancel(conv);
+      await S.until(() => !conv.busy, 10000);
+      res.after = conv.messages.slice(-2).map(m => m.role === "note" ? m.text : m.role);
+      emit(res.space + 1000, [{ page: "p1", url: "https://other.example/" }]);
+      emit(res.space, [{ page: "p2", url: "https://example.com/cart" }]);
+      res.idle = notes().slice(-2);
+      // The panel shows it as the chat's last row.
+      const doc = S.panelDoc();
+      await S.until(() => [...doc.querySelectorAll("#messages > .msg")].at(-1)?.textContent.includes("example.com/cart"), 5000);
+      res.shown = true;
+    } finally {
+      AS.cancel(conv);
+      await S.until(() => !conv.busy, 10000).catch(() => {});
+      if (win.gZenWorkspaces.activeWorkspace !== userSpace) await win.gZenWorkspaces.changeWorkspaceWithID(userSpace);
+      if (userTab0.isConnected) win.gBrowser.selectedTab = userTab0;
+      g.setMode("chat");
+    }
+    return res;
+  `);
+  if (out.space) {
+    await h.call("spaces.finish", { space: out.space, keep: [] }).catch(() => {});
+  }
+  const lichess = "Reloaded lichess.org/analysis to undo the agent's changes. Anything the page hadn't saved is gone.";
+  assert.deepEqual(out.during, [], "held while the agent's turn is open");
+  assert.deepEqual(out.after, ["Stopped.", lichess], "after the turn's own end");
+  assert.deepEqual(out.idle, [lichess, "Reloaded example.com/cart to undo the agent's changes. Anything the page hadn't saved is gone."], "at once, and only for its own task");
+  assert.equal(out.shown, true);
+});
+
 test("where an edit takes the agent back (editPlan): to the newest answer (or, with Claude Code, thought) of its session, in a turn that ended, that nothing finished after before the user's next message; it keeps everything when only steps the edit's message cut short or moved lie between, and otherwise counts the steps and messages the agent forgets, all of them when no such point exists", async () => {
   const out = await chrome(`
     const { editPlan, editLossText } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentService.sys.mjs");

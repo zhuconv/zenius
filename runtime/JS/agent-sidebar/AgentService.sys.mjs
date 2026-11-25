@@ -990,6 +990,39 @@ export function oneLine(text, max = 120) {
 }
 
 /**
+ * The thread's note on the pages zenius loaded afresh at a task's end to
+ * undo what the agent's code left in them (zen-core's pagesReloaded, after
+ * reloadHookedAfterTask). Each page shows as its host and path: never its
+ * query or fragment, which may carry a token or what the user typed. Null
+ * with no pages.
+ *
+ * @param {{page?: string, url?: string}[]} pages
+ * @returns {string|null}
+ */
+export function reloadedNote(pages) {
+  const names = (Array.isArray(pages) ? pages : []).map(reloadedWhere);
+  if (!names.length) {
+    return null;
+  }
+  if (names.length === 1) {
+    return `Reloaded ${names[0]} to undo the agent's changes. Anything the page hadn't saved is gone.`;
+  }
+  const listed = names.length > 5 ? `${names.slice(0, 4).join(", ")} and ${names.length - 4} more` : names.join(", ");
+  return `Reloaded ${names.length} pages to undo the agent's changes: ${listed}. Anything they hadn't saved is gone.`;
+}
+
+/** A reloaded page as the note names it: a web page's host and path, else "a page". */
+function reloadedWhere(page) {
+  try {
+    const url = new URL(String(page?.url ?? ""));
+    if (url.protocol === "https:" || url.protocol === "http:") {
+      return oneLine(`${url.host}${url.pathname.replace(/\/+$/, "")}`, 60);
+    }
+  } catch {}
+  return "a page";
+}
+
+/**
  * The runtime's waiting problem report as the card takes it, or null. The
  * card shows the text exactly as it would be posted, so a report it couldn't
  * show that way is never shown: a hidden, control or line-separator
@@ -4284,6 +4317,10 @@ export const AgentService = {
     if (["spaceCreated", "spaceChanged", "spaceFinished", "taskBadge", "taskFeed"].includes(event)) {
       this.syncExternalSoon();
     }
+    if (event === "pagesReloaded") {
+      this.noteReloadedPages(params);
+      return;
+    }
     const by = params?.source?.sidebar;
     if (event === "spaceCreated" && typeof by === "string") {
       // Once zenius is done creating it: the open that asked goes on, and
@@ -4324,6 +4361,46 @@ export const AgentService = {
       this.refreshTask(conv);
       conv.emit({ type: "zen", event });
       this.tasksChanged(conv);
+    }
+  },
+
+  /**
+   * zen-core loaded pages of a chat's task afresh at the task's end
+   * (pagesReloaded): the thread names them (reloadedNote). The chat is the
+   * one whose task it was, which it keeps after the end (conv.zen).
+   */
+  noteReloadedPages(params) {
+    const text = reloadedNote(params?.pages);
+    if (!text || typeof params?.space !== "number") {
+      return;
+    }
+    for (const conv of this.tasks.values()) {
+      if (conv.zen?.id === params.space) {
+        this.laterNote(conv, text);
+      }
+    }
+  },
+
+  /**
+   * A note from outside the agent's turn: at once, or while the agent
+   * answers or works on its own, at the end of that (flushLaterNotes). A row
+   * after its words would start the rest of them in a new bubble: a task's
+   * end comes from its finish, with the agent's last words still to come.
+   */
+  laterNote(conv, text) {
+    if (conv.busy || conv.ownWork) {
+      (conv.laterNotes ??= []).push(text);
+    } else {
+      conv.push({ role: "note", text });
+    }
+  },
+
+  /** The notes laterNote held, now that the turn or the agent's own work ended. */
+  flushLaterNotes(conv) {
+    const notes = conv.laterNotes;
+    conv.laterNotes = null;
+    for (const text of notes ?? []) {
+      conv.push({ role: "note", text });
     }
   },
 
@@ -4943,6 +5020,7 @@ export const AgentService = {
       }
       conv.current = null;
       this.endThought(conv);
+      this.flushLaterNotes(conv);
     }
     conv.lastUsed = Date.now();
     if (conv.conn) {
@@ -5564,6 +5642,7 @@ export const AgentService = {
       conv.turnOpen = false;
       conv.current = null;
       conv.cutReply = null;
+      this.flushLaterNotes(conv);
       conv.lastUsed = Date.now();
       if (conn) {
         conn.lastUsed = conv.lastUsed;
