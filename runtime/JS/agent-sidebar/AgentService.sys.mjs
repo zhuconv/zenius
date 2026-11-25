@@ -1481,20 +1481,25 @@ function commandOf(input) {
  *   turn's end, or the end of the session that ran it. Nobody refused it.
  */
 const HARNESS_WORDS = [
-  ["moved", /^MCP tool "[^"\n]*" (?:was moved to the background as task |is still running after |started server-side task )/],
-  ["cut", /^The tool call was interrupted before a result was received\./],
-  ["cut", /^\[Tool call did not complete: the turn was ended to deliver the message that follows\./],
-  ["cut", /^\[Tool call interrupted: the session ended before this call's result was recorded/],
-  ["cut", /^\[Request interrupted by user for tool use\]/],
+  // [what, the words, whether Claude Code says them of MCP calls alone]
+  ["moved", /^MCP tool "[^"\n]*" (?:was moved to the background as task |is still running after |started server-side task )/, true],
+  ["cut", /^The tool call was interrupted before a result was received\./, true],
+  ["cut", /^\[Tool call did not complete: the turn was ended to deliver the message that follows\./, false],
+  ["cut", /^\[Tool call interrupted: the session ended before this call's result was recorded/, false],
+  ["cut", /^\[Request interrupted by user for tool use\]/, false],
 ];
 
 /**
  * Which of Claude Code's own words a call's result is (HARNESS_WORDS), or
  * claude-agent-acp's word that an interrupt ended it; null for anything else.
+ * The MCP words count only on an MCP call (claude-agent-acp's mcp__ names):
+ * another tool's result, a fetched page's summary say, may start with them,
+ * and a moved call keeps its session in use.
  */
-function harnessWords(tool) {
+export function harnessWords(tool) {
   const text = String(tool.result ?? "").replace(/^\s*```[^\n]*\n/, "").trimStart();
-  const said = text ? (HARNESS_WORDS.find(([, words]) => words.test(text))?.[0] ?? null) : null;
+  const mcp = /^mcp__/.test(tool.toolName ?? "") || /^mcp__/.test(tool.rawTitle ?? "") || !!zeniusCall(tool);
+  const said = text ? (HARNESS_WORDS.find(([, words, mcpOnly]) => (mcp || !mcpOnly) && words.test(text))?.[0] ?? null) : null;
   return said ?? (["interrupted", "cancelled"].includes(tool.nonExecution) ? "cut" : null);
 }
 

@@ -2475,6 +2475,26 @@ test("a steer while the agent waits for the user after its hand-off, with Claude
   assert.deepEqual(out.end, { said: true, marks: [[waiting, "stopped"], [waiting, "done"]], card: { shown: false, whole: false }, owner: "agent" }, JSON.stringify(out.end));
 });
 
+test("Claude Code's own words on a call (harnessWords): the moved and MCP-interrupted ones count only on an MCP call, the only calls Claude Code says them of, so a fetched page's summary can't keep its session in use; the others on any tool", async () => {
+  const out = await chrome(`
+    const { harnessWords } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentService.sys.mjs");
+    const FENCE = "\\u0060".repeat(3) + "\\n";
+    const MOVED = 'MCP tool "zenius/wait" was moved to the background as task b1 so that a message that arrived while it was running can reach you';
+    const CUT = "The tool call was interrupted before a result was received. It may or may not have completed on the server.";
+    const STOP = "[Request interrupted by user for tool use]";
+    return {
+      zenius: harnessWords({ toolName: "mcp__zenius__wait", result: MOVED }),
+      otherMcp: harnessWords({ toolName: "mcp__notes__save", result: FENCE + CUT }),
+      fetch: harnessWords({ toolName: "WebFetch", result: MOVED }),
+      fetchCut: harnessWords({ toolName: "WebFetch", result: CUT }),
+      fetchStop: harnessWords({ toolName: "WebFetch", result: STOP }),
+      interrupted: harnessWords({ toolName: "WebSearch", result: "", nonExecution: "interrupted" }),
+      plain: harnessWords({ toolName: "mcp__zenius__open", result: "Open example.com" }),
+    };
+  `);
+  assert.deepEqual(out, { zenius: "moved", otherMcp: "cut", fetch: null, fetchCut: null, fetchStop: "cut", interrupted: "cut", plain: null });
+});
+
 test("where an edit takes the agent back (editPlan): to the newest answer (or, with Claude Code, thought) of its session, in a turn that ended, that nothing finished after before the user's next message; it keeps everything when only steps the edit's message cut short or moved lie between, and otherwise counts the steps and messages the agent forgets, all of them when no such point exists", async () => {
   const out = await chrome(`
     const { editPlan, editLossText } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentService.sys.mjs");
