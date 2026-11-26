@@ -340,7 +340,7 @@ tests in the same commit.
   ending task that stays open with what the agent's code left hooked in it
   (`reloadHookedAfterTask`), which drops whatever the page hadn't saved.
   The core's `pagesReloaded` names them, and the chat whose task it was
-  (`conv.zen`) adds a note: "Reloaded lichess.org/analysis to undo the
+  (`conv.zen`) adds a note: "Reloaded example.com/editor to undo the
   agent's changes. Anything the page hadn't saved is gone.", or for several,
   "Reloaded 2 pages to undo the agent's changes: <page>, <page>. Anything
   they hadn't saved is gone." Each page shows as its host and path, never

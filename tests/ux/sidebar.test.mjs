@@ -2571,8 +2571,8 @@ test("the note on the pages zenius reloaded at a task's end (reloadedNote) names
     return {
       none: reloadedNote([]),
       junk: reloadedNote(null),
-      one: reloadedNote(pages(["https://lichess.org/analysis?fen=8/8/8#move-3"])),
-      root: reloadedNote(pages(["https://lichess.org/"])),
+      one: reloadedNote(pages(["https://example.com/editor?doc=a/b/c#line-3"])),
+      root: reloadedNote(pages(["https://example.com/"])),
       notWeb: reloadedNote(pages(["data:text/html,<p>hi</p>"])),
       two: reloadedNote(pages(["https://www.example.com:8443/a/b/?token=SECRET", "about:blank"])),
       seven: reloadedNote(pages(["https://a.example/1", "https://b.example/2", "https://c.example/3", "https://d.example/4", "https://e.example/5", "https://f.example/6", "https://g.example/7"])),
@@ -2582,8 +2582,8 @@ test("the note on the pages zenius reloaded at a task's end (reloadedNote) names
   const one = (where, tail = "Anything the page hadn't saved is gone.") => `Reloaded ${where} to undo the agent's changes. ${tail}`;
   assert.equal(out.none, null);
   assert.equal(out.junk, null);
-  assert.equal(out.one, one("lichess.org/analysis"));
-  assert.equal(out.root, one("lichess.org"));
+  assert.equal(out.one, one("example.com/editor"));
+  assert.equal(out.root, one("example.com"));
   assert.equal(out.notWeb, one("a page"));
   assert.equal(out.two, "Reloaded 2 pages to undo the agent's changes: www.example.com:8443/a/b, a page. Anything they hadn't saved is gone.");
   assert.equal(out.seven, "Reloaded 7 pages to undo the agent's changes: a.example/1, b.example/2, c.example/3, d.example/4 and 3 more. Anything they hadn't saved is gone.");
@@ -2610,7 +2610,7 @@ test("a Work chat whose task ended gets zen-core's pagesReloaded as a note: afte
       // The flights scenario holds its last click: the turn stays open.
       await S.until(() => conv.busy && AS.zenRecord(conv), 30000);
       res.space = AS.zenRecord(conv).id;
-      emit(res.space, [{ page: "p1", url: "https://lichess.org/analysis?fen=x#y" }]);
+      emit(res.space, [{ page: "p1", url: "https://example.com/editor?doc=x#y" }]);
       await S.sleep(200);
       res.during = notes();
       AS.cancel(conv);
@@ -2635,10 +2635,10 @@ test("a Work chat whose task ended gets zen-core's pagesReloaded as a note: afte
   if (out.space) {
     await h.call("spaces.finish", { space: out.space, keep: [] }).catch(() => {});
   }
-  const lichess = "Reloaded lichess.org/analysis to undo the agent's changes. Anything the page hadn't saved is gone.";
+  const editor = "Reloaded example.com/editor to undo the agent's changes. Anything the page hadn't saved is gone.";
   assert.deepEqual(out.during, [], "held while the agent's turn is open");
-  assert.deepEqual(out.after, ["Stopped.", lichess], "after the turn's own end");
-  assert.deepEqual(out.idle, [lichess, "Reloaded example.com/cart to undo the agent's changes. Anything the page hadn't saved is gone."], "at once, and only for its own task");
+  assert.deepEqual(out.after, ["Stopped.", editor], "after the turn's own end");
+  assert.deepEqual(out.idle, [editor, "Reloaded example.com/cart to undo the agent's changes. Anything the page hadn't saved is gone."], "at once, and only for its own task");
   assert.equal(out.shown, true);
 });
 
