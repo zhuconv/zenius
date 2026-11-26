@@ -3889,7 +3889,11 @@ test("an agent that thinks in words between parts of its answer shows each stret
       const turn = A.send(conv, { question: "THINKCLAUDE" });
       // The words without the seconds so far (" for N s"), which go on.
       const words = () => label().replace(/ for \\d+ s(?=, )/, "");
-      await S.until(() => /^Thinking( for \\d+ s)?, I'm checking/.test(label() ?? ""), 5000);
+      // The stretch's four pieces come at once, but the panel can draw
+      // after the first alone ("I'm checking the roots"): wait for the
+      // sentence they make, which the title keeps for the 1.5 s before the
+      // next piece.
+      await S.until(() => /^Thinking( for \\d+ s)?, I'm checking the roots for 41 and 43 now\\./.test(label() ?? ""), 5000);
       const first = { label: words(), bubble: conv.messages.find(m => m.role === "assistant")?.state };
       const firstLabel = row().querySelector(".label");
       await S.until(() => /^Thinking( for \\d+ s)?, I'm testing/.test(label() ?? ""), 5000);
@@ -7147,11 +7151,15 @@ test("a message the user sends takes the chat to its end, even from an earlier a
     };
     const conv = await g.newTask();
     const words = () => conv.messages.findLast(msg => msg.role === "assistant")?.text ?? "";
-    // While the answer streams: at each change of the chat's height, is the view at its end?
+    // While the answer streams: at each change of the chat's height, is the
+    // view at its end? It watches for ms, and on, up to 3 s, until it has
+    // seen a change: the mock's SLOW answer gains a line only every half
+    // second to a second, by the panel's width.
     const watch = async ms => {
       const seen = [];
       let height = m.scrollHeight;
-      for (const end = Date.now() + ms; Date.now() < end; ) {
+      const start = Date.now();
+      while (Date.now() - start < ms || (!seen.length && Date.now() - start < 3000)) {
         await S.sleep(50);
         if (m.scrollHeight !== height) {
           height = m.scrollHeight;
