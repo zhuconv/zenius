@@ -591,7 +591,7 @@ class UiController {
         this.secretLineJustInTime = true;
       }
     } catch (e) {
-      log("zen-input's onSecretTyped isn't there:", String(e?.message ?? e).slice(0, 120));
+      log("the input layer's onSecretTyped isn't there:", String(e?.message ?? e).slice(0, 120));
     }
     // The user about to type in a page the agent's sandbox wrote into:
     // the input layer's guard has the core reload it quietly; the UI only hears
@@ -605,7 +605,7 @@ class UiController {
       }
     } catch (e) {
       // Quiet while the input layer's module isn't there.
-      log("zen-input's onUserTyping isn't there:", String(e?.message ?? e).slice(0, 120));
+      log("the input layer's onUserTyping isn't there:", String(e?.message ?? e).slice(0, 120));
     }
     for (const win of Services.wm.getEnumerator("navigator:browser")) {
       this.attachWindow(win);
@@ -2791,7 +2791,7 @@ class UiController {
       (browser =>
         typeof this.service?.cleanLoad === "function"
           ? this.service.cleanLoad(browser)
-          : Promise.reject(new Error("zen-core's cleanLoad isn't there")))
+          : Promise.reject(new Error("the core's cleanLoad isn't there")))
     );
   }
 
