@@ -1067,6 +1067,37 @@ describe("Page", () => {
       }
     }));
 
+  it("outside the sandbox, a ZENIUS_WORKING_DIR, as a dev Zen sets it, is taken over the config only when absolute with no \"..\" part; another is refused, never resolved", () =>
+    withMock(async ({ mock }) => {
+      const saved = process.env.ZENIUS_WORKING_DIR;
+      const page = (await taskSpace("dev folder")).page("p1");
+      try {
+        for (const [given, rule] of [
+          ["relative/files", "must be an absolute path"],
+          [`${mock.workingDir}/../elsewhere`, 'must be named without a ".." part, which can lead elsewhere through a link'],
+          [`${mock.workingDir}/..`, 'must be named without a ".." part, which can lead elsewhere through a link'],
+        ]) {
+          process.env.ZENIUS_WORKING_DIR = given;
+          await assert.rejects(
+            () => page.screenshot({ path: "e.png" }),
+            // The reason, then the next step the CLI adds.
+            (error: Error) =>
+              error instanceof ZeniusError && error.code === "ZEN_PATH_NOT_ALLOWED" && error.message.split("\n")[0] === `ZENIUS_WORKING_DIR ${rule}: ${given}`,
+            given,
+          );
+        }
+        assert.equal(existsSync(join(mock.workingDir, "..", "elsewhere")), false, "nothing made");
+        assert.equal(existsSync(join(mock.workingDir, "..", "e.png")), false, "nothing written");
+        const own = join(mock.dir, "dev-files");
+        mkdirSync(own, { mode: 0o700 });
+        process.env.ZENIUS_WORKING_DIR = `${own}/`;
+        assert.equal(await page.screenshot({ path: "f.png" }), join(own, "f.png"));
+      } finally {
+        if (saved === undefined) delete process.env.ZENIUS_WORKING_DIR;
+        else process.env.ZENIUS_WORKING_DIR = saved;
+      }
+    }));
+
   it("screenshots, saved bodies and downloads are new files only the user can read", () =>
     withMock(async ({ mock }) => {
       const page = (await taskSpace("private files")).page("p1");

@@ -295,6 +295,12 @@ export async function readWorkingFolder(options = {}) {
   if (!path.startsWith("/") || !plain(path)) {
     return { error: `the working folder must be an absolute path with no double quote, backslash or control character: ${JSON.stringify(path)}`, source };
   }
+  // As scripts/working-folder.sh refuses a given one (wf_dotdot), for the
+  // reason configuredFolder gives. The config file's line can't hold one, so
+  // this is a dev profile's pref.
+  if (/\/\.\.(\/|$)/.test(path)) {
+    return { error: `the working folder must be named without a ".." part, which can lead elsewhere through a link: ${JSON.stringify(path)}`, source };
+  }
   if (present(path) ? !isFolder(path) : !isFolder(PathUtils.parent(path))) {
     return {
       error: present(path) ? `the working folder, ${path}, isn't a folder` : `the working folder's parent folder, ${PathUtils.parent(path)}, isn't there`,

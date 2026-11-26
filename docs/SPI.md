@@ -3075,7 +3075,10 @@ The installers set it, and the sandboxed launcher grants it read-write.
   on a dev profile call `reloadWorkingFolder`):
   - on a dev profile, pref `zenius.dev.workingFolder`, which
     `scripts/zen-dev.sh` sets (and passes to Zen as `ZENIUS_WORKING_DIR`),
-    never the config, so no dev or test run reaches the user's folder;
+    never the config, so no dev or test run reaches the user's folder. It
+    keeps the config line's rule below, a `..` part included: zen-dev.sh
+    refuses a working folder that doesn't, the runtime such a pref, and the
+    plain CLI a `ZENIUS_WORKING_DIR` with a `..` part;
   - else `<zenius home>/config.json`, by the shell's line rule
     (`configuredFolder`): exactly one `"workingFolder": "<absolute path>"`
     line, with no double quote, backslash or control character in the

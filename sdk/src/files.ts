@@ -392,6 +392,14 @@ export function workingDir(env: NodeJS.ProcessEnv = process.env): string {
     if (!nodePath.isAbsolute(given)) {
       throw new ZeniusError("ZEN_PATH_NOT_ALLOWED", `ZENIUS_WORKING_DIR must be an absolute path: ${given}`, { path: given });
     }
+    // Refused as in the config file's line, for the reason above.
+    if (/\/\.\.(\/|$)/.test(given)) {
+      throw new ZeniusError(
+        "ZEN_PATH_NOT_ALLOWED",
+        `ZENIUS_WORKING_DIR must be named without a ".." part, which can lead elsewhere through a link: ${given}`,
+        { path: given },
+      );
+    }
     return given.length > 1 ? given.replace(/\/+$/, "") : given;
   }
   const home = zeniusHome(env);

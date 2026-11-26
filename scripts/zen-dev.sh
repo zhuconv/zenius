@@ -1118,11 +1118,27 @@ record_crash() {
   } >>"$CRASH_LOG"
 }
 
+# The working folder's path keeps the config file's rule
+# (scripts/working-folder.sh): absolute, with no ".." part, double quote,
+# backslash or control character. The runtime refuses a profile's
+# zenius.dev.workingFolder that doesn't, and the CLI such a
+# ZENIUS_WORKING_DIR: after a link, a ".." leads to the target's parent for
+# the runtime's reads but drops the link's name for the SDK's path.resolve.
+# Checked before anything starts or stops.
+refuse_bad_work() {
+  [[ $WORK == /?* ]] || { echo "zen-dev.sh: ZENIUS_DEV_WORKING_DIR must be an absolute path: $WORK" >&2; exit 1; }
+  case $WORK in
+    *'"'* | *'\'* | *[[:cntrl:]]* | */../* | */..)
+      echo "zen-dev.sh: the working folder, $WORK, has a \"..\" part, a double quote, a backslash or a control character: name one without (ZENIUS_DEV_WORKING_DIR, or TMPDIR for the default)" >&2
+      exit 1
+      ;;
+  esac
+}
+
 # Make the instance's working folder (0700) if it's missing. The default's
 # parent sits in a temporary folder other accounts may share, so it must be
 # this account's own folder, not a link.
 ensure_working_folder() {
-  [[ $WORK == /?* ]] || { echo "zen-dev.sh: ZENIUS_DEV_WORKING_DIR must be an absolute path: $WORK" >&2; exit 1; }
   if [[ -z ${ZENIUS_DEV_WORKING_DIR:-} ]]; then
     [[ -e $WORK_PARENT || -L $WORK_PARENT ]] || mkdir -m 700 "$WORK_PARENT" 2>/dev/null || true
     if [[ -L $WORK_PARENT || ! -d $WORK_PARENT || ! -O $WORK_PARENT ]]; then
@@ -1141,6 +1157,7 @@ ensure_working_folder() {
 start() {
   local pid
   refuse_account_zhome
+  refuse_bad_work
   pid=$(our_pid)
   if [[ -n $pid ]]; then echo "$NAME already running (pid $pid)"; return; fi
   need_zen
@@ -1264,9 +1281,9 @@ case $CMD in
   stop) stop ;;
   expire) expire "$@" ;;
   quit) quit ;;
-  # Checked before the stop too, so a waiting update or the account's own
-  # zenius home doesn't leave it stopped.
-  restart) refuse_account_zhome; need_zen; refuse_waiting_update; stop; start "$@" ;;
+  # Checked before the stop too, so a waiting update, the account's own
+  # zenius home or a working folder it can't take doesn't leave it stopped.
+  restart) refuse_account_zhome; refuse_bad_work; need_zen; refuse_waiting_update; stop; start "$@" ;;
   status) pid=$(our_pid); if [[ -n $pid ]]; then echo "$NAME running (pid $pid)"; else echo "$NAME not running"; exit 1; fi ;;
   log) if [[ ${1:-} == -f ]]; then tail -f "$LOG"; else cat "$LOG"; fi ;;
   path) echo "$PROFILE" ;;

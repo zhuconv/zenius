@@ -170,7 +170,7 @@ test("without config.json the runtime takes ~/zenius-files only while its zenius
   });
 });
 
-test("a dev profile reads its own pref, never config.json, and has no working folder without it", async () => {
+test("a dev profile reads its own pref, never config.json, has no working folder without it, and none from a pref with a \"..\" part", async () => {
   const pref = await h.chrome(`${WORKING} return Services.prefs.prefHasUserValue(W.DEV_PREF) ? Services.prefs.getStringPref(W.DEV_PREF) : null;`);
   assert.ok(pref, "zen-dev.sh sets the dev profile's working folder");
   const { fill, options } = setUp({}, config("/nowhere/from/the/config"));
@@ -180,6 +180,19 @@ test("a dev profile reads its own pref, never config.json, and has no working fo
   try {
     const none = await h.chrome(`${WORKING} Services.prefs.clearUserPref(W.DEV_PREF); return await W.readWorkingFolder(arg);`, { ...options, dev: true });
     assert.deepEqual(none, { error: "this dev profile has no working folder: set zenius.dev.workingFolder", source: "dev" });
+    // The config line's rule holds for the pref, a ".." part included: after
+    // a link it leads elsewhere for the runtime than for the SDK.
+    for (const bad of [`${pref}/../elsewhere`, `${pref}/..`]) {
+      const refused = await h.chrome(`${WORKING} Services.prefs.setStringPref(W.DEV_PREF, arg.bad); return await W.readWorkingFolder(arg.options);`, {
+        bad,
+        options: { ...options, dev: true },
+      });
+      assert.deepEqual(
+        refused,
+        { error: `the working folder must be named without a ".." part, which can lead elsewhere through a link: ${JSON.stringify(bad)}`, source: "dev" },
+        bad,
+      );
+    }
   } finally {
     await h.chrome(`${WORKING} Services.prefs.setStringPref(W.DEV_PREF, arg); return true;`, pref);
   }
