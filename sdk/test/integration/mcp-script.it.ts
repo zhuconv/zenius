@@ -8,7 +8,7 @@
 // the scratch HOME of test/integration/scratch-env.ts, never ~/.local/bin.
 import assert from "node:assert/strict";
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
@@ -323,7 +323,9 @@ await page.setInputFiles("input[type=file]", process.cwd() + "/" + ${JSON.string
 fs.writeFileSync(${JSON.stringify(output)}, "name\\n" + body);
 return process.cwd();`,
     });
-    assert.match(text, new RegExp(`Returned: "${working.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`), "a script starts in the working folder");
+    // By its real path: the kernel names a current folder so (macOS's /var
+    // is a link into /private), and the launcher starts the server there.
+    assert.match(text, new RegExp(`Returned: "${realpathSync(working).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`), "a script starts in the working folder");
     assert.match(text, new RegExp(`Read "${notes}"`));
     assert.doesNotMatch(text, new RegExp(`Read "${input}"`), "an uploaded file's own read isn't a line of its own");
     assert.match(text, new RegExp(`Wrote "${output}"`));
@@ -337,5 +339,42 @@ return process.cwd();`,
     rmSync(path.join(working, notes), { force: true });
     rmSync(path.join(working, output), { force: true });
     await client.close();
+  }
+});
+
+test("mcp script: with the working folder named through a link, a relative read is listed, and the script starts in its real path", { skip }, async () => {
+  // The config names the dev Zen's working folder through a link above it,
+  // as an install keeps the folder it was given: macOS's /tmp and /var are
+  // links into /private, and so is any folder under a linked one. For this
+  // test only, in the suite's own scratch config, put back after.
+  const real = realpathSync(working);
+  const via = path.join(root, "via");
+  symlinkSync(path.dirname(real), via);
+  const linked = path.join(via, path.basename(real));
+  const config = path.join(process.env.ZENIUS_HOME!, "config.json");
+  const saved = readFileSync(config, "utf8");
+  writeFileSync(config, `{\n  "workingFolder": "${linked}"\n}\n`);
+  const notes = `it-mcp-script-link-${process.pid}.txt`;
+  const output = `it-mcp-script-link-${process.pid}.csv`;
+  writeFileSync(path.join(real, notes), "zenius\n");
+  let client: Client | undefined;
+  try {
+    client = await started();
+    const text = await client.ok("script", {
+      purpose: "Copy a note",
+      code: `const fs = await import("node:fs");
+fs.writeFileSync(${JSON.stringify(output)}, fs.readFileSync(${JSON.stringify(notes)}, "utf8"));
+return process.cwd();`,
+    });
+    assert.match(text, new RegExp(`Read "${notes}"`), `a relative read is the working folder's:\n${text}`);
+    assert.match(text, new RegExp(`Wrote "${output}"`));
+    assert.match(text, new RegExp(`Returned: "${real.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`), "a script starts in the working folder, by its real path");
+    assert.equal(readFileSync(path.join(real, output), "utf8"), "zenius\n");
+  } finally {
+    await client?.close();
+    writeFileSync(config, saved);
+    rmSync(path.join(real, notes), { force: true });
+    rmSync(path.join(real, output), { force: true });
+    rmSync(via, { force: true });
   }
 });

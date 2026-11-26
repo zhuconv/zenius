@@ -419,14 +419,32 @@ export class Session implements ScriptHost {
     return timeout === Infinity ? Infinity : Math.max(CALL_MIN_S, timeout - CALL_MARGIN_S);
   }
 
-  /** The working folder, as given and by its real path, for a script's file lines. */
+  /**
+   * The working folder by each name a script may reach it by, for its file
+   * lines: as given (ZENIUS_WORKING_DIR, the config's), by its real path,
+   * and as the folder the server started in when that is this folder.
+   *
+   * Under the launcher's --permission, fs.realpathSync reads each link on
+   * the way and fails at one outside the grants (macOS's /tmp and /var, any
+   * link above the folder): realpathSync.native checks only the path it's
+   * given, which the launcher grants. Under bubblewrap the launcher binds
+   * the real path and the given one as two folders, with no link between
+   * them, and starts the sidebar's server in the real one: only the
+   * folder's identity ties that start folder to the given name.
+   */
   workingFolders(): string[] {
     const given = workingDir();
-    let resolved = given;
+    const names = [given];
     try {
-      resolved = fs.realpathSync(given);
+      names.push(fs.realpathSync.native(given));
     } catch {}
-    return [given, resolved];
+    try {
+      const start = process.cwd();
+      const folder = fs.statSync(given);
+      const here = fs.statSync(start);
+      if (folder.dev === here.dev && folder.ino === here.ino) names.push(start);
+    } catch {}
+    return names;
   }
 
   get tmpRoot(): string {
