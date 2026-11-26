@@ -114,7 +114,7 @@ function publishTaskSpaces() {
       }
     }
   } catch (e) {
-    log("zen-observe: listing the task tabs' spaces failed:", e.message);
+    log("the observe layer: listing the task tabs' spaces failed:", e.message);
     return;
   }
   const text = JSON.stringify([...spaces]);
@@ -357,12 +357,12 @@ export function setupObserve() {
   try {
     installRefusals({ isAgent: browser => service.isAgentDriven(browser) });
   } catch (e) {
-    log("zen-observe: refusal hooks failed:", e.message);
+    log("the observe layer: refusal hooks failed:", e.message);
   }
   try {
     installAudio({ isAgent: browser => service.isAgentDriven(browser) });
   } catch (e) {
-    log("zen-observe: audio hooks failed:", e.message);
+    log("the observe layer: audio hooks failed:", e.message);
   }
   installNetwork({
     // The agent's pages, and a held step's other tabs while the user holds
@@ -386,7 +386,7 @@ export function setupObserve() {
       taskTabShowing,
     });
   } catch (e) {
-    log("zen-observe: local network hooks failed:", e.message);
+    log("the observe layer: local network hooks failed:", e.message);
   }
   installDnsPrefetchOff({
     isTask: browser => inSet(TASK_BROWSERS_KEY, browser),
@@ -420,7 +420,7 @@ export function setupObserve() {
     // A download that starts while its tab shows a sign-in result is the
     // user's, as that page is: no wait, record or event tells the agent of it.
     isUsers: browser => tabTopIsSignInResult(browser.browserId),
-  }).catch(e => log("zen-observe: download hooks failed:", e.message));
+  }).catch(e => log("the observe layer: download hooks failed:", e.message));
   onAgentCodeMarks(syncHooks);
   onHolds(syncHooks);
   syncHooks();
@@ -461,7 +461,7 @@ export function setupObserve() {
     if (event === "pageClosed" || event === "spaceFinished") {
       sweepNetwork();
       if (event === "spaceFinished") {
-        deleteTaskDownloads(params.space).catch(e => log("zen-observe: a finished task's downloads:", e.message));
+        deleteTaskDownloads(params.space).catch(e => log("the observe layer: a finished task's downloads:", e.message));
       }
       sweepDownloads();
       sweepAgentCode(event === "spaceFinished" ? params.space : undefined);

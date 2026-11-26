@@ -3901,7 +3901,7 @@ class Service {
           this.#steps = ChromeUtils.importESModule(url);
         }
       } catch (e) {
-        log(`zen-input's step ring didn't load, so tasks show no steps: ${e.message}`);
+        log(`the input layer's step ring didn't load, so tasks show no steps: ${e.message}`);
       }
     }
     try {

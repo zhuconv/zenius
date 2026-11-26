@@ -541,7 +541,7 @@ export async function cleanLoad(svc, browser, { sameSite = false, evidentFails =
   try {
     lazy.agentCode.noteCleanLoad?.(browser);
   } catch (e) {
-    log("zen-observe's note of a clean load failed:", e.message);
+    log("the observe layer's note of a clean load failed:", e.message);
   }
   try {
     const offSite = url => `it would have gone to ${url}, on another site, so zenius stopped that load`;
