@@ -4796,15 +4796,13 @@ test("a task another agent drives: its hand-off card in the sidebar and its pill
 // (shareRuntime), never the account's own.
 test("a terminal agent's real wait (zenius wait): both cards say something waits while it runs, the card's Resume agent ends it with exit 0, and once a wait ends otherwise both say to tell the agent again", async () => {
   const name = `zen-ui real wait ${run}`;
-  const { id } = await h.createSpace({ name, source: { agent: "Claude Code", folder: "zenius-eval" } });
+  // Made in the try, so the finally ends whatever there is of them.
+  let id = null;
+  let home = null;
   const handOff = async () => {
     await h.call("spaces.setState", { space: id, text: "Sign in to your account" });
     await h.call("spaces.handOff", { space: id, reason: "sign_in" });
   };
-  await h.call("page.goto", { space: id, page: "p1", url: `${www()}/zen-ux/hidden.html?wait` });
-  await handOff();
-  const home = scratchHome("ux-wait");
-  home.shareRuntime(guardZeniusHome(process.env, "the real wait test"));
   const cli = new URL("../../sdk/bin/zenius", import.meta.url).pathname;
   const children = [];
   /** `zenius wait <id>` in the background, as the guide has the agent leave it: how it ended and what it said. */
@@ -4860,6 +4858,14 @@ test("a terminal agent's real wait (zenius wait): both cards say something waits
   const words = `The agent says: “${iso("Sign in to your account")}”.`;
   const both = (line, waiting) => ({ ok: true, card: line, pill: `${words} ${line}`, waiting });
   try {
+    // The CLI's home, refused before anything is made if it would be the
+    // account's own.
+    const zhome = guardZeniusHome(process.env, "the real wait test");
+    home = scratchHome("ux-wait");
+    home.shareRuntime(zhome);
+    ({ id } = await h.createSpace({ name, source: { agent: "Claude Code", folder: "zenius-eval" } }));
+    await h.call("page.goto", { space: id, page: "p1", url: `${www()}/zen-ux/hidden.html?wait` });
+    await handOff();
     const opened = await chrome(
       `
       await S.openPanel();
@@ -4896,21 +4902,24 @@ test("a terminal agent's real wait (zenius wait): both cards say something waits
     assert.deepEqual(strip(after), both(tell, false), `the wait gone: both cards tell the agent again, after the runtime's grace (${after.ms} ms)`);
   } finally {
     for (const child of children) if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
-    home.remove();
-    await chrome(
-      `
-      const s = win.ucAgentSidebar.AgentService.zenius().spaces;
-      const rec = s.peek(arg.id);
-      if (rec && rec.ownership !== "agent") s.setOwnership(rec, "agent", { source: "user" });
-      const was = win.zenUiWaitTest;
-      delete win.zenUiWaitTest;
-      if (was && win.gZenWorkspaces.activeWorkspace !== was.space) await win.gZenWorkspaces.changeWorkspaceWithID(was.space);
-      if (was?.tab?.isConnected) win.gBrowser.selectedTab = was.tab;
-      return true;
-    `,
-      { id }
-    ).catch(() => {});
-    await h.call("spaces.finish", { space: id, keep: [] }).catch(() => {});
+    home?.remove();
+    // No return here: one in a finally would swallow what the try threw.
+    if (id !== null) {
+      await chrome(
+        `
+        const s = win.ucAgentSidebar.AgentService.zenius().spaces;
+        const rec = s.peek(arg.id);
+        if (rec && rec.ownership !== "agent") s.setOwnership(rec, "agent", { source: "user" });
+        const was = win.zenUiWaitTest;
+        delete win.zenUiWaitTest;
+        if (was && win.gZenWorkspaces.activeWorkspace !== was.space) await win.gZenWorkspaces.changeWorkspaceWithID(was.space);
+        if (was?.tab?.isConnected) win.gBrowser.selectedTab = was.tab;
+        return true;
+      `,
+        { id }
+      ).catch(() => {});
+      await h.call("spaces.finish", { space: id, keep: [] }).catch(() => {});
+    }
   }
 });
 
