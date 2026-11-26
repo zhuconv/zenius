@@ -159,6 +159,24 @@ export const SECRET_LINE = "Resume agent clears this page, so copy what you need
 /** The same under the tasks panel's Resume agent, away from that page. */
 export const PANEL_SECRET_LINE = "Resume agent clears the page the agent handed you, so copy what you need from it first.";
 /**
+ * After a secret step's line, on the pill and the agent sidebar's card:
+ * the core refuses the agent's own ways back (takeOver, claim) on a step
+ * marked secret, by either mark, until the user's Resume agent. Only where
+ * the core takes the user's mark (secretToggle), whose build does that.
+ */
+export const SECRET_HOLD_LINE = "Until then, the agent can't take it back.";
+/** The same there after the user's own Take over, which they ticked as a secret step. */
+export const PANEL_TAKEN_SECRET_LINE = "Resume agent clears the page you took over, so copy what you need from it first.";
+/**
+ * The hold pills' checkbox (secretToggle): the user marks the step as one
+ * that shows a secret, when the agent didn't. Short, since it shares the
+ * row under the note with Resume agent. The agent sidebar's hand-off card
+ * says "This step shows a secret" (panel.html).
+ */
+export const PILL_SECRET_TOGGLE = "Shows a secret";
+/** The sign by a secret box the agent's own mark ticked, which the user can't untick: the pill's and the sidebar's. */
+export const SECRET_AGENT_SIGN = "set by the agent";
+/**
  * A hold card's last line on a task no Work chat of the agent sidebar
  * drives, while some client waits for control of it (ZeniusUI.afterResume).
  * That needn't be the task's own agent, so it says no more.
@@ -791,7 +809,10 @@ class UiController {
    * @returns {string|null}
    */
   handBackClears(rec) {
-    return this.#panelClears(rec);
+    const clears = this.#panelClears(rec);
+    // The card has room for what the mark does to the agent; the panel's row
+    // keeps to what Resume agent clears.
+    return clears && this.secretToggle(rec) && this.#secretOf(rec).secret ? `${clears} ${SECRET_HOLD_LINE}` : clears;
   }
 
   /**
@@ -943,9 +964,15 @@ class UiController {
         // hold's card then says Resume clears them.
         secretTyped: false,
         // The agent's hand-off said its step shows the user a secret
-        // (spaceChanged's secret): Resume blanks the page, so the hold's
-        // card says to copy what they need first.
+        // (spaceChanged's secret), or the user ticked it as one (secretBy
+        // "user"): Resume blanks the page, so the hold's card says to copy
+        // what they need first. The core's marks say so when it can
+        // (#secretOf); this is what its events said.
         secretStep: false,
+        secretBy: null,
+        // The user's Resume presses under way (#handBack): the step's
+        // secret toggles stay as they are until each ends.
+        handingBack: 0,
         // The task's "needs you" OS notification is up (#needsUser).
         notified: false,
         // Pages that joined the task during this hold, by label, with a
@@ -1106,6 +1133,7 @@ class UiController {
       }
       // Only the hand-off that said so: a Take over or a page's prompt isn't one.
       ui.secretStep = rec.ownership === "agentDelegatedToUser" && ui.source === "agent" && params.secret === true;
+      ui.secretBy = ui.secretStep ? "agent" : null;
       if (rec.ownership === "agent" && ui.secretTyped) {
         // The agent runs again: what the user typed was cleared, or sent.
         ui.secretTyped = false;
@@ -1139,6 +1167,14 @@ class UiController {
       // hold card's last line follows (afterResume). The agent sidebar's card
       // follows from its own sync of the rows, which the event sets off.
       this.#showControlNotice(rec, ui.noticeTab, ui.source);
+    } else if ("secret" in params && rec.ownership === "agentDelegatedToUser") {
+      // The step's secret mark came or went during the hold: the user's
+      // tick on a card (markSecretByUser), or the agent's mark at a hand-off
+      // during the user's Take over. The cards follow; the agent sidebar's
+      // from the event, as above.
+      ui.secretStep = params.secret === true;
+      ui.secretBy = ui.secretStep ? (params.secretBy === "user" ? "user" : "agent") : null;
+      this.#secretChanged(rec);
     }
     if ("ownership" in params || "paused" in params) {
       // After the hold's own card, so a screen reader hears that first.
@@ -1716,7 +1752,7 @@ class UiController {
     // The page its card is on (#onOwnership set it just before).
     const site = heldSite(this.#ui(rec.id).noticeTab?.linkedBrowser);
     const where = `${name ? ` in ${name}` : ""}${site ? `, on ${site}` : ""}`;
-    const secret = source === "agent" && this.#ui(rec.id).secretStep ? ` ${SECRET_LINE}` : "";
+    const secret = source === "agent" && this.#secretOf(rec).secret ? ` ${SECRET_LINE}` : "";
     // Said only while this hold lasts: not once the user or the agent ended
     // it, or the task finished, before the burst went out.
     const holds = () => rec.ownership === "agentDelegatedToUser" && rec.heldBy === source && !rec.gone;
@@ -1762,7 +1798,12 @@ class UiController {
     // typing, and the rest waits behind the '?'. A secret step's line leads
     // instead: Resume blanks the whole page.
     const clears = ui.secretTyped || !this.secretLineJustInTime;
-    const lead = ui.secretStep ? SECRET_LINE : clears ? CLEARS_LINE : null;
+    // The user's own mark of the step as a secret one: in the row under the
+    // note, with Resume agent, so the task's name stays whole. Where the core
+    // takes it, a secret step holds the agent off until Resume agent.
+    const toggle = this.secretToggle(rec);
+    const secret = this.#secretOf(rec).secret ? [SECRET_LINE, toggle ? SECRET_HOLD_LINE : null].filter(Boolean).join(" ") : null;
+    const lead = secret ?? (clears ? CLEARS_LINE : null);
     // zenius's last line, by the button, on a task no Work chat drives
     // (afterResume). Its Take over card then says no more of the agent than
     // that it can't act.
@@ -1774,7 +1815,123 @@ class UiController {
       note: [lead ?? lines.join(" "), after].filter(Boolean).join(" ") || undefined,
       more: (lead && lines.join(" ")) || undefined,
       buttons: [{ label: "Resume agent", primary: true, onClick: () => this.#handBack(rec) }],
+      ...(toggle
+        ? {
+            toggle: {
+              label: PILL_SECRET_TOGGLE,
+              checked: toggle.checked,
+              fixed: toggle.fixed,
+              ...(toggle.by === "agent" ? { sign: SECRET_AGENT_SIGN } : {}),
+              onChange: on => this.markSecretByUser(rec, on),
+            },
+            stacked: true,
+          }
+        : {}),
     });
+  }
+
+  /**
+   * A hold the user's own secret mark may cover: the agent's hand-off, or
+   * the user's Take over, which a misled agent could ask for instead. Not a
+   * page's permission prompt, whose own answer ends it.
+   *
+   * @param {object} rec
+   */
+  #markable(rec) {
+    const by = rec.heldBy ?? this.#ui(rec.id).source;
+    return rec.ownership === "agentDelegatedToUser" && !rec.gone && (by === "agent" || by === "user");
+  }
+
+  /**
+   * Whether the hold's step is a secret one now, and by whose mark: the
+   * agent's hand-off said so (secret), or the user ticked it (secretBy
+   * "user"). From the core's marks (secretStepOf), which a restart keeps;
+   * else from what its events said. Nothing outside a hold #markable names.
+   *
+   * @param {object} rec
+   * @returns {{secret: boolean, by: "agent"|"user"|null}}
+   */
+  #secretOf(rec) {
+    const none = { secret: false, by: null };
+    if (!this.#markable(rec)) {
+      return none;
+    }
+    if (typeof this.service?.secretStepOf === "function") {
+      try {
+        const step = this.service.secretStepOf(rec);
+        return step?.secret ? { secret: true, by: step.secretBy === "user" ? "user" : "agent" } : none;
+      } catch (e) {
+        console.error("[zenius] secretStepOf failed", e);
+      }
+    }
+    const ui = this.#ui(rec.id);
+    return ui.secretStep ? { secret: true, by: ui.secretBy === "user" ? "user" : "agent" } : none;
+  }
+
+  /**
+   * The hold cards' "This step shows a secret", the pill's and the agent
+   * sidebar's hand-off card's: null unless the task is in a hold the user's
+   * mark may cover and the core can take it (markSecretByUser). Else whether
+   * the step is a secret one, and whose mark makes it so; fixed when the
+   * agent's own mark does, which only adds protection (drawn ticked with
+   * SECRET_AGENT_SIGN, never dimmed), and from the user's Resume agent
+   * until that hand back is done.
+   *
+   * @param {object} rec
+   * @returns {{checked: boolean, fixed: boolean, by: "agent"|"user"|null}|null}
+   */
+  secretToggle(rec) {
+    if (typeof this.service?.markSecretByUser !== "function" || !this.#markable(rec)) {
+      return null;
+    }
+    const { secret, by } = this.#secretOf(rec);
+    return { checked: secret, fixed: by === "agent" || this.#ui(rec.id).handingBack > 0, by: secret ? by : null };
+  }
+
+  /**
+   * The user ticks or unticks the step's secret toggle, on a card: the core
+   * marks the held step's tabs as a secret step of the user's, so Resume
+   * agent blanks them as after a secret hand-off, or takes back the user's
+   * own mark, never the agent's (service.markSecretByUser, which checks the
+   * hold itself). Only the toggles' own clicks call it: both are chrome,
+   * which the agent's input never reaches. Both cards then draw from the
+   * marks, a refusal's included.
+   *
+   * @param {object} rec
+   * @param {boolean} on
+   * @returns {boolean} whether the step is a secret one now
+   */
+  markSecretByUser(rec, on) {
+    const now = this.#peek(rec.id);
+    if (!now || now.gone) {
+      return false;
+    }
+    const ui = this.#ui(now.id);
+    const toggle = this.secretToggle(now);
+    if (toggle && !toggle.fixed && toggle.checked !== !!on) {
+      try {
+        const result = this.service.markSecretByUser(now, !!on);
+        if (result?.ok) {
+          ui.secretStep = !!result.secret;
+          ui.secretBy = result.secret ? (result.secretBy === "user" ? "user" : "agent") : null;
+        } else {
+          console.warn(`[zenius] the step's secret mark stays as it was: ${result?.why ?? "no answer"}`);
+        }
+      } catch (e) {
+        console.error("[zenius] markSecretByUser failed", e);
+      }
+    }
+    this.#secretChanged(now);
+    return this.#secretOf(now).secret;
+  }
+
+  /** The step's secret mark, or whether the user may change it, changed: the cards draw again. */
+  #secretChanged(rec) {
+    const ui = this.#ui(rec.id);
+    if (ui.noticeTab && this.#markable(rec) && (ui.source === "agent" || ui.source === "user")) {
+      this.#showControlNotice(rec, ui.noticeTab, ui.source);
+    }
+    this.#refreshTasks();
   }
 
   /**
@@ -1982,8 +2139,8 @@ class UiController {
     if (!held && !this.#userPaused.has(rec.id)) {
       return null;
     }
-    if (held && this.#ui(rec.id).secretStep) {
-      return PANEL_SECRET_LINE;
+    if (held && this.#secretOf(rec).secret) {
+      return (rec.heldBy ?? this.#ui(rec.id).source) === "user" ? PANEL_TAKEN_SECRET_LINE : PANEL_SECRET_LINE;
     }
     if (!this.#ui(rec.id).secretTyped && this.secretLineJustInTime) {
       return null;
@@ -2476,9 +2633,16 @@ class UiController {
   /**
    * The user hands the task back: Resume agent, on the pill or in the panel.
    * The agent's calls stay refused until the ownership changes, so the
-   * reload of what holds a secret the user typed finishes first.
+   * reload of what holds a secret the user typed finishes first. From the
+   * press on, the step's secret toggles stay as they are: the user chose to
+   * hand it back as it is. The agent's own way back (the core's takeOver)
+   * leaves them be, since a mark the user makes then stops it at the
+   * core's last check.
    */
   #handBack(rec) {
+    const ui = this.#ui(rec.id);
+    ui.handingBack++;
+    this.#secretChanged(rec);
     return this.#beforeAgentRuns(
       rec,
       now => {
@@ -2487,7 +2651,18 @@ class UiController {
         }
       },
       { handBack: true }
-    );
+    ).finally(() => {
+      ui.handingBack--;
+      // A press a later one overtook, or a task that went meanwhile: the
+      // toggles come back if the hold is still on. A task later, past the
+      // flip that ends the hold, which nothing redraws for.
+      lazy.setTimeout(() => {
+        const now = this.#peek(rec.id);
+        if (!ui.handingBack && now && this.#markable(now)) {
+          this.#secretChanged(now);
+        }
+      }, 0);
+    });
   }
 
   /**
@@ -2510,7 +2685,7 @@ class UiController {
    * @returns {Promise<Element[]>} the pages it reloaded
    */
   async beforeHandBack(rec) {
-    // zen-core's glue: a secret step's tab goes blank first (its blankSecretSteps).
+    // The core's glue: a secret step's tab goes blank first (its blankSecretSteps).
     try {
       await this.service?.blankSecretSteps?.(rec);
     } catch (e) {
@@ -2523,6 +2698,14 @@ class UiController {
       } catch (e) {
         console.error("[zenius] noteReloaded failed", e);
       }
+    }
+    // Once more as the last wait, so a mark made during the reloads blanks
+    // too: it resolves with no mark left, and with no turn of the event
+    // loop after its last look, so nothing marks before the flip.
+    try {
+      await this.service?.blankSecretSteps?.(rec);
+    } catch (e) {
+      console.error("[zenius] blankSecretSteps failed", e);
     }
     return reloaded;
   }
@@ -4081,6 +4264,19 @@ class UiController {
       controlButtons: ui.noticeTab
         ? [...(noticeElement(ui.noticeTab, CONTROL_NOTICE)?.querySelectorAll("button") ?? [])].map(b => b.textContent)
         : [],
+      controlToggle: (() => {
+        const box = ui.noticeTab ? noticeElement(ui.noticeTab, CONTROL_NOTICE)?.querySelector(".zenius-card-toggle") : null;
+        const input = box?.querySelector("input");
+        // fixed: dimmed, or signed by whoever set it.
+        return input
+          ? {
+              label: box.querySelector(".zenius-card-toggle-label")?.textContent ?? "",
+              checked: input.checked,
+              fixed: input.disabled || box.hasAttribute("signed"),
+              sign: box.querySelector(".zenius-card-toggle-sign")?.textContent ?? null,
+            }
+          : null;
+      })(),
     };
   }
 }

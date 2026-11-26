@@ -424,7 +424,7 @@ test("in each sidebar layout every card the user can meet sits whole on the agen
       if (!(c.left >= b.left - 1 && c.right <= b.right + 1 && c.top >= b.top - 1 && c.bottom <= b.bottom + 1)) out.push("off its page");
       if (Math.abs(c.left + c.width / 2 - (b.left + b.width / 2)) > 1) out.push("off center");
       const within = r => r.left >= c.left - 0.5 && r.right <= c.right + 0.5 && r.top >= c.top - 0.5 && r.bottom <= c.bottom + 0.5;
-      for (const part of el.querySelectorAll(".zenius-card-title, .zenius-card-detail, .zenius-card-site, .zenius-card-note, .zenius-card-more, .zenius-card-button")) {
+      for (const part of el.querySelectorAll(".zenius-card-title, .zenius-card-detail, .zenius-card-site, .zenius-card-note, .zenius-card-more, .zenius-card-button, .zenius-card-toggle")) {
         if (part.getClientRects().length && !within(part.getBoundingClientRect())) out.push("cut: " + (part.textContent.slice(0, 24) || part.className));
       }
       const note = el.querySelector(".zenius-card-note");
@@ -477,6 +477,8 @@ test("the hold card's site stays whole at any page width: the task's name gives 
       "hand-off": site => ({ ...UIM.controlCard(task, "agent"), site, buttons: resume }),
       "Take over": site => ({ ...UIM.controlCard(task, "user"), site, buttons: resume }),
       "a permission hold": site => ({ ...UIM.controlCard(task, "permission", "for a passkey"), site, buttons: [] }),
+      // The user's own secret mark: its box with Resume agent, under the note.
+      "hand-off with its secret box": site => ({ ...UIM.controlCard(task, "agent"), site, buttons: resume, toggle: { label: UIM.PILL_SECRET_TOGGLE, checked: false, onChange: () => {} }, stacked: true }),
     };
     const sites = { long: "examplecorporation-identity-services.co.uk", short: "example.com" };
     // The page's width, from wider than the widest pill to a sliver.
@@ -490,7 +492,7 @@ test("the hold card's site stays whole at any page width: the task's name gives 
       const c = el.getBoundingClientRect();
       if (c.left < l.left + parseFloat(ls.paddingLeft) - 0.5 || c.right > l.right - parseFloat(ls.paddingRight) + 0.5) out.push("off its page");
       const within = r => r.left >= c.left - 0.5 && r.right <= c.right + 0.5 && r.top >= c.top - 0.5 && r.bottom <= c.bottom + 0.5;
-      for (const part of el.querySelectorAll(".zenius-card-title, .zenius-card-detail, .zenius-card-site, .zenius-card-note, .zenius-card-more, .zenius-card-button")) {
+      for (const part of el.querySelectorAll(".zenius-card-title, .zenius-card-detail, .zenius-card-site, .zenius-card-note, .zenius-card-more, .zenius-card-button, .zenius-card-toggle")) {
         if (part.getClientRects().length && !within(part.getBoundingClientRect())) out.push("cut: " + part.className);
       }
       const site = el.querySelector(".zenius-card-site");

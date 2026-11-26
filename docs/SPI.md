@@ -1976,6 +1976,44 @@ deadline += await ctx.gate();
   the page the agent handed you, so copy what you need from it first."
   under Resume agent. It lasts for that hold: a hand-off without the flag, a
   hold the user began, and the agent's run again end it.
+- **The user's own secret mark** (`ZeniusUI.secretToggle`), for a step the
+  agent didn't mark: a checkbox on the hand-off's pill and on the user's
+  Take over's ("Shows a secret"), and on the agent sidebar's hand-off card
+  ("This step shows a secret"). Take over is covered too, since a misled
+  agent could ask for one instead of a hand-off.
+  - **Where.** On the pill it sits with Resume agent in the row under the
+    note, so the task's name stays whole. It's drawn before Resume agent
+    and reached after it (`order: -1`), so the keyboard's first stop is
+    still the main button.
+  - **Ticking it** calls the core's in-process `markSecretByUser`, which
+    checks the hold itself. The step is then a secret one, as if the agent
+    had said so, and both cards say what a secret step's card says. After
+    that line comes "Until then, the agent can't take it back.": the core
+    refuses the agent's own ways back on a step marked secret until the
+    user's Resume agent. On a ticked Take over, the tasks panel's row says
+    "Resume agent clears the page you took over, so copy what you need from
+    it first."
+  - **Unticking it** takes back the user's own mark, never the agent's.
+  - **The agent's mark.** When the agent marked the step, the box shows
+    ticked at full strength, with "set by the agent" as a small chip after
+    its label (the notices' toggle `sign`), and a click changes nothing.
+    It's never dimmed or unavailable, which would read as off: a screen
+    reader hears "Shows a secret set by the agent", ticked.
+  - **Fixed.** The user's own box is dimmed from their Resume agent until
+    that hand back is done (`#handBack`), and a tick then goes nowhere. On the agent's own
+    way back after the user's quiet (the core's takeOver), the box stays
+    the user's: a mark made then stops it at the core's last check.
+  - **The hand back** looks at the marks first and again as its last wait
+    (`beforeHandBack`'s two `blankSecretSteps`), so a mark made during its
+    reloads blanks too.
+  - **State.** The cards draw from the core's marks (`secretStepOf`), which
+    a restart keeps, and follow spaceChanged's `secret` and `secretBy`.
+  - **Who can change it.** Only the user's own click or Space reaches it:
+    both boxes are chrome, an untrusted click does nothing, and so does a
+    click within the pill's arm time. The focus stays on the box when the
+    pill draws again, so a second Space can't land on Resume agent.
+  - **Without the core's call,** there's no box and no line about taking it
+    back.
 - **What comes after Resume agent** (`ZeniusUI.afterResume`), on a task no
   Work chat of the agent sidebar drives (its `AgentService.drivesSpace`
   says false): its agent runs in a terminal, an IDE or a script, which

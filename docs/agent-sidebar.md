@@ -448,6 +448,16 @@ tests in the same commit.
       which holds either way, since an agent starts its wait in its next
       call. It follows a wait as it comes and goes. A Work chat's card has
       none: its agent hears its Resume through the sidebar;
+    - "This step shows a secret" (`#handoff-secret`), the user's own mark
+      of the step as a secret one when the agent didn't mark it, as on
+      zenius's pill (`ZeniusUI.secretToggle`; `AgentService.markSecret`
+      calls `ZeniusUI.markSecretByUser`). Ticked, what Resume agent clears
+      says "Resume agent clears the page the agent handed you, so copy what
+      you need from it first. Until then, the agent can't take it back."
+      When the agent marked the step, it shows ticked at full strength with
+      a "set by the agent" chip, and a click changes nothing; the user's
+      own is dimmed from the card's Resume agent on. Only a trusted click or Space
+      reaches it. Without the core's `markSecretByUser` it's hidden;
     - Show tab (zenius's `goToTask`, the task's page) and Resume agent
       (zenius's own path, `ZeniusUI.handBackByUser`).
 
@@ -710,7 +720,7 @@ The panel (`panel.html`, its own document, so bare ids):
 | `#earlier` > `#earlier-text`, `#earlier-open` | In the empty Chat view, first: an earlier chat about this page, "Earlier chat about this page, 2 days ago", and Open; `title` is the chat's first question. Hidden when there's none |
 | `.steps > .step[data-status] > .label` | Steps; `data-status` is `done`, `running`, `failed`, `waiting` (for the user) or `stopped` |
 | `.msg.user.editing` > `.editor` > `textarea`, `#edit-loss.edit-loss`, `.buttons` > `.cancel`, `.send` | A message being edited (Editing a message): its box, the line saying what else the agent forgets (only when it does; the box's `aria-describedby`), Cancel and Send |
-| `#handoff[role=group]` > `#handoff-title`, `#handoff-words`, `#handoff-clears`, `#handoff-after`, `#handoff-show`, `#handoff-resume` | The agent's hand-off while the task is the user's, before the live card, in the ask card's look (`.msg.ask`): what the task waits for ("<task> needs a sign-in"), the agent's whole message, what Resume agent clears (hidden when nothing), on a task another agent drives what comes after Resume agent (`afterResume`; hidden on a Work chat's), Show tab and Resume agent |
+| `#handoff[role=group]` > `#handoff-title`, `#handoff-words`, `#handoff-clears`, `#handoff-after`, `#handoff-secret` > `#handoff-secret-box`, `#handoff-show`, `#handoff-resume` | The agent's hand-off while the task is the user's, before the live card, in the ask card's look (`.msg.ask`): what the task waits for ("<task> needs a sign-in"), the agent's whole message, what Resume agent clears (hidden when nothing), on a task another agent drives what comes after Resume agent (`afterResume`; hidden on a Work chat's), the user's own secret mark ("This step shows a secret", `secretToggle`; hidden without the core's call), Show tab and Resume agent |
 | `.msg.thought` (`.live`) > `summary` or `.line` > `.head`, `.time`; `details > .body` | A stretch of the agent's thinking: "Thinking for 12 s, <title>" while `.live`, then "Thought for 23 s". `.head` clamps to two lines, and the line's `title` is the whole title. With words, a `details` whose `.body` is what it thought. After a step, it's inside `.steps` |
 | `.msg.assistant > .actions` | Copy and save: one row per turn, on its last part, once the turn has ended |
 | `html[data-external="true"]`, `.ext-view[data-state]` | A task the sidebar doesn't drive (`external.sys.mjs`: every zenius task shows in the sidebar), opened: read-only, so the question box shows only `#ext-bar`. `data-state` is the task's `working`, `needs` or `done` |

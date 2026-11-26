@@ -41,13 +41,15 @@
          card's look (renderHandOff, AgentService.handOff): what the task
          waits for, the agent's whole message as its words, what Resume agent
          clears, on a task another agent drives what comes after Resume agent,
-         Show tab and Resume agent. It stays until Resume agent or the task's
-         end, whatever becomes of the agent's wait call. -->
+         the user's own mark of the step as a secret one, Show tab and Resume
+         agent. It stays until Resume agent or the task's end, whatever
+         becomes of the agent's wait call. -->
     <div id="handoff" role="group" aria-labelledby="handoff-title" hidden>
       <div id="handoff-title" class="ask-title"></div>
       <div id="handoff-words" class="ask-words"></div>
       <div id="handoff-clears" class="ask-hint" hidden></div>
       <div id="handoff-after" class="ask-hint" hidden></div>
+      <label id="handoff-secret" class="ask-hint" hidden><input id="handoff-secret-box" type="checkbox" /><span>This step shows a secret</span><span id="handoff-secret-sign" hidden>set by the agent</span></label>
       <div class="ask-actions">
         <span class="ask-hint"></span>
         <button id="handoff-show" type="button" class="ask-skip">Show tab</button>

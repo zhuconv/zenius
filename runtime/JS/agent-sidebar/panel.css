@@ -644,6 +644,27 @@ body.busy .msg.user > .actions {
   font-size: 12px;
 }
 
+/* The user's own mark of the step as a secret one, above the buttons. */
+#handoff-secret {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The agent's own mark: the box keeps its full look, and a small chip says
+ * who set it, as on zenius's pill. */
+#handoff-secret[signed],
+#handoff-secret[signed] > input {
+  cursor: default;
+}
+
+#handoff-secret-sign {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.85em;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+
 #live {
   margin: 8px 0 4px;
   border: 1px solid var(--line);

@@ -122,6 +122,33 @@ test("every card fits in its pill, at the page's width and on a narrow page: its
         buttons: resume,
       },
       takeOverAfter: { ...UIM.controlCard({}, "user"), detail: UIM.CANT_ACT_DETAIL, note: UIM.tellAgentLine({ agent: "Claude Code", folder: "quarterly-expenses-2026" }), buttons: resume },
+      // The user's own secret mark (secretToggle): its box with Resume agent
+      // under the note, ticked on a hand-off's pill, not on a Take over's.
+      needsYouSecret: {
+        ...UIM.controlCard({ name: "Book a table for four at seven" }, "agent"),
+        note: [UIM.SECRET_LINE, UIM.SECRET_HOLD_LINE, UIM.tellAgentLine({ agent: "Claude Code", folder: "quarterly-expenses-2026" })].join(" "),
+        more: "The agent says: “Enter the code we sent to your phone”.",
+        buttons: resume,
+        toggle: { label: UIM.PILL_SECRET_TOGGLE, checked: true, onChange: () => {} },
+        stacked: true,
+      },
+      // The agent's own mark: ticked, with its sign.
+      needsYouAgentSecret: {
+        ...UIM.controlCard({ name: "Book a table for four at seven" }, "agent"),
+        note: [UIM.SECRET_LINE, UIM.SECRET_HOLD_LINE, UIM.tellAgentLine({ agent: "Claude Code", folder: "quarterly-expenses-2026" })].join(" "),
+        more: "The agent says: “Enter the code we sent to your phone”.",
+        buttons: resume,
+        toggle: { label: UIM.PILL_SECRET_TOGGLE, checked: true, fixed: true, sign: UIM.SECRET_AGENT_SIGN, onChange: () => {} },
+        stacked: true,
+      },
+      takeOverSecret: {
+        ...UIM.controlCard({}, "user"),
+        detail: UIM.CANT_ACT_DETAIL,
+        note: UIM.CLEARS_LINE,
+        buttons: resume,
+        toggle: { label: UIM.PILL_SECRET_TOGGLE, checked: false, onChange: () => {} },
+        stacked: true,
+      },
       madeReminder: UIM.madePageCard(),
       madeRefused: UIM.madePageCard({ refused: "media" }),
       reloadFailed: UIM.reloadFailedCard(),
@@ -135,7 +162,7 @@ test("every card fits in its pill, at the page's width and on a narrow page: its
     const read = el => {
       const card = el.getBoundingClientRect();
       // What shows: the '?' only when the note is cut off.
-      const parts = [...el.querySelectorAll(".zenius-card-title, .zenius-card-note, .zenius-card-more, .zenius-card-button")].filter(p => p.getClientRects().length);
+      const parts = [...el.querySelectorAll(".zenius-card-title, .zenius-card-note, .zenius-card-more, .zenius-card-button, .zenius-card-toggle")].filter(p => p.getClientRects().length);
       const out = parts.filter(p => !inside(card, p.getBoundingClientRect())).map(p => p.textContent.slice(0, 24) || p.className);
       const note = el.querySelector(".zenius-card-note");
       // A note longer than its line is cut off with the '?', never silently.
@@ -170,8 +197,9 @@ test("every card fits in its pill, at the page's width and on a narrow page: its
     if (under !== null) {
       // Three buttons (the local-network card's for a typed address, and a
       // refused Take over's) go under the line at any width, so the host or
-      // the reason shows whole.
-      assert.equal(under, width === "420" || name === "localTyped" || name === "takeOverRefused", `${key}: buttons under the note`);
+      // the reason shows whole, and so does a secret box with Resume agent,
+      // so the task's name does.
+      assert.equal(under, width === "420" || ["localTyped", "takeOverRefused", "needsYouSecret", "needsYouAgentSecret", "takeOverSecret"].includes(name), `${key}: buttons under the note`);
     }
   }
 });

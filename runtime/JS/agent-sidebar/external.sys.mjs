@@ -114,6 +114,8 @@ export class ExternalTask {
   endedAt = 0;
   /** The latest step's text, a working row's status. */
   lastStep = "";
+  /** The hand-off card's secret box as last drawn (#secretBoxOf), or null without one. */
+  secretBox = null;
   listeners = new Set();
 
   /** @param {number} space  its zenius task's id */
@@ -364,6 +366,14 @@ export class ExternalTasks {
       task.afterResume = after;
       task.emit({ type: "task", stateChanged: false });
     }
+    // The card's secret box too, which a mark that comes or goes changes
+    // (the agent's, the user's on zenius's pill, a marked tab's close),
+    // with no other change here.
+    const box = done ? null : this.#secretBoxOf(task);
+    if (task.secretBox !== box) {
+      task.secretBox = box;
+      task.emit({ type: "task", stateChanged: false });
+    }
     if (state !== task.task.state || text !== task.task.text) {
       const stateChanged = state !== task.task.state;
       task.task = { state, text, since: stateChanged ? (done ? task.endedAt : Date.now()) : task.task.since };
@@ -371,6 +381,18 @@ export class ExternalTasks {
       changed = true;
     }
     return changed;
+  }
+
+  /** The task's secret box (ZeniusUI.secretToggle) as a key to compare, or null without one. */
+  #secretBoxOf(task) {
+    try {
+      const rec = this.hooks.service()?.spaces.peek?.(task.space);
+      const box = rec ? this.hooks.ui()?.secretToggle?.(rec) : null;
+      return box ? `${box.checked}:${box.fixed}:${box.by}` : null;
+    } catch (e) {
+      console.error(LOG, "secretToggle failed", e);
+      return null;
+    }
   }
 
   /** Stop listening (the sidebar's shutdown). */

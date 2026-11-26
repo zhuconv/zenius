@@ -61,6 +61,9 @@ const els = {
   handoffWords: $("handoff-words"),
   handoffClears: $("handoff-clears"),
   handoffAfter: $("handoff-after"),
+  handoffSecret: $("handoff-secret"),
+  handoffSecretBox: $("handoff-secret-box"),
+  handoffSecretSign: $("handoff-secret-sign"),
   handoffShow: $("handoff-show"),
   handoffResume: $("handoff-resume"),
   live: $("live"),
@@ -3015,7 +3018,12 @@ function liveState() {
  * zenius's Open shows it: that agent's whole message goes in as text, as a
  * Work chat's does, and zenius's last line follows what Resume agent
  * clears: that something waits for Resume agent, or to tell that agent
- * (ZeniusUI.afterResume), since zenius can't reach it.
+ * (ZeniusUI.afterResume), since zenius can't reach it. Above the buttons,
+ * "This step shows a secret": the user's own mark of the step as one, as
+ * on zenius's pill (ZeniusUI.secretToggle). When the agent marked it, it's
+ * ticked at full strength with "set by the agent", and a click changes
+ * nothing: a dimmed box would read as off. The user's own is dimmed while
+ * Resume agent is under way.
  */
 function renderHandOff() {
   const off = conv?.kind === "work" && !conv.scope ? AgentService.handOff(conv) : null;
@@ -3030,6 +3038,12 @@ function renderHandOff() {
   els.handoffClears.textContent = off.clears ?? "";
   els.handoffAfter.hidden = !off.after;
   els.handoffAfter.textContent = off.after ?? "";
+  els.handoffSecret.hidden = !off.secret;
+  els.handoffSecretBox.checked = !!off.secret?.checked;
+  const agents = off.secret?.by === "agent";
+  els.handoffSecret.toggleAttribute("signed", agents);
+  els.handoffSecretSign.hidden = !agents;
+  els.handoffSecretBox.disabled = !agents && (!off.secret || off.secret.fixed || els.handoffResume.disabled);
 }
 
 /**
@@ -3218,13 +3232,31 @@ els.handoffShow.addEventListener("click", () => {
   }
 });
 
+els.handoffSecretBox.addEventListener("click", event => {
+  const target = conv;
+  // Only the user's own click or Space: the agent's input never reaches the
+  // sidebar. The agent's own mark stays as it is (zenius refuses it too).
+  if (!event.isTrusted || !target || els.handoffSecret.hasAttribute("signed")) {
+    event.preventDefault();
+    return;
+  }
+  AgentService.markSecret(target, els.handoffSecretBox.checked);
+  // The card from zenius's state, a refusal's included.
+  if (conv === target) {
+    renderHandOff();
+  }
+});
+
 els.handoffResume.addEventListener("click", () => {
   const target = conv;
   if (!target || els.handoffResume.disabled) {
     return;
   }
   // One press: the hand back reloads a page that holds a typed secret first.
+  // The step's secret toggle stays as it is from here: the user's own
+  // dimmed, the agent's as it was.
   els.handoffResume.disabled = true;
+  els.handoffSecretBox.disabled = !els.handoffSecret.hasAttribute("signed");
   AgentService.handBack(target)
     .catch(e => console.error(e))
     .finally(() => {

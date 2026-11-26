@@ -256,9 +256,15 @@ test("a hold that ends before its announcement goes out isn't heard: the user's 
   }
 });
 
+// A core before item 7's calls (markSecretByUser, secretStepOf), so the
+// cards follow spaceChanged's secret alone: the box's own tests are below.
+const NO_MARK_CALLS = `ctx.service.markSecretByUser = undefined; ctx.service.secretStepOf = undefined;`;
+const MARK_CALLS_BACK = `delete ctx.service.markSecretByUser; delete ctx.service.secretStepOf;`;
+
 test("a hand-off whose step shows the user a secret (zen-core's secret flag, on spaceChanged): the card leads with what Resume agent does to the page, the agent's words behind the '?', and it's heard so; the tasks panel's row says it under Resume agent; a hand-off without it, a Take over, and the agent's run again say nothing of it", async () => {
   const out = await h.chrome(`${P}
     const row = () => UI.tasks().find(r => r.id === rec.id) ?? null;
+    ${NO_MARK_CALLS}
     try {
       await showTask();
       heard.length = 0;
@@ -286,6 +292,7 @@ test("a hand-off whose step shows the user a secret (zen-core's secret flag, on 
       res.takeOver = card(UI.describe(rec)).note;
       return res;
     } finally {
+      ${MARK_CALLS_BACK}
       await cleanUp();
     }
   `);
@@ -299,6 +306,249 @@ test("a hand-off whose step shows the user a secret (zen-core's secret flag, on 
   assert.equal(out.back, null);
   assert.deepEqual(out.plain, { card: { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: `${CLEARS} ${TELL}`, more: words("Log in to continue"), buttons: ["Resume agent"] }, row: "Resume agent clears password, card and code fields, so submit what you type there first." });
   assert.equal(out.takeOver, `${CLEARS} ${TELL}`);
+});
+
+// The user's own mark of a step as a secret one (item 7): the core's
+// markSecretByUser and secretStepOf, standing in. The stand-in keeps whose
+// mark each task's step has, refuses outside a hold as the core does, and
+// says each change in spaceChanged.
+const SECRET_STANDIN = `
+  const marks = new Map();
+  const calls = [];
+  let refuse = false;
+  ctx.service.markSecretByUser = (r, on) => {
+    calls.push(on);
+    if (refuse || r.ownership !== "agentDelegatedToUser") return { ok: false, why: "notHeld" };
+    const was = marks.get(r.id) ?? null;
+    if (on && !was) marks.set(r.id, "user");
+    if (!on && was === "user") marks.delete(r.id);
+    const by = marks.get(r.id) ?? null;
+    if (by !== was) ctx.spaces.onEvent("spaceChanged", { space: r.id, secret: !!by, ...(by ? { secretBy: by } : {}) });
+    return { ok: true, secret: !!by, secretBy: by };
+  };
+  ctx.service.secretStepOf = r => (marks.has(r.id) ? { secret: true, secretBy: marks.get(r.id) } : { secret: false, secretBy: null });
+  const unstand = () => {
+    delete ctx.service.markSecretByUser;
+    delete ctx.service.secretStepOf;
+    delete ctx.service.blankSecretSteps;
+  };
+  const box = () => pill()?.querySelector(".zenius-card-toggle > input") ?? null;
+  const row = () => UI.tasks().find(r => r.id === rec.id) ?? null;
+  const read = () => {
+    const el = pill();
+    const buttons = el?.querySelector(".zenius-card-buttons");
+    return {
+      card: card(UI.describe(rec)),
+      toggle: UI.describe(rec).controlToggle,
+      // The box and Resume agent share the row under the note, the box
+      // drawn first, so as the user sees them, left to right.
+      stacked: !!el?.hasAttribute("stacked"),
+      row: buttons
+        ? [...buttons.children]
+            .sort((a, b) => a.getBoundingClientRect().x - b.getBoundingClientRect().x)
+            .map(c => (c.matches(".zenius-card-toggle") ? "toggle" : c.textContent))
+        : [],
+      clears: row()?.clears ?? null,
+    };
+  };
+`;
+const HOLD = "Until then, the agent can't take it back.";
+const PANEL_SECRET = "Resume agent clears the page the agent handed you, so copy what you need from it first.";
+const PANEL_TAKEN = "Resume agent clears the page you took over, so copy what you need from it first.";
+const TOGGLE = { label: "Shows a secret", checked: false, fixed: false, sign: null };
+// The agent's own mark: ticked at full strength, with this sign.
+const AGENT_SIGN = "set by the agent";
+
+test("the user's own secret mark on a hand-off the agent didn't mark (the core's markSecretByUser): 'Shows a secret' with Resume agent under the note; ticked, the card leads with what Resume agent does and that the agent can't take it back, and the tasks panel says it; unticked, as before; the focus stays on the box; a click as the pill shows, or a refused mark, leaves it as it was; the agent's own mark shows ticked and fixed; with no such call in the core, no box", async () => {
+  const out = await h.chrome(`${P}${SECRET_STANDIN}
+    try {
+      await showTask();
+      handOff("Create the key, then press Resume agent");
+      await until(() => box());
+      const res = { off: read() };
+      // A click as the pill shows: a double click's second, meant for the page.
+      box().click();
+      res.early = { calls: calls.length, checked: box().checked };
+      await sleep(450);
+      // Space on the box, as the keyboard does: the pill drawn again keeps
+      // the focus on the box, so the next Space can't land on Resume agent.
+      box().focus();
+      box().click();
+      await until(() => read().toggle?.checked);
+      res.on = { ...read(), calls: calls.slice(), focus: win.document.activeElement === box() };
+      box().click();
+      await until(() => read().toggle && !read().toggle.checked);
+      res.offAgain = { ...read(), calls: calls.slice() };
+      // The core refuses the mark: the box shows what the core has.
+      refuse = true;
+      box().click();
+      res.refused = { checked: box().checked, calls: calls.length, toggle: read().toggle };
+      refuse = false;
+      ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+      await until(() => !pill());
+      // The agent's own mark: ticked at full strength, never dimmed, with
+      // its sign, and a click changes nothing.
+      marks.set(rec.id, "agent");
+      handOff("Copy the new token", { secret: true, secretBy: "agent" });
+      await until(() => box());
+      await sleep(450);
+      box().click();
+      res.agents = { ...read(), calls: calls.length, box: { checked: box().checked, dimmed: box().disabled } };
+      ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+      await until(() => !pill());
+      marks.clear();
+      // A core with no such call (one before item 7): no box, and the
+      // secret line as before. Undefined, so the core's own can't show
+      // through.
+      ctx.service.markSecretByUser = undefined;
+      ctx.service.secretStepOf = undefined;
+      handOff("Copy the new token", { secret: true });
+      await until(() => pill());
+      res.none = read();
+      return res;
+    } finally {
+      unstand();
+      await cleanUp();
+    }
+  `);
+  const words = text => `The agent says: “${iso(text)}”.`;
+  const notice = `Agent needs you · ${iso(name)} on ${site()}`;
+  const plain = { card: { notice, note: `${CLEARS} ${TELL}`, more: words("Create the key, then press Resume agent"), buttons: ["Resume agent"] }, toggle: TOGGLE, stacked: true, row: ["toggle", "Resume agent"], clears: CLEARS };
+  assert.deepEqual(out.off, plain, "unmarked: the box, unticked, before Resume agent under the note");
+  assert.deepEqual(out.early, { calls: 0, checked: false }, "a click as the pill shows does nothing");
+  assert.deepEqual(out.on, {
+    ...plain,
+    card: { ...plain.card, note: `${SECRET_NOTE} ${HOLD} ${TELL}` },
+    toggle: { ...TOGGLE, checked: true },
+    clears: PANEL_SECRET,
+    calls: [true],
+    focus: true,
+  });
+  assert.deepEqual(out.offAgain, { ...plain, calls: [true, false] }, "unticked: the card as before");
+  assert.deepEqual(out.refused, { checked: false, calls: 3, toggle: TOGGLE }, "a refused mark: the box as the core has it");
+  assert.deepEqual(out.agents, {
+    card: { notice, note: `${SECRET_NOTE} ${HOLD} ${TELL}`, more: words("Copy the new token"), buttons: ["Resume agent"] },
+    toggle: { ...TOGGLE, checked: true, fixed: true, sign: AGENT_SIGN },
+    stacked: true,
+    row: ["toggle", "Resume agent"],
+    clears: PANEL_SECRET,
+    calls: 3,
+    box: { checked: true, dimmed: false },
+  });
+  assert.deepEqual(out.none, {
+    card: { notice, note: `${SECRET_NOTE} ${TELL}`, more: words("Copy the new token"), buttons: ["Resume agent"] },
+    toggle: null,
+    stacked: false,
+    row: ["Resume agent"],
+    clears: PANEL_SECRET,
+  });
+});
+
+test("the user's own secret mark on their Take over's pill, which a misled agent could ask for instead of a hand-off: the same box; ticked, the card leads with what Resume agent does, and the tasks panel names the page they took over; during the agent's own way back the box stays the user's; from the user's Resume agent on it stays as it is and a tick goes nowhere; the hand back looks at the marks first and last", async () => {
+  const out = await h.chrome(`${P}${SECRET_STANDIN}
+    takeOverAs("none");
+    try {
+      await showTask();
+      await UI.takeOverByUser(rec);
+      await until(() => box());
+      await sleep(450);
+      const res = { off: read() };
+      box().click();
+      await until(() => read().toggle?.checked);
+      res.on = { ...read(), calls: calls.slice() };
+      // A hand back's looks at the marks (blankSecretSteps): its first held
+      // open here, then one more as its last wait.
+      let open = null;
+      let blanks = 0;
+      ctx.service.blankSecretSteps = () => (++blanks === 1 ? new Promise(resolve => (open = resolve)) : Promise.resolve());
+      // The agent's own way back after the user's quiet (the core's
+      // takeOver, through beforeHandBack): the box stays the user's, since a
+      // mark made then stops it at the core's last check.
+      const agents = UI.beforeHandBack(rec);
+      res.agents = { toggle: read().toggle, secret: UI.markSecretByUser(rec, false), calls: calls.slice() };
+      UI.markSecretByUser(rec, true);
+      open();
+      await agents;
+      res.agents.blanks = blanks;
+      // The user's Resume agent: from the press on, the box stays as it is.
+      blanks = 0;
+      const back = UI.handBackByUser(rec);
+      await until(() => read().toggle?.fixed);
+      res.resuming = { toggle: read().toggle, secret: UI.markSecretByUser(rec, false), calls: calls.length };
+      open();
+      await back;
+      res.back = { ownership: rec.ownership, blanks };
+      return res;
+    } finally {
+      unstand();
+      await cleanUp();
+    }
+  `);
+  const plain = { card: inControl(), toggle: TOGGLE, stacked: true, row: ["toggle", "Resume agent"], clears: CLEARS };
+  assert.deepEqual(out.off, plain, "the Take over's pill has the box too");
+  assert.deepEqual(out.on, {
+    ...plain,
+    card: { ...inControl(), note: `${SECRET_NOTE} ${HOLD} ${TELL}` },
+    toggle: { ...TOGGLE, checked: true },
+    clears: PANEL_TAKEN,
+    calls: [true],
+  });
+  assert.deepEqual(out.agents, { toggle: { ...TOGGLE, checked: true }, secret: false, calls: [true, false], blanks: 2 }, "the agent's own way back: the box stays the user's");
+  assert.deepEqual(out.resuming, { toggle: { ...TOGGLE, checked: true, fixed: true }, secret: true, calls: 3 }, "fixed from the user's Resume agent on");
+  assert.deepEqual(out.back, { ownership: "agent", blanks: 2 }, "handed back, the marks looked at first and last");
+});
+
+// The pill's box on the core's real calls, not the stand-ins above: the
+// tick marks the step (markSecretByUser), and Resume agent blanks its tab
+// (blankSecretSteps) before the agent has the task back.
+test("end to end, on the core's real calls: a tick on the pill's box marks the step as the user's, and Resume agent blanks its tab", async () => {
+  // A task of its own, made in the try, so the finally ends whatever there is of it.
+  let own = null;
+  try {
+    ({ id: own } = await h.createSpace({ name: `secret mark ${run}` }));
+    await h.call("page.goto", { space: own, page: "p1", url: `${h.base}/zoo/forms.html` });
+    await h.call("spaces.handOff", { space: own, reason: "sign_in" });
+    const out = await h.chrome(`${prelude(own)}
+      const N = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/notices.sys.mjs");
+      const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;
+      const Pages = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/pages.sys.mjs");
+      const userWs = ${JSON.stringify(userView.windows[0].activeWorkspace)};
+      const pill = () => N.noticeElement(tab, "zenius-control");
+      const box = () => pill()?.querySelector(".zenius-card-toggle > input") ?? null;
+      const page = () => ({ url: tab.linkedBrowser.currentURI.spec, back: tab.linkedBrowser.canGoBack });
+      try {
+        // On the task's tab, as the user is when they tick it.
+        Pages.landOn(tab);
+        await gZenWorkspaces.changeWorkspaceWithID(rec.uuid);
+        await until(() => gBrowser.selectedTab === tab && box(), 10000);
+        const res = { held: { step: ctx.service.secretStepOf(rec), toggle: UI.describe(rec).controlToggle, url: page().url } };
+        // The pill arms 400 ms after it shows.
+        await sleep(450);
+        box().click();
+        await until(() => UI.describe(rec).controlToggle?.checked, 5000);
+        res.ticked = { step: ctx.service.secretStepOf(rec), toggle: UI.describe(rec).controlToggle };
+        [...pill().querySelectorAll("button")].find(b => b.textContent === "Resume agent").click();
+        await until(() => rec.ownership === "agent" && !pill(), 15000);
+        // The blank comes before the agent has it back; its history's end
+        // may reach the tab a moment later.
+        await until(() => page().url === "about:blank" && !page().back, 5000).catch(() => {});
+        res.back = { step: ctx.service.secretStepOf(rec), page: page() };
+        return res;
+      } finally {
+        if (gZenWorkspaces.activeWorkspace !== userWs) await gZenWorkspaces.changeWorkspaceWithID(userWs);
+      }
+    `);
+    assert.deepEqual(out, {
+      held: { step: { secret: false, secretBy: null }, toggle: TOGGLE, url: `${h.base}/zoo/forms.html` },
+      ticked: { step: { secret: true, secretBy: "user" }, toggle: { ...TOGGLE, checked: true } },
+      back: { step: { secret: false, secretBy: null }, page: { url: "about:blank", back: false } },
+    });
+  } finally {
+    if (own !== null) {
+      await h.chrome(`${prelude(own)} if (rec.ownership !== "agent") ctx.spaces.setOwnership(rec, "agent", { source: "user" }); return true;`).catch(() => {});
+      await h.call("spaces.finish", { space: own, keep: [] }).catch(() => {});
+    }
+  }
 });
 
 test("the hold card names the site the user is on, after the task, and follows the page's top document when it moves to another site on its own (a sign-in's redirect)", async () => {

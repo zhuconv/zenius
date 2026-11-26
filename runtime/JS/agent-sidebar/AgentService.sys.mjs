@@ -4512,14 +4512,16 @@ export const AgentService = {
    * its record alone, as zenius's Open shows it in the sidebar.
    *
    * @param {Conversation} conv
-   * @returns {{title: string, message: string, clears: string|null, after: string|null}|null}
+   * @returns {{title: string, message: string, clears: string|null, after: string|null, secret: {checked: boolean, fixed: boolean}|null}|null}
    *   title: what the task waits for, in zenius's strip's words and its
    *   isolate ("Trip planner needs a sign-in", waitLine); message: the
    *   agent's whole message (the task's, which a hand-off made in a script
    *   sets too, else the chat's hand_off call's); clears: what Resume agent
    *   clears first, in zenius's words, or null; after: on a task another
    *   agent drives, zenius's last line on the card (ZeniusUI.afterResume),
-   *   that something waits for Resume agent or to tell the agent, else null
+   *   that something waits for Resume agent or to tell the agent, else null;
+   *   secret: the step's secret toggle, as zenius's pill shows it
+   *   (ZeniusUI.secretToggle), or null without one
    */
   handOff(conv) {
     const rec = this.isHeld(conv) === "handoff" ? this.zenRecord(conv) : null;
@@ -4534,6 +4536,7 @@ export const AgentService = {
     const call = conv.messages.findLast(m => m.role === "tool" && m.zen === "hand_off");
     let clears = null;
     let after = null;
+    let secret = null;
     // The strip's own line (zenius's waitLine): the name in zenius's isolate,
     // which drops the name's own bidi controls first, so a stray isolate
     // close or an override that an agent put in a task's name can't reach
@@ -4542,6 +4545,7 @@ export const AgentService = {
     try {
       clears = this.zeniusUI()?.handBackClears?.(rec) ?? null;
       after = conv.external ? (this.zeniusUI()?.afterResume?.(rec) ?? null) : null;
+      secret = this.zeniusUI()?.secretToggle?.(rec) ?? null;
       title = ChromeUtils.importESModule(ZENIUS_PANEL).waitLine({ name: rec.name, kind: rec.reason ?? null });
     } catch (e) {
       debug("could not read the hand-off's words from zenius:", e.message);
@@ -4551,7 +4555,27 @@ export const AgentService = {
       message: String(rec.stateText || call?.args?.message || "").trim(),
       clears,
       after,
+      secret,
     };
+  },
+
+  /**
+   * The card's "This step shows a secret", ticked or unticked by the user:
+   * zenius marks the held step as a secret one of theirs, so Resume agent
+   * blanks its page first, or takes back their own mark, never the agent's
+   * (ZeniusUI.markSecretByUser). Only the box's own click calls it.
+   *
+   * @param {Conversation} conv
+   * @param {boolean} on
+   * @returns {boolean} whether the step is a secret one now
+   */
+  markSecret(conv, on) {
+    const rec = this.handOff(conv)?.secret ? this.zenRecord(conv) : null;
+    const ui = rec ? this.zeniusUI() : null;
+    if (!rec || typeof ui?.markSecretByUser !== "function") {
+      return false;
+    }
+    return ui.markSecretByUser(rec, on);
   },
 
   /**

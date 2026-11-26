@@ -91,7 +91,9 @@ before(async () => {
       if (el === browser) return "page";
       if (el.id === "urlbar-input") return "urlbar";
       const card = el.closest?.(".zenius-card");
-      return card ? card.dataset.value + ": " + el.textContent : el.localName + (el.id ? "#" + el.id : "");
+      // A pill's checkbox by its label: the hold pills' secret box.
+      const name = el.type === "checkbox" ? "box " + (el.closest("label")?.textContent ?? "") : el.textContent;
+      return card ? card.dataset.value + ": " + name : el.localName + (el.id ? "#" + el.id : "");
     };
     const steps = async (n, step) => {
       const seen = [];
@@ -306,7 +308,7 @@ test("routine agent actions announce nothing", async () => {
   assert.equal(out, null);
 });
 
-test("Tab from the page and Shift+Tab from the address bar reach every pill button, in order", async () => {
+test("Tab from the page and Shift+Tab from the address bar reach every pill button, in order, the hold's secret box after its Resume agent", async () => {
   const id = `a11y-keys-${Date.now()}`;
   const out = await h.chrome(`${P}
     await show();
@@ -316,10 +318,10 @@ test("Tab from the page and Shift+Tab from the address bar reach every pill butt
       await until(() => N.noticeElement(tab, ${JSON.stringify("zenius-claim:" + id)}));
       browser.focus();
       await sleep(100);
-      const forward = await steps(4, tabKey);
+      const forward = await steps(5, tabKey);
       gURLBar.focus();
       await sleep(100);
-      const backward = await steps(4, shiftTab);
+      const backward = await steps(5, shiftTab);
       // macOS without "Keyboard navigation": Tab goes to text fields only,
       // but the pills' HTML buttons are still in the order.
       Services.prefs.setIntPref("accessibility.tabfocus", 1);
@@ -334,8 +336,11 @@ test("Tab from the page and Shift+Tab from the address bar reach every pill butt
     }
   `);
   const claim = `zenius-claim:${id}`;
-  assert.deepEqual(out.forward, ["zenius-control: Resume agent", `${claim}: Allow`, `${claim}: Deny`, "urlbar"]);
-  assert.deepEqual(out.backward, [`${claim}: Deny`, `${claim}: Allow`, "zenius-control: Resume agent", "page"]);
+  // The hold's secret box (the core's markSecretByUser): drawn before
+  // Resume agent, reached after it, so the first stop is the main button.
+  const box = "zenius-control: box Shows a secret";
+  assert.deepEqual(out.forward, ["zenius-control: Resume agent", box, `${claim}: Allow`, `${claim}: Deny`, "urlbar"]);
+  assert.deepEqual(out.backward, [`${claim}: Deny`, `${claim}: Allow`, box, "zenius-control: Resume agent", "page"]);
   assert.deepEqual(out.macDefault, ["zenius-control: Resume agent"]);
 });
 
@@ -371,11 +376,14 @@ test("Enter and Space press a pill's button; the focus goes back where it came f
       ctx.spaces.setStateText(rec, "Enter the code sent to your phone");
       await until(() => pill()?.querySelector(".zenius-card-note")?.textContent.includes("phone"), 10000);
       const afterUpdate = where();
-      // From the address bar: Space on Resume agent.
+      // From the address bar: Space on Resume agent, past the secret box,
+      // which comes after it.
       gURLBar.focus();
       await waitFor(() => where() === "urlbar", 5000);
       shiftTab();
       await waitFor(() => where() !== "urlbar", 3000);
+      shiftTab();
+      await waitFor(() => where() === "zenius-control: Resume agent", 3000);
       key(" ", "Space", 32);
       await waitFor(() => rec.ownership === "agent" && !pill() && where() === "urlbar", 10000);
       return { onButton, afterEnter, afterUpdate, afterSpace: where() };
@@ -625,13 +633,27 @@ test("each pill's buttons are described by the pill, and each panel row's by the
       const read = async value => {
         const el = N.noticeElement(tab, value);
         const buttons = [...el.querySelectorAll(".zenius-card-buttons > button")];
-        await until(() => buttons.every(b => svc.getAccessibleFor(b)?.description === el.getAttribute("aria-label")), 5000).catch(() => {});
+        // A pill's checkbox (the hold pills' secret box), described as its buttons are.
+        const box = el.querySelector(".zenius-card-toggle > input");
+        await until(() => [...buttons, ...(box ? [box] : [])].every(b => svc.getAccessibleFor(b)?.description === el.getAttribute("aria-label")), 5000).catch(() => {});
+        const toggle = acc => {
+          const state = {};
+          acc?.getState(state, {});
+          return {
+            name: acc?.name ?? null,
+            description: acc?.description ?? null,
+            role: acc?.role === Ci.nsIAccessibleRole.ROLE_CHECKBUTTON ? "checkbox" : (acc?.role ?? null),
+            checked: !!(state.value & Ci.nsIAccessibleStates.STATE_CHECKED),
+            unavailable: !!(state.value & Ci.nsIAccessibleStates.STATE_UNAVAILABLE),
+          };
+        };
         return {
           label: el.getAttribute("aria-label"),
           buttons: buttons.map(b => {
             const acc = svc.getAccessibleFor(b);
             return { text: b.textContent, name: acc?.name ?? null, description: acc?.description ?? null };
           }),
+          ...(box ? { toggle: toggle(svc.getAccessibleFor(box)) } : {}),
         };
       };
       const res = {};
@@ -658,6 +680,22 @@ test("each pill's buttons are described by the pill, and each panel row's by the
           kept: UIM.madePageCard(),
           closing: UIM.closingCard(true, rec.name),
           joined: UIM.joinedCard(rec.name),
+          // The hold pills' secret box, ticked, before Resume agent.
+          secretBox: {
+            ...UIM.controlCard(rec, "agent"),
+            note: [UIM.SECRET_LINE, UIM.SECRET_HOLD_LINE].join(" "),
+            buttons: [{ label: "Resume agent", primary: true, onClick: () => {} }],
+            toggle: { label: UIM.PILL_SECRET_TOGGLE, checked: true, onChange: () => {} },
+            stacked: true,
+          },
+          // The agent's own mark: the same box, signed, which the user can't untick.
+          agentSecretBox: {
+            ...UIM.controlCard(rec, "agent"),
+            note: [UIM.SECRET_LINE, UIM.SECRET_HOLD_LINE].join(" "),
+            buttons: [{ label: "Resume agent", primary: true, onClick: () => {} }],
+            toggle: { label: UIM.PILL_SECRET_TOGGLE, checked: true, fixed: true, sign: UIM.SECRET_AGENT_SIGN, onChange: () => {} },
+            stacked: true,
+          },
         };
         for (const [key, card] of Object.entries(cards)) {
           N.showNotice(tab, "zenius-a11y-desc", card);
@@ -732,7 +770,13 @@ test("each pill's buttons are described by the pill, and each panel row's by the
   assert.equal(focused.held.description, focused.atFocus.description, "the description held under the focus");
   assert.equal(focused.focusedThen, true);
   assert.equal(focused.left.description, focused.left.label, "caught up once the focus left");
-  assert.deepEqual(Object.keys(cards), ["control", "needs", "claim", "claimLater", "localTyped", "kept", "closing", "joined", "panelRow"]);
+  assert.deepEqual(Object.keys(cards), ["control", "needs", "claim", "claimLater", "localTyped", "kept", "closing", "joined", "secretBox", "agentSecretBox", "panelRow"]);
+  // The secret box: a checkbox by its own short name, ticked, then the pill.
+  const box = { name: "Shows a secret", description: cards.secretBox.label, role: "checkbox", checked: true, unavailable: false };
+  assert.deepEqual(cards.secretBox.toggle, box);
+  // The agent's: its sign read with its name, and not unavailable, which
+  // would say it's off or doesn't apply.
+  assert.deepEqual(cards.agentSecretBox.toggle, { ...box, name: "Shows a secret set by the agent", description: cards.agentSecretBox.label });
   assert.equal(cards.panelRow.label, iso(name));
   for (const [key, card] of Object.entries(cards)) {
     assert.ok(card.label, `${key}: named`);
@@ -790,10 +834,10 @@ test("the keyboard reaches today's cards from the page and the address bar, main
       await sleep(450);
       browser.focus();
       await sleep(100);
-      res.forward = await steps(5, tabKey);
+      res.forward = await steps(6, tabKey);
       gURLBar.focus();
       await sleep(100);
-      res.backward = await steps(5, shiftTab);
+      res.backward = await steps(6, shiftTab);
       // macOS without "Keyboard navigation": the main button still comes first.
       Services.prefs.setIntPref("accessibility.tabfocus", 1);
       browser.focus();
@@ -802,7 +846,7 @@ test("the keyboard reaches today's cards from the page and the address bar, main
       Services.prefs.clearUserPref("accessibility.tabfocus");
       browser.focus();
       await sleep(100);
-      await steps(2, tabKey);
+      await steps(3, tabKey);
       res.onMain = where();
       // Every Space's tabs: Zen's gBrowser.tabs has only the active Space's.
       const Win = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/windows.sys.mjs");
@@ -825,8 +869,10 @@ test("the keyboard reaches today's cards from the page and the address bar, main
   `);
   const ln = label => `zenius-localnet: ${label}`;
   const hold = "zenius-control: Resume agent";
-  assert.deepEqual(out.forward, [hold, ln("Open it yourself"), ln("Add to allowlist"), ln("Dismiss"), "urlbar"]);
-  assert.deepEqual(out.backward, [ln("Dismiss"), ln("Add to allowlist"), ln("Open it yourself"), hold, "page"]);
+  // The hold's secret box, after its Resume agent.
+  const box = "zenius-control: box Shows a secret";
+  assert.deepEqual(out.forward, [hold, box, ln("Open it yourself"), ln("Add to allowlist"), ln("Dismiss"), "urlbar"]);
+  assert.deepEqual(out.backward, [ln("Dismiss"), ln("Add to allowlist"), ln("Open it yourself"), box, hold, "page"]);
   assert.deepEqual(out.macDefault, [hold]);
   assert.equal(out.onMain, ln("Open it yourself"));
   assert.deepEqual(out.enter, { own: `${h.base}/api/text?own`, notice: false });

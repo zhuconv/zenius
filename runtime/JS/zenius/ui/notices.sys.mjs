@@ -54,6 +54,22 @@ const DESC_FOCUSED_MS = 30_000;
  * @property {boolean} [stays]  the notice stays after a click
  * @property {"close"} [icon]  drawn as a ✕, the label its name
  *
+ * @typedef {object} NoticeToggle
+ * @property {string} label
+ * @property {boolean} checked  as the caller knows it: the box shows this
+ *   again once its onChange returns, so a change the caller refused
+ *   doesn't stay ticked
+ * @property {boolean} [fixed]  shown, but not the user's to change now:
+ *   drawn dimmed
+ * @property {string} [sign]  who set it, when that makes it theirs for
+ *   good ("set by the agent"): the box keeps its full look, as it is, with
+ *   this as a small sign after its label, and a click changes nothing. A
+ *   dimmed box would read as off or unavailable, the opposite of what it
+ *   says.
+ * @property {(on: boolean, event: Event) => void} onChange  the user's own
+ *   click or Space, once the pill has armed; the caller shows the pill
+ *   again with what it made of it
+ *
  * @typedef {object} NoticeOptions
  * @property {string} title  short, e.g. "Agent paused"
  * @property {string} [detail]  muted text; with `until`, "{s}" becomes the
@@ -68,6 +84,8 @@ const DESC_FOCUSED_MS = 30_000;
  *   line with a '?' that opens the rest
  * @property {string} [more]  more of the note, behind its '?' at any width
  * @property {NoticeButton[]} [buttons]
+ * @property {NoticeToggle} [toggle]  a checkbox in the buttons' row,
+ *   drawn before them, reached after them
  * @property {boolean} [stacked]  the buttons go under the note, not beside
  *   the title: for a long title line. A card with a note and three buttons
  *   always does, since they don't fit beside a title in the pill's width.
@@ -327,7 +345,7 @@ function fill(entry, tab, value) {
   }
   el.toggleAttribute("has-more", !!opts.note && !!opts.more);
   const buttons = opts.buttons ?? [];
-  if (buttons.length) {
+  if (buttons.length || opts.toggle) {
     const box = doc.createElementNS(XHTML_NS, "span");
     box.className = "zenius-card-buttons";
     for (const [i, b] of buttons.entries()) {
@@ -372,6 +390,11 @@ function fill(entry, tab, value) {
       });
       box.append(button);
     }
+    // After the buttons, so the keyboard's first stop is the main one,
+    // though it's drawn before them (zenius-ux.css).
+    if (opts.toggle) {
+      box.append(toggleFor(entry, opts.toggle));
+    }
     parts.push(box);
   }
   // The description: a hidden copy of the pill's name, which a screen
@@ -383,15 +406,23 @@ function fill(entry, tab, value) {
   desc.hidden = true;
   desc.style.display = "none";
   parts.push(desc);
-  el.toggleAttribute("stacked", !!opts.note && buttons.length > 0 && (!!opts.stacked || buttons.length >= 3));
+  el.toggleAttribute("stacked", !!opts.note && (buttons.length > 0 || !!opts.toggle) && (!!opts.stacked || buttons.length >= 3));
   // An update keeps the user's focus on the button it was on, or on the
-  // pill's first one.
-  const focused = el.contains(doc.activeElement) ? doc.activeElement.textContent : null;
+  // pill's first one. One on the toggle stays there: a Space that ticks it
+  // shows the pill again, and the next Space must not land on a button. A
+  // toggle that became fixed can't hold it, so it goes back where it came
+  // from, never to a button.
+  const active = el.contains(doc.activeElement) ? doc.activeElement : null;
+  const onToggle = !!active?.closest(".zenius-card-toggle");
+  const focused = active ? active.textContent : null;
   el.replaceChildren(...parts);
-  if (focused !== null) {
+  if (active) {
+    const box = el.querySelector(".zenius-card-toggle > input:not(:disabled)");
     const again = [...el.querySelectorAll("button")];
-    (again.find(b => b.textContent === focused) ?? again[0])?.focus();
-    if (!again.length) {
+    const to = onToggle ? box : (again.find(b => b.textContent === focused) ?? again[0] ?? box);
+    if (to) {
+      to.focus();
+    } else {
       returnFocus(tab, entry.focusFrom);
     }
   }
@@ -428,6 +459,60 @@ function fill(entry, tab, value) {
       }
     }, 250);
   }
+}
+
+/**
+ * The pill's checkbox, drawn before its buttons. Only the user's own click or
+ * Space, once the pill has armed, reaches onChange: the pill is chrome,
+ * which the agent's input never reaches, and a click meant for the page
+ * that lands on a pill just shown stays unticked.
+ *
+ * @param {Shown} entry
+ * @param {NoticeToggle} toggle
+ */
+function toggleFor(entry, toggle) {
+  const doc = entry.el.ownerDocument;
+  const label = doc.createElementNS(XHTML_NS, "label");
+  label.className = "zenius-card-toggle";
+  const input = doc.createElementNS(XHTML_NS, "input");
+  input.type = "checkbox";
+  input.checked = !!toggle.checked;
+  input.disabled = !!toggle.fixed && !toggle.sign;
+  if (toggle.sign) {
+    label.setAttribute("signed", "");
+  }
+  // Read after the box's own name, as the buttons' is.
+  input.setAttribute("aria-describedby", `${entry.el.id}-desc`);
+  input.addEventListener("click", event => {
+    // The latest opts' toggle, which an unchanged update brought without
+    // a refill.
+    const now = entry.opts.toggle ?? toggle;
+    if (!event.isTrusted || Date.now() - entry.shownAt < ARM_MS || now.sign) {
+      event.preventDefault();
+      return;
+    }
+    try {
+      now.onChange(input.checked, event);
+    } catch (e) {
+      console.error("[zenius] notice toggle failed", e);
+    }
+    // What the caller made of it: a refill replaced this box, else it shows
+    // the caller's state again, a refusal's included.
+    if (input.isConnected) {
+      input.checked = !!(entry.opts.toggle ?? now).checked;
+    }
+  });
+  const text = doc.createElementNS(XHTML_NS, "span");
+  text.className = "zenius-card-toggle-label";
+  text.textContent = toggle.label;
+  label.append(input, text);
+  if (toggle.sign) {
+    const sign = doc.createElementNS(XHTML_NS, "span");
+    sign.className = "zenius-card-toggle-sign";
+    sign.textContent = toggle.sign;
+    label.append(sign);
+  }
+  return label;
 }
 
 /** A ✕ for a close button, centred in its 14 px box. */
@@ -619,6 +704,7 @@ function renderKey(opts) {
     (opts.buttons ?? []).map(b => [b.label, !!b.primary, !!b.stays, b.icon ?? ""]),
     opts.more ?? "",
     !!opts.stacked,
+    opts.toggle ? [opts.toggle.label, !!opts.toggle.checked, !!opts.toggle.fixed, opts.toggle.sign ?? null] : null,
   ]);
 }
 

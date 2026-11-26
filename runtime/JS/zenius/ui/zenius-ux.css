@@ -493,6 +493,42 @@
   white-space: nowrap;
 }
 
+/* A checkbox in the buttons' row (the hold pills' "Shows a secret"): muted,
+ * so Resume agent stays the row's one strong control. Drawn before the
+ * buttons, while the keyboard reaches it after them (notices.sys.mjs). */
+.zenius-card-toggle {
+  order: -1;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-inline-end: 10px;
+  white-space: nowrap;
+  color: var(--zenius-card-muted);
+
+  & > input {
+    margin: 0;
+  }
+
+  /* Set by someone else (the agent's own mark): the box keeps its full
+   * look, and a small chip says who set it. */
+  &[signed],
+  &[signed] > input {
+    cursor: default;
+  }
+
+  & > .zenius-card-toggle-sign {
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 0.85em;
+    background: color-mix(in srgb, currentColor 14%, transparent);
+  }
+
+  & > input:focus-visible {
+    outline: 2px solid var(--zenius-agent-color);
+    outline-offset: 1px;
+  }
+}
+
 @keyframes zenius-card-in {
   from {
     opacity: 0;

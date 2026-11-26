@@ -4786,6 +4786,143 @@ test("a task another agent drives: its hand-off card in the sidebar and its pill
   }
 });
 
+// The user's own mark of a step as a secret one (item 7), on the sidebar's
+// hand-off card: zenius's markSecretByUser and secretStepOf standing in, as
+// in handoff.test.mjs, here on a task another agent drives, whose card
+// zenius's Open shows.
+test("the hand-off card's 'This step shows a secret', as on zenius's pill: with no such call in zenius, no box; ticked, the card says Resume agent clears the page and that the agent can't take it back, and the pill follows; unticked, as before; the agent's own mark shows ticked and fixed; fixed from the card's Resume agent on", async () => {
+  const name = `zen-ui secret toggle ${run}`;
+  const { id } = await h.createSpace({ name, source: { agent: "Claude Code", folder: "deploy" } });
+  await h.call("page.goto", { space: id, page: "p1", url: `${www()}/zen-ux/hidden.html?secret` });
+  await h.call("spaces.setState", { space: id, text: "Create the key, then press Resume agent" });
+  await h.call("spaces.handOff", { space: id, reason: "sign_in" });
+  try {
+    const out = await chrome(
+      `
+      await S.openPanel();
+      const g = win.ucAgentSidebar;
+      const A = g.AgentService;
+      const UI = A.zeniusUI();
+      const svc = A.zenius();
+      const doc = S.panelDoc();
+      const el = id => doc.getElementById(id);
+      const shown = e => !!e && !e.hidden && doc.defaultView.getComputedStyle(e).display !== "none";
+      const rec = svc.spaces.peek(arg.id);
+      const read = () => ({
+        // fixed: dimmed, or signed by the agent, which keeps its full look.
+        box: shown(el("handoff-secret"))
+          ? {
+              label: el("handoff-secret").querySelector("span:not(#handoff-secret-sign)").textContent,
+              checked: el("handoff-secret-box").checked,
+              fixed: el("handoff-secret-box").disabled || el("handoff-secret").hasAttribute("signed"),
+              dimmed: el("handoff-secret-box").disabled,
+              sign: shown(el("handoff-secret-sign")) ? el("handoff-secret-sign").textContent : null,
+            }
+          : null,
+        clears: shown(el("handoff-clears")) ? el("handoff-clears").textContent : null,
+        pill: UI.describe(rec).controlToggle?.checked ?? null,
+      });
+      const marks = new Map();
+      const calls = [];
+      const userSpace = win.gZenWorkspaces.activeWorkspace;
+      const userTab = win.gBrowser.selectedTab;
+      const res = {};
+      // S.until answers false at its timeout: each wait here fails the test then.
+      const wait = async (fn, what, ms = 5000) => {
+        if (!(await S.until(fn, ms))) throw new Error("timed out: " + what + " " + JSON.stringify(read()));
+      };
+      try {
+        // A core with no such call (one before item 7): undefined, so the
+        // core's own can't show through.
+        svc.markSecretByUser = undefined;
+        svc.secretStepOf = undefined;
+        await UI.goToTask(rec, null, win);
+        await wait(() => g.currentTask?.uid === "ext-" + arg.id && shown(el("handoff")), "the task's view", 10000);
+        // The pill drawn at the hand-off, again without the call.
+        svc.spaces.onEvent("spaceChanged", { space: rec.id, stateText: rec.stateText });
+        await wait(() => UI.describe(rec).controlToggle === null && !read().box, "no box without the call");
+        res.none = read();
+        svc.markSecretByUser = (r, on) => {
+          calls.push(on);
+          if (r.ownership !== "agentDelegatedToUser") return { ok: false, why: "notHeld" };
+          const was = marks.get(r.id) ?? null;
+          if (on && !was) marks.set(r.id, "user");
+          if (!on && was === "user") marks.delete(r.id);
+          const by = marks.get(r.id) ?? null;
+          if (by !== was) svc.spaces.onEvent("spaceChanged", { space: r.id, secret: !!by, ...(by ? { secretBy: by } : {}) });
+          return { ok: true, secret: !!by, secretBy: by };
+        };
+        svc.secretStepOf = r => (marks.has(r.id) ? { secret: true, secretBy: marks.get(r.id) } : { secret: false, secretBy: null });
+        // Both cards draw again at zenius's next event, the agent's new state
+        // text here: the pill drawn at the hand-off came before the stand-in.
+        svc.spaces.onEvent("spaceChanged", { space: rec.id, stateText: rec.stateText });
+        await wait(() => read().box && read().pill === false, "the box, unticked");
+        res.off = read();
+        el("handoff-secret-box").click();
+        await wait(() => read().box?.checked && read().pill, "the card's tick, on both");
+        res.on = { ...read(), calls: calls.slice() };
+        el("handoff-secret-box").click();
+        await wait(() => read().box && !read().box.checked && read().pill === false, "the card's untick, on both");
+        res.offAgain = { ...read(), calls: calls.slice() };
+        // A tick on zenius's pill: the card follows, an untick too.
+        const N = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/notices.sys.mjs");
+        const pillBox = () => [...win.gBrowser.tabs].map(t => N.noticeElement(t, "zenius-control")?.querySelector(".zenius-card-toggle > input")).find(Boolean) ?? null;
+        pillBox().click();
+        await wait(() => read().box?.checked && read().pill, "the card follows the pill's tick");
+        res.pillOn = { ...read(), calls: calls.slice() };
+        pillBox().click();
+        await wait(() => read().box && !read().box.checked && read().pill === false, "the card follows the pill's untick");
+        res.pillOff = { ...read(), calls: calls.slice() };
+        // The agent's own mark, as its event says it.
+        marks.set(rec.id, "agent");
+        svc.spaces.onEvent("spaceChanged", { space: rec.id, secret: true, secretBy: "agent" });
+        await wait(() => read().box?.fixed, "the agent's mark");
+        el("handoff-secret-box").click();
+        res.agents = { ...read(), calls: calls.length };
+        // The mark goes (as at its tab's close): the card follows.
+        marks.delete(rec.id);
+        svc.spaces.onEvent("spaceChanged", { space: rec.id, secret: false });
+        await wait(() => read().box && !read().box.fixed && !read().box.checked, "the agent's mark gone");
+        // The card's Resume agent: the box stays as it is from the press on,
+        // while the hand back reads the marks (held open here).
+        let open = null;
+        let blanks = 0;
+        svc.blankSecretSteps = () => (++blanks === 1 ? new Promise(resolve => (open = resolve)) : Promise.resolve());
+        el("handoff-resume").click();
+        res.resuming = { fixed: el("handoff-secret-box").disabled };
+        open?.();
+        await wait(() => rec.ownership === "agent", "the hand back", 10000);
+        return res;
+      } finally {
+        delete svc.markSecretByUser;
+        delete svc.secretStepOf;
+        delete svc.blankSecretSteps;
+        if (win.gZenWorkspaces.activeWorkspace !== userSpace) await win.gZenWorkspaces.changeWorkspaceWithID(userSpace);
+        if (userTab.isConnected) win.gBrowser.selectedTab = userTab;
+      }
+    `,
+      { id }
+    );
+    const box = { label: "This step shows a secret", checked: false, fixed: false, dimmed: false, sign: null };
+    const secret = "Resume agent clears the page the agent handed you, so copy what you need from it first. Until then, the agent can't take it back.";
+    assert.deepEqual(out.none, { box: null, clears: null, pill: null }, "no such call in zenius: no box");
+    assert.deepEqual(out.off, { box, clears: null, pill: false }, "the box, unticked, on both cards");
+    assert.deepEqual(out.on, { box: { ...box, checked: true }, clears: secret, pill: true, calls: [true] });
+    assert.deepEqual(out.offAgain, { ...out.off, calls: [true, false] }, "unticked: as before");
+    assert.deepEqual(out.pillOn, { box: { ...box, checked: true }, clears: secret, pill: true, calls: [true, false, true] }, "the pill's tick: the card follows");
+    assert.deepEqual(out.pillOff, { ...out.off, calls: [true, false, true, false] }, "the pill's untick: the card follows");
+    assert.deepEqual(
+      out.agents,
+      { box: { ...box, checked: true, fixed: true, sign: "set by the agent" }, clears: secret, pill: true, calls: 4 },
+      "the agent's own mark: ticked at full strength with its sign, and a click changes nothing"
+    );
+    assert.deepEqual(out.resuming, { fixed: true }, "fixed from Resume agent's press");
+  } finally {
+    await chrome(`const s = win.ucAgentSidebar.AgentService.zenius().spaces; const rec = s.peek(arg.id); if (rec && rec.ownership !== "agent") s.setOwnership(rec, "agent", { source: "user" }); return true;`, { id }).catch(() => {});
+    await h.call("spaces.finish", { space: id, keep: [] }).catch(() => {});
+  }
+});
+
 // The real wait, not the stand-in above: `zenius wait`, the SDK's command a
 // terminal agent leaves running after its hand-off (skill/guide.md, "User
 // control"). Once its call reaches zenius, both cards say something waits,
