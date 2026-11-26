@@ -3471,6 +3471,13 @@ page answers, for at most 5 s.
   own code running. Chrome code or a sandbox passes it over and leaves it
   waiting. Such code includes zenius's guards, where a page that makes
   frames in a loop spends most of its time.
+- So zenius's code mustn't run last before the page's own goes on. Gecko
+  makes a src-less frame's first document inside the call that made the
+  frame, and fires its load and pageshow there: a zenius listener on them
+  leaves the loop's page code no time of its own after it. The media guard's
+  bfcache catch-up was one, on every document, and under load no stop in
+  5 s ended such a loop (`tests/observe/pagestop.test.mjs` checks for
+  listeners there).
 - Once the page answers, one more stop, with epoch 0, takes the place of any
   stop still waiting. The page never acts on that one. A stop left waiting
   would end whatever script of the page's the next interrupt finds, even on
@@ -4001,7 +4008,10 @@ lives:
   page's `pause()` takes an element off zenius's list, and so does a new
   source (`emptied`). It sends `observe.media` `{action, count, url}`, which
   `observe/setup.sys.mjs` turns into `Zenius.mediaPaused` or
-  `Zenius.mediaResumed`.
+  `Zenius.mediaResumed`. A document in the bfcache when the list changes
+  catches up once it's shown again, through a pageshow listener added only
+  then (one on every document would cost the page stop its chance in pages
+  that make frames).
 
 ```js
 import { reportRefused, watchRefusals } from "chrome://userscripts/content/zenius/observe/refusals.sys.mjs";

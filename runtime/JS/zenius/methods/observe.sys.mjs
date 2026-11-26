@@ -52,7 +52,9 @@ let cancelEpoch = 1_000_000;
 // zenius's guards, which a page making frames in a loop spends most of its
 // time in, is passed over and left waiting, and no new interrupt is asked
 // for. So the stop goes again every RESEND_MS until the page answers, for at
-// most RESEND_LIMIT_MS.
+// most RESEND_LIMIT_MS. zenius's own code mustn't run last before the page's
+// goes on, as a listener at a new frame's load or pageshow would: then no
+// stop finds the page's (tests/observe/pagestop.test.mjs).
 const RESEND_MS = 1;
 const RESEND_LIMIT_MS = 5000;
 

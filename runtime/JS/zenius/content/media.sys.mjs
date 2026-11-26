@@ -297,11 +297,31 @@ export function installMediaGuard(actor, { agent, emit, onPlaying }) {
     lazy.mirrorMethod(win, "Element.prototype", "attachShadow", attachShadow);
   }
 
+  // A document in the bfcache catches up when it's shown again, through a
+  // pageshow listener added only when a change reached it there. One on
+  // every document would run in every frame a page makes: a src-less frame
+  // fires its pageshow inside the call that made it, so zenius's code would
+  // run just before the page's own goes on, and Gecko's stop, which acts
+  // only where it finds the page's own code (methods/observe.sys.mjs,
+  // stopPageScript), would almost never end a page that makes frames in a
+  // loop.
+  let catchingUp = false;
+  const catchUp = event => {
+    if (!event.persisted) {
+      return;
+    }
+    catchingUp = false;
+    win.removeEventListener("pageshow", catchUp, { mozSystemGroup: true });
+    state.sync(hiddenIds());
+  };
   const state = {
     wgc,
     sync(ids) {
-      // A document in the bfcache catches up at its pageshow.
       if (bc.isInBFCache) {
+        if (!catchingUp) {
+          catchingUp = true;
+          win.addEventListener("pageshow", catchUp, { mozSystemGroup: true });
+        }
         return;
       }
       const now = agent() && ids.includes(bc.top.browserId);
@@ -318,15 +338,6 @@ export function installMediaGuard(actor, { agent, emit, onPlaying }) {
   };
   prune();
   states.add(state);
-  win.addEventListener(
-    "pageshow",
-    event => {
-      if (event.persisted) {
-        state.sync(hiddenIds());
-      }
-    },
-    { mozSystemGroup: true }
-  );
   listen();
   state.sync(hiddenIds());
 }

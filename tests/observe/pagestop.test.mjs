@@ -1,8 +1,10 @@
 // Stopping a page's own runaway script (methods/observe.sys.mjs,
 // stopUntilAnswered). Gecko acts on its stop only where the interrupt finds
 // the page's own code, so a page that loops making frames, and spends most of
-// its time in zenius's guards there, takes many stops. They go again until
-// the page answers, then one the page never acts on clears what's left.
+// its time in zenius's guards there, takes many stops, and almost never ends
+// if zenius's code runs last before the page's own goes on (a listener at a
+// new frame's load or pageshow). They go again until the page answers, then
+// one the page never acts on clears what's left.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
@@ -111,7 +113,39 @@ test("an evaluate that overruns while the page's own loop makes frames ends that
     assert.equal(run.loop.done, false, `the page's loop ran to its end: ${told(run)}`);
   }));
 
-test("the stops go on past the call until the page answers: a page that only appends frames takes hundreds", () =>
+// Gecko makes a src-less frame's first document whole inside the call that
+// made the frame: the frame's load and pageshow, then its load in the page,
+// fire before the call returns. A listener of zenius's on one of them runs
+// zenius's code right before the page's own goes on, where an interrupt
+// otherwise finds the page's: a page that makes frames in a loop then gives a
+// stop almost nothing of its own (the media guard's bfcache catch-up, on
+// every document, made the next test miss under load).
+test("zenius listens to nothing where a frame the page makes ends its first document, so a stop finds the page's own code there", () =>
+  env.inSpace("page stop frame end", async page => {
+    await page.goto(url("/"));
+    const found = await env.call("dev.evalContent", {
+      ...page.P,
+      privileged: true,
+      code: `const els = Cc["@mozilla.org/eventlistenerservice;1"].getService(Ci.nsIEventListenerService);
+        const G = ChromeUtils.importESModule("chrome://userscripts/content/zenius/content/guards.sys.mjs");
+        const doc = actor.document;
+        const f = doc.createElement("iframe");
+        doc.body.append(f);
+        const w = f.contentWindow;
+        const of = (target, types) => els.getListenerInfoFor(target).filter(l => types.includes(l.type)).map(l => l.type + (l.capturing ? " (capture)" : ""));
+        const found = {
+          guarded: G.installed(w.windowGlobalChild.getActor("Zenius")),
+          frame: [...of(w, ["load", "pageshow"]), ...of(f.contentDocument, ["load", "pageshow"])],
+          page: [...of(actor.contentWindow, ["load"]), ...of(doc, ["load"]), ...of(f, ["load"])],
+        };
+        f.remove();
+        return found;`,
+    });
+    // guarded: the frame has zenius's guards, so their listeners were there to find.
+    assert.deepEqual(found, { guarded: true, frame: [], page: [] });
+  }));
+
+test("the stops go on past the call until the page answers: they end a loop that only appends frames, and the frame being made has every guard", () =>
   env.inSpace("page stop appends", async page => {
     // In time for the call or after it: the stops go on up to 5 s.
     const run = await overrun(page, "append");

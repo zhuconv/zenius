@@ -699,6 +699,51 @@ test("a hidden agent tab's media that holds a wake lock pauses: none held, full-
   }
 });
 
+/** A muted video of a canvas's stream, which holds the display's wake lock (Gecko's rule: a MediaStream source with a video track). */
+const STREAM_VIDEO = `(async () => {
+  const canvas = document.createElement("canvas"); canvas.width = 32; canvas.height = 32; document.body.append(canvas);
+  // A stream gives the video frames only as the canvas changes.
+  const g = canvas.getContext("2d"); let k = 0;
+  setInterval(() => { g.fillStyle = k++ % 2 ? "red" : "blue"; g.fillRect(0, 0, 32, 32); }, 30);
+  const video = document.createElement("video"); video.id = "held"; video.muted = true; video.srcObject = canvas.captureStream(30);
+  document.body.append(video);
+  return video.play().then(() => "resolved", e => e.name);
+})()`;
+
+// The media guard leaves a page in the bfcache alone and catches it up when
+// it's shown again (content/media.sys.mjs): what the tab's visibility asked
+// for meanwhile happens then. Under load a page can miss the bfcache once, so
+// it gets three tries.
+test("a page in the bfcache when the user looks at its hidden agent tab resumes, once shown again, what zenius paused", () =>
+  env.inSpace("media bfcache", async page => {
+    const topId = () => env.chrome(`return ctx.resolvePage(arg).browser.browsingContext.id;`, page.P);
+    const held = () =>
+      env.call("dev.evalContent", { ...page.P, privileged: true, code: `return actor.document.getElementById("held")?.paused ?? null;` });
+    const missed = [];
+    for (let i = 0; i < 3; i++) {
+      await page.goto(`${vectors.base}/cacheable?media=${i}`);
+      assert.equal(await page.evaluate(STREAM_VIDEO), "resolved");
+      await until("zenius paused the video", async () => (await held()) === true);
+      const before = await topId();
+      await page.goto(`${vectors.base}/cacheable?media=${i}&next=1`);
+      if ((await topId()) === before || !(await env.chrome(`return !!BrowsingContext.get(arg)?.isInBFCache;`, before))) {
+        missed.push(i);
+        continue;
+      }
+      // The user looks while the page with the paused video is in the bfcache.
+      const back = await watch(page);
+      try {
+        await page.evaluate("history.back()");
+        await until("back on the page", async () => (await topId()) === before);
+        await until("the video resumed", async () => (await held()) === false, 5000);
+      } finally {
+        await back();
+      }
+      return;
+    }
+    assert.fail(`the page never went to the bfcache: tries ${missed.join(", ")}`);
+  }));
+
 // Gecko keeps a page with an unload listener out of the bfcache, so the
 // guards add none. Under load a page can miss the bfcache once, so it gets
 // three tries: a listener like that blocks every one.
