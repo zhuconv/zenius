@@ -18,8 +18,14 @@ suffix=$(basename "$ROOT" | sed 's/^zenius-\{0,1\}//' | tr 'A-Z' 'a-z' | tr -c '
 NAME=${ZENIUS_SMOKE_INSTANCE:-smoke-${suffix:-main}}
 DEV="$ROOT/scripts/zen-dev.sh"
 
+# The dev Zen's zenius home: the caller's (test-all gives each lane one), or
+# one of this run's own, which every way out removes once Zen has stopped.
+. "$ROOT/tests/lib/scratch-home.sh"
+own_zenius_home smoke || exit 2
+trap drop_own_zenius_home EXIT
+
 ZENIUS_FRESH=${ZENIUS_FRESH:-${ZENIUS_SMOKE_FRESH:-}} "$DEV" "$NAME" fresh >/dev/null
-trap '"$DEV" "$NAME" stop >/dev/null || true' EXIT
+trap '"$DEV" "$NAME" stop >/dev/null || true; drop_own_zenius_home' EXIT
 # Time with node: macOS's date has no %N and its bash 3.2 no EPOCHREALTIME.
 now_ms() { node -e 'process.stdout.write(String(Date.now()))'; }
 t0=$(now_ms)

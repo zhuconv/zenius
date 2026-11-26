@@ -36,8 +36,12 @@ if [[ ${ZENIUS_KEYRING_INSIDE:-} != 1 ]]; then
   # The user's session bus and keyrings, as their own programs find them.
   USER_BUS=${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus}
   USER_KEYRINGS=${XDG_DATA_HOME:-$HOME/.local/share}/keyrings
+  # The dev Zen's zenius home: the caller's (tests/input/run.sh gives one),
+  # or one of this run's own, which the inner half, in its own bus, inherits.
+  . "$ROOT/tests/lib/scratch-home.sh"
+  own_zenius_home keyring || exit 2
   TMP=$(mktemp -d "${TMPDIR:-/tmp}/zen-input-keyring.XXXXXX")
-  trap 'rm -rf "$TMP"' EXIT
+  trap 'rm -rf "$TMP"; drop_own_zenius_home' EXIT
   mkdir -p "$TMP/data/keyrings" "$TMP/run"
   chmod 700 "$TMP/data/keyrings" "$TMP/run"
   # A session bus like the system's, without its service dirs.

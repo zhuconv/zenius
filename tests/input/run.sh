@@ -22,6 +22,12 @@ suffix=$(basename "$ROOT" | sed 's/^zenius-\{0,1\}//' | tr 'A-Z' 'a-z' | tr -c '
 NAME=${ZENIUS_INPUT_INSTANCE:-inputtest-${suffix:-main}}
 DEV="$ROOT/scripts/zen-dev.sh"
 
+# The dev Zen's zenius home: the caller's (test-all gives each lane one), or
+# one of this run's own, which every way out removes once Zen has stopped.
+. "$ROOT/tests/lib/scratch-home.sh"
+own_zenius_home input || exit 2
+trap drop_own_zenius_home EXIT
+
 # Options (--test-name-pattern=…) go to node only: the file checks below
 # read paths.
 opts=()
@@ -54,7 +60,7 @@ fi
 # fresh: a new profile on Linux; on the Mac the profile is kept (new Mac
 # profiles trigger refused xattr calls).
 "$DEV" "$NAME" fresh >/dev/null
-trap '"$DEV" "$NAME" stop >/dev/null || true' EXIT
+trap '"$DEV" "$NAME" stop >/dev/null || true; drop_own_zenius_home' EXIT
 if [[ ${ZENIUS_INPUT_HEADED:-} == 1 ]]; then
   "$DEV" "$NAME" start --headed
 else

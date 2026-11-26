@@ -26,10 +26,19 @@ DEV="$ROOT/scripts/zen-dev.sh"
 if [[ ${1:-} != --reuse ]]; then
   TMP=${TMPDIR:-/tmp}
   WORKING=$(mktemp -d "${TMP%/}/zt-it-files-XXXXXX")
-  trap '"$DEV" "$NAME" stop >/dev/null || true; rm -rf -- "$WORKING"' EXIT
+  # The dev Zen's zenius home: the caller's (test-all gives each lane one),
+  # or one of this run's own, which every way out removes once Zen stops.
+  . "$ROOT/tests/lib/scratch-home.sh"
+  own_zenius_home sdk-it || exit 2
+  trap '"$DEV" "$NAME" stop >/dev/null || true; rm -rf -- "$WORKING"; drop_own_zenius_home' EXIT
   "$DEV" "$NAME" fresh >/dev/null
   ZENIUS_DEV_WORKING_DIR=$WORKING "$DEV" "$NAME" start
 else
+  # The instance the caller started, in its zenius home; as own_zenius_home
+  # does, nothing of the caller's may send the tests to another Zen. Its
+  # ZENIUS_DEV_WORKING_DIR stays: it's where that instance's files land, as
+  # `work` says.
+  unset ZENIUS_WORKING_DIR ZENIUS_SOCKET ZENIUS_INSTANCE
   WORKING=$("$DEV" "$NAME" work)
 fi
 (cd "$SDK" && node build.mjs)

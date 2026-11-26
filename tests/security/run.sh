@@ -63,8 +63,12 @@ fi
 base=${TMPDIR:-/tmp}
 while [[ $base == */ && $base != / ]]; do base=${base%/}; done
 WORK=$(mktemp -d "$base/zenius-security.XXXXXX")
-# The dev Zens' zenius home, where the instance's socket and record are.
-RUNTIME_HOME=${ZENIUS_HOME:-$HOME/.zenius}
+# The dev Zen's zenius home, where the instance's socket and record are: the
+# caller's (test-all gives each lane one), or one of this run's own, which
+# the cleanup removes once Zen has stopped.
+own_zenius_home sec || exit 2
+trap drop_own_zenius_home EXIT
+RUNTIME_HOME=$ZENIUS_HOME
 scratch_home sec "$WORK"
 mkdir -m 700 "$SCRATCH_FILES"
 mkdir -p "$RUNTIME_HOME"
@@ -83,6 +87,7 @@ cleanup() {
   if [[ -n $run ]]; then pkill -P "$run"; kill "$run"; fi 2>/dev/null
   "$DEV" "$NAME" stop >/dev/null
   rm -rf "$WORK"
+  drop_own_zenius_home
 }
 trap cleanup EXIT
 trap 'exit 130' INT

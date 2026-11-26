@@ -13,8 +13,14 @@ suffix=$(basename "$ROOT" | sed 's/^zenius-\{0,1\}//' | tr 'A-Z' 'a-z' | tr -c '
 NAME=${ZENIUS_CORE_INSTANCE:-coretest-${suffix:-main}}
 DEV="$ROOT/scripts/zen-dev.sh"
 
+# The dev Zen's zenius home: the caller's (test-all gives each lane one), or
+# one of this run's own, which every way out removes once Zen has stopped.
+. "$ROOT/tests/lib/scratch-home.sh"
+own_zenius_home core || exit 2
+trap drop_own_zenius_home EXIT
+
 "$DEV" "$NAME" fresh >/dev/null
-trap '"$DEV" "$NAME" stop >/dev/null || true' EXIT
+trap '"$DEV" "$NAME" stop >/dev/null || true; drop_own_zenius_home' EXIT
 "$DEV" "$NAME" start
 # The I4 guard (tests/core/i4/guard.test.mjs) starts Zens of its own and
 # never uses this instance, so a full run starts it beside the other files

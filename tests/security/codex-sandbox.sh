@@ -60,8 +60,12 @@ if printf '%s\n' "$help" | grep -qE "^  $sub( |$)"; then SANDBOX=(sandbox "$sub"
 # A time limit that macOS has too (it has no timeout(1)).
 limited() { perl -e '$s = shift; alarm $s; exec @ARGV or die "exec: $!"' "$@"; }
 
-# The dev Zens' zenius home, where the instance's socket and record are.
-RUNTIME_HOME=${ZENIUS_HOME:-$HOME/.zenius}
+# The dev Zen's zenius home, where the instance's socket and record are: the
+# caller's (test-all gives each lane one), or one of this run's own, which
+# the cleanup removes once Zen has stopped.
+own_zenius_home codex || exit 2
+trap drop_own_zenius_home EXIT
+RUNTIME_HOME=$ZENIUS_HOME
 SOCKET=$RUNTIME_HOME/run/$NAME.sock
 PROBE_SOCKET=$RUNTIME_HOME/run/.codex-probe-socket
 
@@ -114,6 +118,7 @@ cleanup() {
   [[ -n $started ]] && "$ROOT/scripts/zen-dev.sh" "$NAME" stop >/dev/null 2>&1
   [[ -n $copy ]] && rm -rf "${copy:?}"
   [[ -n $SCRATCH_ROOT ]] && rm -rf "${SCRATCH_ROOT:?}"
+  drop_own_zenius_home
   return 0
 }
 trap cleanup EXIT

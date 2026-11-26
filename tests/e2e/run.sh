@@ -41,14 +41,19 @@ fi
 TMP=${TMPDIR:-/tmp}
 WORK=$(mktemp -d "${TMP%/}/zenius-e2e.XXXXXX")
 run=; watchdog=; SCRATCH_ROOT=
-# The dev Zens' zenius home, before the cases' scratch one takes its name.
-RUNTIME_HOME=${ZENIUS_HOME:-$HOME/.zenius}
+# The dev Zen's zenius home: the caller's (test-all gives each lane one), or
+# one of this run's own, which the cleanup removes once Zen has stopped.
+# RUNTIME_HOME keeps it before the cases' scratch one takes its name.
+own_zenius_home e2e || exit 2
+trap drop_own_zenius_home EXIT
+RUNTIME_HOME=$ZENIUS_HOME
 cleanup() {
   # Nothing here may end the cleanup early (set -e), or Zen stays open.
   set +e
   if [[ -n $watchdog ]]; then pkill -P "$watchdog"; kill "$watchdog"; fi 2>/dev/null
   if [[ -n $run ]]; then pkill -P "$run"; kill "$run"; fi 2>/dev/null
   "$DEV" "$NAME" stop >/dev/null 2>&1
+  drop_own_zenius_home
   # A failed run's results stay; the CLI copy, the temporary files, the
   # scratch home and working folder, and a folder with no results, go.
   rm -rf -- "$WORK/cli" "$WORK/tmp"

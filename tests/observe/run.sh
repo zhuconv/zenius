@@ -15,6 +15,12 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 suffix=$(basename "$ROOT" | sed 's/^zenius-\{0,1\}//' | tr 'A-Z' 'a-z' | tr -c 'a-z0-9_\n-' '-')
 NAME=${ZENIUS_OBSERVE_INSTANCE:-obstest-${suffix:-main}}
 DEV="$ROOT/scripts/zen-dev.sh"
+
+# The dev Zen's zenius home: the caller's (test-all gives each lane one), or
+# one of this run's own, which every way out removes once Zen has stopped.
+. "$ROOT/tests/lib/scratch-home.sh"
+own_zenius_home observe || exit 2
+trap drop_own_zenius_home EXIT
 # The agent's scripts (the sidebar and '>') load in this suite's Zen too:
 # sidebarlimits.test.mjs and sidebarcli.test.mjs test the sidebar's limits.
 export ZENIUS_AGENT_SCRIPTS=1
@@ -36,6 +42,7 @@ cleanup() {
   if [[ -n $watchdog ]]; then pkill -P "$watchdog"; kill "$watchdog"; fi 2>/dev/null
   if [[ -n $run ]]; then pkill -P "$run"; kill "$run"; fi 2>/dev/null
   "$DEV" "$NAME" stop >/dev/null
+  drop_own_zenius_home
 }
 trap cleanup EXIT
 trap 'exit 130' INT

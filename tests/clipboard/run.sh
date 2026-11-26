@@ -18,6 +18,12 @@ suffix=$(basename "$ROOT" | sed 's/^zenius-\{0,1\}//' | tr 'A-Z' 'a-z' | tr -c '
 NAME=${ZENIUS_CLIP_INSTANCE:-cliptest-${suffix:-main}}
 DEV="$ROOT/scripts/zen-dev.sh"
 
+# The dev Zen's zenius home: the caller's (test-all gives each lane one), or
+# one of this run's own, which every way out removes once Zen has stopped.
+. "$ROOT/tests/lib/scratch-home.sh"
+own_zenius_home clipboard || exit 2
+trap drop_own_zenius_home EXIT
+
 if [[ ${ZENIUS_CLIP_FRESH:-} == 1 || $(uname) != Darwin ]]; then
   "$DEV" "$NAME" reset >/dev/null
 else
@@ -25,7 +31,7 @@ else
 fi
 # Every way out stops Zen, which closes its window in a headed run. Signals
 # exit through the EXIT trap too.
-trap '"$DEV" "$NAME" stop >/dev/null || true' EXIT
+trap '"$DEV" "$NAME" stop >/dev/null || true; drop_own_zenius_home' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM HUP
 if [[ ${ZENIUS_CLIP_HEADED:-} == 1 ]]; then
