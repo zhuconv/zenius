@@ -85,6 +85,35 @@ function listed(words) {
 }
 
 /**
+ * A camera, microphone or screen prompt still waiting in the tab: the
+ * page's ask while the tab was the user's, during a hold or after a finish,
+ * that the user hasn't answered. It goes as the tab joins the agent's tabs
+ * (observe/setup.sys.mjs), or the user's Allow later would start a stream
+ * there. Removed without the user's answer, the prompt denies the request
+ * and stores nothing (WebRTCParent's prompt: "removed" with
+ * withoutUserResponse). A prompt in a document picture-in-picture window
+ * isn't seen here.
+ *
+ * @param {Element} browser  the tab's <browser>
+ * @returns {boolean} whether one was waiting
+ */
+export function dropDevicePrompt(browser) {
+  try {
+    // Module scope has no ownerGlobal: the tab's window is its document's.
+    const notifications = browser?.ownerDocument?.defaultView?.PopupNotifications;
+    const prompt = notifications?.getNotification("webRTC-shareDevices", browser);
+    if (!prompt) {
+      return false;
+    }
+    notifications.remove(prompt, true);
+    return true;
+  } catch (e) {
+    console.error("[zenius] removing a tab's waiting device prompt failed", e);
+    return false;
+  }
+}
+
+/**
  * Stop every stream in the tab. Returns how many documents were told to
  * stop; 0 when nothing captured. It never throws: the caller is a change of
  * control, which must go on.

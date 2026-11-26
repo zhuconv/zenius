@@ -44,7 +44,7 @@ import { pushEvent, sweepEvents, cdpTime } from "chrome://userscripts/content/ze
 import { fromSignInResult, tabTopIsSignInResult } from "chrome://userscripts/content/zenius/observe/signin.sys.mjs";
 import { redactReferences } from "chrome://userscripts/content/zenius/content/signin.sys.mjs";
 import { trackerFor } from "chrome://userscripts/content/zenius/observe/navtracker.sys.mjs";
-import { stopCapture } from "chrome://userscripts/content/zenius/observe/capture.sys.mjs";
+import { dropDevicePrompt, stopCapture } from "chrome://userscripts/content/zenius/observe/capture.sys.mjs";
 import {
   sweepAgentCode,
   agentCodeDocument,
@@ -512,9 +512,10 @@ export function setupObserve() {
 // Joining or leaving decides the tab's sound. A tab that joins with its page
 // already loaded gets the content guards (the refusals among them) from
 // zen-core's installGuards, in every frame. A tab that joins stops any
-// stream in it, the user's from their hold among them: the agent never uses
-// the user's devices. Resume, a claim and an adoption all come here, once
-// each (zen-core's set changes with the Space's ownership).
+// stream in it, the user's from their hold among them, and a device prompt
+// still waiting there goes, denied: the agent never uses the user's
+// devices. Resume, a claim, an adoption and a reply after a finish all come
+// here, once each (zen-core's set changes with the Space's ownership).
 function watchAgentTabs() {
   let agentIds = new Set(Services.cpmm.sharedData.get(AGENT_BROWSERS_KEY) ?? []);
   Services.cpmm.sharedData.addEventListener("change", event => {
@@ -526,6 +527,7 @@ function watchAgentTabs() {
           const browser = BrowsingContext.getCurrentTopByBrowserId(id)?.embedderElement;
           if (browser) {
             stopCapture(browser);
+            dropDevicePrompt(browser);
           }
         }
       }

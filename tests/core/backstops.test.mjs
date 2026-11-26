@@ -643,6 +643,43 @@ test("a stream the user starts in a held page stops when the agent has the page 
   }
 });
 
+test("a camera prompt the page left waiting while the user held it goes when the agent has the page again, and the page's request is denied", async () => {
+  const { space, id } = await task("backstops waiting prompt", other("/held"));
+  try {
+    await h.call("spaces.handOff", { space });
+    // The page asks while the user holds it, in a tab in the background:
+    // Firefox's prompt waits for the user's answer.
+    const waiting = await h.chrome(
+      `${C}
+       await ctx.content(tabById(arg).linkedBrowser.browsingContext, "dev#evalContent", { privileged: true, code: \`
+         const S = Components.utils.Sandbox(window, { sandboxPrototype: window, wantXrays: true, sameZoneAs: window, sandboxName: "zenius backstops test" });
+         window.wrappedJSObject.__zoAsk = "waiting";
+         Components.utils.evalInSandbox("navigator.mediaDevices.getUserMedia({ video: true })", S).then(
+           s => { window.wrappedJSObject.__zoAsk = "granted"; s.getTracks().forEach(t => t.stop()); },
+           e => { window.wrappedJSObject.__zoAsk = "rejected " + (e && e.name); }
+         );
+         return true;\` });
+       return !!(await until(() => doorhanger(arg, "webRTC-shareDevices")));`,
+      id
+    );
+    assert.equal(waiting, true, "the prompt waits");
+    await resume(space);
+    const out = await h.chrome(
+      `${C}
+       const answer = () => ctx.content(tabById(arg).linkedBrowser.browsingContext, "dev#evalContent", { privileged: true, code: "return window.wrappedJSObject.__zoAsk ?? null;" });
+       const page = await until(async () => { const v = await answer(); return v !== "waiting" && v; }, 5000);
+       return { page: page || "waiting", prompt: !!doorhanger(arg, "webRTC-shareDevices") };`,
+      id
+    );
+    assert.deepEqual(out, { page: "rejected NotAllowedError", prompt: false });
+  } finally {
+    // A prompt left on a red run goes, denied, so later tests don't meet it.
+    await h.chrome(`${C} const n = tabById(arg) && doorhanger(arg, "webRTC-shareDevices"); if (n) n.owner.remove(n, true); return true;`, id).catch(() => {});
+    await resume(space).catch(() => {});
+    await finish(space);
+  }
+});
+
 test("a stream the user starts during the hold goes on when the task ends: the tab they keep is theirs", async () => {
   const { space, id } = await task("backstops stream kept", other("/stream-kept"));
   try {
