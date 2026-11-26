@@ -490,6 +490,42 @@ test("finish with a tab the user sees: it waits, and the Space goes once they le
   assert.deepEqual(await h.view(), before, "I1: the user's view changed");
 });
 
+test("finish with only a tab the user sees: the task ends at the finish, so the agent's code goes from that tab while it waits", async () => {
+  const space = await h.space("agents finish shown end");
+  const home = await activeWorkspace();
+  const p1 = await pageTab(space, "p1");
+  // The task's end: its ownership change, and the discard of its code.
+  await h.chrome(
+    `ctx.service.__ends = [];
+     const real = Object.getPrototypeOf(ctx.service).discardAgentCode;
+     ctx.service.discardAgentCode = function (target) {
+       ctx.service.__ends.push(target?.task !== undefined ? "task " + target.task : "page");
+       return real.call(this, target);
+     };
+     ctx.service.__stopEnds = ctx.service.addEventListener((event, params) => {
+       if (event === "spaceChanged" && params.space === arg && "ownership" in params) ctx.service.__ends.push("ownership " + params.ownership);
+     });
+     return true`,
+    space
+  );
+  try {
+    await userViews(space, "p1");
+    const receipt = await h.call("spaces.finish", { space, keep: [] });
+    assert.equal(receipt.pendingCloseCount, 1, "the premise: its only close waits");
+    assert.equal((await tabState(p1)).waits, true);
+    const ends = await h.chrome(`return ctx.service.__ends`);
+    assert.ok(ends.includes("ownership user"), `the task ended at the finish: ${JSON.stringify(ends)}`);
+    assert.ok(ends.includes(`task ${space}`), `the agent's code went with it: ${JSON.stringify(ends)}`);
+  } finally {
+    await h
+      .chrome(`ctx.service.__stopEnds?.(); delete ctx.service.__stopEnds; delete ctx.service.discardAgentCode; delete ctx.service.__ends; return true`)
+      .catch(() => {});
+    await userGoesTo(home);
+  }
+  await h.until(async () => !(await tabState(p1)).open);
+  await h.until(async () => !(await agentsSpace()).exists);
+});
+
 test("the pill's Keep makes the waiting tab the user's; its Close closes it now", async () => {
   const space = await h.space("agents pill");
   await h.call("pages.new", { space });
