@@ -117,6 +117,20 @@ const USER_PRESS_STALE_MS = 30000;
 /** Process-top windows whose press the guard ended inside the user's current event. */
 const ending = new Set();
 /**
+ * Process-top document -> button -> when the user's press of that button,
+ * which the guard dropped there, last did anything. The parent sends a
+ * press's whole gesture where it sent the press, and its moves and release
+ * can come after the hold that dropped the press: under load the release
+ * came after the hold had ended and reached the agent's page, with Gecko's
+ * click of the dropped press and that release. So the rest of the press is
+ * dropped too (restOfDroppedPress), until its release, a move with the
+ * button up, a press of that button the page hears, or USER_PRESS_STALE_MS
+ * of quiet: then the release went where this process can't see it.
+ */
+let droppedPresses = new WeakMap();
+// MouseEvent.buttons' bit for each MouseEvent.button.
+const BUTTON_BITS = [1, 4, 2, 8, 16];
+/**
  * Process-top document → zenius's releases in it that the parent hasn't
  * heard yet. A page's pointer capture is the parent's too: it sends that
  * pointer's input to the capturing page's process until a message from
@@ -784,6 +798,78 @@ function captured(e) {
   }
 }
 
+/** Whether `button` is down in the mouse or pointer event `e`. */
+function holds(e, button) {
+  return ((e.buttons ?? 0) & (BUTTON_BITS[button] ?? 0)) !== 0;
+}
+
+/**
+ * Follow the user's presses in `top`'s document that the guard dropped
+ * there (droppedPresses), once it has decided on the user's event `e`.
+ */
+function followDroppedPresses(top, e, dropped) {
+  const doc = top.document;
+  let byButton = droppedPresses.get(doc);
+  if (e.type === "mousedown" || e.type === "pointerdown") {
+    if (dropped) {
+      if (!byButton) {
+        droppedPresses.set(doc, (byButton = new Map()));
+      }
+      byButton.set(e.button, Date.now());
+    } else {
+      // A press the page heard: that button's dropped one ended elsewhere.
+      byButton?.delete(e.button);
+    }
+    return;
+  }
+  if (!byButton?.size) {
+    return;
+  }
+  if (e.type === "mouseup" || e.type === "pointerup") {
+    byButton.delete(e.button);
+  } else if (MOVES.has(e.type)) {
+    for (const button of [...byButton.keys()]) {
+      if (holds(e, button)) {
+        byButton.set(button, Date.now());
+      } else {
+        byButton.delete(button);
+      }
+    }
+  }
+}
+
+/**
+ * Whether the user's event `e` in `top` is the rest of a press the guard
+ * dropped there: any event with that button down (its moves, and the hover
+ * changes Gecko makes of them), or its release.
+ */
+function restOfDroppedPress(top, e) {
+  const byButton = droppedPresses.get(top.document);
+  if (!byButton?.size) {
+    return false;
+  }
+  const now = Date.now();
+  for (const [button, last] of byButton) {
+    if (now - last >= USER_PRESS_STALE_MS) {
+      byButton.delete(button);
+    }
+  }
+  if (e.type === "mouseup" || e.type === "pointerup") {
+    return byButton.has(e.button);
+  }
+  if ((e.type === "mousedown" || e.type === "pointerdown") && byButton.has(e.button)) {
+    // A new press of that button: the dropped one's release went elsewhere.
+    return false;
+  }
+  return [...byButton.keys()].some(button => holds(e, button));
+}
+
+/** Drop the rest of the user's current event in `top`: what Gecko makes of it in this task, a release's click too. */
+function endWithEvent(top) {
+  ending.add(top);
+  Services.tm.dispatchToMainThread(() => ending.delete(top));
+}
+
 function followUserPress(root, e) {
   if (e.type === "mousedown" && e.button === 0) {
     userPress = { root: new WeakRef(root), last: Date.now() };
@@ -851,10 +937,24 @@ function guardEvent(root, e) {
   const top = win && processTop(win);
   const press = top && presses.get(top);
   if (!press) {
-    // The rest of the user's event whose start ended the press here, and
-    // what the parent still sent here by a capture just released.
+    let dropped = false;
     if (top && (ending.has(top) || settling.has(top.document))) {
+      // The rest of the user's event whose start ended the press here, and
+      // what the parent still sent here by a capture just released.
+      dropped = true;
+    } else if (top && restOfDroppedPress(top, e)) {
+      // The rest of the user's press that the guard dropped here, after the
+      // hold that dropped it. Its release's click goes with it.
+      dropped = true;
+      if (e.type === "mouseup" || e.type === "pointerup") {
+        endWithEvent(top);
+      }
+    }
+    if (dropped) {
       drop(e);
+    }
+    if (top) {
+      followDroppedPresses(top, e, dropped);
     }
     return;
   }
@@ -867,14 +967,14 @@ function guardEvent(root, e) {
   // (ui/takeover.sys.mjs). A press inside a running call (a click) ends
   // with that call.
   drop(e);
+  followDroppedPresses(top, e, true);
   if (!press.releasing && !(calls.get(top) > 0) && ENDS_PRESS.has(e.type) && releaser) {
     press.releasing = true;
     // Now, inside this event: Gecko's own handling of it runs whatever the
     // listeners do (nsIFrame::HandleDrag would step the press's selection
     // drag to the user's point), and must find the press over. The rest of
     // this event's dispatch here is dropped too.
-    ending.add(top);
-    Services.tm.dispatchToMainThread(() => ending.delete(top));
+    endWithEvent(top);
     releaser(top, press);
   }
 }
@@ -949,6 +1049,7 @@ function disarm() {
   unparked.clear();
   lastMoves = new WeakMap();
   lastPresses = new WeakMap();
+  droppedPresses = new WeakMap();
   userPress = null;
   lastMover = null;
   userMoveStale = false;

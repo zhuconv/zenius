@@ -2987,6 +2987,69 @@ test("the release that ends the agent's double press unseen makes no click or db
   assert.deepEqual(await h.call("dev.viewState"), before, "the user's view is back as it was");
 });
 
+// Under load, the user's release came after the hold that dropped their
+// press, and reached the agent's page with Gecko's click of the two. The
+// parent sends a press's whole gesture where it sent the press, so the
+// guard drops the rest of a press it dropped, whenever it comes. Here the
+// user's events go straight to the agent's process, as the parent sends
+// them there by the page's capture, with the release well after the hold.
+test("the rest of the user's press that the guard dropped in an agent page stays out of it after the hold, its release and click too (the real mouse's pointer id)", { timeout: 60_000 }, async () => {
+  await shareMousePointerId();
+  const page = await homePage();
+  await page.evaluate(() => {
+    window.__heard = [];
+    for (const type of ["pointerdown", "mousedown", "pointermove", "mousemove", "pointerup", "mouseup", "click", "auxclick"]) {
+      addEventListener(type, e => e.isTrusted && window.__heard.push(type), true);
+    }
+  });
+  // The user's mouse as the parent sends it to the agent's process: trusted, and not zenius's.
+  const user = steps =>
+    h.call("dev.evalContent", {
+      space: page.spaceId,
+      page: page.label,
+      privileged: true,
+      arg: steps,
+      code: `const win = actor.contentWindow;
+        for (const [type, x, y, buttons] of arg) {
+          win.synthesizeMouseEvent(type, x, y, { identifier: 0, button: 0, buttons, clickCount: 1, modifiers: 0, inputSource: 1 },
+            { isDOMEventSynthesized: false, isWidgetEventSynthesized: false, isAsyncEnabled: false });
+        }
+        return true;`,
+    });
+  const heard = () => page.evaluate(() => window.__heard.splice(0));
+  try {
+    await page.mouse.move(60, 140);
+    await page.mouse.down();
+    await heard();
+    // The user's press ends the agent's out of the page's sight, and the
+    // guard drops it, as it drops what the hold after that release meets.
+    await user([["mousedown", 90, 40, 1]]);
+    // Past the hold's 1 s cap: its move with the button down, then its release.
+    await h.sleep(1500);
+    await user([["mousemove", 95, 45, 1], ["mouseup", 95, 45, 0]]);
+    await afterFrames(page);
+    assert.deepEqual(await heard(), [], "the agent's page heard nothing of the user's press: not its move, its release or a click");
+    // The guard forgot it: the user's next press there is the page's.
+    await user([["mousedown", 100, 50, 1], ["mouseup", 100, 50, 0]]);
+    await afterFrames(page);
+    const later = await heard();
+    assert.ok(["mousedown", "mouseup", "click"].every(type => later.includes(type)), `the page heard the user's next click: ${later}`);
+
+    // A press dropped the same way, whose release goes where this process
+    // can't see it: the user's next press there is a new one, the page's.
+    await page.mouse.down();
+    await heard();
+    await user([["mousedown", 90, 40, 1]]);
+    await h.sleep(1500);
+    await user([["mousedown", 100, 50, 1], ["mouseup", 100, 50, 0]]);
+    await afterFrames(page);
+    const next = await heard();
+    assert.ok(["mousedown", "mouseup", "click"].every(type => next.includes(type)), `the page heard the user's click after a release elsewhere: ${next}`);
+  } finally {
+    await page.mouse.up().catch(() => {});
+  }
+});
+
 // zenius's mouse events carry a pointer id of their own, so a page's pointer
 // capture of the agent's press holds the agent's pointer only: the parent
 // never sends the user's mouse there, and nothing ends the agent's drag.

@@ -4168,6 +4168,12 @@ zenius's mouse events carry pointer id 32767 (`AGENT_POINTER_ID`,
   moves and clicks in a task page they're looking at reach it at once.
   Their press there goes through the guard as any user press does: a Take
   over while the agent drives.
+- **The rest of a dropped press.** At 0, the parent sends a press's whole
+  gesture where it sent the press, so its moves and its release can come
+  after the hold that dropped the press, as under load. The guard drops
+  them too, and the release's click, until that release, a move with the
+  button up, a press of that button the page hears, or 30 s of quiet
+  (`USER_PRESS_STALE_MS`).
 - **Still per process, whatever the pointer:** Gecko's mouse capture (a
   selection drag, and a press on a scrollbar, a range input or a list box,
   which keeps it), the IME, the wheel transaction and the last point. The
