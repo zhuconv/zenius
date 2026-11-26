@@ -32,7 +32,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { browserProbeScript, probeFixture, scoreProbes } from "./browser-probes.mjs";
-import { guardHome, scratchHome } from "../lib/scratch-home.mjs";
+import { guardHome, guardZeniusHome, scratchHome } from "../lib/scratch-home.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const ZEN_DEV = join(ROOT, "scripts", "zen-dev.sh");
@@ -43,8 +43,9 @@ const HOME = homedir();
 const PROFILE = join(HOME, ".zenius-dev", "profiles", NAME);
 // The instance's zenius home, as zen-dev.sh and the SDK take it: its state,
 // socket and registry entry are there. zen-dev.sh starts no dev Zen in the
-// account's own ~/.zenius, so the caller exports one of its own.
-const ZHOME = process.env.ZENIUS_HOME || join(HOME, ".zenius");
+// account's own ~/.zenius, so the caller exports one of its own, and anything
+// else stops here, before a removal or the canary's dummies.
+const ZHOME = guardZeniusHome(process.env, "probe-browser.mjs");
 const STATE = join(ZHOME, "state", NAME);
 const LOG = join(HOME, ".zenius-dev", "logs", `${NAME}.log`);
 const SOCK = join(ZHOME, "run", `${NAME}.sock`);

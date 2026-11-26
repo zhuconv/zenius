@@ -6,6 +6,8 @@ export declare const REAL_HOME: string;
 
 export declare function guardHome<T extends Record<string, string | undefined>>(env: T, what?: string): T;
 
+export declare function guardZeniusHome(env: Record<string, string | undefined>, what: string): string;
+
 export type ScratchHome = {
   root: string;
   home: string;

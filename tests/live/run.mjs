@@ -109,7 +109,7 @@ import { PUBLIC_CONTROL, canaryPrompt, canaryScript, localTools, scoreCanary } f
 import { runJudge, trajectory } from "./judge.mjs";
 import { removeEmptySessionEnv, removeRunProjectDir, removeStaleSessionFiles } from "./sessions.mjs";
 import { COMMON_TAIL, TASKS } from "./tasks.mjs";
-import { guardHome, scratchHome } from "../lib/scratch-home.mjs";
+import { guardHome, guardZeniusHome, scratchHome } from "../lib/scratch-home.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
 const HOOK = join(ROOT, "tests", "live", "allow-cli.mjs");
@@ -165,8 +165,17 @@ if (!existsSync(NODE)) {
 const BASE_PATH = DARWIN ? "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin" : "/usr/bin:/bin:/usr/sbin:/sbin";
 // The instance's socket, in its zenius home as zen-dev.sh and the SDK take it:
 // zen-dev.sh starts no dev Zen in the account's own ~/.zenius, so the caller
-// exports the one it started the instance in.
-const SOCKET = instance ? join(process.env.ZENIUS_HOME || join(homedir(), ".zenius"), "run", `${instance}.sock`) : null;
+// exports the one it started the instance in. Anything else stops here, so a
+// run never links the account's run/ and instances/ into its scratch home.
+let SOCKET = null;
+if (instance && !EGO) {
+  try {
+    SOCKET = join(guardZeniusHome(process.env, "run.mjs"), "run", `${instance}.sock`);
+  } catch (e) {
+    console.error(`run.mjs: ${e.message}`);
+    process.exit(2);
+  }
+}
 const LOCAL_CONTROL = argv.includes("--local-control");
 if ((!EGO && !instance) || (mode === "tasks" && !argv.includes("--keys"))) {
   console.error("usage: run.mjs [--target zenius] --instance <dev instance> --keys <file> [--tasks T2,T8] [--out dir] [--judge] | --canary | --smoke");

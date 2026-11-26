@@ -230,3 +230,66 @@ test("zen-dev.sh's stop and reset tidy the instance's files in the zenius home i
     rmSync(t.dir, { recursive: true, force: true });
   }
 });
+
+// The live tools keep the account's HOME, where their dev profiles are, and
+// take their dev Zen's zenius home from ZENIUS_HOME through guardZeniusHome
+// (tests/lib/scratch-home.mjs). Anything but one of its own must stop them
+// before they remove, plant or link anything: the probes' removals of their
+// instance's state and socket, and the harness's links to its run/ and
+// instances/. A bash first on PATH records any call, as a zen-dev.sh call
+// would be one.
+test("the live tools refuse a zenius home that isn't one of their own before they do anything, and go on with a scratch one", t => {
+  t.dir = mkdtempSync(join(tmpdir(), "zt-zl-"));
+  try {
+    const bin = join(t.dir, "bin");
+    const calls = join(t.dir, "bash-calls");
+    const out = join(t.dir, "out");
+    mkdirSync(bin);
+    writeFileSync(join(bin, "bash"), `#!/bin/sh\necho "$@" >> '${calls}'\nexit 1\n`);
+    chmodSync(join(bin, "bash"), 0o700);
+    // --node: the Mac's default, Homebrew's node@24, may be missing, and the
+    // harness checks it first.
+    const node = ["--node", process.execPath];
+    const tools = [
+      ["tests/live/probe-browser.mjs", ["--instance", "zzguard", ...node]],
+      ["tests/live/run.mjs", ["--instance", "zzguard", "--smoke", "--claude", join(REPO_ROOT, "tests/live/stand-in-agent.mjs"), "--out", out, ...node]],
+    ];
+    const run = (tool, args, zhome) => {
+      const r = spawnSync(process.execPath, [join(REPO_ROOT, tool), ...args], {
+        env: envWith({ ZENIUS_HOME: zhome, PATH: `${bin}:${process.env.PATH}` }),
+        encoding: "utf8",
+        timeout: 60000,
+      });
+      return { status: r.status, said: `${r.stdout}${r.stderr}` };
+    };
+    const refusal = "needs its dev Zen in a zenius home of its own";
+    const refused = [
+      ["unset", undefined, "ZENIUS_HOME is unset"],
+      ["~/.zenius", OWN_ZHOME, `ZENIUS_HOME is ${OWN_ZHOME}, in the account's own`],
+      ["a folder in ~/.zenius", join(OWN_ZHOME, "zt-never-made"), "in the account's own"],
+      ["the account's home folder", OWN_HOME, "the account's own home folder"],
+    ];
+    for (const [tool, args] of tools) {
+      for (const [what, zhome, why] of refused) {
+        const r = run(tool, args, zhome);
+        assert.ok(r.status !== 0 && r.status !== null, `${tool} with ZENIUS_HOME ${what}: exit ${r.status}: ${r.said}`);
+        assert.ok(r.said.includes(refusal) && r.said.includes(why), `${tool} with ZENIUS_HOME ${what}: ${r.said}`);
+      }
+    }
+    assert.ok(!existsSync(calls), `a tool ran bash, as for zen-dev.sh, before its check: ${existsSync(calls) && readFileSync(calls, "utf8")}`);
+    assert.ok(!existsSync(out), "run.mjs made its --out folder before its check");
+    assert.ok(!existsSync(join(OWN_ZHOME, "zt-never-made")), "a folder was made in ~/.zenius");
+
+    // With the same arguments, which reach the check above, a scratch zenius
+    // home goes past it: the harness stops at its next check, the instance's
+    // dev profile, which isn't there. (The probes would go on to plant their
+    // dummies in ~/.zenius-dev/canary.)
+    const zhome = join(t.dir, "zhome");
+    mkdirSync(zhome, { mode: 0o700 });
+    const r = run(tools[1][0], tools[1][1], zhome);
+    assert.ok(r.status !== 0 && r.status !== null, `exit ${r.status}: ${r.said}`);
+    assert.ok(!r.said.includes(refusal), `a scratch zenius home was refused: ${r.said}`);
+  } finally {
+    rmSync(t.dir, { recursive: true, force: true });
+  }
+});

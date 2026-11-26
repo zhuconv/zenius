@@ -64,26 +64,50 @@ function inside(path, folder) {
  * @returns {T}
  */
 export function guardHome(env, what = "this test") {
-  const problems = [];
-  for (const name of ["HOME", "ZENIUS_HOME"]) {
-    const value = env[name];
-    if (!value) {
-      problems.push(`${name} is unset`);
-      continue;
-    }
-    const real = realPath(value);
-    if (real === REAL_HOME) {
-      problems.push(`${name} is ${value}, the account's own home folder`);
-    } else if (inside(real, REAL_ZENIUS)) {
-      problems.push(`${name} is ${value}, in the account's own ${REAL_ZENIUS}`);
-    }
-  }
+  const problems = ["HOME", "ZENIUS_HOME"].map(name => notScratch(name, env[name])).filter(Boolean);
   if (problems.length) {
     throw new Error(
       `${what} runs an installer, the launcher or the CLI only with a scratch HOME and ZENIUS_HOME (tests/lib/scratch-home.mjs): ${problems.join("; ")}`,
     );
   }
   return env;
+}
+
+/**
+ * Returns `env.ZENIUS_HOME`, the zenius home of the dev Zen a tool starts or
+ * reaches, when it is neither the account's own home nor its .zenius, nor a
+ * folder inside that; throws otherwise. For a tool that keeps the account's
+ * HOME, where its dev profiles are (~/.zenius-dev), so guardHome doesn't fit:
+ * it calls this before it removes or makes anything in that zenius home.
+ * zen-dev.sh starts no dev Zen in the account's own either.
+ *
+ * @param {Record<string, string | undefined>} env
+ * @param {string} what  who asks, for the message
+ * @returns {string}
+ */
+export function guardZeniusHome(env, what) {
+  const problem = notScratch("ZENIUS_HOME", env.ZENIUS_HOME);
+  if (problem) {
+    throw new Error(
+      `${what} needs its dev Zen in a zenius home of its own: ${problem}. Export ZENIUS_HOME=$(mktemp -d /tmp/zh-XXXXXX) for the Zen and for this, and remove that folder after the Zen's stop`,
+    );
+  }
+  return /** @type {string} */ (env.ZENIUS_HOME);
+}
+
+/** Why `value`, the variable `name`, isn't a scratch folder, or null when it is one. */
+function notScratch(name, value) {
+  if (!value) {
+    return `${name} is unset`;
+  }
+  const real = realPath(value);
+  if (real === REAL_HOME) {
+    return `${name} is ${value}, the account's own home folder`;
+  }
+  if (inside(real, REAL_ZENIUS)) {
+    return `${name} is ${value}, in the account's own ${REAL_ZENIUS}`;
+  }
+  return null;
 }
 
 /** Whether the config file can name `path` as the installer writes it. */
