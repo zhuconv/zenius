@@ -84,7 +84,20 @@ Prompts are answered according to a keyword in the prompt text:
               step reads as the call asked, with no result yet
   ASKSTEER    (zen-sidebar) ask for permission to run a zenius tool (a Work
               chat shows the card), then answer with its outcome and the
-              steer that came with the reply ("Steered: ...")
+              steer that came with the reply ("Steered: ..."). Its tool call
+              comes first, as claude-agent-acp sends it
+              (ensureToolCallEmitted)
+  PERMFALLBACK (zen-sidebar) codex-acp 2.6.0's stand-in for an MCP server's
+              message-only form: a request for a fresh tool call id the
+              client never saw, titled "Question from MCP server", with the
+              server's words ("mcp.zenius.click") in rawInput and content;
+              then its outcome
+  PERMCODEX   (zen-sidebar) codex-acp 2.6.0's approval of a zenius call it
+              showed: the call (mcp.zenius.click), then a request naming it
+              with no title or rawInput of its own; then its outcome
+  PERMRETITLE (zen-sidebar) PERMCODEX's shape for a zenius fill, but the
+              request has a title of its own, as no adapter sends today:
+              the card's words are the call's
   HOLDTURN    (zen-ux) one word, then the turn waits until Stop (a minute
               at most): the agent asks in the middle of it
   THINKTITLES (zen-sidebar) Codex at a high effort: a reasoning title, a
@@ -146,6 +159,9 @@ Prompts are answered according to a keyword in the prompt text:
   ASKINZEN    (zen-sidebar) ASKFORM's form in a zenius tool call
               (mcp__zenius__script), as a script in zenius's server could
               send one
+  ASKMETA     (zen-sidebar) ASKCODEX's request with no toolCallId: codex-acp
+              2.6.0 forwards an MCP server's form so, with the _meta Codex
+              hands it, which may be the server's own
   ASKODD      (zen-sidebar) an MCP server's form with an object field
   ASKURL      (zen-sidebar) an MCP server's url-mode elicitation
   (anything else)  echo the question, the number of attached resources and
@@ -641,6 +657,7 @@ ASKS = {
     "ASKURL": {"request": {"mode": "url", "message": "Sign in to continue.", "url": "https://example.com/signin", "elicitationId": "e1"}},
 }
 ASKS["ASKINZEN"] = {"tool": "mcp__zenius__script", "request": ASKS["ASKFORM"]["request"]}
+ASKS["ASKMETA"] = {"request": CODEX_ASK}
 
 
 def ask(session, keyword, quiet=False):
@@ -825,6 +842,9 @@ def prompt(request):
         tool_update(session, call_id, full, args, status="failed")
         say(session, "The search didn't run.")
     elif "ASKSTEER" in text:
+        update(session, {"sessionUpdate": "tool_call", "toolCallId": "t2", "title": "mcp__zenius__click", "kind": "other",
+                         "status": "pending", "rawInput": {"ref": "e5"},
+                         "_meta": {"claudeCode": {"toolName": "mcp__zenius__click"}}})
         next_id[0] += 1
         rid = next_id[0]
         waiting[rid] = {"event": threading.Event()}
@@ -843,12 +863,46 @@ def prompt(request):
         })
         waiting[rid]["event"].wait(30)
         outcome = waiting.pop(rid).get("result")
+        declined = ((outcome or {}).get("outcome") or {}).get("optionId") not in ("allow", "always")
+        update(session, {"sessionUpdate": "tool_call_update", "toolCallId": "t2", "status": "failed" if declined else "completed"})
         for _ in range(40):  # the steer follows the reply
             if steers.get(session):
                 break
             time.sleep(0.05)
         steered = steers.pop(session, None)
         say(session, "permission outcome: " + json.dumps(outcome) + (" | Steered: " + " / ".join(steered) if steered else ""))
+    elif "PERMFALLBACK" in text or "PERMCODEX" in text or "PERMRETITLE" in text:
+        next_id[0] += 1
+        rid = next_id[0]
+        options = [{"optionId": "allow", "name": "Allow", "kind": "allow_once"},
+                   {"optionId": "reject", "name": "Reject", "kind": "reject_once"}]
+        if "PERMFALLBACK" in text:
+            call_id = f"elicitation:{session}:zenius:{rid}"
+            asked = {"sessionId": session, "options": options, "toolCall": {
+                "toolCallId": call_id, "title": "Question from MCP server", "kind": "other", "status": "pending",
+                "rawInput": {"serverName": "zenius", "description": "mcp.zenius.click",
+                             "schema": {"type": "object", "properties": {}}},
+                "content": [{"type": "content", "content": {"type": "text", "text": "mcp.zenius.click"}}]}}
+        else:
+            retitled = "PERMRETITLE" in text
+            zen_tool = "fill" if retitled else "click"
+            call_id = f"call_mcp_{zen_tool}"
+            update(session, {"sessionUpdate": "tool_call", "toolCallId": call_id, "title": f"mcp.zenius.{zen_tool}",
+                             "kind": "other", "status": "pending",
+                             "rawInput": {"server": "zenius", "tool": zen_tool,
+                                          "arguments": {"element": "Search", "target": "#search"}}})
+            asked = {"sessionId": session, "options": options, "_meta": {"is_mcp_tool_approval": True},
+                     "toolCall": {"toolCallId": call_id, "kind": "execute", "status": "pending",
+                                  **({"title": "Allow zenius everything"} if retitled else {})}}
+        waiting[rid] = {"event": threading.Event()}
+        send({"jsonrpc": "2.0", "id": rid, "method": "session/request_permission", "params": asked})
+        waiting[rid]["event"].wait(30)
+        outcome = waiting.pop(rid).get("result")
+        allowed = ((outcome or {}).get("outcome") or {}).get("optionId") == "allow"
+        # codex-acp's update after the answer, for the request's own id.
+        update(session, {"sessionUpdate": "tool_call_update", "toolCallId": call_id,
+                         "status": "completed" if allowed or "PERMFALLBACK" in text else "failed"})
+        say(session, "permission outcome: " + json.dumps(outcome))
     elif "HISTORY" in text:
         say(session, f"History: {' / '.join(earlier) or '(none)'} | resources={len(resources)}")
     elif "PERMISSION" in text:

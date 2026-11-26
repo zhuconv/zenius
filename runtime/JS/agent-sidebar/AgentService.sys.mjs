@@ -1421,8 +1421,21 @@ function mcpServerOf(conv, toolCallId) {
  * answer. A form that comes in one of zenius's tool calls counts too,
  * whatever its shape, so a script can't pass one off as the agent's own ask
  * and hide its step.
+ *
+ * In a Work chat, so does any form without a tool call id, whatever its
+ * _meta or message say. Only the adapter sets that id, for the agent's own
+ * ask (claude-agent-acp's AskUserQuestion; codex-acp's request_user_input,
+ * Codex's item), and both pass a server's form on without one; Work's only
+ * server is zenius's. Its _meta can't tell them apart: codex-acp passes on
+ * the _meta Codex hands it, which may be the server's own, so a script
+ * could dress its form as Codex's ask. This rests on the adapters' shapes
+ * as pinned (claude-agent-acp 0.107.0, codex-acp 2.6.0): an update of
+ * either checks them again.
  */
 function zeniusForm(conv, form, from, toolCallId) {
+  if (conv.kind === "work" && !toolCallId) {
+    return true;
+  }
   if (form.kind === "mcp" && /zenius/i.test(from ?? "")) {
     return true;
   }
@@ -6453,10 +6466,20 @@ export const AgentService = {
         return;
       }
       const call = message.params.toolCall ?? {};
-      // Nothing asks the user about safety: a request for anything but
-      // zenius's tools in a Work session is refused at once, unseen.
-      const tool = { toolName: call._meta?.claudeCode?.toolName ?? null, rawTitle: call.title ?? "", rawInput: call.rawInput };
-      if (conv.kind !== "work" || !zeniusCall(tool)) {
+      // Nothing asks the user about safety: in a Work session, a request
+      // reaches the user only for a zenius call the chat already has, the one
+      // its toolCallId names; any other is refused at once, unseen. Never by
+      // the request's own title or rawInput: both adapters send the tool call
+      // before they ask about it (claude-agent-acp's ensureToolCallEmitted;
+      // codex-acp's approval names a call it showed, with no title or
+      // rawInput of its own), while codex-acp's stand-in for a server's
+      // message-only form names a fresh id and carries the server's words in
+      // its rawInput. This rests on the adapters' shapes as pinned
+      // (claude-agent-acp 0.107.0, codex-acp 2.6.0), checked again at an
+      // update of either.
+      const callId = typeof call.toolCallId === "string" ? call.toolCallId : "";
+      const tool = conv.kind === "work" && callId ? conv.messages.findLast(m => m.role === "tool" && m.id === callId) : null;
+      if (!tool || !zeniusCall(tool)) {
         const reject = (message.params.options ?? []).find(o => String(o.kind ?? "").startsWith("reject"));
         debug("refused a permission request:", conv.kind, call.title || call.kind || "?");
         conn.respond(message.id, reject ? { outcome: { outcome: "selected", optionId: reject.optionId } } : { outcome: { outcome: "cancelled" } });
@@ -6467,7 +6490,9 @@ export const AgentService = {
         role: "permission",
         rpcId: message.id,
         conn,
-        title: call.title || call.kind || "an action",
+        // The call's own words, as zeniusCall judged that call: never the
+        // request's title. The row always has one (its kind, else "Tool").
+        title: tool.title,
         options: (message.params.options ?? []).map(o => ({
           id: o.optionId,
           name: o.name,

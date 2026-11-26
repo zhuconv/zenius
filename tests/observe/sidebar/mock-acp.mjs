@@ -6,7 +6,8 @@
 // Each line has the process's pid, which tells apart the processes that
 // share a LOG (a Codex Work chat has one of its own).
 // A prompt whose text holds PERMISSION:<tool> asks the sidebar for
-// permission to run <tool> (claude-agent-acp's shape) before it answers.
+// permission to run <tool> (claude-agent-acp's shape, its tool call first, as
+// ensureToolCallEmitted sends it) before it answers.
 // One that holds NOTICE starts its answer with a config warning, as
 // codex-acp 2.6.0 sends Codex's: a session notice to a client whose
 // initialize declared session.notices, else text in the answer. NOTICE:error
@@ -36,12 +37,14 @@ function answer(id, result) {
 async function ask(sessionId, tool) {
   const id = nextId++;
   const outcome = new Promise(resolve => waiting.set(id, resolve));
+  const toolCall = { toolCallId: `t${id}`, title: tool, kind: "execute", rawInput: {}, _meta: { claudeCode: { toolName: tool } } };
+  send({ method: "session/update", params: { sessionId, update: { sessionUpdate: "tool_call", status: "pending", ...toolCall } } });
   send({
     id,
     method: "session/request_permission",
     params: {
       sessionId,
-      toolCall: { toolCallId: `t${id}`, title: tool, kind: "execute", rawInput: {}, _meta: { claudeCode: { toolName: tool } } },
+      toolCall,
       options: [
         { optionId: "allow", name: "Allow", kind: "allow_once" },
         { optionId: "reject", name: "Reject", kind: "reject_once" },
@@ -51,6 +54,8 @@ async function ask(sessionId, tool) {
   // A sidebar that never answers fails the test instead of hanging it.
   const result = await Promise.race([outcome, new Promise(resolve => setTimeout(() => resolve(null), 15000))]);
   log({ event: "permission", asked: tool, outcome: result?.outcome ?? null });
+  const allowed = result?.outcome?.optionId === "allow";
+  send({ method: "session/update", params: { sessionId, update: { sessionUpdate: "tool_call_update", toolCallId: toolCall.toolCallId, status: allowed ? "completed" : "failed" } } });
   return result;
 }
 

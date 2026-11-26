@@ -3190,7 +3190,7 @@ test("Codex's request_user_input, as codex-acp sends it: words alone answer with
   assert.deepEqual(out.savedAnswered, { role: "ask", from: null, title: null, questions, answer: { action: "accept", summary: "••••, ••••" } });
 });
 
-test("an MCP server's own form shows as an ask from that server: a number answered in words goes back as a number, a yes or no as a boolean, an enum by its names; zenius's server sends no form, so one from it (a script in its process could send one) is declined unseen, as is a form of any shape in a zenius tool call, whose step stays; a url-mode request and a form with a field the card can't show are declined, unseen", async () => {
+test("an MCP server's own form shows as an ask from that server: a number answered in words goes back as a number, a yes or no as a boolean, an enum by its names; zenius's server sends no form, so one from it (a script in its process could send one) is declined unseen, as is a form of any shape in a zenius tool call, whose step stays, and in Work any form with no tool call id, even one shaped as Codex's own ask; a url-mode request and a form with a field the card can't show are declined, unseen", async () => {
   await useMock();
   const out = await chrome(`
     ${ASKS}
@@ -3209,7 +3209,9 @@ test("an MCP server's own form shows as an ask from that server: a number answer
       try {
         // ASKMCP comes with no tool call, as claude-agent-acp passes a
         // server's form on: in Work, its server is zenius's, the only one.
-        for (const keyword of ["ASKMCP", "ASKINZEN", "ASKODD", "ASKURL"]) {
+        // ASKMETA is Codex's own ask with no toolCallId, as codex-acp
+        // forwards a server's form with the _meta Codex hands it.
+        for (const keyword of ["ASKMCP", "ASKMETA", "ASKINZEN", "ASKODD", "ASKURL"]) {
           await A.send(conv, { question: keyword });
           unseen[keyword] = outcome(conv);
         }
@@ -3247,7 +3249,7 @@ test("an MCP server's own form shows as an ask from that server: a number answer
   assert.deepEqual(out.answered, { action: "accept", content, summary: "2, Yes, Business, Vegetarian meal" });
   assert.deepEqual(out.first, { action: "accept", content });
   const decline = { action: "decline" };
-  assert.deepEqual(out.unseen, { ASKMCP: decline, ASKINZEN: decline, ASKODD: decline, ASKURL: decline });
+  assert.deepEqual(out.unseen, { ASKMCP: decline, ASKMETA: decline, ASKINZEN: decline, ASKODD: decline, ASKURL: decline });
   assert.equal(out.asks, 1, "no card for any of them");
   assert.deepEqual(out.needed, [], "and the task never needed the user for one");
   assert.deepEqual(out.script, { hidden: false, forAsk: false, shown: true }, "the zenius call's step stays: a form in it doesn't stand for it");
@@ -7241,11 +7243,65 @@ test("a steer while the agent asks for permission declines it first (its reject_
   assert.deepEqual(out.asked, { answer: "deny", replied: true });
   assert.deepEqual(out.shape.map(m => (m.role === "permission" ? { role: m.role } : m)), [
     { role: "user", text: "ASKSTEER" },
+    { role: "tool" },
     { role: "permission" },
     { role: "user", text: "Keep the file, move it to Archive", steered: true },
     { role: "assistant", text: 'permission outcome: {"outcome": {"outcome": "selected", "optionId": "deny"}} | Steered: Keep the file, move it to Archive' },
   ]);
   await useMock();
+});
+
+// codex-acp 2.6.0's two permission requests about an MCP server's work: its
+// stand-in for a server's message-only form (a fresh tool call id, a fixed
+// title, the server's words in rawInput and content), and its approval of an
+// MCP call it showed (that call's id alone). The sidebar goes by the call the
+// chat already has, never by the request's own fields, and so do the card's
+// words.
+test("in Work, a permission request reaches the user only for a zenius call the chat already has: codex-acp's stand-in for a server's message-only form, whose words name a zenius tool, is refused unseen and leaves no step; its approval of a zenius call it showed, with no title or rawInput of its own, shows under that call's title, and so does a request with a title of its own", async () => {
+  await useMock();
+  const out = await chrome(`
+    const A = win.ucAgentSidebar.AgentService;
+    const conv = A.createTask({ source: "new" });
+    const said = () => conv.messages.findLast(m => m.role === "assistant")?.text ?? null;
+    try {
+      await A.send(conv, { question: "PERMFALLBACK" });
+      const fallback = {
+        cards: conv.messages.filter(m => m.role === "permission").length,
+        said: said(),
+        steps: conv.messages.filter(m => m.role === "tool").map(m => m.id),
+      };
+      const turn = A.send(conv, { question: "PERMCODEX" });
+      await S.until(() => conv.messages.some(m => m.role === "permission"), 10000);
+      const card = conv.messages.find(m => m.role === "permission");
+      const shown = card ? { title: card.title, options: card.options.map(o => o.id) } : null;
+      if (card) {
+        A.answerPermission(conv, card, "allow");
+      }
+      await turn;
+      const step = conv.messages.find(m => m.role === "tool" && m.id === "call_mcp_click");
+      const allowed = said();
+      // A request with a title of its own for a zenius call the chat has.
+      const retitled = A.send(conv, { question: "PERMRETITLE" });
+      await S.until(() => conv.messages.some(m => m.role === "permission" && m.answer === null), 10000);
+      const open = conv.messages.find(m => m.role === "permission" && m.answer === null);
+      if (open) {
+        A.answerPermission(conv, open, "reject");
+      }
+      await retitled;
+      return { fallback, shown, said: allowed, step: step ? step.status : null, titled: open ? open.title : null };
+    } finally {
+      A.removeTask(conv);
+    }
+  `);
+  assert.deepEqual(out.fallback, {
+    cards: 0,
+    said: 'permission outcome: {"outcome": {"outcome": "selected", "optionId": "reject"}}',
+    steps: [],
+  }, "refused at once by its reject option, with no card and no step");
+  assert.deepEqual(out.shown, { title: "mcp.zenius.click", options: ["allow", "reject"] });
+  assert.equal(out.said, 'permission outcome: {"outcome": {"outcome": "selected", "optionId": "allow"}}');
+  assert.equal(out.step, "completed");
+  assert.equal(out.titled, "mcp.zenius.fill", "the card's words are the call's, not the request's own title");
 });
 
 test("Stop sends nothing that waits: the queued messages go back into the box, in order, before what it holds, with their files; the box's selection stays, else the first queued one's, and others become quotes; steers still waiting come back too, in order, out of the chat", async () => {

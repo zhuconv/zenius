@@ -144,12 +144,16 @@ stable, and a change to one is announced to zen-eval first.
   none, so only a script in its process could send one, under zenius's
   name and reading the answer: a form from it is declined unseen, and so
   is a form of any shape that comes in one of zenius's tool calls, whose
-  step stays. In Work, a form that comes with no tool call (as
-  claude-agent-acp passes a server's form on) counts as zenius's, the
-  session's only server. Url mode, a field the card can't show, and an
-  ask outside a turn are declined unseen too. Codex
-  0.169.0 offers request_user_input in its Default mode only with its
-  feature `default_mode_request_user_input`, which Work's process turns on.
+  step stays. In Work, a form that comes with no tool call id counts as
+  zenius's, the session's only server, whatever its `_meta` or message
+  say: only the adapter sets that id, for the agent's own ask, and both
+  adapters pass a server's form on without one (codex-acp with the
+  `_meta` Codex hands it, which may be the server's own). This rests on
+  the pinned adapters' shapes, checked again at each update. Url mode, a
+  field the card can't show, and an ask outside a turn are declined
+  unseen too. Codex 0.169.0 offers request_user_input in its Default
+  mode only with its feature `default_mode_request_user_input`, which
+  Work's process turns on.
   The text rule above stays as the fallback.
 - **zenius's strip agrees**: the sidebar tells zenius each task's word
   (`ZeniusUI.noteSidebarTask`): working while its turn runs, and needing
@@ -871,6 +875,17 @@ read.
   tools, `report_problem`, which shows a problem report in the card (The
   problem report card), and `docs`, and the zenius-only hook lets Work call
   any of them (`mcp__zenius__*`).
+- A permission request reaches the user only in Work, and only for a
+  zenius call the chat already has: the tool call its `toolCallId` names,
+  never the request's own title, `rawInput` or `_meta`. Both adapters send
+  the tool call before they ask about it (claude-agent-acp's
+  `ensureToolCallEmitted`; codex-acp's approval of an MCP call names that
+  call alone), while codex-acp sends a server's message-only form as a
+  request for a fresh id, with the server's words in its `rawInput`. Any
+  other request is refused at once, unseen, by its reject option. The card
+  shows the call's title, never the request's own. This rests on the
+  pinned adapters' shapes (claude-agent-acp 0.107.0, codex-acp 2.6.0),
+  checked again at each update.
 - Its Chat session gets the server started with `--docs-only`, which serves
   `docs` alone: zenius's own text about its error codes, URLs, files and
   limits, read from the installed version and never from the browser
