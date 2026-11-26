@@ -590,6 +590,46 @@ test("startWorkChat starts a task in Work mode: it resolves to the task's uid, t
   assert.equal(out.current, "true");
 });
 
+// The address bar's '>' with the sidebar closed: the panel that loads reads
+// the shown task as it attaches (attachPanel, workConversation), and a new
+// chat its request hadn't listed yet read as one that's gone, so the
+// sidebar's task became the newest listed one (the Mac's urlbar test, since
+// 0.1.7 at least).
+test("startWorkChat with the sidebar closed: the sidebar opens on the new task, and it stays the sidebar's task once the panel has loaded, with an earlier task listed", async () => {
+  await useMock();
+  const out = await chrome(`
+    const g = win.ucAgentSidebar;
+    const A = g.AgentService;
+    const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
+    // An earlier task, listed, then the sidebar closed, which takes its panel away.
+    await S.openPanel();
+    const earlier = await startWorkChat(win, { text: "Earlier task", source: "new" });
+    await S.until(() => A.tasks.get(earlier) && !A.tasks.get(earlier).busy, 10000);
+    win.SidebarController.hide();
+    await S.until(() => !win.SidebarController.isOpen);
+    let uid = null;
+    try {
+      uid = await startWorkChat(win, { text: "Compare the flights", source: "urlbar" });
+      const resolved = g.currentTask?.uid === uid;
+      await S.until(() => S.panelDoc()?.documentElement.dataset.mode === "work", 10000);
+      await S.sleep(500);
+      return {
+        resolved,
+        current: g.currentTask?.uid === uid,
+        title: S.panelDoc()?.getElementById("title")?.textContent ?? null,
+        question: A.tasks.get(uid)?.messages.find(m => m.role === "user")?.text ?? null,
+        open: win.SidebarController.isOpen,
+      };
+    } finally {
+      for (const id of [uid, earlier]) {
+        const conv = id && A.tasks.get(id);
+        if (conv) A.removeTask(conv);
+      }
+    }
+  `);
+  assert.deepEqual(out, { resolved: true, current: true, title: "Compare the flights", question: "Compare the flights", open: true });
+});
+
 // Renaming a task: the header's name turns
 // into a field, and the user's name shows wherever the task's does.
 const RENAME = `

@@ -462,6 +462,13 @@
         return (await newTask()).uid;
       }
       const conv = AgentService.createTask({ source });
+      // Listed before the panel opens, as its request's send would list it
+      // only after: a panel that loads now reads the shown task as it
+      // attaches (attachPanel, workConversation), which takes a task the
+      // directory doesn't list for one that's gone and moves to the newest
+      // listed one. With the sidebar closed, that one became the sidebar's
+      // task.
+      AgentService.addTask(conv, text);
       mode = "work";
       currentTask = conv;
       const api = await openPanel();
