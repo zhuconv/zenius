@@ -7,7 +7,10 @@
 //
 // It starts a visible dev Zen (instance "uxguided" by default) and closes it
 // on every way out: at the end, after an error, on Ctrl+C, and after 25 min
-// at most, so a stuck run can't hold a window open on the user's Mac.
+// at most, so a stuck run can't hold a window open on the user's Mac. The
+// dev Zen keeps its zenius home and working folder in a scratch home of the
+// run's own (tests/lib/scratch-home.mjs), removed with it, never in the
+// account's own ~/.zenius.
 // --notification adds the opt-in macOS notification for handOff (G9).
 // --keep leaves the Space and the window as they are when a step failed, for
 // inspection; the next run removes the Space. --attach uses an instance that
@@ -15,8 +18,10 @@
 // Each step waits up to 90 s. A failed step prints what zenius and Firefox
 // saw. The exit code is the number of steps that failed.
 import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { scratchHome } from "../../lib/scratch-home.mjs";
 import { prelude, setup } from "../lib.mjs";
 
 const NAME = "zen-ux guided check";
@@ -35,6 +40,19 @@ const STEP_MS = Number(process.env.ZENIUS_UX_STEP_MS) || 90_000;
 // Every step's wait, plus a margin.
 const TOTAL_MS = STEP_MS * 14 + 120_000;
 const DEV = fileURLToPath(new URL("../../../scripts/zen-dev.sh", import.meta.url));
+// The dev Zen keeps its socket, registry entry, state and self-check in a
+// zenius home, and its downloads in a working folder: this run's own, as
+// tests/ux/run.sh gives its Zen, since zen-dev.sh refuses the account's own
+// ~/.zenius. A socket's path must fit in 104 bytes on macOS, where TMPDIR
+// alone takes about 49: there it's in /tmp. --attach goes on with the
+// running instance's own, ZENIUS_HOME as given.
+const scratch = args.attach ? null : scratchHome("guided", { parent: process.platform === "darwin" ? "/tmp" : tmpdir() });
+if (scratch) {
+  process.env.ZENIUS_HOME = scratch.zeniusHome;
+  process.env.ZENIUS_DEV_WORKING_DIR = scratch.workingFolder;
+  // zen-dev.sh names the working folder to what Zen starts.
+  delete process.env.ZENIUS_WORKING_DIR;
+}
 
 // Closing the dev Zen closes its window. The "exit" event comes on every way
 // out, also after an uncaught error; signals and the time limit go through
@@ -43,6 +61,7 @@ let leaveRunning = !!args.attach;
 process.on("exit", () => {
   if (!leaveRunning) {
     spawnSync(DEV, [INSTANCE, "stop"], { stdio: "ignore" });
+    scratch?.remove();
   }
 });
 for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
@@ -289,9 +308,11 @@ cursor ("Waiting for you"). Bring that window to the front, then follow each ste
   await h.close({ keep: keep ? [space] : [] });
   if (keep) {
     leaveRunning = true;
+    // The open Zen keeps the scratch home: its commands name it.
+    const home = scratch ? `ZENIUS_HOME=${scratch.zeniusHome} ` : "";
     console.log(`\nKept Space ${space} ("${NAME}") as it was, and the dev Zen open. Inspect it with
-  node scripts/zen-rpc.mjs -i ${INSTANCE} -c ui.state '{"space":${space}}'
-and dev.evalChrome. Close it with scripts/zen-dev.sh ${INSTANCE} stop. The next run of this script removes the Space.`);
+  ${home}node scripts/zen-rpc.mjs -i ${INSTANCE} -c ui.state '{"space":${space}}'
+and dev.evalChrome. Close it with ${home}scripts/zen-dev.sh ${INSTANCE} stop${scratch ? `, then remove ${scratch.root}` : ""}. The next run of this script removes the Space.`);
   }
 }
 
