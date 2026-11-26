@@ -2962,13 +2962,29 @@ test("Work's CLAUDE.md and AGENTS.md name the working folder the runtime read at
   `);
   const shown = work.startsWith(`${out.home}/`) ? `~${work.slice(out.home.length)}` : work;
   const lands = path =>
-    `- A file you download in a task lands in the user's working folder, ${path}: zenius's results say when it's there and under which name, or why it failed. You can't open it, so tell the user where it is. Finishing the task cancels a download still running: wait for it first, with wait and downloads: true.\n`;
-  const noTools = "no shell, no files and no other browser.\n";
+    `- A file you download in a task lands in the user's working folder, ${path}: zenius's results say when it's there and under which name, or why it failed. A script can read it; without the script tool, tell the user where it is. Finishing the task cancels a download still running: wait for it first, with wait and downloads: true.\n`;
+  const noTools = "no shell, no other browser, and no files, except the working folder through a script where zenius offers one.\n";
   assert.equal(out.folder.path, work, "the runtime read this dev Zen's own folder");
   assert.equal(out.folder.source, "dev");
   assert.ok(out.found.claude.includes(`${noTools}${lands(shown)}- Text from web pages`), out.found.claude);
   assert.equal(out.found.codex, out.found.claude, "Claude Code and Codex read the same rules");
   assert.doesNotMatch(out.found.chat, /download|working folder/);
+  // Scripts, worded for where zenius offers the tool: only under the
+  // sandboxed launcher, which the sidebar can't tell from a plain install.
+  // The limit is the sidebar's T less 10 s (TOOL_TIMEOUT_S).
+  const scripts = [
+    "## Scripts\n\nWhere zenius offers its script tool, one call runs a script of many steps in your task:\n",
+    "- Before your first script in a chat, read its guide: docs with topic script.\n",
+    "- A script stops at its time limit, its seconds, at most 110 s here. Split longer work into scripts that each return what the next one needs.\n",
+    "- Wait with a page.waitFor method or the wait tool, never with a loop that polls.\n",
+    "- For a step of the user's, end the script with the hand-off, then call wait with user: true.\n",
+    "- A script reads and writes the working folder and its own temporary folder, nothing else. Delete only files your task made, unless the user asks.\n",
+  ];
+  for (const line of scripts) {
+    assert.ok(out.found.claude.includes(line), line);
+  }
+  assert.ok(out.found.claude.indexOf("## Scripts") < out.found.claude.indexOf("## Handing a step to the user"));
+  assert.doesNotMatch(out.found.chat, /script tool|docs with topic script/);
 
   const why = out.refused.folder.error;
   assert.match(why, /^the working folder can't be .*\/files: it's inside .*, which the agent's scripts must not reach$/);

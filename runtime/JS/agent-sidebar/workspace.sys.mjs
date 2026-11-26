@@ -196,10 +196,21 @@ ${PAGE_TEXT}
 
 You work for the user in the agent sidebar of their Zen browser.
 
-- Browser tasks go through the zenius tools: open, goto, read_page, click, fill, press, scroll, select, wait, hand_off, finish and evaluate. They drive only this Zen, in a task of your own in the Agents space.
+- Browser tasks go through the zenius tools: open, goto, read_page, click, fill, press, scroll, select, wait, hand_off, finish and evaluate, and script where zenius offers it. They drive only this Zen, in a task of your own in the Agents space.
 - Besides them you have web search and web fetch, to look something up without a tab. Use a tab when the user should see the page, or it needs their sign-in: fetched pages carry none.
-- You have no other tools here besides your own ask tool (AskUserQuestion, or request_user_input): no shell, no files and no other browser.
+- You have no other tools here besides your own ask tool (AskUserQuestion, or request_user_input): no shell, no other browser, and no files, except the working folder through a script where zenius offers one.
 ${downloads}${PAGE_TEXT}
+
+## Scripts
+
+Where zenius offers its script tool, one call runs a script of many steps in your task:
+- Before your first script in a chat, read its guide: docs with topic script.
+- Use a script for work of many steps, such as pages to read or compare, a long form, or a loop over a list or over the working folder's files. Use a one-step tool for a single action.
+- Its purpose is the step the user reads: say what it does, in their language, never with a password, card number or code in it.
+- A script stops at its time limit, its seconds, at most ${TOOL_TIMEOUT_S - 10} s here. Split longer work into scripts that each return what the next one needs.
+- Wait with a page.waitFor method or the wait tool, never with a loop that polls.
+- For a step of the user's, end the script with the hand-off, then call wait with user: true.
+- A script reads and writes the working folder and its own temporary folder, nothing else. Delete only files your task made, unless the user asks.
 
 ## Handing a step to the user
 
@@ -221,10 +232,11 @@ ${downloads}${PAGE_TEXT}
 /**
  * Work's line about zenius's working folder, where the runtime puts a file
  * the agent's task downloads: the folder, with the home folder as ~, or why
- * there's none, which refuses every download. The agent can't open a file
- * there, so it tells the user where to look: zenius's results name each
- * file, and its finish won't cancel a download still running unless told
- * to (docs/mcp.md, Downloads).
+ * there's none, which refuses every download. A script reads a file there,
+ * where zenius offers the script tool (only under the sandboxed launcher);
+ * without one, the agent tells the user where to look: zenius's results
+ * name each file, and its finish won't cancel a download still running
+ * unless told to (docs/mcp.md, Downloads).
  *
  * @param {{path?: string, error?: string}} folder  the runtime's workingFolder()
  * @param {string} home  the home folder
@@ -236,7 +248,7 @@ export function downloadsLine(folder, home) {
     return `- zenius refuses every download in your tasks, since it has no working folder to put files in (${why}). When a task needs a download, tell the user that, with the reason.\n`;
   }
   const shown = folder.path.startsWith(`${home}/`) ? `~${folder.path.slice(home.length)}` : folder.path;
-  return `- A file you download in a task lands in the user's working folder, ${shown}: zenius's results say when it's there and under which name, or why it failed. You can't open it, so tell the user where it is. Finishing the task cancels a download still running: wait for it first, with wait and downloads: true.\n`;
+  return `- A file you download in a task lands in the user's working folder, ${shown}: zenius's results say when it's there and under which name, or why it failed. A script can read it; without the script tool, tell the user where it is. Finishing the task cancels a download still running: wait for it first, with wait and downloads: true.\n`;
 }
 
 /**
@@ -454,7 +466,10 @@ function settingsFor(agent, kind, base) {
  * and working folder. Chat's is `zenius mcp --docs-only`, which serves the
  * docs tool alone and never reaches Zen. A CLI older than the flag refuses
  * it and doesn't start, so Chat goes without docs rather than get browser
- * tools.
+ * tools. Work's is `zenius mcp --sidebar`: under the sandboxed launcher it
+ * gets the sidebar's grants (the working folder, no read folder, no current
+ * folder) and the script tool; a plain CLI takes the flag and offers no
+ * script. The flag only narrows.
  *
  * @param {"chat"|"work"} [kind]
  */
@@ -467,7 +482,7 @@ export async function zeniusServer(kind = "work") {
   }
   return {
     command: cli,
-    args: kindOf(kind) === "chat" ? ["mcp", "--docs-only"] : ["mcp"],
+    args: kindOf(kind) === "chat" ? ["mcp", "--docs-only"] : ["mcp", "--sidebar"],
     env: zeniusEnv(),
   };
 }
@@ -556,6 +571,12 @@ export function agentEnvironment(agent, overrides = {}) {
  * variable is Claude Code's own and may change, so the chat copes with a
  * moved call all the same (harnessWords, ownWork).
  *
+ * Its MCP tool timeout is T (TOOL_TIMEOUT_S), MCP_TOOL_TIMEOUT in ms: Claude
+ * Code's default is about 27.8 h, and ACP's mcpServers can't carry a server's
+ * own timeout. zenius's is the session's only server (strictMcpConfig), so
+ * the variable reaches it alone. Every zenius call ends within T less 10 s,
+ * so it's a backstop for a server that hangs.
+ *
  * It's this process's env only, never the user's ~/.claude, and the agent's
  * own env in config.json wins.
  *
@@ -567,6 +588,7 @@ export function claudeEnvironment(env) {
     ...env,
     CLAUDE_CODE_THINKING_DISPLAY: env.CLAUDE_CODE_THINKING_DISPLAY ?? "summarized",
     CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS: env.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS ?? "0",
+    MCP_TOOL_TIMEOUT: env.MCP_TOOL_TIMEOUT ?? String(TOOL_TIMEOUT_S * 1000),
   };
 }
 
@@ -582,18 +604,31 @@ function keptClaudeOptions(options) {
 }
 
 /**
+ * T, the tool timeout both harnesses give zenius's server, in seconds:
+ * Codex's tool_timeout_sec, Claude Code's MCP_TOOL_TIMEOUT (claudeEnvironment)
+ * and the server's own ZENIUS_TOOL_TIMEOUT (withTask), which keeps each call
+ * within T less 10 s: a script's limit, wait's and report_problem's. One
+ * number for all three, so they can't drift apart. 120 s, not more: a call
+ * holds the agent's turn, so a long one keeps the user's Steer waiting, and
+ * the user's Stop ends a stuck call anyway.
+ */
+export const TOOL_TIMEOUT_S = 120;
+
+/**
  * A Work chat's zenius server's env, with what it takes of the chat:
  * ZENIUS_TASK_SPACE, its live task, which a resumed or forked session's new
  * server takes up again, and ZENIUS_SIDEBAR_TASK, its uid, which the server
  * sends as its tasks' source.sidebar (zen-core's feed), so the directory lists
  * them as the sidebar's own and never as another agent's (external.sys.mjs).
+ * And ZENIUS_TOOL_TIMEOUT, T (TOOL_TIMEOUT_S): Codex starts a server with its
+ * entry's env, not the agent's. Chat's server has no call that waits.
  *
  * @param {Record<string, string>} env  zeniusServer()'s
  * @param {{taskSpace?: number|null, sidebarTask?: string|null}} [task]
  * @returns {Record<string, string>}
  */
 function withTask(env, { taskSpace = null, sidebarTask = null } = {}) {
-  const out = { ...env };
+  const out = { ...env, ZENIUS_TOOL_TIMEOUT: String(TOOL_TIMEOUT_S) };
   if (Number.isSafeInteger(taskSpace) && taskSpace > 0) {
     out.ZENIUS_TASK_SPACE = String(taskSpace);
   }
@@ -754,7 +789,7 @@ export async function codexEnvironment(env, kind, userServers, task = {}) {
       args: server.args,
       env: kindOf(kind) === "work" ? withTask(server.env, task) : server.env,
       enabled: true,
-      tool_timeout_sec: 120,
+      tool_timeout_sec: TOOL_TIMEOUT_S,
       default_tools_approval_mode: "approve",
     };
   }

@@ -215,10 +215,13 @@ test("a Claude Code session's limits are set in memory over config.json's: setti
   // Work: zenius's server, its tools allowed, two harmless built-ins, and
   // web search and fetch.
   assert.equal(workParams.cwd, join(ws, "work"));
+  // --sidebar: under the sandboxed launcher, the sidebar's grants and the
+  // script tool. Its server's calls end within the sidebar's T less 10 s.
   assert.deepEqual(
     workParams.mcpServers.map(s => [s.name, s.command, s.args]),
-    [["zenius", CLI, ["mcp"]]]
+    [["zenius", CLI, ["mcp", "--sidebar"]]]
   );
+  assert.equal(workParams.mcpServers[0].env.find(e => e.name === "ZENIUS_TOOL_TIMEOUT")?.value, "120");
   const w = workParams._meta.claudeCode.options;
   // AskUserQuestion comes to the sidebar as elicitation/create, through canUseTool: never among allowedTools.
   assert.deepEqual(w.tools, ["TodoWrite", "ToolSearch", "AskUserQuestion", ...WEB]);
@@ -554,6 +557,9 @@ test("the agent's process gets none of Zen's environment but a few names, starts
   // sends mid-call interrupts the call in the turn rather than moving it to
   // the background, out of every turn (claudeEnvironment).
   assert.equal(start.env.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS, "0");
+  // Its MCP tool timeout is the sidebar's T, 120 s (TOOL_TIMEOUT_S), not
+  // Claude Code's default of about 27.8 h.
+  assert.equal(start.env.MCP_TOOL_TIMEOUT, "120000");
   // Its own zenius commands reach this Zen and write in its working folder,
   // as its zenius server does: never the user's own Zen, the default
   // instance (config.json here names none).
@@ -565,6 +571,7 @@ test("the agent's process gets none of Zen's environment but a few names, starts
     ...Object.keys(zenius),
     "CLAUDE_CODE_THINKING_DISPLAY",
     "CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS",
+    "MCP_TOOL_TIMEOUT",
     "HOME", "USER", "LOGNAME", "SHELL", "PATH", "TMPDIR", "TZ", "LANG", "LANGUAGE", "__CF_USER_TEXT_ENCODING",
     "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "no_proxy", "all_proxy",
     "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR",
@@ -578,17 +585,19 @@ test("the agent's process gets none of Zen's environment but a few names, starts
   assert.deepEqual(readdirSync(dir).filter(f => /options|cache/i.test(f)), [], "no cache beside config.json");
 });
 
-test("Claude Code's thinking comes as summaries (CLAUDE_CODE_THINKING_DISPLAY) and its MCP calls stay in the foreground (CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS 0), unless the agent's own env in config.json says otherwise", async () => {
+test("Claude Code's thinking comes as summaries (CLAUDE_CODE_THINKING_DISPLAY), its MCP calls stay in the foreground (CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS 0) and time out at the sidebar's T (MCP_TOOL_TIMEOUT), unless the agent's own env in config.json says otherwise", async () => {
   const out = await chrome(`
     const W = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/workspace.sys.mjs");
-    const own = W.claudeEnvironment({ CLAUDE_CODE_THINKING_DISPLAY: "omitted", CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS: "120000" });
+    const own = W.claudeEnvironment({ CLAUDE_CODE_THINKING_DISPLAY: "omitted", CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS: "120000", MCP_TOOL_TIMEOUT: "300000" });
     return {
       none: W.claudeEnvironment({ PATH: "/bin" }),
-      own: [own.CLAUDE_CODE_THINKING_DISPLAY, own.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS],
+      own: [own.CLAUDE_CODE_THINKING_DISPLAY, own.CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS, own.MCP_TOOL_TIMEOUT],
+      t: W.TOOL_TIMEOUT_S,
     };
   `);
-  assert.deepEqual(out.none, { PATH: "/bin", CLAUDE_CODE_THINKING_DISPLAY: "summarized", CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS: "0" });
-  assert.deepEqual(out.own, ["omitted", "120000"]);
+  assert.equal(out.t, 120);
+  assert.deepEqual(out.none, { PATH: "/bin", CLAUDE_CODE_THINKING_DISPLAY: "summarized", CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS: "0", MCP_TOOL_TIMEOUT: "120000" });
+  assert.deepEqual(out.own, ["omitted", "120000", "300000"]);
 });
 
 test("Claude Code's thinking switch was checked against the pinned claude-agent-acp and SDK: moving either pin needs a real turn's check again that the thinking still comes as summaries", () => {
@@ -696,7 +705,12 @@ test("Codex is on by default, its limits merged in memory with zenius's server i
   // Chat's process has zenius's docs alone, with no chat's task or uid.
   assert.deepEqual(chatConfig.mcp_servers.zenius.args, ["mcp", "--docs-only"]);
   assert.deepEqual(Object.keys(chatConfig.mcp_servers.zenius.env), Object.keys(zenius));
-  assert.deepEqual(workConfig.mcp_servers.zenius.args, ["mcp"]);
+  assert.deepEqual(workConfig.mcp_servers.zenius.args, ["mcp", "--sidebar"]);
+  // T, the sidebar's tool timeout (TOOL_TIMEOUT_S): Codex's for the server,
+  // and the server's own, which keeps each call within it. Chat's server,
+  // whose docs never wait, has none (its env's keys are zeniusEnv's above).
+  assert.equal(workConfig.mcp_servers.zenius.tool_timeout_sec, 120);
+  assert.equal(workConfig.mcp_servers.zenius.env.ZENIUS_TOOL_TIMEOUT, "120");
   // Codex 0.169.0 offers request_user_input in its Default mode only with
   // this feature: Work's agent asks with it (AgentService's onAsk); Chat has
   // no ask.

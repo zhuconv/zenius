@@ -137,7 +137,7 @@ test("Chat's zenius server is zenius mcp --docs-only, for Claude Code and Codex 
     [["zenius", CLI, ["mcp", "--docs-only"], env]]
   );
   assert.deepEqual([s.codex.command, s.codex.args, Object.keys(s.codex.env)], [CLI, ["mcp", "--docs-only"], env]);
-  assert.deepEqual(s.codexWork.args, ["mcp"], "Work's server is the whole one");
+  assert.deepEqual(s.codexWork.args, ["mcp", "--sidebar"], "Work's server is the whole one, with the sidebar's grants under the launcher");
   const zenius = list => list.filter(tool => tool.startsWith("mcp__"));
   assert.deepEqual(zenius(s.options.allowedTools), ["mcp__zenius__docs"]);
   assert.deepEqual(zenius(s.options.settings.permissions.allow), ["mcp__zenius__docs"]);
