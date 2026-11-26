@@ -153,7 +153,7 @@ test("a pill is a group named by its text, not a live region; Agent needs you is
   assert.deepEqual(out, {
     role: "group",
     live: false,
-    label: `Agent needs you, ${iso(name)}, on ${site()}. The agent says: “${iso("Log in to continue")}”.`,
+    label: `Agent needs you, ${iso(name)}, on ${site()}. The agent says: “${iso("Log in to continue")}”. If it doesn't go on after Resume, tell the agent.`,
     heard: `Agent needs you in ${iso(name)}, on ${site()}. The agent says: “${iso("Log in to continue")}”.`,
     still: true,
   });
@@ -484,7 +484,7 @@ test("right-to-left names keep their own order and their place, in every text th
   assert.equal(out.closesRightOfName, true, "zenius's words after the name stay after it");
   assert.equal(out.control, `Agent needs you · ${iso(RTL)} on ${site()}`);
   // Its own "!" ends the sentence, so no period follows the quote.
-  assert.equal(out.said, `The agent says: “${iso("שלב 2!")}”`);
+  assert.equal(out.said, `The agent says: “${iso("שלב 2!")}” If it doesn't go on after Resume, tell the agent.`);
   assert.equal(out.claimNote, `An agent asks to work in your Space “${iso(RTL)}”. It calls itself “${iso("לקוח")}”.`);
   assert.equal(out.status, `Agent needs you ${iso(RTL)}, ${iso("שלב 2!")}`);
   assert.equal(out.tooltipLine, `Task: ${iso(RTL)} · Agent needs you`);

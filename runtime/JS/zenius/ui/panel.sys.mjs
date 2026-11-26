@@ -56,6 +56,9 @@ export function idleText(hours) {
  * @property {boolean} [needs]  it waits for the user (needsUser)
  * @property {string|null} [waitsFor]  what it waits for, while it does
  *   (waitText)
+ * @property {string|null} [afterResume]  a hold card's last line on a task
+ *   no Work chat drives (ZeniusUI.afterResume), which the agent sidebar's
+ *   hand-off card shows too
  *
  * @typedef {{uid: string, name: string, why?: string|null}} SidebarWaiting
  *   an agent sidebar's task that needs the user with no zenius task saying

@@ -113,6 +113,15 @@ test("every card fits in its pill, at the page's width and on a narrow page: its
         buttons: resume,
       },
       madeTakeOver: { ...UIM.controlCard({}, "user"), note: UIM.AGENTS_PAGE_LINE, buttons: resume },
+      // On a task no Work chat drives: the line after the agent's words, for
+      // an agent on an hc terminal, and the Take over card's, for one with a
+      // long folder name (#showControlNotice, afterResume).
+      needsYouAfter: {
+        ...UIM.controlCard({ name: "Book a table for four at seven" }, "agent"),
+        note: [UIM.controlCard({ stateText: "Enter the code we sent to your phone" }, "agent").note, UIM.tellAgentLine({ agent: "Claude Code", terminal: "laptop/t5x" })].join(" "),
+        buttons: resume,
+      },
+      takeOverAfter: { ...UIM.controlCard({}, "user"), detail: UIM.CANT_ACT_DETAIL, note: UIM.tellAgentLine({ agent: "Claude Code", folder: "quarterly-expenses-2026" }), buttons: resume },
       madeReminder: UIM.madePageCard(),
       madeRefused: UIM.madePageCard({ refused: "media" }),
       reloadFailed: UIM.reloadFailedCard(),
@@ -310,8 +319,8 @@ test("the Agent needs you pill names the task, and its small text follows the ag
   `);
   assert.deepEqual(out, {
     name: out.name,
-    first: { notice: `Agent needs you · ${iso(out.name)} on ${site()}`, note: `The agent says: “${iso("Log in to continue")}”.` },
-    later: { notice: `Agent needs you · ${iso(out.name)} on ${site()}`, note: `The agent says: “${iso("Enter the code sent to your phone")}”.` },
+    first: { notice: `Agent needs you · ${iso(out.name)} on ${site()}`, note: `The agent says: “${iso("Log in to continue")}”. If it doesn't go on after Resume, tell the agent.` },
+    later: { notice: `Agent needs you · ${iso(out.name)} on ${site()}`, note: `The agent says: “${iso("Enter the code sent to your phone")}”. If it doesn't go on after Resume, tell the agent.` },
     after: null,
   });
 });
@@ -402,6 +411,33 @@ test("with reduced motion, pills fade in without sliding", async () => {
     return { normal, reduced };
   `);
   assert.deepEqual(out, { normal: "zenius-card-in", reduced: "zenius-card-fade" });
+});
+
+test("what comes after Resume agent on a task no Work chat drives: to tell the agent where it runs, by its folder or its hc terminal, each part isolated, or the agent alone; that something waits, with a wait attached; and the Take over card's detail", async () => {
+  const out = await h.chrome(`
+    const UIM = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs");
+    return {
+      folder: UIM.tellAgentLine({ agent: "Claude Code", folder: "zenius-eval" }),
+      terminal: UIM.tellAgentLine({ agent: "Codex", terminal: "laptop/t5x", folder: "zenius-eval" }),
+      terminalOnly: UIM.tellAgentLine({ terminal: "laptop/t5x" }),
+      folderOnly: UIM.tellAgentLine({ folder: "zenius-eval" }),
+      agentOnly: UIM.tellAgentLine({ agent: "Claude Code" }),
+      none: UIM.tellAgentLine(null),
+      waits: UIM.AGENT_WAITS_LINE,
+      detail: UIM.CANT_ACT_DETAIL,
+    };
+  `);
+  const tell = who => `If it doesn't go on after Resume, tell ${who}.`;
+  assert.deepEqual(out, {
+    folder: tell(`${iso("Claude Code")} in ${iso("zenius-eval")}`),
+    terminal: tell(`${iso("Codex")} on ${iso("laptop/t5x")}`),
+    terminalOnly: tell(`the agent on ${iso("laptop/t5x")}`),
+    folderOnly: tell(`the agent in ${iso("zenius-eval")}`),
+    agentOnly: tell(iso("Claude Code")),
+    none: tell("the agent"),
+    waits: "The agent is waiting for Resume agent.",
+    detail: "the agent can't act",
+  });
 });
 
 test("the user's view ends as it started", async () => {

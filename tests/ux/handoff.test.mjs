@@ -29,7 +29,12 @@ import { after, before, test } from "node:test";
 import { prelude, setup, iso } from "./lib.mjs";
 
 const CLEARS = "Resume agent clears password, card and code fields, so submit what you type there first.";
-const inControl = () => ({ notice: `You're in control · the agent waits until you resume it on ${site()}`, note: CLEARS, more: null, buttons: ["Resume agent"] });
+// The hold card's last line on a task no Work chat drives (afterResume):
+// this file's task names no source, and no wait is attached unless a test
+// says so.
+const TELL = "If it doesn't go on after Resume, tell the agent.";
+const WAITS = "The agent is waiting for Resume agent.";
+const inControl = () => ({ notice: `You're in control · the agent can't act on ${site()}`, note: `${CLEARS} ${TELL}`, more: null, buttons: ["Resume agent"] });
 // A page the agent made itself, which no website served.
 const MADE_NOTE = "The agent made this page. It might contain malicious code. Keep sensitive information out.";
 // A page that loaded afresh at the user's press.
@@ -210,8 +215,8 @@ test("a hand-off with no reload: Agent needs you, with the task, Resume agent, t
       await cleanUp();
     }
   `);
-  assert.deepEqual(out.said, { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: CLEARS, more: `The agent says: “${iso("Log in to continue")}”.`, buttons: ["Resume agent"] });
-  assert.deepEqual(out.silent, { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: CLEARS, more: null, buttons: ["Resume agent"] });
+  assert.deepEqual(out.said, { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: `${CLEARS} ${TELL}`, more: `The agent says: “${iso("Log in to continue")}”.`, buttons: ["Resume agent"] });
+  assert.deepEqual(out.silent, { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: `${CLEARS} ${TELL}`, more: null, buttons: ["Resume agent"] });
   assert.equal(out.reloaded, null, "nothing of a reload");
 });
 
@@ -286,14 +291,14 @@ test("a hand-off whose step shows the user a secret (zen-core's secret flag, on 
   `);
   const words = text => `The agent says: “${iso(text)}”.`;
   assert.deepEqual(out.secret, {
-    card: { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: SECRET_NOTE, more: words("Copy the new token"), buttons: ["Resume agent"] },
+    card: { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: `${SECRET_NOTE} ${TELL}`, more: words("Copy the new token"), buttons: ["Resume agent"] },
     heard: [`Agent needs you in ${iso(name)}, on ${site()}. ${SECRET_NOTE} ${words("Copy the new token")}`],
     row: "Resume agent clears the page the agent handed you, so copy what you need from it first.",
   });
-  assert.deepEqual(out.updated, { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: SECRET_NOTE, more: words("Copy the new token, then resume me"), buttons: ["Resume agent"] });
+  assert.deepEqual(out.updated, { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: `${SECRET_NOTE} ${TELL}`, more: words("Copy the new token, then resume me"), buttons: ["Resume agent"] });
   assert.equal(out.back, null);
-  assert.deepEqual(out.plain, { card: { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: CLEARS, more: words("Log in to continue"), buttons: ["Resume agent"] }, row: "Resume agent clears password, card and code fields, so submit what you type there first." });
-  assert.equal(out.takeOver, CLEARS);
+  assert.deepEqual(out.plain, { card: { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: `${CLEARS} ${TELL}`, more: words("Log in to continue"), buttons: ["Resume agent"] }, row: "Resume agent clears password, card and code fields, so submit what you type there first." });
+  assert.equal(out.takeOver, `${CLEARS} ${TELL}`);
 });
 
 test("the hold card names the site the user is on, after the task, and follows the page's top document when it moves to another site on its own (a sign-in's redirect)", async () => {
@@ -328,12 +333,12 @@ test("the hold card names the site the user is on, after the task, and follows t
   assert.deepEqual(out.first, {
     notice: `Agent needs you · ${iso(name)} on ${site()}`,
     site: site(),
-    label: `Agent needs you, ${iso(name)}, on ${site()}. Resume agent clears password, card and code fields, so submit what you type there first. The agent says: “${iso("Log in to continue")}”.`,
+    label: `Agent needs you, ${iso(name)}, on ${site()}. Resume agent clears password, card and code fields, so submit what you type there first. ${TELL} The agent says: “${iso("Log in to continue")}”.`,
   });
   assert.deepEqual(out.moved, {
     notice: `Agent needs you · ${iso(name)} on ${at}`,
     site: at,
-    label: `Agent needs you, ${iso(name)}, on ${at}. Resume agent clears password, card and code fields, so submit what you type there first. The agent says: “${iso("Log in to continue")}”.`,
+    label: `Agent needs you, ${iso(name)}, on ${at}. Resume agent clears password, card and code fields, so submit what you type there first. ${TELL} The agent says: “${iso("Log in to continue")}”.`,
   });
   assert.equal(out.ownership, "agentDelegatedToUser", "the user still holds the task");
 });
@@ -388,7 +393,7 @@ test("a hand-off zen-core reloaded first says so on the page, as Take over does,
       await cleanUp();
     }
   `);
-  assert.deepEqual(out.card, { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: CLEARS, more: `The agent says: “${iso("Log in to continue")}”.`, buttons: ["Resume agent"] });
+  assert.deepEqual(out.card, { notice: `Agent needs you · ${iso(name)} on ${site()}`, note: `${CLEARS} ${TELL}`, more: `The agent says: “${iso("Log in to continue")}”.`, buttons: ["Resume agent"] });
   assert.deepEqual(out.reloaded, { text: "This page reloaded", note: RELOADED_NOTE, more: RELOADED_MORE, buttons: ["Dismiss"] });
   assert.equal(out.heard, `Agent needs you in ${iso(name)}, on ${site()}. The agent says: “${iso("Log in to continue")}”. This page reloaded. ${RELOADED_NOTE} ${RELOADED_MORE}`);
 });
@@ -747,10 +752,10 @@ test("the Resume line comes just in time: once the user typed into a password, c
   const said = `The agent says: “${iso("Log in to continue")}”.`;
   // The panel row's Resume agent clears them too: its line comes with the card's.
   assert.deepEqual(out, {
-    before: { note: said, more: null, row: null },
-    typed: { note: CLEARS, more: said, row: CLEARS },
-    next: { note: said, more: null, row: null },
-    early: { note: CLEARS, more: said, row: CLEARS },
+    before: { note: `${said} ${TELL}`, more: null, row: null },
+    typed: { note: `${CLEARS} ${TELL}`, more: said, row: CLEARS },
+    next: { note: `${said} ${TELL}`, more: null, row: null },
+    early: { note: `${CLEARS} ${TELL}`, more: said, row: CLEARS },
   });
 });
 
@@ -1181,7 +1186,7 @@ test("a page the agent made itself: the user's Take over keeps it as it is, and 
       }
     `);
     assert.equal(out.plain.url, "about:blank");
-    const held = more => ({ notice: "You're in control · the agent waits until you resume it", note: CLEARS, more, buttons: ["Resume agent"] });
+    const held = more => ({ notice: "You're in control · the agent can't act", note: `${CLEARS} ${TELL}`, more, buttons: ["Resume agent"] });
     assert.deepEqual(out.plain.card, held(null), "a page that asks for no secret: no line");
     assert.deepEqual(out.password, held(MADE_NOTE), "a password field: the line, once the page answers");
     assert.deepEqual(out.flagged, held(MADE_NOTE), "the agent flagged it: the line at once");
@@ -1224,8 +1229,8 @@ test("end to end, on zen-observe's real record: a data: page the agent went to, 
   });
   await h.chrome(`${Q} await until(() => browser.currentURI.schemeIs("blob") && browser.contentTitle === "Sign in", 5000); return true;`);
   const blob = await h.chrome(`${Q} try { return await takenOver(); } finally { await handBack(); }`);
-  assert.deepEqual(data, { scheme: "data", note: CLEARS, more: MADE_NOTE, buttons: ["Resume agent"] });
-  assert.deepEqual(blob, { scheme: "blob", note: CLEARS, more: MADE_NOTE, buttons: ["Resume agent"] });
+  assert.deepEqual(data, { scheme: "data", note: `${CLEARS} ${TELL}`, more: MADE_NOTE, buttons: ["Resume agent"] });
+  assert.deepEqual(blob, { scheme: "blob", note: `${CLEARS} ${TELL}`, more: MADE_NOTE, buttons: ["Resume agent"] });
 });
 
 test("siteName: the registrable domain zen-observe's record goes by, shown as Firefox shows IDNs", async () => {
@@ -1255,6 +1260,89 @@ test("siteName: the registrable domain zen-observe's record goes by, shown as Fi
     ace: "münchen.de",
     spoof: "xn--pple-43d.com",
   });
+});
+
+test("on a task no Work chat drives, the hold card ends with what comes after Resume agent: to tell the agent, true whether or not a wait comes; that something waits while a wait for control is attached, following each change; the Take over card says only that the agent can't act; a page's permission prompt and a Work chat's task keep their cards", async () => {
+  const out = await h.chrome(`${P}
+    const AS = win.ucAgentSidebar.AgentService;
+    const drives = AS.drivesSpace;
+    // zen-core's wait for control coming or going (rec.agentWaiting, and its
+    // spaceChanged), standing in.
+    const waiting = on => {
+      rec.agentWaiting = on;
+      ctx.spaces.onEvent("spaceChanged", { space: rec.id, agentWaiting: on });
+    };
+    const noteHas = text => (UI.describe(rec).controlNote ?? "").includes(text);
+    const res = {};
+    try {
+      await showTask();
+      handOff("Log in to continue");
+      await until(() => pill());
+      res.handOff = card(UI.describe(rec));
+      waiting(true);
+      await until(() => noteHas("waiting"));
+      res.waits = card(UI.describe(rec));
+      // The agent sidebar's card reads the same line, from the task's row.
+      res.row = UI.tasks().find(r => r.id === rec.id)?.afterResume ?? null;
+      waiting(false);
+      await until(() => !noteHas("waiting"));
+      res.waitGone = card(UI.describe(rec));
+      ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+      await until(() => !pill());
+      res.agentsTurn = UI.afterResume(rec);
+      // The user's own Take over, and the agent's wait that starts once its
+      // next call is refused.
+      ctx.spaces.setOwnership(rec, "agentDelegatedToUser", { source: "user" });
+      await until(() => pill());
+      res.takeOver = card(UI.describe(rec));
+      waiting(true);
+      await until(() => noteHas("waiting"));
+      res.takeOverWaits = card(UI.describe(rec));
+      waiting(false);
+      ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+      await until(() => !pill());
+      // A page's permission prompt holds the task: answering it gives
+      // control back, so its card has no button and no line, a wait or none.
+      ctx.spaces.setOwnership(rec, "agentDelegatedToUser", { source: "permission" });
+      await until(() => pill());
+      waiting(true);
+      await sleep(300);
+      res.permission = { note: UI.describe(rec).controlNote ?? null, buttons: card(UI.describe(rec)).buttons, line: UI.afterResume(rec), row: UI.tasks().find(r => r.id === rec.id)?.afterResume ?? null };
+      waiting(false);
+      ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+      await until(() => !pill());
+      // A task the sidebar's Work chat drives: its agent hears its Resume
+      // there, so its cards stay as they were, a wait or none.
+      AS.drivesSpace = () => true;
+      handOff("Log in to continue");
+      await until(() => pill());
+      waiting(true);
+      await sleep(300);
+      res.work = card(UI.describe(rec));
+      waiting(false);
+      ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+      await until(() => !pill());
+      ctx.spaces.setOwnership(rec, "agentDelegatedToUser", { source: "user" });
+      await until(() => pill());
+      res.workTakeOver = card(UI.describe(rec));
+      return res;
+    } finally {
+      AS.drivesSpace = drives;
+      delete rec.agentWaiting;
+      await cleanUp();
+    }
+  `);
+  const needs = { notice: `Agent needs you · ${iso(name)} on ${site()}`, more: `The agent says: “${iso("Log in to continue")}”.`, buttons: ["Resume agent"] };
+  assert.deepEqual(out.handOff, { ...needs, note: `${CLEARS} ${TELL}` }, "no wait: to tell the agent, after the line that leads");
+  assert.deepEqual(out.waits, { ...needs, note: `${CLEARS} ${WAITS}` }, "a wait attached");
+  assert.equal(out.row, WAITS, "the row carries it for the agent sidebar");
+  assert.deepEqual(out.waitGone, { ...needs, note: `${CLEARS} ${TELL}` }, "the wait gone");
+  assert.equal(out.agentsTurn, null, "nothing while the agent has the task");
+  assert.deepEqual(out.takeOver, inControl(), "the Take over card: the agent can't act, and to tell it");
+  assert.deepEqual(out.takeOverWaits, { ...inControl(), note: `${CLEARS} ${WAITS}` }, "the Take over card once the agent's wait starts");
+  assert.deepEqual(out.permission, { note: null, buttons: [], line: null, row: null }, "a page's permission prompt: no line, with a wait attached");
+  assert.deepEqual(out.work, { ...needs, note: CLEARS }, "a Work chat's hand-off: as it was");
+  assert.deepEqual(out.workTakeOver, { notice: `You're in control · the agent waits until you resume it on ${site()}`, note: CLEARS, more: null, buttons: ["Resume agent"] }, "a Work chat's Take over: as it was");
 });
 
 test("the user's view ends as it started", async () => {

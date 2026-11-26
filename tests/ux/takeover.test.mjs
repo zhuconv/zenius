@@ -249,7 +249,7 @@ test("an ignored prompt after typing leaves the user in control", async () => {
   assert.equal(s.reason, "manual_takeover");
   assert.equal(s.paused, false);
   assert.equal(s.taskBadge.state, "user");
-  assert.equal(s.controlNotice, `You're in control · the agent waits until you resume it on ${site()}`);
+  assert.equal(s.controlNotice, `You're in control · the agent can't act on ${site()}`);
   await assert.rejects(h.call("ui.cursor", { space, page: "p1", x: 10, y: 10 }), {
     code: "ZEN_TASK_SPACE_USER_IN_CONTROL",
     data: { space, reason: "manual_takeover" },

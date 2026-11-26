@@ -1782,10 +1782,11 @@ deadline += await ctx.gate();
   `ZEN_TASK_SPACE_USER_IN_CONTROL`, and the
   agent's cursor hides, keeping its point and label. The page shows
   "You're in control · the agent waits until you resume it · <site>" with
-  [Resume agent] (the site: see "The site" under handOff). A page the
-  agent made is held as it is. When the core loaded the page afresh
-  (`userTakeOver`'s result `how`, "reload" or "get"), it says so too:
-  `zenius-reloaded`, below.
+  [Resume agent] (the site: see "The site" under handOff), or, on a task
+  no Work chat drives, "the agent can't act", with the line on what comes
+  after Resume agent (below). A page the agent made is held as it is.
+  When the core loaded the page afresh (`userTakeOver`'s result `how`,
+  "reload" or "get"), it says so too: `zenius-reloaded`, below.
 - **A Take over that couldn't begin** (the core refused the hold:
   `ZEN_HANDOFF_REFUSED` with `data.reason`, or `ZEN_PAGE_NOT_FOUND`): the
   task stays the agent's, paused until the user picks, and the page shows
@@ -1934,6 +1935,24 @@ deadline += await ctx.gate();
   the page the agent handed you, so copy what you need from it first."
   under Resume agent. It lasts for that hold: a hand-off without the flag, a
   hold the user began, and the agent's run again end it.
+- **What comes after Resume agent** (`ZeniusUI.afterResume`), on a task no
+  Work chat of the agent sidebar drives (its `AgentService.drivesSpace`
+  says false): its agent runs in a terminal, an IDE or a script, which
+  zenius can't reach, and learns of a Resume at its next call, or from a
+  wait for control it left running (`zenius wait`, or MCP's `wait`). So
+  the hold card's small text ends, after whatever leads it, with "The agent
+  is waiting for Resume agent." while the core's `rec.agentWaiting` says
+  some client waits, following spaceChanged's `agentWaiting`, else with
+  "If it doesn't go on after Resume, tell Claude Code in zenius-eval." (or
+  "on laptop/t5x" when its caller runs in an hc terminal, "the agent" with
+  no name). That holds either way, so the card says it first: an agent
+  starts its wait in its next call, after its hand-off or once the user's
+  Take over refuses that call. Some client waiting needn't be the task's
+  own agent, so the line says no more than that. The Take over card's
+  detail there is "the agent can't act", and the agent
+  sidebar's hand-off card shows the same line (the task row's
+  `afterResume`). A Work chat's task, a page's permission prompt, and a
+  task with no sidebar to ask keep their cards as they were.
 - **A Work chat's send as Resume agent** (`ZeniusUI.sendHandBack(rec,
   win)` and `handBackBySend(rec, win)`, which the agent sidebar's composer
   calls). It applies while the user holds the task by Take over (`heldBy`

@@ -158,6 +158,20 @@ export function clearsLine(label) {
 export const SECRET_LINE = "Resume agent clears this page, so copy what you need from it first.";
 /** The same under the tasks panel's Resume agent, away from that page. */
 export const PANEL_SECRET_LINE = "Resume agent clears the page the agent handed you, so copy what you need from it first.";
+/**
+ * A hold card's last line on a task no Work chat of the agent sidebar
+ * drives, while some client waits for control of it (ZeniusUI.afterResume).
+ * That needn't be the task's own agent, so it says no more.
+ */
+export const AGENT_WAITS_LINE = "The agent is waiting for Resume agent.";
+/**
+ * The Take over card's detail on such a task: its agent's calls fail while
+ * the user has it, and it goes on after Resume only if it waits for that,
+ * which the card's last line says (afterResume). Short, since the detail
+ * gives way first to the site and Resume agent, the button beside it, in a
+ * pill at most 560 px wide.
+ */
+export const CANT_ACT_DETAIL = "the agent can't act";
 /** How long each frame gets to say whether it asks for a secret (#asksSecrets). */
 const SECRET_KINDS_MS = 2000;
 /** How long a page the agent made counts as asking for no secret before it's asked again (#madeWarns). */
@@ -781,6 +795,58 @@ class UiController {
   }
 
   /**
+   * A hold card's last line, by Resume agent, on a task no Work chat of the
+   * agent sidebar drives, for the agent's hand-off and the user's own Take
+   * over. Its agent runs in a terminal, an IDE or a script, which zenius
+   * can't reach: it learns of a Resume at its next call, or from a wait for
+   * control it left running (zenius wait, or MCP's wait). With zen-core's
+   * rec.agentWaiting, AGENT_WAITS_LINE, since some client waits; else
+   * tellAgentLine, which holds either way, so the card can say it first:
+   * an agent starts its wait in its next call, after its hand-off or once
+   * the user's Take over refuses that call. The agent sidebar's hand-off
+   * card has the same line.
+   *
+   * Null for a page's permission prompt and any other state, for a Work
+   * chat's task (its agent hears its Resume through the sidebar), and with
+   * no sidebar to say which a task is.
+   *
+   * @param {object} rec
+   * @returns {string|null}
+   */
+  afterResume(rec) {
+    if (!rec || rec.gone || rec.ownership !== "agentDelegatedToUser" || (rec.heldBy !== "agent" && rec.heldBy !== "user")) {
+      return null;
+    }
+    if (this.#drivenBySidebar(rec) !== false) {
+      return null;
+    }
+    return rec.agentWaiting === true ? AGENT_WAITS_LINE : tellAgentLine(rec.source);
+  }
+
+  /**
+   * Whether one of the agent sidebar's Work chats drives `rec`, by the
+   * sidebar's own rule (AgentService.drivesSpace: a chat follows the task, or
+   * its source names a chat the sidebar has); null with no sidebar to ask.
+   * AgentService is one per process, so the first window's will do.
+   *
+   * @param {object} rec
+   * @returns {boolean|null}
+   */
+  #drivenBySidebar(rec) {
+    try {
+      for (const win of Services.wm.getEnumerator("navigator:browser")) {
+        const sidebar = win.ucAgentSidebar?.AgentService;
+        if (typeof sidebar?.drivesSpace === "function") {
+          return !!sidebar.drivesSpace(rec.id, rec.source ?? null);
+        }
+      }
+    } catch (e) {
+      log("the agent sidebar couldn't say who drives a task:", String(e?.message ?? e).slice(0, 120));
+    }
+    return null;
+  }
+
+  /**
    * The panel's Resume: the agent runs again, after the quiet reload of a
    * secret the user typed meanwhile (#beforeAgentRuns).
    *
@@ -885,6 +951,9 @@ class UiController {
         // Pages that joined the task during this hold, by label, with a
         // copy of the tab: their tabs carry JOINED_NOTICE until it ends.
         joined: new Map(),
+        // The last line the hold card showed (afterResume), so a wait that
+        // comes or goes redraws the card only when that changes.
+        afterShown: null,
       };
       this.#spaces.set(id, ui);
     }
@@ -1064,6 +1133,11 @@ class UiController {
       }
     } else if ("stateText" in params && ui.noticeTab && ui.source === "agent" && rec.ownership === "agentDelegatedToUser") {
       // The agent updated what it needs while it waits for the user.
+      this.#showControlNotice(rec, ui.noticeTab, ui.source);
+    } else if ("agentWaiting" in params && ui.noticeTab && ui.source !== "permission" && rec.ownership === "agentDelegatedToUser" && this.afterResume(rec) !== ui.afterShown) {
+      // A wait for control came or went (zen-core's rec.agentWaiting): the
+      // hold card's last line follows (afterResume). The agent sidebar's card
+      // follows from its own sync of the rows, which the event sets off.
       this.#showControlNotice(rec, ui.noticeTab, ui.source);
     }
     if ("ownership" in params || "paused" in params) {
@@ -1689,9 +1763,15 @@ class UiController {
     // instead: Resume blanks the whole page.
     const clears = ui.secretTyped || !this.secretLineJustInTime;
     const lead = ui.secretStep ? SECRET_LINE : clears ? CLEARS_LINE : null;
+    // zenius's last line, by the button, on a task no Work chat drives
+    // (afterResume). Its Take over card then says no more of the agent than
+    // that it can't act.
+    const after = this.afterResume(rec);
+    ui.afterShown = after;
     showNotice(tab, CONTROL_NOTICE, {
       ...card,
-      note: (lead ?? lines.join(" ")) || undefined,
+      ...(after && source === "user" ? { detail: CANT_ACT_DETAIL } : {}),
+      note: [lead ?? lines.join(" "), after].filter(Boolean).join(" ") || undefined,
       more: (lead && lines.join(" ")) || undefined,
       buttons: [{ label: "Resume agent", primary: true, onClick: () => this.#handBack(rec) }],
     });
@@ -3854,6 +3934,7 @@ class UiController {
         })),
         idleFor: this.service.isIdleTask?.(rec) ? idleText(this.service.autoCloseHours) : null,
         clears: this.#panelClears(rec),
+        afterResume: this.afterResume(rec),
       });
       rows.at(-1).needs = needsUser(rows.at(-1));
       rows.at(-1).waitsFor = rows.at(-1).needs ? this.#waitsFor(rec, badge.state) : null;
@@ -4045,6 +4126,25 @@ export function controlCard(rec, source, promptWhat) {
 function agentSays(text) {
   const said = isolate(text);
   return said ? `The agent says: “${said}”${ENDS_SENTENCE.test(said) ? "" : "."}` : "";
+}
+
+/**
+ * A hold card's last line on a task no Work chat drives, with no wait
+ * attached (ZeniusUI.afterResume), true whether or not the agent's wait
+ * comes: "If it doesn't go on after Resume, tell Claude Code in
+ * zenius-eval.", or "on laptop/t5x" when its caller runs in an hc terminal,
+ * and "the agent" for one with no name. The source is zen-core's (each field
+ * in the remote labels' set), each part isolated, as the agent sidebar's
+ * sourceParts says it.
+ *
+ * @param {{terminal?: string, agent?: string, folder?: string}|null|undefined} source
+ * @returns {string}
+ */
+export function tellAgentLine(source) {
+  const part = key => (typeof source?.[key] === "string" ? isolate(source[key]) : "");
+  const [terminal, agent, folder] = [part("terminal"), part("agent"), part("folder")];
+  const who = agent || "the agent";
+  return `If it doesn't go on after Resume, tell ${terminal ? `${who} on ${terminal}` : folder ? `${who} in ${folder}` : who}.`;
 }
 
 /**

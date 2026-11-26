@@ -60,6 +60,7 @@ const els = {
   handoffTitle: $("handoff-title"),
   handoffWords: $("handoff-words"),
   handoffClears: $("handoff-clears"),
+  handoffAfter: $("handoff-after"),
   handoffShow: $("handoff-show"),
   handoffResume: $("handoff-resume"),
   live: $("live"),
@@ -3008,7 +3009,9 @@ function liveState() {
  * clears. Show tab goes to the task's page; Resume agent gives it back. A
  * task another agent drives has it too, in its read-only view, where
  * zenius's Open shows it: that agent's whole message goes in as text, as a
- * Work chat's does.
+ * Work chat's does, and zenius's last line follows what Resume agent
+ * clears: that something waits for Resume agent, or to tell that agent
+ * (ZeniusUI.afterResume), since zenius can't reach it.
  */
 function renderHandOff() {
   const off = conv?.kind === "work" && !conv.scope ? AgentService.handOff(conv) : null;
@@ -3021,6 +3024,8 @@ function renderHandOff() {
   els.handoffWords.textContent = off.message ? `\u2068${off.message}\u2069` : "";
   els.handoffClears.hidden = !off.clears;
   els.handoffClears.textContent = off.clears ?? "";
+  els.handoffAfter.hidden = !off.after;
+  els.handoffAfter.textContent = off.after ?? "";
 }
 
 /**

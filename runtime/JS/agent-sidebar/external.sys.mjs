@@ -107,6 +107,8 @@ export class ExternalTask {
   zenNoted = null;
   /** {terminal?, agent?, folder?}: zen-core's source, text to show only. */
   from = null;
+  /** zenius's last line on the view's hand-off card, as its row last said (ZeniusUI.afterResume). */
+  afterResume = null;
   /** How it ended (zen-core's `ended`: finished, stopped, closed), or null while it runs. */
   ended = null;
   endedAt = 0;
@@ -353,6 +355,14 @@ export class ExternalTasks {
       task.busy = busy;
       task.emit({ type: "busy" });
       changed = true;
+    }
+    // zenius's last line on the view's hand-off card (ZeniusUI.afterResume),
+    // which a wait that comes or goes changes: the view redraws for it, and
+    // the directory's row, which doesn't show it, stays.
+    const after = !done && typeof row?.afterResume === "string" ? row.afterResume : null;
+    if (task.afterResume !== after) {
+      task.afterResume = after;
+      task.emit({ type: "task", stateChanged: false });
     }
     if (state !== task.task.state || text !== task.task.text) {
       const stateChanged = state !== task.task.state;

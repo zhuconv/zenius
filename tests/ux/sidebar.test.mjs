@@ -2488,7 +2488,11 @@ test("a steer while the agent waits for the user after its hand-off, with Claude
       .filter(([label]) => label.startsWith("Wait") || label.startsWith("[Tool call"));
     const card = () => {
       const block = doc.getElementById("handoff");
-      return { shown: !!block && !block.hidden, whole: !!block && !block.hidden && block.textContent.includes(${JSON.stringify(HANDSTEER)}) };
+      return {
+        shown: !!block && !block.hidden,
+        whole: !!block && !block.hidden && block.textContent.includes(${JSON.stringify(HANDSTEER)}),
+        after: !!block && !block.hidden && !doc.getElementById("handoff-after").hidden,
+      };
     };
     try {
       g.showTask(conv);
@@ -2504,6 +2508,7 @@ test("a steer while the agent waits for the user after its hand-off, with Claude
         busy: conv.busy,
         answer: conv.messages.findLast(m => m.role === "assistant")?.text ?? null,
         card: card(),
+        afterLine: AS.zeniusUI().afterResume(rec),
       };
       // The user signs in and presses the card's Resume agent.
       const resume = doc.getElementById("handoff-resume");
@@ -2539,9 +2544,10 @@ test("a steer while the agent waits for the user after its hand-off, with Claude
   assert.match(out.steered.answer ?? "", /work account/, "the agent answered the question");
   assert.deepEqual(out.steered.first, { status: "failed", step: waiting }, JSON.stringify(out.steered));
   assert.deepEqual(out.steered.marks, [[waiting, "stopped"], [waiting, "waiting"]], "ended for the message, not failed; the new wait waits");
-  assert.deepEqual(out.steered.card, { shown: true, whole: true }, "the hand-off card shows the agent's whole message");
+  assert.deepEqual(out.steered.card, { shown: true, whole: true, after: false }, "the hand-off card shows the agent's whole message, and no line after Resume: the sidebar's own agent hears it");
+  assert.equal(out.steered.afterLine, null, "a Work chat's task has no line after Resume, on the page's card either");
   assert.equal(out.button, true, "the card has Resume agent");
-  assert.deepEqual(out.end, { said: true, marks: [[waiting, "stopped"], [waiting, "done"]], card: { shown: false, whole: false }, owner: "agent" }, JSON.stringify(out.end));
+  assert.deepEqual(out.end, { said: true, marks: [[waiting, "stopped"], [waiting, "done"]], card: { shown: false, whole: false, after: false }, owner: "agent" }, JSON.stringify(out.end));
 });
 
 test("Claude Code's own words on a call (harnessWords): the moved and MCP-interrupted ones count only on an MCP call, the only calls Claude Code says them of, so a fetched page's summary can't keep its session in use; the others on any tool", async () => {
@@ -4502,6 +4508,7 @@ test("zenius's Open on a task another agent drives, while it waits for the user,
           made: !!el("handoff").querySelector("img, b"),
           show: shown(el("handoff-show")),
           resume: shown(el("handoff-resume")),
+          after: shown(el("handoff-after")) ? el("handoff-after").textContent : null,
         };
         res.needsCard = !!doc.querySelector(".ext-needs");
         // Show tab: the task's page, and the sidebar stays on the task.
@@ -4537,7 +4544,16 @@ test("zenius's Open on a task another agent drives, while it waits for the user,
     assert.deepEqual(out.shown, { uid: `ext-${id}`, external: "true", draft: "A draft for my own chat" }, "the task's own view, and the chat shown before keeps its draft");
     assert.deepEqual(
       out.card,
-      { title: `${iso(name)} needs a sign-in`, words: iso(words), elements: 0, made: false, show: true, resume: true },
+      {
+        title: `${iso(name)} needs a sign-in`,
+        words: iso(words),
+        elements: 0,
+        made: false,
+        show: true,
+        resume: true,
+        // No wait is attached: what comes after Resume agent (afterResume).
+        after: `If it doesn't go on after Resume, tell ${iso("Claude Code")} in ${iso("zenius-eval")}.`,
+      },
       "the agent's whole message goes in as text, by the Work chat's card's own path (renderHandOff's textContent)"
     );
     assert.equal(out.needsCard, false, "the hand-off card says it, not the Needs you card");
@@ -4613,6 +4629,65 @@ test("the hand-off card's title isolates the task's name, in Work's card and in 
   } finally {
     // The user holds it: it goes back first, as zenius won't finish a task
     // the agent doesn't control.
+    await chrome(`const s = win.ucAgentSidebar.AgentService.zenius().spaces; const rec = s.peek(arg.id); if (rec && rec.ownership !== "agent") s.setOwnership(rec, "agent", { source: "user" }); return true;`, { id }).catch(() => {});
+    await h.call("spaces.finish", { space: id, keep: [] }).catch(() => {});
+  }
+});
+
+test("a task another agent drives: its hand-off card in the sidebar and its pill end with the same line on what comes after Resume agent, which follows a wait for control as it comes and goes", async () => {
+  const name = `zen-ui after resume ${run}`;
+  const { id } = await h.createSpace({ name, source: { agent: "Codex", terminal: "laptop/t5x" } });
+  await h.call("page.goto", { space: id, page: "p1", url: `${www()}/zen-ux/hidden.html?after` });
+  await h.call("spaces.setState", { space: id, text: "Sign in to your account" });
+  await h.call("spaces.handOff", { space: id, reason: "sign_in" });
+  try {
+    const out = await chrome(
+      `
+      await S.openPanel();
+      const g = win.ucAgentSidebar;
+      const A = g.AgentService;
+      const UI = A.zeniusUI();
+      const doc = S.panelDoc();
+      const el = id => doc.getElementById(id);
+      const shown = e => !!e && !e.hidden && doc.defaultView.getComputedStyle(e).display !== "none";
+      const after = () => (shown(el("handoff")) && shown(el("handoff-after")) ? el("handoff-after").textContent : null);
+      const rec = A.zenius().spaces.peek(arg.id);
+      const pill = () => UI.describe(rec).controlNote ?? null;
+      // zen-core's wait for control coming or going (rec.agentWaiting, and
+      // its spaceChanged), standing in.
+      const waiting = on => {
+        rec.agentWaiting = on;
+        A.zenius().spaces.onEvent("spaceChanged", { space: rec.id, agentWaiting: on });
+      };
+      const userSpace = win.gZenWorkspaces.activeWorkspace;
+      const userTab = win.gBrowser.selectedTab;
+      const res = {};
+      try {
+        await UI.goToTask(rec, null, win);
+        await S.until(() => g.currentTask?.uid === "ext-" + arg.id && after(), 10000);
+        res.tell = { card: after(), pill: pill() };
+        waiting(true);
+        await S.until(() => after()?.includes("waiting") && pill()?.includes("waiting"), 5000);
+        res.waits = { card: after(), pill: pill() };
+        waiting(false);
+        await S.until(() => after() && !after().includes("waiting") && !pill()?.includes("waiting"), 5000);
+        res.gone = { card: after(), pill: pill() };
+        return res;
+      } finally {
+        delete rec.agentWaiting;
+        if (win.gZenWorkspaces.activeWorkspace !== userSpace) await win.gZenWorkspaces.changeWorkspaceWithID(userSpace);
+        if (userTab.isConnected) win.gBrowser.selectedTab = userTab;
+      }
+    `,
+      { id }
+    );
+    const tell = `If it doesn't go on after Resume, tell ${iso("Codex")} on ${iso("laptop/t5x")}.`;
+    const waits = "The agent is waiting for Resume agent.";
+    const words = `The agent says: “${iso("Sign in to your account")}”.`;
+    assert.deepEqual(out.tell, { card: tell, pill: `${words} ${tell}` }, "no wait: both cards say to tell the agent where it runs");
+    assert.deepEqual(out.waits, { card: waits, pill: `${words} ${waits}` }, "a wait attached: both say something waits");
+    assert.deepEqual(out.gone, out.tell, "the wait gone: back to telling the agent");
+  } finally {
     await chrome(`const s = win.ucAgentSidebar.AgentService.zenius().spaces; const rec = s.peek(arg.id); if (rec && rec.ownership !== "agent") s.setOwnership(rec, "agent", { source: "user" }); return true;`, { id }).catch(() => {});
     await h.call("spaces.finish", { space: id, keep: [] }).catch(() => {});
   }
@@ -10225,12 +10300,6 @@ test("a second press while a send gives the task back waits for it: one hand bac
   assert.ok(!prompts[second].some(t => t.startsWith("<zenius-note>")), "the second message has no note");
 });
 
-// The reply after a finish, the sidebar's side: the user's own message to a
-// Work chat whose task had ended asks zenius to give the task back
-// (resumeFinishedTask, a stand-in here) as the message goes out, at once or
-// from the queue once the turn has ended, and the agent's turn hears what came
-// back. A send that isn't the user's press asks nothing. zenius decides
-// whether there's anything to resume (a live task's chat gets null).
 test("what the agent's turn hears when the user's reply gave back an ended task (resumeNote): the pages back by label and address, those not back by label alone, the devices turned off, and the secret fields emptied, whoever filled them", async () => {
   const out = await chrome(`
     const { resumeNote } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentService.sys.mjs");
@@ -10263,6 +10332,12 @@ test("what the agent's turn hears when the user's reply gave back an ended task 
   assert.ok(!out.back.includes("search.example") && !out.none.includes("bank.example"), "a page that stays the user's goes by its label alone");
 });
 
+// The reply after a finish, the sidebar's side: the user's own message to a
+// Work chat whose task had ended asks zenius to give the task back
+// (resumeFinishedTask, a stand-in here) as the message goes out, at once or
+// from the queue once the turn has ended, and the agent's turn hears what came
+// back. A send that isn't the user's press asks nothing. zenius decides
+// whether there's anything to resume (a live task's chat gets null).
 test("the user's reply to a Work chat whose task had ended gives back its untouched pages as it goes out: at once, and from the queue only once the turn has ended; the agent's turn hears which came back, why the rest didn't, and what the change of control turned off or emptied, and the chat says so; a send that isn't the user's press asks nothing", async () => {
   await useMock();
   const out = await chrome(`${HANDBACK}
