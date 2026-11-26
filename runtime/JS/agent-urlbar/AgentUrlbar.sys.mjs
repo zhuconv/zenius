@@ -1,5 +1,5 @@
-/* The address bar's '>' dispatch to the agent sidebar (zen-sidebar's,
- * until zen-ux builds the official one from it).
+/* The address bar's '>' dispatch to the agent sidebar (the sidebar's,
+ * until the UI builds the official one from it).
  *
  * Input that starts with '>' gets a first row "Ask agent: <text>", without
  * the '>'. Enter or a click on it starts a new work chat with <text>:

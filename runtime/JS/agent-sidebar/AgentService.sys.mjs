@@ -40,7 +40,7 @@ import {
   processFolder,
   sessionLimits,
 } from "./workspace.sys.mjs";
-// Remote tasks (zen-observe's): conv.remote and its hooks below.
+// Remote tasks (the observe layer's): conv.remote and its hooks below.
 import {
   keepRemote,
   remoteChanged,
@@ -175,7 +175,7 @@ const ZENIUS_SERVICE = "chrome://userscripts/content/zenius/modules/service.sys.
 const ZENIUS_UI = "chrome://userscripts/content/zenius/ui/index.sys.mjs";
 // zenius's tasks panel: its words for what a waiting task waits for (handOff).
 const ZENIUS_PANEL = "chrome://userscripts/content/zenius/ui/panel.sys.mjs";
-/** zen-input's steps (stepsOf, onStep, stopScript): a script's lines (SPI "Each task's steps"). */
+/** The input layer's steps (stepsOf, onStep, stopScript): a script's lines (SPI "Each task's steps"). */
 const STEPS_MODULE = "chrome://userscripts/content/zenius/input/steps.sys.mjs";
 // zenius's version, from its runtime: read as an agent starts, so the
 // sidebar's start loads no zenius module.
@@ -1024,7 +1024,7 @@ function userMessage({ question, selection = "", attachments = [], page = null, 
 
 // Every character that ends a line, not "\n" alone: a "\r", a vertical tab,
 // a form feed, NEL or a Unicode line or paragraph separator in page text
-// starts a line too, for a reader if not for split("\n") (zen-observe's
+// starts a line too, for a reader if not for split("\n") (the observe layer's
 // review), so each becomes "\n" before a quote.
 const LINE_BREAKS = /\r\n|[\r\v\f\u0085\u2028\u2029]/g;
 
@@ -1074,7 +1074,7 @@ export function oneLine(text, max = 120) {
 
 /**
  * The thread's note on the pages zenius loaded afresh at a task's end to
- * undo what the agent's code left in them (zen-core's pagesReloaded, after
+ * undo what the agent's code left in them (the core's pagesReloaded, after
  * reloadHookedAfterTask). Each page shows as its host and path: never its
  * query or fragment, which may carry a token or what the user typed. Null
  * with no pages.
@@ -1666,7 +1666,7 @@ export const SCRIPT_LINES_FIRST = 10;
 export const SCRIPT_LINES_LAST = 40;
 
 /**
- * A step of a script (zen-input's, with `within`) as a line under the
+ * A step of a script (the input layer's, with `within`) as a line under the
  * script's step: the runtime's text, which SPI's rules on steps already
  * keep to what a step may show, and its outcome, as the directory's view
  * has them ("running", "ok", "stopped" or the error's code). A call refused
@@ -2323,7 +2323,7 @@ export function taskInfo(conv, held = false, zenNeeds = false) {
   if (asking) {
     return { state: "needs", text: `Allow: ${oneLine(asking.title, 100)}`, why: "permission" };
   }
-  // A remote task that ended says why (zen-observe's conv.remote.final),
+  // A remote task that ended says why (the observe layer's conv.remote.final),
   // until the user takes a turn there themselves.
   const ended = !conv.busy && remoteEnd(conv);
   if (ended) {
@@ -2429,7 +2429,7 @@ export function keptArchived(list, now = Date.now()) {
 /**
  * Where a remote task came from, as its card, its directory row and its
  * questions say it, one phrase: "From <label> on devbox/t5", or "From
- * devbox/t5" with no label (conv.remote, zen-observe's remote tasks: plain
+ * devbox/t5" with no label (conv.remote, the observe layer's remote tasks: plain
  * strings its API has checked). The label and the address are each a
  * first-strong isolate, so a label in a right-to-left script keeps "From"
  * and "on" in place. The address comes last, where the chip goes
@@ -2453,7 +2453,7 @@ export function remoteSource(conv, lead = "From") {
 
 /**
  * Why a remote task stopped, as its chat's end, its directory row and its
- * title say it: zen-observe's conv.remote.final.stopReason, with the caller's
+ * title say it: the observe layer's conv.remote.final.stopReason, with the caller's
  * address (isolated, as remoteSource does). Null while it runs, when it
  * failed (its error says why), and once the user has taken a turn there
  * themselves (an edit of its question too), since the chat is theirs then.
@@ -2948,7 +2948,7 @@ export const AgentService = {
   // tool, lines, moreLines, ended} (onScriptStep). One that ended stays until
   // the next script begins, for its lines' own ends (sweepScripts).
   scripts: new Map(),
-  /** zen-input's steps module, null without it; tests set a stand-in (stepsModule). */
+  /** The input layer's steps module, null without it; tests set a stand-in (stepsModule). */
   steps: undefined,
   offSteps: null,
   saveTasksTimer: null,
@@ -3414,7 +3414,7 @@ export const AgentService = {
       }
     }
     // The way back's line and All tasks' rows go now, not at their next
-    // render: a cleared chat's question stayed on the screen (zen-observe).
+    // render: a cleared chat's question stayed on the screen (the observe layer).
     for (const listener of [...this.chatListeners]) {
       try {
         listener();
@@ -3538,7 +3538,7 @@ export const AgentService = {
    * live task or Space has it, `name` with the first free number, as a new
    * task's gets one (the SDK's startTaskSpace: "<name> 2"). zenius keeps
    * live names unique, and a script finds its task by name (taskSpace):
-   * two alike would send its next run into this task (zen-observe's
+   * two alike would send its next run into this task (the observe layer's
    * review). The sidebar shows the name as the user typed it, and a number
    * the task has already stays (zenNamed), so the name doesn't flip back
    * once the other task ends.
@@ -3905,7 +3905,7 @@ export const AgentService = {
   /**
    * The view's Stop for a task the sidebar doesn't drive: zenius ends it as
    * the strip's Stop does (ZeniusUI.stopByUser), and the agent's next call
-   * fails saying the user stopped it (zen-core's ZEN_TASK_SPACE_INACTIVE,
+   * fails saying the user stopped it (the core's ZEN_TASK_SPACE_INACTIVE,
    * reason stopped).
    */
   stopExternal(conv) {
@@ -3946,7 +3946,7 @@ export const AgentService = {
   },
 
   /**
-   * The tasks that need the user: the Work switch's count. It's zen-ux's
+   * The tasks that need the user: the Work switch's count. It's the UI's
    * strip count (ZeniusUI.needsCount), so the two say the same number (the
    * user's ask): every zenius task that needs the user, the sidebar's and
    * the others, plus the sidebar's tasks that need the user where no zenius
@@ -4282,7 +4282,7 @@ export const AgentService = {
     return service;
   },
 
-  /** zen-ux's controller, which the tasks panel's Open and Take over use; null until it runs. */
+  /** The UI's controller, which the tasks panel's Open and Take over use; null until it runs. */
   zeniusUI() {
     if (!this.zenius()) {
       return null;
@@ -4745,7 +4745,7 @@ export const AgentService = {
   },
 
   /**
-   * zen-core loaded pages of a chat's task afresh at the task's end
+   * The core loaded pages of a chat's task afresh at the task's end
    * (pagesReloaded): the thread names them (reloadedNote). The chat is the
    * one whose task it was, which it keeps after the end (conv.zen).
    */
@@ -4798,7 +4798,7 @@ export const AgentService = {
     return this.steps;
   },
 
-  /** A stand-in for zen-input's module (tests); null restores the real one. */
+  /** A stand-in for the input layer's module (tests); null restores the real one. */
   set stepsModule(module) {
     this.offSteps?.();
     this.offSteps = null;
@@ -4820,7 +4820,7 @@ export const AgentService = {
   },
 
   /**
-   * A step began or ended (zen-input's onStep). A script step in a chat's
+   * A step began or ended (the input layer's onStep). A script step in a chat's
    * task is that chat's running script call's; each step that carries its
    * id (`within`) is a line under the call, live, kept on the call's message.
    * Other tasks' steps, a terminal agent's script's say, are left alone.
@@ -4951,7 +4951,7 @@ export const AgentService = {
    * the pref names never falls back to them: a test's or a dev Zen's scratch
    * path must never run the user's own Claude Code with their sign-in, so a
    * missing one fails as before. A config that can't be read leaves no agents
-   * either: the list mustn't keep the agents of an earlier read (zen-ux's
+   * either: the list mustn't keep the agents of an earlier read (the UI's
    * sidebar tests). Runs again before each agent process starts, so an
    * install or a removed CLI shows at the next one.
    */

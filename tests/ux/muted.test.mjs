@@ -1,4 +1,4 @@
-// The sign of zen-observe's mute on an agent tab (ui/muted.sys.mjs and
+// The sign of the observe layer's mute on an agent tab (ui/muted.sys.mjs and
 // zenius-ux.css): a muted-speaker badge on the tab's icon and a tooltip line,
 // once a page the user can't see has played sound, gone once they see it.
 import assert from "node:assert/strict";
@@ -43,7 +43,7 @@ before(async () => {
       const b = document.createElement("button");
       b.id = "play";
       b.textContent = "play";
-      // An <audio> in the page: zen-observe hears its "playing" event.
+      // An <audio> in the page: the observe layer hears its "playing" event.
       const audio = document.createElement("audio");
       audio.src = ${JSON.stringify(SILENT_WAV)};
       b.onclick = () => audio.play().then(() => (window.__r = "playing"), e => (window.__r = "ERR " + e.name));

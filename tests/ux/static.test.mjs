@@ -1,4 +1,4 @@
-// Static checks of zen-ux's code: what must never appear in it.
+// Static checks of the UI's code: what must never appear in it.
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";

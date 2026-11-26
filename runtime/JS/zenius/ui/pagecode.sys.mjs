@@ -1,15 +1,15 @@
-// The page-code card (zen-input's glue in zen-ux's files). With the user's
-// page-code setting at "ask", zen-observe holds the agent's page code on a
+// The page-code card (the input layer's glue in the UI's files). With the user's
+// page-code setting at "ask", the observe layer holds the agent's page code on a
 // site the user hasn't allowed, and asks once per task and site
 // (observe/pagecode.sys.mjs, onPageCodeAsk). The agent's tab asks the user,
-// in zen-observe's words: Allow on this site puts the site on the user's
+// in the observe layer's words: Allow on this site puts the site on the user's
 // list, on their own click only; Not now refuses it for that task and writes
 // nothing.
 //
 // The card is a notice (ui/notices.sys.mjs): chrome, which page code can't
 // reach, and the agent's synthesized clicks and keys never leave its content.
 // It takes no focus and moves no view (I1). It stays until the user answers,
-// as zen-observe doesn't ask again for that task and site, and goes when the
+// as the observe layer doesn't ask again for that task and site, and goes when the
 // task ends or its tab closes.
 
 import { noticeElement, removeNotice, showNotice } from "chrome://userscripts/content/zenius/ui/notices.sys.mjs";
@@ -28,14 +28,14 @@ export const PAGE_CODE_NOTICE = "zenius-pagecode:";
 /**
  * The cards up, by task and site: a task's end takes its cards down, and an
  * Allow every card for that site. `space` is the task's record, as the ask
- * gave it (zen-observe keys its asks by it); `id` is its id.
+ * gave it (the observe layer keys its asks by it); `id` is its id.
  *
  * @type {Map<string, {space: object, id: number, site: string, tab: Element, value: string}>}
  */
 const asks = new Map();
 
 /**
- * zen-observe's site, "https://example.com", as the card names it: the
+ * The observe layer's site, "https://example.com", as the card names it: the
  * host for https, else the whole site, so an http site doesn't pass for
  * the https one the list keeps apart. Always whole: the user decides on it,
  * and the card's title wraps (zenius-ux.css). The host as the address bar
@@ -64,9 +64,9 @@ export function siteLabel(site) {
 }
 
 /**
- * The card's opts (also for the Mac look test): zen-observe's words.
+ * The card's opts (also for the Mac look test): the observe layer's words.
  *
- * @param {string} site  zen-observe's site, "https://example.com"
+ * @param {string} site  the observe layer's site, "https://example.com"
  * @param {{allow?: (event: Event) => void, notNow?: () => void}} [actions]
  * @returns {import("chrome://userscripts/content/zenius/ui/notices.sys.mjs").NoticeOptions}
  */
@@ -84,7 +84,7 @@ export function pageCodeCard(site, actions = {}) {
 }
 
 /**
- * zen-observe's ask: show the card in the tab of `browser`. A second ask for
+ * The observe layer's ask: show the card in the tab of `browser`. A second ask for
  * the same task and site updates the card in place.
  *
  * @param {{space: {id: number}, browser: Element, site: string}} event  space: the task's record
@@ -124,7 +124,7 @@ export function askPageCode({ space, browser, site } = {}, { announce } = {}) {
 }
 
 /**
- * The task ended: its cards go. Its asks end with it in zen-observe.
+ * The task ended: its cards go. Its asks end with it in the observe layer.
  *
  * @param {number} id  the task's id
  */
@@ -139,8 +139,8 @@ export function endPageCodeAsks(id) {
 
 /**
  * Allow on this site. Only the user's own click writes the list: a trusted
- * click on this button, in this tab's card (#allowLocal's check, as zen-ux
- * asked). zen-observe's allowPageCodeSite checks it again and writes the
+ * click on this button, in this tab's card (#allowLocal's check, as the UI
+ * asked). The observe layer's allowPageCodeSite checks it again and writes the
  * exact site once.
  *
  * @param {Element} tab
@@ -175,7 +175,7 @@ function allow(tab, value, site, event) {
 
 /**
  * Not now: that task's calls on the site fail, saying the user declined.
- * Nothing is written, and zen-observe doesn't ask again for that task and
+ * Nothing is written, and the observe layer doesn't ask again for that task and
  * site. The card goes after the click.
  *
  * @param {{id: number}} space  the task's record, as the ask gave it

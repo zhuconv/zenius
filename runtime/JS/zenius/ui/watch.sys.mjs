@@ -272,7 +272,7 @@ export class Watches {
       // themselves. The tab Zen picks when the one shown closes (its pill's
       // Close, ⌘W) isn't a place they picked. Firefox picks it before it
       // marks that tab closing, in the same call, so look once that's over:
-      // a page the user left closes later (zen-core's closeLeft, a tick on).
+      // a page the user left closes later (the core's closeLeft, a tick on).
       const done = w.done;
       const previous = event.detail?.previousTab;
       if (done) {

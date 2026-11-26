@@ -10,7 +10,7 @@
 // for a private address, to come up for real, so these tests raise them from
 // chrome with the requesting origin as displayURI, as PermissionUI does: the
 // watcher only sees PopupNotifications either way. persist() and the
-// prompt service's requests raise them for real, through zen-observe's
+// prompt service's requests raise them for real, through the observe layer's
 // backstops, which cancel them only on evidence (their commit C): those tests
 // give the page real evidence (the flag is per document) and end on a new load.
 import assert from "node:assert/strict";
@@ -41,7 +41,7 @@ before(async () => {
   `;
   // A Block stored for the site would answer persist() without a prompt.
   await h.chrome(`${P} Services.perms.removeFromPrincipal(browser.contentPrincipal, "persistent-storage");`);
-  // No page has evidence of danger unless a test says so (zen-observe's
+  // No page has evidence of danger unless a test says so (the observe layer's
   // flag, which their suites test).
   await h.chrome(`${P} ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI.evidenceOf = () => ({}); return true;`);
 });
@@ -95,7 +95,7 @@ test("a storage access prompt in a background agent page hands the Space to the 
   assert.equal(out.panelOpen, false, "nothing shows over the user's Space");
   assert.deepEqual(await h.call("dev.viewState"), userView);
   // The gate every mutating call passes (moveCursor's on visible tabs,
-  // zen-core's dispatcher for the rest) fails with the reason key.
+  // the core's dispatcher for the rest) fails with the reason key.
   const gate = await h.chrome(`${P}
     const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;
     try { ctx.spaces.gate(rec); return null; } catch (e) { return { code: e.code, data: e.data }; }
@@ -226,7 +226,7 @@ test("a site whose prompt went unanswered can't ask again: after its own reload,
   assert.match(refused[0].message, /^http:\/\/127\.0\.0\.1:\d+ asked for storage access after leaving an earlier request unanswered in this task, so the prompt was cancelled without asking the user\./);
 });
 
-// zen-observe's backstop (their C) cancels persist() before any prompt only in
+// The observe layer's backstop (their C) cancels persist() before any prompt only in
 // a page with evidence of danger, held or not; otherwise the prompt shows. The
 // page gets real evidence for the last two cases: the flag is per document,
 // so they come last, and the test ends on a new load.
@@ -471,7 +471,7 @@ test("after 3 unanswered requests in a task, no page can hand it to the user; th
   assert.equal(refused[0].message, "https://c4.example asked for storage access, but pages left 3 requests unanswered in this task, so the prompt was cancelled without asking the user. To let them answer it, hand them the task.");
 });
 
-// Real requests through Firefox's prompt service, past zen-observe's prompt
+// Real requests through Firefox's prompt service, past the observe layer's prompt
 // backstop (modules/backstops.sys.mjs): ContentPermissionPrompt, its
 // Integration override, PermissionUI, PopupNotifications, the watcher. A
 // mock nsIContentPermissionRequest stands in for the page's, on the task's
@@ -479,7 +479,7 @@ test("after 3 unanswered requests in a task, no page can hand it to the user; th
 // evidence for the last cases, so the override is what cancels them (their
 // C); the watcher's own cancel is the test before.
 test("real requests through Firefox's prompt service, past zen-observe's backstops: while the agent drives, each hands the task to the user with its reason; while the user holds the task, each is theirs; on evidence of danger, each is cancelled before any doorhanger, held or not", async () => {
-  // A new document: zen-core tells the agent of each cancelled type once per document.
+  // A new document: the core tells the agent of each cancelled type once per document.
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/?prompt-service` });
   await h.call("page.events", { space, page: "p1" });
   const out = await h.chrome(`${P}

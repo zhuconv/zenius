@@ -1,7 +1,7 @@
 // Chat that survives a restart, an update's included. A tab's chat is saved in
 // the profile (agent-sidebar-chats.json, beside the tasks file) under an opaque
 // id its tab keeps as a SessionStore value, and comes back with the tab. The
-// agents are zen-sidebar's mock (tests/fixtures/agent-sidebar), on loopback
+// agents are the sidebar's mock (tests/fixtures/agent-sidebar), on loopback
 // only. Some tests quit and start this suite's dev Zen (scripts/zen-dev.sh), as
 // a restart or an update does, and the last one leaves it as it found it.
 //
@@ -37,7 +37,7 @@ let profile;
 
 const page = (title, body) => `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title></head><body><p>${body}</p></body></html>`;
 const www = () => `http://127.0.0.1:${server.address().port}`;
-/** Chrome JS with zen-sidebar's scene helpers (`S`) first; `arg` is bound to `arg`. */
+/** Chrome JS with the sidebar's scene helpers (`S`) first; `arg` is bound to `arg`. */
 const chrome = (code, arg) => client.call("dev.evalChrome", { code: `${SCENE}\n${HELPERS}\n${code}`, arg });
 
 // Chrome helpers: the sidebar, a tab on one of this suite's pages, a question
@@ -45,7 +45,7 @@ const chrome = (code, arg) => client.call("dev.evalChrome", { code: `${SCENE}\n$
 const HELPERS = `
   const g = win.ucAgentSidebar;
   const A = g?.AgentService;
-  // The panel and All tasks, read as the self-check reads them (zen-ux's sidebarview).
+  // The panel and All tasks, read as the self-check reads them (the UI's sidebarview).
   const { sidebarView } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/sidebarview.sys.mjs");
   const V = sidebarView(win, { frameMs: null });
   const FILE = PathUtils.join(PathUtils.profileDir, ${JSON.stringify(FILE)});

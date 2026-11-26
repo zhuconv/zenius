@@ -1,5 +1,5 @@
 /* Agent Sidebar, the post-install self-check's scenarios: the sidebar's half
- * of the self-check. zen-core's runner and its window are in
+ * of the self-check. The core's runner and its window are in
  * zenius/modules/selfcheck.sys.mjs.
  *
  * The runner opens a window that isn't a browser window and hands it here:
@@ -422,7 +422,7 @@ let current = null;
  * the run's own, with one earlier task in it (so Archive has a task to
  * move on to). Resolves with the scope once the panel shows.
  *
- * @param {Window} win  the runner's window (zen-core's window.xhtml)
+ * @param {Window} win  the runner's window (the core's window.xhtml)
  * @returns {Promise<object>} the scope (AgentService.openScope)
  */
 export async function prepare(win) {

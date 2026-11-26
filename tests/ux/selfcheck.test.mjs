@@ -1,6 +1,6 @@
 // The post-install self-check from the user's side.
 //
-// A self-check runs zen-sidebar's scenarios in a window of its own, with
+// A self-check runs the sidebar's scenarios in a window of its own, with
 // synthetic tasks and a mock agent, inside the user's running Zen. The
 // user's own window must show none of it, from the run's start to the end of
 // its cleanup:
@@ -31,7 +31,7 @@ import { setup } from "./lib.mjs";
 
 const CLI = new URL("../../sdk/bin/zenius", import.meta.url).pathname;
 const MEDIA_CHECK = new URL("../../scripts/media-check.pl", import.meta.url).pathname;
-// zen-core's runner and zen-sidebar's scenarios.
+// The core's runner and the sidebar's scenarios.
 const SELFCHECK = "chrome://userscripts/content/zenius/modules/selfcheck.sys.mjs";
 const SCENARIOS = "chrome://userscripts/content/agent-sidebar/selfcheck.sys.mjs";
 // The user's sidebar, read by the module the self-check's scenarios drive
@@ -108,7 +108,7 @@ const SEEN = `
       // Headless Linux has no stacking order to read. What "frontmost" can
       // mean here: the user's window stays the active one and the one zenius
       // and Zen pick as the front browser window (the self-check's, of
-      // another type, is never a candidate). zen-eval checks how it looks on
+      // another type, is never a candidate). The eval harness checks how it looks on
       // the Mac.
       focus: {
         active: Services.focus.activeWindow === win,
@@ -176,7 +176,7 @@ const USER_END = `
 `;
 
 /**
- * One self-check run through SelfCheck.start(), with zen-sidebar's scenarios
+ * One self-check run through SelfCheck.start(), with the sidebar's scenarios
  * wrapped. Each step's shot first samples the user's window. `arg.how` makes
  * the first step of the second check take its shot and then throw ("fail")
  * or never return ("hang": the run's limit ends it). Either way the summary

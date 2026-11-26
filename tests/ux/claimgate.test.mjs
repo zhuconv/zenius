@@ -1,5 +1,5 @@
-// zen-core's claim gate, end to end: an agent's spaces.claim of a user's
-// Space waits for the user's answer on zen-ux's prompt. These tests make
+// The core's claim gate, end to end: an agent's spaces.claim of a user's
+// Space waits for the user's answer on the UI's prompt. These tests make
 // the agent's real call and play the user's clicks; claim.test.mjs covers
 // the prompt itself on stand-in events.
 import assert from "node:assert/strict";

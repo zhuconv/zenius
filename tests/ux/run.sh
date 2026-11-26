@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# zen-ux runtime tests: start a headless dev Zen, run tests/ux/*.test.mjs
+# The UI runtime tests: start a headless dev Zen, run tests/ux/*.test.mjs
 # against it, stop it.
 #
 #   tests/ux/run.sh                     instance "uxtest-<checkout suffix>"

@@ -1,7 +1,7 @@
-// zenius's agent sidebar (docs/agent-sidebar.md), headless: the hooks zen-eval's
+// zenius's agent sidebar (docs/agent-sidebar.md), headless: the hooks the eval harness's
 // Mac tests go by, both modes, the directory, the address bar's '>' rows, and
 // what doctor reads (ui.sidebarStatus and the file's marker line). The agents
-// are zen-sidebar's mock (tests/fixtures/agent-sidebar) on loopback only: its
+// are the sidebar's mock (tests/fixtures/agent-sidebar) on loopback only: its
 // browser steps go through this checkout's own `zenius mcp` to this instance.
 // A dev profile starts with uc.agent-sidebar.config = "none" (zen-dev.sh), so
 // the tests point it at the mock's config and set it back after.
@@ -22,7 +22,7 @@ const DEV = new URL("../../scripts/zen-dev.sh", import.meta.url).pathname;
 const SCENE = readFileSync(join(FIX, "scene.js"), "utf8");
 const PREF = "uc.agent-sidebar.config";
 // The mock's agents are neither Claude Code nor Codex, which the sidebar
-// greys out unless this is set (zen-observe's limits).
+// greys out unless this is set (the observe layer's limits).
 const PREF_UNKNOWN = "zenius.agentSidebar.allowUnknownAgents";
 
 let h;
@@ -239,7 +239,7 @@ const www = () => `http://127.0.0.1:${server.address().port}`;
 // Its frames are the panel's own however long they take: a test reads what
 // they drew.
 const VIEW = `const V = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/sidebarview.sys.mjs").sidebarView(win, { frameMs: null });`;
-/** Chrome JS with zen-sidebar's scene helpers (`S`) and the sidebar's view (`V`) first; `arg` is bound to `arg`. */
+/** Chrome JS with the sidebar's scene helpers (`S`) and the sidebar's view (`V`) first; `arg` is bound to `arg`. */
 const chrome = (code, arg) => h.call("dev.evalChrome", { code: `${SCENE}\n${VIEW}\n${code}`, arg });
 /** Zen's home folder (before), which the sidebar's messages write as ~. */
 let zenHome = null;
@@ -1925,7 +1925,7 @@ test("a task another program drives has Pin and Rename in All tasks' menu, and A
     const earlier = created - 86400000;
     A.marks.pin(arg.id, earlier, earlier + 1000);
     A.marks.label(arg.id, earlier, "An earlier task's name");
-    // The feed can also drop it, as zen-core's does a task it forgot.
+    // The feed can also drop it, as the core's does a task it forgot.
     const gone = new Set();
     const withEntries = spaces.feed;
     spaces.feed = () => withEntries().filter(e => !gone.has(e.space));
@@ -2186,7 +2186,7 @@ test("the self-check's window has no row menu: a right-click on a row of its All
     // The user's tasks file as it stands, to compare byte for byte.
     await A.saveTasks();
     const before = await IOUtils.read(A.tasksPath());
-    // The runner's window, filled as the runner has it (zen-sidebar's prepare).
+    // The runner's window, filled as the runner has it (the sidebar's prepare).
     const w = Services.ww.openWindow(null, WINDOW_URL, "_blank", "chrome,dialog=no,resizable", null);
     try {
       await S.until(() => w.document?.documentURI === WINDOW_URL && w.document.readyState === "complete", 10000);
@@ -2704,7 +2704,7 @@ test("a Work chat whose task ended gets zen-core's pagesReloaded as a note: afte
     const uid = await startWorkChat(win, { text: "SCENARIO:flights", source: "urlbar" });
     const conv = AS.tasks.get(uid);
     const service = AS.zenius();
-    // zen-core's event goes to Zen's own listeners alone (emitLocal), where it has that.
+    // The core's event goes to Zen's own listeners alone (emitLocal), where it has that.
     const emit = (space, pages) => (service.emitLocal ?? service.emit).call(service, "pagesReloaded", { space, pages });
     const notes = () => conv.messages.filter(m => m.role === "note").map(m => m.text);
     const res = { space: null };
@@ -2786,11 +2786,11 @@ test("end to end: a page the agent's code hooked loads afresh at its task's end,
 //
 // The tests' Zen runs a plain CLI, whose server offers no script tool: the
 // mock answers its script call itself (run_gated), once the test writes the
-// call's result beside its log (release). zen-input's steps are a stand-in
+// call's result beside its log (release). The input layer's steps are a stand-in
 // (SCRIPT_STEPS), kept on the window between chrome calls, through which
 // the test tells the sidebar each step as the runtime would.
 
-/** Chrome JS: zen-input's steps as a stand-in (`tell`, and the ids `stopped` got), and the call's result (`release`). */
+/** Chrome JS: the input layer's steps as a stand-in (`tell`, and the ids `stopped` got), and the call's result (`release`). */
 const SCRIPT_STEPS = `
   if (!win.zenuiSteps) {
     const listeners = new Set();
@@ -3243,7 +3243,7 @@ test("a remote task says which of the user's agents sent it: 'From <label> on <a
   const out = await chrome(`
     await S.openPanel();
     const A = win.ucAgentSidebar.AgentService;
-    // As zen-observe's sidebar.start makes one.
+    // As the observe layer's sidebar.start makes one.
     const conv = A.createTask({ source: "remote" });
     conv.remote = { address: "devbox/t5", label: "nightly check" };
     win.ucAgentSidebar.showTask(conv);
@@ -4175,15 +4175,15 @@ test("a long live title, as Claude Code's summaries have, clamps to two lines wi
 });
 
 // Every zenius task in the sidebar: a task the sidebar doesn't
-// drive shows in the directory and opens to a read-only view. zen-core's feed
-// (spaces.feed) and zen-input's ring (input/steps.sys.mjs) are stand-ins here;
+// drive shows in the directory and opens to a read-only view. The core's feed
+// (spaces.feed) and the input layer's ring (input/steps.sys.mjs) are stand-ins here;
 // their suites test them.
 const EXTERNAL = `
   const A = win.ucAgentSidebar.AgentService;
   const spaces = A.zenius().spaces;
   const ownFeed = Object.hasOwn(spaces, "feed");
   const realFeed = spaces.feed;
-  // The feed's entries for this test's tasks, by space; the rest as zen-core gives them.
+  // The feed's entries for this test's tasks, by space; the rest as the core gives them.
   const entries = new Map();
   spaces.feed = () => [...(realFeed?.call(spaces) ?? []).filter(e => !entries.has(e.space)), ...entries.values()];
   const steps = new Map();
@@ -4553,7 +4553,7 @@ test("end to end, on zen-core's real feed and zen-input's real steps: a task mad
     await h.call("spaces.finish", { space: id, keep: [] });
     const done = await look("done");
     const from = `From ${iso("Claude Code")} on ${iso("laptop/t5x")}`;
-    // A navigation's step names the page's origin only (zen-input's ring).
+    // A navigation's step names the page's origin only (the input layer's ring).
     const open = `Open ${new URL(www()).origin}`;
     assert.deepEqual(working, { group: "working", src: from, status: open });
     assert.deepEqual(steps.at(-1), { outcome: "ok", text: open }, JSON.stringify(steps));
@@ -4760,7 +4760,7 @@ test("a task another agent drives: its hand-off card in the sidebar and its pill
       const after = () => (shown(el("handoff")) && shown(el("handoff-after")) ? el("handoff-after").textContent : null);
       const rec = A.zenius().spaces.peek(arg.id);
       const pill = () => UI.describe(rec).controlNote ?? null;
-      // zen-core's wait for control coming or going (rec.agentWaiting, and
+      // The core's wait for control coming or going (rec.agentWaiting, and
       // its spaceChanged), standing in.
       const waiting = on => {
         rec.agentWaiting = on;
@@ -5258,7 +5258,7 @@ test("a remote task's end says why for each stop reason: its caller, its time li
     const A = g.AgentService;
     const R = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/remote.sys.mjs");
     g.setMode("work");
-    // As zen-observe's sidebar.start makes one.
+    // As the observe layer's sidebar.start makes one.
     const conv = A.createTask({ source: "remote" });
     conv.remote = { address: "devbox/t5", label: "nightly check", requestId: null, startedAt: Date.now(), endsAt: Date.now() + 3600000, endedAt: null, final: null };
     g.showTask(conv);
@@ -5328,7 +5328,7 @@ test("a remote task's start pops up a card in the open sidebar: 'Task from <labe
     const card = doc.getElementById("arrival");
     const A = win.ucAgentSidebar.AgentService;
     const made = [];
-    // As zen-observe's sidebar.start does: a remote chat, then its first
+    // As the observe layer's sidebar.start does: a remote chat, then its first
     // question puts it in the directory (addTask).
     const start = (address, label, text, source = "remote") => {
       const conv = A.createTask({ source });
@@ -5396,7 +5396,7 @@ test("with the agent sidebar closed, a remote task's start shows the same card o
     const card = () => win.document.getElementById("zenius-arrival");
     const A = win.ucAgentSidebar.AgentService;
     const made = [];
-    // As zen-observe's sidebar.start does: a remote chat, then its first
+    // As the observe layer's sidebar.start does: a remote chat, then its first
     // question puts it in the directory (addTask).
     const start = (address, label, text, source = "remote") => {
       const conv = A.createTask({ source });
@@ -5433,7 +5433,7 @@ test("with the agent sidebar closed, a remote task's start shows the same card o
         over: card().nextElementSibling?.id ?? null,
         moved: !same(before, view()),
       };
-      // zen-sidebar's look (the agent sidebar's #arrival): in Zen's narrow
+      // The sidebar's look (the agent sidebar's #arrival): in Zen's narrow
       // sidebar the text wraps whole, the address a chip, after Working's
       // dot; ✕ on top, Watch and Stop whole under the text on the right.
       const q = s => card().querySelector(s);
@@ -5487,7 +5487,7 @@ test("with the agent sidebar closed, a remote task's start shows the same card o
   t.diagnostic(`the arrival card over the strip: ${out.width} px wide, its text in ${out.lines} lines`);
 });
 
-// zen-sidebar's look for a remote task's source line and its arrival card.
+// The sidebar's look for a remote task's source line and its arrival card.
 test("a remote task's look: its address is a chip, with the text unchanged, over its question, on its live card, on its arrival card and on its directory row; the arrival card lines up with the question box, its text and ✕ on top, Watch and Stop under them on the right", async () => {
   await useMock();
   const out = await chrome(`
@@ -5719,8 +5719,8 @@ test("zenius's strip says what the sidebar does: a task is working while its cha
       res.refused = { state: conv.task.state, text: conv.task.text, needsAdded: A.needsCount() - needsBefore, calls: mine().length };
       A.zenius().emitLocal("taskBadge", { space: rec.id, state: "idle" });
       res.after = { state: conv.task.state };
-      // A Take over zenius refuses for real (zen-core's userTakeOver stubbed,
-      // as zen-ux's handoff tests do): loading the page afresh would take the
+      // A Take over zenius refuses for real (the core's userTakeOver stubbed,
+      // as the UI's handoff tests do): loading the page afresh would take the
       // user to another site. zenius's card then offers no Try again, and the
       // live card no Take over, until the refusal clears.
       const doc = S.panelDoc();
@@ -5867,7 +5867,7 @@ const ANSWERS = [
   ["Here's how they compare. " + "Nara has Tōdai-ji, the deer park and Kasuga Taisha, all a short walk from the station. ".repeat(5) + "Let me know which one you'd like.", "Let me know which one you'd like."],
   ["Here's how they compare. " + "Nara has Tōdai-ji, the deer park and Kasuga Taisha, all a short walk from the station. ".repeat(5) + "Which one would you like?", "Which one would you like?"],
   // "next" and "else" mark an offer only in its own shapes ("anything else",
-  // "do next"), not in "next week" or "the next two trains" (zen-ux).
+  // "do next"), not in "next week" or "the next two trains" (the UI).
   ["Let me know which date works next week.", "Let me know which date works next week."],
   ["Let me know whether you want the 9:10 train next Tuesday.", "Let me know whether you want the 9:10 train next Tuesday."],
   ["Let me know which of the next two trains you would like.", "Let me know which of the next two trains you would like."],
@@ -5917,7 +5917,7 @@ const ANSWERS = [
   ["我订好了 9:10 的车票。告诉我你的想法。", "done"],
   ["座位图已经打开了。你选好座位后，系统会发确认邮件。", "done"],
   ["网站没有告诉我是否发了票，所以我又查了一次邮箱。", "done"],
-  // The agent's own finished step, and an offer of more (zen-ux).
+  // The agent's own finished step, and an offer of more (the UI).
   ["预定好了，我会把行程发给你。", "done"],
   ["已经确认好了，我会在出发前一天提醒你。", "done"],
   ["确认好了，我会在出发前一天提醒你。", "done"],
@@ -6374,7 +6374,7 @@ test("Chat's list of the URLs it may fetch (Chat's fetch rule, zen-sidebar's all
   }
 });
 
-// The model picker (zen-sidebar's, the user's pick D): two families, each
+// The model picker (the sidebar's, the user's pick D): two families, each
 // from its mock's own list (MOCK_MODELS), with versions in the names.
 const CLAUDE_MODELS = [["claude-opus-5-5", "Opus 5.5"], ["claude-sonnet-5-5", "Sonnet 5.5"], ["claude-opus-4-1", "Opus 4.1"], ["claude-haiku-4-5", "Haiku 4.5"]];
 const GPT_MODELS = [["gpt-6-2", "GPT-6.2"], ["gpt-6-2-sol", "GPT-6.2 Sol"], ["gpt-5-6", "GPT-5.6"]];
@@ -7183,7 +7183,7 @@ test("the card paints only an agent's page of its chat's own task, checked befor
         res.refused = { user: await refusal(userTab), other: await refusal(otherTab) };
         // Take over (zenius's own), and a tab the user opens from the page
         // they hold (a middle-click): it joins the task as theirs, with no
-        // page of the agent's (zenius's noteOpenedTab; zen-snapshot's red
+        // page of the agent's (zenius's noteOpenedTab; the snapshot layer's red
         // team, 1b). While they hold the task, nothing is painted.
         await g.takeOver(uid);
         await S.until(() => AS.isHeld(conv) === "takeover", 10000);
@@ -7862,7 +7862,7 @@ test("a message the user sends takes the chat to its end, even from an earlier a
   assert.equal(out.busy, true, "all of it while the first answer ran");
 });
 
-// A task's chat with screens of earlier answers, on the mock (zen-observe's
+// A task's chat with screens of earlier answers, on the mock (the observe layer's
 // review of the follow): whether the view is at the chat's end, and what it
 // is at each change of the chat's height as an answer streams.
 const FOLLOW = `
@@ -8398,7 +8398,7 @@ test("a turn that fails sends nothing that waits: the queue goes back into the b
   await useMock();
 });
 
-// The panel's side of queue and steer (zen-ux): what the user sees and
+// The panel's side of queue and steer (the UI): what the user sees and
 // presses, on a test's own mock. Steer's keys are Cmd+Enter on a Mac and
 // Ctrl+Enter elsewhere.
 const STEER_KEY = process.platform === "darwin" ? "⌘Enter" : "Ctrl+Enter";
@@ -8708,7 +8708,7 @@ test("in the panel, the user's reply to the agent's request for permission decli
   await useMock();
 });
 
-// The agent's own question (the explicit ask): zen-sidebar's AgentService
+// The agent's own question (the explicit ask): the sidebar's AgentService
 // turns an elicitation/create into { role: "ask", ... } and answers it with
 // answerAsk. The card's own test puts asks of every shape in the chat itself
 // and records the answers with a stand-in; the end-to-end test after it goes
@@ -9603,7 +9603,7 @@ for (const [keys, realKeys] of IME_KEYS) test(`IME (${keys}) in the directory's 
   assert.equal(out.closed, true, "Enter with no composition opens the task found, which closes the drawer");
 });
 
-// A task's name as the user renames it (zen-sidebar's rename): its field in
+// A task's name as the user renames it (the sidebar's rename): its field in
 // the header takes the IME's keys as the boxes above do.
 for (const [keys, realKeys] of IME_KEYS) test(`IME (${keys}) in a task's name as the user renames it: an Enter that commits a composition only commits, the field staying open; Escape in a composition cancels only it, the field keeping its words and the focus; Enter with no composition keeps the name`, async () => {
   const id = `imerename${realKeys ? "-real" : ""}`;
@@ -9617,7 +9617,7 @@ for (const [keys, realKeys] of IME_KEYS) test(`IME (${keys}) in a task's name as
     let conv = null;
     try {
       // A task of its own: '+ New task' can hand back a draft an earlier
-      // test removed, with its name (zen-sidebar's Remove fix).
+      // test removed, with its name (the sidebar's Remove fix).
       const uid = await startWorkChat(win, { text: arg.question, source: "new" });
       conv = A.tasks.get(uid);
       await S.until(() => conv && !conv.busy && header() === arg.question, 15000);

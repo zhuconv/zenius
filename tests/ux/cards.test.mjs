@@ -301,7 +301,7 @@ test("a pill's button acts on the first click right after the window gains focus
     win.dispatchEvent(new win.FocusEvent("focus"));
     const hand = [...N.noticeElement(tab, "zenius-control").querySelectorAll("button")].find(b => b.textContent === "Resume agent");
     hand.click();
-    // The hand back first asks zen-input which pages hold a typed secret.
+    // The hand back first asks the input layer which pages hold a typed secret.
     await until(() => rec.ownership === "agent", 3000).catch(() => {});
     const ownership = rec.ownership;
     await gZenWorkspaces.changeWorkspaceWithID(userWs);
@@ -315,7 +315,7 @@ test("a click right after a pill appears does nothing (a double click's second c
     await UI.takeOverByUser(rec);
     const hand = [...N.noticeElement(tab, "zenius-control").querySelectorAll("button")].find(b => b.textContent === "Resume agent");
     hand.click();
-    // A press closes the pill at once, and hands back once zen-input has
+    // A press closes the pill at once, and hands back once the input layer has
     // said which pages hold a typed secret: look at both.
     const pill = !!N.noticeElement(tab, "zenius-control");
     await sleep(300);

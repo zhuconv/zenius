@@ -1,4 +1,4 @@
-// What zenius's agent sidebar reports about itself, for zen-sdk's doctor
+// What zenius's agent sidebar reports about itself, for the SDK's doctor
 // (ui.sidebarStatus). At the end of each window's start, agent-sidebar.uc.js
 // sets window.zeniusSidebarStart = {error}: a property, so the sidebar's start
 // loads no zenius module (I4), and this module loads with the method modules

@@ -59,7 +59,7 @@ const callListeners = new Set();
 
 /**
  * Note that an agent's call names `tab`, a page of its task, whether it acts
- * there or only reads it (zen-core's call context, before the call runs):
+ * there or only reads it (the core's call context, before the call runs):
  * the UI controller takes the cursor off the task's other pages, since the
  * agent works here now. Unlike notePage, it leaves the page the Space opens
  * on as it is.

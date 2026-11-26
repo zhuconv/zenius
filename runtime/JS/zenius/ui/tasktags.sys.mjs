@@ -1,15 +1,15 @@
 // The per-tab task tag (SPEC §3.8): which task an agent tab belongs to, and
 // that task's state, on the tab itself.
 //
-// zen-core marks each task page with `zenius-task=<task id>` (pages only:
-// kept, released and user-opened tabs don't carry it). zen-ux adds the rest
+// The core marks each task page with `zenius-task=<task id>` (pages only:
+// kept, released and user-opened tabs don't carry it). The UI adds the rest
 // from the same state as the Space badge and the tasks panel (ZeniusUI's
 // badgeFor), so the three never disagree:
 // - `zenius-task-state` on the tab: working | idle | paused | needs-user | user
 // - `zenius-task-name` on the tab's .tab-content, which zenius-ux.css shows
 //   with attr(): a pseudo-element reads its own element's attributes.
-// A MutationObserver applies them to tabs zen-core tags later, in every
-// window, so zen-core needs no event for it.
+// A MutationObserver applies them to tabs the core tags later, in every
+// window, so the core needs no event for it.
 
 import { isolate } from "chrome://userscripts/content/zenius/ui/text.sys.mjs";
 
@@ -100,7 +100,7 @@ export function taskTagOf(tab) {
 }
 
 /**
- * Follow zen-core's zenius-task attributes in a window, and add the tag's
+ * Follow the core's zenius-task attributes in a window, and add the tag's
  * line to tab tooltips.
  *
  * @param {Window} win

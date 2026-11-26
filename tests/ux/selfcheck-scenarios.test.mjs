@@ -1,8 +1,8 @@
 // The self-check's scenarios (runtime/JS/agent-sidebar/selfcheck.sys.mjs's
 // prepare, run and cleanup), in a window that isn't a browser window, as
-// zen-core's runner hands one over. The tests open the runner's own window
+// the core's runner hands one over. The tests open the runner's own window
 // (zenius/selfcheck/window.xhtml) themselves, at its own size, and drive the
-// three functions as the runner does; zen-ux's end-to-end test runs the
+// three functions as the runner does; the UI's end-to-end test runs the
 // whole of it through the runner.
 //
 // The user's side is set up first: a Work task of theirs, saved and shown in
@@ -89,7 +89,7 @@ const HARNESS = `
     return w;
   };
   /**
-   * One run, as zen-core's runner drives it: prepare, run, then cleanup and
+   * One run, as the core's runner drives it: prepare, run, then cleanup and
    * the window's close. Each shot samples the user's side and the run's own
    * directory. With arg.how, the first shot of check how.check throws
    * ("fail") or aborts the run ("abort").

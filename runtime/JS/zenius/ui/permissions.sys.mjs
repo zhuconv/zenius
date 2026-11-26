@@ -1,14 +1,14 @@
-// Permission prompts in agent pages (zen-observe's backstops follow the
+// Permission prompts in agent pages (the observe layer's backstops follow the
 // same rules):
 // - while the agent drives, a page's prompt puts its Space under the user's
 //   control with Ego's reason key, and gives it back once it's answered;
 // - during the user's hold it's theirs, as on any site: nothing happens here;
-// - on evidence of danger in the page (zen-observe's flag), it's cancelled at
+// - on evidence of danger in the page (the observe layer's flag), it's cancelled at
 //   once, whoever holds the task;
 // - the camera, microphone, screen and speakers are never the agent's: while
-//   the agent drives, their prompt is cancelled (zen-observe's gate denies
+//   the agent drives, their prompt is cancelled (the observe layer's gate denies
 //   them before any prompt). During the hold they're the user's, and
-//   zen-observe stops what the user started when the task goes back to the
+//   the observe layer stops what the user started when the task goes back to the
 //   agent.
 //
 // Firefox shows a tab's permission prompts through
@@ -31,7 +31,7 @@
  * user while the agent drives → Ego's reason keys (its
  * EGO_TASK_SPACE_USER_IN_CONTROL list, which the SDK's guidance follows). An
  * embedded sign-in frame needs storage access during a login; the local
- * network's prompts carry zen-observe's allowlist past top-level loads; the
+ * network's prompts carry the observe layer's allowlist past top-level loads; the
  * rest a site may need for the task. Persistent storage and XR have no key
  * of their own there, so they take its catch-all, permission_prompt.
  */

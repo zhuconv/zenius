@@ -1,5 +1,5 @@
 // The view keeper (ui/viewkeeper.sys.mjs, SPEC §3.5 "A still view"), which
-// zen-core's tab code wraps around every agent change to a strip: the shown
+// the core's tab code wraps around every agent change to a strip: the shown
 // tab stays where it was on screen.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
@@ -11,7 +11,7 @@ let tall;
 let short;
 
 // Chrome-side helpers. Tabs are about:blank from a null principal, as
-// zen-core's addBackgroundTab makes them, told apart by an attribute.
+// the core's addBackgroundTab makes them, told apart by an attribute.
 const K = `
   const VK = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/viewkeeper.sys.mjs");
   const sleep = ms => new Promise(r => win.setTimeout(r, ms));

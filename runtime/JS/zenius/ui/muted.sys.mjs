@@ -1,4 +1,4 @@
-// The tab's sign of zen-observe's mute (observe/audio.sys.mjs). An agent tab
+// The tab's sign of the observe layer's mute (observe/audio.sys.mjs). An agent tab
 // the user can't see is muted through its MediaController, which leaves the
 // tab's own speaker button alone. Once its page has played sound in that
 // time, the tab has the attribute zenius-muted-sound. zenius-ux.css draws a

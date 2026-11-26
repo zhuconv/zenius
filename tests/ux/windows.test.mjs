@@ -2,7 +2,7 @@
 // copy of each tab, and Zen moves a page's docShell to the copy the user
 // selects in the focused window; the copy it leaves shows about:blank (SPI
 // "Windows: a page is its sync id").
-// zen-ux's part:
+// The UI's part:
 // - the task's tag on every copy;
 // - the pill, the cursor and the takeover prompt on the copy that holds the
 //   page, following it between windows;
@@ -81,7 +81,7 @@ const W = () => `
     if (!b) throw new Error("no " + label + " button, only " + buttonsOf(el).join("|"));
     b.click();
   };
-  // What zen-core's spaces.handOff does.
+  // What the core's spaces.handOff does.
   const handOff = (rec, text) => {
     ctx.spaces.setStateText(rec, text);
     ctx.spaces.setOwnership(rec, "agentDelegatedToUser", { source: "agent" });
@@ -306,7 +306,7 @@ test("a close that waits for the user: its pill goes with the page between windo
     return Win.syncId(copy);
   `);
   try {
-    // Both windows show the page, so its close waits (zen-core, I1).
+    // Both windows show the page, so its close waits (the core, I1).
     await h.call("spaces.finish", { space, keep: [] });
     const out = await h.chrome(`${W()}
       const copyIn = n => nth(n).document.getElementById(${JSON.stringify(sync)});

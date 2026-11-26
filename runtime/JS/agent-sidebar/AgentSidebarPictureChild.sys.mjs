@@ -4,7 +4,7 @@
  * pixels.
  *
  * Why here and not drawSnapshot: drawSnapshot replays the page's paint in the
- * parent, on its main thread, so a page that is costly to paint (zen-snapshot's
+ * parent, on its main thread, so a page that is costly to paint (the snapshot layer's
  * turbulence filter took 200-260 ms a picture) stalled the user's whole
  * browser through the card. Painted here, a costly page slows only its own
  * process, and the parent only copies the pixels into the card.

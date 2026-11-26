@@ -1,5 +1,5 @@
 // The claim gate's prompt. When an agent claims a user's Space or an ended
-// task, zen-core asks the user: it sends claimAsked {id, space, name, client,
+// task, the core asks the user: it sends claimAsked {id, space, name, client,
 // until} in process, takes the answer through spaces.answerClaim(id, allow),
 // and sends claimSettled {id, verdict} at every end. These tests send the
 // events themselves and stand in for answerClaim.
@@ -103,7 +103,7 @@ test("Allow and Deny answer zen-core once, and the prompt goes", async () => {
     await until(() => pillOn(tab, ${JSON.stringify(allowId)}) && pillOn(tab, ${JSON.stringify(denyId)}));
     await press(pillOn(tab, ${JSON.stringify(allowId)}), "Allow");
     await press(pillOn(tab, ${JSON.stringify(denyId)}), "Deny");
-    // zen-core's settle after the answer changes nothing more.
+    // The core's settle after the answer changes nothing more.
     ctx.service.emitLocal("claimSettled", { id: ${JSON.stringify(allowId)}, verdict: "allow" });
     return { answers, left: [!!pillOn(tab, ${JSON.stringify(allowId)}), !!pillOn(tab, ${JSON.stringify(denyId)})] };
   `);

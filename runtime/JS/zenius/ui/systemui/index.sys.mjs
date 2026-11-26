@@ -1,4 +1,4 @@
-// Registers the "ZeniusSystemUi" actor (zen-ux): passkey requests and
+// Registers the "ZeniusSystemUi" actor (the UI): passkey requests and
 // notifications from agent pages, which would open the operating system's UI
 // over the user's view. methods/ui.sys.mjs calls startSystemUi() when it
 // loads; see ZeniusSystemUiChild for the behaviour.
@@ -15,9 +15,9 @@ export function startSystemUi(service) {
   started = true;
   const def = {
     parent: { esModuleURI: `${BASE}ZeniusSystemUiParent.sys.mjs` },
-    // No DOMWindowCreated of its own: zen-core's Zenius actor makes this
+    // No DOMWindowCreated of its own: the core's Zenius actor makes this
     // one in a task's documents only, at theirs, before the page's scripts
-    // (installGuards). A user's document never loads it (zen-core's I4).
+    // (installGuards). A user's document never loads it (the core's I4).
     child: { esModuleURI: `${BASE}ZeniusSystemUiChild.sys.mjs` },
     allFrames: true,
     safeForUntrustedWebProcess: true,
@@ -32,6 +32,6 @@ export function startSystemUi(service) {
     ChromeUtils.registerWindowActor(ACTOR, def);
   }
   // A tab that joins a task after its document started (adopted, claimed)
-  // gets an explicit installGuards request from zen-core.
+  // gets an explicit installGuards request from the core.
   service.addGuardActor?.(ACTOR);
 }

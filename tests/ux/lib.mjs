@@ -1,4 +1,4 @@
-// Shared setup for zen-ux runtime tests. tests/ux/run.sh starts a headless
+// Shared setup for the UI runtime tests. tests/ux/run.sh starts a headless
 // dev Zen (a fresh profile on Linux, a kept one on the Mac) and sets
 // ZENIUS_INSTANCE; the tests drive it over RPC and run chrome-side checks
 // through dev.evalChrome.
@@ -103,7 +103,7 @@ export async function setup() {
         () => (settled = true),
         () => (settled = true)
       );
-      // zen-core's claim gate asks the user (zen-ux's prompt): the test
+      // The core's claim gate asks the user (the UI's prompt): the test
       // plays their Allow, a click on the prompt's own button.
       while (!settled) {
         const allowed = await client.call("dev.evalChrome", {
@@ -150,7 +150,7 @@ export async function setup() {
       // The Mac keeps its profile, and the run's end kills Zen (zen-dev.sh's
       // stop) before Firefox saves its prefs on its own. A pref a suite's
       // after() set back would be lost, and the next run would start with
-      // the test's value: panel.test.mjs's systemNotification, on zen-eval's
+      // the test's value: panel.test.mjs's systemNotification, on the eval harness's
       // kept profile.
       await h.chrome("Services.prefs.savePrefFile(null); return true;").catch(() => {});
       client.close();
@@ -163,7 +163,7 @@ export async function setup() {
 /**
  * The longest wait between frames (ms) at which the cursor's move animation
  * still ends within the move's grace (cursor.sys.mjs: its duration plus
- * 120 ms; a start and an end can each wait a frame). A throttled Mac (zen-eval's
+ * 120 ms; a start and an end can each wait a frame). A throttled Mac (the eval harness's
  * background-priority run with the screen locked) paints far more seldom, so a
  * move there may resolve before its animation ends: `animated` is false by
  * design.

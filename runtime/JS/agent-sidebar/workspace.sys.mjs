@@ -619,7 +619,7 @@ export const TOOL_TIMEOUT_S = 120;
  * A Work chat's zenius server's env, with what it takes of the chat:
  * ZENIUS_TASK_SPACE, its live task, which a resumed or forked session's new
  * server takes up again, and ZENIUS_SIDEBAR_TASK, its uid, which the server
- * sends as its tasks' source.sidebar (zen-core's feed), so the directory lists
+ * sends as its tasks' source.sidebar (the core's feed), so the directory lists
  * them as the sidebar's own and never as another agent's (external.sys.mjs).
  * And ZENIUS_TOOL_TIMEOUT, T (TOOL_TIMEOUT_S): Codex starts a server with its
  * entry's env, not the agent's. Chat's server has no call that waits.
@@ -633,7 +633,7 @@ function withTask(env, { taskSpace = null, sidebarTask = null } = {}) {
   if (Number.isSafeInteger(taskSpace) && taskSpace > 0) {
     out.ZENIUS_TASK_SPACE = String(taskSpace);
   }
-  // zen-core keeps source.sidebar only in this set.
+  // The core keeps source.sidebar only in this set.
   if (typeof sidebarTask === "string" && /^[A-Za-z0-9-]{1,64}$/.test(sidebarTask)) {
     out.ZENIUS_SIDEBAR_TASK = sidebarTask;
   }

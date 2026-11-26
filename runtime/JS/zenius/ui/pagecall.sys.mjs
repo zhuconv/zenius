@@ -1,4 +1,4 @@
-// Helpers for zen-ux's page guards (content process): a guarded page API
+// Helpers for the UI's page guards (content process): a guarded page API
 // answers with the page's own promises and errors, so the page can't tell it
 // from the native one.
 

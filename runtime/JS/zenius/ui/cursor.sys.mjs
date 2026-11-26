@@ -280,7 +280,7 @@ export function showCursor(tab) {
 
 /**
  * The page moved to another window's copy of its tab (window sync,
- * zen-core's pageMoved): its cursor goes with it, at the same point and
+ * the core's pageMoved): its cursor goes with it, at the same point and
  * with its label, hidden still if the user has control. It's drawn on the
  * new copy at once if a window shows it, else when one does.
  *
@@ -331,7 +331,7 @@ function removeLayer(st) {
 }
 
 /**
- * The tabs that have a cursor now, drawn or hidden. zen-ux forgets a task's
+ * The tabs that have a cursor now, drawn or hidden. The UI forgets a task's
  * at its end wherever they are, on a tab that is no longer one of its pages
  * too (ui/index.sys.mjs).
  *

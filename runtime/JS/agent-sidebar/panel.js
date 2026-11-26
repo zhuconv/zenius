@@ -280,7 +280,7 @@ function listFor(c) {
 // --- A task the sidebar doesn't drive (external.sys.mjs) ---------------------
 //
 // Read-only, since another program drives it: where it's driven from, its steps
-// from the runtime's own record (zen-input's ring), a card while it needs the
+// from the runtime's own record (the input layer's ring), a card while it needs the
 // user, then the live card. Every part from the page or the agent goes in as
 // text, and each name a step quotes sits in its own isolate, so a step can't
 // pass for a row of the panel's or pull the panel's words around.
@@ -302,7 +302,7 @@ function plainText(text, max) {
 
 /**
  * A step's text, each double-quoted name in its own isolate (dir="auto"):
- * zen-input quotes a page's names and turns quote marks inside them into
+ * the input layer quotes a page's names and turns quote marks inside them into
  * apostrophes, so the pairs can't mix ('Drag "Card" to "Done"').
  */
 function fillStepText(el, text) {
@@ -1280,7 +1280,7 @@ function modelChoices(option) {
 
 /**
  * Whether an agent can run here: AgentService.harnessAvailable (the process
- * side's, zen-observe's) says, with the reason when it can't, such as Codex
+ * side's, the observe layer's) says, with the reason when it can't, such as Codex
  * until it can be held to the browser. Without it, every agent can.
  *
  * @returns {{ok: boolean, reason?: string}}
@@ -1795,7 +1795,7 @@ function renderBinding() {
     els.title.title = info.url ? `${info.title}\n${info.url}` : info.title;
     setFavicon(info.image);
   }
-  // A remote task that ended says why under its last answer (zen-observe's
+  // A remote task that ended says why under its last answer (the observe layer's
   // stop reasons).
   const ended = work && !conv.busy ? remoteEnd(conv) : null;
   els.remoteEnd.hidden = !ended;
@@ -3082,7 +3082,7 @@ function renderLive() {
   els.watchHint.hidden = !watching;
   // After a refusal, zenius's card on the page holds the user's choices, with
   // Try again only where it can work: pressed here, Take over would fail the
-  // same way (zen-snapshot).
+  // same way (the snapshot layer).
   els.takeOver.hidden = rec.ownership !== "agent" || AgentService.takeOverRefused(conv);
   if (!liveVisible()) {
     stopLive();

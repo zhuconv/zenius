@@ -2,15 +2,15 @@
 // runs in a sandbox that zenius discards at the task's end, so a kept page
 // shows nothing: no mark, no tooltip line, no card, nothing heard, and
 // nothing takes the focus or moves a view (I1). zenius makes it safe itself:
-// - a page with evidence of danger (zen-observe's evidenceOf, a stand-in
+// - a page with evidence of danger (the observe layer's evidenceOf, a stand-in
 //   here) loads afresh, quietly, when something the user just did there was
-//   refused (zen-core's onKeptRefused, called directly here), through
-//   zen-core's cleanLoad (a stand-in);
-// - zen-input's guard has zen-core reload such a page before the user types
-//   there (not zen-ux's: zen-input's suite tests it);
+//   refused (the core's onKeptRefused, called directly here), through
+//   the core's cleanLoad (a stand-in);
+// - the input layer's guard has the core reload such a page before the user types
+//   there (not the UI's: the input layer's suite tests it);
 // - a page the agent made itself can't be cleaned so: its card, whose form
 //   waits on the user's answer, says it might contain malicious code.
-// ZeniusUI notes the kept pages the agent made (madePage, on zen-observe's
+// ZeniusUI notes the kept pages the agent made (madePage, on the observe layer's
 // real record here), for that card.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
@@ -110,14 +110,14 @@ async function task(name, urls) {
   return { space, name: full, bids, labels };
 }
 
-/** The agent runs its own code in a page: zen-observe records its site. */
+/** The agent runs its own code in a page: the observe layer records its site. */
 const agentCode = (space, page) => h.call("page.evaluate", { space, page, fn: "() => document.title", isFunction: true });
-/** The agent's code adds a field to the page: zen-observe's world flags it hooked. */
+/** The agent's code adds a field to the page: the observe layer's world flags it hooked. */
 const agentWrites = (space, page) =>
   h.call("page.evaluate", { space, page, fn: "() => { document.body.insertAdjacentHTML('beforeend', '<input id=zenius-agent-field>'); return true; }", isFunction: true });
 /**
- * zen-core's quiet loads off: a page with evidence that stays open isn't reloaded
- * at its task's end, as when that reload fails. zen-core's closed-groups
+ * The core's quiet loads off: a page with evidence that stays open isn't reloaded
+ * at its task's end, as when that reload fails. The core's closed-groups
  * tests do the same.
  */
 const quietLoads = on =>
@@ -274,7 +274,7 @@ test("a refusal of what the user just did in a kept page with evidence of danger
     const before = await h.call("dev.viewState");
     const out = await h.chrome(`${K}
       const b = tabOf(${bids.p1}).linkedBrowser;
-      // zen-observe's evidence and zen-core's cleanLoad, standing in.
+      // The observe layer's evidence and the core's cleanLoad, standing in.
       UI.evidenceOf = target => (target === b ? { hooked: "a script element" } : {});
       const calls = [];
       UI.cleanLoad = async browser => {
@@ -483,7 +483,7 @@ test("in a claimed Space, a blank tab of the user's that the agent adopted, wrot
   await agentWrites(space, label);
   await h.call("pages.release", { space, page: label });
   // A claimed Space's tabs are the task's at its end too: with quiet loads
-  // on, zen-core would reload the hooked page then. Off, as when that
+  // on, the core would reload the hooked page then. Off, as when that
   // reload fails, so the user's click finds it hooked.
   await quietLoads(false);
   let out;
@@ -498,7 +498,7 @@ test("in a claimed Space, a blank tab of the user's that the agent adopted, wrot
         return { how: "reload" };
       };
       try {
-        // zen-input's guard has zen-core load a clean copy before the
+        // The input layer's guard has the core load a clean copy before the
         // user's press in a hooked page lands.
         Services.prefs.clearUserPref("zenius.handoff.quietReload");
         const hooked = "hooked" in (UI.evidenceOf?.(b) ?? {});
@@ -579,7 +579,7 @@ test("in a claimed Space the user's own blank tab isn't noted, and the page the 
 });
 
 // The reply after a finish: the user's click or key in a tab an ended task
-// kept goes to zen-core (noteKeptInput; finishedTaskOf too, stand-ins here),
+// kept goes to the core (noteKeptInput; finishedTaskOf too, stand-ins here),
 // so a reply to the task's chat leaves that page with the user. The user's
 // input enters through the parent, as OS input does (takeover.test.mjs).
 test("the user's click and typing in a tab an ended task kept reach zen-core as clicked and typed; an arrow key and Escape don't count, nor does input in a tab no task kept", async () => {

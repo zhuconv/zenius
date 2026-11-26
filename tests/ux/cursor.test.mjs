@@ -269,8 +269,8 @@ test("a task the user stopped forgets its cursor", async () => {
   assert.equal(out.afterClaim, null, "claiming the Space again doesn't bring an old cursor back");
 });
 
-// zen-core's finish releases a kept page from its task before it tells
-// zen-ux that the user has the task (endTask, then the ownership "user"),
+// The core's finish releases a kept page from its task before it tells
+// the UI that the user has the task (endTask, then the ownership "user"),
 // and the cursor went only from the task's pages. On the user's 0.1.7 the
 // cursor and its label stayed on the kept tab, over the pages the user
 // opened there next.

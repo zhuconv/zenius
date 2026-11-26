@@ -1,4 +1,4 @@
-// ui.* methods (zen-ux). Loading this module also starts the UI controller
+// ui.* methods (the UI). Loading this module also starts the UI controller
 // (takeover detector, badges, notices) and the per-Space clipboard for the
 // service.
 
@@ -14,10 +14,10 @@ import { keepView, stripCanScroll } from "chrome://userscripts/content/zenius/ui
 import { sidebarStatus } from "chrome://userscripts/content/zenius/ui/sidebarstatus.sys.mjs";
 
 ZeniusUI.start(ZeniusService);
-// The Space's private clipboard for page-initiated copies (zen-ux).
+// The Space's private clipboard for page-initiated copies (the UI).
 startClipboard(ZeniusService);
 startSystemUi(ZeniusService);
-// zen-core's tab code wraps every agent change to a strip in keepView, and
+// The core's tab code wraps every agent change to a strip in keepView, and
 // asks stripCanScroll where to put a new page (SPEC §3.5).
 ZeniusService.pages.keepView = keepView;
 ZeniusService.pages.stripCanScroll = stripCanScroll;
@@ -62,7 +62,7 @@ export const methods = {
   // {space} → what the user sees of the Space: badge, open prompt, control
   // notice. For tests and tools.
   "ui.state": async (ctx, params) => ZeniusUI.describe(ctx.resolveSpace(params)),
-  // For zen-sdk's doctor: whether zenius's agent sidebar is the one running,
+  // For the SDK's doctor: whether zenius's agent sidebar is the one running,
   // and how it started in each window.
   "ui.sidebarStatus": async () => sidebarStatus(),
 };

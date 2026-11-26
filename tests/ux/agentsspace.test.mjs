@@ -1,4 +1,4 @@
-// zen-ux's UI with tasks sharing the Agents Space (SPEC §3.4, §3.8; pref
+// The UI with tasks sharing the Agents Space (SPEC §3.4, §3.8; pref
 // zenius.agentsSpace, read when a task is created). Two tasks live in one
 // Zen workspace: each keeps its own state in the panel and on its tabs, and
 // the Agents Space's badge shows only while a task needs the user.
@@ -11,7 +11,7 @@ let userView;
 let a;
 let b;
 // Ended tasks keep their names in the instance's state across runs (until
-// zen-core's restart step drops tasks whose tabs didn't come back).
+// the core's restart step drops tasks whose tabs didn't come back).
 const run = Date.now().toString(36).slice(-5);
 const nameA = `zen-ux agents A ${run}`;
 const nameB = `zen-ux agents B ${run}`;
@@ -65,7 +65,7 @@ test("both tasks live in the Agents Space, each with its own state in the panel 
     ctx.spaces.setOwnership(B.space, "agentDelegatedToUser", { source: "agent" });
     await tick();
     const res = {
-      // zen-core marks task pages; zen-ux's tag builds on it.
+      // The core marks task pages; the UI's tag builds on it.
       marked: [A.tab.getAttribute("zenius-task") === String(A.space.id), B.tab.getAttribute("zenius-task") === String(B.space.id)],
       kinds: [A.space.kind, B.space.kind],
       shared: A.space.uuid === B.space.uuid && ctx.service.spaces.isAgentsSpace(uuid),
@@ -127,7 +127,7 @@ test("the user's input in one task's page pauses that task only; the other goes 
   assert.deepEqual(out.owners, ["agent", "agent"]);
   assert.equal(out.rows[0], "paused");
   assert.notEqual(out.rows[1], "paused");
-  // The resume first asks zen-input which pages hold a typed secret.
+  // The resume first asks the input layer which pages hold a typed secret.
   const after = await h.chrome(`${Q()}
     for (const end = Date.now() + 3000; A.space.paused && Date.now() < end; ) await new Promise(r => win.setTimeout(r, 25));
     return [A.space.paused, B.space.paused];

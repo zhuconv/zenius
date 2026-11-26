@@ -242,7 +242,7 @@
 }
 
 /* The page-code ask (ui/pagecode.sys.mjs): its title is a whole question
-   with the site in it, in zen-observe's words. It wraps rather than cut the
+   with the site in it, in the observe layer's words. It wraps rather than cut the
    site or push the buttons out of the pill, and the buttons go under it,
    at its end, when they don't fit beside it. */
 .zenius-card[data-value^="zenius-pagecode:"] {
@@ -811,7 +811,7 @@ zen-workspace > .zenius-space-status {
 /* ---- Agent status strip and tasks panel (ui/panel.sys.mjs) ------------- */
 
 /* A remote task's arrival while the agent sidebar is closed: a card right
-   over the strip (ui/panel.sys.mjs's showArrival), in zen-sidebar's look and
+   over the strip (ui/panel.sys.mjs's showArrival), in the sidebar's look and
    the colors of the agent sidebar's own (its panel.css #arrival). Zen's
    sidebar can be narrower than the agent sidebar ever is (a 166 px card in a
    new profile), so the text also takes the room over Stop, and three lines,
@@ -1386,7 +1386,7 @@ zen-workspace > .zenius-space-status {
 }
 
 /* ---- Agent tabs kept muted ------------------------------------------------
- * zen-observe mutes an agent tab the user can't see (observe/audio.sys.mjs).
+ * The observe layer mutes an agent tab the user can't see (observe/audio.sys.mjs).
  * Once its page has played sound in that time (zenius-muted-sound), a
  * muted-speaker badge sits on the tab's icon, also with the sidebar
  * collapsed to icons. It goes when the user looks at the tab, which unmutes
@@ -1412,7 +1412,7 @@ zen-workspace > .zenius-space-status {
 }
 
 /* ---- Task tags -------------------------------------------------------------
- * Each task page carries its task (zen-core's zenius-task) and that task's
+ * Each task page carries its task (the core's zenius-task) and that task's
  * state (ui/tasktags.sys.mjs: zenius-task-state on the tab, the task's name
  * on .tab-content). In the expanded sidebar the tag is a chip at the row's
  * end: the state's dot and the task's name. The tab's close button, which

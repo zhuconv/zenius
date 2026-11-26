@@ -225,7 +225,7 @@ test("a prompt closing doesn't resume a Space the user paused", async () => {
     UI.takeover.handleInput(rec, tab, "pointer");
     UI.takeover.resolve(rec.id, "continue");
     const paused = rec.paused;
-    // The resume first asks zen-input which pages hold a typed secret.
+    // The resume first asks the input layer which pages hold a typed secret.
     await UI.resumeByUser(rec);
     return { paused, after: rec.paused };
   `);
@@ -257,7 +257,7 @@ test("handOff shows the agent's request in its page and badge, and no OS notific
   const out = await h.chrome(`${P}
     UI.alertsService = { calls: [], showAlert(alert, listener) { this.calls.push({ title: alert.title, text: alert.text, listener }); } };
     ctx.spaces.setStateText(rec, "Log in to continue");
-    // What zen-core's spaces.handOff does.
+    // What the core's spaces.handOff does.
     ctx.spaces.setOwnership(rec, "agentDelegatedToUser", { source: "agent" });
     await until(() => strip.getAttribute("state") === "needs-user");
     return { alerts: UI.alertsService.calls.length, strip: strip.textContent };

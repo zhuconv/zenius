@@ -1,4 +1,4 @@
-// Parent half of the "ZeniusSystemUi" actor (zen-ux); see the child for what
+// Parent half of the "ZeniusSystemUi" actor (the UI); see the child for what
 // it guards.
 //
 // - passkey (query): the page asked for a passkey while the agent drives the

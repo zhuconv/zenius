@@ -1,6 +1,6 @@
 // The pill on an agent close that waits (SPEC §3.5). An agent's close of a
-// tab a window shows waits for the user to leave it (zen-core's tabClosing):
-// the page ends for the agent at once, and zen-ux's pill says why the tab
+// tab a window shows waits for the user to leave it (the core's tabClosing):
+// the page ends for the agent at once, and the UI's pill says why the tab
 // stays, with Keep tab (it becomes the user's) and Close now.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
@@ -166,7 +166,7 @@ test("after a restart (tabClosing with no task), the pill says only that the age
   const out = await h.chrome(`${Q()}
     try {
       await until(() => pill());
-      // What zen-core's rebuild sends for a closing tab a window still shows.
+      // What the core's rebuild sends for a closing tab a window still shows.
       N.removeNotice(t, "zenius-task-finished");
       ctx.service.emitLocal("tabClosing", { space: null, tab: t });
       await until(() => pill());

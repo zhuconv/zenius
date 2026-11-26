@@ -9,7 +9,7 @@
 // than its box (stripCanScroll() is false), or near its top, a change above
 // the shown tab still moves it.
 //
-// This module is a leaf: zen-core's tab code imports it.
+// This module is a leaf: the core's tab code imports it.
 
 /** @param {Window} win */
 function workspaceElementOf(win) {

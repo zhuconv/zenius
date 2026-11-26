@@ -1,8 +1,8 @@
-// The page-code card (ui/pagecode.sys.mjs; zen-input's glue in zen-ux's
-// files). With zenius.agentTabs.pageCode at "ask", zen-observe holds the
+// The page-code card (ui/pagecode.sys.mjs; the input layer's glue in the UI's
+// files). With zenius.agentTabs.pageCode at "ask", the observe layer holds the
 // agent's page code on a site the user hasn't allowed and asks once per task
 // and site (observe/pagecode.sys.mjs). The agent's tab shows the card, in
-// zen-observe's words: "Allow the agent's code on <site>?" [Allow on this
+// the observe layer's words: "Allow the agent's code on <site>?" [Allow on this
 // site] [Not now]. Allow puts the exact site on
 // zenius.agentTabs.pageCodeSites, on the user's own click only, and the
 // agent's next call there runs. Not now writes nothing, and the card doesn't
@@ -19,7 +19,7 @@ let saved;
 const run = Date.now().toString(36).slice(-5);
 const MODE = "zenius.agentTabs.pageCode";
 const SITES = "zenius.agentTabs.pageCodeSites";
-/** The fixture's site, as zen-observe's siteOf names it, and as the card does (an http site shows its scheme). */
+/** The fixture's site, as the observe layer's siteOf names it, and as the card does (an http site shows its scheme). */
 const site = () => `http://${new URL(h.base).hostname}`;
 
 /** Both prefs as the profile has them (null: unset). */
@@ -213,7 +213,7 @@ test("Allow on this site: the agent's synthesized input can't press it (its clic
       };
     `);
     assert.equal(spot.over, true, "the button shows over the page");
-    // The agent's input, through zen-input as any agent's.
+    // The agent's input, through the input layer as any agent's.
     await h.call("page.mouse", { space, page: "p1", action: "click", x: spot.x, y: spot.y, options: {} });
     for (let i = 0; i < 4; i++) {
       await h.call("page.keyboard", { space, page: "p1", action: "press", key: "Tab", options: {} });

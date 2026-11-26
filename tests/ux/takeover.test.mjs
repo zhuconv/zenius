@@ -145,7 +145,7 @@ after(async () => {
 });
 
 const state = () => h.call("ui.state", { space });
-/** The task's state once `ok` holds of it: a hand back waits for zen-input's check of typed secrets first. */
+/** The task's state once `ok` holds of it: a hand back waits for the input layer's check of typed secrets first. */
 async function stateWhen(ok, ms = 5000) {
   for (const end = Date.now() + ms; ; ) {
     const s = await state();
@@ -487,7 +487,7 @@ test("a step that left its task's ring while it ran (zen-input keeps 50 steps) n
     await h.chrome(`${P} gBrowser.selectedTab = tab; await until(() => gBrowser.selectedTab === tab);`);
     await h.call("ui.cursor", { space, page: "p1", x: 200, y: 150, label: "Click Next", kind: "click" });
     // A step on p1 that never ends, as a script's long wait there, through
-    // zen-input's own ring.
+    // the input layer's own ring.
     await h.chrome(`
       const St = ChromeUtils.importESModule("chrome://userscripts/content/zenius/input/steps.sys.mjs");
       win.zenuxHeldStep = St.beginCall({ method: "page.click", params: { space: ${space}, page: "p1", target: "#held" } });

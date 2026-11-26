@@ -607,7 +607,7 @@ test("split view: the agent's half shows its pill and its cursor, and the user's
   `);
   const { animated, gap, ...rest } = out;
   assert.deepEqual(rest, { visible: true, pill: "on its page", userTabStays: true });
-  // As in cursor.test.mjs: a window that paints too seldom (zen-eval's
+  // As in cursor.test.mjs: a window that paints too seldom (the eval harness's
   // throttled Mac) may end the move before its animation does.
   if (gap > SMOOTH_FRAME_MS) {
     console.log(`# frames up to ${gap} ms apart: the cursor's move may resolve before its animation ends (animated ${animated}); not checked here`);

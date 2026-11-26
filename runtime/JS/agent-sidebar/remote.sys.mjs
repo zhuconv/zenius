@@ -1,8 +1,8 @@
-// Remote tasks (zen-observe; PROTOCOL "Remote tasks: the sidebar"): what the
+// Remote tasks (the observe layer; PROTOCOL "Remote tasks: the sidebar"): what the
 // sidebar keeps for a task that another of the user's agents sent, and how
 // its state reads to that caller. zenius's methods/sidebar.sys.mjs serves the
 // socket's sidebar.* methods from this. It's cross-owner work: the sidebar is
-// zen-ux's.
+// the UI's.
 //
 // AgentService imports this module at the sidebar's start, so it imports
 // nothing of zenius's (I4).

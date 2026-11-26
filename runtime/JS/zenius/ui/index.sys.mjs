@@ -3,7 +3,7 @@
 // the service's space events, and keeps the badge, cursor and notices of each
 // agent Space in step with its ownership.
 //
-// Ownership belongs to zen-core: Spaces (modules/spaces.sys.mjs) is its only
+// Ownership belongs to the core: Spaces (modules/spaces.sys.mjs) is its only
 // writer. This module changes it through spaces.setPaused / setOwnership when
 // the user acts, and follows its "spaceChanged" events.
 
@@ -88,7 +88,7 @@ const CLOSING_NOTICE = "zenius-task-finished";
 const KEPT_NOTICE = "zenius-kept-code";
 /**
  * The card on a tab that joined a task while the user held it: they opened
- * it from the agent's page, with an opener (zen-core's adoptPopup during a
+ * it from the agent's page, with an opener (the core's adoptPopup during a
  * hold), so it's the agent's.
  */
 const JOINED_NOTICE = "zenius-joined";
@@ -120,18 +120,18 @@ const RELOADED_NOTICE = "zenius-reloaded";
 const PAGE_WARNING_NOTICE = "zenius-page-warning";
 /** The notice on a page whose Take over couldn't begin: why, and what still works. */
 const TAKEOVER_REFUSED_NOTICE = "zenius-takeover-refused";
-/** The claim gate's prompt, one per ask: this plus zen-core's id. */
+/** The claim gate's prompt, one per ask: this plus the core's id. */
 const CLAIM_NOTICE = "zenius-claim:";
 /**
  * The control pill's line on a page the agent made itself (no website: a
- * data: page it loaded, a blob: page its code made). zen-core refuses a
+ * data: page it loaded, a blob: page its code made). The core refuses a
  * hand-off there, so only the user's own Take over shows it. Typing stays
  * on there.
  */
 export const AGENTS_PAGE_LINE = "The agent made this page. It might contain malicious code. Keep sensitive information out.";
 /**
  * The hold card's line: Resume agent empties password, card and code fields
- * (zen-input's hand-back guard) and reloads a page where one was typed and
+ * (the input layer's hand-back guard) and reloads a page where one was typed and
  * not sent, so a user who expects the agent to submit what they typed would
  * lose it. Reloads themselves are silent: a card keeps only what the user
  * acts on.
@@ -149,10 +149,10 @@ export function clearsLine(label) {
   return `${label} clears password, card and code fields, so submit what you type there first.`;
 }
 /**
- * The hold card's line after a hand-off with zen-core's secret flag: the
+ * The hold card's line after a hand-off with the core's secret flag: the
  * user's step shows them a secret (an API key, a token, a recovery code),
  * and their Resume loads about:blank in that tab, its history gone, before
- * the agent gets control back (zen-core). So they copy what they need
+ * the agent gets control back (the core). So they copy what they need
  * first. It leads the card, before the Resume line it makes moot.
  */
 export const SECRET_LINE = "Resume agent clears this page, so copy what you need from it first.";
@@ -194,25 +194,25 @@ export const CANT_ACT_DETAIL = "the agent can't act";
 const SECRET_KINDS_MS = 2000;
 /** How long a page the agent made counts as asking for no secret before it's asked again (#madeWarns). */
 const MADE_RECHECK_MS = 2000;
-/** How long a Resume waits for zen-input's typedSecrets before it goes on without it. */
+/** How long a Resume waits for the input layer's typedSecrets before it goes on without it. */
 const TYPED_SECRETS_MS = 3000;
 /**
- * zen-core's switch for zenius's quiet loads (modules/handoff.sys.mjs).
+ * The core's switch for zenius's quiet loads (modules/handoff.sys.mjs).
  * Tests of the hand back's other layers turn it off, to keep what the agent
- * put in a page; it's never off otherwise (zen-sdk's doctor warns). Off,
+ * put in a page; it's never off otherwise (the SDK's doctor warns). Off,
  * Resume reloads nothing and hands back at once, as before the quiet loads,
- * and zen-input's clear empties what the user typed.
+ * and the input layer's clear empties what the user typed.
  */
 const QUIET_RELOAD_PREF = "zenius.handoff.quietReload";
 const quietLoadsOn = () => Services.prefs.getBoolPref(QUIET_RELOAD_PREF, true);
 /**
- * zen-observe's list of the local-network hosts every agent tab may reach
+ * The observe layer's list of the local-network hosts every agent tab may reach
  * (observe/localnet.sys.mjs reads it at each request): comma-separated
  * entries, spaces and case ignored, an IPv6 address without brackets.
  * zenius writes it only on the user's own click of Add to allowlist.
  */
 const ALLOW_PREF = "zenius.agentTabs.allowPrivateNetworks";
-/** Who can change a Space's ownership (zen-core's setOwnership). */
+/** Who can change a Space's ownership (the core's setOwnership). */
 const SOURCES = new Set(["agent", "user", "permission"]);
 
 /**
@@ -321,24 +321,24 @@ class UiController {
    * @type {WeakMap<Window, string>}
    */
   #userWorkspaces = new WeakMap();
-  /** zen-observe's agentCodeOnSite, null without it; see agentCodeOnSite. */
+  /** The observe layer's agentCodeOnSite, null without it; see agentCodeOnSite. */
   #agentCode = undefined;
-  /** zen-observe's agentCodeInPage, null without it; see agentCodeInPage. */
+  /** The observe layer's agentCodeInPage, null without it; see agentCodeInPage. */
   #agentCodeInPage = undefined;
-  /** zen-observe's agentMadePage, null without it; see agentMadePage. */
+  /** The observe layer's agentMadePage, null without it; see agentMadePage. */
   #agentMadePage = undefined;
-  /** zen-core's cleanLoad, or a test's stand-in; see cleanLoad. */
+  /** The core's cleanLoad, or a test's stand-in; see cleanLoad. */
   #cleanLoadFn = null;
-  /** Tasks whose Take over waits for zen-core's reload (#takeOver). */
+  /** Tasks whose Take over waits for the core's reload (#takeOver). */
   #takingOver = new Set();
   /** <browser> → the top document its RELOADED_NOTICE is for (#showReloaded). */
   #reloadedDocs = new WeakMap();
-  // The steps under way, by id: the task and page each acts on (zen-input's
+  // The steps under way, by id: the task and page each acts on (the input layer's
   // onStep). A page with one keeps its cursor when a call names another.
   #runningSteps = new Map();
   /** tab → the task that last asked the cursor policy to draw there (#cursorTabsOf). */
   #cursorTask = new WeakMap();
-  /** zen-input's typedSecrets, null without it; see typedSecrets. */
+  /** The input layer's typedSecrets, null without it; see typedSecrets. */
   #typedSecretsFn = undefined;
   /**
    * Pages a finished task left open whose document the agent made itself
@@ -368,7 +368,7 @@ class UiController {
    * @type {WeakMap<Element, number>}
    */
   #inputAt = new WeakMap();
-  /** zen-observe's evidenceOf, null without it; see evidenceOf. */
+  /** The observe layer's evidenceOf, null without it; see evidenceOf. */
   #evidenceOf = undefined;
   /**
    * browserId → the top document whose warning the user dismissed
@@ -386,7 +386,7 @@ class UiController {
    */
   #madeWarned = new WeakMap();
   /**
-   * Whether zen-input tells when the user types a secret (onSecretTyped):
+   * Whether the input layer tells when the user types a secret (onSecretTyped):
    * then the hold's card says Resume clears such fields only once they
    * did. Tests set it.
    */
@@ -404,7 +404,7 @@ class UiController {
    */
   #bursts = new WeakMap();
   /**
-   * Asks of zen-core's claim gate waiting for the user, by id, with the
+   * Asks of the core's claim gate waiting for the user, by id, with the
    * tabs that show them.
    * @type {Map<string, {id: string, space: number, name: string, client: string, until: number, tabs: Set<Element>, timer: number}>}
    */
@@ -505,7 +505,7 @@ class UiController {
       onNotePageCall((tab, method) => this.#onAgentCall(tab, method)),
       onStep(({ space, step }) => this.#onStep(space, step))
     );
-    // zen-observe refuses a load the user started to the local network in
+    // The observe layer refuses a load the user started to the local network in
     // an agent's tab: the tab says why (observe/localnet.sys.mjs, which its
     // setup has loaded already).
     try {
@@ -518,7 +518,7 @@ class UiController {
     } catch (e) {
       console.error("[zenius] onUserLoadRefused failed", e);
     }
-    // With the user's page-code setting at "ask", zen-observe asks before the
+    // With the user's page-code setting at "ask", the observe layer asks before the
     // agent's page code runs on a site they haven't allowed: the agent's tab
     // shows the card (ui/pagecode.sys.mjs).
     try {
@@ -532,7 +532,7 @@ class UiController {
       console.error("[zenius] onPageCodeAsk failed", e);
     }
     // A page on a phishing or malware list, or that the agent flagged,
-    // warns the user while they're on it, as zen-observe's mark comes
+    // warns the user while they're on it, as the observe layer's mark comes
     // (observe/evidence.sys.mjs).
     try {
       const off = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/evidence.sys.mjs").onEvident?.(event =>
@@ -544,7 +544,7 @@ class UiController {
     } catch (e) {
       console.error("[zenius] onEvident failed", e);
     }
-    // zen-core refuses a window that a page opens with an opener, after its
+    // The core refuses a window that a page opens with an opener, after its
     // task, while the page's window group holds a document that ran the
     // agent's code (modules/windows.sys.mjs). The pills say why when
     // nothing opened instead.
@@ -558,9 +558,9 @@ class UiController {
     } catch (e) {
       console.error("[zenius] onOpenRefused failed", e);
     }
-    // And what zen-observe's content guards refuse in such a page after its
+    // And what the observe layer's content guards refuse in such a page after its
     // task (the camera, the microphone, location, notifications), forwarded
-    // by zen-core: its card says so when the user just asked for it.
+    // by the core: its card says so when the user just asked for it.
     try {
       const off = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/windows.sys.mjs").onKeptRefused?.(
         event => this.keptRefused(event)
@@ -571,7 +571,7 @@ class UiController {
     } catch (e) {
       console.error("[zenius] onKeptRefused failed", e);
     }
-    // zen-core's spaces.takeOver and spaces.claim give a held task back to
+    // The core's spaces.takeOver and spaces.claim give a held task back to
     // the agent without Resume agent: they await this first, as Resume does.
     const beforeHandBack = rec => this.beforeHandBack(rec);
     service.beforeHandBack = beforeHandBack;
@@ -594,7 +594,7 @@ class UiController {
       log("zen-input's onSecretTyped isn't there:", String(e?.message ?? e).slice(0, 120));
     }
     // The user about to type in a page the agent's sandbox wrote into:
-    // zen-input's guard has zen-core reload it quietly; the UI only hears
+    // the input layer's guard has the core reload it quietly; the UI only hears
     // whether it did.
     try {
       const off = ChromeUtils.importESModule("chrome://userscripts/content/zenius/input/typing.sys.mjs").onUserTyping?.(event =>
@@ -604,7 +604,7 @@ class UiController {
         this.#unsubscribe.push(off);
       }
     } catch (e) {
-      // Quiet while zen-input's module isn't there.
+      // Quiet while the input layer's module isn't there.
       log("zen-input's onUserTyping isn't there:", String(e?.message ?? e).slice(0, 120));
     }
     for (const win of Services.wm.getEnumerator("navigator:browser")) {
@@ -648,9 +648,9 @@ class UiController {
     }
     win.addEventListener("TabSelect", event => this.#onSelectTyping(event.target));
     // Window sync moves a docShell between windows' copies of its tab,
-    // firing this on both browsers. What zen-ux shows on a tab that isn't a
-    // page goes with it (a page's goes on zen-core's pageMoved), once the
-    // swap is done, as zen-core waits too.
+    // firing this on both browsers. What the UI shows on a tab that isn't a
+    // page goes with it (a page's goes on the core's pageMoved), once the
+    // swap is done, as the core waits too.
     win.addEventListener(
       "EndSwapDocShells",
       event => {
@@ -662,7 +662,7 @@ class UiController {
     // The user's own tab, closed in every window, can be opened again; a
     // kept page's closing changes its task's count.
     win.addEventListener("TabClose", event => this.#onTabClose(event.target));
-    // A page's new document: what zen-ux shows for the old one follows.
+    // A page's new document: what the UI shows for the old one follows.
     win.gBrowser.addTabsProgressListener({
       onLocationChange: (browser, webProgress, request, location, flags) => {
         // A same-document move (pushState, a hash) keeps the origin.
@@ -707,7 +707,7 @@ class UiController {
       }
       applyBadges(win);
       updateTasks(win, this.tasks(), this.#panelActions, this.#sidebarWaiting);
-      // A close that waited across a restart, if zen-core deferred it before
+      // A close that waited across a restart, if the core deferred it before
       // this window's UI was up.
       // On the copy that holds the tab's page (window sync), not on this
       // window's copy of a tab another window shows.
@@ -820,7 +820,7 @@ class UiController {
    * agent sidebar drives, for the agent's hand-off and the user's own Take
    * over. Its agent runs in a terminal, an IDE or a script, which zenius
    * can't reach: it learns of a Resume at its next call, or from a wait for
-   * control it left running (zenius wait, or MCP's wait). With zen-core's
+   * control it left running (zenius wait, or MCP's wait). With the core's
    * rec.agentWaiting, AGENT_WAITS_LINE, since some client waits; else
    * tellAgentLine, which holds either way, so the card can say it first:
    * an agent starts its wait in its next call, after its hand-off or once
@@ -883,7 +883,7 @@ class UiController {
   }
 
   /**
-   * The agent sidebar's word on a task its chat drives (zen-sidebar), so the
+   * The agent sidebar's word on a task its chat drives (the sidebar), so the
    * strip and the sidebar say the same thing (the next update's agreement):
    * - running: the chat's agent turn runs, so the task counts as working
    *   however long since its agent last acted (the strip's ACTIVE_MS);
@@ -960,7 +960,7 @@ class UiController {
         // A Resume waits for a quiet reload: the later press wins.
         resumeToken: 0,
         // The user typed into a password, card or code field of the task's
-        // pages since the agent last ran (zen-input's onSecretTyped): the
+        // pages since the agent last ran (the input layer's onSecretTyped): the
         // hold's card then says Resume clears them.
         secretTyped: false,
         // The agent's hand-off said its step shows the user a secret
@@ -989,7 +989,7 @@ class UiController {
 
   /**
    * An agent's call names `tab`, a page of its task, before it runs, a read
-   * too (zen-core's notePageCall): the cursor leaves the task's other pages.
+   * too (the core's notePageCall): the cursor leaves the task's other pages.
    * It showed where the agent last acted there, which is stale once the
    * agent works on another page, and sitting at its last click it reads as
    * the agent still being there. It's forgotten, not hidden, so the end of
@@ -1038,7 +1038,7 @@ class UiController {
     }
   }
 
-  /** A step began or ended (zen-input's onStep): which pages have an action under way. */
+  /** A step began or ended (the input layer's onStep): which pages have an action under way. */
   #onStep(space, step) {
     if (step?.outcome === "running") {
       this.#runningSteps.set(step.id, { space, page: step.page ?? null });
@@ -1072,7 +1072,7 @@ class UiController {
     }
   }
 
-  /** The agent acted on `tab` (cursor move, or zen-core's notePage). */
+  /** The agent acted on `tab` (cursor move, or the core's notePage). */
   #onAgentPage(tab) {
     const hit = this.lookup(tab);
     if (!hit) {
@@ -1123,7 +1123,7 @@ class UiController {
     }
     const ui = this.#ui(id);
     // Who holds the task comes from the record, and the source must be one
-    // zen-core sets (defence in depth: params are as good as their sender).
+    // the core sets (defence in depth: params are as good as their sender).
     if (SOURCES.has(params.source)) {
       ui.source = params.source;
     }
@@ -1145,7 +1145,7 @@ class UiController {
       }
       if (event === "spaceChanged" && rec.ownership === "user") {
         // The task ended and left tabs open: finish() (source "agent"; then
-        // zen-observe forgets its agent code at spaceFinished) or the
+        // the observe layer forgets its agent code at spaceFinished) or the
         // panel's Stop (source "user"). The user's other ends of a task
         // leave none.
         this.#noteKeptMade(rec, params.source === "agent" ? "finished" : "stopped");
@@ -1163,7 +1163,7 @@ class UiController {
       // The agent updated what it needs while it waits for the user.
       this.#showControlNotice(rec, ui.noticeTab, ui.source);
     } else if ("agentWaiting" in params && ui.noticeTab && ui.source !== "permission" && rec.ownership === "agentDelegatedToUser" && this.afterResume(rec) !== ui.afterShown) {
-      // A wait for control came or went (zen-core's rec.agentWaiting): the
+      // A wait for control came or went (the core's rec.agentWaiting): the
       // hold card's last line follows (afterResume). The agent sidebar's card
       // follows from its own sync of the rows, which the event sets off.
       this.#showControlNotice(rec, ui.noticeTab, ui.source);
@@ -1186,7 +1186,7 @@ class UiController {
   }
 
   /**
-   * The agent closed a tab a window shows (zen-core's tabClosing, SPEC
+   * The agent closed a tab a window shows (the core's tabClosing, SPEC
    * §3.5): it waits for the user to leave it. Its page has ended for the
    * agent, so the cursor goes, and a pill says why the tab stays: Keep makes
    * it the user's, Close closes it now.
@@ -1202,7 +1202,7 @@ class UiController {
     // The name now: a finish() drops its record in the same call.
     const rec = typeof spaceId === "number" ? this.#peek(spaceId) : null;
     const name = rec?.name ?? "";
-    // And whether the agent made its document, for a Keep: zen-observe
+    // And whether the agent made its document, for a Keep: the observe layer
     // forgets that with the task. It was the agent's page.
     if (rec) {
       this.#noteMade(rec, tab, { kept: false, agentPage: true });
@@ -1214,11 +1214,11 @@ class UiController {
   /**
    * The pill for a waiting close. A finish() ends the task in the call that
    * closed the tab, and then the task is done rather than just this page.
-   * With no task (a close that waited across a restart: zen-core's rebuild
+   * With no task (a close that waited across a restart: the core's rebuild
    * sends none, and neither does a window's start), all we know is that the
    * agent closed it.
    *
-   * @param {boolean} [live]  zen-core's close just now, rather than a pill
+   * @param {boolean} [live]  the core's close just now, rather than a pill
    *   shown again for a window: a finished task is announced then
    */
   #showClosingNotice(tab, spaceId, name = "", live = false) {
@@ -1254,8 +1254,8 @@ class UiController {
 
   /**
    * A task ended and left tabs open: the pages kept for the user, and its
-   * other tabs (zen-core's pages.tabsOf). Note the pages the agent made
-   * itself, while zen-observe's record of the task still exists
+   * other tabs (the core's pages.tabsOf). Note the pages the agent made
+   * itself, while the observe layer's record of the task still exists
    * (agentMadePage reads it): their card comes when it matters. Nothing
    * shows at the task's end.
    */
@@ -1306,7 +1306,7 @@ class UiController {
   /**
    * Note `tab`'s page if the agent made its current document itself
    * (agentMadePage), on a site where its code ran (agentCodeInPage).
-   * zen-observe counts a document with no site behind it as the agent's, as
+   * The observe layer counts a document with no site behind it as the agent's, as
    * it is in the agent's own pages; such a page of the user's (their data:
    * page) isn't one, so it counts only in a tab the agent opened. A waiting
    * close is noted unkept, for a Keep.
@@ -1531,7 +1531,7 @@ class UiController {
   /**
    * Is there evidence in `browser`'s page that a clean copy clears
    * (#cleanable), for a refusal there? Its event says so with evident: true,
-   * and leaves it out otherwise (zen-core's and zen-observe's, keyed on
+   * and leaves it out otherwise (the core's and the observe layer's, keyed on
    * hooked and made alone), so without it the page is asked.
    *
    * @param {Element} browser
@@ -1544,7 +1544,7 @@ class UiController {
   /**
    * There's evidence in the page of `browser` that a clean copy clears, and
    * something the user just did there was refused for that: it loads
-   * afresh, quietly, through zen-core's cleanLoad, with the form carried
+   * afresh, quietly, through the core's cleanLoad, with the form carried
    * over, and shows no card. Their next try works. Not a page of a task
    * that runs, nor one the agent made, which a reload can't clean.
    */
@@ -1557,11 +1557,11 @@ class UiController {
   }
 
   /**
-   * zen-core refused a window that `browser`'s page opened with an opener:
+   * The core refused a window that `browser`'s page opened with an opener:
    * after its task, a page whose window group holds a document with
    * evidence of danger can't open windows its code could reach.
    *
-   * - The refusal opens nothing in its place (zen-core: the parent can't
+   * - The refusal opens nothing in its place (the core: the parent can't
    *   tell a form's POST from a GET), so the user's click did nothing: a
    *   window.open, a link or form with an opener or a named target,
    *   about:blank, blob:, data:, a feature popup refused on the Mac.
@@ -1572,7 +1572,7 @@ class UiController {
    *   card instead.
    * - One that a plain tab opened in its place (reopened, which the refusal
    *   doesn't do today) needs nothing.
-   * - While the user holds a page of the task, zen-core refuses opens from
+   * - While the user holds a page of the task, the core refuses opens from
    *   the task's other pages that may hold the agent's code (hold): no
    *   strings for it yet, so nothing shows.
    *
@@ -1600,16 +1600,16 @@ class UiController {
   }
 
   /**
-   * zen-observe refused something a kept page with evidence of danger
+   * The observe layer refused something a kept page with evidence of danger
    * asked for: the camera, the microphone, the screen, location or
-   * notifications (zen-core's onKeptRefused, from the content guards). If
+   * notifications (the core's onKeptRefused, from the content guards). If
    * the user's own click or key there came just before, the page loads
    * afresh, quietly, and their next try works; a kept page the agent made
    * gets its card, saying what and why. The speakers, the device list and
    * MIDI need nothing: the user wouldn't miss them.
    *
    * @param {{browser: Element, kind: string, asked?: string, evident?: boolean}} event
-   *   kind and asked: zen-observe's (deviceAccess or notification; a word
+   *   kind and asked: the observe layer's (deviceAccess or notification; a word
    *   list such as "camera microphone"); evident: the page has evidence
    */
   keptRefused({ browser, kind, asked, evident } = {}) {
@@ -1640,7 +1640,7 @@ class UiController {
 
   /**
    * The other pages of `browser`'s window group with evidence a clean copy
-   * clears: what keeps it from opening windows under zen-core's refusal.
+   * clears: what keeps it from opening windows under the core's refusal.
    * Each as the <browser> that shows it.
    *
    * @param {Element} browser
@@ -1773,10 +1773,10 @@ class UiController {
    * browser's prompt gives control back.
    *
    * The user types in the agent's own tab, and zenius makes that safe by
-   * itself. zen-core's hand-off reloads a page with evidence of danger
+   * itself. The core's hand-off reloads a page with evidence of danger
    * before the hold begins, and the page says so in a card of its own
    * (#showHandOffReloads). On a page the agent made itself, where only the
-   * user's own Take over lands (zen-core refuses a hand-off there), the
+   * user's own Take over lands (the core refuses a hand-off there), the
    * line says not to enter a password.
    */
   #showControlNotice(rec, tab, source) {
@@ -1794,7 +1794,7 @@ class UiController {
       lines.push(AGENTS_PAGE_LINE);
     }
     // The Resume line, just in time: once the user typed a secret there, or
-    // always when zen-input can't say. It leads then, since the user is
+    // always when the input layer can't say. It leads then, since the user is
     // typing, and the rest waits behind the '?'. A secret step's line leads
     // instead: Resume blanks the whole page.
     const clears = ui.secretTyped || !this.secretLineJustInTime;
@@ -1935,13 +1935,13 @@ class UiController {
   }
 
   /**
-   * The agent's hand-off loaded pages afresh before the hold began (zen-core's
+   * The agent's hand-off loaded pages afresh before the hold began (the core's
    * holdForUser): the page it hands the user when it had evidence of danger
    * (spaceChanged's reloaded), and any page that a popup the agent acted in
    * could reach. Each says so, as after the user's Take over, since a form
    * there may be back at its defaults while it looks filled in: a press would
    * submit the defaults (as on Cloudflare's token form). The pages are
-   * those zen-core noted for this hold, by label (the record's
+   * those the core noted for this hold, by label (the record's
    * handBackReloaded, which the hold's start clears). Each says why when
    * spaceChanged carries holdForUser's evidence by label, as Take over's
    * result does (reloadReason).
@@ -1993,9 +1993,9 @@ class UiController {
 
   /**
    * The user is about to act in a page the agent's sandbox wrote into
-   * (zen-input's onUserTyping, for pages with evidence of danger only: their
+   * (the input layer's onUserTyping, for pages with evidence of danger only: their
    * first press or key anywhere in it, a paste, a drop or a composition).
-   * zen-input's guard holds their presses and keys back and has zen-core
+   * The input layer's guard holds their presses and keys back and has the core
    * load the page afresh, quietly, with the form carried over
    * (cleanOnDemand), in a live task's page or a kept one; the UI does
    * neither. The takeover prompt still answers the user's input in a page
@@ -2003,7 +2003,7 @@ class UiController {
    * reloaded, since a form there may be back at its defaults
    * (#showReloaded). If no new document comes, the user's clicks and keys
    * stay held there, and the tab says so, with Reload (#typingStaysOff).
-   * The new document can come in with evidence too (zen-core's
+   * The new document can come in with evidence too (the core's
    * stillEvident): a window on the same site, such as a popup or the page's
    * opener, shares its group and holds the agent's code. Then reloading
    * can't help until that window closes, and the card says so.
@@ -2011,14 +2011,14 @@ class UiController {
    * @param {{browser: Element, trigger?: string, field?: boolean, reloaded?: Promise<{how?: string|null}>}} event
    *   trigger: "press", "key", "paste", "drop" or "composition"; field: it
    *   went for a field, whose focus and keys the clean copy gets back
-   *   (zen-input's replay); reloaded: zen-core's cleanOnDemand promise, whose
+   *   (the input layer's replay); reloaded: the core's cleanOnDemand promise, whose
    *   `how` is null when there was nothing to clean
    */
   userTyping({ browser, trigger, field, reloaded } = {}) {
     if (typeof reloaded?.then !== "function") {
       return null;
     }
-    // What the page reloads on: zen-core's result says (evidence). This hook
+    // What the page reloads on: the core's result says (evidence). This hook
     // runs before the new document commits, which starts clean, so a read
     // now stands in for a result without it.
     const before = this.#evidence(browser);
@@ -2041,8 +2041,8 @@ class UiController {
 
   /**
    * The quiet reload before the user's first click or key didn't come, so
-   * their clicks and keys stay out of the page (zen-input): the tab says so,
-   * with Reload, which has zen-core load it afresh again (a recovery, not a
+   * their clicks and keys stay out of the page (the input layer): the tab says so,
+   * with Reload, which has the core load it afresh again (a recovery, not a
    * safety choice). The card stays up while it tries, and goes with the
    * tab's next document, which ends the drop too. It takes no focus; a
    * screen reader hears it when the tab is in view.
@@ -2075,7 +2075,7 @@ class UiController {
 
   /**
    * `browser`'s page loaded afresh at the user's press, without the agent's
-   * changes: zen-core's clean copy at their first press or key in a page with
+   * changes: the core's clean copy at their first press or key in a page with
    * evidence (userTyping), or at their Take over (#takeOver). A form there may
    * be back at its defaults, and the page looks the same otherwise: a React
    * form's state isn't carried over. So the page says so, and that the press
@@ -2086,7 +2086,7 @@ class UiController {
    * @param {Element} browser
    * @param {{clickLost?: boolean, evidence?: Object<string, string>|null}} [what]
    *   clickLost: the press that set it off went nowhere (not on a field,
-   *   whose focus comes back); evidence: what zen-core reloaded it on
+   *   whose focus comes back); evidence: what the core reloaded it on
    *   ({reason: detail}), which the card says (reloadReason)
    */
   #showReloaded(browser, { clickLost = false, evidence = null } = {}) {
@@ -2101,7 +2101,7 @@ class UiController {
 
   /**
    * The user's own input changed a password, card or code field in a page
-   * of a task while no agent call ran there (zen-input's onSecretTyped,
+   * of a task while no agent call ran there (the input layer's onSecretTyped,
    * once per document; autofill counts). Resume agent clears such fields,
    * so from now until the agent runs again, the hold's card says to submit
    * first.
@@ -2128,7 +2128,7 @@ class UiController {
   /**
    * The Resume line under a panel row's Resume (the panel's Pause) or Resume
    * agent (the user's hold), which clear password, card and code fields as
-   * the hold card's does: just in time, as there, or always when zen-input
+   * the hold card's does: just in time, as there, or always when the input layer
    * can't say. Null when the row has neither button.
    *
    * @param {object} rec
@@ -2150,13 +2150,13 @@ class UiController {
 
   /**
    * The user takes the task over: the prompt's Take over, its countdown after
-   * typing, or the panel's Take over. zen-core's userTakeOver holds the page,
+   * typing, or the panel's Take over. The core's userTakeOver holds the page,
    * checks it, and reloads it first when the agent's code could see what the
    * user types there, with its fields filled back and the focus where it was;
    * then the hold begins. The reload is silent: the user sees the page load,
    * then the hold's card (a card keeps only what the user acts on). Meanwhile
    * the agent stays paused. A page the agent made is held as it is: its card
-   * says it might contain malicious code. If the reload fails, zen-core leaves
+   * says it might contain malicious code. If the reload fails, the core leaves
    * the task the agent's: today's prompt comes back, the agent paused under
    * it, and its Take over tries again.
    *
@@ -2170,7 +2170,7 @@ class UiController {
     const take = this.service.userTakeOver;
     const tab = browser?.ownerDocument?.defaultView?.gBrowser?.getTabForBrowser(browser) ?? null;
     if (typeof take !== "function" || !tab) {
-      // Without zen-core's: the hold begins at once, as before.
+      // Without the core's: the hold begins at once, as before.
       this.service.spaces.setOwnership(rec, "agentDelegatedToUser", { reason: "manual_takeover", source: "user" });
       return;
     }
@@ -2195,7 +2195,7 @@ class UiController {
     }
     if (now.ownership === "agentDelegatedToUser") {
       this.service.spaces.setPaused(now, false);
-      // What zen-core loaded afresh for the hold: the page taken over (how),
+      // What the core loaded afresh for the hold: the page taken over (how),
       // and every page in reloaded, by label (holdForUser's), such as a form
       // page that a popup the agent acted in last could reach. Each says so,
       // and why: holdForUser's evidence, by label (#showReloaded).
@@ -2218,9 +2218,9 @@ class UiController {
       }
       return;
     }
-    // zen-core released the hold, and zen-input keeps the user's typing out
+    // The core released the hold, and the input layer keeps the user's typing out
     // of the old page until a new document commits. The page says why, and
-    // offers what still works (from zen-core's reasons): the agent stays
+    // offers what still works (from the core's reasons): the agent stays
     // paused until the user picks, so nothing loops.
     if (refusal && now.ownership === "agent" && tab.isConnected) {
       this.#showTakeOverRefused(now, tab, refusal);
@@ -2230,7 +2230,7 @@ class UiController {
   }
 
   /**
-   * The <browser> of a task's page: `page` is its label (zen-core's), or
+   * The <browser> of a task's page: `page` is its label (the core's), or
    * the <browser> itself. Null once it's gone.
    *
    * @param {object} rec
@@ -2321,7 +2321,7 @@ class UiController {
   }
 
   /**
-   * zen-observe's agentCodeOnSite(rec, site): whether the agent ran its own
+   * The observe layer's agentCodeOnSite(rec, site): whether the agent ran its own
    * code in a document of the task that's open now on that site. Tests set
    * a stand-in; null restores the real one. Without it, no pill warns.
    *
@@ -2345,7 +2345,7 @@ class UiController {
   }
 
   /**
-   * zen-observe's agentCodeInPage(rec, browser): whether the page in
+   * The observe layer's agentCodeInPage(rec, browser): whether the page in
    * `browser`, its top document or any frame, shows a site where the task's
    * agent ran its code at any time in the task. Tests set a stand-in; null
    * restores the real one. Without it, no pill warns.
@@ -2370,7 +2370,7 @@ class UiController {
   }
 
   /**
-   * zen-observe's agentMadePage(rec, browser): whether the page's top
+   * The observe layer's agentMadePage(rec, browser): whether the page's top
    * document is one the agent may have made itself, not one a website
    * served: about:blank, data: or blob:, with no site behind it or on a
    * site where the agent ran its code. Tests set a stand-in; null restores
@@ -2396,7 +2396,7 @@ class UiController {
   }
 
   /**
-   * zen-observe's evidenceOf(target) (observe/evidence.sys.mjs): the
+   * The observe layer's evidenceOf(target) (observe/evidence.sys.mjs): the
    * evidence of phishing or danger in the page's current top document and
    * its frames, as {reason: detail}. The reasons are hooked (the agent's
    * code left something there that can still act), made (the agent made the
@@ -2423,8 +2423,8 @@ class UiController {
 
   /**
    * The evidence about `browser`'s page, {reason: detail}, empty without
-   * any. The defenses of zen-ux's that interrupt the user or the agent act
-   * only on evidence. Without zen-observe's evidenceOf, or when it fails,
+   * any. The defenses of the UI's that interrupt the user or the agent act
+   * only on evidence. Without the observe layer's evidenceOf, or when it fails,
    * the page counts as evident (unknown), so they act as they did before
    * rather than not at all.
    *
@@ -2444,7 +2444,7 @@ class UiController {
   /**
    * Is there evidence of danger in `browser`'s page (#evidence), of any
    * kind? Permission prompts there are cancelled (#deniesPrompt), as
-   * zen-observe's backstops are: nothing reloads for that.
+   * the observe layer's backstops are: nothing reloads for that.
    */
   #evident(browser) {
     return Object.keys(this.#evidence(browser)).length > 0;
@@ -2478,7 +2478,7 @@ class UiController {
   }
 
   /**
-   * zen-observe's onEvident: a document in `browser`'s page gained a
+   * The observe layer's onEvident: a document in `browser`'s page gained a
    * reason (once per document and reason). A list's mark or the agent's
    * flag brings the page's warning, if the user is on it.
    *
@@ -2671,14 +2671,14 @@ class UiController {
    * number or code the user typed and didn't send loads afresh, so no code the
    * agent left there keeps it (on evidence only, and a list's mark or the
    * agent's flag aren't such).
-   * zen-input's hand-back guard empties those fields in every page all the
-   * same. zen-input's typedSecrets names the pages whose document the user
-   * typed one into; zen-core's cleanLoad reloads each quietly (a new GET entry
-   * in the current one's place); zen-core notes which reloaded, for the hand
-   * back's report (noteReloaded). zen-input's hand-back guard then empties the
+   * The input layer's hand-back guard empties those fields in every page all the
+   * same. The input layer's typedSecrets names the pages whose document the user
+   * typed one into; the core's cleanLoad reloads each quietly (a new GET entry
+   * in the current one's place); the core notes which reloaded, for the hand
+   * back's report (noteReloaded). The input layer's hand-back guard then empties the
    * secret fields left.
    *
-   * Resume agent runs it, and so does zen-core's spaces.takeOver, the
+   * Resume agent runs it, and so does the core's spaces.takeOver, the
    * agent's own way back after the user goes quiet.
    *
    * @param {object} rec
@@ -2735,8 +2735,8 @@ class UiController {
    * Before the agent runs a task again (Resume agent, the panel's Resume,
    * the takeover prompt's): the reload of typed secrets first, then `run`
    * with the task's record, if it's still there. A later press wins over
-   * one still waiting. A hand back also tells zen-core what reloaded. With
-   * zen-core's quiet loads off (a test's switch), `run` comes at once.
+   * one still waiting. A hand back also tells the core what reloaded. With
+   * the core's quiet loads off (a test's switch), `run` comes at once.
    *
    * @param {object} rec
    * @param {(rec: object) => void} run
@@ -2758,14 +2758,14 @@ class UiController {
     };
     if (!quietLoadsOn()) {
       // Nothing to reload: the agent runs before the press returns, so
-      // zen-input's clear reaches each frame ahead of anything else.
+      // the input layer's clear reaches each frame ahead of anything else.
       go();
       return Promise.resolve();
     }
     return (handBack ? this.beforeHandBack(rec) : this.#reloadTyped(rec)).then(go);
   }
 
-  /** zen-core's cleanLoad, quietly: whether the page loaded afresh. */
+  /** The core's cleanLoad, quietly: whether the page loaded afresh. */
   async #cleanLoad(browser) {
     try {
       await this.cleanLoad(browser);
@@ -2777,7 +2777,7 @@ class UiController {
   }
 
   /**
-   * zen-core's service.cleanLoad(browser): the page loads afresh with
+   * The core's service.cleanLoad(browser): the page loads afresh with
    * nothing of the agent's code (a new GET entry in the current one's
    * place), its visible ordinary fields and focus carried over, the user's
    * typing held back meanwhile; it rejects when no new document came. Tests
@@ -2800,7 +2800,7 @@ class UiController {
   }
 
   /**
-   * zen-input's typedSecrets(service, rec) (input/handback.sys.mjs): the
+   * The input layer's typedSecrets(service, rec) (input/handback.sys.mjs): the
    * <browser> of each page of the task whose current document holds a
    * secret the user typed during the hold. Tests set a stand-in; null
    * restores the real one, and without it nothing reloads.
@@ -2824,7 +2824,7 @@ class UiController {
   }
 
   /**
-   * zen-observe refused a load the user started to the local network, in a
+   * The observe layer refused a load the user started to the local network, in a
    * task's tab (the user's hold included) or in a kept page with the
    * agent's writes (observe/localnet.sys.mjs, onUserLoadRefused). In a
    * task's tab, the tab says why and offers the ways out; the card goes
@@ -2835,7 +2835,7 @@ class UiController {
    *
    * @param {{browser: Element, url: string, origin: string, reason: string, typed: boolean, scope?: "task"|"agentCode", evident?: boolean}} event
    *   typed: the user chose the URL; else the page did, and only its site's
-   *   home page is offered. scope: why zen-observe refused it, a task's tab
+   *   home page is offered. scope: why the observe layer refused it, a task's tab
    *   (or a popup of one) or a page with the agent's code or writes
    */
   userLoadRefused({ browser, url, origin, typed, scope, evident } = {}) {
@@ -2848,7 +2848,7 @@ class UiController {
     if (!tab || !target?.host) {
       return;
     }
-    // Without zen-observe's scope, a tab is a task's while an agent holds its
+    // Without the observe layer's scope, a tab is a task's while an agent holds its
     // Space: one the user stopped is theirs, refused only for the agent's code.
     const hit = this.service.controlOf(browser);
     const inTask = scope ? scope === "task" : !!hit && !!this.service.spaces.isAgentTask?.(hit.space);
@@ -2898,8 +2898,8 @@ class UiController {
 
   /**
    * "Add to allowlist", from the local-network notice, for an address the
-   * user typed (the write is zen-ux's): that exact host goes at the end of
-   * zen-observe's list (ALLOW_PREF), then the address loads in this tab.
+   * user typed (the write is the UI's): that exact host goes at the end of
+   * the observe layer's list (ALLOW_PREF), then the address loads in this tab.
    * From then on every agent tab may reach that host, until the user
    * removes it in about:config.
    *
@@ -2956,11 +2956,11 @@ class UiController {
   }
 
   /**
-   * zen-core's claim gate: an agent claims a user's Space or an ended task,
+   * The core's claim gate: an agent claims a user's Space or an ended task,
    * and the user allows or denies it. The prompt goes on the selected tab
    * of every window and moves with the selection, but takes no focus and
    * selects nothing. Its buttons are chrome, which only real clicks reach,
-   * and they arm after 400 ms. It goes when answered, when zen-core settles
+   * and they arm after 400 ms. It goes when answered, when the core settles
    * the ask (a timeout, the client gone), or a second past its time.
    *
    * @param {{id: string, space: number, name: string, client: string, until: number}} ask
@@ -3030,7 +3030,7 @@ class UiController {
     } catch (e) {
       console.error("[zenius] answering a claim failed", e);
     }
-    // Answered: every window's prompt goes, before zen-core's claimSettled.
+    // Answered: every window's prompt goes, before the core's claimSettled.
     this.#onClaimSettled(id);
   }
 
@@ -3078,7 +3078,7 @@ class UiController {
   }
 
   /**
-   * zen-core's pageMoved: window sync moved a page's docShell to another
+   * The core's pageMoved: window sync moved a page's docShell to another
    * window's copy of its tab, the one the user selected. The cursor, the
    * takeover prompt and the pill go with it. The pill is drawn again there,
    * so its buttons act in that window; the focus stays where it was.
@@ -3117,11 +3117,11 @@ class UiController {
   }
 
   /**
-   * zen-core's popup event: a tab opened from a page of the task joined it
+   * The core's popup event: a tab opened from a page of the task joined it
    * (adoptPopup). During the user's hold, they opened it themselves, from
    * the agent's page, with an opener: their link or the site's window.open,
    * or any link at all once code the agent planted catches it. It's the
-   * agent's: its tab carries the task's tag from the start (zen-core tags
+   * agent's: its tab carries the task's tag from the start (the core tags
    * it in the same call), and a card says so, with a tab of the user's own
    * for logging in. A screen reader hears it once the tab is in view: a
    * link opens its tab, then selects it.
@@ -3185,7 +3185,7 @@ class UiController {
 
   /**
    * Window sync moved a docShell between two copies of `tab` (Zen's swap).
-   * zen-core's pageMoved covers a page's; this moves what zen-ux shows on
+   * The core's pageMoved covers a page's; this moves what the UI shows on
    * a tab that isn't a page: the user's own tab's notice, and the pill of a
    * close that waits for the user to leave the tab. A page's warning goes
    * with its document, whoever's tab it is.
@@ -3292,7 +3292,7 @@ class UiController {
   }
 
   /**
-   * A prompt zenius cancels showed anyway (zen-observe's backstops cancel
+   * A prompt zenius cancels showed anyway (the observe layer's backstops cancel
    * these before any prompt): any prompt on evidence of danger in the page,
    * held or not, and the devices' while the agent drives. It goes at once,
    * and the agent hears why. The user's own tabs, and a task's that ended,
@@ -3379,7 +3379,7 @@ class UiController {
   }
 
   /**
-   * A zen-ux page guard holds a request for the user (a passkey). As for a
+   * A UI page guard holds a request for the user (a passkey). As for a
    * permission prompt, the Space goes to the user with `reason` until
    * releaseForUser(browser, key). It then returns to the agent, unless the
    * user took it meanwhile.
@@ -3545,7 +3545,7 @@ class UiController {
    * agent's task is (watch).
    *
    * @param {object} rec
-   * @param {string|null} [tabId]  zen-core's id of the task's tab to show
+   * @param {string|null} [tabId]  the core's id of the task's tab to show
    * @param {Window|null} [from]  the window the user asked in
    * @returns {Promise<boolean>} whether the window shows the task
    */
@@ -3563,7 +3563,7 @@ class UiController {
    * view there, with the hand-off card while it waits for the user.
    *
    * @param {object} rec
-   * @param {string|null} [tabId]  zen-core's id of the task's tab to show
+   * @param {string|null} [tabId]  the core's id of the task's tab to show
    * @param {Window|null} [from]  the window the user asked in
    * @returns {Promise<boolean>} whether the window shows the task
    */
@@ -3616,7 +3616,7 @@ class UiController {
     if (this.#ui(rec.id).prompts.size) {
       return { applies: false, page: page.label, site };
     }
-    // zen-core's rule decides, and its site is the one the line names.
+    // The core's rule decides, and its site is the one the line names.
     const recorded = this.service.spaces.takeoverSiteOf?.(rec, browser) ?? null;
     return { applies: !!recorded, page: page.label, site: recorded ?? site };
   }
@@ -3624,7 +3624,7 @@ class UiController {
   /**
    * The agent sidebar's send as Resume agent: sendHandBack, asked again at
    * the user's press, then the hold card's own path (#handBack: the quiet
-   * reload of a page that holds a typed secret, zen-input's guard, then the
+   * reload of a page that holds a typed secret, the input layer's guard, then the
    * agent's ownership), awaited, so the agent's turn starts on the cleaned
    * pages. Resolves to what the turn's note tells the agent, or null when
    * the send gives nothing back.
@@ -3650,7 +3650,7 @@ class UiController {
    * Watch an agent's task: only ever in answer to the user's own click (the
    * tasks panel's Open and Take over, a notification, the agent sidebar's
    * live card and directory). The window shows the task's Space, on `tab`
-   * (or zen-core's `tabId`) if that's one of the task's, else on the page
+   * (or the core's `tabId`) if that's one of the task's, else on the page
    * that needs the user, else on the task's front tab, and shows that
    * page's permission prompts again. It remembers where the user was; the
    * strip, or a chip where the strip can't be read, says what it shows, and
@@ -3804,7 +3804,7 @@ class UiController {
   }
 
   /**
-   * A JS dialog the agent intercepted (zen-observe's dialogs.sys.mjs) leaves
+   * A JS dialog the agent intercepted (the observe layer's dialogs.sys.mjs) leaves
    * its page frozen for anyone else. Once the agent no longer drives the
    * page, hand the dialog to Firefox's own prompt UI, but only on a page a
    * window shows: releasing a beforeunload dialog selects its tab, which
@@ -3842,7 +3842,7 @@ class UiController {
     if (ui?.noticeTab?.isConnected && !ui.noticeTab.closing) {
       return ui.noticeTab;
     }
-    // Else the task's front tab (zen-core): the last the agent made current
+    // Else the task's front tab (the core): the last the agent made current
     // or the user picked.
     return this.service.pages.frontTab?.(rec) ?? this.#noticeTabFor(rec);
   }
@@ -3912,7 +3912,7 @@ class UiController {
   /**
    * The tabs with a cursor the task drew: its pages', and any other tab
    * where it last asked the cursor policy to draw (#cursorTask). A finish
-   * keeps a tab after zen-core has released its page from the task
+   * keeps a tab after the core has released its page from the task
    * (endTask, then the ownership "user"), so #tabsOf no longer has it; its
    * cursor used to stay, and a later showing of the tab drew it again.
    *
@@ -4329,7 +4329,7 @@ function agentSays(text) {
  * attached (ZeniusUI.afterResume), true whether or not the agent's wait
  * comes: "If it doesn't go on after Resume, tell Claude Code in
  * zenius-eval.", or "on laptop/t5x" when its caller runs in an hc terminal,
- * and "the agent" for one with no name. The source is zen-core's (each field
+ * and "the agent" for one with no name. The source is the core's (each field
  * in the remote labels' set), each part isolated, as the agent sidebar's
  * sourceParts says it.
  *
@@ -4369,7 +4369,7 @@ function rowDetail(badge) {
  *
  * @param {string} client  the label the client gave, as plainText() leaves it
  * @param {string} name  the Space's, likewise
- * @param {number} until  epoch ms of zen-core's timeout
+ * @param {number} until  epoch ms of the core's timeout
  * @param {{allow?: () => void, deny?: () => void}} [actions]
  */
 export function claimCard(client, name, until, actions = {}) {
@@ -4388,7 +4388,7 @@ export function claimCard(client, name, until, actions = {}) {
 }
 
 /**
- * Text a client chose, for a sentence of ours, as zen-core's runtime also
+ * Text a client chose, for a sentence of ours, as the core's runtime also
  * leaves it: no control or format characters (Unicode Cc and Cf: an RLO
  * would reverse the rest of the line, a zero-width one hides), no line or
  * paragraph separators, whitespace collapsed, at most `max` code points.
@@ -4449,7 +4449,7 @@ export function heldSite(browser) {
 }
 
 /**
- * The site of a URL, which zen-observe's record of the agent's code goes
+ * The site of a URL, which the observe layer's record of the agent's code goes
  * by: its registrable domain ("accounts.google.com.evil.co" is evil.co;
  * an IP address or a one-label host is itself), shown as Firefox's address
  * bar shows it. An IDN is Unicode when it's safe, and punycode when its
@@ -4512,7 +4512,7 @@ export function localNetCard({ host, typed }, actions = {}) {
 }
 
 /**
- * Why the user's Take over couldn't begin, from zen-core's error (holdFor):
+ * Why the user's Take over couldn't begin, from the core's error (holdFor):
  * its reason ("discardFailed", "reloadFailed" or "reachable"), "noDocument"
  * for a page with no document to hold, or "unknown"; and whether loading the
  * page afresh would leave its site (data.offSite, the other site's URL), when
@@ -4532,7 +4532,7 @@ export function takeOverRefusal(error) {
 
 /**
  * The card on a page whose Take over couldn't begin (also the Mac look
- * test's): why, in a line, and what still works (from zen-core's reasons).
+ * test's): why, in a line, and what still works (from the core's reasons).
  * Stop task is safe in every case: the task's end discards the agent's
  * code. Try again isn't offered when loading the page afresh would leave
  * its site, which it would again.
@@ -4567,8 +4567,8 @@ export function takeOverRefusedCard({ reason, offSite = false } = {}, actions = 
  * key didn't come, so their clicks and keys stay out of it. Reload tries
  * again; the card stays up meanwhile. When the new document came in with
  * evidence too (`stillEvident`: another window on the site holds the
- * agent's code, zen-core's stillEvident), Reload alone can't help, so the
- * note gives the way out first (zen-core's: close the popup on the site,
+ * agent's code, the core's stillEvident), Reload alone can't help, so the
+ * note gives the way out first (the core's: close the popup on the site,
  * then reload).
  *
  * @param {{stillEvident?: boolean}} [why]
@@ -4590,7 +4590,7 @@ export function reloadFailedCard({ stillEvident = false } = {}, actions = {}) {
 
 /**
  * Why a page loaded afresh, in the reload notice's words, from the evidence
- * zen-core acted on (zen-observe's reasons), the strongest first. Each says
+ * the core acted on (the observe layer's reasons), the strongest first. Each says
  * its detail behind the '?', if it has one worth reading. Only what a clean
  * copy clears: a page on a list, or that the agent flagged, doesn't reload
  * for that, and gets its warning.
@@ -4601,7 +4601,7 @@ const RELOAD_WHY = [
 ];
 
 /**
- * A detail of zen-observe's or the agent's as one line of text: no control
+ * A detail of the observe layer's or the agent's as one line of text: no control
  * or format characters (bidi controls among them, which isolate() adds
  * back around it), no line breaks, at most 200 characters. It stays text:
  * the cards set it as text, and their details count down only with a
@@ -4615,7 +4615,7 @@ function detailLine(text) {
 
 /**
  * The reload notice's reason for `evidence` ({reason: detail}), or null
- * for none it knows. A detail is zen-observe's one line, isolated
+ * for none it knows. A detail is the observe layer's one line, isolated
  * (detailLine).
  *
  * @param {Object<string, string>|null|undefined} evidence
@@ -4635,7 +4635,7 @@ export function reloadReason(evidence) {
 }
 
 /**
- * The warning on a page that's on a phishing or malware list (zen-observe's
+ * The warning on a page that's on a phishing or malware list (the observe layer's
  * listed, from Safe Browsing) or that the agent flagged (its flagged, with
  * the agent's reason), while the user is on it. Null for evidence with
  * neither. It only informs: its one button is the ✕. The agent's reason is
@@ -4667,8 +4667,8 @@ export function pageWarningCard(evidence, actions = {}) {
  * agent's changes: a form there may be back at its defaults, so the user
  * checks it before submitting. It only informs: its one button is the ✕.
  * `clickLost`: the press that set the reload off went nowhere, which the
- * title says first. `evidence`: what zen-core reloaded it on ({reason:
- * detail}, zen-observe's), which it names: the notice says why.
+ * title says first. `evidence`: what the core reloaded it on ({reason:
+ * detail}, the observe layer's), which it names: the notice says why.
  *
  * @param {{clickLost?: boolean, evidence?: Object<string, string>|null}} [what]
  * @param {{dismiss?: () => void}} [actions]
@@ -4720,7 +4720,7 @@ export const REFUSED = {
   window: { title: "Window not opened", what: "open windows" },
 };
 
-/** zen-observe's words for what a page asked for (observe.refused's `asked`), as REFUSED's keys. */
+/** The observe layer's words for what a page asked for (observe.refused's `asked`), as REFUSED's keys. */
 const ASKED = {
   camera: "camera",
   microphone: "microphone",
@@ -4731,11 +4731,11 @@ const ASKED = {
 };
 
 /**
- * The REFUSED key for one of zen-observe's refusals, or null for one the
+ * The REFUSED key for one of the observe layer's refusals, or null for one the
  * user wouldn't miss: the speakers, the device list and MIDI have no card.
  *
  * @param {string} kind  deviceAccess, notification, …
- * @param {string} [asked]  zen-observe's word list
+ * @param {string} [asked]  the observe layer's word list
  */
 export function refusedKind(kind, asked = "") {
   if (kind === "notification") {
@@ -4768,7 +4768,7 @@ export function madePageCard({ refused = null } = {}, actions = {}) {
  * The card on a tab that joined a task while the user held it
  * (JOINED_NOTICE): they opened it from the agent's page, so it's the
  * agent's, though they may take it for their own. They can type there as
- * in the page they came from: the hold covers it (zen-observe's holdPage).
+ * in the page they came from: the hold covers it (the observe layer's holdPage).
  *
  * @param {string} name  the task's
  * @param {{resume?: () => void}} [actions]
@@ -4821,7 +4821,7 @@ function currentDoc(browser) {
 /** Whether two badges look the same (state, text and action). */
 // A renamed task's badge isn't the same one either: the strip, Watch's hint
 // and the shared badge show its name (the sidebar's Rename task, glue from
-// zen-sidebar).
+// the sidebar).
 function sameBadge(a, b) {
   return (!a && !b) || (!!a && !!b && a.state === b.state && a.text === b.text && a.action === b.action && a.name === b.name);
 }

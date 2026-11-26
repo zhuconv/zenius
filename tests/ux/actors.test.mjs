@@ -1,6 +1,6 @@
-// zen-ux's content actors, ZeniusClipboard and ZeniusSystemUi, live only in a
+// The UI's content actors, ZeniusClipboard and ZeniusSystemUi, live only in a
 // task's documents (SPEC's I4). They have no DOMWindowCreated of their own:
-// zen-core's Zenius actor makes them in a task's new documents, top and
+// the core's Zenius actor makes them in a task's new documents, top and
 // frames, and calls their installGuards(). A user's document never gets them,
 // so nothing of theirs loads in the user's tabs. The clipboard and system-UI
 // suites check what the guards do; this one checks where they live.
@@ -26,7 +26,7 @@ after(async () => {
   await h?.close();
 });
 
-// Chrome-side: which of zen-ux's actors a document already has (never making
+// Chrome-side: which of the UI's actors a document already has (never making
 // one), read in its own process; and a frame added to a page.
 const K = `
   const sleep = ms => new Promise(r => win.setTimeout(r, ms));

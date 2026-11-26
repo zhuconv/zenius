@@ -1,4 +1,4 @@
-// JS dialogs the agent intercepted (zen-observe's observe/dialogs.sys.mjs)
+// JS dialogs the agent intercepted (the observe layer's observe/dialogs.sys.mjs)
 // go to Firefox's own prompt UI once the user has control, so the page isn't
 // left frozen. Only on a page a window shows: releasing can select the
 // dialog's tab, which mustn't move the user's view (I1).
@@ -62,7 +62,7 @@ after(async () => {
   await h?.close();
 });
 
-/** The agent's page asks confirm(); zen-observe holds it for the agent. */
+/** The agent's page asks confirm(); the observe layer holds it for the agent. */
 async function openConfirm() {
   await h.call("dev.evalContent", {
     space,

@@ -57,8 +57,8 @@
       }
     }
   }
-  // zenius's doctor learns how each window's sidebar started (zen-ux's
-  // ui.sidebarStatus, agreed with zen-sdk): its error, if the start threw.
+  // zenius's doctor learns how each window's sidebar started (the UI's
+  // ui.sidebarStatus, agreed with the SDK): its error, if the start threw.
   // A property of the window, not a call into zenius: the sidebar loads no
   // zenius module at its start, which I4 counts. A sidebar script that isn't
   // zenius's never sets it.

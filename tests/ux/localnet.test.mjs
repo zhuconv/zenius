@@ -1,6 +1,6 @@
-// The local-network notice. zen-observe refuses a load the user started to the
+// The local-network notice. The observe layer refuses a load the user started to the
 // local network in an agent's tab: a task's tab, the user's hold included, or a
-// kept page with the agent's writes. It tells zen-ux through onUserLoadRefused.
+// kept page with the agent's writes. It tells the UI through onUserLoadRefused.
 // In a task's tab, the tab says access was denied, and why. Open it yourself
 // opens the address in a tab of the user's own: the one they typed, or the home
 // page of the site the page chose. For an address they typed, Add to allowlist
@@ -8,7 +8,7 @@
 // user's own click only, and loads it in the tab; what it does waits behind the
 // '?'. The agent's synthesized clicks and keys can't press it. A kept page
 // shows nothing: it loads afresh, quietly. These tests call the hook's
-// listener the way zen-observe does.
+// listener the way the observe layer does.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { iso, setup } from "./lib.mjs";
@@ -71,7 +71,7 @@ const K = `
     }
     await sleep(100);
   };
-  // zen-observe's flag and zen-core's cleanLoad, standing in.
+  // The observe layer's flag and the core's cleanLoad, standing in.
   const calls = [];
   const standIn = bid => {
     const b = tabOf(bid).linkedBrowser;
@@ -84,7 +84,7 @@ const K = `
   };
   // A tab opened after \`before\` (a set of tabs): the new one.
   const opened = before => [...Win.uniqueTabs()].find(t => !before.has(t)) ?? null;
-  // zen-observe's list of local hosts agents may reach.
+  // The observe layer's list of local hosts agents may reach.
   const ALLOW = "zenius.agentTabs.allowPrivateNetworks";
   const allowList = () => Services.prefs.getStringPref(ALLOW, "");
   // The tab in view, as the user's click on its card needs.
@@ -254,7 +254,7 @@ test("Add to allowlist: the agent's synthesized input can't press it: its click 
       };
     `);
     assert.equal(spot.over, true, "the button shows over the page");
-    // The agent's input, through zen-input as any agent's.
+    // The agent's input, through the input layer as any agent's.
     await h.call("page.mouse", { space, page: "p1", action: "click", x: spot.x, y: spot.y, options: {} });
     for (let i = 0; i < 4; i++) {
       await h.call("page.keyboard", { space, page: "p1", action: "press", key: "Tab", options: {} });
@@ -326,7 +326,7 @@ test("in a kept page with the agent's writes, a load the page chose after the us
       Pages.landOn(t);
       await gZenWorkspaces.changeWorkspaceWithID(t.getAttribute("zen-workspace-id"));
       await until(() => gBrowser.selectedTab === t);
-      // zen-observe lets the user's own typed load replace a kept page's
+      // The observe layer lets the user's own typed load replace a kept page's
       // document; it refuses only a load the page chose.
       const show = () => refused(${bid}, ${JSON.stringify(`${h.base}/zoo/forms.html?link`)}, ${JSON.stringify(h.base)}, "a private address", false);
       show();
@@ -375,7 +375,7 @@ test("end to end, on zen-observe's refusal: in the user's hold, an address they 
       ctx.spaces.setOwnership(rec, "agentDelegatedToUser", { reason: "manual_takeover", source: "agent" });
       const b = tabOf(${bid}).linkedBrowser;
       const was = b.browsingContext.currentWindowGlobal.innerWindowId;
-      // As the address bar loads it. zen-observe refuses the load as it opens
+      // As the address bar loads it. The observe layer refuses the load as it opens
       // (http-on-opening-request), so nothing connects. Gecko would look the
       // name up first for its speculative connection (observe/localnet.sys.mjs,
       // "Not caught here"), which dev profiles turn off.

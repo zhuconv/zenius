@@ -1,5 +1,5 @@
-// The look of every zen-ux surface, for a person to review (L1–L7 below).
-// zen-eval runs it on the Mac in a visible dev Zen, so the screenshots show
+// The look of every the UI surface, for a person to review (L1–L7 below).
+// The eval harness runs it on the Mac in a visible dev Zen, so the screenshots show
 // Retina rendering:
 //
 //   ZENIUS_UX_HEADED=1 tests/ux/run.sh tests/ux/mac/look.test.mjs
@@ -326,7 +326,7 @@ for (const theme of ["light", "dark"]) {
 
 // The notice pills: the takeover pill at the bottom center of the agent's
 // page, and a 2x sheet of every pill (takeover after a click and after
-// typing, You're in control, Agent needs you with and without zen-core's
+// typing, You're in control, Agent needs you with and without the core's
 // reload, a permission prompt, a close waiting for the user, the claim gate's
 // prompt, the local-address cards, a tab that joined a held task, and the
 // cards of a kept page that runs the agent's code), in light and dark.
@@ -386,13 +386,13 @@ for (const theme of ["light", "dark"]) {
           "zenius-joined",
           `N.removeNotice(tab, "zenius-joined");`,
         ],
-        // zen-core's claim gate: an agent asks to work in the user's Space.
+        // The core's claim gate: an agent asks to work in the user's Space.
         claim: [
           `N.showNotice(tab, "zenius-claim:look", ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").claimCard("Trip planner", "Work", Date.now() + 600000));`,
           "zenius-claim:look",
           `N.removeNotice(tab, "zenius-claim:look");`,
         ],
-        // zen-observe refused a load the user started to the local network:
+        // The observe layer refused a load the user started to the local network:
         // an address they typed (with Add to allowlist), and one the page chose.
         localTyped: [
           `N.showNotice(tab, "zenius-localnet", ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").localNetCard({ host: "192.168.1.10", typed: true }, { allow: () => {} }));`,
@@ -499,7 +499,7 @@ for (const theme of ["light", "dark"]) {
   }));
 }
 
-// The muted badge (zen-observe's mute, ui/muted.sys.mjs): the agent's tab in
+// The muted badge (the observe layer's mute, ui/muted.sys.mjs): the agent's tab in
 // the sidebar, cropped at 2x, in light and dark.
 for (const theme of ["light", "dark"]) {
   test(`${theme}: the muted badge on an agent tab, for review`, () =>
@@ -507,7 +507,7 @@ for (const theme of ["light", "dark"]) {
       const path = join(OUT, `muted-badge-${theme}.png`);
       await h.chrome(`${P}
         await showSpace(rec.uuid, tab);
-        // zen-observe clears the attribute once the user sees the tab: set it after.
+        // The observe layer clears the attribute once the user sees the tab: set it after.
         tab.setAttribute("zenius-muted-sound", "");
         await sleep(300);
         try {
@@ -532,7 +532,7 @@ for (const theme of ["light", "dark"]) {
 }
 
 // The task tag (ui/tasktags.sys.mjs): the agent's tab row with its tag,
-// working and needing the user, at 2x, in light and dark. zen-core sets
+// working and needing the user, at 2x, in light and dark. The core sets
 // zenius-task on task pages; here the test sets it.
 for (const theme of ["light", "dark"]) {
   test(`${theme}: the task tag on an agent tab, for review`, () =>

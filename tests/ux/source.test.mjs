@@ -8,7 +8,7 @@
 //
 // Every file git tracks under ROOTS counts, except binary ones (git's own
 // test: a NUL byte in the first 8000 bytes). Only the FIXTURES listed may
-// hold such characters raw. This replaces zen-core's guard of its own paths
+// hold such characters raw. This replaces the core's guard of its own paths
 // and keeps its classes. It needs no browser, and builds the extra
 // characters from their code points, since an escape typed into a tool call
 // can arrive decoded.

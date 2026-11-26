@@ -1,14 +1,14 @@
 // After its task, a page can't open a window with an opener while its window
-// group holds a document the agent's sandbox wrote into: zen-core refuses
+// group holds a document the agent's sandbox wrote into: the core refuses
 // it, and opens nothing in its place (a form posted into a new window,
 // about:blank, blob:, data:, a feature popup refused on the Mac, and today
 // every other). Nothing shows: when the user's own
 // click or key there came just before, the pages with the writes load
-// afresh, quietly (zen-core's cleanLoad), this page or the group's others,
+// afresh, quietly (the core's cleanLoad), this page or the group's others,
 // so the next try opens. One the page opened on its own, one a plain tab
 // opened instead (reopened), or one refused during a hold changes nothing.
-// zen-core's hook, noteOpenRefused, stands in for its refusals here, a
-// reload for zen-core's cleanLoad, and a stand-in for zen-observe's
+// The core's hook, noteOpenRefused, stands in for its refusals here, a
+// reload for the core's cleanLoad, and a stand-in for the observe layer's
 // evidenceOf; tests/core has the refusals themselves.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
@@ -29,7 +29,7 @@ after(async () => {
 });
 
 // Chrome-side helpers: pages by browserId, the cards that once showed, the
-// announcer, and zen-core's hook.
+// announcer, and the core's hook.
 const K = `
   const N = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/notices.sys.mjs");
   const Win = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/windows.sys.mjs");
@@ -52,7 +52,7 @@ const K = `
   const windows = bid => read(bid, "zenius-no-windows");
   const docOf = bid => tabOf(bid)?.linkedBrowser.browsingContext?.currentWindowGlobal?.innerWindowId ?? 0;
   const refuse = (bid, url, reopened = false) => Win.noteOpenRefused({ browser: tabOf(bid).linkedBrowser, url, reopened });
-  // zen-observe's evidence, standing in: these pages' current documents
+  // The observe layer's evidence, standing in: these pages' current documents
   // are hooked, and lose it with a new document.
   const hookedDocs = new Set();
   const writeInto = bid => hookedDocs.add(docOf(bid));
@@ -68,7 +68,7 @@ const K = `
     }
     await sleep(100);
   };
-  // zen-core's cleanLoad, standing in: a reload.
+  // The core's cleanLoad, standing in: a reload.
   const calls = [];
   UI.cleanLoad = async browser => {
     calls.push(browser.browserId);
@@ -187,8 +187,8 @@ test("a page linked to a kept page with the agent's writes, with none itself: wh
     await h.call("page.waitForLoadState", { space: t.space, page: "p2", state: "load", options: {} });
     p2 = await h.chrome(`return ctx.resolvePage({ space: ${t.space}, page: "p2" }).browser.browserId;`);
     await view(p2);
-    // zen-core's quiet loads off: the written p1 isn't reloaded at the
-    // task's end, as when that reload fails (zen-core's closed-groups tests
+    // The core's quiet loads off: the written p1 isn't reloaded at the
+    // task's end, as when that reload fails (the core's closed-groups tests
     // do the same), so it still holds the agent's writes.
     await h.chrome(`Services.prefs.setBoolPref("zenius.handoff.quietReload", false); return true;`);
     await h.call("spaces.finish", { space: t.space, keep: ["p1", "p2"] });

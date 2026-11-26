@@ -41,7 +41,7 @@ before(async () => {
       if (gZenWorkspaces.activeWorkspace !== userWs) await gZenWorkspaces.changeWorkspaceWithID(userWs);
     };
     // The hold's card as it ships: the Resume line comes just in time, after
-    // zen-input's onSecretTyped (handoff.test.mjs has it), so a hand-off's
+    // the input layer's onSecretTyped (handoff.test.mjs has it), so a hand-off's
     // small text is the agent's words.
     win.__zuJustInTime ??= UI.secretLineJustInTime;
     UI.secretLineJustInTime = true;
@@ -82,7 +82,7 @@ before(async () => {
       tip.keyup(shift);
     };
     // The window's own focus: Services.focus.focusedElement is the active
-    // window's, and the OS can take the window's activation away (zen-eval's
+    // window's, and the OS can take the window's activation away (the eval harness's
     // throttled run, the screen locked) without anything moving its focus.
     const focused = () => Services.focus.getFocusedElementForWindow(win, true, {});
     const where = () => {
@@ -348,7 +348,7 @@ test("Enter and Space press a pill's button; the focus goes back where it came f
   const out = await h.chrome(`${P}
     await show();
     // Each step waits for what it needs (the focus where it went, the agent
-    // back) rather than a fixed pause, which a throttled Mac (zen-eval's
+    // back) rather than a fixed pause, which a throttled Mac (the eval harness's
     // background-priority run, the screen locked) outran; a wait that ends
     // without it leaves the assertion to say what was there.
     const waitFor = (fn, ms) => until(fn, ms).catch(() => {});
@@ -827,7 +827,7 @@ test("the keyboard reaches today's cards from the page and the address bar, main
     const res = {};
     let own = null;
     try {
-      // zen-observe tells of a load the user started while the agent doesn't
+      // The observe layer tells of a load the user started while the agent doesn't
       // drive: here, in the user's hold, after the hold's own card.
       await handOff("Log in to continue");
       UI.userLoadRefused({ browser, url: ${JSON.stringify(`${h.base}/api/text?own`)}, origin: ${JSON.stringify(h.base)}, typed: true, scope: "task" });

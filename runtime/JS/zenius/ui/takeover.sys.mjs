@@ -154,12 +154,12 @@ function keyCounts(e, mac) {
  *   true while the user has paused the Space: input then opens no prompt
  * @property {(rec: object) => void} [noteUserInput]
  *   the user's real input reached one of the task's pages, whatever its
- *   ownership (zen-core's spaces.noteUserInput)
+ *   ownership (the core's spaces.noteUserInput)
  * @property {(tab: Element) => (object|null)} [finishedTaskOf]
- *   the ended task that kept `tab` open at its finish, or null (zen-core's
+ *   the ended task that kept `tab` open at its finish, or null (the core's
  *   finishedTaskOf, which follows a page moved to another window)
  * @property {(rec: object, browser: Element, kind: "clicked"|"typed") => void} [noteKeptInput]
- *   the user clicked or typed in such a kept tab (zen-core's noteKeptInput):
+ *   the user clicked or typed in such a kept tab (the core's noteKeptInput):
  *   a reply to the task's chat then leaves that page with the user
  */
 
@@ -285,7 +285,7 @@ export class Takeover {
       // the page with them when a reply gives the task back. What counts is
       // what counts here (classifyInput): a scrollbar drag or Space counts
       // too, which only keeps a page that may have changed with the user.
-      // Every counted one goes; zen-core keeps the first per tab.
+      // Every counted one goes; the core keeps the first per tab.
       const kept = tab ? this.host.finishedTaskOf?.(tab) : null;
       if (kept) {
         try {
@@ -299,7 +299,7 @@ export class Takeover {
     }
     // Whoever holds the task: an agent's takeOver, or its claim of a task
     // handed to the user, waits until 10 s after the user's last real input
-    // there (zen-core keeps the time).
+    // there (the core keeps the time).
     try {
       this.host.noteUserInput?.(hit.rec);
     } catch (e) {
@@ -333,7 +333,7 @@ export class Takeover {
       if (kind === "pointer" && Date.now() < (this.#grace.get(rec.id) ?? 0)) {
         return null;
       }
-      // zen-input's hand-back hook reads promptState(id).typed at the pause
+      // The input layer's hand-back hook reads promptState(id).typed at the pause
       // (input/handback.sys.mjs): keep it.
       st = { rec, tab, typed: kind !== "pointer", inputs: 0, openedAt: Date.now(), timer: 0, deadline: 0 };
       this.#prompts.set(rec.id, st);
@@ -362,7 +362,7 @@ export class Takeover {
 
   /**
    * A page moved to another window's copy of its tab (window sync,
-   * zen-core's pageMoved): its prompt goes with it, its countdown running.
+   * the core's pageMoved): its prompt goes with it, its countdown running.
    *
    * @param {Element} from
    * @param {Element} to
@@ -410,7 +410,7 @@ export class Takeover {
     if (outcome === "takeover") {
       // Ownership first: the agent's waiting action must fail with
       // USER_IN_CONTROL rather than run when the pause lifts. The host's
-      // Take over may reload the page first (zen-core's userTakeOver), and
+      // Take over may reload the page first (the core's userTakeOver), and
       // keeps the agent paused until the hold begins.
       if (this.host.takeOver) {
         this.host.takeOver(rec, st.tab, { typed: !!st.typed });

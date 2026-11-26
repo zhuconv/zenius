@@ -1,6 +1,6 @@
 // The per-tab task tag (ui/tasktags.sys.mjs, zenius-ux.css; SPEC §3.8).
-// zen-core marks task pages with zenius-task=<id>; these tests set it the
-// way zen-core does, then check what zen-ux adds: the task's state on the
+// The core marks task pages with zenius-task=<id>; these tests set it the
+// way the core does, then check what the UI adds: the task's state on the
 // tab and its name for the chip, kept in step with the Space badge.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";

@@ -1,28 +1,28 @@
 // The hand-off and the user's Take over, made safe by zenius itself. The
 // user always types in the agent's own tab:
-// - zen-core reloads a page with evidence of danger before the hold
+// - the core reloads a page with evidence of danger before the hold
 //   begins, at a hand-off and at Take over (service.userTakeOver);
 // - a page that loaded afresh for the hold (the agent's hand-off, the
 //   user's Take over) or at the user's press (their first press or key in a
-//   page with evidence: zen-input's typing hook, zen-core's cleanOnDemand)
+//   page with evidence: the input layer's typing hook, the core's cleanOnDemand)
 //   says so, since a form there may be back at its defaults (as a
-//   Cloudflare token form was, and the hand-off's in zen-input's form
+//   Cloudflare token form was, and the hand-off's in the input layer's form
 //   tests);
 // - a Take over whose reload fails brings today's prompt back;
 // - on a page the agent made itself, the card says it might contain
 //   malicious code;
 // - the card says that Resume agent clears secret fields once the user typed
-//   one (zen-input's onSecretTyped), or always without that event;
+//   one (the input layer's onSecretTyped), or always without that event;
 // - Resume agent first reloads each page where the user typed a secret
-//   and the agent's code or its own page is evidence of danger (zen-input's
-//   typedSecrets, zen-core's cleanLoad, zen-observe's evidenceOf), and tells
-//   zen-core;
+//   and the agent's code or its own page is evidence of danger (the input layer's
+//   typedSecrets, the core's cleanLoad, the observe layer's evidenceOf), and tells
+//   the core;
 // - a page on a phishing or malware list, or that the agent flagged, warns
 //   the user while they're on it, and nothing reloads for it;
-//   zen-core's own ways back (spaces.takeOver, spaces.claim) run the same
+//   the core's own ways back (spaces.takeOver, spaces.claim) run the same
 //   step through service.beforeHandBack;
 // - a tab that joins the task during the hold says it's the agent's.
-// zen-core's and zen-input's parts are stand-ins here; their suites test
+// The core's and the input layer's parts are stand-ins here; their suites test
 // them.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
@@ -40,7 +40,7 @@ const MADE_NOTE = "The agent made this page. It might contain malicious code. Ke
 // A page that loaded afresh at the user's press.
 const RELOADED_NOTE = "A form here may be back to its defaults: check it before you submit.";
 const RELOADED_MORE = "It reloaded without the agent's changes.";
-// A hand-off whose step shows the user a secret (zen-core's secret flag).
+// A hand-off whose step shows the user a secret (the core's secret flag).
 const SECRET_NOTE = "Resume agent clears this page, so copy what you need from it first.";
 let h;
 
@@ -64,7 +64,7 @@ before(async () => {
     const N = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/notices.sys.mjs");
     const Pages = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/pages.sys.mjs");
     const userWs = ${JSON.stringify(userView.windows[0].activeWorkspace)};
-    // The Resume line shows always unless a test turns zen-input's event on.
+    // The Resume line shows always unless a test turns the input layer's event on.
     win.__zuJustInTime ??= UI.secretLineJustInTime;
     UI.secretLineJustInTime = false;
     win.__zuStart ??= gBrowser.selectedTab;
@@ -103,7 +103,7 @@ before(async () => {
       if (gZenWorkspaces.activeWorkspace !== userWs) await gZenWorkspaces.changeWorkspaceWithID(userWs);
       await until(() => gZenWorkspaces.activeWorkspace === userWs);
     };
-    // What zen-core's spaces.handOff does, with the flags its spaceChanged
+    // What the core's spaces.handOff does, with the flags its spaceChanged
     // carries when it reloaded the page first.
     const withEvent = (extra, fn) => {
       const emit = ctx.spaces.onEvent;
@@ -114,7 +114,7 @@ before(async () => {
         ctx.spaces.onEvent = emit;
       }
     };
-    // pages: the labels zen-core notes as loaded afresh for the hold (the
+    // pages: the labels the core notes as loaded afresh for the hold (the
     // page handed off, when it reloaded, and others).
     const handOff = (text, extra = {}, pages = extra.reloaded ? ["p1"] : []) =>
       withEvent(extra, () => {
@@ -122,10 +122,10 @@ before(async () => {
         ctx.spaces.noteReloaded(rec, pages);
         ctx.spaces.setOwnership(rec, "agentDelegatedToUser", { source: "agent" });
       });
-    // zen-core's userTakeOver, standing in: a reload of the page, then the
+    // The core's userTakeOver, standing in: a reload of the page, then the
     // hold, with the flags its spaceChanged carries; in a task the user
     // holds already, the reload alone. what: "reload", "none" or "fail".
-    // refusal: zen-core's ZenError for "fail" ({code, reason, message, data}).
+    // refusal: the core's ZenError for "fail" ({code, reason, message, data}).
     const takeOverAs = (what, refusal = {}) => {
       const seen = [];
       ctx.service.userTakeOver = async (r, b) => {
@@ -150,7 +150,7 @@ before(async () => {
       };
       return seen;
     };
-    // Stand-ins for zen-observe's record of the agent's own pages: any
+    // Stand-ins for the observe layer's record of the agent's own pages: any
     // document counts with fn(rec, principal); null restores the real ones.
     const MADE = /^(?:about:(?:blank|srcdoc)(?:[?#]|$)|data:|blob:)/i;
     const codeOn = fn => {
@@ -709,7 +709,7 @@ test("end to end, on zen-core's real hand-off: the agent's code left a field in 
       fresh: true,
       field: false,
       pill: `Agent needs you · ${iso(`zen-ux hand-off reload ${run}`)} on ${site()}`,
-      // zen-core's hold says why, by the page's label (spaceChanged's evidence).
+      // The core's hold says why, by the page's label (spaceChanged's evidence).
       reloaded: { text: "This page reloaded · the agent's code had changed it", note: RELOADED_NOTE, more: `${RELOADED_MORE} What its code left: ${iso(before.hooked)}.` },
     });
   } finally {
@@ -763,7 +763,7 @@ test("zen-input's typing hook changes nothing in who holds the task: zen-core re
       const missed = await UI.userTyping({ browser, trigger: "press", reloaded: Promise.reject(new Error("no new document")) });
       const after = { ownership: rec.ownership, paused: !!rec.paused, prompt: N.noticeText(tab, "zenius-takeover"), pill: !!pill() };
       const card = offCard();
-      // Reload: zen-core's clean load again; the card stays up while it tries.
+      // Reload: the core's clean load again; the card stays up while it tries.
       const calls = [];
       UI.cleanLoad = async b => {
         calls.push(b === browser);
@@ -821,7 +821,7 @@ test("a Take over that loaded another page of the task afresh, by zen-core's lab
       let reloaded = null;
       try {
         await showTask();
-        // zen-core's userTakeOver, standing in: the page taken over holds
+        // The core's userTakeOver, standing in: the page taken over holds
         // as it is; the task's other page loads afresh, named by its label.
         ctx.service.userTakeOver = async (r, b) => {
           const mine = b === other.browser;
@@ -854,7 +854,7 @@ test("a Take over that loaded another page of the task afresh, by zen-core's lab
 });
 
 // A page reloads only on evidence of danger, and the notice says which
-// (zen-core's results carry what they acted on: cleanOnDemand's evidence,
+// (the core's results carry what they acted on: cleanOnDemand's evidence,
 // holdForUser's by label). Only the agent's code (hooked) and its own page
 // (made) reload: a listed or flagged page gets its warning instead, so those
 // two never say why a page reloaded.
@@ -932,7 +932,7 @@ test("a clean copy at the user's press says so on the page: their click didn't g
       browser.reload();
       await until(() => browser.browsingContext.currentWindowGlobal?.innerWindowId !== doc && !browser.webProgress.isLoadingDocument);
       await until(() => !reloadedCard());
-      // A press on a field, whose focus comes back, and a key, which zen-input replays.
+      // A press on a field, whose focus comes back, and a key, which the input layer replays.
       await UI.userTyping({ browser, trigger: "press", field: true, reloaded: Promise.resolve({ how: "reload" }) });
       res.onField = reloadedCard();
       N.removeNotice(tab, "zenius-reloaded");
@@ -1084,7 +1084,7 @@ test("a page on a phishing or malware list, or that the agent flagged, warns the
         : null;
     };
     const doc = b => b.browsingContext.currentWindowGlobal.innerWindowId;
-    // zen-observe's onEvident, as it fires: once per document and reason.
+    // The observe layer's onEvident, as it fires: once per document and reason.
     const marked = (b, reason, detail = "") => UI.evidenceAdded({ browser: b, innerWindowId: doc(b), reason, detail });
     let mine = null;
     try {
@@ -1256,7 +1256,7 @@ test("Resume agent first reloads each page with evidence of danger where the use
 });
 
 // Without evidence of danger, a page keeps what the user typed until
-// zen-input's clear empties its secret fields; only code the agent left there
+// the input layer's clear empties its secret fields; only code the agent left there
 // could have read it. A page on a list or that the agent flagged stays too: a
 // clean copy can't clear the page itself.
 for (const [what, evidence] of [
@@ -1317,7 +1317,7 @@ test("with zen-core's quiet loads off (zenius.handoff.quietReload, a test's swit
       // The pill takes clicks 400 ms after it shows.
       await new Promise(r => win.setTimeout(r, 450));
       [...pill().querySelectorAll("button")].find(b => b.textContent === "Resume agent").click();
-      // zen-input's clear runs on this change, ahead of the agent's next call.
+      // The input layer's clear runs on this change, ahead of the agent's next call.
       return { asked, hook: hook.length, ownership: rec.ownership };
     } finally {
       Services.prefs.clearUserPref("zenius.handoff.quietReload");
@@ -1365,7 +1365,7 @@ test("a tab that joins the task during the user's hold has a card saying it's th
         handOff("Log in to continue");
         await until(() => UI.describe(rec).controlNotice);
         const { tab: joined } = ctx.resolvePage({ space: rec.id, page: ${JSON.stringify(label)} });
-        // zen-core's adoptPopup, for a tab the user opened from the agent's page.
+        // The core's adoptPopup, for a tab the user opened from the agent's page.
         ctx.service.emitLocal("popup", { space: rec.id, page: ${JSON.stringify(label)}, tab: ctx.service.pages.tabId(joined), opener: "p1" });
         await until(() => N.noticeElement(joined, "zenius-joined"));
         const el = N.noticeElement(joined, "zenius-joined");
@@ -1466,7 +1466,7 @@ test("end to end, on zen-observe's real record: a data: page the agent went to, 
     };
   `;
   await h.chrome(`${Q} UI.agentCodeOnSite = null; UI.agentCodeInPage = null; UI.agentMadePage = null; return true;`);
-  // The agent goes to a page of its own (zen-snapshot's dataGoto).
+  // The agent goes to a page of its own (the snapshot layer's dataGoto).
   await h.call("page.goto", { space: made, page: "p1", url: "data:text/html,<title>Sign in</title><input type=password>" });
   const data = await h.chrome(`${Q} try { return await takenOver(); } finally { await handBack(); }`);
   // On the site, its code makes a page of its own and moves the tab there.
@@ -1516,7 +1516,7 @@ test("on a task no Work chat drives, the hold card ends with what comes after Re
   const out = await h.chrome(`${P}
     const AS = win.ucAgentSidebar.AgentService;
     const drives = AS.drivesSpace;
-    // zen-core's wait for control coming or going (rec.agentWaiting, and its
+    // The core's wait for control coming or going (rec.agentWaiting, and its
     // spaceChanged), standing in.
     const waiting = on => {
       rec.agentWaiting = on;

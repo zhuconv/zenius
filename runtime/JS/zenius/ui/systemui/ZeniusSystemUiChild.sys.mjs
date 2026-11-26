@@ -1,4 +1,4 @@
-// Child half of the "ZeniusSystemUi" actor (zen-ux): page APIs that would
+// Child half of the "ZeniusSystemUi" actor (the UI): page APIs that would
 // open the operating system's UI over the user's view, in a tab the agent
 // drives.
 //
@@ -19,9 +19,9 @@
 // The guards install in every document of an agent task's tabs and decide
 // per call, so a tab the user holds behaves natively.
 //
-// zen-core's Zenius actor makes this one only in a task's documents, at its
+// The core's Zenius actor makes this one only in a task's documents, at its
 // DOMWindowCreated, and calls installGuards(). Its helpers load on first use,
-// so nothing of zen-ux loads in a user's tab (zen-core's I4).
+// so nothing of the UI loads in a user's tab (the core's I4).
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -42,7 +42,7 @@ const guarded = new WeakSet();
 
 export class ZeniusSystemUiChild extends JSWindowActorChild {
   receiveMessage({ name }) {
-    // zen-core asks when a tab joins a task after its document started.
+    // The core asks when a tab joins a task after its document started.
     if (name === "installGuards") {
       this.installGuards();
     }

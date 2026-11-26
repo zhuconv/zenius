@@ -8,14 +8,14 @@
  * runtime's record of its steps, the live card, Watch, Take over and Stop.
  * The sidebar can't chat with that agent.
  *
- * - zen-core's feed (service.spaces.feed(), its taskFeed event) names every
+ * - the core's feed (service.spaces.feed(), its taskFeed event) names every
  *   task, its source ({terminal, agent, folder}, each kept only in the
  *   remote labels' character set) and its end. It keeps ended tasks: the
  *   last 50, and for 24 h across a restart.
- * - zen-ux's ZeniusUI.tasks() gives a live task's state as the strip shows
+ * - the UI's ZeniusUI.tasks() gives a live task's state as the strip shows
  *   it (a row's `needs`), so the directory's Needs you, the strip and the
  *   Work badge count the same tasks.
- * - zen-input's ring (input/steps.sys.mjs) gives the steps: a line naming
+ * - the input layer's ring (input/steps.sys.mjs) gives the steps: a line naming
  *   each call and its target, its outcome and time. Typed values never come,
  *   and a page's names come one line, capped and quoted.
  *
@@ -27,7 +27,7 @@
 
 export const EXTERNAL_PREFIX = "ext-";
 const STEPS_MODULE = "chrome://userscripts/content/zenius/input/steps.sys.mjs";
-/** How a Done row and the view's bar say how the task ended (zen-core's `ended`). */
+/** How a Done row and the view's bar say how the task ended (the core's `ended`). */
 export const ENDED_TEXT = { finished: "Finished", stopped: "Stopped by you", closed: "Closed" };
 const LOG = "[agent-sidebar]";
 
@@ -39,7 +39,7 @@ function plain(text, max = 200) {
 const isolate = text => `\u2068${text}\u2069`;
 
 /**
- * Where an external task is driven from (zen-core's source), one phrase:
+ * Where an external task is driven from (the core's source), one phrase:
  * "Claude Code on laptop/t5x" when its caller runs in an hc terminal, else
  * "Claude Code in zenius-eval" (its agent and its folder's name). Each part
  * is a first-strong isolate, as remoteSource's. `terminal` says whether the
@@ -105,11 +105,11 @@ export class ExternalTask {
   stopped = false;
   zenBadge = null;
   zenNoted = null;
-  /** {terminal?, agent?, folder?}: zen-core's source, text to show only. */
+  /** {terminal?, agent?, folder?}: the core's source, text to show only. */
   from = null;
   /** zenius's last line on the view's hand-off card, as its row last said (ZeniusUI.afterResume). */
   afterResume = null;
-  /** How it ended (zen-core's `ended`: finished, stopped, closed), or null while it runs. */
+  /** How it ended (the core's `ended`: finished, stopped, closed), or null while it runs. */
   ended = null;
   endedAt = 0;
   /** The latest step's text, a working row's status. */
@@ -155,10 +155,10 @@ export class ExternalTask {
 }
 
 /**
- * The external tasks, kept in line with zen-core's feed (sync) and
- * zen-input's ring (its onStep). `hooks`:
+ * The external tasks, kept in line with the core's feed (sync) and
+ * the input layer's ring (its onStep). `hooks`:
  * - service(): zenius's service, or null;
- * - ui(): zen-ux's ZeniusUI, or null;
+ * - ui(): the UI's ZeniusUI, or null;
  * - own(space, source, entry): whether the sidebar drives that task, or
  *   the user removed it from the list as the feed entry has it
  *   (AgentService.wasRemoved);
@@ -171,7 +171,7 @@ export class ExternalTask {
 export class ExternalTasks {
   /** @type {Map<string, ExternalTask>} uid → task, in the feed's order */
   byUid = new Map();
-  /** zen-input's steps module ({stepsOf, onStep}), null without it; tests set a stand-in. */
+  /** The input layer's steps module ({stepsOf, onStep}), null without it; tests set a stand-in. */
   #steps = undefined;
   #offSteps = null;
 
@@ -203,7 +203,7 @@ export class ExternalTasks {
     return this.#steps;
   }
 
-  /** A stand-in for zen-input's module (tests); null restores the real one. */
+  /** A stand-in for the input layer's module (tests); null restores the real one. */
   set stepsModule(module) {
     this.#offSteps?.();
     this.#offSteps = null;
@@ -222,7 +222,7 @@ export class ExternalTasks {
     }
   }
 
-  /** The task's steps, oldest first (zen-input's stepsOf), or none. */
+  /** The task's steps, oldest first (the input layer's stepsOf), or none. */
   steps(task) {
     try {
       const list = this.stepsModule?.stepsOf?.(task.space);
@@ -262,7 +262,7 @@ export class ExternalTasks {
     }
   }
 
-  /** Bring the list in line with zen-core's feed and the strip's rows. */
+  /** Bring the list in line with the core's feed and the strip's rows. */
   sync() {
     let entries = [];
     try {
@@ -338,7 +338,7 @@ export class ExternalTasks {
       // The ring's latest step, should one have come before the task was seen.
       task.lastStep = plain(this.steps(task).at(-1)?.text) || task.lastStep;
     }
-    // The strip's own word on a live task (zen-ux's needsUser), so the
+    // The strip's own word on a live task (the UI's needsUser), so the
     // counts agree; the agent's hand-off text says why.
     const needs = !done && !!row?.needs;
     const state = done ? "done" : needs ? "needs" : "working";

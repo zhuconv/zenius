@@ -27,7 +27,7 @@
 // as Zen.app's. A reach into the local network would raise macOS's Local
 // Network prompt, whose answer covers the whole Zen.app, the user's own Zen
 // included. So WebFetch stays off the local network as task pages do
-// (zen-observe's observe/localnet.sys.mjs, which this follows): private and
+// (the observe layer's observe/localnet.sys.mjs, which this follows): private and
 // link-local addresses and .local names. Loopback stays open, as it does
 // there. A Work session can open such a page in a tab, where the user's own
 // list of local hosts (zenius.agentTabs.allowPrivateNetworks) applies.
