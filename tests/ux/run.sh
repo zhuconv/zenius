@@ -36,6 +36,7 @@ export ZENIUS_AGENT_SCRIPTS=1
 # Unix socket's path must fit in 104 bytes on macOS, where TMPDIR alone takes
 # about 49: there it's in /tmp.
 . "$ROOT/tests/lib/scratch-home.sh"
+. "$ROOT/tests/lib/node-test.sh"
 scratch_parent=${TMPDIR:-/tmp}
 [[ $(uname) == Darwin ]] && scratch_parent=/tmp
 scratch_home ux "${scratch_parent%/}" || exit 2
@@ -73,7 +74,7 @@ if (($#)); then files=("$@"); else files=("$ROOT"/tests/ux/*.test.mjs); fi
 # (default 900). The whole suite took 596 s on the Linux server beside a test-all run
 # (with the self-check's tests), so 600 left no room.
 limit=${ZENIUS_UX_TIMEOUT:-900}
-ZENIUS_INSTANCE=$NAME node --test --test-concurrency=1 "${files[@]}" &
+ZENIUS_INSTANCE=$NAME node --test $(node_test_flags "$@") --test-concurrency=1 "${files[@]}" &
 pid=$!
 (
   waited=0

@@ -16,6 +16,7 @@ DEV="$ROOT/scripts/zen-dev.sh"
 # The dev Zen's zenius home: the caller's (test-all gives each lane one), or
 # one of this run's own, which every way out removes once Zen has stopped.
 . "$ROOT/tests/lib/scratch-home.sh"
+. "$ROOT/tests/lib/node-test.sh"
 own_zenius_home core || exit 2
 trap drop_own_zenius_home EXIT
 
@@ -36,7 +37,7 @@ fi
 if (($#)); then files=("$@"); else files=("$ROOT"/tests/core/*.test.mjs); fi
 # A hung test fails after 3 min, so the EXIT trap still stops Zen.
 status=0
-ZENIUS_INSTANCE=$NAME ZENIUS_DEV="$DEV" node --test --test-concurrency=1 --test-timeout=180000 "${files[@]}" || status=$?
+ZENIUS_INSTANCE=$NAME ZENIUS_DEV="$DEV" node --test $(node_test_flags "$@") --test-concurrency=1 --test-timeout=180000 "${files[@]}" || status=$?
 if [[ -n $guard ]]; then
   guard_status=0
   wait "$guard" || guard_status=$?

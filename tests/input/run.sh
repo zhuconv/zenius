@@ -25,6 +25,7 @@ DEV="$ROOT/scripts/zen-dev.sh"
 # The dev Zen's zenius home: the caller's (test-all gives each lane one), or
 # one of this run's own, which every way out removes once Zen has stopped.
 . "$ROOT/tests/lib/scratch-home.sh"
+. "$ROOT/tests/lib/node-test.sh"
 own_zenius_home input || exit 2
 trap drop_own_zenius_home EXIT
 
@@ -67,7 +68,7 @@ else
   "$DEV" "$NAME" start
 fi
 status=0
-ZENIUS_INSTANCE=$NAME node --test --test-concurrency=1 ${opts[@]+"${opts[@]}"} "${files[@]}" || status=$?
+ZENIUS_INSTANCE=$NAME node --test $(node_test_flags ${opts[@]+"${opts[@]}"}) --test-concurrency=1 ${opts[@]+"${opts[@]}"} "${files[@]}" || status=$?
 if ((!$#)) && [[ ${ZENIUS_INPUT_HEADED:-} != 1 ]]; then
   "$DEV" "$NAME" stop >/dev/null || true
   "$ROOT/tests/input/keyring.sh" || status=$?

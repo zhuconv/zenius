@@ -19,6 +19,7 @@ DEV="$ROOT/scripts/zen-dev.sh"
 # The dev Zen's zenius home: the caller's (test-all gives each lane one), or
 # one of this run's own, which every way out removes once Zen has stopped.
 . "$ROOT/tests/lib/scratch-home.sh"
+. "$ROOT/tests/lib/node-test.sh"
 own_zenius_home observe || exit 2
 trap drop_own_zenius_home EXIT
 # The agent's scripts (the sidebar and '>') load in this suite's Zen too:
@@ -53,7 +54,7 @@ else
   "$DEV" "$NAME" start
 fi
 if (($#)); then files=("$@"); else files=("$ROOT"/tests/observe/*.test.mjs); fi
-ZENIUS_INSTANCE=$NAME node --test --test-concurrency=1 --test-timeout=120000 "${files[@]}" &
+ZENIUS_INSTANCE=$NAME node --test $(node_test_flags "$@") --test-concurrency=1 --test-timeout=120000 "${files[@]}" &
 run=$!
 # The watchdog does nothing once its sleep is killed (&&), and keeps its own
 # stderr quiet ("Terminated"); its message goes to ours (fd 3).

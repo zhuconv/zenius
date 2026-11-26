@@ -21,6 +21,7 @@ DEV="$ROOT/scripts/zen-dev.sh"
 # The dev Zen's zenius home: the caller's (test-all gives each lane one), or
 # one of this run's own, which every way out removes once Zen has stopped.
 . "$ROOT/tests/lib/scratch-home.sh"
+. "$ROOT/tests/lib/node-test.sh"
 own_zenius_home clipboard || exit 2
 trap drop_own_zenius_home EXIT
 
@@ -43,7 +44,7 @@ if (($#)); then files=("$@"); else files=("$ROOT"/tests/clipboard/*.test.mjs); f
 # A hung run mustn't keep Zen open: stop the tests after ZENIUS_CLIP_TIMEOUT seconds
 # (default 600; the suite takes about a minute).
 limit=${ZENIUS_CLIP_TIMEOUT:-600}
-ZENIUS_INSTANCE=$NAME node --test --test-concurrency=1 "${files[@]}" &
+ZENIUS_INSTANCE=$NAME node --test $(node_test_flags "$@") --test-concurrency=1 "${files[@]}" &
 pid=$!
 (
   waited=0
