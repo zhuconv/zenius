@@ -253,14 +253,40 @@ const notRestored = space => ({ code: "ZEN_TASK_SPACE_NOT_FOUND", data: { space,
  * The secret steps' pages, each request counted by its path and query: ?r=
  * names the page (its title), ?nostore makes it uncacheable, so no load of
  * it comes from the cache unseen. Its form field is one the session saves
- * and puts back.
+ * and puts back. Its dropdown, with no option marked, and its email field,
+ * whose value attribute its type cleans up, show other than their markup
+ * says, though no one changed them: that's no one's input. Its first
+ * script notes what it got (FIRST_SCRIPT). ?frame
+ * adds a frame from another site (localhost, this server too) with a page
+ * of its own, field included; ?sub, an image from there, a site no mark of
+ * a step on this one names; ?design, an editor in designMode.
  */
 const steps = { hits: new Map() };
+/** window.__first: the page refusals' natives its first script saw unwrapped, and whether zen-ux's quiet Notification was there. */
+const FIRST_SCRIPT = `window.__first = {
+  native: ["Notification", "RTCPeerConnection", "SharedWorker", "BroadcastChannel"].filter(n => Function.prototype.toString.call(window[n]).includes(n)),
+  quiet: window.Notification === window.Notification.prototype.constructor && !/function Notification\\(/.test(Function.prototype.toString.call(window.Notification)),
+};`;
+const GUARDED_FIRST = { native: [], quiet: true };
 const stepServer = http.createServer((req, res) => {
   steps.hits.set(req.url, (steps.hits.get(req.url) ?? 0) + 1);
   const u = new URL(req.url, "http://x");
+  const r = u.searchParams.get("r") ?? "step";
+  const other = `http://localhost:${stepServer.address().port}`;
+  if (r.endsWith("-sub")) {
+    // An image: one the browser can't decode it drops from the cache.
+    res.writeHead(200, { "content-type": "image/gif" });
+    res.end(Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64"));
+    return;
+  }
   res.writeHead(200, { "content-type": "text/html", ...(u.searchParams.has("nostore") ? { "cache-control": "no-store" } : {}) });
-  res.end(`<!doctype html><title>${u.searchParams.get("r") ?? "step"}</title><form><input name=nickname></form>`);
+  res.end(
+    `<!doctype html><title>${r}</title><script>${FIRST_SCRIPT}</script>` +
+      `<form><input name=nickname><select name=size><option>small</option><option>large</option></select><input type=email name=mail value=" a@example.com "></form>` +
+      (u.searchParams.has("frame") ? `<iframe src="${other}/?r=${r}-frame"></iframe>` : "") +
+      (u.searchParams.has("sub") ? `<img src="${other}/?r=${r}-sub">` : "") +
+      (u.searchParams.has("design") ? `<script>document.designMode = "on";</script>` : "")
+  );
 });
 let stepBase = "";
 before(async () => {
@@ -291,6 +317,14 @@ const tabNow = (space, page) =>
      return { url: bc?.currentWindowGlobal?.documentURI?.spec ?? "", history: bc?.sessionHistory?.count ?? 0, unloaded: !t.linkedPanel || t.hasAttribute("pending") };`,
     { space, page }
   );
+/** Is zenius's window creator in? While a task is live (I4). */
+const popupGuardOn = () =>
+  h.chrome(`return ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/guards.sys.mjs").popupWindowGuardOn();`);
+/** The user's Unload Tab, in the background, as Zen's Unload Space does it. */
+const userUnloads = async (space, page) => {
+  await h.chrome(`${TAB} win.gBrowser.explicitUnloadTabs([t]); return true;`, { space, page });
+  await h.until(async () => (await tabNow(space, page)).unloaded, 5000);
+};
 const loadedAt = (space, page, part) =>
   h.until(async () => {
     const now = await tabNow(space, page).catch(() => null);
@@ -634,6 +668,460 @@ test("the user's own mark keeps whose it is through a quit, and a hold begun bef
   } finally {
     await h.remove(marked).catch(() => {});
     await h.remove(later).catch(() => {});
+  }
+});
+
+/** Whether a fetch only the HTTP cache can answer, from the task's page p1 on the steps' site, gets the step page `r` back (its query `extra` too). */
+const cachedStep = (space, r, extra = "") =>
+  h.call("page.fetch", { space, page: "p1", url: `${stepBase}/?r=${r}${extra}`, options: { cache: "only-if-cached", mode: "same-origin" } }).then(
+    res => String(res.body ?? "").includes(`<title>${r}</title>`),
+    () => false
+  );
+/**
+ * Does the HTTP cache hold the body of an entry whose address has `part`,
+ * in any storage or partition? (A step's subresource from another site,
+ * which no task's page can read the same way.) A load with INHIBIT_CACHING
+ * leaves an entry with no data, which caches nothing.
+ */
+const inHttpCache = part =>
+  h.chrome(
+    `return await new Promise(resolve => {
+       let found = false;
+       let timer = null;
+       Services.cache2.asyncVisitAllStorages({
+         onCacheStorageInfo() {},
+         onCacheEntryInfo(uri, idEnhance, dataSize) { if (uri.spec.includes(arg) && dataSize > 0) found = true; },
+         // Once per storage visited: the last one settles it.
+         onCacheEntryVisitCompleted() { win.clearTimeout(timer); timer = win.setTimeout(() => resolve(found), 300); },
+         QueryInterface: ChromeUtils.generateQI(["nsICacheStorageVisitor"]),
+       }, true);
+     });`,
+    part
+  );
+/** The page's first script's note (FIRST_SCRIPT), from its document now. */
+const firstView = (space, page) => inPage(space, page, "return JSON.parse(JSON.stringify(window.__first ?? null));");
+/** The guard actor's own answer for the page's top document. */
+const guardsIn = (space, page) => h.chrome(`${TAB} return ctx.content(t.linkedBrowser.browsingContext, "guards#installed", {});`, { space, page });
+/**
+ * The user's click on `selector` in the shown page, and their keys, entering
+ * through the parent like OS input, as the input suite's harness plays them
+ * (tests/input/harness.mjs).
+ */
+const userClicks = (space, page, selector) =>
+  h.chrome(
+    `${TAB} const browser = t.linkedBrowser;
+     if (win.gBrowser.selectedBrowser !== browser) throw new Error("the page isn't shown");
+     const p = await ctx.content(browser.browsingContext, "dev#evalContent", { privileged: false,
+       code: "const r = document.querySelector(" + JSON.stringify(arg.selector) + ").getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 };" });
+     const r = browser.getBoundingClientRect();
+     for (const type of ["mousedown", "mouseup"]) {
+       win.synthesizeMouseEvent(type, r.x + p.x, r.y + p.y, { button: 0, buttons: type === "mousedown" ? 1 : 0, clickCount: 1 }, { isDOMEventSynthesized: false });
+     }
+     return true;`,
+    { space, page, selector }
+  );
+const userPresses = (space, page, keys) =>
+  h.chrome(
+    `${TAB} const browser = t.linkedBrowser;
+     if (win.gBrowser.selectedBrowser !== browser) throw new Error("the page isn't shown");
+     browser.focus();
+     const tip = Cc["@mozilla.org/text-input-processor;1"].createInstance(Ci.nsITextInputProcessor);
+     if (!tip.beginInputTransactionForTests(win)) throw new Error("no input transaction");
+     for (const key of arg.keys) {
+       const ev = new win.KeyboardEvent("", { key });
+       tip.keydown(ev);
+       tip.keyup(ev);
+     }
+     return true;`,
+    { space, page, keys: [...keys] }
+  );
+/**
+ * Keep a page's tab for after it leaves its task (stash), then read it:
+ * whether it's open, its top document, its field's value and whose it is
+ * (stashed); close what's kept (unstash).
+ */
+const stash = (space, page, key) => h.chrome(`${TAB} win.__zrTabs ??= {}; win.__zrTabs[arg.key] = t; return true;`, { space, page, key });
+const stashed = key =>
+  h.chrome(
+    `const t = win.__zrTabs[arg];
+     const bc = t.linkedBrowser.browsingContext;
+     const value = await ctx.content(bc, "dev#evalContent", { code: "return document.querySelector('input[name=nickname]')?.value ?? null;", privileged: false }).catch(() => null);
+     return { open: t.isConnected && !t.closing, doc: bc?.currentWindowGlobal?.innerWindowId ?? null, value, task: ctx.pages.forTab(t)?.spaceId ?? null };`,
+    key
+  );
+const unstash = () =>
+  h.chrome(
+    `const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;
+     for (const t of Object.values(win.__zrTabs ?? {})) {
+       if (t.isConnected && !t.closing && !ctx.pages.forTab(t)) win.gBrowser.removeTab(t, { animate: false, skipPermitUnload: true });
+     }
+     delete win.__zrTabs;
+     // A takeover prompt the user's input opened in the agent's tab.
+     for (const rec of ctx.spaces.records()) UI?.takeover?.resolve(rec.id, "cancel");
+     return true;`
+  );
+/** The call's failure as the agent gets it, or a failed test if it succeeds. */
+const refusalOf = (method, params) =>
+  h.call(method, params).then(
+    r => assert.fail(`${method} succeeded: ${JSON.stringify(r)}`),
+    e => ({ code: e.code, message: e.message, data: e.data ?? {} })
+  );
+/** A task whose page p1 shows `r` at the quit, shown by the window, with Zen started again; its document Zen's own load from before zenius started. */
+async function shownAtStart(name, r, { before = async () => {} } = {}) {
+  const space = await h.space(name);
+  await h.call("page.goto", { space, page: "p1", url: `${stepBase}/?r=${r}` });
+  await before(space);
+  await userViews(space, "p1");
+  await restart({ "browser.startup.page": 3, "zen.workspaces.continue-where-left-off": true });
+  // From the HTTP cache, which kept the agent's page.
+  await loadedAt(space, "p1", `r=${r}`);
+  assert.notDeepEqual(await firstView(space, "p1"), GUARDED_FIRST, "the premise: Zen loaded it before zenius started, so its first script had no guard");
+  return space;
+}
+/** The agent's first call on a page the user touched since the start: the page left the task as theirs, saying why. */
+function assertTheirs(refused, why) {
+  assert.equal(refused.code, "ZEN_PAGE_NOT_FOUND", refused.message);
+  assert.deepEqual({ page: refused.data.page, reason: refused.data.reason, why: refused.data.why }, { page: "p1", reason: "theirs", why });
+}
+
+test("a hand-off with secret: after a quit, the step's tab that comes back unloaded writes nothing to the HTTP cache when the user views it, before their Resume", async () => {
+  const space = await h.space("restart secret cache unloaded");
+  const reader = await h.space("restart secret cache unloaded reader");
+  try {
+    await h.call("page.goto", { space, page: "p1", url: `${stepBase}/?r=r6` });
+    // Another task's page on the steps' site, which reads what its cache has.
+    await h.call("page.goto", { space: reader, page: "p1", url: `${stepBase}/?r=r6-reader` });
+    await h.call("spaces.handOff", { space, secret: true });
+    // The user's step: a cacheable page, loaded only while the step is marked.
+    await userLoads(space, "p1", `${stepBase}/?r=r6-step`);
+    await loadedAt(space, "p1", "r6-step");
+    assert.equal(await cachedStep(reader, "r6-step"), false, "the premise: nothing of the step's page is cached before the quit");
+    const loads = steps.hits.get("/?r=r6-step");
+
+    await restart({ "browser.startup.page": 3, "zen.workspaces.continue-where-left-off": false });
+
+    assert.equal(await ownershipOf(space), "agentDelegatedToUser", "still the user's after the restart");
+    assert.equal((await tabNow(space, "p1")).unloaded, true, "the step's tab is unloaded since the start");
+    // The user views it: it loads from the server...
+    await userViews(space, "p1");
+    await h.until(async () => steps.hits.get("/?r=r6-step") > loads, 10000);
+    await loadedAt(space, "p1", "r6-step");
+    // ...with the guards from its first script...
+    assert.deepEqual(await firstView(space, "p1"), GUARDED_FIRST, "its first script had the guards");
+    assert.equal(await guardsIn(space, "p1"), true);
+    // ...and keeps none of it in the cache, where the other task could read it.
+    assert.equal(await cachedStep(reader, "r6-step"), false, "the load after the restart was cached");
+    await userGoesHome();
+    await resumeByUser(space);
+  } finally {
+    await h.remove(space).catch(() => {});
+    await h.remove(reader).catch(() => {});
+  }
+});
+
+test("a hand-off with secret: after a quit with the step's tab shown, what the load Zen makes of it at the start cached is gone once zenius is up, a site no mark of the step names included, before the user's Resume", async () => {
+  const space = await h.space("restart secret cache");
+  const reader = await h.space("restart secret cache reader");
+  try {
+    await h.call("page.goto", { space, page: "p1", url: `${stepBase}/?r=r5` });
+    // Another task's page on the steps' site, which reads what its cache has.
+    await h.call("page.goto", { space: reader, page: "p1", url: `${stepBase}/?r=r5-reader` });
+    await h.call("spaces.handOff", { space, secret: true });
+    // The user's step: a cacheable page, loaded only while the step is marked,
+    // with a subresource from another site.
+    await userLoads(space, "p1", `${stepBase}/?r=r5-step&sub`);
+    await loadedAt(space, "p1", "r5-step");
+    assert.equal(await cachedStep(reader, "r5-step", "&sub"), false, "the premise: nothing of the step's page is cached before the quit");
+    assert.equal(await inHttpCache("r5-step-sub"), false, "the premise: nor of its subresource");
+    // Shown at the quit, so Zen loads it itself as it starts.
+    await userViews(space, "p1");
+    const loads = steps.hits.get("/?r=r5-step&sub");
+    const subLoads = steps.hits.get("/?r=r5-step-sub") ?? 0;
+
+    await restart({ "browser.startup.page": 3, "zen.workspaces.continue-where-left-off": true });
+
+    assert.equal(await ownershipOf(space), "agentDelegatedToUser", "still the user's after the restart");
+    // Zen asked the server for it at the start, as the window's shown tab,
+    // before zenius started, so it cached what it got...
+    await h.until(async () => steps.hits.get("/?r=r5-step&sub") > loads && (steps.hits.get("/?r=r5-step-sub") ?? 0) > subLoads, 10000);
+    assert.deepEqual(
+      await h.chrome(`${TAB} return { selected: win.gBrowser.selectedTab === t, loaded: !t.hasAttribute("pending") };`, { space, page: "p1" }),
+      { selected: true, loaded: true }
+    );
+    // ...which every site's clear takes once zenius is up and that load is
+    // done: nothing stays where the other task could read it.
+    await h.until(async () => !(await cachedStep(reader, "r5-step", "&sub")) && !(await inHttpCache("r5-step-sub")), 15000).catch(() => {});
+    assert.equal(await cachedStep(reader, "r5-step", "&sub"), false, "the load at the start stayed cached");
+    assert.equal(await inHttpCache("r5-step-sub"), false, "its subresource from another site stayed cached");
+    await userGoesHome();
+    await resumeByUser(space);
+    // The blank replaced the document from before the start: the agent's
+    // next call goes on, on the task's page.
+    assert.equal(await h.call("page.url", { space, page: "p1" }), "about:blank");
+  } finally {
+    await h.remove(space).catch(() => {});
+    await h.remove(reader).catch(() => {});
+  }
+});
+
+test("an agent's tab shown at the quit that the user typed in before the agent's first call: the page leaves the task as theirs, with their text and the document as they were", async () => {
+  let space = null;
+  try {
+    space = await shownAtStart("restart before start typed", "t1");
+    await stash(space, "p1", "t1");
+    const { doc } = await stashed("t1");
+    await userClicks(space, "p1", "input[name=nickname]");
+    await userPresses(space, "p1", "mine");
+    await h.until(async () => (await stashed("t1")).value === "mine", 10000);
+    const hits = steps.hits.get("/?r=t1");
+    // A reading call, which a takeover prompt the typing opened doesn't hold.
+    assertTheirs(await refusalOf("page.snapshot", { space, page: "p1" }), "typed");
+    assert.deepEqual(await stashed("t1"), { open: true, doc, value: "mine", task: null }, "the user's tab, as they left it");
+    assert.equal(steps.hits.get("/?r=t1"), hits, "nothing loaded it again");
+    // Its label named it only.
+    assert.match((await refusalOf("page.url", { space, page: "p1" })).message, /page p1 was released/);
+  } finally {
+    await userGoesHome().catch(() => {});
+    await unstash().catch(() => {});
+    if (space) {
+      await h.remove(space).catch(() => {});
+    }
+  }
+});
+
+test("an agent's tab shown at the quit with text the session put back: the agent's first call finds it the user's, though no one typed since", async () => {
+  let space = null;
+  try {
+    space = await shownAtStart("restart before start restored", "t2", {
+      before: s => h.call("page.fill", { space: s, page: "p1", target: "input[name=nickname]", value: "from before" }),
+    });
+    await stash(space, "p1", "t2");
+    assert.equal((await stashed("t2")).value, "from before", "the premise: the session put the text back");
+    const { doc } = await stashed("t2");
+    assertTheirs(await refusalOf("page.screenshot", { space, page: "p1" }), "typed");
+    assert.deepEqual(await stashed("t2"), { open: true, doc, value: "from before", task: null });
+  } finally {
+    await userGoesHome().catch(() => {});
+    await unstash().catch(() => {});
+    if (space) {
+      await h.remove(space).catch(() => {});
+    }
+  }
+});
+
+test("an agent's tab shown at the quit that the user clicked in, or went elsewhere in, before the agent's first call: theirs, either way", async () => {
+  let space = null;
+  try {
+    space = await shownAtStart("restart before start clicked", "t3");
+    await stash(space, "p1", "t3");
+    // A click on the page itself, no field.
+    await userClicks(space, "p1", "body");
+    assertTheirs(await refusalOf("page.title", { space, page: "p1" }), "clicked");
+    assert.equal((await stashed("t3")).task, null);
+    await unstash();
+    await h.remove(space);
+
+    space = await shownAtStart("restart before start navigated", "t3n");
+    await stash(space, "p1", "t3n");
+    await userLoads(space, "p1", `${stepBase}/?r=t3n-elsewhere`);
+    await loadedAt(space, "p1", "t3n-elsewhere");
+    assertTheirs(await refusalOf("page.url", { space, page: "p1" }), "navigated");
+    assert.equal((await stashed("t3n")).task, null);
+  } finally {
+    await userGoesHome().catch(() => {});
+    await unstash().catch(() => {});
+    if (space) {
+      await h.remove(space).catch(() => {});
+    }
+  }
+});
+
+test("an agent's tab shown at the quit, untouched: the agent's first call loads it again first, and acts in a document guarded from its first script", async () => {
+  let space = null;
+  try {
+    space = await shownAtStart("restart before start untouched", "t4");
+    const before = await h.chrome(`${TAB} return t.linkedBrowser.browsingContext.currentWindowGlobal.innerWindowId;`, { space, page: "p1" });
+    const hits = steps.hits.get("/?r=t4");
+    const title = await h.call("page.title", { space, page: "p1" });
+    assert.equal(title?.title ?? title, "t4");
+    assert.equal(steps.hits.get("/?r=t4"), hits + 1, "loaded again, once");
+    const after = await h.chrome(`${TAB} return t.linkedBrowser.browsingContext.currentWindowGlobal.innerWindowId;`, { space, page: "p1" });
+    assert.notEqual(after, before, "another document");
+    assert.deepEqual(await firstView(space, "p1"), GUARDED_FIRST, "the document the call acted in had the guards from its first script");
+    assert.equal(await guardsIn(space, "p1"), true);
+    // The next call goes straight on.
+    await h.call("page.url", { space, page: "p1" });
+    assert.equal(steps.hits.get("/?r=t4"), hits + 1);
+  } finally {
+    await userGoesHome().catch(() => {});
+    if (space) {
+      await h.remove(space).catch(() => {});
+    }
+  }
+});
+
+test("an agent's tab shown at the quit, untouched: the agent's page.goto as its first call goes, its new document guarded from its first script", async () => {
+  let space = null;
+  try {
+    space = await shownAtStart("restart before start goto", "t5");
+    await h.call("page.goto", { space, page: "p1", url: `${stepBase}/?r=t5-next` });
+    assert.deepEqual(await firstView(space, "p1"), GUARDED_FIRST);
+    assert.equal(await guardsIn(space, "p1"), true);
+    assert.equal(steps.hits.get("/?r=t5") > 0 && (await tabNow(space, "p1")).url.includes("t5-next"), true);
+  } finally {
+    await userGoesHome().catch(() => {});
+    if (space) {
+      await h.remove(space).catch(() => {});
+    }
+  }
+});
+
+test("an agent's tab shown at the quit whose frame from another site the user typed in: theirs", async () => {
+  let space = null;
+  try {
+    space = await shownAtStart("restart before start frame", "t6&frame");
+    await stash(space, "p1", "t6");
+    const frame = `${TAB} const f = t.linkedBrowser.browsingContext.children[0];`;
+    await h.until(async () => (await h.chrome(`${frame} return !!f?.currentWindowGlobal?.documentURI?.spec.includes("t6-frame");`, { space, page: "p1" })), 10000);
+    // Its field takes the keyboard (headless Zen hands a click into another process's frame to no field), then the user's keys.
+    await h.chrome(`${frame} await ctx.content(f, "dev#evalContent", { code: "document.querySelector('input').focus(); return true;", privileged: false }); return true;`, { space, page: "p1" });
+    await h.until(async () => (await h.chrome(`${frame} return Services.focus.focusedContentBrowsingContext === f;`, { space, page: "p1" })), 5000);
+    await userPresses(space, "p1", "fx");
+    await h.until(async () => (await h.chrome(`${frame} return await ctx.content(f, "dev#evalContent", { code: "return document.querySelector('input').value;", privileged: false });`, { space, page: "p1" })) === "fx", 10000);
+    assertTheirs(await refusalOf("page.title", { space, page: "p1" }), "typed");
+    assert.equal((await stashed("t6")).task, null);
+  } finally {
+    await userGoesHome().catch(() => {});
+    await unstash().catch(() => {});
+    if (space) {
+      await h.remove(space).catch(() => {});
+    }
+  }
+});
+
+test("an agent's tab shown at the quit, untouched, that the agent hands off as its first call: the user's step is in a document guarded from its first script", async () => {
+  let space = null;
+  try {
+    space = await shownAtStart("restart before start handoff", "t8");
+    const hits = steps.hits.get("/?r=t8");
+    await h.call("spaces.handOff", { space });
+    assert.equal(steps.hits.get("/?r=t8"), hits + 1, "loaded again before the hold");
+    assert.deepEqual(await firstView(space, "p1"), GUARDED_FIRST);
+    // The user works in it, then hands it back: it's the agent's again, as they left it.
+    await userClicks(space, "p1", "input[name=nickname]");
+    await userPresses(space, "p1", "ok");
+    await h.until(async () => (await inPage(space, "p1", "return document.querySelector('input').value;")) === "ok", 10000);
+    await userGoesHome();
+    await resumeByUser(space);
+    const value = await h.call("page.evaluate", { space, page: "p1", fn: "document.querySelector('input').value", isFunction: false });
+    assert.equal(value?.result ?? value, "ok", "the agent has the page the user handed back");
+  } finally {
+    await userGoesHome().catch(() => {});
+    if (space) {
+      await h.remove(space).catch(() => {});
+    }
+  }
+});
+
+test("an agent's tab shown at the quit that the user typed in, when the agent's finish would close it: it stays open, the user's, with their text", async () => {
+  let space = null;
+  try {
+    space = await shownAtStart("restart before start finish", "t9");
+    await stash(space, "p1", "t9");
+    await userClicks(space, "p1", "input[name=nickname]");
+    await userPresses(space, "p1", "keep");
+    await h.until(async () => (await stashed("t9")).value === "keep", 10000);
+    await userGoesHome();
+    // Resolve the takeover prompt the typing opened: the user lets the agent go on.
+    await h.chrome(`ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI?.takeover?.resolve(arg, "continue"); return true;`, space);
+    await h.call("spaces.finish", { space, keep: [] });
+    assert.deepEqual({ ...(await stashed("t9")), doc: null }, { open: true, doc: null, value: "keep", task: null }, "the user's tab stays, with their text");
+    // The task ended as a finish ends one, though the check made it wait:
+    // with no task live, the window creator is the app's again.
+    await h.until(async () => !(await popupGuardOn()), 5000);
+  } finally {
+    await userGoesHome().catch(() => {});
+    await unstash().catch(() => {});
+    if (space) {
+      await h.remove(space).catch(() => {});
+    }
+  }
+});
+
+test("an agent's tab shown at the quit that the user unloads and views again before the agent's first call: the call goes on, in the document guarded from its first script", async () => {
+  let space = null;
+  try {
+    space = await shownAtStart("restart before start unloaded", "t10");
+    await userGoesHome();
+    await userUnloads(space, "p1");
+    await userViews(space, "p1");
+    await loadedAt(space, "p1", "r=t10");
+    assert.deepEqual(await firstView(space, "p1"), GUARDED_FIRST, "the document that came back had the guards from its first script");
+    await userGoesHome();
+    const hits = steps.hits.get("/?r=t10");
+    assert.equal(await h.call("page.title", { space, page: "p1" }), "t10", "still the task's page");
+    assert.equal(steps.hits.get("/?r=t10"), hits, "not loaded again");
+  } finally {
+    await userGoesHome().catch(() => {});
+    if (space) {
+      await h.remove(space).catch(() => {});
+    }
+  }
+});
+
+test("an agent's tab shown at the quit that is an editor in designMode: the agent's first call finds it the user's, as the session put its body back", async () => {
+  let space = null;
+  try {
+    space = await shownAtStart("restart before start design", "t11&design");
+    assert.equal(await inPage(space, "p1", "return document.designMode;"), "on", "the premise: an editor");
+    assertTheirs(await refusalOf("page.title", { space, page: "p1" }), "typed");
+  } finally {
+    await userGoesHome().catch(() => {});
+    await unstash().catch(() => {});
+    if (space) {
+      await h.remove(space).catch(() => {});
+    }
+  }
+});
+
+test("a hand-off whose step's tab a window showed at the quit: the user's own load in it during the step, then their Resume, gives the agent the page they left", async () => {
+  const space = await h.space("restart before start held");
+  try {
+    await h.call("page.goto", { space, page: "p1", url: `${stepBase}/?r=t12` });
+    await h.call("spaces.handOff", { space });
+    await userViews(space, "p1");
+    await restart({ "browser.startup.page": 3, "zen.workspaces.continue-where-left-off": true });
+    await loadedAt(space, "p1", "r=t12");
+    assert.notDeepEqual(await firstView(space, "p1"), GUARDED_FIRST, "the premise: Zen loaded it before zenius started");
+    assert.equal(await ownershipOf(space), "agentDelegatedToUser", "still the user's step");
+    // The step goes on: the user loads the next page in it, and resumes
+    // from there, viewing it.
+    await userLoads(space, "p1", `${stepBase}/?r=t12-next`);
+    await loadedAt(space, "p1", "r=t12-next");
+    await resumeByUser(space);
+    assert.equal(await h.call("page.url", { space, page: "p1" }), `${stepBase}/?r=t12-next`, "the agent has the page the user left");
+  } finally {
+    await userGoesHome().catch(() => {});
+    await h.remove(space).catch(() => {});
+  }
+});
+
+test("after a quit, an agent's tab that comes back unloaded and that the user views: guarded from its first script, before any call of the agent's", async () => {
+  const space = await h.space("restart unloaded viewed");
+  try {
+    await h.call("page.goto", { space, page: "p1", url: `${stepBase}/?r=t7` });
+    await userGoesHome();
+    await restart({ "browser.startup.page": 3, "zen.workspaces.continue-where-left-off": false });
+    assert.equal((await tabNow(space, "p1")).unloaded, true, "unloaded since the start");
+    await userViews(space, "p1");
+    await loadedAt(space, "p1", "r=t7");
+    assert.deepEqual(await firstView(space, "p1"), GUARDED_FIRST, "its first script had the guards");
+    assert.equal(await guardsIn(space, "p1"), true);
+    await userGoesHome();
+    await h.call("page.title", { space, page: "p1" });
+  } finally {
+    await userGoesHome().catch(() => {});
+    await h.remove(space).catch(() => {});
   }
 });
 

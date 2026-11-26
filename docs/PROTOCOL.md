@@ -156,6 +156,10 @@ something to say:
   goes into the HTTP cache while the user holds it, and what's left is
   gone at the hand back, or as a marked tab closes or the task ends before
   it, so a cached fetch, in this task or another, can't bring it back.
+  After a restart, a step's tab a window showed at the quit is loaded by
+  Zen before the runtime starts, so that load is cached: every site's
+  caches clear once the runtime is up and the load is done, and again at
+  the hand back.
   One that wouldn't blank isn't listed: it left the task for good, so
   it has ended for you (`pageClosed`), and it closed or is the user's. What
   the step showed is the user's: ask them for anything you need from it.
@@ -225,7 +229,15 @@ whose tabs came back is gone: a call naming it fails at once with
 `tab` is a tab id such as `"t12"`, stable while the browser runs. `openedBy`
 is `agent` (opened by the agent: new pages, popups, the blank tab) or
 `unknown`. Labels are never reused within a task; a closed or released
-label fails with `ZEN_PAGE_NOT_FOUND` saying so.
+label fails with `ZEN_PAGE_NOT_FOUND` saying so. After a restart, a page
+Zen loaded before the runtime started (a window showed it at the quit),
+which the user navigated, clicked or typed in since, or whose fields the
+session refilled, leaves its task at the agent's first call on it: that
+call fails with `ZEN_PAGE_NOT_FOUND`, `data.reason: "theirs"`, `data.why`
+(`navigated`, `clicked` or `typed`) and `data.url`, the page's address at
+the start, and later calls hear the label was released. An untouched one
+loads again first; if agents can't load the URL it shows, the call fails
+with `ZEN_URL_NOT_ALLOWED`, `data.reason: "before_start"`.
 
 A tab's back-forward cache is emptied when it becomes a task's page
 (`pages.adopt`, including a tab of a claimed workspace or one the user

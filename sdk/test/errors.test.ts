@@ -239,6 +239,17 @@ describe("an error's message", () => {
     assert.match(group.message, /task\.newPage\(\)/);
   });
 
+  it("tells the agent a page that left its task after a restart is the user's, with what they entered: a new Page, no reload", () => {
+    const text =
+      "page p1 left the task and is the user's now: Zen loaded it before zenius started, and since then it holds text the user typed or the session put back. Loading it again would cost the user that, so zenius leaves it to them. Open a new page for the task, or ask the user.";
+    const data = { space: 3, page: "p1", reason: "theirs", why: "typed", url: "https://example.com/form" };
+    const error = fromWireError({ code: "ZEN_PAGE_NOT_FOUND", message: text, data }, "page.snapshot") as ZeniusError;
+    assert.match(error.message, /^page\.snapshot: page p1 left the task and is the user's now/);
+    assert.match(error.message, /\nThe page is the user's now, with what they entered: don't ask to reload it\. Open a new page with task\.newPage\(\) \(data\.url is where it was\), or ask the user to hand you what you need from it\.$/);
+    assert.doesNotMatch(error.message, /task\.pages\(\) lists the open Pages/);
+    assert.equal(error.code, "ZEN_PAGE_NOT_FOUND");
+  });
+
   it("describes no pageWorld refusal: code the agent hands the page runs there", () => {
     assert.doesNotMatch(CODE_GUIDE.ZEN_AGENT_CODE_REFUSED!.what, /pageWorld|script element|\beval\b|string timer/);
     const error = fromWireError({ code: "ZEN_AGENT_CODE_REFUSED", message: "page.evaluate: refused.", data: { method: "page.evaluate", page: "p1", reason: "pageWorld" } }, "page.evaluate");

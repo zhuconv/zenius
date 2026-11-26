@@ -361,6 +361,12 @@ const PAGE_GLOBAL_MARKUP_NEXT =
 // hand back, unlike the closed-group refusal.
 const HOLD_NEXT = "The user holds a page in this window group after your handOff(): wait for the hand back with task.waitForControl(), then retry.";
 
+// ZEN_PAGE_NOT_FOUND with reason "theirs": a page Zen loaded before zenius
+// started after a restart, which the user navigated, clicked or typed in
+// since (data.why), left the task for good.
+const THEIRS_NEXT =
+  "The page is the user's now, with what they entered: don't ask to reload it. Open a new page with task.newPage() (data.url is where it was), or ask the user to hand you what you need from it.";
+
 const NO_RESPONSE_NEXT = "Zen may be busy or hung: retry once, and if it still doesn't answer, run `zenius doctor`.";
 
 /**
@@ -534,6 +540,8 @@ export function nextStep(code: string, message: string, data?: Record<string, un
         ? DIALOG_DURING_NEXT
         : code === "ZEN_AGENT_CODE_REFUSED" && data?.reason === "hold"
         ? HOLD_NEXT
+        : code === "ZEN_PAGE_NOT_FOUND" && data?.reason === "theirs"
+        ? THEIRS_NEXT
         : code === "ZEN_PAGE_GLOBAL_HIDDEN" && /from the DOM/.test(message)
         ? PAGE_GLOBAL_MARKUP_NEXT
         : code === "ZEN_TIMEOUT" && typeof data?.ownership === "string" && data.ownership !== "agent"

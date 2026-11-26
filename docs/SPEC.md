@@ -184,6 +184,14 @@ docs/                        SPEC, PROTOCOL, SPI, PARITY, the install and sideba
   - Before a restored page loads, its URL passes the I5 check (§3.9). A
     task tab the user took to `about:preferences` or a `file:` page stays
     unloaded, and the call fails as any call on such a page does.
+  - A task tab the user views after a restart, or after they unloaded it
+    with Zen open, gets its guards from its first script, as one an agent's
+    call loads does.
+  - A tab a window showed at the quit is loaded by Zen before the runtime
+    starts, with no guard. The agent's first call on it loads it again,
+    URL checked, unless the user navigated, clicked or typed in it since,
+    or the session put text back in it: then it leaves the task and stays
+    the user's, and the call says so.
   - Zen restores unpinned tabs only when it restores the previous session:
     `browser.startup.page` 3, Zen's default, which the user's daily profile
     keeps. Checked on the Linux server with a clean quit: with 3, a task Space's two tabs

@@ -1009,7 +1009,14 @@ Then:
 5. `publishAgentBrowsers()` runs, and documents restored tabs already have
    get their guards. With `zen.workspaces.continue-where-left-off`, a
    window on the Agents Space at the quit loads its selected agent page at
-   start, before the rebuild.
+   start, before zenius starts at all: its scripts run with no guard, and
+   its URL passes no I5 check. The rebuild notes that document
+   ("Documents from before the start", below). A held secret step's tab
+   among them wrote to the HTTP cache with none of its sites noted: its
+   mark says overflow, so its hand back clears every site's caches, and
+   every site's caches clear once that load is done. That clear comes after
+   the publish, which turned the capture on, so nothing the page fetches
+   before it stays.
 6. `maybeRemoveAgentsSpace()` runs, then the auto-close.
 
 `dispatch()` holds every call until the rebuild ends, in arrival order. The
@@ -1036,8 +1043,67 @@ unload one. Before a `page.*` method runs on a page whose tab is unloaded
   - If that load fails, a method that acts in the document fails with its
     error; the others go on.
 
-So a Zen start loads no agent page itself, which keeps I4's "nothing until
-an agent connects". The goto adds a history entry, so one `goBack()` after
+**Browsers Gecko inserts (built).** The user's view of an unloaded task
+tab makes Gecko insert its browser itself, whether Zen restored it so or
+the user unloaded it (Unload Tab, Unload Space, which no keep-alive holds).
+The new browserId is in no published set. A `TabBrowserInserted` listener
+in each window's capture phase publishes the sets first (`#onTaskBrowser`),
+from the first task value the session writes on, the rebuild's included,
+as with `SSTabRestoring` (I4):
+it runs ahead of SessionStore's own capture listener on the tab strip,
+which starts the tab's restore load. So the tab's documents get the guards
+from their first script, and its requests the capture, as after
+`#insertUnloaded`. A `TabBrowserDiscarded` listener drops the browserId an
+unload takes, so the observers of the user's own browsing don't stay on
+for a browser that's gone (I4). It drops the page's document from before
+the start too (below): the one that comes back loads with the guards.
+
+**Documents from before the start (built).** The rebuild notes a page
+whose top document Zen loaded before zenius started (a tab a window showed
+at the quit; `#noteBeforeStart`). One whose load hasn't put its document
+in yet gets it after the publish, with the guards: only its top request
+went out before (a held secret step's caches clear all the same). The agent's first call on it settles it
+(`#beforeStartGate`). That's the dispatcher's first page gate once the tab
+is loaded, and the only gate of a method that names a page but runs no
+page gate (a frame's, `pages.close`).
+- If the user navigated, clicked or typed in it since the start, or the
+  session put text back in a field, a load would cost them that. The page
+  leaves the task and stays theirs, as a kept page they touched does at a
+  reply.
+  - The call fails with `ZEN_PAGE_NOT_FOUND`, `data.reason: "theirs"`,
+    `data.why` (`navigated`, `clicked`, `typed`) and `data.url`, its
+    address at the start. Later calls hear it was released.
+  - Each frame's document says what it holds, read in its own process
+    through Xrays (`guards#userInput`), since the page's scripts ran there
+    unguarded. That's its user activation, which only real input gives (a
+    cross-origin frame's gives the top too), and any field that shows
+    other than its markup makes it. A dropdown showing its first option
+    with none marked, or a value attribute its type cleans up (an email's
+    spaces), is no one's change; one the page's own script made counts,
+    as zenius can't tell it from the user's. A document in designMode
+    counts as typed: the session saves its whole body and puts it back.
+  - The agent's own text from before the quit, which the session put back,
+    counts as the user's too. So does a frame that doesn't answer.
+- Otherwise it loads again first, as an unloaded page does: the I5 check
+  on its URL, then `page.goto` as the agent's load. `page.goto`,
+  `pages.close` and `pages.release` go on as they are, since they replace
+  the document or give it up. If the agent's Back brings that document
+  back, the gate runs again.
+- `spaces.handOff` settles its front page the same way first, so the user
+  works in a guarded document. `spaces.finish` first lets each touched page
+  leave, so its close never costs the user their input.
+- At a hand back, a page whose document from before the start the user
+  replaced during the hold is settled: by their navigation, or the secret
+  step's blank. One that still shows that document waits for the agent's
+  first call, where a touched one stays the user's.
+- Left over: from Zen's restore to zenius's start, a task tab shown at the
+  quit runs as an ordinary tab, its page with all the user's own tabs'
+  powers. Closing that would mean holding its load until zenius starts,
+  against the bootstrap's wait (I4).
+
+So zenius's start loads no agent page itself, which keeps I4's "nothing
+until an agent connects": Zen's own load of a page shown at the quit comes
+before it. The goto adds a history entry, so one `goBack()` after
 it returns to the same URL.
 
 **Crashes.** Zen restores a crashed session (`resume_from_crash`, on by

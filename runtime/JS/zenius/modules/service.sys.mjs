@@ -141,6 +141,10 @@ const REBUILD_WAIT_MS = 30_000;
 const SESSION_SAVE_MS = 5000;
 /** How long an unloaded tab's insert waits for Zen to put its history back. */
 const INSERT_WAIT_MS = 5000;
+/** How long each frame of a document from before zenius started has to say what of the user's it holds. */
+const USER_INPUT_WAIT_MS = 2000;
+/** How long a held secret step's tab, loaded before zenius started, may load before every site's caches clear anyway. */
+const EARLY_LOAD_WAIT_MS = 30_000;
 /** How long a tab the agent takes waits for its documents' guards. */
 const GUARD_TIMEOUT_MS = 2000;
 /**
@@ -529,7 +533,7 @@ class Service {
     win.addEventListener("unload", () => this.#windows.delete(win), { once: true });
     win.addEventListener("TabClose", e => this.#onTabClose(e));
     if (this.#watchingRestores) {
-      win.addEventListener("SSTabRestoring", this.#onRestoring);
+      this.#watchTabsIn(win);
     }
     // Window sync: Zen moves a page's docShell between windows' copies of
     // its tab, firing this on both browsers. The page follows once the swap
@@ -932,6 +936,19 @@ class Service {
 
   /** Task record → the clear a mark during the step started (#clearAtMark), which the hand back's blank waits for. */
   #markClears = new WeakMap();
+
+  /**
+   * Page record → its top document as the restart rebuild found it, loaded
+   * by Zen before zenius started (topDocOf), with settled once the agent's
+   * first call has dealt with it (#beforeStartGate).
+   */
+  #beforeStart = new WeakMap();
+
+  /** Page record → the settling under way (#settleBeforeStart), which other calls on it wait for. */
+  #beforeStartRuns = new WeakMap();
+
+  /** Pages whose settling loads them again now: that page.goto goes through the gate. */
+  #beforeStartLoads = new WeakSet();
 
   /** Holds beginning now (holdForUser): their held page's sites are noted while the task is still the agent's. */
   #holdsStarting = 0;
@@ -2310,9 +2327,15 @@ class Service {
 
   #onRestoring = event => this.#onTabRestoring(event.target);
 
+  #onInserted = event => this.#onTaskBrowser(event.target, true);
+
+  #onDiscarded = event => this.#onTaskBrowser(event.target, false);
+
   /**
-   * Whether each window listens for its tabs' restores: from the first
-   * task value the session writes on, the restart rebuild's included (I4).
+   * Whether each window listens for its tabs' restores, and for the browsers
+   * Gecko inserts and discards by itself: from the first task value the
+   * session writes on, the restart rebuild's included, as only a task's tab
+   * needs them (I4).
    */
   #watchingRestores = false;
 
@@ -2322,8 +2345,22 @@ class Service {
     }
     this.#watchingRestores = true;
     for (const win of this.#windows) {
-      win.addEventListener("SSTabRestoring", this.#onRestoring);
+      this.#watchTabsIn(win);
     }
+  }
+
+  #watchTabsIn(win) {
+    win.addEventListener("SSTabRestoring", this.#onRestoring);
+    // A browser Gecko inserts by itself, as the user selects a tab Zen
+    // restored unloaded or one they unloaded, has a browserId no set holds.
+    // Published in the window's capture phase, ahead of SessionStore's own
+    // capture listener on the tab strip, which starts the tab's restore
+    // load: its documents get the guards from their first script, and its
+    // requests the capture, as after an agent call's #insertUnloaded.
+    win.addEventListener("TabBrowserInserted", this.#onInserted, true);
+    // The browserId an unload takes leaves the sets, so the observers of the
+    // user's own browsing don't stay on for a browser that's gone (I4).
+    win.addEventListener("TabBrowserDiscarded", this.#onDiscarded);
   }
 
   /**
@@ -2480,16 +2517,35 @@ class Service {
         followWindowSync();
       }
       this.publishAgentBrowsers();
-      // A tab a window showed at the quit can be loaded already
-      // (zen.workspaces.continue-where-left-off): its documents get their
-      // guards before any client call.
+      // A tab a window showed at the quit is loaded already
+      // (zen.workspaces.continue-where-left-off), by Zen, before zenius
+      // started: its documents get their guards before any client call, but
+      // its scripts ran with none, so the agent's first call on it loads it
+      // again or leaves it to the user (#beforeStartGate).
       const guarded = [];
       for (const rec of this.spaces.records()) {
         if (rec.kind === "task" && !rec.gone) {
+          const early = [];
           for (const tab of this.pages.tabsOf(rec)) {
             if (hasDocument(tab)) {
               guarded.push(this.installGuards(tab));
+              this.#noteBeforeStart(tab);
+              if (secretTaskOf(tab) === rec.id) {
+                early.push(tab);
+              }
             }
+          }
+          // A held secret step's tab among them: that load wrote to the HTTP
+          // cache, and none of its sites was noted. Its mark says overflow,
+          // so its hand back clears every site's caches, and every site's
+          // clear once that load is done. Only after the publish above,
+          // which turned the capture on: what the page loads from then on
+          // writes nothing, so nothing it fetched before the clear stays.
+          if (early.length) {
+            for (const tab of early) {
+              this.pages.overflowSecret(tab);
+            }
+            this.#whenLoaded(early).then(() => this.#clearUnblanked(rec, { sites: new Set(), overflow: true }, "tab loaded before zenius started"));
           }
         }
       }
@@ -2533,8 +2589,10 @@ class Service {
       // A page Zen restored loaded, before a window marked the copy that
       // shows it (markLiveCopy).
       markLiveCopy(tab);
-      return null;
+      return this.#beforeStartGate(params, method, page, tab);
     }
+    // Its document from before zenius started, if any, is gone with its unload.
+    this.#beforeStart.delete(page);
     if (method === "page.goto") {
       return this.#insertUnloaded(tab);
     }
@@ -2569,6 +2627,258 @@ class Service {
           log(`page ${page.label}: loading it after a restore failed (${e?.code ?? e?.message}); ${method} goes on`);
         }
       );
+  }
+
+  /**
+   * The rebuild found the tab loaded, by Zen, before zenius started: its
+   * document's scripts ran with no guard, and its URL passed no I5 check
+   * (#beforeStartGate). The browser's initial blank document is no page's:
+   * a restore load still to come runs after the publish, with the guards.
+   */
+  #noteBeforeStart(tab) {
+    const page = this.pages.forTab(tab);
+    const wg = tab.linkedBrowser?.browsingContext?.currentWindowGlobal;
+    if (page && wg && !wg.isInitialDocument) {
+      this.#beforeStart.set(page, topDocOf(tab.linkedBrowser));
+    }
+  }
+
+  /**
+   * The agent's first call on a page whose document is still the one Zen
+   * loaded before zenius started (#noteBeforeStart), and any call when the
+   * agent's own Back brings that one back. If nothing in it is the user's,
+   * it loads again first, as an unloaded page's restore does (#restoreGate),
+   * so the agent never acts in it; page.goto, pages.close and pages.release
+   * replace it or give it up anyway. If the user navigated, clicked or typed
+   * in it since the start, or the session put text back in it, a load would
+   * cost them that: the page leaves the task and stays theirs, as a kept
+   * page the user touched does (resumeFinishedTask), and the call fails,
+   * saying why.
+   *
+   * @returns {null|Promise<void>}
+   */
+  #beforeStartGate(params, method, page = null, tab = null) {
+    if (!page) {
+      try {
+        page = this.pages.get(this.spaces.get(params.space), params.page);
+        tab = this.pages.tabFor(page);
+      } catch {
+        // The method's own resolvePage says what's wrong.
+        return null;
+      }
+    }
+    const running = this.#beforeStartRuns.get(page);
+    if (running) {
+      // The gate's own load goes through; any other call waits for it, then
+      // checks again.
+      if (this.#beforeStartLoads.has(page) && method === "page.goto") {
+        return null;
+      }
+      const again = () => this.#beforeStartGate(params, method);
+      return running.then(again, again);
+    }
+    const before = this.#beforeStart.get(page);
+    if (!before || !tab?.linkedBrowser) {
+      return null;
+    }
+    const now = topDocOf(tab.linkedBrowser);
+    if (now.doc !== before.doc && before.settled) {
+      // A load of the agent's since has replaced it.
+      return null;
+    }
+    const run = this.#settleBeforeStart(params, method, page, tab, before, now);
+    this.#beforeStartRuns.set(page, run);
+    const done = () => {
+      if (this.#beforeStartRuns.get(page) === run) {
+        this.#beforeStartRuns.delete(page);
+      }
+    };
+    run.then(done, done);
+    return run;
+  }
+
+  async #settleBeforeStart(params, method, page, tab, before, now) {
+    const rec = this.spaces.get(params.space);
+    // Another top document at the first call: a navigation, the user's or
+    // the page's own, which counts as a kept page's does (#notBackWhy).
+    const why = now.doc !== before.doc ? "navigated" : await this.#userInputIn(tab.linkedBrowser);
+    if (why) {
+      throw this.#leaveToUser(rec, page, tab, why, before);
+    }
+    if (method === "page.goto" || method === "pages.close" || method === "pages.release") {
+      this.#beforeStart.set(page, { ...before, settled: true });
+      return;
+    }
+    const uri = tab.linkedBrowser.currentURI;
+    try {
+      checkAgentLoad(uri, "page.goto");
+    } catch (e) {
+      throw new ZenError(
+        "ZEN_URL_NOT_ALLOWED",
+        `page ${page.label} loaded before zenius started, and the page it shows, ${uri.spec}, isn't one agents can load, so zenius can't load it again for ${method}: page.goto() a web URL first, or ask the user to open the page.`,
+        { ...e.data, page: page.label, reason: "before_start" }
+      );
+    }
+    const timeout = Number.isFinite(params.options?.timeout) ? { timeout: params.options.timeout } : {};
+    this.#beforeStartLoads.add(page);
+    try {
+      await this.dispatch("page.goto", { space: params.space, page: page.label, url: uri.spec, options: { waitUntil: "load", ...timeout } });
+    } catch (e) {
+      // As after a restore: a method that works whatever the page shows goes on.
+      if (this.i5Of(method) !== "outside") {
+        throw e;
+      }
+      log(`page ${page.label}: loading it again after the start failed (${e?.code ?? e?.message}); ${method} goes on`);
+    } finally {
+      this.#beforeStartLoads.delete(page);
+    }
+    // Kept settled: Back to that document brings this gate back.
+    this.#beforeStart.set(page, { ...before, settled: true });
+    log(`page ${page.label} loaded again: Zen loaded it before zenius started`);
+  }
+
+  /**
+   * What of the user's a tab's documents hold, each frame's read in its own
+   * process through Xrays (guards#userInput), as the page's own scripts ran
+   * unguarded and could shadow what a waived read would see: "typed" for a
+   * field changed from its default (their typing, or text the session put
+   * back), "clicked" for their clicks or keys alone (user activation, which
+   * a cross-origin frame's input gives the top too), else null. A frame
+   * that doesn't answer counts as typed; one outside the web processes,
+   * which zenius never reaches, counts by the activation it gives the top.
+   */
+  async #userInputIn(browser) {
+    const frames = browser.browsingContext?.getAllBrowsingContextsInSubtree() ?? [];
+    const answers = await Promise.all(
+      frames.map(bc =>
+        this.content(bc, "guards#userInput", {}, { timeout: USER_INPUT_WAIT_MS }).catch(e =>
+          e?.code === "ZEN_UNSUPPORTED" || e?.data?.reason === "no_window_global" ? null : { changed: true }
+        )
+      )
+    );
+    if (answers.some(a => a?.changed)) {
+      return "typed";
+    }
+    return answers.some(a => a?.active) ? "clicked" : null;
+  }
+
+  /**
+   * A page the user touched since the start leaves the task, theirs from
+   * now on, as a kept page they touched does at a reply: its label named it
+   * only, so a later call hears it was released. Returns the refusal for
+   * the call that found it.
+   */
+  #leaveToUser(rec, page, tab, why, before) {
+    const label = page.label;
+    this.#beforeStart.delete(page);
+    this.pages.leaveTask(rec, tab);
+    if (!rec.ledger.usedLabels.includes(label)) {
+      rec.ledger.usedLabels.push(label);
+    }
+    rec.ledger.releasedLabels.push(label);
+    log(`page ${label} left its task to the user: Zen loaded it before zenius started, and it was ${why} since`);
+    const since = {
+      navigated: "it has gone to another page",
+      typed: "it holds text the user typed or the session put back",
+      clicked: "the user has clicked or typed in it",
+    }[why];
+    return new ZenError(
+      "ZEN_PAGE_NOT_FOUND",
+      `page ${label} left the task and is the user's now: Zen loaded it before zenius started, and since then ${since}. Loading it again would cost the user that, so zenius leaves it to them. Open a new page for the task, or ask the user.`,
+      { space: rec.id, page: label, reason: "theirs", why, url: before.url }
+    );
+  }
+
+  /**
+   * #beforeStartGate for a call that acts on a task's page without naming
+   * it: spaces.handOff's front page.
+   *
+   * @returns {null|Promise<void>}
+   */
+  settleBeforeStart(rec, tab, method) {
+    const page = tab ? this.pages.forTab(tab) : null;
+    return page?.spaceId === rec.id ? this.#beforeStartGate({ space: rec.id, page: page.label }, method, page, tab) : null;
+  }
+
+  /**
+   * Before the agent's finish() closes a task's pages: one still showing
+   * its document from before zenius started, which the user touched, leaves
+   * the task first, so the close never costs them their input. Null when no
+   * page of the task has such a document, so finish() goes on at once, as
+   * it always has; else a promise of the labels of those that left.
+   *
+   * @returns {null|Promise<string[]>}
+   */
+  leaveTouchedBeforeStart(rec) {
+    const pages = this.pages.list(rec.id).filter(page => this.#beforeStart.has(page));
+    return pages.length ? this.#leaveTouched(rec, pages) : null;
+  }
+
+  async #leaveTouched(rec, pages) {
+    const left = [];
+    for (const page of pages) {
+      const before = this.#beforeStart.get(page);
+      const tab = before ? this.pages.tabFor(page) : null;
+      if (!tab?.linkedBrowser || this.#beforeStartRuns.has(page)) {
+        continue;
+      }
+      const now = topDocOf(tab.linkedBrowser);
+      if (now.doc !== before.doc && before.settled) {
+        continue;
+      }
+      const why = now.doc !== before.doc ? "navigated" : await this.#userInputIn(tab.linkedBrowser);
+      if (why && this.pages.forTab(tab) === page) {
+        this.#leaveToUser(rec, page, tab, why, before);
+        left.push(page.label);
+      }
+    }
+    return left;
+  }
+
+  /**
+   * The user hands the task back: a page whose document from before zenius
+   * started they replaced during the hold (a navigation, the secret step's
+   * blank) shows one made with the guards, the agent's again as they left
+   * it. One that still shows it waits for the agent's first call.
+   */
+  #handedBackBeforeStart(rec) {
+    for (const page of this.pages.list(rec.id)) {
+      const before = this.#beforeStart.get(page);
+      if (before && topDocOf(this.pages.tabFor(page)?.linkedBrowser).doc !== before.doc) {
+        this.#beforeStart.delete(page);
+      }
+    }
+  }
+
+  /**
+   * A tab got a browser (TabBrowserInserted) or lost one (an unload): if
+   * it's a task's, the sets go out now, before its first document.
+   */
+  #onTaskBrowser(tab, inserted) {
+    if (!tab || this.pages.holderOf(tab) === null) {
+      return;
+    }
+    if (inserted) {
+      // The copy the page loads in holds its docShell (markLiveCopy).
+      markLiveCopy(tab);
+    } else {
+      // A document from before zenius started went with the browser: the
+      // next one loads with the guards, so the agent's first call there
+      // needn't settle it (#beforeStartGate).
+      const page = this.pages.forTab(tab);
+      if (page) {
+        this.#beforeStart.delete(page);
+      }
+    }
+    this.publishAgentBrowsers();
+  }
+
+  /** Resolves once none of the tabs loads its document, or after EARLY_LOAD_WAIT_MS. */
+  async #whenLoaded(tabs) {
+    const end = Date.now() + EARLY_LOAD_WAIT_MS;
+    while (Date.now() < end && tabs.some(tab => tab.linkedBrowser?.webProgress?.isLoadingDocument)) {
+      await new Promise(resolve => lazy.setTimeout(resolve, 100));
+    }
   }
 
   /**
@@ -2704,6 +3014,9 @@ class Service {
       // The held step's values go with the hold, a hold from before a restart included.
       for (const tab of rec ? this.pages.tabsOf(rec) : []) {
         this.pages.clearHeld(tab);
+      }
+      if (rec && params.ownership === "agent") {
+        this.#handedBackBeforeStart(rec);
       }
     }
     if (name === "spaceChanged" && "ownership" in params) {
@@ -3186,7 +3499,10 @@ class Service {
   /**
    * Does spaces.json list agent work, whose tabs may come back with this
    * session: a task in any state, or a Space an agent controls or handed to
-   * the user? Then the guards load before any of those tabs does.
+   * the user? Then the guards load before any of those tabs that Zen
+   * restored unloaded does. A tab a window showed at the quit has loaded
+   * before zenius started at all: the rebuild notes its document
+   * (#noteBeforeStart).
    */
   #agentWorkAtStart() {
     return this.spaces.records().some(rec => !rec.gone && (rec.kind === "task" || rec.ownership !== "user"));
@@ -3479,9 +3795,13 @@ class Service {
         },
       });
       const control = () => (hasSpace && access !== "none" ? check(params.space, access) : null);
+      // A method that names a page but runs no page gate (a frame's, pages.close)
+      // still settles a document from before zenius started.
       const gates = PAGE_GATED.has(i5)
         ? [() => this.#restoreGate(params, method), ...this.#pageGates.map(({ gate }) => () => gate(ctx, params, method))]
-        : [];
+        : hasSpace && typeof params?.page === "string" && i5 !== "dev"
+          ? [() => this.#beforeStartGate(params, method)]
+          : [];
       const wait = runChain(control, gates, 0);
       // A request stopped while a gate waited (a pending navigation, an
       // unloaded tab's load) never starts: only the control gate's hold
@@ -4043,7 +4363,6 @@ class Service {
   }
 }
 
-/** Did Zen restore the tab unloaded, or the user unload it? */
 /** A tab's top document now: its id, address and history entry. */
 function topDocOf(browser) {
   const bc = browser?.browsingContext;

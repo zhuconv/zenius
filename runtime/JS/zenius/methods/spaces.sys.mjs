@@ -256,6 +256,10 @@ export const methods = {
     // Already with the user (a takeover, or an earlier handOff): keep their reason.
     if (rec.ownership === "agent") {
       const reason = params.reason ?? "manual_takeover";
+      // A front page whose document Zen loaded before zenius started loads
+      // again first, so the user works in one with the guards, or it leaves
+      // the task as theirs and the call says so (service #beforeStartGate).
+      await ctx.service.settleBeforeStart(rec, ctx.pages.userTab(rec), "spaces.handOff");
       const browser = ctx.pages.userTab(rec)?.linkedBrowser ?? null;
       if (browser) {
         // The page the user will hold is made safe for their typing before
@@ -318,7 +322,13 @@ export const methods = {
         "task.finish requires the keep option: \"all\" or a list of page labels. Expected: await task.finish({ keep })"
       );
     }
-    return finishTask(ctx, rec, keep);
+    // A page still showing what Zen loaded before zenius started, which the
+    // user touched since, is theirs: it leaves the task before the close,
+    // and a keep naming it has nothing left to keep. Only a task with such
+    // a page waits for that check.
+    const leaving = ctx.service.leaveTouchedBeforeStart(rec);
+    const left = leaving ? await leaving : [];
+    return finishTask(ctx, rec, keep === "all" ? keep : keep.filter(label => !left.includes(label)));
   },
 };
 
@@ -377,6 +387,13 @@ export function finishTask(ctx, rec, keep) {
     rec.finishing = true;
     for (const { tab } of inventory) {
       close(tab);
+    }
+    // The last close's microtask ends the task, which Gecko runs inside the
+    // close. Not when this runs inside a microtask itself (after an await in
+    // its caller), nor when no close happens now: end it here then, before
+    // the record goes, as #afterTaskTabClosed would.
+    if (!rec.gone && ctx.spaces.isAgentTask(rec)) {
+      ctx.spaces.setOwnership(rec, "user", { source: "agent" });
     }
     ctx.pages.dropSpace(rec.id);
     // Before the record goes, so listeners (the UI's badge) still find it.
