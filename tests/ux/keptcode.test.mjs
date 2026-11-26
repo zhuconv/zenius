@@ -578,6 +578,98 @@ test("in a claimed Space the user's own blank tab isn't noted, and the page the 
   await closeTabs({ agent: out.agentBid });
 });
 
+// The reply after a finish: the user's click or key in a tab an ended task
+// kept goes to zen-core (noteKeptInput; finishedTaskOf too, stand-ins here),
+// so a reply to the task's chat leaves that page with the user. The user's
+// input enters through the parent, as OS input does (takeover.test.mjs).
+test("the user's click and typing in a tab an ended task kept reach zen-core as clicked and typed; an arrow key and Escape don't count, nor does input in a tab no task kept", async () => {
+  const out = await h.chrome(`
+    const svc = win.ucAgentSidebar.AgentService.zenius();
+    const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;
+    const gBrowser = win.gBrowser;
+    const until = async (fn, ms = 10000) => {
+      const end = Date.now() + ms;
+      while (!fn()) {
+        if (Date.now() > end) throw new Error("timed out: " + fn);
+        await new Promise(r => win.setTimeout(r, 50));
+      }
+    };
+    const names = ["finishedTaskOf", "noteKeptInput"];
+    const own = Object.fromEntries(names.map(n => [n, Object.hasOwn(svc, n)]));
+    const real = Object.fromEntries(names.map(n => [n, svc[n]]));
+    const url = "data:text/html,<title>Kept</title><input id=x style='display:block;width:300px;height:40px'>";
+    const open = async () => {
+      const tab = gBrowser.addTab(url, { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+      gBrowser.selectedTab = tab;
+      await until(() => tab.linkedBrowser.currentURI.spec.startsWith("data:") && !tab.hasAttribute("busy") && gBrowser.selectedTab === tab);
+      return tab;
+    };
+    const userClick = tab => {
+      const browser = tab.linkedBrowser;
+      const r = browser.getBoundingClientRect();
+      const px = r.x + r.width / 2;
+      const py = r.y + Math.min(r.height / 2, 30);
+      if (win.document.elementFromPoint(px, py) !== browser) {
+        throw new Error("the click point isn't the page's");
+      }
+      for (const type of ["mousedown", "mouseup"]) {
+        win.synthesizeMouseEvent(type, px, py, { button: 0, buttons: type === "mousedown" ? 1 : 0, clickCount: 1 }, { isDOMEventSynthesized: false });
+      }
+    };
+    const userKey = (tab, key) => {
+      tab.linkedBrowser.focus();
+      const tip = Cc["@mozilla.org/text-input-processor;1"].createInstance(Ci.nsITextInputProcessor);
+      tip.beginInputTransactionForTests(win);
+      const ev = new win.KeyboardEvent("", { key });
+      tip.keydown(ev);
+      tip.keyup(ev);
+    };
+    const was = gBrowser.selectedTab;
+    const tabs = [];
+    const calls = [];
+    const ended = { id: 2147480002, kind: "task" };
+    let kept = null;
+    try {
+      kept = await open();
+      tabs.push(kept);
+      svc.finishedTaskOf = tab => (tab === kept ? ended : null);
+      svc.noteKeptInput = (rec, browser, kind) => calls.push({ rec: rec?.id ?? null, browser: browser === kept.linkedBrowser, kind });
+      const skipped = () => ({ ...UI.takeover.stats.skipped });
+      userClick(kept);
+      await until(() => calls.length >= 1);
+      userKey(kept, "a");
+      await until(() => calls.length >= 2);
+      const before = calls.length;
+      const quiet = skipped();
+      userKey(kept, "ArrowDown");
+      userKey(kept, "Escape");
+      await new Promise(r => win.setTimeout(r, 300));
+      const uncounted = calls.length - before;
+      const notInput = (skipped().notInput ?? 0) - (quiet.notInput ?? 0);
+      const other = await open();
+      tabs.push(other);
+      const managedBefore = skipped().notManaged ?? 0;
+      userClick(other);
+      await until(() => (skipped().notManaged ?? 0) > managedBefore);
+      return { calls, uncounted, notInput, otherCalls: calls.length - before - uncounted };
+    } finally {
+      for (const n of names) {
+        if (own[n]) svc[n] = real[n];
+        else delete svc[n];
+      }
+      gBrowser.selectedTab = was;
+      for (const tab of tabs) gBrowser.removeTab(tab, { animate: false });
+    }
+  `);
+  assert.deepEqual(out.calls, [
+    { rec: 2147480002, browser: true, kind: "clicked" },
+    { rec: 2147480002, browser: true, kind: "typed" },
+  ]);
+  assert.equal(out.uncounted, 0, "an arrow key and Escape don't count");
+  assert.equal(out.notInput, 2, "both reached the listener as input that doesn't count");
+  assert.equal(out.otherCalls, 0, "input in a tab no task kept goes nowhere");
+});
+
 test("the user's view ends as it started", async () => {
   const view = await h.call("dev.viewState");
   assert.equal(view.windows[0].activeWorkspace, userView.windows[0].activeWorkspace);

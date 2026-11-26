@@ -155,6 +155,12 @@ function keyCounts(e, mac) {
  * @property {(rec: object) => void} [noteUserInput]
  *   the user's real input reached one of the task's pages, whatever its
  *   ownership (zen-core's spaces.noteUserInput)
+ * @property {(tab: Element) => (object|null)} [finishedTaskOf]
+ *   the ended task that kept `tab` open at its finish, or null (zen-core's
+ *   finishedTaskOf, which follows a page moved to another window)
+ * @property {(rec: object, browser: Element, kind: "clicked"|"typed") => void} [noteKeptInput]
+ *   the user clicked or typed in such a kept tab (zen-core's noteKeptInput):
+ *   a reply to the task's chat then leaves that page with the user
  */
 
 /**
@@ -275,6 +281,20 @@ export class Takeover {
     const tab = win.gBrowser?.getTabForBrowser(browser);
     const hit = tab && this.host.lookup(tab);
     if (!hit) {
+      // A tab an ended task kept open: the user's click or key there keeps
+      // the page with them when a reply gives the task back. What counts is
+      // what counts here (classifyInput): a scrollbar drag or Space counts
+      // too, which only keeps a page that may have changed with the user.
+      // Every counted one goes; zen-core keeps the first per tab.
+      const kept = tab ? this.host.finishedTaskOf?.(tab) : null;
+      if (kept) {
+        try {
+          this.host.noteKeptInput?.(kept, browser, kind === "key" ? "typed" : "clicked");
+        } catch (e) {
+          console.error("[zenius] noting the user's input in a kept tab failed", e);
+        }
+        return skip("kept");
+      }
       return skip("notManaged");
     }
     // Whoever holds the task: an agent's takeOver, or its claim of a task

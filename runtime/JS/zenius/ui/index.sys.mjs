@@ -449,6 +449,9 @@ class UiController {
       },
       held: rec => this.#userPaused.has(rec.id),
       noteUserInput: rec => service.spaces.noteUserInput?.(rec),
+      // A tab an ended task kept, for the reply that gives the task back.
+      finishedTaskOf: tab => service.finishedTaskOf?.(tab) ?? null,
+      noteKeptInput: (rec, browser, kind) => service.noteKeptInput?.(rec, browser, kind),
     });
     // No agent cursor in a Space the user controls. On a page whose Take
     // over prompt is open, the agent's action waits: its cursor shows there

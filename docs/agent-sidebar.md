@@ -402,6 +402,25 @@ tests in the same commit.
     gives the task back. A queued message, the glue's `submit`, a remote
     task's send, an agent's hand-off and a permission hold give nothing
     back.
+  - **A reply after the task's end** (since 0.1.9) gives it back too, with
+    the pages it kept that the user hasn't touched since. The user's own
+    Enter, Send or Steer in the composer marks the message (`USER_SEND`, a
+    Symbol, so no RPC call's params can carry it), and the mark stays with
+    it in the queue. As the marked message goes out, before the turn
+    starts, the chat asks zenius (`resumeFinished`, ZeniusService's
+    `resumeFinishedTask(space, { sidebar })`), which makes every check
+    itself: this chat's task, ended in this Zen session, with kept tabs.
+    A queued message asks once the turn before it has ended, and a steer
+    that joins a running turn asks nothing. The agent's turn hears which
+    pages came back, by their labels and addresses, and why the others
+    didn't (closed, moved, navigated, clicked, typed), by their labels
+    alone: their addresses now may be the user's own browsing. It hears
+    what the change of control turned off or emptied there too
+    (`resumeNote`), and the chat says so (`resumeChatNote`). When no page
+    comes back, the task stays ended, and the agent's next open starts a
+    new one. A click or key in a kept tab, as takeover counts them
+    (`classifyInput`), reaches the core (`noteKeptInput`, through
+    `finishedTaskOf(tab)`), so a page the user used stays theirs.
   - **The agent's hand-off** is a card in the ask card's look, before the
     live card (`#handoff`, `renderHandOff`, `AgentService.handOff`), while
     the task is the user's by the agent's hand_off. It shows:

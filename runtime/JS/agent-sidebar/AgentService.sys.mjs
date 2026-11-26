@@ -834,6 +834,87 @@ export function handBackChatNote(back, agent) {
   return back.site ? `You gave ${isolate(back.site)} back to ${isolate(agent)}.` : `You gave the task back to ${isolate(agent)}.`;
 }
 
+/**
+ * The mark of a message the user sent by their own press in the composer
+ * (Enter, Send or Steer). A Symbol, so no RPC call's params can carry it:
+ * only such a message gives back a Work chat's task that had ended
+ * (AgentService.resumeFinished).
+ */
+export const USER_SEND = Symbol("the user's own send");
+
+/** Why a page of an ended task didn't come back, in the agent's note. */
+const NOT_BACK_WHY = {
+  closed: "closed it",
+  moved: "moved it out of the task",
+  navigated: "went to another page in it",
+  clicked: "clicked in it",
+  typed: "typed in it",
+};
+
+/** The devices a change of control stops in a page (stopCapture), as the note names them. */
+const DEVICE_WORDS = { camera: "camera", microphone: "microphone", screen: "screen sharing" };
+
+/** "a", "a and b", "a, b and c" */
+function spoken(words) {
+  return words.length < 3 ? words.join(" and ") : `${words.slice(0, -1).join(", ")} and ${words.at(-1)}`;
+}
+
+/**
+ * What the agent's turn hears when the user's message gave back a task that
+ * had ended (ZeniusService.resumeFinishedTask): zenius's word, with the pages
+ * that came back by their labels and addresses, why the others didn't, and
+ * what the change of control did in a page: the devices it turned off
+ * (stopped) and the secret fields it emptied (cleared, a count): those
+ * filled in while the page was the user's, typed, filled by the browser or
+ * changed by the page itself, so the line doesn't say who. A page that
+ * stays the user's goes by its label alone: its address now may be their own
+ * browsing (a search, a token), which the agent never sees otherwise.
+ *
+ * @param {{pages?: {page: string, url: string, stopped?: string[], cleared?: number}[], notBack?: {page: string, url: string, why: string}[]}} back
+ * @returns {string}
+ */
+export function resumeNote(back) {
+  const pages = back.pages ?? [];
+  const notBack = back.notBack ?? [];
+  const lines = [
+    pages.length
+      ? `This task had ended. With this message, zenius gave it back to you, with the pages the user hasn't touched since: ${pages.map(p => `${p.page} (${p.url})`).join(", ")}. Go on there, and read a page again before using its refs.`
+      : "This task had ended, and none of its pages came back to you: the user changed them since. An open starts a new task.",
+    ...notBack.map(p => `Not back, since the user ${NOT_BACK_WHY[p.why] ?? "changed it"}: ${p.page}.`),
+  ];
+  for (const p of pages) {
+    const devices = (Array.isArray(p.stopped) ? p.stopped : []).map(d => DEVICE_WORDS[d] ?? String(d));
+    if (devices.length) {
+      lines.push(`In ${p.page}, zenius turned off the ${spoken(devices)} the user had on there, as the page came back to you.`);
+    }
+    const n = Number.isSafeInteger(p.cleared) && p.cleared > 0 ? p.cleared : 0;
+    if (n) {
+      lines.push(`In ${p.page}, zenius emptied ${n === 1 ? "a secret field" : `${n} secret fields`} filled in while the page was the user's: ask the user for anything you need there.`);
+    }
+  }
+  return `<zenius-note>\n${lines.join("\n")}\n</zenius-note>`;
+}
+
+/**
+ * The chat's line under such a message: what came back to the agent, and
+ * what stays the user's.
+ *
+ * @param {{pages?: object[], notBack?: object[]}} back
+ * @param {string} agent
+ * @returns {string}
+ */
+export function resumeChatNote(back, agent) {
+  const isolate = s => `\u2068${s}\u2069`;
+  const given = back.pages?.length ?? 0;
+  const kept = back.notBack?.length ?? 0;
+  if (!given) {
+    return `The task stays ended: you changed its pages since, so none went back to ${isolate(agent)}.`;
+  }
+  const pages = kept ? `${given} of its pages` : given === 1 ? "its page" : `its ${given} pages`;
+  const yours = !kept ? "" : kept === 1 ? " The one you changed stays yours." : ` The ${kept} you changed stay yours.`;
+  return `You gave the task back to ${isolate(agent)}, with ${pages}.${yours}`;
+}
+
 /** A queued question's page, read as it goes out: none once its tab is gone. */
 function pageNow(page) {
   try {
@@ -4303,6 +4384,38 @@ export const AgentService = {
   },
 
   /**
+   * The user's own message to a Work chat whose task had ended (USER_SEND):
+   * zenius gives back the task's pages they haven't touched since its end,
+   * and says which came back (ZeniusService.resumeFinishedTask), before the
+   * turn starts. zenius makes every check itself (the record, its end, this
+   * chat's, no restart since), so any user message of a chat with a task
+   * asks: null when there's nothing to resume, as for a live task;
+   * { pages: [] } when the task stays ended. Null too for a scoped chat, or
+   * a zenius without the call.
+   *
+   * @returns {Promise<{space: number, name: string, pages: object[], notBack: object[]} | null>}
+   */
+  async resumeFinished(conv) {
+    const space = conv.zen?.id;
+    if (conv.kind !== "work" || conv.scope || !Number.isSafeInteger(space)) {
+      return null;
+    }
+    const service = this.zenius();
+    if (typeof service?.resumeFinishedTask !== "function") {
+      return null;
+    }
+    const started = Date.now();
+    try {
+      return (await service.resumeFinishedTask(space, { sidebar: conv.uid })) ?? null;
+    } catch (e) {
+      debug("could not give the ended task back:", e?.message ?? e);
+      return null;
+    } finally {
+      debug(`resumeFinishedTask ${Date.now() - started}ms`);
+    }
+  },
+
+  /**
    * The zenius task a chat's own open call started: one zenius created while
    * that call ran (from OPEN_SLACK_MS before the sidebar saw the call until
    * its result), with the name zenius's server says it gave it, or a name
@@ -5799,7 +5912,7 @@ export const AgentService = {
    * puts it in the directory; `source` says where a question came from
    * ("urlbar": the address bar's '>').
    */
-  async send(conv, { question, selection = "", page = null, attachments = [], replace = null, source = null, user: given = null, handBack = null }) {
+  async send(conv, { question, selection = "", page = null, attachments = [], replace = null, source = null, user: given = null, handBack = null, [USER_SEND]: userSend = false }) {
     if (conv.busy) {
       return;
     }
@@ -5869,6 +5982,18 @@ export const AgentService = {
         this.endStopped(conv);
         return;
       }
+      // The user's own message to a chat whose task had ended gives back
+      // the task's pages they haven't touched since, here, as it goes out:
+      // never while the agent's last turn still ran (a queued message waits
+      // for its end).
+      const resumed = userSend ? await this.resumeFinished(conv) : null;
+      if (resumed) {
+        conv.push({ role: "note", text: resumeChatNote(resumed, this.agentName(conv)) });
+      }
+      if (conv.stopRequested) {
+        this.endStopped(conv);
+        return;
+      }
       if (!text && wantsText()) {
         text = this.readPage(conv, page); // the session started over
       }
@@ -5914,6 +6039,9 @@ export const AgentService = {
       prompt.push(...attachments.map(attachmentBlock));
       if (handBack) {
         prompt.push({ type: "text", text: handBackNote(handBack) });
+      }
+      if (resumed) {
+        prompt.push({ type: "text", text: resumeNote(resumed) });
       }
       prompt.push({ type: "text", text: promptText(question, selection) });
       // Chat's fetch rule: what the question carries, it may fetch, and the
@@ -6029,7 +6157,7 @@ export const AgentService = {
    * out, so it carries the tab's page as it is then. With the agent idle, it
    * goes at once. Returns the queued message, or null.
    */
-  enqueue(conv, { question, selection = "", page = null, attachments = [], source = null, handBack = null }) {
+  enqueue(conv, { question, selection = "", page = null, attachments = [], source = null, handBack = null, [USER_SEND]: userSend = false }) {
     const item = {
       id: this.nextQueued++,
       question,
@@ -6042,6 +6170,8 @@ export const AgentService = {
       // with the message, so the agent hears of it. A queued message never
       // makes one itself.
       ...(handBack ? { handBack } : {}),
+      // The user's own press: as it goes out, it may give back an ended task.
+      ...(userSend ? { [USER_SEND]: true } : {}),
     };
     if (!conv.busy) {
       this.send(conv, item).catch(e => console.error(LOG, e));
@@ -6099,15 +6229,15 @@ export const AgentService = {
    * queue; so it does when the turn ended meanwhile. With the agent idle, a
    * steer is a question.
    */
-  async steer(conv, { question, selection = "", page = null, attachments = [], source = null, handBack = null }) {
+  async steer(conv, { question, selection = "", page = null, attachments = [], source = null, handBack = null, [USER_SEND]: userSend = false }) {
     if (!conv.busy) {
-      return this.send(conv, { question, selection, page, attachments, source, handBack });
+      return this.send(conv, { question, selection, page, attachments, source, handBack, [USER_SEND]: userSend });
     }
     if (conv.stopRequested) {
       // The turn is ending for the user's Stop: this goes next, as a
       // question, first in the queue, and the chat reads in order. A hand
       // back its press made goes with it, so the agent hears of it.
-      conv.queue.unshift({ id: this.nextQueued++, question, selection, attachments: own(attachments), files: filesOf(attachments), page, source, handBack });
+      conv.queue.unshift({ id: this.nextQueued++, question, selection, attachments: own(attachments), files: filesOf(attachments), page, source, handBack, [USER_SEND]: userSend });
       conv.emit({ type: "queue" });
       return;
     }
@@ -6137,7 +6267,9 @@ export const AgentService = {
     if (handBack) {
       conv.push({ role: "note", text: handBackChatNote(handBack, this.agentName(conv)) });
     }
-    conv.steers.push({ id: this.nextQueued++, question, selection, attachments: user.attachments, files: user.files, page, source, user, handBack });
+    // A steer that joins the running turn gives nothing back; one that goes
+    // as a question once the turn has stopped for it may (send).
+    conv.steers.push({ id: this.nextQueued++, question, selection, attachments: user.attachments, files: user.files, page, source, user, handBack, [USER_SEND]: userSend });
     this.refreshTask(conv);
     await this.deliverSteer(conv);
   },

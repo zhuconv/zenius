@@ -10225,6 +10225,130 @@ test("a second press while a send gives the task back waits for it: one hand bac
   assert.ok(!prompts[second].some(t => t.startsWith("<zenius-note>")), "the second message has no note");
 });
 
+// The reply after a finish, the sidebar's side: the user's own message to a
+// Work chat whose task had ended asks zenius to give the task back
+// (resumeFinishedTask, a stand-in here) as the message goes out, at once or
+// from the queue once the turn has ended, and the agent's turn hears what came
+// back. A send that isn't the user's press asks nothing. zenius decides
+// whether there's anything to resume (a live task's chat gets null).
+test("what the agent's turn hears when the user's reply gave back an ended task (resumeNote): the pages back by label and address, those not back by label alone, the devices turned off, and the secret fields emptied, whoever filled them", async () => {
+  const out = await chrome(`
+    const { resumeNote } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentService.sys.mjs");
+    return {
+      back: resumeNote({
+        pages: [
+          { page: "p1", url: "https://shop.example/cart", stopped: ["camera", "microphone"], cleared: 2 },
+          { page: "p3", url: "https://mail.example/", cleared: 1 },
+        ],
+        notBack: [{ page: "p2", url: "https://search.example/?q=private", why: "typed" }],
+      }),
+      none: resumeNote({ notBack: [{ page: "p1", url: "https://bank.example/?token=x", why: "navigated" }] }),
+    };
+  `);
+  const note = lines => ["<zenius-note>", ...lines, "</zenius-note>"].join("\n");
+  assert.equal(
+    out.back,
+    note([
+      "This task had ended. With this message, zenius gave it back to you, with the pages the user hasn't touched since: p1 (https://shop.example/cart), p3 (https://mail.example/). Go on there, and read a page again before using its refs.",
+      "Not back, since the user typed in it: p2.",
+      "In p1, zenius turned off the camera and microphone the user had on there, as the page came back to you.",
+      "In p1, zenius emptied 2 secret fields filled in while the page was the user's: ask the user for anything you need there.",
+      "In p3, zenius emptied a secret field filled in while the page was the user's: ask the user for anything you need there.",
+    ])
+  );
+  assert.equal(
+    out.none,
+    note(["This task had ended, and none of its pages came back to you: the user changed them since. An open starts a new task.", "Not back, since the user went to another page in it: p1."])
+  );
+  assert.ok(!out.back.includes("search.example") && !out.none.includes("bank.example"), "a page that stays the user's goes by its label alone");
+});
+
+test("the user's reply to a Work chat whose task had ended gives back its untouched pages as it goes out: at once, and from the queue only once the turn has ended; the agent's turn hears which came back, why the rest didn't, and what the change of control turned off or emptied, and the chat says so; a send that isn't the user's press asks nothing", async () => {
+  await useMock();
+  const out = await chrome(`${HANDBACK}
+    await S.openPanel();
+    const svc = AS.zenius();
+    const own = Object.hasOwn(svc, "resumeFinishedTask");
+    const real = svc.resumeFinishedTask;
+    const calls = [];
+    let give = null;
+    let conv = null;
+    svc.resumeFinishedTask = async (space, opts) => {
+      const chat = [...AS.tasks.values()].find(c => c.uid === opts?.sidebar) ?? null;
+      calls.push({ space, sidebar: opts?.sidebar ?? null, last: chat?.messages.findLast(m => m.role === "assistant")?.text ?? null });
+      return give;
+    };
+    const notes = c => c.messages.filter(m => m.role === "note").map(m => m.text);
+    try {
+      const uid = await startWorkChat(win, { text: "First question", source: "new" });
+      conv = AS.tasks.get(uid);
+      await S.until(() => conv && !conv.busy && answers(conv) === 1, 30000);
+      // Its task ended: the chat keeps the task's id, and zenius has no live task by it.
+      conv.zen = { name: "Compare the flights", id: 2147480001 };
+      give = {
+        space: 2147480001, name: "Compare the flights",
+        pages: [{ page: "p1", url: "http://127.0.0.1/a", stopped: ["camera", "screen"], cleared: 2 }],
+        notBack: [{ page: "p2", url: "http://127.0.0.1/b", why: "navigated" }],
+      };
+      V.send("Book the cheaper one");
+      await S.until(() => !conv.busy && answers(conv) === 2, 30000);
+      const atOnce = calls.slice();
+      const atOnceNotes = notes(conv);
+      // Not the user's press: nothing asked.
+      await AS.send(conv, { question: "From elsewhere" });
+      const unasked = calls.length - atOnce.length;
+      // A turn the user's message starts asks as it goes (nothing back here);
+      // one queued while that turn runs asks once the turn has ended.
+      give = null;
+      const before = calls.length;
+      V.send("THINKTITLES");
+      await S.until(() => calls.length === before + 1, 10000);
+      give = {
+        space: 2147480001, name: "Compare the flights", pages: [],
+        notBack: [{ page: "p1", url: "http://127.0.0.1/a", why: "typed" }, { page: "p2", url: "http://127.0.0.1/b", why: "closed" }],
+      };
+      V.send("And the hotel");
+      // The panel's send reads the box first (composed), then queues it.
+      const queued = await S.until(() => conv.queue.length === 1, 5000);
+      const askedWhileRunning = calls.length - (before + 1);
+      await S.until(() => !conv.busy && !conv.queue.length && answers(conv) === 5, 30000);
+      const fromQueue = calls.slice(before + 1);
+      return {
+        agent: AS.agentName(conv), uid, atOnce, atOnceNotes, unasked, queued, askedWhileRunning, fromQueue,
+        laterNotes: notes(conv).slice(atOnceNotes.length),
+      };
+    } finally {
+      if (own) svc.resumeFinishedTask = real;
+      else delete svc.resumeFinishedTask;
+      cleanUp(conv);
+    }
+  `);
+  assert.equal(out.atOnce.length, 1, JSON.stringify(out.atOnce));
+  assert.equal(out.atOnce[0].space, 2147480001);
+  assert.equal(out.atOnce[0].sidebar, out.uid);
+  assert.match(out.atOnce[0].last, /^Echo: First question /);
+  assert.ok(out.atOnceNotes.includes(`You gave the task back to ${iso(out.agent)}, with 1 of its pages. The one you changed stays yours.`), JSON.stringify(out.atOnceNotes));
+  assert.equal(out.unasked, 0, "a send that isn't the user's press asks nothing");
+  assert.equal(out.queued, true, "the second message waited in the queue");
+  assert.equal(out.askedWhileRunning, 0, "nothing asked while the turn ran");
+  assert.equal(out.fromQueue.length, 1, JSON.stringify(out.fromQueue));
+  assert.equal(out.fromQueue[0].last, "Here is the answer.", "asked once the turn had ended");
+  assert.ok(out.laterNotes.includes(`The task stays ended: you changed its pages since, so none went back to ${iso(out.agent)}.`), JSON.stringify(out.laterNotes));
+  const prompts = mockLog().filter(m => m.method === "session/prompt").map(m => m.params.prompt.filter(b => b.type === "text").map(b => b.text));
+  const of = question => prompts.findLast(t => t.at(-1) === question);
+  assert.deepEqual(of("Book the cheaper one").slice(-2), [
+    "<zenius-note>\nThis task had ended. With this message, zenius gave it back to you, with the pages the user hasn't touched since: p1 (http://127.0.0.1/a). Go on there, and read a page again before using its refs.\nNot back, since the user went to another page in it: p2.\nIn p1, zenius turned off the camera and screen sharing the user had on there, as the page came back to you.\nIn p1, zenius emptied 2 secret fields filled in while the page was the user's: ask the user for anything you need there.\n</zenius-note>",
+    "Book the cheaper one",
+  ]);
+  assert.deepEqual(of("And the hotel").slice(-2), [
+    "<zenius-note>\nThis task had ended, and none of its pages came back to you: the user changed them since. An open starts a new task.\nNot back, since the user typed in it: p1.\nNot back, since the user closed it: p2.\n</zenius-note>",
+    "And the hotel",
+  ]);
+  for (const question of ["From elsewhere", "THINKTITLES"]) {
+    assert.ok(!of(question).some(t => t.startsWith("<zenius-note>")), `${question} has no note`);
+  }
+});
+
 test("a popup the held page opened on another site keeps the hold: the line says only Resume agent on the page's card gives it back, and a send there gives nothing back", async () => {
   await useMock();
   const local = www().replace("127.0.0.1", "localhost");

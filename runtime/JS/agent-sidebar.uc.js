@@ -75,7 +75,7 @@
   function startSidebar() {
     const SCRIPT_URL = Components.stack.filename.split(" -> ").pop();
     const BASE = SCRIPT_URL.slice(0, SCRIPT_URL.lastIndexOf("/") + 1) + "agent-sidebar/";
-    const { AgentService, remoteSource } = ChromeUtils.importESModule(BASE + "AgentService.sys.mjs");
+    const { AgentService, remoteSource, USER_SEND } = ChromeUtils.importESModule(BASE + "AgentService.sys.mjs");
     AgentService.init(BASE);
     const { Directory } = ChromeUtils.importESModule(BASE + "directory.sys.mjs");
     const { registerSidebar, unregisterSidebar } = ChromeUtils.importESModule(BASE + "AgentSidebar.sys.mjs");
@@ -885,9 +885,9 @@
 
     /** Called by the panel when the user sends a question, or an edited one
      * (`replace`: the question it replaces). */
-    function submit(conv, { question, selection, attachments, replace, source = null, handBack = null }) {
+    function submit(conv, { question, selection, attachments, replace, source = null, handBack = null, [USER_SEND]: userSend = false }) {
       if (conv.kind === "work") {
-        return AgentService.send(conv, { question, selection, attachments, replace, source, handBack });
+        return AgentService.send(conv, { question, selection, attachments, replace, source, handBack, [USER_SEND]: userSend });
       }
       const tab = tabOf(conv) ?? gBrowser.selectedTab;
       return AgentService.send(conv, { question, selection, attachments, replace, source, page: pageOf(tab) });
@@ -897,14 +897,14 @@
      * one goes with its tab's page as it is when it goes out, so `page` is a
      * function AgentService calls then. Steer sends it into the running turn,
      * with the page as it is now. */
-    function enqueue(conv, { question, selection, attachments, handBack = null }) {
+    function enqueue(conv, { question, selection, attachments, handBack = null, [USER_SEND]: userSend = false }) {
       const page = conv.kind === "work" ? null : () => pageOf(tabOf(conv) ?? gBrowser.selectedTab);
-      return AgentService.enqueue(conv, { question, selection, attachments, page, handBack });
+      return AgentService.enqueue(conv, { question, selection, attachments, page, handBack, [USER_SEND]: userSend });
     }
 
-    function steer(conv, { question, selection, attachments, handBack = null }) {
+    function steer(conv, { question, selection, attachments, handBack = null, [USER_SEND]: userSend = false }) {
       const page = conv.kind === "work" ? null : pageOf(tabOf(conv) ?? gBrowser.selectedTab);
-      return AgentService.steer(conv, { question, selection, attachments, page, handBack });
+      return AgentService.steer(conv, { question, selection, attachments, page, handBack, [USER_SEND]: userSend });
     }
 
     /**

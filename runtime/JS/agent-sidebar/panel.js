@@ -14,7 +14,7 @@ import { imageFromClipboard, kindOf, readAttachment, Refused } from "./attachmen
 import { copyText, extensionFor, fileName, saveText } from "./saving.mjs";
 import { mountFeedback } from "./feedback.mjs";
 
-const { AgentService, editLossText, isCredentialAsk, MODEL_OPTION, EFFORT_OPTIONS, optionValues, concreteModel, modelGeneration, newestModels, STATE_LABELS, age, ago, remoteSource, remoteEnd, taskName, SCRIPT_LINES_FIRST } = ChromeUtils.importESModule(
+const { AgentService, USER_SEND, editLossText, isCredentialAsk, MODEL_OPTION, EFFORT_OPTIONS, optionValues, concreteModel, modelGeneration, newestModels, STATE_LABELS, age, ago, remoteSource, remoteEnd, taskName, SCRIPT_LINES_FIRST } = ChromeUtils.importESModule(
   new URL("AgentService.sys.mjs", import.meta.url).href
 );
 const { ENDED_TEXT, replyLine, sourceParts } = ChromeUtils.importESModule(new URL("external.sys.mjs", import.meta.url).href);
@@ -2469,6 +2469,12 @@ async function submit({ steer = false, trusted = false } = {}) {
   const message = await composed(target);
   if (!message) {
     return;
+  }
+  // Only the user's own press marks it: as it goes out, now or from the
+  // queue, such a message gives back a Work chat's task that had ended
+  // (AgentService.resumeFinished).
+  if (trusted) {
+    message[USER_SEND] = true;
   }
   // A press while this chat's send gives the task back waits for it: the
   // first message goes first, with its note, and this one after it.
