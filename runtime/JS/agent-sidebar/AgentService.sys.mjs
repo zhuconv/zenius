@@ -4359,31 +4359,42 @@ export const AgentService = {
    * own state, until Resume agent or the task's end, never from the wait
    * call's life, which a harness may end early or move. A page's permission
    * prompt holds the task too, but its own prompt ends that hold: no card.
+   * A task another agent drives (external.sys.mjs) gets the same card, from
+   * its record alone, as zenius's Open shows it in the sidebar.
    *
    * @param {Conversation} conv
-   * @returns {{name: string, waits: string, message: string, clears: string|null}|null}
-   *   waits: what the task waits for, in zenius's strip's words ("needs a
-   *   sign-in"); message: the agent's whole message (the task's, which a
-   *   hand-off made in a script sets too, else the chat's hand_off call's);
-   *   clears: what Resume agent clears first, in zenius's words, or null
+   * @returns {{title: string, message: string, clears: string|null}|null}
+   *   title: what the task waits for, in zenius's strip's words and its
+   *   isolate ("Trip planner needs a sign-in", waitLine); message: the
+   *   agent's whole message (the task's, which a hand-off made in a script
+   *   sets too, else the chat's hand_off call's); clears: what Resume agent
+   *   clears first, in zenius's words, or null
    */
   handOff(conv) {
     const rec = this.isHeld(conv) === "handoff" ? this.zenRecord(conv) : null;
-    if (!rec || conv.zen?.heldBy === "permission") {
+    // A task another agent drives: its record says whose the hold is. Its
+    // stand-in (ExternalTask) keeps only the user's own hold, and that from
+    // the feed's next sync, so it can't tell a page's permission prompt
+    // from a hand-off.
+    const heldBy = conv.external ? rec?.heldBy : conv.zen?.heldBy;
+    if (!rec || heldBy === "permission" || heldBy === "user") {
       return null;
     }
     const call = conv.messages.findLast(m => m.role === "tool" && m.zen === "hand_off");
     let clears = null;
-    let waits = "needs you";
+    // The strip's own line (zenius's waitLine): the name in zenius's isolate,
+    // which drops the name's own bidi controls first, so a stray isolate
+    // close or an override that an agent put in a task's name can't reach
+    // zenius's words after it.
+    let title = `\u2068${oneLine(rec.name)}\u2069 needs you`;
     try {
       clears = this.zeniusUI()?.handBackClears?.(rec) ?? null;
-      waits = ChromeUtils.importESModule(ZENIUS_PANEL).waitText(rec.reason ?? null);
+      title = ChromeUtils.importESModule(ZENIUS_PANEL).waitLine({ name: rec.name, kind: rec.reason ?? null });
     } catch (e) {
       debug("could not read the hand-off's words from zenius:", e.message);
     }
     return {
-      name: rec.name,
-      waits,
+      title,
       message: String(rec.stateText || call?.args?.message || "").trim(),
       clears,
     };

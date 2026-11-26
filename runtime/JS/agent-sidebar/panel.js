@@ -17,7 +17,7 @@ import { mountFeedback } from "./feedback.mjs";
 const { AgentService, editLossText, isCredentialAsk, MODEL_OPTION, EFFORT_OPTIONS, optionValues, concreteModel, modelGeneration, newestModels, STATE_LABELS, age, ago, remoteSource, remoteEnd, taskName, SCRIPT_LINES_FIRST } = ChromeUtils.importESModule(
   new URL("AgentService.sys.mjs", import.meta.url).href
 );
-const { ENDED_TEXT, sourceParts } = ChromeUtils.importESModule(new URL("external.sys.mjs", import.meta.url).href);
+const { ENDED_TEXT, replyLine, sourceParts } = ChromeUtils.importESModule(new URL("external.sys.mjs", import.meta.url).href);
 // What a task's menus offer and say, shared with All tasks' right-click menu.
 const TaskMenu = ChromeUtils.importESModule(new URL("taskmenu.sys.mjs", import.meta.url).href);
 const glue = window.browsingContext.topChromeWindow.ucAgentSidebar;
@@ -373,7 +373,10 @@ function renderExternal() {
   const bottom = nearBottom();
   box.replaceChildren(...(steps.length ? steps.map((step, i) => stepRow(step, withPage, steps[i - 1])) : [div("ext-empty", "No steps yet")]));
   view.querySelector(".ext-needs")?.remove();
-  if (conv.task.state === "needs") {
+  // A hand-off has the hand-off card, with the agent's whole message
+  // (renderHandOff); this one stays for the other ways a task waits for the
+  // user (a page's permission prompt, a choice).
+  if (conv.task.state === "needs" && !AgentService.handOff(conv)) {
     const card = div("ext-needs");
     const text = span("ext-needs-text", conv.task.text);
     text.dir = "auto";
@@ -403,7 +406,7 @@ function renderExternalBar() {
     return;
   }
   const done = conv.task.state === "done";
-  els.extBarText.textContent = done ? `${ENDED_TEXT[conv.ended] ?? "Ended"} ${minAgo(conv.endedAt || conv.task.since)}` : "The sidebar can't chat with this agent";
+  els.extBarText.textContent = done ? `${ENDED_TEXT[conv.ended] ?? "Ended"} ${minAgo(conv.endedAt || conv.task.since)}` : replyLine(conv);
   els.extStop.hidden = done;
   // How it ended, for the look's mark.
   if (done && ENDED_TEXT[conv.ended]) {
@@ -2996,15 +2999,18 @@ function liveState() {
  * at Resume agent or the task's end. Its title is zenius's words for what the
  * task waits for, as the strip says it; the agent's whole message follows as
  * its words (isolated, in the ask card's quote), then what Resume agent
- * clears. Show tab goes to the task's page; Resume agent gives it back.
+ * clears. Show tab goes to the task's page; Resume agent gives it back. A
+ * task another agent drives has it too, in its read-only view, where
+ * zenius's Open shows it: that agent's whole message goes in as text, as a
+ * Work chat's does.
  */
 function renderHandOff() {
-  const off = conv?.kind === "work" && !conv.external && !conv.scope ? AgentService.handOff(conv) : null;
+  const off = conv?.kind === "work" && !conv.scope ? AgentService.handOff(conv) : null;
   els.handoff.hidden = !off;
   if (!off) {
     return;
   }
-  els.handoffTitle.textContent = `\u2068${off.name}\u2069 ${off.waits}`;
+  els.handoffTitle.textContent = off.title;
   els.handoffWords.hidden = !off.message;
   els.handoffWords.textContent = off.message ? `\u2068${off.message}\u2069` : "";
   els.handoffClears.hidden = !off.clears;

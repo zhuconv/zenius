@@ -4189,18 +4189,43 @@ test("a task another agent drives (a terminal's Claude Code) shows in the direct
       await S.until(() => doc.querySelector('.ext-step[data-step="4"]')?.dataset.outcome === "stopped", 3000).catch(() => {});
       const stoppedRow = doc.querySelector('.ext-step[data-step="4"]');
       res.stoppedStep = stoppedRow && { ...view().steps.find(s => s.text === "Wait for the page"), mark: doc.defaultView.getComputedStyle(stoppedRow, "::before").content };
-      // The agent hands off: Needs you, with its words.
+      // The agent hands off: Needs you, with the hand-off card and its words
+      // (the test of zenius's Open below), not the Needs you card.
+      const handOffCard = () => (doc.getElementById("handoff").hidden ? null : doc.getElementById("handoff-title").textContent);
       spaces.setStateText(rec, "Log in to continue");
       entries.set(arg.id, { ...entries.get(arg.id), state: "needs_you", message: "Log in to continue" });
       spaces.setOwnership(rec, "agentDelegatedToUser", { source: "agent" });
       await openDir();
-      await S.until(() => rowOf(uid)?.group === "needs" && doc.querySelector(".ext-needs"), 5000);
+      await S.until(() => rowOf(uid)?.group === "needs" && handOffCard(), 5000);
       // Work's count follows on the panel's next frame.
       await S.until(() => Number(doc.getElementById("needs").textContent) === A.zeniusUI().needsCount(), 2000).catch(() => {});
-      res.needs = { row: rowOf(uid), card: view().needs, count: Number(doc.getElementById("needs").textContent), ui: A.zeniusUI().needsCount() };
-      spaces.setOwnership(rec, "agent", { source: "user" });
-      entries.set(arg.id, { ...entries.get(arg.id), state: "working", message: "" });
-      await S.until(() => rowOf(uid)?.group === "working" && !doc.querySelector(".ext-needs"), 5000);
+      res.needs = { row: rowOf(uid), card: view().needs, handOff: handOffCard(), count: Number(doc.getElementById("needs").textContent), ui: A.zeniusUI().needsCount() };
+      // Each hold below starts from a working task, so no wait passes on
+      // what the panel drew for the one before.
+      const working = async () => {
+        spaces.setOwnership(rec, "agent", { source: "user" });
+        entries.set(arg.id, { ...entries.get(arg.id), state: "working", message: "" });
+        await S.until(() => rowOf(uid)?.group === "working" && !doc.querySelector(".ext-needs") && !handOffCard(), 5000);
+      };
+      await working();
+      // A page's permission prompt holds the task instead: its own prompt
+      // ends that hold, so the Needs you card with its words, and no
+      // hand-off card once the panel has drawn it.
+      spaces.setOwnership(rec, "agentDelegatedToUser", { source: "permission" });
+      entries.set(arg.id, { ...entries.get(arg.id), state: "needs_you", message: "A page asks to use your camera" });
+      await S.until(() => view().needs?.[1] === "A page asks to use your camera", 5000);
+      await S.sleep(300);
+      res.permission = { card: view().needs, handOff: handOffCard(), heldBy: rec.heldBy };
+      await working();
+      // The user's own Take over: no hand-off card either, from the record
+      // at once, before the feed's next sync tells the view's stand-in.
+      spaces.setOwnership(rec, "agentDelegatedToUser", { source: "user" });
+      entries.set(arg.id, { ...entries.get(arg.id), state: "held", message: "" });
+      const atOnce = A.handOff(A.taskByUid(uid));
+      await S.until(() => A.taskByUid(uid).zen.heldBy === "user", 5000);
+      await S.sleep(300);
+      res.takeover = { atOnce, synced: A.handOff(A.taskByUid(uid)), card: handOffCard(), heldBy: rec.heldBy, stand: A.taskByUid(uid).zen.heldBy };
+      await working();
       // Stop: zenius ends it, as the strip's Stop does.
       doc.getElementById("ext-stop").click();
       await S.until(() => rec.ownership === "user", 5000);
@@ -4276,7 +4301,7 @@ test("a task another agent drives (a terminal's Claude Code) shows in the direct
     ],
     input: "none",
     send: "none",
-    bar: "The sidebar can't chat with this agent",
+    bar: `Reply to ${from}. The sidebar can't chat with it.`,
     stop: true,
     live: true,
     needs: null,
@@ -4287,7 +4312,10 @@ test("a task another agent drives (a terminal's Claude Code) shows in the direct
   assert.equal(out.statusAfter, 'Type into "Email"', "a working row shows the latest step");
   assert.deepEqual(out.stoppedStep, { outcome: "stopped", text: "Wait for the page", names: [], code: "", page: "p2", mark: '"–"' }, "a canceled call shows stopped, with no code");
   assert.deepEqual(out.needs.row, { group: "needs", src: `From ${from}`, chip: "laptop/t5x", status: "Log in to continue" });
-  assert.deepEqual(out.needs.card, ["Needs you", "Log in to continue", "Watch"]);
+  assert.equal(out.needs.card, null, "a hand-off has the hand-off card instead");
+  assert.equal(out.needs.handOff, `${iso(name)} needs you`);
+  assert.deepEqual(out.permission, { card: ["Needs you", "A page asks to use your camera", "Watch"], handOff: null, heldBy: "permission" }, "a page's permission prompt: the Needs you card, as before");
+  assert.deepEqual(out.takeover, { atOnce: null, synced: null, card: null, heldBy: "user", stand: "user" }, "the user's own Take over shows no hand-off card, before the feed's next sync too");
   assert.equal(out.needs.count, out.needs.ui, "Work's count is zenius's");
   assert.equal(out.stopped, "user");
   assert.deepEqual(out.done, { row: { group: "done", src: `From ${from}`, chip: "laptop/t5x", status: "Stopped by you" }, bar: "Stopped by you just now", stop: false });
@@ -4431,6 +4459,162 @@ test("end to end, on zen-core's real feed and zen-input's real steps: a task mad
     assert.deepEqual(done, { group: "done", src: from, status: "Finished" });
   } finally {
     await chrome(`win.ucAgentSidebar.closeDirectory(); return true;`).catch(() => {});
+  }
+});
+
+test("zenius's Open on a task another agent drives, while it waits for the user, shows that task's read-only view in the sidebar, not the Work chat it showed: the hand-off card, with that agent's whole message as text (the Work chat's card's path), Show tab and Resume agent; where to reply, in the question box's place; nothing the user sends goes anywhere; Resume agent gives the task back, and the sidebar stays on it", async () => {
+  const name = `zen-ui external open ${run}`;
+  // Another agent's words, whole and uncapped: its markup must stay text.
+  const words = `Sign in with <b>your</b> work account <img src=x onerror="document.title='x'"> & press Continue. ${"Then wait for the code by mail. ".repeat(10)}`.trim();
+  const { id } = await h.createSpace({ name, source: { agent: "Claude Code", folder: "zenius-eval" } });
+  await h.call("page.goto", { space: id, page: "p1", url: `${www()}/zen-ux/hidden.html?open` });
+  await h.call("spaces.setState", { space: id, text: words });
+  await h.call("spaces.handOff", { space: id, reason: "sign_in" });
+  try {
+    const out = await chrome(
+      `
+      await S.openPanel();
+      const g = win.ucAgentSidebar;
+      const A = g.AgentService;
+      const doc = S.panelDoc();
+      const el = id => doc.getElementById(id);
+      const shown = e => !!e && !e.hidden && doc.defaultView.getComputedStyle(e).display !== "none";
+      const userSpace = win.gZenWorkspaces.activeWorkspace;
+      const userTab = win.gBrowser.selectedTab;
+      // The user's own Work chat shows, a draft in its box.
+      const mine = A.createTask({ source: "new" });
+      g.showTask(mine);
+      await S.until(() => g.currentTask === mine && doc.documentElement.dataset.external === "false", 5000);
+      V.type("A draft for my own chat");
+      const res = {};
+      try {
+        const rec = A.zenius().spaces.peek(arg.id);
+        // zenius's tasks panel's Open, as its notification's click does.
+        await A.zeniusUI().goToTask(rec, null, win);
+        await S.until(() => g.currentTask?.uid === "ext-" + arg.id && shown(el("handoff")), 10000);
+        res.shown = { uid: g.currentTask?.uid ?? null, external: doc.documentElement.dataset.external, draft: mine.draft?.text ?? null };
+        const words = el("handoff-words");
+        res.card = {
+          title: el("handoff-title").textContent,
+          words: words.textContent,
+          // Text only: no element in the words, nothing the markup would make.
+          elements: words.querySelectorAll("*").length,
+          made: !!el("handoff").querySelector("img, b"),
+          show: shown(el("handoff-show")),
+          resume: shown(el("handoff-resume")),
+        };
+        res.needsCard = !!doc.querySelector(".ext-needs");
+        // Show tab: the task's page, and the sidebar stays on the task.
+        const front = A.zenFrontTab(g.currentTask);
+        el("handoff-show").click();
+        await S.until(() => front && win.gBrowser.selectedTab === front, 5000);
+        await S.sleep(300);
+        res.showTab = { page: !!front && win.gBrowser.selectedTab === front, space: win.gZenWorkspaces.activeWorkspace === rec.uuid, uid: g.currentTask?.uid ?? null, card: shown(el("handoff")) };
+        res.box = { input: shown(el("input")), send: shown(el("send")), bar: shown(el("ext-bar")) ? el("ext-bar-text").textContent : null };
+        // The user sends, by Enter and by Send: nothing goes, to this task
+        // or to the chat shown before.
+        const before = mine.messages.length;
+        V.send("Here is the code: 123456");
+        el("send").click();
+        await S.sleep(300);
+        res.sent = { mine: mine.messages.length - before, busy: mine.busy, task: g.currentTask.messages.length };
+        // Resume agent: the task goes back, and the sidebar stays on it.
+        el("handoff-resume").click();
+        await S.until(() => A.zenius().spaces.peek(arg.id)?.ownership === "agent" && !shown(el("handoff")), 10000);
+        await S.sleep(300);
+        res.resumed = { ownership: A.zenius().spaces.peek(arg.id)?.ownership ?? null, card: shown(el("handoff")), uid: g.currentTask?.uid ?? null, bar: shown(el("ext-bar")) ? el("ext-bar-text").textContent : null };
+        return res;
+      } finally {
+        A.removeTask(mine);
+        g.setMode("chat");
+        if (win.gZenWorkspaces.activeWorkspace !== userSpace) await win.gZenWorkspaces.changeWorkspaceWithID(userSpace);
+        if (userTab.isConnected) win.gBrowser.selectedTab = userTab;
+      }
+    `,
+      { id }
+    );
+    const where = `Reply to ${iso("Claude Code")} in ${iso("zenius-eval")}, where it runs. The sidebar can't chat with it.`;
+    assert.deepEqual(out.shown, { uid: `ext-${id}`, external: "true", draft: "A draft for my own chat" }, "the task's own view, and the chat shown before keeps its draft");
+    assert.deepEqual(
+      out.card,
+      { title: `${iso(name)} needs a sign-in`, words: iso(words), elements: 0, made: false, show: true, resume: true },
+      "the agent's whole message goes in as text, by the Work chat's card's own path (renderHandOff's textContent)"
+    );
+    assert.equal(out.needsCard, false, "the hand-off card says it, not the Needs you card");
+    assert.deepEqual(out.showTab, { page: true, space: true, uid: `ext-${id}`, card: true }, "Show tab goes to the task's page, and the sidebar stays on the task");
+    assert.deepEqual(out.box, { input: false, send: false, bar: where }, "no question box, and where to reply in its place");
+    assert.deepEqual(out.sent, { mine: 0, busy: false, task: 0 }, "nothing the user sends goes anywhere");
+    assert.deepEqual(out.resumed, { ownership: "agent", card: false, uid: `ext-${id}`, bar: where }, "Resume agent gives it back, and the sidebar stays on the task");
+  } finally {
+    await h.call("spaces.finish", { space: id, keep: [] }).catch(() => {});
+  }
+});
+
+test("the hand-off card's title isolates the task's name, in Work's card and in the card of a task another agent drives: a stray isolate close and a right-to-left override in the name are gone, and zenius's own words after it read left to right", async () => {
+  const base = `zen-ui rlo ${run}`;
+  // A name made to escape the title's isolate (a stray close), then reverse
+  // what follows it: zenius's "needs a sign-in".
+  const { id } = await h.createSpace({ name: `${base} \u2069\u202eSPOOF`, source: { agent: "Claude Code", folder: "zenius-eval" } });
+  await h.call("page.goto", { space: id, page: "p1", url: `${www()}/zen-ux/hidden.html?rlo` });
+  await h.call("spaces.handOff", { space: id, reason: "sign_in" });
+  try {
+    const out = await chrome(
+      `
+      await S.openPanel();
+      const g = win.ucAgentSidebar;
+      const A = g.AgentService;
+      const doc = S.panelDoc();
+      const userSpace = win.gZenWorkspaces.activeWorkspace;
+      const userTab = win.gBrowser.selectedTab;
+      // The title, and how its own word "needs" is drawn: its first letter
+      // left of its last, unless an override reached it.
+      const read = () => {
+        const title = doc.getElementById("handoff-title");
+        const node = title.firstChild;
+        const at = title.textContent.lastIndexOf("needs");
+        const x = i => {
+          const r = doc.createRange();
+          r.setStart(node, i);
+          r.setEnd(node, i + 1);
+          return r.getBoundingClientRect().left;
+        };
+        const order = at < 0 || node?.nodeType !== node?.TEXT_NODE ? null : x(at) < x(at + 4) ? "ltr" : "rtl";
+        return { text: title.textContent, nodes: title.childNodes.length, order };
+      };
+      let mine = null;
+      const res = {};
+      try {
+        const rec = A.zenius().spaces.peek(arg.id);
+        // The card of a task another agent drives, by zenius's Open.
+        await A.zeniusUI().goToTask(rec, null, win);
+        await S.until(() => g.currentTask?.uid === "ext-" + arg.id && !doc.getElementById("handoff").hidden, 10000);
+        await S.sleep(200);
+        res.external = read();
+        // Work's card: a Work chat whose zenius task it is.
+        mine = A.createTask({ source: "new" });
+        mine.zen = { id: arg.id, name: rec.name, heldBy: null };
+        g.showTask(mine);
+        await S.until(() => g.currentTask === mine && !doc.getElementById("handoff").hidden, 10000);
+        await S.sleep(200);
+        res.work = read();
+        return res;
+      } finally {
+        if (mine) A.removeTask(mine);
+        g.setMode("chat");
+        if (win.gZenWorkspaces.activeWorkspace !== userSpace) await win.gZenWorkspaces.changeWorkspaceWithID(userSpace);
+        if (userTab.isConnected) win.gBrowser.selectedTab = userTab;
+      }
+    `,
+      { id }
+    );
+    const title = { text: `${iso(`${base} SPOOF`)} needs a sign-in`, nodes: 1, order: "ltr" };
+    assert.deepEqual(out.external, title, "the external card: the name's controls gone, zenius's words left to right");
+    assert.deepEqual(out.work, title, "Work's card, the same");
+  } finally {
+    // The user holds it: it goes back first, as zenius won't finish a task
+    // the agent doesn't control.
+    await chrome(`const s = win.ucAgentSidebar.AgentService.zenius().spaces; const rec = s.peek(arg.id); if (rec && rec.ownership !== "agent") s.setOwnership(rec, "agent", { source: "user" }); return true;`, { id }).catch(() => {});
+    await h.call("spaces.finish", { space: id, keep: [] }).catch(() => {});
   }
 });
 

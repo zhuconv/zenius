@@ -162,7 +162,10 @@ tests in the same commit.
   Take over itself. zenius's way to a task (its tasks panel's Open and tab
   names, a notification's click, the strip's click while it names one
   waiting task) opens the sidebar on the Work chat that drives the task,
-  if one does (`openChatOfSpace`). A chat that needs the user before any
+  or, for a task another agent drives, on that task's read-only view, with
+  its hand-off card while it waits (`openChatOfSpace`). It never leaves the
+  chat the sidebar showed before, where a reply would reach another agent.
+  A chat that needs the user before any
   zenius task says so goes to zenius with why it waits
   (`AgentService.noteWaiting`): the strip names it when it waits alone, and
   the tasks panel has a row for it with Open.
@@ -403,13 +406,22 @@ tests in the same commit.
     live card (`#handoff`, `renderHandOff`, `AgentService.handOff`), while
     the task is the user's by the agent's hand_off. It shows:
     - what the task waits for, in zenius's strip's words ("Trip planner
-      needs a sign-in", `waitText`);
+      needs a sign-in", `waitLine`): the name goes in zenius's isolate,
+      whose own bidi controls go first, so nothing in a name reorders the
+      words around it;
     - the agent's whole message, as its words: the task's own
       (`stateText`, which a hand-off made in a script sets too), else the
       hand_off call's;
     - what Resume agent clears first, in zenius's tasks panel's words;
     - Show tab (zenius's `goToTask`, the task's page) and Resume agent
       (zenius's own path, `ZeniusUI.handBackByUser`).
+
+    A task another agent drives (a terminal's Claude Code, say) has the
+    same card in its read-only view, from its zenius record alone: that
+    agent's whole message goes in as text, as a Work chat's does. Whose
+    the hold is comes from the record's `heldBy`, so a page's permission
+    prompt and the user's own Take over show none: the view's stand-in
+    keeps only the user's own hold, and that from the feed's next sync.
 
     It follows the task's state, not the agent's wait call, so it stays
     until Resume agent or the task's end, whatever becomes of that call: a
@@ -469,7 +481,7 @@ toolbar isn't visible, such as a site's sign-in window, has no sidebar):
 | `watch(uid, { tab })` | Watch a task (on `tab`, one of its tabs, if given) with zenius's `ZeniusUI.watch`; resolves to whether the window shows it. Watching another task keeps the way back |
 | `stopWatching({ back = true })` | End the watch; with `back`, return to the user's Space and tab. Resolves to whether a watch ended |
 | `takeOver(uid)` | zenius's Take over, then a watch; resolves to whether the user has the task |
-| `openChatOfSpace(space, source)` | The sidebar open on the Work chat that drives zenius task `space` (`AgentService.chatOfSpace`), as zenius's tasks panel's Open, its tab names and a notification's click do; resolves to whether it shows one. A task no Work chat drives opens nothing |
+| `openChatOfSpace(space, source)` | The sidebar open on the Work chat that drives zenius task `space` (`AgentService.chatOfSpace`), as zenius's tasks panel's Open, its tab names and a notification's click do, or on the task's read-only view when another agent drives it (`ExternalTasks.ofSpace`, after a `sync`); resolves to whether it shows the task |
 | `watching` | The uid of the task this window watches, else null, whoever began the watch: the card, the directory, zenius's tasks panel or a notification |
 | `currentTask` | The task Work mode shows |
 | `conversationFor(tab)`, `submit(conv, { question, selection, attachments })` | A tab's chat, and asking in it (the dispatch tests) |
@@ -669,9 +681,9 @@ The panel (`panel.html`, its own document, so bare ids):
 | `html[data-external="true"]`, `.ext-view[data-state]` | A task the sidebar doesn't drive (`external.sys.mjs`: every zenius task shows in the sidebar), opened: read-only, so the question box shows only `#ext-bar`. `data-state` is the task's `working`, `needs` or `done` |
 | `#ext-src` (`.addr`) | Where it's driven from: `Read-only, driven from <agent> on <terminal>`, the terminal a chip, or `Read-only, driven from <agent> in <folder>` without one |
 | `#ext-steps > .ext-step[data-step][data-outcome]` > `.ext-text` (`.ext-name`), `.ext-page`, `.ext-outcome`, `.ext-time` | Its steps from the runtime's record, in the box and with the marks of the sidebar's own `.steps`. `data-outcome` is `ok`, `running`, `stopped` (the runtime's outcome for a call its client canceled, or whose connection closed: `–`, as the sidebar's own stopped steps) or `failed`. A running step shows the needs dot while the task needs the user, and `–` once it ended. Each quoted name is an isolate (`.ext-name`, `dir="auto"`). `.ext-page` names the step's page once the task has more than one; `data-same-page="true"` hides it where it repeats the step before. A failed step's code (`.ext-outcome`) sits under its words. With no steps, `.ext-empty` says "No steps yet" |
-| `.ext-needs` > `.ext-needs-title`, `.ext-needs-text`, Watch | The agent's hand-off while the task needs the user, in the directory's Needs you tint (`--needs-bg`): "Needs you", its words, and Watch |
+| `.ext-needs` > `.ext-needs-title`, `.ext-needs-text`, Watch | While the task needs the user for anything but a hand-off (a page's permission prompt, a choice), in the directory's Needs you tint (`--needs-bg`): "Needs you", its words, and Watch. A hand-off has `#handoff` instead |
 | `html[data-archived="true"]`, `#archived-bar` > `#archived-text`, `#unarchive` | An archived task, opened (`AgentService.archiveTask`): read-only, with no box, `#queue` or Edit. The bar says "Archived" (its tooltip "Archived <age> ago"), with Unarchive, in the question's place, for own and external tasks alike (`#ext-bar` gives way to it) |
-| `#ext-bar[data-ended]` > `#ext-bar-text`, `#ext-stop` | In the question's place: "The sidebar can't chat with this agent" and Stop task while it runs; once it ended, how (`Finished`, `Stopped by you` or `Closed`, then its age), with `data-ended` `finished` (a ✓) or `stopped`/`closed` (a –) |
+| `#ext-bar[data-ended]` > `#ext-bar-text`, `#ext-stop` | In the question's place, while it runs, where to reply, and Stop task: "Reply to Claude Code in zenius-eval, where it runs. The sidebar can't chat with it." (`replyLine`; "Reply to Claude Code on laptop/t5x." for an hc terminal, "Reply to the agent where it runs." with no source); once it ended, how (`Finished`, `Stopped by you` or `Closed`, then its age), with `data-ended` `finished` (a ✓) or `stopped`/`closed` (a –) |
 | `#live[data-live="true"\|"false"][data-watching="true"\|"false"][data-drawn][data-every]` | The live card, the thread's last child, hidden until the task has a tab. `data-live` is true while the agent works on the page (the red dot); `data-watching` is true while this window watches the card's task; `data-drawn` counts the pictures drawn, and stays put while the card can't be seen; `data-every` is the wait for the next picture in ms, or `kept` after a very slow one. A test counts pictures by `data-drawn`: the card doesn't call drawSnapshot |
 | `#live-shot`, `#live-text` | Its picture (a canvas) and its line: `Live on <host>`, `Waiting for you on <host>` (a hand-off), `You have control on <host>` (a Take over), or the host |
 | `#live-src` | A remote task's source over the card's line: `From <label> on <address>` (`From <address>` without a label) (`AgentService.remoteSource(conv)`, from `conv.remote`, each part a first-strong isolate); hidden for any other task. A remote question (`message.source === "remote"`) has the same line as its `.src`, where a '>' question says "from the address bar". On the card the line heads the card's foot, and in each place the address is a chip (`.addr`, panel.js's `fillSource`; the text is unchanged) |

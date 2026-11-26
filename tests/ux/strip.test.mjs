@@ -60,7 +60,7 @@ after(async () => {
   await h?.close();
 });
 
-test("the tasks panel's Open goes to the chat that drives the task: the waiting one among several Work chats, and a working one, opening the sidebar if it's closed; a task no Work chat drives opens no sidebar", async () => {
+test("the tasks panel's Open goes to the chat that drives the task: the waiting one among several Work chats, and a working one, opening the sidebar if it's closed; a task no Work chat drives opens its own read-only view there", async () => {
   // Two of the sidebar's Work chats, each driving a zenius task (the source
   // its zenius server sends names the chat), and a task another program
   // drives.
@@ -96,12 +96,19 @@ test("the tasks panel's Open goes to the chat that drives the task: the waiting 
       await until(() => UI.watching(win) === arg.first && sidebarShows() && win.ucAgentSidebar.currentTask?.uid === arg.chats.first, "the working task and its chat");
       const working = look();
       await UI.stopWatching(win);
-      // A task no Work chat drives: its Space, and the sidebar as it was.
+      // A task no Work chat drives: its Space, and that task's own
+      // read-only view in the sidebar, opened though it was closed, not the
+      // chat it showed before.
       await closeSidebar();
       await openRow(arg.other);
-      await until(() => UI.watching(win) === arg.other, "the other program's task");
-      await sleep(500);
-      const other = look();
+      // The view is the task's stand-in, which the panel, loading as the
+      // sidebar opens, shows read-only.
+      const readOnly = () => win.document.getElementById("sidebar")?.contentDocument?.documentElement?.dataset.external ?? null;
+      await until(
+        () => UI.watching(win) === arg.other && sidebarShows() && win.ucAgentSidebar.currentTask?.uid === "ext-" + arg.other && readOnly() === "true",
+        "the other program's task and its read-only view"
+      );
+      const other = { ...look(), external: win.ucAgentSidebar.currentTask?.external === true, readOnly: readOnly() };
       await UI.stopWatching(win);
       return { waiting, working, other };
     `,
@@ -109,7 +116,7 @@ test("the tasks panel's Open goes to the chat that drives the task: the waiting 
     );
     assert.deepEqual(out.waiting, { sidebar: true, chat: chats.second, watching: second.id }, "the waiting task's chat, not the one the sidebar showed");
     assert.deepEqual(out.working, { sidebar: true, chat: chats.first, watching: first.id });
-    assert.deepEqual(out.other, { sidebar: false, chat: chats.first, watching: other.id }, "no sidebar for a task no Work chat drives");
+    assert.deepEqual(out.other, { sidebar: true, chat: `ext-${other.id}`, watching: other.id, external: true, readOnly: "true" }, "a task no Work chat drives: its own read-only view");
   } finally {
     await chrome(
       `

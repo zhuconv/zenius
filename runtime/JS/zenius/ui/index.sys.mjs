@@ -3297,7 +3297,8 @@ class UiController {
    * when one of the agent sidebar's Work chats drives the task, that chat in
    * the agent sidebar of the window that shows the task, opened if it was
    * closed. With several chats at work, the user then answers the one that
-   * asked. A task no Work chat drives (a CLI agent's) opens no sidebar.
+   * asked. A task no Work chat drives (a CLI agent's) opens its read-only
+   * view there, with the hand-off card while it waits for the user.
    *
    * @param {object} rec
    * @param {string|null} [tabId]  zen-core's id of the task's tab to show

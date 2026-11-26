@@ -418,17 +418,27 @@
     }
 
     /**
-     * The sidebar open on the Work chat that drives zenius task `space`, if
-     * one does (AgentService.chatOfSpace): zenius's way to the task (the
-     * tasks panel's Open and its tab names, a notification) shows the user
-     * the session that asked. A task no Work chat drives opens nothing here.
+     * The sidebar open on the Work chat that drives zenius task `space`
+     * (AgentService.chatOfSpace), or, for a task another agent drives, on
+     * that task's read-only view (external.sys.mjs), with its hand-off card
+     * while it waits for the user: zenius's way to the task (the tasks
+     * panel's Open and its tab names, a notification) shows the user the
+     * session that asked, never the chat the sidebar showed before, where a
+     * reply would reach another agent.
      *
      * @param {number} space
      * @param {object|null} [source]  the task's source
-     * @returns {Promise<boolean>} whether the sidebar shows such a chat
+     * @returns {Promise<boolean>} whether the sidebar shows the task
      */
     async function openChatOfSpace(space, source = null) {
-      const conv = AgentService.chatOfSpace(space, source);
+      let conv = AgentService.chatOfSpace(space, source);
+      if (!conv) {
+        // The feed as it is now, should this task's latest entry still be
+        // on its way to the list.
+        const external = AgentService.externalTasks();
+        external?.sync();
+        conv = external?.ofSpace(space) ?? null;
+      }
       if (!conv) {
         return false;
       }

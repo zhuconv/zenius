@@ -73,6 +73,21 @@ export function externalSource(conv) {
 }
 
 /**
+ * The line in the question box's place while a task another agent drives
+ * runs: the sidebar can't send to that agent, so the user replies where it
+ * runs. Its source can't tell a terminal from an IDE or a script, hence
+ * "where it runs"; an hc terminal it names is that place.
+ *
+ * @param {object} conv  an ExternalTask
+ * @returns {string}
+ */
+export function replyLine(conv) {
+  const parts = sourceParts(conv?.from);
+  const where = !parts ? "Reply to the agent where it runs." : parts.terminal ? `Reply to ${parts.text}.` : `Reply to ${parts.text}, where it runs.`;
+  return `${where} The sidebar can't chat with it.`;
+}
+
+/**
  * A task of the feed's that the sidebar lists, read-only: a stand-in for a
  * work chat (AgentService's Conversation) with the fields the directory,
  * the panel and the live card read.

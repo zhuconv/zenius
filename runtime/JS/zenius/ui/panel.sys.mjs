@@ -228,8 +228,14 @@ function renderStrip(win, w) {
   w.all.hidden = !w.one;
 }
 
-/** "<task> needs a sign-in": the strip's line for one waiting task. */
-function waitLine(item) {
+/**
+ * "<task> needs a sign-in": the strip's line for one waiting task, and the
+ * agent sidebar's hand-off card's title. The name goes in isolate(), whose
+ * own bidi controls go first, so nothing in it reorders the words after it.
+ *
+ * @param {{name?: string, kind?: string|null}} item
+ */
+export function waitLine(item) {
   return `${isolate(item.name) || "A task"} ${waitText(item.kind)}`;
 }
 
