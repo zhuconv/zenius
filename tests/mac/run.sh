@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# zen-eval's Mac tests of the bundle (tests/mac/README.md): start a dev Zen
-# whose agent sidebar talks to zen-sidebar's mock agents, run
+# The bundle's Mac tests (tests/mac/README.md): start a dev Zen
+# whose agent sidebar talks to the sidebar's mock agents, run
 # tests/mac/*.test.mjs against it, stop it.
 #
 #   tests/mac/run.sh                              every suite, headless
 #   tests/mac/run.sh tests/mac/urlbar.test.mjs
 #   ZENIUS_MAC_HEADED=1 tests/mac/run.sh tests/mac/look.test.mjs
 #       the look, in a visible window that closes on every way out. On the
-#       user's Mac, only through zen-eval's nets: the user idle,
+#       user's Mac, only with the user idle,
 #       and no call or screen share.
 #
 #   ZENIUS_MAC_REPO=<checkout>   whose runtime and SDK the dev Zen runs
@@ -84,7 +84,7 @@ cleanup() {
 # removes the scratch home.
 trap cleanup EXIT
 
-# zen-sidebar's test pages, on 127.0.0.1 only.
+# The sidebar's test pages, on 127.0.0.1 only.
 if [[ -f $FIX/serve.mjs && -d $FIX/www ]]; then
   port=${ZENIUS_MAC_WWW_PORT:-47232}
   node "$FIX/serve.mjs" "$port" > "$STATE/serve.log" 2>&1 &
@@ -120,7 +120,7 @@ fi
 export ZENIUS_DEV_PREFS=$STATE/prefs.js
 
 "$DEV" "$NAME" stop >/dev/null 2>&1 || true
-# zen-sidebar's fixture tasks (every state but Working), read once at startup.
+# The sidebar's fixture tasks (every state but Working), read once at startup.
 if [[ -f $FIX/fixture-tasks.mjs ]]; then
   PROFILE=$("$DEV" "$NAME" path)
   if [[ ! -f $PROFILE/prefs.js ]]; then

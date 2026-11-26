@@ -1,5 +1,5 @@
-// The bundle's test hooks: the names zen-sidebar's docs/agent-sidebar.md
-// gives the two-mode sidebar, the '>' dispatch and Watch, which zen-ux keeps
+// The bundle's test hooks: the names docs/agent-sidebar.md
+// gives the two-mode sidebar, the '>' dispatch and Watch, which the UI keeps
 // as a contract. Every Mac test reads them from here, so a
 // renamed hook is a one-line change.
 //
@@ -104,7 +104,7 @@ export const MODULE = "chrome://userscripts/content/agent-sidebar/AgentSidebar.s
 
 /**
  * The 'Ask agent' row. Tests find it by dynamicType and providerName, never
- * by its icon's file name: zen-ux is replacing the icon (and says when).
+ * by its icon's file name: the UI is replacing the icon (and says when).
  */
 export const URLBAR = {
   dynamicType: "zeniusAskAgent",

@@ -15,7 +15,7 @@
 // - Take over hands the page to the user, and watches it.
 // The task is the mock's SCENARIO:prices, which keeps a step running. It's
 // started once: the mock names its tasks, so a second run would join it.
-// Shots for a person to set beside zen-sidebar's go to $ZENIUS_MAC_SHOTS.
+// Shots for a person to set beside the sidebar's references go to $ZENIUS_MAC_SHOTS.
 import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";

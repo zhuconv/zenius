@@ -1,4 +1,4 @@
-// Shared setup for zen-eval's Mac tests of the bundle. tests/mac/run.sh
+// Shared setup for the bundle's Mac tests. tests/mac/run.sh
 // starts a dev Zen whose agent sidebar talks to the mock agents, in a scratch
 // HOME and ZENIUS_HOME, and sets ZENIUS_INSTANCE; the tests drive it over RPC
 // and check the chrome through dev.evalChrome. Each chrome check gets `H`
@@ -11,7 +11,7 @@ import * as HOOKS from "./hooks.mjs";
 /** A visible window: the look, as the user sees it. */
 export const HEADED = process.env.ZENIUS_MAC_HEADED === "1";
 
-/** zen-sidebar's test pages (run.sh serves them on 127.0.0.1). */
+/** The sidebar's test pages (run.sh serves them on 127.0.0.1). */
 export const WWW = process.env.ZENIUS_MAC_WWW || "";
 
 const HELPERS = `

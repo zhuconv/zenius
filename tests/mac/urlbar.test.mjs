@@ -6,7 +6,7 @@
 // - without '>', the address bar searches as usual, with no 'Ask agent'
 //   row (since 0.1.8).
 // The row is found by its dynamicType and providerName (hooks.mjs), never by
-// its icon's file name, which zen-ux is changing.
+// its icon's file name, which the UI is changing.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { setup } from "./lib.mjs";

@@ -1,6 +1,6 @@
 // The two-mode sidebar's look in Zen's own Light
 // and Dark: the Chat and Work chats and the directory drawer, in the layout
-// listed below. zen-eval runs it in a visible window on the Mac:
+// listed below. It runs in a visible window on the Mac:
 //
 //   ZENIUS_MAC_HEADED=1 tests/mac/run.sh tests/mac/look.test.mjs
 //
@@ -19,7 +19,7 @@
 //   sidebar, against hooks.mjs's MATERIAL. A snapshot can't draw the material
 //   itself, and the run takes no screen capture (no Screen Recording
 //   permission): the user sees the real vibrancy in the try Zen.
-// Shots for a person to set beside zen-sidebar's references go to
+// Shots for a person to set beside the sidebar's references go to
 // $ZENIUS_MAC_SHOTS (default $TMPDIR/zenius-mac-look).
 //
 // The scene: the tasks run.sh's fixture file loads (every state but
@@ -90,7 +90,7 @@ const L = {
     const sameRow = (p, q) => !!p && !!q && Math.abs(mid(p) - mid(q)) <= 4;
     const all = Object.values(shown).every(Boolean);
     const oneRow = all && sameRow(r.attach, r.switch) && sameRow(r.switch, r.pickers) && sameRow(r.pickers, r.send);
-    // zen-sidebar's wrap: the pickers and send together on a second row,
+    // The sidebar's wrap: the pickers and send together on a second row,
     // under '+' and the switch.
     const twoRows = all && !oneRow && sameRow(r.attach, r.switch) && sameRow(r.pickers, r.send) &&
       Math.min(r.pickers.top, r.send.top) >= Math.max(r.attach.bottom, r.switch.bottom) - 1;
@@ -178,7 +178,7 @@ function rgbToHsl([r, g, b]) {
 
 /**
  * The composer's row: one row wherever it fits.
- * With `narrow`, zen-sidebar's wrap passes too: '+' and the switch on the
+ * With `narrow`, the sidebar's wrap passes too: '+' and the switch on the
  * first row, the pickers then send right-aligned on a second. Either way
  * nothing is hidden and nothing runs past #box's edge.
  */
@@ -491,7 +491,7 @@ test("the composer's row holds at the sidebar's narrowest width", () =>
 // At 168 px, on a build of 2026-11-22: the busy box's hint, "<status> · Enter
 // queues, ⌘Enter steers", took 3 lines, and Chat's empty box kept that height after it, since
 // Gecko counts an empty box's placeholder in its scrollHeight. Where the whole hint doesn't fit
-// 2 lines, it now leaves out the status (zen-ux's fix). Linux's floor is wider (196 px on
+// 2 lines, it now leaves out the status (the UI's fix). Linux's floor is wider (196 px on
 // the Linux server), so only the Mac's run reaches 168 px.
 test("at the sidebar's narrowest width, a busy task's empty box stays 2 lines and says 'Enter queues, ⌘Enter steers', which fits; so does Chat's after it", () =>
   inTheme(h, "light", async () => {

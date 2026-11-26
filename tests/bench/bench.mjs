@@ -2,7 +2,7 @@
 // Latency benchmarks, runnable on both targets with the same scripts.
 //
 //   node tests/bench/bench.mjs --target ego [--iterations 20] [--only goto-local,click]
-//   node tests/bench/bench.mjs --target zenius --instance zen-eval
+//   node tests/bench/bench.mjs --target zenius --instance <name>
 //
 // Warm benchmarks run all iterations inside one script (one Node process), the
 // way an agent chains actions in a round; the first WARMUP iterations are
