@@ -30,7 +30,7 @@ scratch_home() {
   guard_home "$SCRATCH_HOME" "$SCRATCH_ZHOME" "scratch_home"
 }
 
-# own_zenius_home <label>: for a runner that starts a dev Zen, what
+# own_zenius_home <label> [parent]: for a runner that starts a dev Zen, what
 # scripts/test-all.sh gives each lane (its lane_home), so the runner run
 # alone sees the same. A caller's ZENIUS_WORKING_DIR,
 # ZENIUS_DEV_WORKING_DIR, ZENIUS_SOCKET and ZENIUS_INSTANCE go: they could
@@ -41,14 +41,15 @@ scratch_home() {
 # home is made as scratch_home makes it, whose config.json names a working
 # folder inside it, and its zenius home is exported as ZENIUS_HOME:
 # zen-dev.sh refuses the account's own ~/.zenius. OWN_ZROOT names it, for
-# drop_own_zenius_home once the runner's Zen has stopped. It's in /tmp: the
-# dev Zen's sockets are in it, and a Unix socket's path must fit in 104
-# bytes on macOS, where TMPDIR alone takes about 49.
+# drop_own_zenius_home once the runner's Zen has stopped. It's in the
+# parent, /tmp by default: the dev Zen's sockets are in it, and a Unix
+# socket's path must fit in 104 bytes on macOS, where TMPDIR alone takes
+# about 49.
 own_zenius_home() {
   OWN_ZROOT=
   unset ZENIUS_WORKING_DIR ZENIUS_DEV_WORKING_DIR ZENIUS_SOCKET ZENIUS_INSTANCE
   [[ -z ${ZENIUS_HOME:-} ]] || return 0
-  if ! scratch_home "$1-home" /tmp; then
+  if ! scratch_home "$1-home" "${2:-/tmp}"; then
     [[ -z ${SCRATCH_ROOT:-} ]] || rm -rf -- "$SCRATCH_ROOT"
     return 1
   fi

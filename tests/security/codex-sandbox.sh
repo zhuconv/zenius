@@ -2,8 +2,11 @@
 # Does zenius work inside Codex's sandbox? Runs, through Codex's own sandbox
 # runner (`codex sandbox`), a probe and zenius itself under each policy:
 #
-#   - the probe: may the command write its current folder, ~/.zenius/run and
-#     /tmp, and connect to a Unix socket in ~/.zenius/run and to loopback TCP?
+#   - the probe: may the command write its current folder, the dev Zen's
+#     run/ and /tmp, and connect to a Unix socket in that run/ and to
+#     loopback TCP? The dev Zen's zenius home stands in for ~/.zenius, where
+#     a user's sockets are: it's under HOME, outside the project folder the
+#     sandbox runs in and outside /tmp, which a sandbox may let it write.
 #   - zenius --version, zenius doctor and a short zenius nodejs script, for a
 #     plain CLI and for the sandboxed launcher.
 #
@@ -60,10 +63,14 @@ if printf '%s\n' "$help" | grep -qE "^  $sub( |$)"; then SANDBOX=(sandbox "$sub"
 # A time limit that macOS has too (it has no timeout(1)).
 limited() { perl -e '$s = shift; alarm $s; exec @ARGV or die "exec: $!"' "$@"; }
 
-# The dev Zen's zenius home, where the instance's socket and record are: the
-# caller's (test-all gives each lane one), or one of this run's own, which
-# the cleanup removes once Zen has stopped.
-own_zenius_home codex || exit 2
+# The dev Zen's zenius home, where the instance's socket and record are:
+# always one of this run's own, in the work folder, which the cleanup
+# removes once Zen has stopped. Never a caller's, which may well be in /tmp,
+# as the usual export makes it: the home stands in for ~/.zenius (the
+# header), so a sandbox that lets a command write /tmp, or reach a socket
+# there, must not make this check pass where a user's ~/.zenius/run fails.
+unset ZENIUS_HOME
+own_zenius_home cx "$WORK" || exit 2
 trap drop_own_zenius_home EXIT
 RUNTIME_HOME=$ZENIUS_HOME
 SOCKET=$RUNTIME_HOME/run/$NAME.sock
@@ -73,9 +80,11 @@ cat > "$WORK/bin/probe.mjs" <<'EOF'
 // Inside Codex's sandbox: what may this command write, and reach?
 import { unlinkSync, writeFileSync } from "node:fs";
 import { connect } from "node:net";
+import { dirname } from "node:path";
 const [socketPath, tcpPort] = process.argv.slice(2);
 const out = [];
-for (const [name, path] of [["cwd", `./.codex-probe-${process.pid}`], ["~/.zenius/run", `${process.env.HOME}/.zenius/run/.codex-probe-${process.pid}`], ["/tmp", `/tmp/.codex-probe-${process.pid}`]]) {
+// run/: the dev Zen's, where the probe's socket is too (the header).
+for (const [name, path] of [["cwd", `./.codex-probe-${process.pid}`], ["run/", `${dirname(socketPath)}/.codex-probe-${process.pid}`], ["/tmp", `/tmp/.codex-probe-${process.pid}`]]) {
   try {
     writeFileSync(path, "");
     unlinkSync(path);
