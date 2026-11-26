@@ -469,6 +469,74 @@ describe("zenius mcp pages that load afresh", () => {
   });
 });
 
+describe("zenius mcp click, hover and drag", () => {
+  it("pass their points and force to the runtime, a drag's as its source's and its target's, and their steps name what the user sees", async () => {
+    await withSession(async ({ mock, call }) => {
+      const last = (method: string) => mock.requests.findLast((request) => request.method === method)!.params;
+      const clicked = await call("click", { element: "Square e4", target: "#board", position: { x: 10, y: 20 }, force: true });
+      assert.equal(clicked.isError, undefined, clicked.text);
+      assert.match(clicked.text, /^Click "Square e4"\nDone\./);
+      assert.deepEqual([last("page.click").options.position, last("page.click").options.force], [{ x: 10, y: 20 }, true]);
+      const hovered = await call("hover", { element: "Menu", target: "#menu", position: { x: 1, y: 2 } });
+      assert.equal(hovered.isError, undefined, hovered.text);
+      assert.match(hovered.text, /^Hover over "Menu"\nDone\./);
+      assert.deepEqual([last("page.hover").target, last("page.hover").options.position, last("page.hover").options.force], ["#menu", { x: 1, y: 2 }, undefined]);
+      const dragged = await call("drag", {
+        element: "Knight",
+        target: "#knight",
+        to_element: "f3",
+        to_target: "#f3",
+        position: { x: 5, y: 6 },
+        to_position: { x: 40, y: 41 },
+        force: true,
+      });
+      assert.equal(dragged.isError, undefined, dragged.text);
+      assert.match(dragged.text, /^Drag "Knight" to "f3"\nDone\./);
+      const drag = last("page.dragAndDrop");
+      assert.deepEqual(
+        [drag.source, drag.target, drag.options.sourcePosition, drag.options.targetPosition, drag.options.force],
+        ["#knight", "#f3", { x: 5, y: 6 }, { x: 40, y: 41 }, true],
+      );
+      // Left out, neither goes.
+      await call("click", { element: "Buy", target: "#buy" });
+      assert.deepEqual([last("page.click").options.position, last("page.click").options.force], [undefined, undefined]);
+      const bad = await call("click", { element: "Buy", target: "#buy", position: { x: "10" } });
+      assert.equal(bad.isError, true);
+      assert.match(bad.text, /position must be \{x, y\}: CSS pixels from the element's top left/);
+      const badForce = await call("hover", { element: "Menu", target: "#menu", force: "yes" });
+      assert.match(badForce.text, /force must be true or false/);
+    });
+  });
+
+  it("a covered target's failure names what covers it and the point, then what to do in the words the tools share: the cover first, position, or force", async () => {
+    await withSession(async ({ mock, call }) => {
+      mock.handle("page.click", () => {
+        throw new MockError(
+          "ZEN_NOT_ACTIONABLE",
+          `page.click failed: <div id="cover"> intercepts pointer events at the element's point (100, 40) from its top left; the element is 200 x 80`,
+          { reason: "covered", cover: '<div id="cover">', position: { x: 100, y: 40 } },
+        );
+      });
+      const clicked = await call("click", { element: "Buy", target: "#buy" });
+      assert.equal(clicked.isError, true);
+      assert.match(clicked.text, /^Click "Buy" failed\.\nZEN_NOT_ACTIONABLE: page\.click failed: <div id="cover"> intercepts pointer events at the element's point \(100, 40\)/);
+      assert.match(clicked.text, /Close or use what covers it first/);
+      assert.match(clicked.text, /with position \(x and y from its top left\)/);
+      assert.match(clicked.text, /act at that point anyway with force/);
+      mock.handle("page.dragAndDrop", () => {
+        throw new MockError(
+          "ZEN_NOT_ACTIONABLE",
+          `page.dragAndDrop failed: <div id="cover"> intercepts pointer events at the source's point (40, 40) from its top left; the source is 80 x 80`,
+          { reason: "covered", cover: '<div id="cover">', position: { x: 40, y: 40 }, end: "source" },
+        );
+      });
+      const dragged = await call("drag", { element: "Knight", target: "#n", to_element: "f3", to_target: "#f3" });
+      assert.equal(dragged.isError, true);
+      assert.match(dragged.text, /with that end's position/);
+    });
+  });
+});
+
 describe("zenius mcp cancel", () => {
   it("answers a canceled call nothing, stops its wait in the runtime, and starts the next call at once, skipping one canceled in the queue", async () => {
     const mock = await new MockRuntime().start();

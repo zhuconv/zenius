@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 
 import { guardHome } from "../../../tests/lib/scratch-home.mjs";
 import { unique, useContext } from "./context.ts";
+import { noted } from "./fixtures.ts";
 
 const SDK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const context = useContext();
@@ -130,7 +131,25 @@ after(() => client?.close());
 test("mcp: the tools are the browser's steps, a problem report and zenius's docs, each told in one sentence, and nothing else", async () => {
   const { result } = await client.request("tools/list");
   const names = result.tools.map((tool: { name: string }) => tool.name);
-  assert.deepEqual(names, ["open", "goto", "read_page", "click", "fill", "press", "scroll", "select", "wait", "hand_off", "flag_page", "finish", "evaluate", "report_problem", "docs"]);
+  assert.deepEqual(names, [
+    "open",
+    "goto",
+    "read_page",
+    "click",
+    "hover",
+    "drag",
+    "fill",
+    "press",
+    "scroll",
+    "select",
+    "wait",
+    "hand_off",
+    "flag_page",
+    "finish",
+    "evaluate",
+    "report_problem",
+    "docs",
+  ]);
   for (const tool of result.tools) {
     assert.match(tool.description, /^[A-Z][^.]*\.$/, `${tool.name}: one sentence`);
     assert.equal(tool.inputSchema.type, "object");
@@ -249,6 +268,27 @@ test("mcp: after the user's Take over the agent waits for Resume agent, and afte
   assert.match((await client.call("click", { element: "two", target: "#next" })).content[0]!.text, /there is no task yet/);
   await client.ok("open", { url: `${context.base}/`, task: unique("it mcp after stop") });
   await client.ok("finish", { keep: "none" });
+});
+
+test("mcp: click, hover and drag act where you say, and a covered target's failure names what covers it and the point; force clicks there anyway", async () => {
+  await client.ok("open", { url: `${context.base}/covered`, task: unique("it mcp covered") });
+  const covered = await client.call("click", { element: "Buy", target: "#buy" });
+  assert.ok(covered.isError);
+  const text = covered.content[0]!.text;
+  assert.match(
+    text,
+    /^Click "Buy" failed\.\nZEN_NOT_ACTIONABLE: .*<div id="cover"> intercepts pointer events at the element's point \(100, 40\) from its top left; the element is 200 x 80/,
+  );
+  assert.match(text, /with position \(x and y from its top left\).*act at that point anyway with force/s);
+  assert.match(await client.ok("click", { element: "Buy", target: "#buy", position: { x: 20, y: 40 } }), /^Click "Buy"\nDone\./);
+  await client.ok("click", { element: "Buy", target: "#buy", force: true });
+  // What the page noted, from the evaluate step's result after its first line.
+  const value = async (code: string) => JSON.parse((await client.ok("evaluate", { code })).split("\n").slice(1).join("\n"));
+  assert.deepEqual(await value(noted("clicked")), ["buy", "cover"]);
+  assert.match(await client.ok("hover", { element: "Menu", target: "#menu" }), /^Hover over "Menu"\nDone\./);
+  assert.match(await client.ok("drag", { element: "Knight", target: "#piece", to_element: "f3", to_target: "#square" }), /^Drag "Knight" to "f3"\nDone\./);
+  assert.deepEqual(await value(`[${noted("hovered")}, ${noted("pressed")}, ${noted("released")}]`), [true, "piece", "square"]);
+  await client.ok("finish", { keep: [] });
 });
 
 test("mcp: a failure comes back readable, from the error guide, and the server goes on", async () => {

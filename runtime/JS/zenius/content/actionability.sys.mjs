@@ -381,43 +381,74 @@ export function describeHitTarget(element) {
 // ---------------------------------------------------------------- resolver filter
 
 /**
+ * What covers `el` at `point` (its own viewport), for an error: the cover,
+ * and the point as a `position` gives it, from the element's top left, with
+ * the element's size. So the agent can act on the cover, pick a point of
+ * the element it doesn't cover, or force this one, where the cover gets the
+ * event as it would get a user's. `end`: a drag's "source" or "target".
+ *
+ * @returns {{text: string, data: {cover: string, position: {x: number, y: number}, end?: string}}}
+ */
+export function coveredAt(el, point, interceptor, end) {
+  const rect = el.getBoundingClientRect();
+  const position = { x: Math.round(point.x - rect.x), y: Math.round(point.y - rect.y) };
+  const cover = describeHitTarget(interceptor);
+  const which = end ? `the ${end}` : "the element";
+  return {
+    text:
+      `${cover} intercepts pointer events at ${which}'s point (${position.x}, ${position.y}) from its top left;` +
+      ` ${which} is ${Math.round(rect.width)} x ${Math.round(rect.height)}`,
+    data: { cover, position, ...(end ? { end } : {}) },
+  };
+}
+
+/**
  * Why the resolver filter rejects `el` for `level` ("visible" | "enabled" |
  * "pointer" | "pointer-enabled"), as Ego words it, or null when it passes.
+ * A pointer level tests the action's own point: `spot.position`'s, else the
+ * element's middle, so a position the cover leaves free passes. A covered
+ * point's `data` names the cover and the point (coveredAt; `spot.end`: a
+ * drag's end).
+ *
+ * @param {Element} el
+ * @param {string} level
+ * @param {{position?: {x: number, y: number}, end?: string}} [spot]
+ * @returns {{text: string, data?: object} | null}
  */
-export function actionabilityBlocker(el, level) {
+export function actionabilityBlocker(el, level, spot) {
   if (!el.isConnected) {
-    return "element is detached from the DOM";
+    return { text: "element is detached from the DOM" };
   }
   if (el.closest?.("[hidden], [inert]")) {
-    return "element is hidden or inert";
+    return { text: "element is hidden or inert" };
   }
   const view = el.ownerDocument?.defaultView;
   if (!view) {
-    return "element has no browsing context";
+    return { text: "element has no browsing context" };
   }
   const rect = el.getBoundingClientRect();
   if (!(rect.width > 0 && rect.height > 0)) {
-    return "element has a zero-sized bounding box";
+    return { text: "element has a zero-sized bounding box" };
   }
   const style = view.getComputedStyle(el);
   if (style?.display === "none") {
-    return "element has display: none";
+    return { text: "element has display: none" };
   }
   if (style?.visibility === "hidden") {
-    return "element has visibility: hidden";
+    return { text: "element has visibility: hidden" };
   }
   if ((level === "enabled" || level === "pointer-enabled") && isActionTargetDisabled(el)) {
-    return "element is disabled";
+    return { text: "element is disabled" };
   }
   if (level === "pointer" || level === "pointer-enabled") {
-    const point = actionPointForElement(el);
+    const point = spot?.position ? positionPoint(el, spot.position) : actionPointForElement(el);
     if (!point) {
-      return "element has no actionable point";
+      return { text: "element has no actionable point" };
     }
     if (!scrollRequestForPoint(el, point)) {
       const interceptor = interceptingElementAtPoint(el, point);
       if (interceptor) {
-        return `${describeHitTarget(interceptor)} intercepts pointer events`;
+        return coveredAt(el, point, interceptor, spot?.end);
       }
     }
   }

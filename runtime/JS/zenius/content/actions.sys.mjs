@@ -916,7 +916,7 @@ async function bringIntoView(el, evaluate, { action, subject, deadline, counters
   for (let attempt = 0; attempt <= AUTO_SCROLL_ATTEMPTS; attempt++) {
     const r = await evaluate();
     if (r.error) {
-      throw transient(`${action} failed: ${r.error}`);
+      throw transient(`${action} failed: ${r.error}`, r.data);
     }
     if (!r.scroll) {
       return r;
@@ -978,9 +978,10 @@ function ownerIntoView(owner, opts) {
 /**
  * Ego's point stage: connected, visible, (enabled), scrolled into view,
  * settled (strict: not moving), not covered. Returns the point in the
- * element's own viewport.
+ * element's own viewport. `end`: a drag's "source" or "target", which a
+ * cover's error names.
  */
-async function pointStage(el, { action, position, hitTest, requireEnabled, stability, deadline, counters }) {
+async function pointStage(el, { action, position, hitTest, requireEnabled, stability, deadline, counters, end }) {
   await frameOwnersIntoView(el, { action, deadline, counters });
   const r = await bringIntoView(
     el,
@@ -1014,7 +1015,8 @@ async function pointStage(el, { action, position, hitTest, requireEnabled, stabi
       if (hitTest) {
         const interceptor = A.interceptingElementAtPoint(el, point);
         if (interceptor) {
-          return { error: `${A.describeHitTarget(interceptor)} intercepts pointer events` };
+          const c = A.coveredAt(el, point, interceptor, end);
+          return { error: c.text, data: c.data };
         }
       }
       return { point };
@@ -1038,7 +1040,8 @@ function assertClickTarget(el, point, force) {
   if (!force) {
     const interceptor = A.interceptingElementAtPoint(el, point);
     if (interceptor) {
-      throw transient(`page.click failed: ${A.describeHitTarget(interceptor)} intercepts pointer events`);
+      const c = A.coveredAt(el, point, interceptor);
+      throw transient(`page.click failed: ${c.text}`, c.data);
     }
   }
 }
@@ -1081,8 +1084,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
  * The element a selector or ref names in this process: refs directly; a
  * selector by Ego's rule (main document first, then frames). When frames in
  * other processes must be counted too, returns {frames} for the parent.
+ * `spot`: the point a pointer level tests, {position, end}
+ * (actionabilityBlocker); a ref's is tested at its point stage.
  */
-function resolveTarget(actor, { target, ref, only, level, action }) {
+function resolveTarget(actor, { target, ref, only, level, action, spot }) {
   const win = actor.contentWindow;
   if (ref) {
     // A node the page took out stays its ref's until it's gone: the call
@@ -1097,10 +1102,10 @@ function resolveTarget(actor, { target, ref, only, level, action }) {
   }
   const parsed = R.parseTarget(target);
   if (only) {
-    return { el: R.pickIn(win.document, parsed, level) };
+    return { el: R.pickIn(win.document, parsed, level, spot) };
   }
   const elements = R.elementsIn(win.document, parsed);
-  const main = R.summarize(elements, level);
+  const main = R.summarize(elements, level, spot);
   if (main.actionable.length === 1) {
     return { el: main.actionable[0] };
   }
@@ -1113,9 +1118,10 @@ function resolveTarget(actor, { target, ref, only, level, action }) {
       count: main.count,
       actionable: 0,
       blocker: main.blocker,
+      blockerData: main.blockerData,
       diag: main.count ? R.diagnostics(elements) : undefined,
     },
-    ...R.summarizeContexts(win, parsed, level, { skipFirst: true }),
+    ...R.summarizeContexts(win, parsed, level, { skipFirst: true, spot }),
   ];
   if (list.some(s => s.remote)) {
     return { frames: list };
@@ -1125,15 +1131,15 @@ function resolveTarget(actor, { target, ref, only, level, action }) {
   if (!fwin) {
     throw new ZenError("ZEN_SELECTOR_NOT_FOUND", `Element not found: ${parsed.raw}`, { matches: 0, transient: true });
   }
-  return { el: fwin === win ? main.actionable[0] : R.pickIn(fwin.document, parsed, level) };
+  return { el: fwin === win ? main.actionable[0] : R.pickIn(fwin.document, parsed, level, spot) };
 }
 
 /**
  * Count a selector in this out-of-process frame and the frames under it, for
  * the parent's choice across processes.
  */
-export async function count(actor, { target, level }) {
-  return { frames: R.summarizeContexts(actor.contentWindow, R.parseTarget(target), level) };
+export async function count(actor, { target, level, spot }) {
+  return { frames: R.summarizeContexts(actor.contentWindow, R.parseTarget(target), level, { spot }) };
 }
 
 /**
@@ -1187,7 +1193,7 @@ export async function act(actor, args) {
       }
       ({ el, point } = p);
     } else {
-      const r = resolveTarget(actor, args);
+      const r = resolveTarget(actor, { ...args, spot: { position: args.options?.position } });
       if (r.frames) {
         return { frames: r.frames };
       }
@@ -1466,7 +1472,8 @@ async function dragPhase(actor, args, call) {
     const interceptor = args.options?.force !== true && A.interceptingElementAtPoint(p.src, a);
     if (interceptor) {
       dragPending.delete(actor.contentWindow);
-      throw transient(`page.dragAndDrop failed: ${A.describeHitTarget(interceptor)} intercepts pointer events`);
+      const c = A.coveredAt(p.src, a, interceptor, "source");
+      throw transient(`page.dragAndDrop failed: ${c.text}`, c.data);
     }
     pointerEvent(win, "mousemove", a.x, a.y, { buttons: 0, mods: args.mods, call });
     await I.sleep(INPUT_EVENT_DELAY_MS);
@@ -1484,8 +1491,9 @@ async function dragPhase(actor, args, call) {
 }
 
 async function dragIn(actor, args, call) {
-  const src = resolveTarget(actor, { ...args, target: args.source, ref: args.sourceRef, only: args.onlySource });
-  const dst = resolveTarget(actor, { ...args, target: args.target, ref: args.targetRef, only: args.onlyTarget });
+  const spot = end => ({ position: args.options?.[`${end}Position`], end });
+  const src = resolveTarget(actor, { ...args, target: args.source, ref: args.sourceRef, only: args.onlySource, spot: spot("source") });
+  const dst = resolveTarget(actor, { ...args, target: args.target, ref: args.targetRef, only: args.onlyTarget, spot: spot("target") });
   if (src.frames || dst.frames) {
     // An end that isn't here may be in an out-of-process frame, or not on
     // the page yet: the parent chooses its frame, as for a click. `at`: the
@@ -1495,7 +1503,7 @@ async function dragIn(actor, args, call) {
   }
   const o = args.options ?? {};
   const counters = {};
-  const stage = (el, position) =>
+  const stage = (el, position, end) =>
     pointStage(el, {
       action: "page.dragAndDrop",
       position,
@@ -1504,6 +1512,7 @@ async function dragIn(actor, args, call) {
       stability: "strict",
       deadline: args.deadline,
       counters,
+      end,
     });
   const win = src.el.ownerDocument.defaultView;
   const dwin = dst.el.ownerDocument.defaultView;
@@ -1511,8 +1520,8 @@ async function dragIn(actor, args, call) {
     // Two frames of this process: the parent drags across them (dragAim).
     return { split: { source: win.browsingContext.id, target: dwin.browsingContext.id } };
   }
-  const a = await stage(src.el, o.sourcePosition);
-  const b = await stage(dst.el, o.targetPosition);
+  const a = await stage(src.el, o.sourcePosition, "source");
+  const b = await stage(dst.el, o.targetPosition, "target");
   atPoint(win, a, "page.dragAndDrop");
   atPoint(win, b, "page.dragAndDrop");
   if (args.phase === "prepare") {
@@ -1549,7 +1558,13 @@ async function dragIn(actor, args, call) {
 export async function dragAim(actor, args) {
   return inputCall(actor.contentWindow, async () => {
     const source = args.end === "source";
-    const r = resolveTarget(actor, { ...args, target: source ? args.source : args.target, ref: source ? args.sourceRef : args.targetRef, only: true });
+    const r = resolveTarget(actor, {
+      ...args,
+      target: source ? args.source : args.target,
+      ref: source ? args.sourceRef : args.targetRef,
+      only: true,
+      spot: { position: args.options?.[`${args.end}Position`], end: args.end },
+    });
     if (r.frames) {
       throw new ZenError("ZEN_SELECTOR_NOT_FOUND", "page.dragAndDrop: an end moved to another frame", { transient: true });
     }
@@ -1927,7 +1942,8 @@ async function activateEditor(el, args) {
   });
   const interceptor = A.interceptingElementAtPoint(el, point);
   if (interceptor) {
-    throw transient(`page.click failed: ${A.describeHitTarget(interceptor)} intercepts pointer events`);
+    const c = A.coveredAt(el, point, interceptor);
+    throw transient(`page.click failed: ${c.text}`, c.data);
   }
   for (let current = A.hitElementAtPoint(el, point); current && current !== el; current = A.composedParent(current)) {
     if (A.isExplicitInteractiveElement(current)) {

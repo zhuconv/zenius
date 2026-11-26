@@ -505,7 +505,7 @@ function refLocation(rp, parsed) {
  * Counts in out-of-process frames, spliced into the page's context list in
  * frame-tree order, for Ego's main-first choice.
  */
-async function expandFrames(ctx, list, target, level) {
+async function expandFrames(ctx, list, target, level, spot) {
   const out = [];
   for (const entry of list) {
     if (!entry.remote) {
@@ -517,8 +517,8 @@ async function expandFrames(ctx, list, target, level) {
       continue;
     }
     try {
-      const r = await ctx.content(bc, "actions#count", { target, level });
-      out.push(...(await expandFrames(ctx, r.frames, target, level)));
+      const r = await ctx.content(bc, "actions#count", { target, level, spot });
+      out.push(...(await expandFrames(ctx, r.frames, target, level, spot)));
     } catch (e) {
       if (e?.code === "ZEN_INVALID_ARGUMENT") {
         throw e;
@@ -559,7 +559,7 @@ async function attempt(ctx, rp, method, parsed, base, state) {
     if (!r?.frames) {
       return r;
     }
-    const list = await expandFrames(ctx, r.frames, base.target, base.level);
+    const list = await expandFrames(ctx, r.frames, base.target, base.level, { position: base.options?.position });
     const { bcId } = decide(parseTarget(base.target), list, base.level);
     where = { bc: BrowsingContext.get(bcId), args: { target: base.target, only: true } };
     if (!where.bc) {
@@ -1599,8 +1599,10 @@ export const methods = {
             return done;
           };
           // A selector end's frame across processes, chosen as for a click.
-          const frameOf = async (target, list) => {
-            const { bcId } = decide(parseTarget(target), await expandFrames(ctx, list, target, level), level);
+          // The point an end's hit test checks there, as its stage's does.
+          const spotOf = end => ({ position: options[`${end}Position`], end });
+          const frameOf = async (target, list, end) => {
+            const { bcId } = decide(parseTarget(target), await expandFrames(ctx, list, target, level, spotOf(end)), level);
             const where = BrowsingContext.get(bcId);
             if (!where) {
               throw new ZenError("ZEN_SELECTOR_NOT_FOUND", `${subjectOf(parseTarget(target))} matched 0 elements`, { matches: 0, transient: true });
@@ -1615,8 +1617,9 @@ export const methods = {
             // A ref and a selector: the selector is the page's, main document
             // first, as Ego's is, wherever the ref's frame sits.
             const selector = srcBc ? params.target : params.source;
-            const { frames } = await ctx.content(rp.browsingContext, "actions#count", { target: selector, level });
-            const at = await frameOf(selector, frames);
+            const end = srcBc ? "target" : "source";
+            const { frames } = await ctx.content(rp.browsingContext, "actions#count", { target: selector, level, spot: spotOf(end) });
+            const at = await frameOf(selector, frames, end);
             done = await dragAt(srcBc ?? at, dstBc ?? at, srcBc ? { onlyTarget: true } : { onlySource: true });
           } else {
             done = await drag(rp.browsingContext, {});
@@ -1630,7 +1633,7 @@ export const methods = {
               const { frames, at } = done.r;
               const where = {};
               for (const [end, target] of [["source", params.source], ["target", params.target]]) {
-                where[end] = frames[end] ? await frameOf(target, frames[end]) : (BrowsingContext.get(at?.[end]) ?? rp.browsingContext);
+                where[end] = frames[end] ? await frameOf(target, frames[end], end) : (BrowsingContext.get(at?.[end]) ?? rp.browsingContext);
               }
               done = await dragAt(where.source, where.target, { onlySource: !!frames.source, onlyTarget: !!frames.target });
             }

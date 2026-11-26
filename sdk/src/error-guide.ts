@@ -363,6 +363,16 @@ const HOLD_NEXT = "The user holds a page in this window group after your handOff
 
 const NO_RESPONSE_NEXT = "Zen may be busy or hung: retry once, and if it still doesn't answer, run `zenius doctor`.";
 
+/**
+ * Another element takes the action's point (data.cover at data.position):
+ * in the option names the CLI and zenius mcp's click, hover and drag share,
+ * so the agent needn't change the page to get through.
+ */
+const COVERED_NEXT =
+  "Close or use what covers it first, such as a banner's button; or act at a point of the element it doesn't cover, with position (x and y from its top left); or, when it's the page's own layer over the element, as on a game board or a map, act at that point anyway with force: the cover takes the event, as it would a user's.";
+const COVERED_DRAG_NEXT =
+  "Close or use what covers it first; or drag from or to a point of that end it doesn't cover, with that end's position (x and y from its top left); or, when it's the page's own layer, as on a game board, drag there anyway with force: the cover takes the events, as it would a user's.";
+
 /** waitForControl ran out while the user still has control (its data names the ownership). */
 const STILL_THE_USERS =
   "The user still has control: end the round, tell them what you need, and resume with takeOverTaskSpace(id) once they say so.";
@@ -530,6 +540,8 @@ export function nextStep(code: string, message: string, data?: Record<string, un
         ? STILL_THE_USERS
         : code === "ZEN_TIMEOUT" && data?.reason === "no_response"
           ? NO_RESPONSE_NEXT
+          : code === "ZEN_NOT_ACTIONABLE" && data?.reason === "covered"
+          ? (data.end === "source" || data.end === "target" ? COVERED_DRAG_NEXT : COVERED_NEXT)
           : code === "ZEN_BROWSER_UNAVAILABLE" && (data?.errno === "EPERM" || data?.errno === "EACCES")
             ? SANDBOX_BLOCKED_NEXT
             : undefined;

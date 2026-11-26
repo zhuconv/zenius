@@ -760,6 +760,19 @@ timeout, it fails with `ZEN_NOT_ACTIONABLE` ("… element is not
 connected"). The ref turns stale (`ZEN_REF_STALE`) only once its document
 goes away or the element is garbage-collected.
 
+An action whose point another element would take, such as a banner or a
+dialog over its target, retries until its timeout, then fails with
+`ZEN_NOT_ACTIONABLE` (`data.reason: "covered"`). The message and `data`
+name that element (`data.cover`: `<tag id role href>`, or `dialog
+"name"`) and the point as `position` gives one (`data.position: {x, y}`,
+CSS pixels from the element's top left); the message adds the element's
+size, and `page.dragAndDrop`'s say which end (`data.end`: `"source"` or
+`"target"`). `options.position` (a drag's `sourcePosition` and
+`targetPosition`) picks another point, where the check then looks, for
+each of a selector's matches too; `options.force: true` skips the check:
+the events go to whatever is at the point, the cover too, as a user's
+would.
+
 - **A middle click on a link** (an action with `button: "middle"`, or
   `page.mouse`) opens the link as a new page of the task, in the
   background, listed in `popups`, as Ego's does. Firefox's own handling
@@ -1410,6 +1423,7 @@ ZEN_DIALOG_NOT_FOUND        ZEN_DOWNLOAD_FAILED
 - `ZEN_TASK_SPACE_CLAIM_DENIED` (zen-core): the user said no to an agent's `spaces.claim` in the browser (`data.verdict: "deny"`), or nobody answered by its deadline (`"timeout"`); `data.space`.
 - `ZEN_FILE_CHOOSER_OPENED` (zen-input): the action opened a file chooser nobody waited for; it was cancelled before any dialog showed.
 - `ZEN_FILE_CHOOSER_TIMEOUT` (zen-input): `page.waitForFileChooser` timed out.
+- `ZEN_NOT_ACTIONABLE` (zen-input) with `data.reason: "covered"`: `data.cover`, `data.position`, and `data.end` for a drag ("Actions" above).
 - `ZEN_TIMEOUT` (zen-input): an action or a `page.mouse` call waited out its timeout for another tab of its process; `data.reason` is `"user_composing"` (the user is composing text there, which a press would commit), `"mouse_held_elsewhere"` (a press held there would take the event) or `"user_scrolling"` (the user is scrolling there, and the process's wheel transaction would send the wheel to their page), and `data.timeoutMs` is the timeout.
 - `ZEN_PAGE_UNRESPONSIVE` (zen-input): an action, or raw `page.mouse` or `page.keyboard` input, hasn't come back from the page 5 s past its deadline; `data.reason: "input_stuck"`, `data.prompt` (a browser prompt is open in the tab, which the agent can't see or answer), `data.mayHaveLateEffects: true`.
 - `ZEN_PATH_NOT_ALLOWED` (zen-sdk, the CLI): raised in the CLI before any request, never by the runtime. In the sandboxed CLI, a script's screenshot, download or fetch `saveAs` would write outside the working folder and its temporary folder (a relative path lands in the working folder), or an upload would read a file outside the working folder, the folder the script started in, its temporary folder and the install's read folder (`--read-dir`), a link to one included; `data.path`, and `data.realPath` for a link. In any CLI, when there's no working folder to use: none while `ZENIUS_HOME` isn't `~/.zenius` and holds no `config.json`, a `ZENIUS_WORKING_DIR` that isn't absolute, or one the CLI can't make.

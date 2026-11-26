@@ -64,7 +64,7 @@ export const RUNTIME_LIMITS = {
 export const TOOL_CALLS: Array<[tools: string, calls: string]> = [
   ["open and goto", "page.goto()"],
   ["read_page", "page.snapshot()"],
-  ["click, fill, press and select", "page.click(), page.fill(), page.press() and page.selectOption()"],
+  ["click, hover, drag, fill, press and select", "page.click(), page.hover(), page.dragAndDrop(), page.fill(), page.press() and page.selectOption()"],
   ["wait", "page.waitForSelector(), page.waitForURL() and page.waitForLoadState(), or with user: true task.waitForControl()"],
   ["hand_off", "task.handOff()"],
   ["evaluate", "page.evaluate()"],

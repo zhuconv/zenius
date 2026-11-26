@@ -64,6 +64,19 @@ export const FIXTURE_PAGES: Record<string, string> = {
 
   "/popup": page("sdk popup", `<a id="open" href="/two" target="_blank">open page two</a>`),
 
+  // A button whose middle another element covers, which takes what reaches
+  // it; a menu that opens on hover; a piece to drag to a square.
+  "/covered": page(
+    "sdk covered",
+    `<button id="buy" style="position:fixed;left:100px;top:100px;width:200px;height:80px;z-index:5;border:0;padding:0"
+  onclick="note('clicked', (l) => [...(l || []), 'buy'])">Buy</button>
+<div id="cover" style="position:fixed;left:150px;top:100px;width:100px;height:80px;z-index:10"
+  onclick="note('clicked', (l) => [...(l || []), 'cover'])"></div>
+<div id="menu" style="position:fixed;left:100px;top:220px;width:120px;height:40px" onmouseenter="note('hovered', true)">Menu</div>
+<div id="piece" style="position:fixed;left:100px;top:300px;width:60px;height:60px" onmousedown="note('pressed', 'piece')">Knight</div>
+<div id="square" style="position:fixed;left:300px;top:300px;width:60px;height:60px" onmouseup="note('released', 'square')">f3</div>`,
+  ),
+
   "/dialogs": page(
     "sdk dialogs",
     `<button id="alert" onclick="alert('hi from the fixture')">alert</button>

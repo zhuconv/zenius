@@ -18,7 +18,9 @@ the same words (zen-sdk's error guide).
 | `open` | `Open shop.example.com/checkout` | Opens a page in a new tab of the agent's task. The first open starts a task of its own, named by `task`; a name another task has gets a number (`Tokyo flights 2`). |
 | `goto` | `Go to shop.example.com/checkout` | Loads a page in one of the task's tabs. |
 | `read_page` | `Read the page`, `Read the whole page`, `Read part of the page` | Returns what's in view of the tab as text, each element with a ref (`[ref=12]`); `full: true` reads the whole page, `root` one part. When there's more out of view, the text ends by saying so. |
-| `click` | `Click "<element>"` | Clicks an element, by its ref (`ref=12`) or a selector. |
+| `click` | `Click "<element>"` | Clicks an element, by its ref (`ref=12`) or a selector: at its middle, or at `position` (`{x, y}`, CSS pixels from its top left), such as one square of a board. When another element covers that point, the error names it and the point; `force: true` clicks there anyway, and that element takes the click, as it would a user's. |
+| `hover` | `Hover over "<element>"` | Moves the pointer over an element, as for a menu that opens on hover; `position` and `force` as for `click`. |
+| `drag` | `Drag "<element>" to "<to_element>"` | Presses on an element (`target`), moves to another (`to_target`) and releases there, as for a board's piece or a slider; `position` and `to_position` pick the points, and `force` as for `click`. |
 | `fill` | `Type "<text>" into "<element>"`, `Type a password into "<element>"`, `Clear "<element>"` | Replaces a field's text. |
 | `press` | `Press Enter`, `Press Cmd+A on "<element>"` | Presses a key or a chord. |
 | `scroll` | `Scroll down`, `Scroll to "<element>"` | Scrolls by screens, or until an element is in view. |

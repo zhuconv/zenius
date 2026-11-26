@@ -3904,3 +3904,57 @@ test("a refusal at an add-on's frame doesn't name the add-on's URL, whose host i
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("a covered target's error names what covers it and the point, as position gives one: position picks a point it doesn't cover, and force acts there anyway, where the cover takes the event", async () => {
+  const page = await homePage();
+  await page.evaluate(() => {
+    const add = (id, css, tag = "div") => {
+      const d = Object.assign(document.createElement(tag), { id, textContent: id });
+      d.style.cssText = css;
+      document.body.append(d);
+      return d;
+    };
+    // The target is 200 x 80; the cover takes its middle, not its left end.
+    add("ctarget", "position:fixed;left:100px;top:100px;width:200px;height:80px;z-index:5;border:0;padding:0", "button");
+    add("ccover", "position:fixed;left:150px;top:100px;width:100px;height:80px;z-index:10");
+    // A drag whose source's middle is covered.
+    add("dsource", "position:fixed;left:100px;top:240px;width:80px;height:80px;z-index:5");
+    add("dtarget", "position:fixed;left:300px;top:240px;width:80px;height:80px;z-index:5");
+    add("dcover", "position:fixed;left:120px;top:260px;width:40px;height:40px;z-index:10");
+    window.__events = [];
+    for (const type of ["click", "mouseover", "mousedown"]) {
+      document.addEventListener(type, e => window.__events.push(`${type}:${e.target.id}`));
+    }
+  });
+  const events = () => page.evaluate(() => window.__events.splice(0));
+  const failed = promise => promise.then(() => null, e => e);
+
+  const click = await failed(page.click("#ctarget", { timeout: 500 }));
+  assert.equal(click?.code, "ZEN_NOT_ACTIONABLE", click?.message);
+  assert.deepEqual(click.data && { reason: click.data.reason, cover: click.data.cover, position: click.data.position, end: click.data.end }, {
+    reason: "covered",
+    cover: '<div id="ccover">',
+    position: { x: 100, y: 40 },
+    end: undefined,
+  });
+  assert.match(click.message, /<div id="ccover"> intercepts pointer events at the element's point \(100, 40\) from its top left; the element is 200 x 80/);
+  assert.ok(!(await events()).includes("click:ctarget"), "the covered click reached nothing");
+
+  await page.click("#ctarget", { position: { x: 20, y: 40 } });
+  assert.ok((await events()).includes("click:ctarget"), "a point the cover doesn't reach takes the click");
+  await page.click("#ctarget", { force: true });
+  const forced = await events();
+  assert.ok(forced.includes("click:ccover") && !forced.includes("click:ctarget"), `forced, the cover takes it, as a user's click: ${forced}`);
+
+  const hover = await failed(page.hover("#ctarget", { timeout: 500 }));
+  assert.equal(hover?.data?.reason, "covered", hover?.message);
+  assert.deepEqual(hover.data.position, { x: 100, y: 40 });
+
+  const drag = await failed(page.dragAndDrop("#dsource", "#dtarget", { timeout: 500 }));
+  assert.equal(drag?.code, "ZEN_NOT_ACTIONABLE", drag?.message);
+  assert.deepEqual([drag.data?.cover, drag.data?.end, drag.data?.position], ['<div id="dcover">', "source", { x: 40, y: 40 }]);
+  assert.match(drag.message, /at the source's point \(40, 40\) from its top left; the source is 80 x 80/);
+  await events();
+  await page.dragAndDrop("#dsource", "#dtarget", { sourcePosition: { x: 5, y: 5 } });
+  assert.ok((await events()).includes("mousedown:dsource"), "a source point the cover doesn't reach takes the press");
+});

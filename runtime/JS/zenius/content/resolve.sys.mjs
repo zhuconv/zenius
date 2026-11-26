@@ -632,20 +632,24 @@ export function elementsIn(doc, target) {
 
 /**
  * Matches in one document checked against an actionability level (null for
- * none): every match, the actionable ones, and the first blocker.
+ * none): every match, the actionable ones, and the first blocker, with its
+ * data (a covered point's, for ZEN_NOT_ACTIONABLE). `spot`: the point a
+ * pointer level tests (actionabilityBlocker).
  */
-export function summarize(elements, level) {
+export function summarize(elements, level, spot) {
   const actionable = [];
   let blocker = null;
+  let blockerData;
   for (const el of elements) {
-    const b = level ? A.actionabilityBlocker(el, level) : null;
+    const b = level ? A.actionabilityBlocker(el, level, spot) : null;
     if (!b) {
       actionable.push(el);
     } else if (!blocker) {
-      blocker = b;
+      blocker = b.text;
+      blockerData = b.data;
     }
   }
-  return { count: elements.length, actionable, blocker };
+  return { count: elements.length, actionable, blocker, blockerData };
 }
 
 /** Ego's ambiguity diagnostics for some matches. */
@@ -711,8 +715,9 @@ export function notFoundError(target) {
   return new ZenError("ZEN_SELECTOR_NOT_FOUND", `${subjectOf(target)} matched 0 elements`, { matches: 0, transient: true });
 }
 
-export function noneActionableError(target, total, blocker) {
-  const data = { matches: total, transient: true };
+/** `blockerData`: the blocker's own, such as a covered point's cover, position and end. */
+export function noneActionableError(target, total, blocker, blockerData) {
+  const data = { matches: total, ...blockerData, transient: true };
   const reason = blocker ? reasonOf(blocker) : undefined;
   if (reason) {
     data.reason = reason;
@@ -776,7 +781,7 @@ export function contextsFrom(win) {
  * own document), with placeholders for out-of-process frames. Diagnostics are
  * included only where something matched.
  */
-export function summarizeContexts(win, target, level, { skipFirst = false } = {}) {
+export function summarizeContexts(win, target, level, { skipFirst = false, spot } = {}) {
   const out = [];
   const ctxs = contextsFrom(win);
   for (let i = 0; i < ctxs.length; i++) {
@@ -789,12 +794,13 @@ export function summarizeContexts(win, target, level, { skipFirst = false } = {}
       continue;
     }
     const elements = elementsIn(c.win.document, target);
-    const s = summarize(elements, level);
+    const s = summarize(elements, level, spot);
     out.push({
       bcId: c.win.browsingContext.id,
       count: s.count,
       actionable: s.actionable.length,
       blocker: s.blocker,
+      blockerData: s.blockerData,
       diag: s.count ? diagnostics(elements) : undefined,
     });
   }
@@ -844,20 +850,20 @@ export function decide(target, list, level) {
     return { bcId: hits[0].bcId };
   }
   if (act === 0) {
-    const blocker = list.find(s => s.blocker)?.blocker ?? null;
-    throw noneActionableError(target, total, blocker);
+    const blocked = list.find(s => s.blocker);
+    throw noneActionableError(target, total, blocked?.blocker ?? null, blocked?.blockerData);
   }
   throw ambiguityError(target, total, mergeDiagnostics(hits.map(h => h.diag)));
 }
 
 /** The element an action uses in this document: its first actionable match. */
-export function pickIn(doc, target, level) {
-  const s = summarize(elementsIn(doc, target), level);
+export function pickIn(doc, target, level, spot) {
+  const s = summarize(elementsIn(doc, target), level, spot);
   if (s.actionable.length) {
     return s.actionable[0];
   }
   if (!s.count) {
     throw new ZenError("ZEN_SELECTOR_NOT_FOUND", `Element not found: ${target.raw}`, { matches: 0, transient: true });
   }
-  throw noneActionableError(target, s.count, s.blocker);
+  throw noneActionableError(target, s.count, s.blocker, s.blockerData);
 }
