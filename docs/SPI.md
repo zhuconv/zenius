@@ -1304,9 +1304,11 @@ Entry points (`modules/service.sys.mjs`):
   copy. Zen's session keeps it through a quit, a crash, an update's restart
   and window moves (`carryOver` takes it to the moved tab, `markCopies` to
   a new window's copy). The network capture follows a marked tab while
-  its task waits for the user (`secretTabOf`), and each request's site goes
-  into the `sites` of every marked tab of the task (`noteSecretRequest`), so
-  a popup that closes itself leaves its sites behind. A popup that joins the hold later
+  its task waits for the user (`secretTabOf`). Each request then gets
+  `INHIBIT_CACHING`, so nothing the step's tabs request enters the HTTP
+  cache, where another task's page could read it. Its site goes into the
+  `sites` of every marked tab of the task (`noteSecretRequest`), so a popup
+  that closes itself leaves its sites behind. A popup that joins the hold later
   takes it from its marked opener (`adoptPopup`), and so does a tab opened
   from a marked one with no opener (`noteOpenedTab`), which never joins the
   hold. `spaceChanged` says

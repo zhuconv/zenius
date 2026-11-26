@@ -1708,6 +1708,32 @@ test("a hand-off with secret: after the hand back, the HTTP cache gives back not
   }
 });
 
+test("a hand-off with secret: while the user holds the step, another task's page can't read what it loaded from the HTTP cache", async () => {
+  const space = await h.space("ho secret hold cache");
+  const another = await h.space("ho secret hold cache other");
+  try {
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=s11") });
+    await loaded(space, label, "ho=s11");
+    // Another task's page on the same site: the agent still drives it during the hold.
+    const { label: fetcher } = await h.call("pages.new", { space: another, url: site("/form?ho=s11-other") });
+    await loaded(another, fetcher, "ho=s11-other");
+    await h.call("spaces.handOff", { space, secret: true });
+    const marker = `marker-${Date.now()}`;
+    const shown = site(`/cached?m=${marker}`);
+    await userLoads(space, label, shown);
+    await loaded(space, label, "/cached");
+    // Only what the cache kept could answer: no request goes out.
+    const fetched = await h.call("page.fetch", { space: another, page: fetcher, url: shown, options: { cache: "only-if-cached", mode: "same-origin" } }).then(
+      r => r,
+      e => ({ failed: e.code })
+    );
+    assert.ok(fetched.failed || !String(fetched.body ?? "").includes(marker), `the cache gave the held step's page to another task: ${JSON.stringify(fetched).slice(0, 300)}`);
+  } finally {
+    await cleanUp(space);
+    await h.call("spaces.finish", { space: another, keep: [] }).catch(() => {});
+  }
+});
+
 test("a hand-off with secret: the agent's own takeOver blanks the tab first too, and so does the hand back after a Take over the user made before the agent's hand-off", async () => {
   const space = await h.space("ho secret take");
   try {

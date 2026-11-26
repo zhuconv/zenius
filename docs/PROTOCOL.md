@@ -150,8 +150,10 @@ reports, once, and only when there's something to say:
   `secret: true`): the tab handed off, and the tabs it opened while the
   user held it. Each now shows `about:blank`, with no history to go back
   to, also when Zen quit, crashed or restarted for an update meanwhile.
-  What the browser's caches kept of the step's sites is gone too, so a
-  cached fetch can't bring it back.
+  Nothing the step's tabs request goes into the HTTP cache while the user
+  holds it, and what the browser's caches kept of the step's sites is gone
+  at the hand back, so a cached fetch, in this task or another, can't bring
+  it back.
   One that wouldn't blank isn't listed: it left the task for good, so
   it has ended for you (`pageClosed`), and it closed or is the user's. What
   the step showed is the user's: ask them for anything you need from it.

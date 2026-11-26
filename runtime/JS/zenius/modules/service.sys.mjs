@@ -1527,18 +1527,30 @@ class Service {
   }
 
   /**
-   * A request of a tab the network capture follows: a secret step's tabs
-   * keep the request's site with their marks, so the hand back clears what
-   * the caches kept there (#clearSecretCaches), after a restart too. Each of
-   * the step's tabs keeps it: a popup that closes itself (a sign-in's)
-   * takes its own mark along.
+   * A request of a tab the network capture follows, at its start. One of a
+   * secret step's tabs while the user holds it isn't written to the HTTP
+   * cache: until the hand back clears the step's sites, another task's page
+   * there could read it back with cache "only-if-cached". The tabs also keep
+   * the request's site with their marks, so the hand back clears what the
+   * caches kept there (#clearSecretCaches), after a restart too. Each of the
+   * step's tabs keeps it: a popup that closes itself (a sign-in's) takes its
+   * own mark along.
    *
    * @param {number} browserId  the tab's top
    * @param {nsIChannel} channel
    */
   noteSecretRequest(browserId, channel) {
     const tab = this.secretTabOf(BrowsingContext.getCurrentTopByBrowserId(browserId)?.embedderElement ?? null);
-    const site = tab ? schemelessSite(channel.URI) : null;
+    if (!tab) {
+      return;
+    }
+    try {
+      // At http-on-modify-request, before the channel opens its cache entry.
+      channel.loadFlags |= Ci.nsIRequest.INHIBIT_CACHING;
+    } catch (e) {
+      log(`a secret step's request may be cached: ${e.message}`);
+    }
+    const site = schemelessSite(channel.URI);
     if (!site) {
       return;
     }
