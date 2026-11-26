@@ -23,7 +23,10 @@
 // --startup-page 0 keeps zen-dev.sh's usual value instead, as a control.
 //
 // Each run uses a fresh headless dev profile, removed afterwards unless
-// --keep, with dev methods on (the reads go through dev.evalChrome). A
+// --keep, with dev methods on (the reads go through dev.evalChrome). Its
+// zenius home is the caller's ZENIUS_HOME, which must be one of its own,
+// never ~/.zenius; with none, the run makes one in /tmp and removes it
+// afterwards unless --keep. A
 // loopback server serves the pages, so nothing leaves the machine.
 //
 // The kill: the user's daily Zen runs from the same Zen.app binary, so the
@@ -38,6 +41,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { connect } from "../../scripts/lib/rpc.mjs";
+import { guardZeniusHome, scratchHome } from "../lib/scratch-home.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const ZEN_DEV = join(ROOT, "scripts", "zen-dev.sh");
@@ -63,8 +67,23 @@ if (!/^[a-z0-9][a-z0-9_-]*$/.test(name) || name === "default") throw new Error("
 const profile = join(DEV_HOME, "profiles", name);
 // The instance's zenius home, as zen-dev.sh and the SDK take it: its state,
 // socket and registry entry are there. zen-dev.sh starts no dev Zen in the
-// account's own ~/.zenius, so the caller exports one of its own.
-const ZHOME = process.env.ZENIUS_HOME || join(homedir(), ".zenius");
+// account's own ~/.zenius, and this run removes the instance's files in its
+// home, so a caller's must be one of its own (guardZeniusHome). With none,
+// the run makes one, as a suite's run.sh does: in /tmp, since a socket's
+// path must fit in 104 bytes on macOS. A caller's socket, instance and
+// working folders go first, as there: they could name another Zen.
+for (const v of ["ZENIUS_SOCKET", "ZENIUS_INSTANCE", "ZENIUS_WORKING_DIR", "ZENIUS_DEV_WORKING_DIR"]) delete process.env[v];
+const ownHome = process.env.ZENIUS_HOME ? null : scratchHome("restart", { parent: "/tmp" });
+if (ownHome) {
+  process.env.ZENIUS_HOME = ownHome.zeniusHome;
+  // Also when the run throws before its try, or exits early: the run's
+  // end removes it unless --keep, and removing it twice is harmless. A
+  // signal skips this, and leaves the Zen too, as before.
+  process.on("exit", () => {
+    if (!opts.keep) ownHome.remove();
+  });
+}
+const ZHOME = guardZeniusHome(process.env, "restart-check.mjs");
 const stateDir = join(ZHOME, "state", name);
 
 // Tasks always share the Agents Space (the pref zenius.agentsSpace is gone);
@@ -419,6 +438,9 @@ try {
     // and the logs of its earlier starts, which zen-dev.sh keeps.
     rmSync(join(DEV_HOME, "logs", name), { recursive: true, force: true });
     rmSync(join(DEV_HOME, "run", `${name}.pid`), { force: true });
+    ownHome?.remove();
+  } else if (ownHome) {
+    console.error(`restart-check: kept the run's zenius home, ${ownHome.zeniusHome}: remove ${ownHome.root} when done`);
   }
   if (devEnv.ZENIUS_DEV_PREFS) rmSync(devEnv.ZENIUS_DEV_PREFS, { force: true });
   server.close();
