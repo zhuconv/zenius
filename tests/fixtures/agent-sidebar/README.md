@@ -12,7 +12,7 @@ steps go through this checkout's own `zenius mcp` to the test's instance.
 | `serve.mjs`, `www/` | The pages, on 127.0.0.1:47231 |
 | `fixture-tasks.mjs` | Writes `agent-sidebar-tasks.json` into a profile before its Zen starts: Needs you ×2, Done ×3, fixed ages |
 | `chrome.mjs` | Runs chrome JS in a dev Zen (dev.evalChrome) with `scene.js`'s helpers first |
-| `scene.js` | The helpers, `S`: `until`, `openTab`, `openPanel`, `ask`, `state` |
+| `scene.js` | The helpers, `S`: `until` (throws at its timeout, naming what it waited for; `{ soft: true }` gives the last value instead), `openTab`, `openPanel`, `ask`, `state` |
 | `scene-build.js`, `scene-ready.js` | A live scene with every state, Working included |
 | `shots.mjs` | Window shots drawn by Zen (drawSnapshot), Chat, Work and the directory in light and dark |
 

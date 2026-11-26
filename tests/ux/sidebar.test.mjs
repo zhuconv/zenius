@@ -1543,7 +1543,7 @@ const ROW_MENU = `
   // last one is "closed", not while it's still "hiding". S.until doesn't
   // throw, so a wait that runs out says so here, where it happened.
   const settle = async (fn, what) => {
-    if (!(await S.until(fn, 3000))) throw new Error("the row menu: " + what + " (" + (menu()?.state ?? "none") + ")");
+    if (!(await S.until(fn, 3000, { soft: true }))) throw new Error("the row menu: " + what + " (" + (menu()?.state ?? "none") + ")");
   };
   // A right-click on a row: the menu opens where the pointer is.
   const rightClick = async uid => {
@@ -2357,6 +2357,9 @@ test("a step the user's Stop cut short stays stopped through their next message,
       // 0.1.8 wrote it, with no Stop on its steps.
       const shown = async (saved, tag) => {
         const back = A.restoreTask(JSON.parse(JSON.stringify({ ...saved, uid: tag + conv.uid, zen: null })));
+        // Listed, as loading the tasks file lists what it restores: Work
+        // shows a task as its current one only once it's listed.
+        A.tasks.set(back.uid, back);
         backs.push(back);
         g.showTask(back);
         await S.until(() => g.currentTask === back && marks().length === 2, 5000);
@@ -2368,7 +2371,7 @@ test("a step the user's Stop cut short stays stopped through their next message,
       res.older = { stopped: older.stopped, marks: await shown(older, "older-") };
       return res;
     } finally {
-      for (const back of backs) A.forget(back);
+      for (const back of backs) A.removeTask(back);
       A.removeTask(conv);
       g.setMode("chat");
     }
@@ -2720,7 +2723,7 @@ test("a Work chat whose task ended gets zen-core's pagesReloaded as a note: afte
       res.idle = notes().slice(-2);
       // The panel shows it as the chat's last row.
       const doc = S.panelDoc();
-      await S.until(() => [...doc.querySelectorAll("#messages > .msg")].at(-1)?.textContent.includes("example.com/cart"), 5000);
+      await S.until(() => [...doc.querySelectorAll("#messages > .list > .msg")].at(-1)?.textContent.includes("example.com/cart"), 5000);
       res.shown = true;
     } finally {
       AS.cancel(conv);
@@ -4582,6 +4585,9 @@ test("zenius's Open on a task another agent drives, while it waits for the user,
       const userTab = win.gBrowser.selectedTab;
       // The user's own Work chat shows, a draft in its box.
       const mine = A.createTask({ source: "new" });
+      // Listed, as a chat of the user's is once it has a message: Work shows
+      // a task as its current one only once it's listed.
+      A.tasks.set(mine.uid, mine);
       g.showTask(mine);
       await S.until(() => g.currentTask === mine && doc.documentElement.dataset.external === "false", 5000);
       V.type("A draft for my own chat");
@@ -4702,13 +4708,21 @@ test("the hand-off card's title isolates the task's name, in Work's card and in 
         // Work's card: a Work chat whose zenius task it is.
         mine = A.createTask({ source: "new" });
         mine.zen = { id: arg.id, name: rec.name, heldBy: null };
+        // Listed, as a Work chat that drives a task is: Work shows a task as
+        // its current one only once it's listed.
+        A.tasks.set(mine.uid, mine);
         g.showTask(mine);
         await S.until(() => g.currentTask === mine && !doc.getElementById("handoff").hidden, 10000);
         await S.sleep(200);
         res.work = read();
         return res;
       } finally {
-        if (mine) A.removeTask(mine);
+        // Unlinked first: removing a chat ends the zenius task it drives,
+        // which this file's own finally ends.
+        if (mine) {
+          mine.zen = null;
+          A.removeTask(mine);
+        }
         g.setMode("chat");
         if (win.gZenWorkspaces.activeWorkspace !== userSpace) await win.gZenWorkspaces.changeWorkspaceWithID(userSpace);
         if (userTab.isConnected) win.gBrowser.selectedTab = userTab;
@@ -4829,7 +4843,7 @@ test("the hand-off card's 'This step shows a secret', as on zenius's pill: with 
       const res = {};
       // S.until answers false at its timeout: each wait here fails the test then.
       const wait = async (fn, what, ms = 5000) => {
-        if (!(await S.until(fn, ms))) throw new Error("timed out: " + what + " " + JSON.stringify(read()));
+        if (!(await S.until(fn, ms, { soft: true }))) throw new Error("timed out: " + what + " " + JSON.stringify(read()));
       };
       try {
         // A core with no such call (one before item 7): undefined, so the
@@ -4866,7 +4880,8 @@ test("the hand-off card's 'This step shows a secret', as on zenius's pill: with 
         res.offAgain = { ...read(), calls: calls.slice() };
         // A tick on zenius's pill: the card follows, an untick too.
         const N = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/notices.sys.mjs");
-        const pillBox = () => [...win.gBrowser.tabs].map(t => N.noticeElement(t, "zenius-control")?.querySelector(".zenius-card-toggle > input")).find(Boolean) ?? null;
+        // On this task's own tabs: another task's pill may show too.
+        const pillBox = () => svc.pages.tabsOf(rec).map(t => N.noticeElement(t, "zenius-control")?.querySelector(".zenius-card-toggle > input")).find(Boolean) ?? null;
         pillBox().click();
         await wait(() => read().box?.checked && read().pill, "the card follows the pill's tick");
         res.pillOn = { ...read(), calls: calls.slice() };
@@ -4980,7 +4995,7 @@ test("a terminal agent's real wait (zenius wait): both cards say something waits
         gone: s => !s.card && !s.pill && !s.waiting,
       }[arg.want];
       const t0 = Date.now();
-      const ok = await S.until(() => is(read()), arg.ms);
+      const ok = await S.until(() => is(read()), arg.ms, { soft: true });
       const seen = { ok, ms: Date.now() - t0, ...read() };
       if (ok && arg.resume) {
         el("handoff-resume").click();
@@ -9962,7 +9977,7 @@ test("closing the sidebar lets its panel go: ten panels, each asking a task and 
     const answers = conv => conv.messages.filter(m => m.role === "assistant").length;
     // A wait that ran out fails at once, with the conversation as it stands.
     const until = async (fn, what, conv = null, ms = 5000) => {
-      if (!(await S.until(fn, ms))) {
+      if (!(await S.until(fn, ms, { soft: true }))) {
         const said = conv?.messages.filter(m => m.role === "error" || m.role === "note").map(m => m.text);
         throw new Error("timed out waiting for " + what + (conv ? ": " + JSON.stringify({ harness: conv.harness, busy: conv.busy, roles: conv.messages.map(m => m.role), said }) : ""));
       }
@@ -10020,7 +10035,7 @@ const DRAFT_SCENE = `
   const A = g.AgentService;
   // A wait that ran out fails at once, with what it waited on.
   const until = async (fn, what, ms = 5000) => {
-    if (!(await S.until(fn, ms))) throw new Error("timed out waiting for " + what);
+    if (!(await S.until(fn, ms, { soft: true }))) throw new Error("timed out waiting for " + what);
   };
   // A Work task with one question and its answer written in: listed, on the
   // mock, and its own (a new task with nothing asked may be reused).
@@ -10590,7 +10605,7 @@ test("while the agent's turn runs, the line says Steer gives the site back and E
       g.submit(conv, { question: "SLOW" });
       const busy = await S.until(() => (conv.busy && line()?.startsWith("The agent's turn is running") ? { line: line(), keep: !keep().hidden } : null), 10000);
       V.type("READAGAIN");
-      if (!(await S.until(() => !V.$("steer").hidden, 5000))) throw new Error("no Steer");
+      if (!(await S.until(() => !V.$("steer").hidden, 5000, { soft: true }))) throw new Error("no Steer");
       V.$("steer").click();
       await S.until(() => !conv.busy && conv.messages.some(m => m.role === "assistant" && m.text.startsWith("Steered:")), 20000);
       return {
@@ -10812,7 +10827,7 @@ test("a popup the held page opened on another site keeps the hold: the line says
       `${HANDBACK}
       const conv = AS.tasks.get(arg.uid);
       const rec = AS.zenRecord(conv);
-      const popup = await S.until(() => AS.zenius().pages.tabsOf(rec).find(t => t.linkedBrowser.currentURI.host === "localhost" && !t.hasAttribute("busy")), 15000);
+      const popup = await S.until(() => AS.zenius().pages.tabsOf(rec).find(t => t.linkedBrowser.currentURI.host === "localhost" && !t.hasAttribute("busy")), 15000, { soft: true });
       if (!popup) throw new Error("the popup didn't open in the task");
       win.gBrowser.selectedTab = popup;
       const shown = await S.until(() => (line()?.startsWith("You have control") ? line() : null), 5000);

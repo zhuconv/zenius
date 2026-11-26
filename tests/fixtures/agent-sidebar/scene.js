@@ -1,12 +1,20 @@
 // Chrome helpers for dev/zs eval -f: `S` holds them. Loaded before each scene.
 const S = {
   sleep: ms => new Promise(r => win.setTimeout(r, ms)),
-  async until(fn, ms = 10000) {
+  // fn()'s first truthy value, asked every 50 ms (a throw counts as no).
+  // At `ms` it throws, naming fn, so a wait that never came fails where it
+  // stood instead of letting the scene go on. A wait meant to end either
+  // way says so at its call, { soft: true }, and gets fn()'s last value.
+  async until(fn, ms = 10000, { soft = false } = {}) {
     const end = Date.now() + ms;
     for (;;) {
       let v;
       try { v = await fn(); } catch {}
-      if (v || Date.now() > end) return v;
+      if (v) return v;
+      if (Date.now() > end) {
+        if (soft) return v;
+        throw new Error(`S.until: nothing after ${ms} ms from ${String(fn).replace(/\s+/g, " ").slice(0, 240)}`);
+      }
       await S.sleep(50);
     }
   },
