@@ -25,6 +25,13 @@ const NO_OUTSIDE_TRAFFIC = fs.readFileSync(path.join(ROOT, "scripts/dev/no-outsi
 const OUT = process.env.IDLE_COST_DIR ?? `${os.homedir()}/.zenius-dev/idle-cost`;
 const ZEN = process.env.ZEN_BIN ?? `${os.homedir()}/opt/zen-1.24.3b/zen`;
 const DEV = process.env.ZENIUS_DEV_HOME ?? `${os.homedir()}/.zenius-dev`;
+// The tool's own zenius home, in OUT: its install's (installer) and both
+// arms' Zens', whose runtime keeps its socket, registry entry and state
+// there. Never the account's ~/.zenius, which holds the user's config and
+// their daily Zen's socket. Left to the caller's environment, arm b's Zen
+// used ~/.zenius whenever ZENIUS_HOME was unset, and listened where this
+// tool didn't look whenever it was set, as in scripts/test-all.sh's lanes.
+const ZHOME = path.join(OUT, "zhome");
 const RESULTS = path.join(OUT, "results");
 const T1 = Number(process.env.I4_T1 ?? 30000);
 const TMEM = Number(process.env.I4_TMEM ?? 60000);
@@ -36,10 +43,11 @@ const ARMS = {
   b: { name: `${PREFIX}-b`, zenius: true },
 };
 const profileOf = arm => `${DEV}/profiles/${ARMS[arm].name}`;
-const socketOf = arm => `${os.homedir()}/.zenius/run/${ARMS[arm].name}.sock`;
+const socketOf = arm => `${ZHOME}/run/${ARMS[arm].name}.sock`;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 fs.mkdirSync(RESULTS, { recursive: true });
+fs.mkdirSync(ZHOME, { recursive: true, mode: 0o700 });
 fs.mkdirSync(`${OUT}/pages`, { recursive: true });
 fs.writeFileSync(
   `${OUT}/pages/c.html`,
@@ -176,7 +184,7 @@ async function run(arm, label, { t1 = T1, tmem = TMEM, t2 = T2 } = {}) {
   requests.length = 0;
   spawnAt = performance.now();
   const child = spawn(ZEN, ["--profile", dir, "--no-remote", "--headless", ...URLS], {
-    env: { ...process.env, MOZ_HEADLESS: "1", MOZ_CRASHREPORTER_DISABLE: "1" },
+    env: { ...process.env, ZENIUS_HOME: ZHOME, MOZ_HEADLESS: "1", MOZ_CRASHREPORTER_DISABLE: "1" },
     stdio: ["ignore", logFd, logFd],
   });
   let exited = false;
@@ -226,14 +234,15 @@ async function run(arm, label, { t1 = T1, tmem = TMEM, t2 = T2 } = {}) {
  * tool's own (in OUT), so it never reads or writes the user's
  * ~/.zenius/config.json. An install names a working folder in that HOME,
  * which the installer needs under a zenius home other than ~/.zenius (an
- * uninstall takes none). Arm b's Zen keeps the real HOME: its profile, in
- * ~/.zenius-dev/profiles/, is a dev profile, whose runtime takes its working
- * folder from a pref, never from a config.json.
+ * uninstall takes none). Arm b's Zen runs in the same zenius home (ZHOME)
+ * and keeps the real HOME: its profile, in ~/.zenius-dev/profiles/, is a dev
+ * profile, whose runtime takes its working folder from a pref, never from a
+ * config.json.
  */
 function installer(args = []) {
   const home = `${OUT}/home`;
   fs.mkdirSync(home, { recursive: true, mode: 0o700 });
-  const env = guardHome({ ...process.env, HOME: home, ZENIUS_HOME: `${OUT}/zhome` }, "the I4 tool's install.sh");
+  const env = guardHome({ ...process.env, HOME: home, ZENIUS_HOME: ZHOME }, "the I4 tool's install.sh");
   const working = args.includes("--uninstall") ? [] : ["--working-dir", `${home}/files`];
   execFileSync(`${ROOT}/scripts/install.sh`, [...args, "--profile", profileOf("b"), ...working], { env, stdio: "inherit" });
 }
