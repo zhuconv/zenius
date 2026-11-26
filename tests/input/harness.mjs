@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { basename, extname, join } from "node:path";
 import { connect } from "../../scripts/lib/rpc.mjs";
 import { closeFixtureServer, startFixtureServer } from "../fixtures/server.mjs";
+import { UNTIL_TAKES_INPUT, untilTakesInput } from "../lib/user-input.mjs";
 import { checkView, FOCUS_PROBE_START, FOCUS_PROBE_STOP } from "../observe/lib.mjs";
 import { systemClipboard } from "./system-clipboard.mjs";
 
@@ -587,6 +588,14 @@ export async function openHarness(suite) {
         nodeAssert.deepEqual(await call("dev.viewState"), before, `${how}: the user's view is unchanged (I1)`);
       }
     },
+    /**
+     * Wait until the page takes a person's input (tests/lib/user-input.mjs):
+     * once after its load, in a flow whose user then races zenius's input,
+     * so that the race keeps its timing. Resolves to the ms it waited.
+     */
+    untilTakesInput(page) {
+      return call("dev.evalContent", { space: page.spaceId, page: page.label, privileged: true, code: UNTIL_TAKES_INPUT });
+    },
     /** Panels and popups open in the window, by id (the agent's pickers would show here). */
     openPopups() {
       return call("dev.evalChrome", {
@@ -599,12 +608,16 @@ export async function openHarness(suite) {
      * same). The page must be the selected tab. With `frame`, `selector` is
      * in that same-origin iframe of the page. Headless Zen doesn't pass the
      * click on into an out-of-process iframe; it focuses the iframe only.
+     * It waits first until the page takes a person's input
+     * (tests/lib/user-input.mjs). A frame in the page's process counts by
+     * the page's top document, as Gecko counts it.
      */
     userClick(page, selector, { frame = null } = {}) {
       return call("dev.evalChrome", {
         arg: { space: page.spaceId, page: page.label, selector, frame },
         code: `const { ZeniusService } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/service.sys.mjs");
           const { browser } = ZeniusService.resolvePage(arg);
+          ${untilTakesInput("browser.browsingContext")}
           const p = await ZeniusService.content(browser.browsingContext, "dev#evalContent", {
             code: "const f = " + JSON.stringify(arg.frame) + " && document.querySelector(" + JSON.stringify(arg.frame) + ");" +
               "const o = f ? f.getBoundingClientRect() : { x: 0, y: 0 };" +

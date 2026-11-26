@@ -18,6 +18,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { after, before, test } from "node:test";
+import { untilTakesInput } from "../lib/user-input.mjs";
 import { checkView, FOCUS_PROBE_START, FOCUS_PROBE_STOP } from "../observe/lib.mjs";
 import { prelude, setup } from "../ux/lib.mjs";
 
@@ -85,8 +86,10 @@ before(async () => {
       await sleep(150);
     };
     const inPage = (code, bc = browser.browsingContext) => ctx.content(bc, "dev#evalContent", { code, privileged: false });
-    // The user's input enters through the parent, like OS input.
+    // The user's input enters through the parent, like OS input, once the
+    // page takes a person's input (tests/lib/user-input.mjs).
     const userClickOn = async id => {
+      ${untilTakesInput("browser.browsingContext")}
       const p = await inPage("const r = document.getElementById(" + JSON.stringify(id) + ").getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 };");
       const r = browser.getBoundingClientRect();
       for (const type of ["mousedown", "mouseup"]) {

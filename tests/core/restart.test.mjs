@@ -11,6 +11,7 @@ import http from "node:http";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
 import { connect } from "../../scripts/lib/rpc.mjs";
+import { untilTakesInput } from "../lib/user-input.mjs";
 import { setup, sleep } from "./lib.mjs";
 
 let h;
@@ -703,42 +704,17 @@ const firstView = (space, page) => inPage(space, page, "return JSON.parse(JSON.s
 /** The guard actor's own answer for the page's top document. */
 const guardsIn = (space, page) => h.chrome(`${TAB} return ctx.content(t.linkedBrowser.browsingContext, "guards#installed", {});`, { space, page });
 /**
- * Waits until the shown page takes a person's input: a chrome step after TAB
- * that defines `browser`, whose content side is arg.untilTakesInput. Gecko
- * ignores the user's input aimed at a document until the document has had
- * dom.input_events.security.minNumTicks refresh ticks and
- * minTimeElapsedInMS since it began loading, against clickjacking. zenius's
- * own events are exempt, but the user's below are OS-like, so a click sent
- * sooner is lost, as a person's would be. One that came right after the
- * agent's first call loaded the page again (the settle's page.goto) landed
- * there on a fast machine, and load widens the window. A person would click
- * again; the test waits instead, so that every click it sends must take.
- */
-const UNTIL_TAKES_INPUT = `await ctx.content(browser.browsingContext, "dev#evalContent", { privileged: true, code: arg.untilTakesInput,
-       arg: { ticks: Services.prefs.getIntPref("dom.input_events.security.minNumTicks", 0),
-              ms: Services.prefs.getIntPref("dom.input_events.security.minTimeElapsedInMS", 0) } });`;
-// Privileged, so that its callbacks are no code left in the page.
-const TAKES_INPUT_CODE = `const win = actor.contentWindow;
-  const t = win.performance.timing;
-  // When the document began loading, on the clock performance.now() reads.
-  const loading = t.domLoading ? t.domLoading - t.navigationStart : 0;
-  for (let i = 0; i <= arg.ticks; i++) {
-    await new Promise(resolve => win.requestAnimationFrame(() => resolve()));
-  }
-  for (let left; (left = loading + arg.ms + 20 - win.performance.now()) > 0; ) {
-    await new Promise(resolve => win.setTimeout(resolve, Math.ceil(left)));
-  }
-  return true;`;
-/**
  * The user's click on `selector` in the shown page, and their keys, entering
  * through the parent like OS input, as the input suite's harness plays them
- * (tests/input/harness.mjs).
+ * (tests/input/harness.mjs). Each waits first until the page takes a
+ * person's input (tests/lib/user-input.mjs): a click right after the agent's
+ * first call loaded the page again (the settle's page.goto) was lost.
  */
 const userClicks = (space, page, selector) =>
   h.chrome(
     `${TAB} const browser = t.linkedBrowser;
      if (win.gBrowser.selectedBrowser !== browser) throw new Error("the page isn't shown");
-     ${UNTIL_TAKES_INPUT}
+     ${untilTakesInput("browser.browsingContext")}
      const p = await ctx.content(browser.browsingContext, "dev#evalContent", { privileged: false,
        code: "const r = document.querySelector(" + JSON.stringify(arg.selector) + ").getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 };" });
      const r = browser.getBoundingClientRect();
@@ -746,13 +722,13 @@ const userClicks = (space, page, selector) =>
        win.synthesizeMouseEvent(type, r.x + p.x, r.y + p.y, { button: 0, buttons: type === "mousedown" ? 1 : 0, clickCount: 1 }, { isDOMEventSynthesized: false });
      }
      return true;`,
-    { space, page, selector, untilTakesInput: TAKES_INPUT_CODE }
+    { space, page, selector }
   );
 const userPresses = (space, page, keys) =>
   h.chrome(
     `${TAB} const browser = t.linkedBrowser;
      if (win.gBrowser.selectedBrowser !== browser) throw new Error("the page isn't shown");
-     ${UNTIL_TAKES_INPUT}
+     ${untilTakesInput("browser.browsingContext")}
      browser.focus();
      const tip = Cc["@mozilla.org/text-input-processor;1"].createInstance(Ci.nsITextInputProcessor);
      if (!tip.beginInputTransactionForTests(win)) throw new Error("no input transaction");
@@ -762,7 +738,7 @@ const userPresses = (space, page, keys) =>
        tip.keyup(ev);
      }
      return true;`,
-    { space, page, keys: [...keys], untilTakesInput: TAKES_INPUT_CODE }
+    { space, page, keys: [...keys] }
   );
 /**
  * Keep a page's tab for after it leaves its task (stash), then read it:

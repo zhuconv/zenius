@@ -251,6 +251,9 @@ async function inWatchedPage(url, fn) {
   const page = await h.newPageAt(task, url);
   const back = await h.watch(page);
   await listen();
+  // Before the flow's user acts in it, and before its race starts in fn:
+  // once the page takes a person's input (tests/lib/user-input.mjs).
+  await h.untilTakesInput(page);
   try {
     await fn(page);
   } finally {

@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, afterEach, before, test } from "node:test";
 import { connect } from "../../scripts/lib/rpc.mjs";
+import { untilTakesInput } from "../lib/user-input.mjs";
 import { filePayloads, openHarness } from "./harness.mjs";
 
 let h;
@@ -2535,6 +2536,9 @@ async function openUserLab(url) {
   }
   await inUserLab(LAB_PAGE("user"));
   await h.sleep(300);
+  // Before the flow's user acts in it, and before any race of theirs
+  // starts: once it takes a person's input (tests/lib/user-input.mjs).
+  await h.call("dev.evalChrome", { code: `${untilTakesInput("win.__zenInputUserTab.linkedBrowser.browsingContext")} return true;` });
 }
 
 function inUserLab(code) {
@@ -2638,6 +2642,8 @@ async function labPair(userUrl) {
     return { page };
   });
   await pair.page.evaluate(new Function(LAB_PAGE("agent")));
+  // The user's input may reach it later, in a race that must keep its timing.
+  await h.untilTakesInput(pair.page);
   pair.same = (await userPid()) === (await pidOf(pair.page));
   return pair;
 }
@@ -3143,6 +3149,8 @@ function showAgentPage(page) {
       await win.gZenWorkspaces.changeWorkspaceWithID(tab.getAttribute("zen-workspace-id"));
       win.gBrowser.selectedTab = tab;
       browser.focus();
+      // A page loaded hidden may not have had Gecko's refresh ticks yet.
+      ${untilTakesInput("browser.browsingContext")}
       return win.gBrowser.selectedTab === tab;`,
   });
 }
