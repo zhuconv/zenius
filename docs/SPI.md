@@ -1359,9 +1359,12 @@ Entry points (`modules/service.sys.mjs`):
   load's first request is noted (`holdForUser`). The popups in its hold get
   it once the hold begins, a popup that joins later from its opener
   (`adoptPopup`), and a tab opened from one with no opener
-  (`noteOpenedTab`). The network capture follows them (`heldStepTabOf`),
-  and each request's site, top-level or not, goes into every held value of
-  the task (`noteSecretRequest`), up to 64, then `overflow`. They go at
+  (`noteOpenedTab`), each with the sites the step's tabs keep already
+  (`#joinStep`), so every tab of the step keeps every site. The network
+  capture follows them (`heldStepTabOf`), and each request's site,
+  top-level or not, goes into every held value of the task
+  (`noteSecretRequest`), up to 64. Past that, `overflow`, on every held
+  tab of the task once one has it, and on a tab that joins later. They go at
   every end of the hold (`#onSpaceEvent`), with a tab's task value, and at
   the restart rebuild when their task isn't held. The sites never leave the
   runtime: no result, event or note names them.
@@ -1369,12 +1372,15 @@ Entry points (`modules/service.sys.mjs`):
   (`noteSecretStep`), and the popups already in its hold: the session
   value `zenius-secret` (`SECRET_TAB_KEY`), JSON `{task, sites, by,
   overflow?}`, on every copy. `by` is `"agent"` (a mark without it, as
-  0.1.8 saved them, is the agent's too) or `"user"`. A mark made during
+  0.1.8 saved them, is the agent's too) or `"user"`. Past 64 sites a mark
+  says `overflow`, as held values do: the HTTP cache is held off from the
+  mark on, but images still enter the image cache. A mark made during
   the step, the agent's `secret` after the user's Take over or the user's
   own, marks every tab with the step's held value as well, takes their
   `sites` and `overflow`, and clears those sites' caches at once
   (`#clearAtMark`; every site's with `overflow`), for the time until the
-  hand back. Zen's session keeps it through a quit, a crash, an update's restart
+  hand back. The agent's mark as the hold begins clears them too: H's quiet
+  load came before the cache was held off. Zen's session keeps it through a quit, a crash, an update's restart
   and window moves (`carryOver` takes it to the moved tab, `markCopies` to
   a new window's copy). The network capture follows a marked tab while
   its task waits for the user (`secretTabOf`). Each request then gets
@@ -1384,9 +1390,16 @@ Entry points (`modules/service.sys.mjs`):
   that closes itself leaves its sites behind. A popup that joins the hold later
   takes it from its marked opener (`adoptPopup`), and so does a tab opened
   from a marked one with no opener (`noteOpenedTab`), which never joins the
-  hold, each with its opener's `by`. `spaceChanged` says `secret: true,
+  hold, each with its opener's `by` and the sites the step's marks keep.
+  A mark that goes with no blank clears its sites' caches as the blank
+  would, its tab's history's included (`#clearUnblanked`): its tab's close
+  before the hand back, the task's end (Stop), and the backstop as the
+  agent gets the task (`#dropUnblanked`). It's fire and forget; the hand
+  back's blank and the agent's own way back wait for one still running.
+  `spaceChanged` says `secret: true,
   secretBy: "agent"` as the hold begins, and `{secret, secretBy}` at each
-  later change (`spaces.secretStepChanged`), for the UI's cards, which read
+  later change (`spaces.secretStepChanged`), a marked tab's close among
+  them, for the UI's cards, which read
   `secretStepOf(rec)` (`{secret, secretBy}`, from the marks, synchronous)
   at each draw. `spaces.list` gives a marked tab's title as `""`.
 - The user's own mark: `markSecretByUser(rec, on)`, in process only, from

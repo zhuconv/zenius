@@ -151,8 +151,9 @@ export const OWN_TAB_KEY = "zenius-own";
  * - `by`: whose mark it is, "agent" (the hand-off's secret) or "user" (the
  *   user's own, service.markSecretByUser). Only the user's can be undone,
  *   and a mark saved without it, as 0.1.8 saved them, is the agent's.
- * - `overflow`: the step loaded more sites before the mark than a mark
- *   keeps, so the caches' clear takes every site's.
+ * - `overflow`: the step loaded more sites than a mark keeps, before the
+ *   mark or after it, so the caches' clear takes every site's. One tab past
+ *   it puts it on every tab of the step (service.noteSecretRequest).
  */
 export const SECRET_TAB_KEY = "zenius-secret";
 /** The sites a mark or a held value keeps, at most: a step loads a handful. */
@@ -761,13 +762,31 @@ export class Pages {
 
   /**
    * A site a secret step's tab loaded (service.noteSecretRequest), kept with
-   * its mark. Past SECRET_SITES_MAX nothing more is kept: from the mark on,
-   * what the tab loads isn't cached.
+   * its mark. Past SECRET_SITES_MAX, `overflow` says more came: from the
+   * mark on, what the tab loads stays out of the HTTP cache, but its images
+   * still enter the image cache, so the hand back then clears every site's.
+   *
+   * @returns {boolean} whether the mark says overflow now
    */
   noteSecretSite(tab, site) {
     const mark = secretMarkOf(tab);
-    if (mark && !mark.sites.includes(site) && mark.sites.length < SECRET_SITES_MAX) {
-      writeStep(tab, SECRET_TAB_KEY, { task: mark.task, sites: [...mark.sites, site], by: mark.by, ...(mark.overflow ? { overflow: true } : {}) });
+    if (!mark || mark.overflow || mark.sites.includes(site)) {
+      return !!mark?.overflow;
+    }
+    if (mark.sites.length < SECRET_SITES_MAX) {
+      writeStep(tab, SECRET_TAB_KEY, { task: mark.task, sites: [...mark.sites, site], by: mark.by });
+      return false;
+    }
+    log(`a secret step loaded over ${SECRET_SITES_MAX} sites: its hand back clears every site's caches`);
+    this.overflowSecret(tab);
+    return true;
+  }
+
+  /** A secret step's mark says overflow, with its sites as they are: another tab of the step passed what a mark keeps. */
+  overflowSecret(tab) {
+    const mark = secretMarkOf(tab);
+    if (mark && !mark.overflow) {
+      writeStep(tab, SECRET_TAB_KEY, { task: mark.task, sites: mark.sites, by: mark.by, overflow: true });
     }
   }
 
@@ -776,10 +795,19 @@ export class Pages {
     clearStep(tab, SECRET_TAB_KEY);
   }
 
-  /** A tab of the step the user holds (HELD_TAB_KEY), on every copy: the sites it loads from now on are noted. */
-  markHeld(tab, space) {
+  /**
+   * A tab of the step the user holds (HELD_TAB_KEY), on every copy: the
+   * sites it loads from now on are noted, after those the step's tabs keep
+   * already (`sites`, `overflow`), so each of them keeps every site.
+   */
+  markHeld(tab, space, { sites = [], overflow = false } = {}) {
     if (heldStepOf(tab)?.task !== space.id) {
-      writeStep(tab, HELD_TAB_KEY, { task: space.id, sites: [] });
+      const all = [...new Set(sites)];
+      writeStep(tab, HELD_TAB_KEY, {
+        task: space.id,
+        sites: all.slice(0, SECRET_SITES_MAX),
+        ...(overflow || all.length > SECRET_SITES_MAX ? { overflow: true } : {}),
+      });
     }
   }
 
@@ -787,16 +815,27 @@ export class Pages {
    * A site a held step's tab loaded (service.noteSecretRequest), kept with
    * its held value. Past SECRET_SITES_MAX, `overflow` says more came: the
    * caches a later mark clears are then every site's.
+   *
+   * @returns {boolean} whether the held value says overflow now
    */
   noteHeldSite(tab, site) {
     const held = heldStepOf(tab);
-    if (!held || held.sites.includes(site)) {
-      return;
+    if (!held || held.overflow || held.sites.includes(site)) {
+      return !!held?.overflow;
     }
     if (held.sites.length < SECRET_SITES_MAX) {
-      writeStep(tab, HELD_TAB_KEY, { task: held.task, sites: [...held.sites, site], ...(held.overflow ? { overflow: true } : {}) });
-    } else if (!held.overflow) {
-      log(`a held step loaded over ${SECRET_SITES_MAX} sites: a mark on it clears every site's caches`);
+      writeStep(tab, HELD_TAB_KEY, { task: held.task, sites: [...held.sites, site] });
+      return false;
+    }
+    log(`a held step loaded over ${SECRET_SITES_MAX} sites: a mark on it clears every site's caches`);
+    this.overflowHeld(tab);
+    return true;
+  }
+
+  /** A held step's value says overflow, with its sites as they are: another tab of the step passed what it keeps. */
+  overflowHeld(tab) {
+    const held = heldStepOf(tab);
+    if (held && !held.overflow) {
       writeStep(tab, HELD_TAB_KEY, { task: held.task, sites: held.sites, overflow: true });
     }
   }

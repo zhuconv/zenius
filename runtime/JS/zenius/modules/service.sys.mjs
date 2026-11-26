@@ -1060,14 +1060,38 @@ class Service {
     return new Set(this.pages.tabsOf(rec).map(tab => this.pages.tabId(tab)));
   }
 
-  /** H and the popups of its hold are the held step's tabs (pages.markHeld). */
+  /** H and the popups of its hold are the held step's tabs (pages.markHeld), each with what the step loaded so far. */
   #noteHeldWith(rec, browser) {
     const own = this.#ownTabIds(rec);
+    const { sites, overflow } = this.#heldSites(rec);
     for (const held of lazy.heldWith(browser)) {
       const tab = tabOfBrowser(held);
       if (tab && own.has(this.pages.tabId(tab))) {
-        this.pages.markHeld(tab, rec);
+        this.pages.markHeld(tab, rec, { sites: [...sites], overflow });
       }
+    }
+  }
+
+  /**
+   * A tab a held step's tab opens joins the step (noteOpenedTab,
+   * adoptPopup): a held value and a mark as its opener has, each with the
+   * sites the step's tabs keep already, overflow included, so every tab of
+   * the step keeps every site. noteSecretRequest's early return counts on
+   * it, and a mark made after the opener closed still takes what it loaded.
+   *
+   * @param {object} rec
+   * @param {Element} tab  the new tab
+   * @param {Element|null} openerTab
+   */
+  #joinStep(rec, tab, openerTab) {
+    if (openerTab && heldStepOf(openerTab)?.task === rec.id) {
+      const { sites, overflow } = this.#heldSites(rec);
+      this.pages.markHeld(tab, rec, { sites: [...sites], overflow });
+    }
+    const mark = openerTab ? secretMarkOf(openerTab) : null;
+    if (mark?.task === rec.id) {
+      const { sites, overflow } = this.#markedSites(rec);
+      this.pages.markSecret(tab, rec, { by: mark.by, sites: [...sites], overflow });
     }
   }
 
@@ -1389,9 +1413,11 @@ class Service {
     for (const tab of tabs.values()) {
       this.pages.markSecret(tab, rec, { by, sites: [...sites], overflow });
     }
+    // At the hold's start too: its quiet load came before the mark, so the
+    // cache wasn't held off for it.
+    this.#clearAtMark(rec);
     // At the hold's start, spaceChanged's own secret says it (setOwnership).
     if (during) {
-      this.#clearAtMark(rec);
       const now = this.secretStepOf(rec);
       if (now.secret !== before.secret || now.secretBy !== before.secretBy) {
         this.spaces.secretStepChanged(rec, now);
@@ -1407,33 +1433,94 @@ class Service {
 
   /** The sites the held step's tabs loaded, and whether more came than they keep. */
   #heldSites(rec) {
+    return this.#stepSites(rec, heldStepOf);
+  }
+
+  /** The sites the step's marks keep, and whether one says more came. */
+  #markedSites(rec) {
+    return this.#stepSites(rec, secretMarkOf);
+  }
+
+  /** The sites one kind of the task's step values keeps (heldStepOf, secretMarkOf), and whether one says overflow. */
+  #stepSites(rec, valueOf) {
     const sites = new Set();
     let overflow = false;
     for (const tab of this.pages.tabsOf(rec)) {
-      const held = heldStepOf(tab);
-      if (held?.task === rec.id) {
-        held.sites.forEach(site => sites.add(site));
-        overflow ||= held.overflow;
+      const value = valueOf(tab);
+      if (value?.task === rec.id) {
+        value.sites.forEach(site => sites.add(site));
+        overflow ||= value.overflow;
       }
     }
     return { sites, overflow };
   }
 
   /**
-   * A mark made during the step: what the step loaded before it may be in
-   * the HTTP and image caches, where another task's page could read it with
-   * cache "only-if-cached" until the hand back clears them. They go now.
-   * The hand back's blank waits for this clear, and clears the same sites
-   * again after it.
+   * A mark, at the hold's start or during the step: what the step loaded
+   * before it (the hold's quiet load included) may be in the HTTP and image
+   * caches, where another task's page could read it with cache
+   * "only-if-cached" until the hand back clears them. They go now. The hand
+   * back's blank waits for this clear, and clears the same sites again
+   * after it.
    */
   #clearAtMark(rec) {
     const { sites, overflow } = this.#heldSites(rec);
+    this.#queueClear(rec, sites, overflow);
+  }
+
+  /**
+   * The sites whose caches may hold what marked tabs showed, as the blank
+   * reads them: those their marks noted and those of their history, and
+   * whether a mark says overflow. Read before the marks go.
+   *
+   * @param {Element[]} tabs
+   */
+  #unblankedSites(tabs) {
+    const sites = new Set();
+    let overflow = false;
+    for (const tab of tabs) {
+      const mark = secretMarkOf(tab);
+      if (mark) {
+        [...mark.sites, ...historySites(tab)].forEach(site => sites.add(site));
+        overflow ||= mark.overflow;
+      }
+    }
+    return { sites, overflow };
+  }
+
+  /**
+   * Marks that go with no blank to clear their sites: a marked tab the user
+   * closes, the task's end (Stop), a tab the flip's backstop takes out of
+   * the task (#dropUnblanked). Their sites' caches may still hold what the
+   * step showed, the images it loaded after the mark among them, so they're
+   * cleared now as the blank would clear them, every site's past the cap.
+   *
+   * @param {object|null} rec  the marks' task
+   * @param {{sites: Set<string>, overflow: boolean}} left  #unblankedSites
+   * @param {string} why  for the log
+   */
+  #clearUnblanked(rec, { sites, overflow }, why) {
+    if (sites.size || overflow) {
+      log(`a secret step's ${why}: its sites' caches are cleared with no blank`);
+      this.#queueClear(rec, sites, overflow);
+    }
+  }
+
+  /**
+   * A clear of a secret step's sites, after any its task has running, fire
+   * and forget: the hand back's blank and the agent's own way back wait for
+   * it (#blankSteps, agentHandBack). A task already gone keeps no queue.
+   */
+  #queueClear(rec, sites, overflow) {
     if (!sites.size && !overflow) {
       return;
     }
-    const run = (this.#markClears.get(rec) ?? Promise.resolve())
+    const run = ((rec && this.#markClears.get(rec)) || Promise.resolve())
       .then(() => this.#clearSecretCaches(sites, { overflow }))
-      .catch(e => log(`a mark's clear failed: ${e.message}`));
+      .catch(e => log(`a secret step's cache clear failed: ${e.message}`));
+    if (!rec) {
+      return;
+    }
     this.#markClears.set(rec, run);
     run.then(() => {
       if (this.#markClears.get(rec) === run) {
@@ -1772,11 +1859,12 @@ class Service {
    * @param {object} rec
    */
   #dropUnblanked(rec) {
-    for (const tab of this.pages.tabsOf(rec)) {
-      if (secretTaskOf(tab) === rec.id) {
-        log("a secret step's tab that no blank took leaves the task as the agent gets it back");
-        this.#dropSecretTab(rec, tab);
-      }
+    const marked = this.pages.tabsOf(rec).filter(tab => secretTaskOf(tab) === rec.id);
+    // Before leaveTask takes the marks.
+    this.#clearUnblanked(rec, this.#unblankedSites(marked), "tab that no blank took");
+    for (const tab of marked) {
+      log("a secret step's tab that no blank took leaves the task as the agent gets it back");
+      this.#dropSecretTab(rec, tab);
     }
   }
 
@@ -1895,18 +1983,32 @@ class Service {
     }
     const mark = tab ? secretMarkOf(tab) : null;
     const held = heldTab ? heldStepOf(heldTab) : null;
-    // Every tab of the step keeps every site, so a site the requesting tab
-    // keeps already is in the others too.
-    if ((!mark || mark.sites.includes(site)) && (!held || held.sites.includes(site) || held.overflow)) {
+    // Every tab of the step keeps every site, and every one says overflow
+    // once one does, so the requesting tab's value answers for them all.
+    const done = value => !value || value.overflow || value.sites.includes(site);
+    if (done(mark) && done(held)) {
       return;
     }
     const task = mark?.task ?? held.task;
-    for (const other of this.pages.tabsOf(this.spaces.peek(task))) {
+    const tabs = this.pages.tabsOf(this.spaces.peek(task));
+    let markFull = false;
+    let heldFull = false;
+    for (const other of tabs) {
       if (mark && secretTaskOf(other) === task) {
-        this.pages.noteSecretSite(other, site);
+        markFull = this.pages.noteSecretSite(other, site) || markFull;
       }
       if (held && heldStepOf(other)?.task === task) {
-        this.pages.noteHeldSite(other, site);
+        heldFull = this.pages.noteHeldSite(other, site) || heldFull;
+      }
+    }
+    // One tab past what a value keeps: the others say so too, so a popup
+    // that closes itself takes nothing of it along.
+    for (const other of markFull || heldFull ? tabs : []) {
+      if (markFull && secretTaskOf(other) === task) {
+        this.pages.overflowSecret(other);
+      }
+      if (heldFull && heldStepOf(other)?.task === task) {
+        this.pages.overflowHeld(other);
       }
     }
   }
@@ -1943,6 +2045,9 @@ class Service {
       if (typeof this.beforeHandBack === "function") {
         await this.beforeHandBack(rec);
       }
+      // A clear a mark or a closed marked tab began ends before the agent
+      // can get the task back.
+      await this.#markClears.get(rec);
     } finally {
       const left = (this.#agentHandBacks.get(rec) ?? 1) - 1;
       if (left > 0) {
@@ -1994,13 +2099,7 @@ class Service {
       // click, a target=_blank link) never joins its hold, yet the agent
       // could adopt it after the hand back: it's the step's too, and the
       // hand back of a secret one blanks it, whoever's mark it carries.
-      if (openerTab && heldStepOf(openerTab)?.task === control.space.id) {
-        this.pages.markHeld(tab, control.space);
-      }
-      const mark = openerTab ? secretMarkOf(openerTab) : null;
-      if (mark?.task === control.space.id) {
-        this.pages.markSecret(tab, control.space, { by: mark.by });
-      }
+      this.#joinStep(control.space, tab, openerTab);
     }
   }
 
@@ -2080,14 +2179,7 @@ class Service {
     // (heldWith): it's the step's too, and the hand back of a secret one
     // blanks it. Its own values keep that through a restart, which the hold
     // doesn't survive.
-    const openerTab = hold ? this.pages.tabFor(openerPage) : null;
-    if (openerTab && heldStepOf(openerTab)?.task === space.id) {
-      this.pages.markHeld(tab, space);
-    }
-    const mark = openerTab ? secretMarkOf(openerTab) : null;
-    if (mark?.task === space.id) {
-      this.pages.markSecret(tab, space, { by: mark.by });
-    }
+    this.#joinStep(space, tab, hold ? this.pages.tabFor(openerPage) : null);
     keepAlive(tab);
     this.emit("popup", { space: space.id, page: page.label, tab: this.pages.tabId(tab), opener: openerPage.label });
     return page;
@@ -2140,6 +2232,11 @@ class Service {
     }
     this.#keptTabGone(tab, "closed");
     this.pages.forgetDeferred(tab);
+    // A secret step's tab closing before its blank (#closedMarked), once the
+    // close is the tab's own and not a tear-off's. Read first, while the tab
+    // has all it had.
+    const closingMark = secretMarkOf(tab);
+    const left = closingMark ? this.#unblankedSites([tab]) : null;
     const id = this.pages.tabId(tab);
     const page = this.pages.forTab(tab);
     const inAgentsSpace = this.spaces.isAgentsSpace(tab.getAttribute("zen-workspace-id"));
@@ -2165,9 +2262,34 @@ class Service {
         task = space;
       }
     }
+    if (closingMark) {
+      this.#closedMarked(closingMark, left);
+    }
     if (task?.kind === "task" || inAgentsSpace) {
       // Once the close is done, and after a finish() that is closing tabs.
       Promise.resolve().then(() => this.#afterTaskTabClosed(task));
+    }
+  }
+
+  /**
+   * A marked tab closed before its blank: what its sites cached goes, as no
+   * blank will clear it, and the cards hear when the step is no longer a
+   * secret one, or no longer the agent's, since the agent's takeOver
+   * follows the marks left. A closing tab is out of tabsOf already, so
+   * secretStepOf says what's left.
+   *
+   * @param {{task: number, by: string}} mark  the closed tab's
+   * @param {{sites: Set<string>, overflow: boolean}} left  #unblankedSites
+   */
+  #closedMarked(mark, left) {
+    const rec = this.spaces.peek(mark.task) ?? null;
+    this.#clearUnblanked(rec, left, "tab closed before its blank");
+    if (rec && !rec.gone && rec.ownership === "agentDelegatedToUser") {
+      const now = this.secretStepOf(rec);
+      const was = mark.by === "agent" || now.secretBy === "agent" ? "agent" : "user";
+      if (!now.secret || now.secretBy !== was) {
+        this.spaces.secretStepChanged(rec, now);
+      }
     }
   }
 
@@ -2595,8 +2717,11 @@ class Service {
           this.endTaskCode(rec);
         }
         // Its tabs are the user's now: no hand back will blank them, and
-        // none carries a secret step's mark into a later session.
-        for (const tab of this.pages.tabsOf(rec)) {
+        // none carries a secret step's mark into a later session. What a
+        // marked one's sites cached goes as the blank would clear it.
+        const tabs = this.pages.tabsOf(rec);
+        this.#clearUnblanked(rec, this.#unblankedSites(tabs.filter(tab => secretTaskOf(tab) === rec.id)), "task ended before its blank");
+        for (const tab of tabs) {
           this.pages.clearSecret(tab);
         }
         // The user's now (Stop, or finish): pages stop running as agent tabs.
@@ -3981,7 +4106,9 @@ function historySites(tab) {
       }
     } catch {}
   };
-  const history = liveCopy(tab)?.linkedBrowser?.browsingContext?.sessionHistory;
+  // A tab's last copy, as it closes, is no copy any more (copiesOf): its own
+  // browser holds the history then.
+  const history = (liveCopy(tab) ?? tab).linkedBrowser?.browsingContext?.sessionHistory;
   for (let i = 0; i < (history?.count ?? 0); i++) {
     add(history.getEntryAtIndex(i)?.URI?.spec);
   }

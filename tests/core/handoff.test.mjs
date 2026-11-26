@@ -1761,6 +1761,8 @@ const fromCache = (space, page, url) =>
     r => r,
     e => ({ failed: e.code })
   );
+/** Whether a fetch only the HTTP cache can answer gets `marker` back. */
+const cachedHas = async (space, page, url, marker) => String((await fromCache(space, page, url)).body ?? "").includes(marker);
 const refusedAsSecret = what => e => {
   assert.equal(e.code, "ZEN_TASK_SPACE_USER_IN_CONTROL", what);
   assert.equal(e.data?.secret, true, what);
@@ -1959,11 +1961,21 @@ test("a mark the user makes while the agent's takeOver runs refuses it right bef
 
 test("the user's Resume during the agent's takeOver, with their mark between: the marked tab leaves the task unblanked, out of the agent's reach, before the agent has control", async () => {
   const space = await h.space("ho user secret race");
+  const another = await h.space("ho user secret race other");
   let ids = null;
   try {
-    const { label } = await h.call("pages.new", { space, url: site("/form?ho=u5") });
+    // A page of another site first, so only the tab's history has that site: the tick's clear,
+    // which takes the held step's sites, leaves it; the backstop's, as a blank's, doesn't.
+    const { label } = await h.call("pages.new", { space, url: other("/form?ho=u5-first") });
+    await loaded(space, label, "ho=u5-first");
+    await h.call("page.goto", { space, page: label, url: site("/form?ho=u5") });
     await loaded(space, label, "ho=u5");
     ids = await idsOf(space, label);
+    const marker = `marker-${Date.now()}`;
+    const elsewhere = other(`/cached?m=${marker}`);
+    const { label: fetcher } = await h.call("pages.new", { space: another, url: elsewhere });
+    await loaded(another, fetcher, "/cached");
+    assert.ok(await cachedHas(another, fetcher, elsewhere, marker), "the premise: it's cached");
     await h.call("spaces.handOff", { space });
     await userLoads(space, label, site("/form?ho=u5-token"));
     await loaded(space, label, "ho=u5-token");
@@ -1989,6 +2001,8 @@ test("the user's Resume during the agent's takeOver, with their mark between: th
     const left = await tabState(ids.browserId);
     assert.ok(left.gone || (left.page === null && left.url === site("/form?ho=u5-token")), `the user's page, out of the task: ${JSON.stringify(left)}`);
     assert.equal(back.blanked, undefined);
+    // What its sites cached went before the agent got the task.
+    assert.equal(await cachedHas(another, fetcher, elsewhere, marker), false, "the backstop left the tab's sites cached");
   } finally {
     await forgetCloses().catch(() => {});
     await forgetSecret().catch(() => {});
@@ -1996,6 +2010,7 @@ test("the user's Resume during the agent's takeOver, with their mark between: th
       await closeTheirs(ids.browserId).catch(() => {});
     }
     await cleanUp(space);
+    await h.call("spaces.finish", { space: another, keep: [] }).catch(() => {});
   }
 });
 
@@ -2025,6 +2040,194 @@ test("a held step that loaded more sites than it keeps: the user's mark clears e
     assert.deepEqual(overflow, { kept: 64, overflow: true });
     assert.equal((await markByUser(space, true)).ok, true);
     await h.until(async () => !String((await fromCache(another, fetcher, elsewhere)).body ?? "").includes(marker), 5000);
+  } finally {
+    await cleanUp(space);
+    await h.call("spaces.finish", { space: another, keep: [] }).catch(() => {});
+  }
+});
+
+/** Requests of the page's tab to `urls`, as the network capture hands them to the core at their start. */
+const requestsTo = (space, label, urls) =>
+  h.chrome(
+    `const b = ctx.pages.tabFor(ctx.pages.get(ctx.spaces.get(arg.space), arg.label)).linkedBrowser;
+     for (const url of arg.urls) {
+       ctx.service.noteSecretRequest(b.browsingContext.browserId, { URI: Services.io.newURI(url), loadFlags: 0 });
+     }
+     return true;`,
+    { space, label, urls }
+  );
+/** The mark and the held value of a page's tab: how many sites each keeps, and whether it says overflow. */
+const valuesOf = (space, label) =>
+  h.chrome(
+    `const { heldStepOf, secretMarkOf } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/pages.sys.mjs");
+     const tab = ctx.pages.tabFor(ctx.pages.get(ctx.spaces.get(arg.space), arg.label));
+     const mark = secretMarkOf(tab);
+     const held = heldStepOf(tab);
+     return { mark: mark && { sites: mark.sites.length, overflow: mark.overflow }, held: held && { sites: held.sites.length, overflow: held.overflow } };`,
+    { space, label }
+  );
+/** The user closes a page's tab, as its close button would, with no leave prompt. */
+const closeByUser = (space, label) =>
+  h.chrome(
+    `const tab = ctx.pages.tabFor(ctx.pages.get(ctx.spaces.get(arg.space), arg.label));
+     tab.ownerDocument.defaultView.gBrowser.removeTab(tab, { skipPermitUnload: true, animate: false });
+     return true;`,
+    { space, label }
+  );
+
+test("a marked step that loads more sites after its mark than a mark keeps: every tab of the step says overflow, a popup opened later too, and the user's Resume clears every site's caches", async () => {
+  const space = await h.space("ho secret overflow after");
+  const another = await h.space("ho secret overflow after other");
+  try {
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=u7") });
+    await loaded(space, label, "ho=u7");
+    // Another task's cached page on a site the step never loads.
+    const marker = `marker-${Date.now()}`;
+    const elsewhere = other(`/cached?m=${marker}`);
+    const { label: fetcher } = await h.call("pages.new", { space: another, url: elsewhere });
+    await loaded(another, fetcher, "/cached");
+    assert.ok(await cachedHas(another, fetcher, elsewhere, marker), "the premise: it's cached");
+    await h.call("spaces.handOff", { space, secret: true });
+    // The site's popup, in the hold before the step's many sites.
+    assert.equal(await inPage(space, label, `return String(!!window.open(${JSON.stringify(site("/form?ho=u7-pop"))}));`), "true");
+    const pop = await pageOf(space, "ho=u7-pop");
+    await loaded(space, pop, "ho=u7-pop");
+    // After the mark its HTTP loads skip the cache, but images would still enter the image cache.
+    await requestsTo(space, label, Array.from({ length: 70 }, (_, i) => `http://a${i}.example/`));
+    for (const page of [label, pop]) {
+      const values = await valuesOf(space, page);
+      assert.equal(values.mark?.overflow, true, `${page}'s mark: ${JSON.stringify(values)}`);
+      assert.ok(values.mark.sites <= 64, JSON.stringify(values));
+      assert.equal(values.held?.overflow, true, `${page}'s held value: ${JSON.stringify(values)}`);
+    }
+    // A popup opened after takes it with the step's sites.
+    assert.equal(await inPage(space, label, `return String(!!window.open(${JSON.stringify(site("/form?ho=u7-late"))}));`), "true");
+    const late = await pageOf(space, "ho=u7-late");
+    await loaded(space, late, "ho=u7-late");
+    const lateValues = await valuesOf(space, late);
+    assert.deepEqual([lateValues.mark?.overflow, lateValues.held?.overflow], [true, true], JSON.stringify(lateValues));
+    await resumeByUser(space);
+    assert.equal(await cachedHas(another, fetcher, elsewhere, marker), false, "the hand back left another site's cache");
+  } finally {
+    await cleanUp(space);
+    await h.call("spaces.finish", { space: another, keep: [] }).catch(() => {});
+  }
+});
+
+test("a hand-off with secret: what the hold's quiet load cached goes as the hold begins, not only at the hand back", async () => {
+  const space = await h.space("ho secret start");
+  const another = await h.space("ho secret start other");
+  try {
+    const marker = `marker-${Date.now()}`;
+    const shown = site(`/cached?m=${marker}`);
+    const { label } = await h.call("pages.new", { space, url: shown });
+    await loaded(space, label, "/cached");
+    // Something of the agent's in the page, so the hand-off loads it afresh: the quiet load.
+    await hook(space, label);
+    const { label: fetcher } = await h.call("pages.new", { space: another, url: site("/form?ho=c0-other") });
+    await loaded(another, fetcher, "ho=c0-other");
+    assert.ok(await cachedHas(another, fetcher, shown, marker), "the premise: the step's page is cached");
+    const reply = await h.call("spaces.handOff", { space, secret: true });
+    assert.deepEqual(reply.reloaded, [label], "the premise: the hand-off loaded it afresh");
+    await h.until(async () => !(await cachedHas(another, fetcher, shown, marker)), 5000);
+    await resumeByUser(space);
+  } finally {
+    await cleanUp(space);
+    await h.call("spaces.finish", { space: another, keep: [] }).catch(() => {});
+  }
+});
+
+test("a hand-off with secret: a marked tab the user closes before Resume takes its sites' caches along, though no blank comes, and the agent's takeOver right after gets the task once that clear is done", async () => {
+  const space = await h.space("ho secret close");
+  const another = await h.space("ho secret close other");
+  try {
+    // A page of the task outside the step, so the close doesn't end the task.
+    const { label: kept } = await h.call("pages.new", { space, url: site("/form?ho=c1-kept") });
+    await loaded(space, kept, "ho=c1-kept");
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=c1") });
+    await loaded(space, label, "ho=c1");
+    const { label: fetcher } = await h.call("pages.new", { space: another, url: site("/form?ho=c1-other") });
+    await loaded(another, fetcher, "ho=c1-other");
+    await h.call("spaces.handOff", { space, secret: true });
+    assert.notEqual((await valuesOf(space, label)).mark, null, "the step is the page the hand-off holds");
+    // The step's site cached during the hold, as another task's load.
+    const marker = `marker-${Date.now()}`;
+    const later = site(`/cached?m=${marker}`);
+    await h.call("page.goto", { space: another, page: fetcher, url: later });
+    await loaded(another, fetcher, `m=${marker}`);
+    assert.ok(await cachedHas(another, fetcher, later, marker), "the premise: cached during the hold");
+    // Quiet past the 10 s rule, then the close and, at once, the agent's own way back.
+    await quietFor(space, 11_000);
+    await listenSecret();
+    await closeByUser(space, label);
+    // No mark is left, and the cards hear it: the takeOver works, once the close's clear is done.
+    assert.deepEqual(await secretStep(space), { secret: false, secretBy: null });
+    assert.deepEqual(await secretHeard(), [{ space, secret: false, secretBy: null }]);
+    assert.equal(await h.ownership(space), "agentDelegatedToUser");
+    await h.call("spaces.takeOver", { space });
+    assert.equal(await h.ownership(space), "agent");
+    assert.equal(await cachedHas(another, fetcher, later, marker), false, "the close left the step's site cached");
+  } finally {
+    await forgetSecret().catch(() => {});
+    await cleanUp(space);
+    await h.call("spaces.finish", { space: another, keep: [] }).catch(() => {});
+  }
+});
+
+test("a hand-off with secret that the user stops before Resume: the task's end clears what the step's sites cached, though no blank comes", async () => {
+  const space = await h.space("ho secret stop");
+  const another = await h.space("ho secret stop other");
+  let ids = null;
+  try {
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=c2") });
+    await loaded(space, label, "ho=c2");
+    ids = await idsOf(space, label);
+    const { label: fetcher } = await h.call("pages.new", { space: another, url: site("/form?ho=c2-other") });
+    await loaded(another, fetcher, "ho=c2-other");
+    await h.call("spaces.handOff", { space, secret: true });
+    // The step's site cached during the hold, as another task's load.
+    const marker = `marker-${Date.now()}`;
+    const later = site(`/cached?m=${marker}`);
+    await h.call("page.goto", { space: another, page: fetcher, url: later });
+    await loaded(another, fetcher, `m=${marker}`);
+    assert.ok(await cachedHas(another, fetcher, later, marker), "the premise: cached during the hold");
+    // The panel's Stop.
+    await h.chrome(`ctx.spaces.setOwnership(ctx.spaces.get(arg), "user", { source: "user" }); return true;`, space);
+    await h.until(async () => !(await cachedHas(another, fetcher, later, marker)), 5000);
+    assert.equal((await valuesOf(space, label)).mark, null, "the user's tab keeps no mark");
+  } finally {
+    if (ids) {
+      await closeTheirs(ids.browserId).catch(() => {});
+    }
+    await cleanUp(space);
+    await h.call("spaces.finish", { space: another, keep: [] }).catch(() => {});
+  }
+});
+
+test("a tab that joins a held step takes the sites the step loaded before it: the user's mark after the step's first tab closed still clears them", async () => {
+  const space = await h.space("ho held join");
+  const another = await h.space("ho held join other");
+  try {
+    // The step on one site; another task's cached page on a site only its first tab loads.
+    const { label } = await h.call("pages.new", { space, url: other("/form?ho=j1") });
+    await loaded(space, label, "ho=j1");
+    const marker = `marker-${Date.now()}`;
+    const elsewhere = site(`/cached?m=${marker}`);
+    const { label: fetcher } = await h.call("pages.new", { space: another, url: elsewhere });
+    await loaded(another, fetcher, "/cached");
+    assert.ok(await cachedHas(another, fetcher, elsewhere, marker), "the premise: it's cached");
+    await userTakeOver(space, label);
+    await requestsTo(space, label, [elsewhere]);
+    // Its popup joins the hold after that load.
+    assert.equal(await inPage(space, label, `return String(!!window.open(${JSON.stringify(other("/form?ho=j1-pop"))}));`), "true");
+    const pop = await pageOf(space, "ho=j1-pop");
+    await loaded(space, pop, "ho=j1-pop");
+    // The first tab closes unmarked: nothing to clear yet.
+    await closeByUser(space, label);
+    assert.ok(await cachedHas(another, fetcher, elsewhere, marker), "an unmarked tab's close clears nothing");
+    assert.deepEqual(await markByUser(space, true), { ok: true, secret: true, secretBy: "user" });
+    await h.until(async () => !(await cachedHas(another, fetcher, elsewhere, marker)), 5000);
+    await resumeByUser(space);
   } finally {
     await cleanUp(space);
     await h.call("spaces.finish", { space: another, keep: [] }).catch(() => {});
