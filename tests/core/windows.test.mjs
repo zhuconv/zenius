@@ -246,6 +246,50 @@ test("a hand-off with secret: the hand back blanks the page where its docShell i
   }
 });
 
+test("a hand-off with secret: the step's page and typing in one window, then a window the user opens: the hand back blanks the page viewed there, and no copy's saved state keeps the step", async () => {
+  const { space, p2 } = await task("secret new window");
+  let n = 0;
+  try {
+    await h.chrome(`${W} ctx.pages.noteFront(liveOf(arg.space, arg.p2)); return true;`, { space, p2 });
+    await h.call("spaces.handOff", { space, secret: true });
+    // The user's step starts in the first window: its page, and their typing there.
+    await h.chrome(
+      `${W} liveOf(arg.space, arg.p2).linkedBrowser.loadURI(Services.io.newURI(arg.url), { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() }); return true;`,
+      { space, p2, url: `${h.base}/zoo/forms.html?new-window-token` }
+    );
+    const typed = await h.chrome(
+      `${W} const { TabStateFlusher } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/TabStateFlusher.sys.mjs");
+       const inPage = code => ctx.content(liveOf(arg.space, arg.p2).linkedBrowser.browsingContext, "dev#evalContent", { code, privileged: false }).catch(() => "");
+       await until(async () => liveOf(arg.space, arg.p2).linkedBrowser.currentURI.spec.includes("new-window-token") && (await inPage("return document.readyState;")) === "complete");
+       await inPage('const f = document.querySelector("input[name=nickname]"); f.value = "typed-nw-secret"; f.dispatchEvent(new Event("input", { bubbles: true })); return 1;');
+       await TabStateFlusher.flush(liveOf(arg.space, arg.p2).linkedBrowser);
+       return SessionStore.getTabState(liveOf(arg.space, arg.p2)).includes("typed-nw-secret");`,
+      { space, p2 }
+    );
+    assert.equal(typed, true, "the first window's copy saved the user's typing");
+    // Then they open a window and view the page there: the first window's
+    // copy keeps the state it had while it showed the page.
+    n = (await openWindow()) - 1;
+    assert.deepEqual(await userSelects(n, space, p2, { focused: true }), { live: n, selected: true }, "the docShell is in the new window's copy");
+    await h.chrome(`const s = ctx.spaces.get(arg); await ctx.service.beforeHandBack(s); ctx.spaces.setOwnership(s, "agent", { source: "user" }); return true;`, space);
+    const now = await h.chrome(
+      `${W} const tab = liveOf(arg.space, arg.p2);
+       const saved = Win.copiesOf(tab).map(c => SessionStore.getTabState(c)).join();
+       return { n: nOf(tab), url: tab.linkedBrowser.currentURI.spec, history: tab.linkedBrowser.browsingContext.sessionHistory?.count ?? 0,
+         copies: Win.copiesOf(tab).length, saved: ["new-window-token", "typed-nw-secret"].filter(s => saved.includes(s)) };`,
+      { space, p2 }
+    );
+    assert.deepEqual(now, { n, url: "about:blank", history: 1, copies: n + 1, saved: [] }, "the copy the user saw the secret in is blank, and no copy's saved state keeps the step");
+    assert.deepEqual((await h.call("spaces.waitForControl", { space, timeout: 5000 })).blanked, [p2]);
+  } finally {
+    if (n) {
+      await userLeaves(n);
+      await h.chrome(`${W} const w = nth(arg); const left = wins().length - 1; w.close(); await until(() => wins().length === left); await focus(0); return true;`, n);
+    }
+    await h.call("spaces.finish", { space, keep: [] });
+  }
+});
+
 test("finish waits for a tab another window shows, and no window's view moves", async () => {
   for (const focused of [false, true]) {
     const { space, p2 } = await task(`finish shown ${focused ? "focused" : "unfocused"}`);

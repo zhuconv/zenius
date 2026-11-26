@@ -68,6 +68,13 @@ const serve = (req, res) => {
     }
     server.served.add(url.search);
   }
+  // A page as most frameworks send it, kept for revalidation: the HTTP
+  // cache holds it (a secret step's one-time page, a QR image).
+  if (url.pathname === "/cached") {
+    res.writeHead(200, { "content-type": "text/html", "cache-control": "private, max-age=0, must-revalidate" });
+    res.end(`<!doctype html><title>cached</title><p id=m>${url.searchParams.get("m") ?? ""}</p>`);
+    return;
+  }
   if (url.searchParams.get("ho")?.endsWith("away")) {
     server.away++;
   }
@@ -1585,6 +1592,118 @@ test("a hand-off with secret: a second hand back while the first one blanks wait
     if (ids) {
       await closeTheirs(ids.browserId).catch(() => {});
     }
+    await cleanUp(space);
+  }
+});
+
+/** A tab by its tab id, as its live copy: gone, or its URL, history, browserId and whether its task holds it. */
+const tabById = (space, tab) =>
+  h.chrome(
+    `const { uniqueTabs } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/windows.sys.mjs");
+     const t = [...uniqueTabs()].find(x => !x.closing && ctx.pages.tabId(x) === arg.tab);
+     if (!t) return { gone: true };
+     const bc = t.linkedBrowser.browsingContext;
+     return { gone: false, url: t.linkedBrowser.currentURI.spec, history: bc?.sessionHistory?.count ?? 0, browserId: bc?.browserId ?? 0,
+       inTask: ctx.pages.tabsOf(ctx.spaces.get(arg.space)).some(x => ctx.pages.tabId(x) === arg.tab) };`,
+    { space, tab }
+  );
+
+test("a hand-off with secret: the tabs the user's step opens blank at the hand back too, its popup and one opened with no opener", async () => {
+  const space = await h.space("ho secret opened");
+  let mid = null;
+  try {
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=s8") });
+    await loaded(space, label, "ho=s8");
+    await h.call("spaces.handOff", { space, secret: true });
+    await userLoads(space, label, site("/form?ho=s8-token"));
+    await loaded(space, label, "ho=s8-token");
+    // The site's sign-in popup, which joins the hold.
+    assert.equal(await inPage(space, label, `return String(!!window.open(${JSON.stringify(site("/form?ho=s8-pop"))}));`), "true");
+    const pop = await pageOf(space, "ho=s8-pop");
+    await loaded(space, pop, "ho=s8-pop");
+    // The user's middle click there: a tab with no opener, the task's, which never joins the hold.
+    const midTab = await h.chrome(
+      `const b = ctx.pages.tabFor(ctx.pages.get(ctx.spaces.get(arg.space), arg.label)).linkedBrowser;
+       const tab = b.ownerDocument.defaultView.gBrowser.addTab(arg.url, { openerBrowser: b, inBackground: true, triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+       return ctx.pages.tabId(tab);`,
+      { space, label, url: site("/form?ho=s8-mid") }
+    );
+    await h.until(async () => !!(mid = await tabById(space, midTab)).url?.includes("ho=s8-mid"), 10000);
+    assert.equal(mid.inTask, true, "the tab the user opened is the task's");
+    await resumeByUser(space);
+    for (const page of [label, pop]) {
+      const now = await info(space, page);
+      assert.deepEqual([now.url, now.history], ["about:blank", 1], `${page}: blank, with no history`);
+    }
+    mid = await tabById(space, midTab);
+    assert.ok(mid.gone || !mid.inTask || (mid.url === "about:blank" && mid.history === 1), `the tab opened with no opener: ${JSON.stringify(mid)}`);
+    assert.deepEqual([...((await h.call("spaces.waitForControl", { space, timeout: 5000 })).blanked ?? [])].sort(), [label, pop].sort());
+  } finally {
+    if (mid?.browserId) {
+      await closeTheirs(mid.browserId).catch(() => {});
+    }
+    await cleanUp(space);
+  }
+});
+
+test("a hand-off with secret: spaces.list gives the step's tab no title while the user holds it", async () => {
+  const space = await h.space("ho secret title");
+  // The task's one page, so spaces.list has one title.
+  const label = "p1";
+  try {
+    await h.call("page.goto", { space, page: label, url: site("/form?ho=s9") });
+    await loaded(space, label, "ho=s9");
+    await h.call("spaces.handOff", { space, secret: true });
+    await userLoads(space, label, site("/form?ho=s9-secret-title"));
+    await loaded(space, label, "ho=s9-secret-title");
+    // The strip shows the page's title.
+    await h.until(
+      async () => (await h.chrome(`return ctx.pages.tabFor(ctx.pages.get(ctx.spaces.get(arg.space), arg.label)).label;`, { space, label })) === "s9-secret-title",
+      5000
+    );
+    const titles = (await h.call("spaces.list")).taskSpaces.find(s => s.id === space).recentTabTitles;
+    assert.deepEqual(titles, [""], "no title of the step's page");
+  } finally {
+    await cleanUp(space);
+  }
+});
+
+test("a hand-off with secret: after the hand back, the HTTP cache gives back nothing of what the step showed, in its tab or in a popup that closed itself", async () => {
+  const space = await h.space("ho secret cache");
+  try {
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=s10") });
+    await loaded(space, label, "ho=s10");
+    // Another of the task's pages on the same site, where the agent fetches later.
+    const { label: fetcher } = await h.call("pages.new", { space, url: site("/form?ho=s10-other") });
+    await loaded(space, fetcher, "ho=s10-other");
+    await front(space, label);
+    await h.call("spaces.handOff", { space, secret: true });
+    const marker = `marker-${Date.now()}`;
+    const shown = site(`/cached?m=${marker}`);
+    await userLoads(space, label, shown);
+    await loaded(space, label, "/cached");
+    // A sign-in popup on another site, which closes itself before the hand back.
+    const popped = other(`/cached?m=${marker}-pop`);
+    assert.equal(await inPage(space, label, `return String(!!window.open(${JSON.stringify(popped)}));`), "true");
+    const pop = await pageOf(space, `m=${marker}-pop`);
+    await loaded(space, pop, "/cached");
+    await inPage(space, pop, "setTimeout(() => window.close(), 50); return 1;");
+    // In chrome: pages.list is a read, which the hold refuses.
+    await h.until(async () => !(await h.chrome(`return ctx.pages.list(arg.space).some(p => p.label === arg.pop);`, { space, pop })), 10000);
+    await resumeByUser(space);
+    // Only what the cache kept could answer: no request goes out.
+    const cached = url =>
+      h.call("page.fetch", { space, page: fetcher, url, options: { cache: "only-if-cached", mode: "same-origin" } }).then(
+        r => r,
+        e => ({ failed: e.code })
+      );
+    const fetched = await cached(shown);
+    assert.ok(fetched.failed || !String(fetched.body ?? "").includes(marker), `the cache gave the step's page back: ${JSON.stringify(fetched).slice(0, 300)}`);
+    // The popup's site, from a page of the task there.
+    await h.call("page.goto", { space, page: fetcher, url: other("/form?ho=s10-local") });
+    const fromPopup = await cached(popped);
+    assert.ok(fromPopup.failed || !String(fromPopup.body ?? "").includes(`${marker}-pop`), `the cache gave the closed popup's page back: ${JSON.stringify(fromPopup).slice(0, 300)}`);
+  } finally {
     await cleanUp(space);
   }
 });

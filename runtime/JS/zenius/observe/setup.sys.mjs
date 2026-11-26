@@ -206,7 +206,39 @@ export function browserOf(spaceId, label) {
   return page ? (ZeniusService.pages.tabFor(page)?.linkedBrowser ?? null) : null;
 }
 
-function headersOf(channel, response) {
+/**
+ * The headers whose values are the user's credentials, both ways: a
+ * script reading page.events could carry them off and sign in as the user
+ * elsewhere (HttpOnly cookies too). Their names stay.
+ */
+const CREDENTIAL_HEADERS = new Set(["cookie", "set-cookie", "authorization", "proxy-authorization"]);
+const REDACTED = "<redacted>";
+
+/**
+ * The same four in the headers page.fetch returns: a server's own
+ * Authorization or Cookie response header is a credential too (some
+ * sign-in APIs send their token so). Gecko drops Set-Cookie there already.
+ *
+ * @param {Record<string, string>|undefined} headers  changed in place
+ * @returns {Record<string, string>|undefined}
+ */
+export function redactCredentialHeaders(headers) {
+  if (headers && typeof headers === "object") {
+    for (const name of Object.keys(headers)) {
+      if (CREDENTIAL_HEADERS.has(name.toLowerCase())) {
+        headers[name] = REDACTED;
+      }
+    }
+  }
+  return headers;
+}
+
+/**
+ * A channel's request or response headers for page.events, lower-cased,
+ * credentials redacted. Exported for its test on a stub channel: a
+ * Proxy-Authorization needs a proxy otherwise.
+ */
+export function headersOf(channel, response) {
   const headers = {};
   // A Location (or Refresh, Link) can name a sign-in's callback relative to
   // the request, which the socket's redaction of absolute URLs can't see.
@@ -217,6 +249,10 @@ function headersOf(channel, response) {
   const visitor = {
     visitHeader(name, value) {
       const key = name.toLowerCase();
+      if (CREDENTIAL_HEADERS.has(key)) {
+        headers[key] = REDACTED;
+        return;
+      }
       const seen = redactReferences(value, base);
       headers[key] = key in headers ? `${headers[key]}, ${seen}` : seen;
     },
@@ -231,8 +267,27 @@ function headersOf(channel, response) {
   return headers;
 }
 
+/** Requests that began while the agent drove their tab: only theirs give a response and an end in page.events too. */
+const agentRequests = new WeakSet();
+
 /** Network.* events for page.events(), shaped as CDP sends them. */
 function networkEvent(event, browserId, info, channel) {
+  // Only what a tab requests while the agent drives it (zen-core's set,
+  // which the content guards read too), decided at the request's start:
+  // what a tab the user holds requests is theirs (the sign-in's form and
+  // cookies, a secret step's pages, a reset link), its response and end
+  // after the hand back included.
+  if (event === "request") {
+    // A secret step's tab notes each site it loads, for the hand back's
+    // cache clearing (zen-core's noteSecretRequest).
+    ZeniusService.noteSecretRequest(browserId, channel);
+    if (!Services.ppmm.sharedData.get(AGENT_BROWSERS_KEY)?.has(browserId)) {
+      return;
+    }
+    agentRequests.add(info);
+  } else if (!agentRequests.has(info)) {
+    return;
+  }
   // The sign-in rules: what a sign-in result's document requests is the
   // user's (a beacon can carry the page's address, code and all).
   let windowId = 0;
@@ -310,7 +365,12 @@ export function setupObserve() {
     log("zen-observe: audio hooks failed:", e.message);
   }
   installNetwork({
-    track: browserId => !!managedPage(BrowsingContext.getCurrentTopByBrowserId(browserId)?.embedderElement),
+    // The agent's pages, and a secret step's other tabs while the user holds
+    // them: the hand back clears the caches of the sites they load.
+    track: browserId => {
+      const browser = BrowsingContext.getCurrentTopByBrowserId(browserId)?.embedderElement ?? null;
+      return !!managedPage(browser) || !!service.secretTabOf(browser);
+    },
   });
   onRequestEvent(networkEvent);
   // A task's tabs, whoever holds them now: the set the content guards read.

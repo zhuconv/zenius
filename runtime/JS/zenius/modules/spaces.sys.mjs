@@ -31,6 +31,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SessionSaver: "moz-src:///browser/components/sessionstore/SessionSaver.sys.mjs",
   // Loads with the first agent call that needs it, not at startup (I4).
   showsSignInResult: "chrome://userscripts/content/zenius/observe/signin.sys.mjs",
+  secretTaskOf: "chrome://userscripts/content/zenius/modules/pages.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -1017,8 +1018,10 @@ export class Spaces {
     return tabs
       .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))
       .slice(0, limit)
-      // A sign-in result's title is the user's (content/signin.sys.mjs).
-      .map(tab => (lazy.showsSignInResult(tab.linkedBrowser) ? "" : tab.label));
+      // A sign-in result's title is the user's (content/signin.sys.mjs), and
+      // so is a secret step's page's while the user holds it: its title may
+      // show what the step shows, and spaces.list needs no control.
+      .map(tab => (lazy.showsSignInResult(tab.linkedBrowser) || lazy.secretTaskOf(tab) !== null ? "" : tab.label));
   }
 
   get windowCount() {

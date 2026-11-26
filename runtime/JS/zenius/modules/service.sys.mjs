@@ -5,7 +5,14 @@
 import { ErrorCodes, ZenError, toWireError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
 import { RpcServer } from "chrome://userscripts/content/zenius/modules/server.sys.mjs";
 import { Spaces, newLedger } from "chrome://userscripts/content/zenius/modules/spaces.sys.mjs";
-import { Pages, defaultPageBudget, ownValue, readTabValue } from "chrome://userscripts/content/zenius/modules/pages.sys.mjs";
+import {
+  Pages,
+  defaultPageBudget,
+  ownValue,
+  readTabValue,
+  secretSitesOf,
+  secretTaskOf,
+} from "chrome://userscripts/content/zenius/modules/pages.sys.mjs";
 import {
   addingAgentTab,
   allTabs,
@@ -15,6 +22,7 @@ import {
   hostWindow,
   KEPT_REFUSAL_KINDS,
   KEPT_TEXT_MAX,
+  liveCopy,
   markLiveCopy,
   noteKeptRefused,
   stopFollowingWindowSync,
@@ -65,6 +73,9 @@ import {
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
+  SessionSaver: "moz-src:///browser/components/sessionstore/SessionSaver.sys.mjs",
+  TabStateCache: "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs",
+  TabStateFlusher: "moz-src:///browser/components/sessionstore/TabStateFlusher.sys.mjs",
   agentCodeDocument: "chrome://userscripts/content/zenius/observe/agentcode.sys.mjs",
   hasAgentCodeMarks: "chrome://userscripts/content/zenius/observe/agentcode.sys.mjs",
   holdOf: "chrome://userscripts/content/zenius/observe/hold.sys.mjs",
@@ -117,6 +128,8 @@ const NO_FEEDBACK = Object.freeze({ pending: () => null, cooldown: () => null })
 const STATUS_READS = new Set(["browser.version", "browser.health", "browser.methods"]);
 /** The restart rebuild waits at most this long for Zen's session restore, or for a first window. */
 const REBUILD_WAIT_MS = 30_000;
+/** How long the hand back waits for the blanks' session save, each part. */
+const SESSION_SAVE_MS = 5000;
 /** How long an unloaded tab's insert waits for Zen to put its history back. */
 const INSERT_WAIT_MS = 5000;
 /** How long a tab the agent takes waits for its documents' guards. */
@@ -891,9 +904,6 @@ class Service {
   /** Has any page been held for the user since startup? Until then the hold's module stays unloaded (I4). */
   #heldForUser = false;
 
-  /** Task record → the browserIds of its secret steps' tabs (an agent's hand-off with secret), blanked at the hand back. */
-  #secretSteps = new WeakMap();
-
   /** Task record → its hand back's blank while it runs (blankSecretSteps), for a second hand back meanwhile. */
   #blanking = new WeakMap();
 
@@ -1246,38 +1256,48 @@ class Service {
 
   /**
    * The agent says the user's step in `browser` will show a secret (its
-   * hand-off with secret): the hand back blanks that tab first. By its
-   * browserId: the page's docShell moves to the copy a window selects
-   * (window sync) and into a torn-off window's browser, and the browserId
-   * goes with it, while this <browser> stays behind.
+   * hand-off with secret): the hand back blanks that tab first, with the
+   * tabs opened from it during the hold. Each gets a secret step's mark in
+   * Zen's session (pages.markSecret), on every copy: the hand back finds it
+   * wherever window sync or a move put its docShell, and after a quit, a
+   * crash or an update's restart. A popup that joins the hold later gets it
+   * as it joins the task (adoptPopup), and so does a tab opened from a
+   * marked one with no opener (noteOpenedTab).
    *
    * @param {object} rec
    * @param {Element} browser
    */
   noteSecretStep(rec, browser) {
-    const id = browser?.browsingContext?.browserId;
-    if (!id) {
-      log("a secret step's tab has no browsing context: the hand back can't blank it");
+    if (!tabOfBrowser(browser)) {
+      log("a secret step's page has no tab: the hand back can't blank it");
       return;
     }
-    let ids = this.#secretSteps.get(rec);
-    if (!ids) {
-      this.#secretSteps.set(rec, (ids = new Set()));
+    const own = new Set(this.pages.tabsOf(rec).map(tab => this.pages.tabId(tab)));
+    // H, and any popup that joined its hold already.
+    for (const held of lazy.heldWith(browser)) {
+      const tab = tabOfBrowser(held);
+      if (tab && own.has(this.pages.tabId(tab))) {
+        this.pages.markSecret(tab, rec);
+      }
     }
-    ids.add(id);
   }
 
   /**
    * At the hand back, before the agent has control (the user's Resume,
-   * spaces.takeOver, spaces.claim): each secret step's tab, and the popups
-   * it opened in its hold, show about:blank with their history gone, so
-   * nothing the agent can reach still shows the secret, back and the
-   * back-forward cache included (the Cloudflare token, 2026-11-21). The hand
-   * back's notes say which (blanked). A tab that doesn't blank leaves the
-   * task instead (#dropSecretTab): the agent never gets it back, and the
-   * notes don't name it. A second hand back that comes meanwhile (the
-   * agent's takeOver during the user's Resume, or the reverse) waits for the
-   * same run, so neither gives the agent control before the blank is done.
+   * spaces.takeOver, spaces.claim): each of the task's tabs that carries a
+   * secret step's mark (noteSecretStep: H, the popups of its hold, the tabs
+   * opened from it) shows about:blank with its history gone, so nothing the
+   * agent can reach still shows the secret, back and the back-forward cache
+   * included (the Cloudflare token, 2026-11-21). The marks are in Zen's
+   * session, so a quit, a crash or an update's restart during the hold
+   * keeps them. Only the task's own tabs count: one the user took out of the
+   * task stays as it is. The hand back's notes say which pages blanked
+   * (blanked). A tab that doesn't blank leaves the task instead
+   * (#dropSecretTab): the agent never gets it back, and the notes don't name
+   * it. The blanks reach Zen's session file before the agent has control
+   * (#saveBlanks). A second hand back that comes meanwhile (the agent's
+   * takeOver during the user's Resume, or the reverse) waits for the same
+   * run, so neither gives the agent control before the blank is done.
    *
    * @param {object} rec
    * @returns {Promise<string[]>} the labels of the pages blanked
@@ -1292,48 +1312,59 @@ class Service {
   }
 
   async #blankSteps(rec) {
-    const steps = this.#secretSteps.get(rec);
-    this.#secretSteps.delete(rec);
-    if (!steps?.size) {
+    const marked = this.pages.tabsOf(rec).filter(tab => secretTaskOf(tab) === rec.id);
+    if (!marked.length) {
       return [];
     }
-    // H and the popups of its hold, by browserId in this one synchronous
-    // step: a docShell that moves to another window's copy while an earlier
-    // tab blanks takes its browserId along, and an element would stay.
-    const ids = new Set();
-    for (const id of steps) {
-      const browser = BrowsingContext.getCurrentTopByBrowserId(id)?.embedderElement;
-      if (browser?.isConnected) {
-        for (const held of lazy.heldWith(browser)) {
-          const heldId = held.browsingContext?.browserId;
-          if (heldId) {
-            ids.add(heldId);
-          }
-        }
+    // A tab Zen restored unloaded gets its browser first: a load in it is
+    // then its restore, so its saved page never loads (#insertUnloaded).
+    await Promise.all(
+      marked
+        .filter(isUnloaded)
+        .map(tab => this.#insertUnloaded(tab).catch(e => log(`a secret step's unloaded tab got no browser: ${e.message}`)))
+    );
+    // Every tab's browserId in this one synchronous step, from the copy that
+    // holds its docShell: one that moves to another window's copy while an
+    // earlier tab blanks takes its browserId along, and an element would stay.
+    const steps = marked.map(tab => ({
+      tab,
+      id: liveCopy(tab)?.linkedBrowser?.browsingContext?.browserId ?? 0,
+      label: this.pages.forTab(tab)?.label ?? null,
+    }));
+    // The sites whose caches may hold what the step showed: those the marks
+    // noted, and those of each tab's history, read before the blank purges it.
+    const sites = new Set();
+    for (const step of steps) {
+      for (const site of [...secretSitesOf(step.tab), ...historySites(step.tab)]) {
+        sites.add(site);
       }
     }
-    const labels = [];
-    for (const id of ids) {
-      // The element only for the label and the drop, wherever the docShell is then.
-      const holder = () => BrowsingContext.getCurrentTopByBrowserId(id)?.embedderElement ?? null;
-      const shown = holder();
-      const label = shown ? (this.pages.forBrowser?.(shown)?.label ?? null) : null;
+    const blanked = [];
+    for (const step of steps) {
       const started = Date.now();
       try {
-        if (await lazy.blankTab(this, id)) {
-          log(`a secret step's tab is blank: ${label ?? "a page"} (${Date.now() - started} ms)`);
-          if (label) {
-            labels.push(label);
-          }
+        if (!step.id) {
+          throw new Error("it has no document to blank");
         }
+        if (await lazy.blankTab(this, step.id)) {
+          log(`a secret step's tab is blank: ${step.label ?? "a page"} (${Date.now() - started} ms)`);
+          blanked.push(step);
+        }
+        // false: it closed meanwhile, its mark with it.
+        continue;
       } catch (e) {
-        log(`a secret step's tab didn't blank (${e.message}), so it leaves the task: ${label ?? "a page"}`);
-        const browser = holder();
-        if (browser) {
-          this.#dropSecretTab(rec, browser);
-        }
+        log(`a secret step's tab didn't blank (${e.message}), so it leaves the task: ${step.label ?? "a page"}`);
+      }
+      // The copy that holds its docShell now, wherever that is.
+      const holder = step.id ? BrowsingContext.getCurrentTopByBrowserId(step.id)?.embedderElement : null;
+      const tab = (holder && tabOfBrowser(holder)) || (step.tab.isConnected && !step.tab.closing ? step.tab : null);
+      if (tab) {
+        this.#dropSecretTab(rec, tab);
       }
     }
+    await this.#clearSecretCaches(sites);
+    await this.#saveBlanks(blanked);
+    const labels = blanked.map(step => step.label).filter(Boolean);
     if (labels.length) {
       this.spaces.noteBlanked(rec, labels);
     }
@@ -1341,31 +1372,129 @@ class Service {
   }
 
   /**
-   * A secret step's tab that didn't blank leaves its task for good first
-   * (pages.leaveTask), so its page has ended for the agent (pageClosed). As
-   * the task's last tab it leaves a blank one of the agent's, as pages.close
-   * does. Then it closes as a tab of the user's would, with no leave prompt:
-   * one a window shows closes once the user leaves it, and the pill's Keep
-   * keeps it theirs, not the task's. One that won't close stays theirs.
+   * What the HTTP and image caches kept of a secret step goes, for its sites
+   * only, whether its tabs blanked or not: a site that doesn't send no-store
+   * (most frameworks' default) would give the step's page or its QR image
+   * back to a fetch with cache "force-cache" in any of the agent's tabs
+   * there. Cookies and sign-ins stay.
+   *
+   * @param {Set<string>} sites  schemeless sites
    */
-  #dropSecretTab(rec, browser) {
-    let tab = null;
+  async #clearSecretCaches(sites) {
+    if (!sites.size) {
+      return;
+    }
+    const flags = Ci.nsIClearDataService.CLEAR_NETWORK_CACHE | Ci.nsIClearDataService.CLEAR_IMAGE_CACHE;
+    const clear = site =>
+      new Promise((resolve, reject) => {
+        const done = { onDataDeleted: failed => (failed ? reject(new Error(`flags ${failed} not cleared`)) : resolve()) };
+        if (typeof Services.clearData.deleteDataFromSite === "function") {
+          Services.clearData.deleteDataFromSite(site, {}, true, flags, done);
+        } else {
+          Services.clearData.deleteDataFromBaseDomain(site, true, flags, done);
+        }
+      });
+    const results = await Promise.allSettled([...sites].map(site => timed(clear(site), SESSION_SAVE_MS, "clearing a site's caches")));
+    const failed = results.filter(r => r.status === "rejected");
+    // No site names: they're the user's step.
+    log(`a secret step's caches: ${sites.size - failed.length} of ${sites.size} site(s) cleared${failed.length ? ` (${failed[0].reason?.message})` : ""}`);
+  }
+
+  /**
+   * The blanks reach Zen's session file before the agent has control:
+   * Zen saves every 15 s, and a crash before then would bring the step's
+   * page back from the file at the next start, with the task the agent's.
+   * Their history is collected first, and every other copy of a blank tab
+   * takes its state (#copyBlankState). Then their marks go, then the
+   * session saves. At a quit, SessionStore's own save takes them, and one
+   * forced now could race it.
+   *
+   * @param {{tab: Element, id: number}[]} steps  the tabs that blanked
+   */
+  async #saveBlanks(steps) {
+    if (!steps.length) {
+      return;
+    }
+    const browsers = steps.map(step => BrowsingContext.getCurrentTopByBrowserId(step.id)?.embedderElement).filter(Boolean);
     try {
-      // Not ownerGlobal: zenius's module scope doesn't see it.
-      const win = browser.ownerDocument?.defaultView;
-      tab = win?.gBrowser?.getTabForBrowser(browser) ?? null;
-      const id = tab ? this.pages.tabId(tab) : null;
-      const found = this.pages.forBrowser?.(browser) ?? null;
-      if (tab && this.pages.tabsOf(rec).length <= 1) {
-        this.pages.addUnmanaged(rec, this.pages.addTab(rec, hostWindow(win)), "agent");
+      await timed(
+        Promise.all(browsers.map(browser => lazy.TabStateFlusher.flush(browser))),
+        SESSION_SAVE_MS,
+        "collecting the blank tabs' history"
+      );
+    } catch (e) {
+      log(`the blanks' history may not be collected yet: ${e.message}`);
+    }
+    for (const step of steps) {
+      this.#copyBlankState(step);
+      this.pages.clearSecret(step.tab);
+    }
+    if (Services.startup.shuttingDown) {
+      return;
+    }
+    try {
+      await timed(lazy.SessionSaver.run(), SESSION_SAVE_MS, "saving the session");
+    } catch (e) {
+      log(`saving the session after the blanks failed: ${e.message}`);
+    }
+  }
+
+  /**
+   * A blank tab's state, its live copy's, on each of its other copies. Each
+   * copy keeps a session key of its own (ZenWindowSync swaps them back after
+   * it moves a docShell), and only the live one's state follows the page: a
+   * copy that was live while the step's page was up holds that page, its
+   * form text and its scroll still. Zen's session file keeps a copy that
+   * isn't blank over one that is, so a restart would bring the page back.
+   *
+   * @param {{tab: Element, id: number}} step
+   */
+  #copyBlankState(step) {
+    const live = BrowsingContext.getCurrentTopByBrowserId(step.id)?.embedderElement;
+    const state = live?.permanentKey ? lazy.TabStateCache.get(live.permanentKey) : null;
+    if (!state) {
+      return;
+    }
+    for (const copy of copiesOf(step.tab)) {
+      const key = copy.linkedBrowser?.permanentKey;
+      if (!key || copy.linkedBrowser === live) {
+        continue;
       }
-      let page = null;
-      if (tab) {
-        page = this.pages.leaveTask(rec, tab);
-      } else if (found?.spaceId === rec.id) {
-        page = found;
-        this.pages.remove(page);
+      try {
+        // The live state, and nothing else: what it lacks goes too.
+        const next = JSON.parse(JSON.stringify(state));
+        for (const name of Object.keys(lazy.TabStateCache.get(key) ?? {})) {
+          if (!(name in next)) {
+            next[name] = null;
+          }
+        }
+        lazy.TabStateCache.update(key, next);
+      } catch (e) {
+        log(`a blank tab's copy kept its old state: ${e.message}`);
       }
+    }
+  }
+
+  /**
+   * A secret step's tab that didn't blank leaves its task for good first
+   * (pages.leaveTask, which takes its mark), so its page has ended for the
+   * agent (pageClosed). As the task's last tab it leaves a blank one of the
+   * agent's, as pages.close does. Then it closes as a tab of the user's
+   * would, with no leave prompt: one a window shows closes once the user
+   * leaves it, and the pill's Keep keeps it theirs, not the task's. One
+   * that won't close stays theirs.
+   *
+   * @param {object} rec
+   * @param {Element} tab
+   */
+  #dropSecretTab(rec, tab) {
+    try {
+      const id = this.pages.tabId(tab);
+      if (this.pages.tabsOf(rec).length <= 1) {
+        // Not ownerGlobal: zenius's module scope doesn't see it.
+        this.pages.addUnmanaged(rec, this.pages.addTab(rec, hostWindow(tab.ownerDocument?.defaultView)), "agent");
+      }
+      const page = this.pages.leaveTask(rec, tab);
       if (page) {
         this.emit("pageClosed", { space: rec.id, page: page.label, tab: id });
       }
@@ -1373,11 +1502,51 @@ class Service {
       log("taking it out of the task failed:", e.message);
     }
     try {
-      if (tab) {
-        this.pages.closeTab(tab);
-      }
+      this.pages.closeTab(tab);
     } catch (e) {
       log("closing it failed, so it stays the user's:", e.message);
+    }
+  }
+
+  /**
+   * The tab of `browser` if it's a secret step's while its task waits for
+   * the user (its mark), else null. Cheap while no task waits: the network
+   * capture asks at each request's start.
+   *
+   * @param {Element|null} browser
+   * @returns {Element|null}
+   */
+  secretTabOf(browser) {
+    if (!browser || !this.spaces.records().some(rec => !rec.gone && rec.ownership === "agentDelegatedToUser")) {
+      return null;
+    }
+    const tab = tabOfBrowser(browser);
+    const task = tab ? secretTaskOf(tab) : null;
+    const rec = task ? this.spaces.peek(task) : null;
+    return rec && !rec.gone && rec.ownership === "agentDelegatedToUser" ? tab : null;
+  }
+
+  /**
+   * A request of a tab the network capture follows: a secret step's tabs
+   * keep the request's site with their marks, so the hand back clears what
+   * the caches kept there (#clearSecretCaches), after a restart too. Each of
+   * the step's tabs keeps it: a popup that closes itself (a sign-in's)
+   * takes its own mark along.
+   *
+   * @param {number} browserId  the tab's top
+   * @param {nsIChannel} channel
+   */
+  noteSecretRequest(browserId, channel) {
+    const tab = this.secretTabOf(BrowsingContext.getCurrentTopByBrowserId(browserId)?.embedderElement ?? null);
+    const site = tab ? schemelessSite(channel.URI) : null;
+    if (!site) {
+      return;
+    }
+    const task = secretTaskOf(tab);
+    for (const marked of this.pages.tabsOf(this.spaces.peek(task))) {
+      if (secretTaskOf(marked) === task) {
+        this.pages.noteSecretSite(marked, site);
+      }
     }
   }
 
@@ -1433,6 +1602,13 @@ class Service {
     const control = opener ? this.controlOf(opener) : null;
     if (control?.space.kind === "task" && !control.space.ended && tab.linkedBrowser) {
       this.pages.addUnmanaged(control.space, tab, "user");
+      // One the user opens from a secret step's page with no opener (a
+      // middle click, a target=_blank link) never joins its hold, yet the
+      // agent could adopt it after the hand back: the hand back blanks it
+      // too.
+      if (openerTab && secretTaskOf(openerTab) === control.space.id) {
+        this.pages.markSecret(tab, control.space);
+      }
     }
   }
 
@@ -1504,10 +1680,16 @@ class Service {
   }
 
   /** Label a popup tab that popupRoute claimed and put it in its space. */
-  adoptPopup(win, tab, { space, openerPage }) {
+  adoptPopup(win, tab, { space, openerPage, hold = false }) {
     this.pages.moveIn(space, tab);
     // Popups get labels whatever the budget, as in Ego.
     const page = this.pages.register(space, tab, "agent", { opener: openerPage.label });
+    // One a secret step's page opens during the user's hold joins its hold
+    // (heldWith), and the hand back blanks it too. Its own mark keeps that
+    // through a restart, which the hold doesn't survive.
+    if (hold && secretTaskOf(this.pages.tabFor(openerPage)) === space.id) {
+      this.pages.markSecret(tab, space);
+    }
     keepAlive(tab);
     this.emit("popup", { space: space.id, page: page.label, tab: this.pages.tabId(tab), opener: openerPage.label });
     return page;
@@ -1710,6 +1892,9 @@ class Service {
         }
         const value = readTabValue(tab);
         if (!value) {
+          // A secret step's mark on a tab no task holds is stale: a session
+          // saved before the tab left its task.
+          this.pages.clearSecret(tab);
           continue;
         }
         if (!ownValue(tab, value)) {
@@ -1735,6 +1920,20 @@ class Service {
         if (!rec || rec.gone || rec.kind !== "task") {
           this.pages.forgetTask(tab);
           continue;
+        }
+        const secret = secretTaskOf(tab);
+        if (secret === rec.id && rec.ownership === "agent") {
+          // The task is the agent's again, yet the session file has the
+          // tab's mark from before its hand back: that blank's save never
+          // came, and the file may still have the step's page. The tab
+          // leaves the task as the user's, unloaded.
+          log("restart: a secret step's tab saved before its hand back is the user's now");
+          this.pages.forgetTask(tab);
+          continue;
+        }
+        if (secret !== null && (secret !== rec.id || rec.ownership !== "agentDelegatedToUser")) {
+          // A hand back or the task's end handled it after the file's save.
+          this.pages.clearSecret(tab);
         }
         this.pages.reattach(rec, tab, value);
         found.add(rec.id);
@@ -1985,8 +2184,11 @@ class Service {
         if (!this.#codeEnded.has(rec)) {
           this.endTaskCode(rec);
         }
-        // Its tabs are the user's now: no hand back will blank them.
-        this.#secretSteps.delete(rec);
+        // Its tabs are the user's now: no hand back will blank them, and
+        // none carries a secret step's mark into a later session.
+        for (const tab of this.pages.tabsOf(rec)) {
+          this.pages.clearSecret(tab);
+        }
         // The user's now (Stop, or finish): pages stop running as agent tabs.
         // Their labels stay for a later claim unless finish() ended them.
         for (const page of this.pages.list(rec.id)) {
@@ -2923,6 +3125,62 @@ class Service {
 /** Did Zen restore the tab unloaded, or the user unload it? */
 function isUnloaded(tab) {
   return !tab.linkedPanel || tab.hasAttribute("pending");
+}
+
+/** The schemeless site (Services.clearData's) of an http(s) URI, or null. */
+function schemelessSite(uri) {
+  if (!uri || !(uri.schemeIs("http") || uri.schemeIs("https"))) {
+    return null;
+  }
+  try {
+    return Services.eTLD.getSchemelessSite(uri);
+  } catch {}
+  try {
+    return uri.host || null;
+  } catch {
+    return null;
+  }
+}
+
+/** The sites of the pages a tab's history holds: its live history's, and those the session saved. */
+function historySites(tab) {
+  const sites = new Set();
+  const add = spec => {
+    try {
+      const site = spec ? schemelessSite(Services.io.newURI(spec)) : null;
+      if (site) {
+        sites.add(site);
+      }
+    } catch {}
+  };
+  const history = liveCopy(tab)?.linkedBrowser?.browsingContext?.sessionHistory;
+  for (let i = 0; i < (history?.count ?? 0); i++) {
+    add(history.getEntryAtIndex(i)?.URI?.spec);
+  }
+  try {
+    for (const entry of JSON.parse(lazy.SessionStore.getTabState(tab)).entries ?? []) {
+      add(entry.url);
+    }
+  } catch {}
+  return sites;
+}
+
+/** A <browser>'s tab, found by its own window: zenius's module scope has no ownerGlobal. */
+function tabOfBrowser(browser) {
+  try {
+    return browser?.ownerDocument?.defaultView?.gBrowser?.getTabForBrowser(browser) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** `promise`, or a rejection once `ms` pass first. */
+function timed(promise, ms, what) {
+  let timer;
+  const late = new Promise((_, reject) => {
+    timer = lazy.setTimeout(() => reject(new Error(`${what} took over ${ms} ms`)), ms);
+  });
+  return Promise.race([promise, late]).finally(() => lazy.clearTimeout(timer));
 }
 
 /** The URL an unloaded tab would show: its current history entry's. */

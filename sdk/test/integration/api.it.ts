@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { after, describe, it, type TestContext } from "node:test";
 
-import { answerClaims, needs, unique, useContext, zenius, zeniusJson } from "./context.ts";
+import { answerClaims, CREDENTIALS, needs, unique, useContext, zenius, zeniusJson } from "./context.ts";
 import { noted } from "./fixtures.ts";
 
 const context = useContext();
@@ -696,4 +696,34 @@ console.log(JSON.stringify(response));`,
     assert.deepEqual(JSON.parse(out.body), { hello: "zen", method: "POST" });
     assert.equal(JSON.parse(readFileSync(target, "utf8")).hello, "zen");
   });
+
+  verified(
+    "page.events() and page.fetch() give a credential header's name and never its value: Cookie, Set-Cookie and Authorization, both ways",
+    ["spaces.create", "page.goto", "page.fetch", "page.events"],
+    async () => {
+      const out = await zeniusJson(
+        context,
+        `${open("/creds")}const fetched = await page.fetch("/api/creds", { headers: { authorization: ${json(`Bearer ${CREDENTIALS.bearerSent}`)} } });
+let events = [];
+for (let i = 0; i < 40 && !events.some((e) => e.method === "Network.responseReceived" && e.params.response.url.endsWith("/api/creds")); i++) {
+  events = events.concat(await page.events());
+  await new Promise((r) => setTimeout(r, 50));
+}
+console.log(JSON.stringify({ fetched, events }));`,
+      );
+      assert.deepEqual(JSON.parse(out.fetched.body), { sawAuthorization: true, sawCookie: true }, "the request carried the header and the HttpOnly cookie");
+      const text = JSON.stringify(out);
+      for (const value of Object.values(CREDENTIALS)) assert.ok(!text.includes(value), `a credential's value reached the script: ${value}`);
+      const sent = out.events.find((e: any) => e.method === "Network.requestWillBeSent" && e.params.request.url.endsWith("/api/creds"));
+      const got = out.events.find((e: any) => e.method === "Network.responseReceived" && e.params.response.url.endsWith("/api/creds"));
+      const shown = out.events.find((e: any) => e.method === "Network.responseReceived" && e.params.response.url.endsWith("/creds") && !e.params.response.url.endsWith("/api/creds"));
+      assert.deepEqual([sent?.params.request.headers.authorization, sent?.params.request.headers.cookie], ["<redacted>", "<redacted>"]);
+      assert.deepEqual(
+        [got?.params.response.headers["set-cookie"], got?.params.response.headers.authorization, got?.params.response.headers.cookie],
+        ["<redacted>", "<redacted>", "<redacted>"],
+      );
+      assert.equal(shown?.params.response.headers["set-cookie"], "<redacted>", "the page's own Set-Cookie");
+      assert.deepEqual([out.fetched.headers.authorization, out.fetched.headers.cookie], ["<redacted>", "<redacted>"]);
+    },
+  );
 });

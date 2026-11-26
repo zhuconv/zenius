@@ -691,17 +691,21 @@ const topOf = browserId => BrowsingContext.getCurrentTopByBrowserId(browserId) ?
  * "gone" once the tab closed, "waiting" for the blank document or for its
  * history entry, "blank" once that entry is the history's only one (this
  * purges the rest), and "elsewhere" when another document came instead.
+ * From a tab's initial document (`initial`: one just inserted after a
+ * restart), Gecko loads the blank in place: the document stays, and the
+ * blank's history entry is the sign.
  *
  * @param {number} browserId
  * @param {number} before  innerWindowId
+ * @param {boolean} [initial]
  */
-function blankState(browserId, before) {
+function blankState(browserId, before, initial = false) {
   const top = topOf(browserId);
   if (!top) {
     return "gone";
   }
   const windowGlobal = top.currentWindowGlobal;
-  if (!windowGlobal || windowGlobal.innerWindowId === before || windowGlobal.isInitialDocument) {
+  if (!windowGlobal || (!initial && (windowGlobal.innerWindowId === before || windowGlobal.isInitialDocument))) {
     return "waiting";
   }
   if (windowGlobal.documentURI?.spec !== "about:blank") {
@@ -727,7 +731,10 @@ function blankState(browserId, before) {
  * The page's user activation goes first (forms#clearActivation), as for
  * the clean copy: Gecko then puts up no leave prompt, so no beforeunload
  * handler, the site's or one the agent's code left in the page, holds the
- * load. Whether the tab is blank now (false: it closed meanwhile). It
+ * load. A tab Zen restored unloaded comes with its browser just inserted
+ * (the service's #insertUnloaded), so the load is its restore: its saved
+ * page never loads, the blank comes in its initial document's place, and
+ * the history the session put back purges the same way. Whether the tab is blank now (false: it closed meanwhile). It
  * throws when the blank didn't come in time or another page came instead;
  * a blank that comes later still clears the history (purgeLate).
  *
@@ -740,11 +747,16 @@ export async function blankTab(svc, browserId) {
   }
   // Tests shorten the wait (service.blankTimeoutMs).
   const ms = svc.blankTimeoutMs ?? BLANK_TIMEOUT_MS;
-  try {
-    await within(svc.content(topOf(browserId), "forms#clearActivation", {}), RECORD_TIMEOUT_MS, "clearing the page's activation");
-  } catch (e) {
-    // A page with no leave prompt blanks all the same.
-    log(`a secret step's tab kept its activation: ${e.message}`);
+  // A tab just inserted after a restart has only its initial document: no
+  // activation to clear, and no actor to ask.
+  const initial = !!topOf(browserId).currentWindowGlobal?.isInitialDocument;
+  if (!initial) {
+    try {
+      await within(svc.content(topOf(browserId), "forms#clearActivation", {}), RECORD_TIMEOUT_MS, "clearing the page's activation");
+    } catch (e) {
+      // A page with no leave prompt blanks all the same.
+      log(`a secret step's tab kept its activation: ${e.message}`);
+    }
   }
   const top = topOf(browserId);
   if (!top?.embedderElement) {
@@ -756,7 +768,7 @@ export async function blankTab(svc, browserId) {
   });
   const end = Date.now() + ms;
   for (;;) {
-    const state = blankState(browserId, before);
+    const state = blankState(browserId, before, initial);
     if (state === "blank") {
       return true;
     }
@@ -767,7 +779,7 @@ export async function blankTab(svc, browserId) {
       throw new Error("another page came instead of the blank");
     }
     if (Date.now() > end) {
-      purgeLate(browserId, before).catch(e => log("watching for a late blank failed:", e.message));
+      purgeLate(browserId, before, initial).catch(e => log("watching for a late blank failed:", e.message));
       throw new Error(`the blank didn't come in ${ms / 1000} s`);
     }
     await new Promise(resolve => lazy.setTimeout(resolve, 25));
@@ -782,12 +794,13 @@ export async function blankTab(svc, browserId) {
  *
  * @param {number} browserId
  * @param {number} before  innerWindowId
+ * @param {boolean} initial  as for blankState
  */
-async function purgeLate(browserId, before) {
+async function purgeLate(browserId, before, initial) {
   const end = Date.now() + LATE_BLANK_MS;
   while (Date.now() < end) {
     await new Promise(resolve => lazy.setTimeout(resolve, LATE_BLANK_POLL_MS));
-    const state = blankState(browserId, before);
+    const state = blankState(browserId, before, initial);
     if (state === "blank") {
       log("a secret step's tab blanked late: its history is gone");
     }

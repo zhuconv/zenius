@@ -150,6 +150,20 @@ export async function zeniusJson<T = any>(context: Context, script: string): Pro
 
 export const unique = (prefix: string) => `${prefix} ${process.pid} ${Date.now()} ${Math.floor(Math.random() * 1000)}`;
 
+/**
+ * The credentials the header test's routes carry, each value unique, so a
+ * script's output can be searched for any of them: /creds sets the HttpOnly
+ * session cookie, /api/creds answers a request with an Authorization header
+ * with credential headers of its own.
+ */
+export const CREDENTIALS = {
+  pageCookie: "zcred-page-cookie-4f7a",
+  apiCookie: "zcred-api-cookie-91c2",
+  bearerSent: "zcred-bearer-sent-27d9",
+  authBack: "zcred-auth-back-6b3e",
+  cookieBack: "zcred-cookie-back-d05f",
+};
+
 /** /slow-file.txt downloads still running, by file name, until /release-file ends one. */
 const heldFiles = new Map<string, ServerResponse>();
 
@@ -198,6 +212,30 @@ function serveFixture(request: IncomingMessage, response: ServerResponse): void 
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({ method: request.method, type: request.headers["content-type"] ?? null, received: body }));
     });
+    return;
+  }
+  if (path === "/creds") {
+    response.writeHead(200, {
+      "content-type": "text/html; charset=utf-8",
+      "set-cookie": `zsession=${CREDENTIALS.pageCookie}; HttpOnly; Path=/; SameSite=Lax`,
+    });
+    response.end('<!doctype html><meta charset="utf-8"><title>sdk creds</title><h1>signed in</h1>');
+    return;
+  }
+  // What the request carried, as booleans only: the body never holds a value.
+  if (path === "/api/creds") {
+    response.writeHead(200, {
+      "content-type": "application/json",
+      "set-cookie": `zrefresh=${CREDENTIALS.apiCookie}; HttpOnly; Path=/`,
+      authorization: `Bearer ${CREDENTIALS.authBack}`,
+      cookie: `zecho=${CREDENTIALS.cookieBack}`,
+    });
+    response.end(
+      JSON.stringify({
+        sawAuthorization: request.headers.authorization === `Bearer ${CREDENTIALS.bearerSent}`,
+        sawCookie: (request.headers.cookie ?? "").includes(CREDENTIALS.pageCookie),
+      }),
+    );
     return;
   }
   if (path === "/image.png") {

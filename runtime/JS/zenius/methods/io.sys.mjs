@@ -8,7 +8,7 @@
 // path there, and the client copies saveAs targets itself.
 
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
-import { setupObserve } from "chrome://userscripts/content/zenius/observe/setup.sys.mjs";
+import { redactCredentialHeaders, setupObserve } from "chrome://userscripts/content/zenius/observe/setup.sys.mjs";
 import {
   getDownload,
   whenStopped,
@@ -113,6 +113,8 @@ async function pageFetch(ctx, params) {
       `page.fetch: the response body is ${(size / 1048576).toFixed(1)} MB, over the 50 MB one call may return. Download it instead (a link click or page.goto, then the Download's bytes).`
     );
   }
+  // As in page.events: no credential's value reaches a script.
+  redactCredentialHeaders(response?.headers);
   return response;
 }
 

@@ -1298,17 +1298,33 @@ Entry points (`modules/service.sys.mjs`):
   result says what happened. Its `evidence` maps each reloaded page's
   label to the evidence it had before its load ({reason: detail}), for
   the UI's notice.
-- Secret steps: `spaces.handOff {secret: true}` notes H
-  (`noteSecretStep`) by its browserId, which follows the page's docShell to
-  the copy a window shows (window sync) and into a torn-off window, and
-  `spaceChanged` says `secret: true` for the UI's card. At the hand back,
-  `blankSecretSteps(rec)` runs before anything else. That's
-  `spaces.takeOver` and `spaces.claim` through `handBack`, and the user's
-  Resume through the UI's `beforeHandBack`, which calls it first (the
-  core's glue). For H and the popups that share its hold (`heldWith`):
+- Secret steps: `spaces.handOff {secret: true}` marks H's tab
+  (`noteSecretStep`), and the popups already in its hold: the session
+  value `zenius-secret` (`SECRET_TAB_KEY`), JSON `{task, sites}`, on every
+  copy. Zen's session keeps it through a quit, a crash, an update's restart
+  and window moves (`carryOver` takes it to the moved tab, `markCopies` to
+  a new window's copy). The network capture follows a marked tab while
+  its task waits for the user (`secretTabOf`), and each request's site goes
+  into the `sites` of every marked tab of the task (`noteSecretRequest`), so
+  a popup that closes itself leaves its sites behind. A popup that joins the hold later
+  takes it from its marked opener (`adoptPopup`), and so does a tab opened
+  from a marked one with no opener (`noteOpenedTab`), which never joins the
+  hold. `spaceChanged` says
+  `secret: true` for the UI's card, and `spaces.list` gives a marked tab's
+  title as `""`. At the hand back, `blankSecretSteps(rec)` runs before
+  anything else. That's `spaces.takeOver` and `spaces.claim` through
+  `handBack`, and the user's Resume through the UI's `beforeHandBack`,
+  which calls it first (the core's glue). Hand backs of one task share
+  one run. It takes the task's own marked tabs; one the user took out of
+  the task stays as it is. A tab Zen restored unloaded gets its browser
+  first (`#insertUnloaded`), so a load in it is its restore and its saved
+  page never loads. Then every tab's browserId, from the copy that holds
+  its docShell, in one step. For each:
   - `blankTab` clears the page's user activation first
     (`forms#clearActivation`), so no beforeunload handler, the site's or
-    one the agent's code left, holds the load with a leave prompt.
+    one the agent's code left, holds the load with a leave prompt. A tab
+    with only its initial document has none to clear, and Gecko loads the
+    blank in that document's place: the blank's history entry tells.
   - It loads `about:blank`, waits until that entry is the history's last,
     and purges the rest, so neither back nor the back-forward cache brings
     the secret back. A blank that comes after the wait still purges.
@@ -1317,8 +1333,22 @@ Entry points (`modules/service.sys.mjs`):
     task's last, then closes as a tab of the user's would. One that won't
     close stays theirs.
 
-  The hand back's notes say `blanked` for the tabs that blanked. The
-  task's end drops its secret steps.
+  Then the network and image caches of the step's sites go
+  (`Services.clearData`, per site), the marks' and those of each tab's
+  history, read before the blank: a fetch with `cache: "force-cache"`
+  can't get the step's page back from them. Cookies stay. Then the
+  blanks' history is collected (`TabStateFlusher.flush`), and each blank
+  tab's other copies take its state (`#copyBlankState`): every copy keeps
+  its own session key, so one that was live during the step still holds
+  its page, and Zen's file keeps a copy that isn't blank over one that is.
+  Then their marks go, and the session saves (`SessionSaver.run`, not during a quit)
+  before the agent has control: a crash right after can't bring a step's
+  page back from the file. The hand back's notes say `blanked` for the
+  tabs that blanked. The task's end clears its tabs' marks, and so does
+  any removal of a tab's task value (leaving the task, the user's own
+  tab). The restart rebuild clears a mark whose task isn't held, and a
+  marked tab whose task is the agent's again leaves it as the user's,
+  unloaded: that hand back's save never came.
   With the UI's quiet loads off (a test switch), Resume doesn't run
   `beforeHandBack`, so nothing is blanked there.
 - `cleanLoad(browser)`: the quiet load alone, for the UI's Resume.
@@ -3633,6 +3663,14 @@ lives:
     after the task get the guards from their first document.
 - **Per-tab network.** `observe/network.sys.mjs` follows every channel of
   an agent tab, its frames' too, keyed by browserId.
+  - `page.events`' `Network.*` events (`observe/setup.sys.mjs`'s
+    `networkEvent`) come only while the agent drives the tab (the
+    `AGENT_BROWSERS_KEY` set): a tab the user holds records none. Their
+    headers (`headersOf`) give `<redacted>` for the values of `cookie`,
+    `set-cookie`, `authorization` and `proxy-authorization`, and so do
+    `page.fetch`'s result headers (`redactCredentialHeaders`). The decision
+    is the request's, made at its start: one the user starts during their
+    hold gives no response or end after the hand back either.
   - `inflight(browserId)` lists the counted requests in flight.
   - `waitForNetworkIdle(browserId, {idleMs, timeoutMs})` waits for
     `networkidle`.

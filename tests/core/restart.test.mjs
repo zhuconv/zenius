@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
+import http from "node:http";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
 import { connect } from "../../scripts/lib/rpc.mjs";
@@ -248,6 +249,79 @@ const anyTabAt = u =>
   );
 const notRestored = space => ({ code: "ZEN_TASK_SPACE_NOT_FOUND", data: { space, reason: "not_restored" } });
 
+/**
+ * The secret steps' pages, each request counted by its path and query: ?r=
+ * names the page (its title), ?nostore makes it uncacheable, so no load of
+ * it comes from the cache unseen. Its form field is one the session saves
+ * and puts back.
+ */
+const steps = { hits: new Map() };
+const stepServer = http.createServer((req, res) => {
+  steps.hits.set(req.url, (steps.hits.get(req.url) ?? 0) + 1);
+  const u = new URL(req.url, "http://x");
+  res.writeHead(200, { "content-type": "text/html", ...(u.searchParams.has("nostore") ? { "cache-control": "no-store" } : {}) });
+  res.end(`<!doctype html><title>${u.searchParams.get("r") ?? "step"}</title><form><input name=nickname></form>`);
+});
+let stepBase = "";
+before(async () => {
+  await new Promise(resolve => stepServer.listen(0, "127.0.0.1", resolve));
+  stepBase = `http://127.0.0.1:${stepServer.address().port}`;
+});
+after(() => {
+  stepServer.close();
+  stepServer.closeAllConnections();
+});
+/** Run `code` (a function body) as the page's own script. */
+const inPage = (space, page, code) =>
+  h.chrome(`${TAB} return ctx.content(t.linkedBrowser.browsingContext, "dev#evalContent", { code: arg.code, privileged: false });`, {
+    space,
+    page,
+    code,
+  });
+/** A load the user makes in the held tab. */
+const userLoads = (space, page, u) =>
+  h.chrome(
+    `${TAB} t.linkedBrowser.loadURI(Services.io.newURI(arg.url), { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() }); return true;`,
+    { space, page, url: u }
+  );
+/** A page's tab now: its top document's URL, its history's length, and whether it's unloaded. */
+const tabNow = (space, page) =>
+  h.chrome(
+    `${TAB} const bc = t.linkedBrowser.browsingContext;
+     return { url: bc?.currentWindowGlobal?.documentURI?.spec ?? "", history: bc?.sessionHistory?.count ?? 0, unloaded: !t.linkedPanel || t.hasAttribute("pending") };`,
+    { space, page }
+  );
+const loadedAt = (space, page, part) =>
+  h.until(async () => {
+    const now = await tabNow(space, page).catch(() => null);
+    return !!now?.url.includes(part) && (await inPage(space, page, "return document.readyState;").catch(() => "")) === "complete";
+  }, 10000);
+/** The task's page whose URL has `part`. */
+const pageAt = async (space, part) => {
+  let found = null;
+  await h.until(
+    async () =>
+      (found = (
+        await h.chrome(`return ctx.pages.list(arg).map(p => ({ label: p.label, url: ctx.pages.tabFor(p)?.linkedBrowser.currentURI.spec ?? "" }));`, space)
+      ).find(p => p.url.includes(part))),
+    10000
+  );
+  return found.label;
+};
+/** The user's Resume, as the UI's button does it. */
+const resumeByUser = space =>
+  h.chrome(
+    `const s = ctx.spaces.get(arg); await ctx.service.beforeHandBack(s); ctx.spaces.setOwnership(s, "agent", { source: "user" }); return true;`,
+    space
+  );
+/** Every tab's saved state, in every window and Space, as Zen's session would write it now. */
+const savedText = () =>
+  h.chrome(
+    `${SS} const { allTabs } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/windows.sys.mjs");
+     return [...allTabs()].map(t => SessionStore.getTabState(t)).join("\\n");`
+  );
+const ownershipOf = async space => (await h.call("spaces.list")).taskSpaces.find(s => s.id === space)?.ownership ?? null;
+
 test("a restart brings tasks back from their tabs, unloaded; a call loads a page as the agent's own load", async () => {
   const a = await task("restart a", ["/api/text?a1", "/api/text?a2"]);
   // A tab the user opened in the task.
@@ -419,6 +493,121 @@ test("after a crash, tasks come back the same way", async () => {
     url("/api/text?k2")
   );
   await h.remove(g.space);
+});
+
+test("a hand-off with secret: after a quit during the user's step, the hand back blanks the step's tab, unloaded since, and its popup, viewed again with the text the session put back", async () => {
+  const space = await h.space("restart secret quit");
+  const token = `${stepBase}/?r=r1-token&nostore`;
+  const popURL = `${stepBase}/?r=r1-pop`;
+  // The page's own window.open opens the popup, and in the background, as in handoff.test.mjs.
+  await h.chrome(
+    `Services.prefs.setBoolPref("dom.disable_open_during_load", false);
+     Services.prefs.setBoolPref("browser.tabs.loadDivertedInBackground", true);
+     return true;`
+  );
+  try {
+    await h.call("page.goto", { space, page: "p1", url: `${stepBase}/?r=r1` });
+    await h.call("spaces.handOff", { space, secret: true });
+    // The user's step: the token's page in place, then the site's popup, where they type.
+    await userLoads(space, "p1", token);
+    await loadedAt(space, "p1", "r1-token");
+    assert.equal(await inPage(space, "p1", `return String(!!window.open(${JSON.stringify(popURL)}));`), "true");
+    const pop = await pageAt(space, "r1-pop");
+    await loadedAt(space, pop, "r1-pop");
+    await inPage(
+      space,
+      pop,
+      `const f = document.querySelector("input[name=nickname]"); f.value = "typed-r1-secret"; f.dispatchEvent(new Event("input", { bubbles: true })); return 1;`
+    );
+    await saveSession([token, popURL]);
+    const tokenLoads = steps.hits.get("/?r=r1-token&nostore");
+
+    await restart({ "browser.startup.page": 3, "zen.workspaces.continue-where-left-off": false });
+
+    assert.equal(await ownershipOf(space), "agentDelegatedToUser", "still the user's after the restart");
+    assert.equal((await tabNow(space, "p1")).unloaded, true, "the step's tab is unloaded since the start");
+    // The user views the popup again: it loads from its URL, and the session puts their text back.
+    await userViews(space, pop);
+    await h.until(
+      async () => (await inPage(space, pop, `return document.querySelector("input[name=nickname]")?.value ?? "";`).catch(() => "")) === "typed-r1-secret",
+      10000
+    );
+    await userGoesHome();
+    const back = await h.call("spaces.takeOver", { space });
+    assert.deepEqual([...(back.blanked ?? [])].sort(), ["p1", pop].sort());
+    for (const page of ["p1", pop]) {
+      const now = await tabNow(space, page);
+      assert.deepEqual([now.url, now.history], ["about:blank", 1], `${page}: blank, with no history`);
+    }
+    assert.equal(steps.hits.get("/?r=r1-token&nostore"), tokenLoads, "the step's saved page never loaded again");
+    const saved = await savedText();
+    assert.ok(!saved.includes("r1-token") && !saved.includes("typed-r1-secret"), "no tab's saved state has the step's page or the user's text");
+  } finally {
+    // On disk too: the next test's crash would bring the quit's saved values back.
+    await h
+      .chrome(
+        `Services.prefs.clearUserPref("dom.disable_open_during_load");
+         Services.prefs.clearUserPref("browser.tabs.loadDivertedInBackground");
+         Services.prefs.savePrefFile(null);
+         return true;`
+      )
+      .catch(() => {});
+    await h.remove(space).catch(() => {});
+  }
+});
+
+test("a hand-off with secret: after a crash during the user's step, the hand back blanks the step's tab the same way", async () => {
+  const space = await h.space("restart secret crash");
+  const token = `${stepBase}/?r=r2-token&nostore`;
+  try {
+    await h.call("page.goto", { space, page: "p1", url: `${stepBase}/?r=r2` });
+    await h.call("spaces.handOff", { space, secret: true });
+    await userLoads(space, "p1", token);
+    await loadedAt(space, "p1", "r2-token");
+    // Zen's periodic save has the step's page, and the crash comes before the hand back.
+    await crash({ "browser.sessionstore.resume_from_crash": true, "browser.startup.page": 0, "zen.workspaces.continue-where-left-off": false }, [token]);
+    assert.equal(await ownershipOf(space), "agentDelegatedToUser");
+    const back = await h.call("spaces.takeOver", { space });
+    assert.deepEqual(back.blanked, ["p1"]);
+    const now = await tabNow(space, "p1");
+    assert.deepEqual([now.url, now.history], ["about:blank", 1]);
+  } finally {
+    await h.remove(space).catch(() => {});
+  }
+});
+
+test("a hand-off with secret: the hand back saves the session at once, so a crash right after brings none of the step's pages back", async () => {
+  const space = await h.space("restart secret after");
+  const token = `${stepBase}/?r=r3-token&nostore`;
+  // No periodic save meanwhile: only the hand back's own can take the step's page out of the file.
+  await h.chrome(`Services.prefs.setIntPref("browser.sessionstore.interval", 600000); return true;`);
+  try {
+    await h.call("page.goto", { space, page: "p1", url: `${stepBase}/?r=r3` });
+    await h.call("spaces.handOff", { space, secret: true });
+    await userLoads(space, "p1", token);
+    await loadedAt(space, "p1", "r3-token");
+    await saveSession([token]);
+    await resumeByUser(space);
+    // Zen's own file, which a crash restores, drops the step's page: its write follows the save's at once.
+    await h.chrome(
+      `const file = PathUtils.join(PathUtils.profileDir, "zen-sessions.jsonlz4");
+       for (const end = Date.now() + 5000; ; ) {
+         let text = "";
+         try {
+           text = JSON.stringify(await IOUtils.readJSON(file, { decompress: true }));
+         } catch {}
+         if (text && !text.includes(arg)) return true;
+         if (Date.now() > end) throw new Error("Zen's session file still has the step's page 5 s after the hand back");
+         await new Promise(r => win.setTimeout(r, 50));
+       }`,
+      "r3-token"
+    );
+    await killAndStart({ "browser.sessionstore.resume_from_crash": true, "browser.startup.page": 0, "zen.workspaces.continue-where-left-off": false });
+    assert.ok(!(await savedText()).includes("r3-token"), "no tab came back with the step's page in its history");
+  } finally {
+    await h.chrome(`Services.prefs.clearUserPref("browser.sessionstore.interval"); Services.prefs.savePrefFile(null); return true;`).catch(() => {});
+    await h.remove(space).catch(() => {});
+  }
 });
 
 test("a start that restores no tabs ends every task, and the empty Agents Space goes", async () => {

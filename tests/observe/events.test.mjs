@@ -126,3 +126,53 @@ test("page.fetch: Ego's texts for CORS, a timeout and bad options", () =>
     const unknown = await page.fail("page.fetch", { url: "/api/text", options: { retries: 2 } });
     assert.equal(unknown.message, "page.fetch received unknown option: retries. Expected: await page.fetch(url, options?)");
   }));
+
+/** Run `code` (a function body) as the page's own script, as the page does while the user holds it: no agent call reaches it then. */
+const asThePage = (page, code) =>
+  env.chrome(
+    `const tab = ctx.pages.tabFor(ctx.pages.get(ctx.spaces.get(arg.space), arg.page));
+     return ctx.content(tab.linkedBrowser.browsingContext, "dev#evalContent", { code: arg.code, privileged: false });`,
+    { space: page.space, page: page.label, code }
+  );
+
+test("events: a tab the user holds gives no Network records, not even for its request that ends after the hand back", () =>
+  env.inSpace("events held", async page => {
+    await page.goto(`${env.base}/nav-target`);
+    await page.call("page.events");
+    await env.call("spaces.handOff", { space: page.space });
+    // The user's own requests while they hold the tab: one ends then, one after their Resume.
+    const held = `${env.base}/api/text?held=1`;
+    const late = `${env.base}/api/slow?ms=1500&case=held-late`;
+    await asThePage(page, `fetch(${JSON.stringify(late)}).catch(() => {}); return fetch(${JSON.stringify(held)}).then(r => r.text());`);
+    await env.chrome(`ctx.spaces.setOwnership(ctx.spaces.get(arg), "agent", { source: "user" }); return true;`, page.space);
+    // The agent's own request after the hand back is recorded, and the late one has ended by its end.
+    const mine = `${env.base}/api/slow?ms=2000&case=agent`;
+    await page.evaluate(u => fetch(u).then(r => r.text()), mine);
+    const events = await eventsUntil(page, e => e.method === "Network.responseReceived" && e.params.response.url === mine, 4000);
+    const urls = events.flatMap(e => [e.params?.request?.url, e.params?.response?.url]).filter(Boolean);
+    assert.ok(urls.includes(mine), "the agent's own request is recorded");
+    assert.ok(!urls.some(u => u.includes("held")), `requests the user's page made during their hold: ${JSON.stringify(urls)}`);
+  }));
+
+test("events: a credential header gives its name and no value, Proxy-Authorization too (a stub channel)", async () => {
+  const out = await env.chrome(
+    `const { headersOf } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/setup.sys.mjs");
+     const channel = {
+       URI: { spec: "http://127.0.0.1/" },
+       visitRequestHeaders(v) {
+         v.visitHeader("Proxy-Authorization", "Basic cHJveHk6c2VjcmV0");
+         v.visitHeader("Authorization", "Bearer stub-bearer");
+         v.visitHeader("Cookie", "sid=stub-cookie");
+         v.visitHeader("Accept", "text/html");
+       },
+       visitOriginalResponseHeaders(v) {
+         v.visitHeader("Set-Cookie", "sid=stub-set; HttpOnly");
+         v.visitHeader("Set-Cookie", "other=stub-set-2");
+         v.visitHeader("Content-Type", "text/plain");
+       },
+     };
+     return { request: headersOf(channel, false), response: headersOf(channel, true) };`
+  );
+  assert.deepEqual(out.request, { "proxy-authorization": "<redacted>", authorization: "<redacted>", cookie: "<redacted>", accept: "text/html" });
+  assert.deepEqual(out.response, { "set-cookie": "<redacted>", "content-type": "text/plain" });
+});

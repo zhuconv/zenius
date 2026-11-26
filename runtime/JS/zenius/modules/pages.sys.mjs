@@ -61,7 +61,7 @@ export const TAB_VALUE_KEY = "zenius";
 /** The task id on a task's pages that aren't the user's: zen-ux's tag reads it. */
 export const TASK_ATTR = "zenius-task";
 
-/** Write a tab's session value on every copy of it, or delete it (null). */
+/** Write a tab's session value on every copy of it, or delete it (null) with a secret step's mark. */
 function writeTabValue(tab, value) {
   for (const copy of copiesOf(tab)) {
     try {
@@ -69,6 +69,11 @@ function writeTabValue(tab, value) {
         lazy.SessionStore.setCustomTabValue(copy, TAB_VALUE_KEY, JSON.stringify(value));
       } else {
         lazy.SessionStore.deleteCustomTabValue(copy, TAB_VALUE_KEY);
+        // Out of its task, a tab carries no secret step's mark into a later
+        // session (SECRET_TAB_KEY).
+        if (rawValue(copy, SECRET_TAB_KEY)) {
+          lazy.SessionStore.deleteCustomTabValue(copy, SECRET_TAB_KEY);
+        }
       }
     } catch (e) {
       log("writing a tab's session value failed", e.message);
@@ -127,6 +132,61 @@ function rawValue(tab, key) {
  * tab"): no task ever holds it (I2).
  */
 export const OWN_TAB_KEY = "zenius-own";
+
+/**
+ * The session value that marks a secret step's tab: the page an agent
+ * handed off with secret, and each tab opened from it while the user holds
+ * it (service.noteSecretStep). Its value is the task's id, on every copy.
+ * Zen's session keeps it through a quit, a crash, an update's restart and
+ * window moves, so the hand back finds the tabs to blank after any of them
+ * (service.blankSecretSteps). It goes once the hand back has handled the
+ * tab, at the task's end, and with the task's value wherever a tab leaves
+ * its task. It's JSON, `{task, sites}`: `sites`, the schemeless sites the
+ * tab loaded during the step (service.noteSecretRequest), whose caches the
+ * hand back clears.
+ */
+export const SECRET_TAB_KEY = "zenius-secret";
+/** The sites a mark keeps, at most: a step loads a handful. */
+const SECRET_SITES_MAX = 64;
+
+/** A tab's secret step's mark, `{task, sites}`, from any copy, or null. */
+function secretMarkOf(tab) {
+  for (const copy of tab ? [tab, ...copiesOf(tab).filter(c => c !== tab)] : []) {
+    const raw = rawValue(copy, SECRET_TAB_KEY);
+    if (!raw) {
+      continue;
+    }
+    try {
+      const mark = JSON.parse(raw);
+      if (Number.isSafeInteger(mark?.task) && mark.task > 0) {
+        const sites = Array.isArray(mark.sites) ? mark.sites.filter(site => typeof site === "string") : [];
+        return { task: mark.task, sites };
+      }
+    } catch {}
+  }
+  return null;
+}
+
+/** Write a secret step's mark on every copy of a tab. */
+function writeSecret(tab, mark) {
+  for (const copy of copiesOf(tab)) {
+    try {
+      lazy.SessionStore.setCustomTabValue(copy, SECRET_TAB_KEY, JSON.stringify(mark));
+    } catch (e) {
+      log("writing a secret step's mark failed", e.message);
+    }
+  }
+}
+
+/** The task whose secret step this tab is (SECRET_TAB_KEY on any copy), or null. */
+export function secretTaskOf(tab) {
+  return secretMarkOf(tab)?.task ?? null;
+}
+
+/** The sites a secret step's tab loaded during the step, as its mark keeps them. */
+export function secretSitesOf(tab) {
+  return secretMarkOf(tab)?.sites ?? [];
+}
 
 /** A tab's session value, or null: its own, else another copy's. */
 export function readTabValue(tab) {
@@ -623,6 +683,33 @@ export class Pages {
     return copiesOf(tab).some(copy => copy !== tab && rawValue(copy, OWN_TAB_KEY));
   }
 
+  /** Mark a task's tab as a secret step's (SECRET_TAB_KEY), on every copy. */
+  markSecret(tab, space) {
+    const mark = secretMarkOf(tab);
+    writeSecret(tab, { task: space.id, sites: mark?.task === space.id ? mark.sites : [] });
+  }
+
+  /** A site a secret step's tab loaded (service.noteSecretRequest), kept with its mark. */
+  noteSecretSite(tab, site) {
+    const mark = secretMarkOf(tab);
+    if (mark && !mark.sites.includes(site) && mark.sites.length < SECRET_SITES_MAX) {
+      writeSecret(tab, { task: mark.task, sites: [...mark.sites, site] });
+    }
+  }
+
+  /** A secret step's tab that the hand back handled, or whose task ended: its mark goes from every copy. */
+  clearSecret(tab) {
+    for (const copy of copiesOf(tab)) {
+      try {
+        if (rawValue(copy, SECRET_TAB_KEY)) {
+          lazy.SessionStore.deleteCustomTabValue(copy, SECRET_TAB_KEY);
+        }
+      } catch (e) {
+        log("clearing a secret step's mark failed", e.message);
+      }
+    }
+  }
+
   /**
    * A window opened later gets its copies of every tab from Zen: give each
    * the marks of the tab's other copies (the session values and the tag), so
@@ -644,7 +731,7 @@ export class Pages {
           break;
         }
       }
-      for (const key of [TAB_VALUE_KEY, OWN_TAB_KEY]) {
+      for (const key of [TAB_VALUE_KEY, OWN_TAB_KEY, SECRET_TAB_KEY]) {
         const value = others.map(copy => rawValue(copy, key)).find(Boolean);
         if (value && rawValue(tab, key) !== value) {
           try {
@@ -714,6 +801,18 @@ export class Pages {
       return null;
     }
     writeTabValue(to, movedValue(value, syncId(from), syncId(to)));
+    // A secret step's mark goes where the task's value goes: the hand back
+    // blanks the tab in the window it moved to.
+    const secret = rawValue(from, SECRET_TAB_KEY);
+    if (secret) {
+      for (const copy of copiesOf(to)) {
+        try {
+          lazy.SessionStore.setCustomTabValue(copy, SECRET_TAB_KEY, secret);
+        } catch (e) {
+          log("carrying a secret step's mark to the moved tab failed", e.message);
+        }
+      }
+    }
     if (page) {
       writeTag(to, page.openedBy !== "user" ? page.spaceId : null);
       this.#rehome(page, to, key);

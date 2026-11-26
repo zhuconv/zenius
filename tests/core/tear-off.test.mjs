@@ -226,6 +226,32 @@ test("a page torn off into a new window comes back after a restart, still the ta
  * discard of its world: zen-observe's evidence), run `between`, hand off,
  * and return what the hand-off held and loaded afresh.
  */
+test("a hand-off with secret: a page torn off into a new window during the user's step blanks there at the hand back, and no copy's saved state keeps the step's page", async () => {
+  const { space, labels } = await task("secret torn", ["/api/text?secret-torn"]);
+  const [label] = labels;
+  try {
+    await h.chrome(`${W} ctx.pages.noteFront(liveOf(arg.space, arg.page)); return true;`, { space, page: label });
+    await h.call("spaces.handOff", { space, secret: true });
+    await h.chrome(
+      `${W} liveOf(arg.space, arg.page).linkedBrowser.loadURI(Services.io.newURI(arg.url), { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() }); return true;`,
+      { space, page: label, url: `${h.base}/api/text?secret-torn-token` }
+    );
+    await h.until(async () => (await h.chrome(`${W} return liveOf(arg.space, arg.page).linkedBrowser.currentURI.spec;`, { space, page: label })).includes("secret-torn-token"), 10000);
+    await h.chrome(`${W} await tearOff(liveOf(arg.space, arg.page)); return true;`, { space, page: label });
+    await h.chrome(`const s = ctx.spaces.get(arg); await ctx.service.beforeHandBack(s); ctx.spaces.setOwnership(s, "agent", { source: "user" }); return true;`, space);
+    const now = await h.chrome(
+      `${W} const t = liveOf(arg.space, arg.page);
+       return { inNewWindow: nOf(t) === wins().length - 1, url: t.linkedBrowser.currentURI.spec, history: t.linkedBrowser.browsingContext.sessionHistory?.count ?? 0,
+         saved: Win.copiesOf(t).map(c => SessionStore.getTabState(c)).join().includes("secret-torn-token") };`,
+      { space, page: label }
+    );
+    assert.deepEqual(now, { inNewWindow: true, url: "about:blank", history: 1, saved: false });
+    assert.deepEqual((await h.call("spaces.waitForControl", { space, timeout: 5000 })).blanked, [label]);
+  } finally {
+    await closeNewWindows();
+  }
+});
+
 async function tornHandOff(name, between) {
   const { space, labels } = await task(name, ["/api/text?" + name.replace(/\W+/g, "-")]);
   const [label] = labels;
