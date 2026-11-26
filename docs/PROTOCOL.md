@@ -17,7 +17,7 @@ Each frame is one JSON object followed by `\n`, over the Unix socket
 
 ```jsonc
 // server → client, first frame after connect
-{"event": "hello", "params": {"protocol": 1, "instance": "default", "runtimeVersion": "0.1.8", "zenVersion": "1.24.3b"}}
+{"event": "hello", "params": {"protocol": 1, "instance": "default", "runtimeVersion": "0.1.9", "zenVersion": "1.24.3b"}}
 // request
 {"id": 7, "method": "page.click", "params": {"space": 3, "page": "p1", "target": "@21", "options": {"label": "submit form"}}}
 // success
