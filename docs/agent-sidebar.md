@@ -351,12 +351,13 @@ tests in the same commit.
   The core's `pagesReloaded` names them, and the chat whose task it was
   (`conv.zen`) adds a note: "Reloaded example.com/editor to undo the
   agent's changes. Anything the page hadn't saved is gone.", or for several,
-  "Reloaded 2 pages to undo the agent's changes: <page>, <page>. Anything
-  they hadn't saved is gone." Each page shows as its host and path, never
-  its query or fragment, and a page that isn't a web page as "a page"; past
-  five, the last ones as a count. While the agent answers or works on its
-  own, the note waits for that to end (`laterNote`), so the agent's last
-  words stay in one bubble.
+  "Reloaded 3 pages to undo the agent's changes: <page>, <page> and 1
+  other page. Anything they hadn't saved is gone." Each page shows as its
+  host and path, never its query or fragment. Of several, the list names
+  the web pages first, at most four past five pages, and counts the rest
+  at its end; one page that isn't a web page is "a page". While the agent
+  answers or works on its own, the note waits for that to end
+  (`laterNote`), so the agent's last words stay in one bubble.
 - **Live card, Watch and Take over**: at the end of a work chat, once its
   task has a tab, a picture of the page the agent is on (zenius's front tab
   of the task): one when the card appears (or the task moves to another

@@ -1083,18 +1083,23 @@ export function oneLine(text, max = 120) {
  * @returns {string|null}
  */
 export function reloadedNote(pages) {
-  const names = (Array.isArray(pages) ? pages : []).map(reloadedWhere);
-  if (!names.length) {
+  const all = (Array.isArray(pages) ? pages : []).map(reloadedWhere);
+  if (!all.length) {
     return null;
   }
-  if (names.length === 1) {
-    return `Reloaded ${names[0]} to undo the agent's changes. Anything the page hadn't saved is gone.`;
+  if (all.length === 1) {
+    return `Reloaded ${all[0] ?? "a page"} to undo the agent's changes. Anything the page hadn't saved is gone.`;
   }
-  const listed = names.length > 5 ? `${names.slice(0, 4).join(", ")} and ${names.length - 4} more` : names.join(", ");
-  return `Reloaded ${names.length} pages to undo the agent's changes: ${listed}. Anything they hadn't saved is gone.`;
+  // The pages it can name first, at most four of them past five pages; the
+  // rest, and each page that isn't a web page, end the list as a count.
+  const shown = all.filter(Boolean).slice(0, all.length > 5 ? 4 : all.length);
+  const rest = all.length - shown.length;
+  const items = rest ? [...shown, rest === 1 ? "1 other page" : `${rest} other pages`] : shown;
+  const listed = shown.length ? `: ${items.slice(0, -1).join(", ")} and ${items.at(-1)}` : "";
+  return `Reloaded ${all.length} pages to undo the agent's changes${listed}. Anything they hadn't saved is gone.`;
 }
 
-/** A reloaded page as the note names it: a web page's host and path, else "a page". */
+/** A reloaded page as the note names it: a web page's host and path, else null. */
 function reloadedWhere(page) {
   try {
     const url = new URL(String(page?.url ?? ""));
@@ -1102,7 +1107,7 @@ function reloadedWhere(page) {
       return oneLine(`${url.host}${url.pathname.replace(/\/+$/, "")}`, 60);
     }
   } catch {}
-  return "a page";
+  return null;
 }
 
 /**

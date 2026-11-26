@@ -2654,7 +2654,7 @@ test("Claude Code's own words on a call (harnessWords): the moved and MCP-interr
   assert.deepEqual(out, { zenius: "moved", otherMcp: "cut", fetch: null, fetchCut: null, fetchStop: "cut", interrupted: "cut", plain: null });
 });
 
-test("the note on the pages zenius reloaded at a task's end (reloadedNote) names each by its host and path, never its query or fragment, a page that isn't a web page as 'a page', and more than five as a count", async () => {
+test("the note on the pages zenius reloaded at a task's end (reloadedNote) names each by its host and path, never its query or fragment, one page that isn't a web page as 'a page'; of several, the pages it can name, at most four past five, with the rest as a count at the list's end", async () => {
   const out = await chrome(`
     const { reloadedNote } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentService.sys.mjs");
     const pages = urls => urls.map((url, i) => ({ page: "p" + (i + 1), url }));
@@ -2665,6 +2665,10 @@ test("the note on the pages zenius reloaded at a task's end (reloadedNote) names
       root: reloadedNote(pages(["https://example.com/"])),
       notWeb: reloadedNote(pages(["data:text/html,<p>hi</p>"])),
       two: reloadedNote(pages(["https://www.example.com:8443/a/b/?token=SECRET", "about:blank"])),
+      three: reloadedNote(pages(["https://a.example/1", "https://b.example/2", "https://c.example/3"])),
+      unnamed: reloadedNote(pages(["https://news.example/article.html", "https://shop.example/cart", "data:text/html,<p>hi</p>"])),
+      noneNamed: reloadedNote(pages(["about:blank", "data:text/html,<p>hi</p>"])),
+      six: reloadedNote(pages(["about:blank", "https://a.example/1", "https://b.example/2", "https://c.example/3", "https://d.example/4", "https://e.example/5"])),
       seven: reloadedNote(pages(["https://a.example/1", "https://b.example/2", "https://c.example/3", "https://d.example/4", "https://e.example/5", "https://f.example/6", "https://g.example/7"])),
       long: reloadedNote(pages(["https://example.com/" + "x".repeat(100)])),
     };
@@ -2675,8 +2679,12 @@ test("the note on the pages zenius reloaded at a task's end (reloadedNote) names
   assert.equal(out.one, one("example.com/editor"));
   assert.equal(out.root, one("example.com"));
   assert.equal(out.notWeb, one("a page"));
-  assert.equal(out.two, "Reloaded 2 pages to undo the agent's changes: www.example.com:8443/a/b, a page. Anything they hadn't saved is gone.");
-  assert.equal(out.seven, "Reloaded 7 pages to undo the agent's changes: a.example/1, b.example/2, c.example/3, d.example/4 and 3 more. Anything they hadn't saved is gone.");
+  assert.equal(out.two, "Reloaded 2 pages to undo the agent's changes: www.example.com:8443/a/b and 1 other page. Anything they hadn't saved is gone.");
+  assert.equal(out.three, "Reloaded 3 pages to undo the agent's changes: a.example/1, b.example/2 and c.example/3. Anything they hadn't saved is gone.");
+  assert.equal(out.unnamed, "Reloaded 3 pages to undo the agent's changes: news.example/article.html, shop.example/cart and 1 other page. Anything they hadn't saved is gone.");
+  assert.equal(out.noneNamed, "Reloaded 2 pages to undo the agent's changes. Anything they hadn't saved is gone.");
+  assert.equal(out.six, "Reloaded 6 pages to undo the agent's changes: a.example/1, b.example/2, c.example/3, d.example/4 and 2 other pages. Anything they hadn't saved is gone.");
+  assert.equal(out.seven, "Reloaded 7 pages to undo the agent's changes: a.example/1, b.example/2, c.example/3, d.example/4 and 3 other pages. Anything they hadn't saved is gone.");
   assert.equal(out.long, one(`example.com/${"x".repeat(47)}…`));
 });
 
