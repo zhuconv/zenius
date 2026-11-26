@@ -1,4 +1,4 @@
-// Per-tab navigation state in the parent (zen-observe).
+// Per-tab navigation state in the parent (the observe layer).
 //
 // One tracker per page, fed by the page's web progress, so it sees every
 // top-level navigation: goto and reload, link clicks, scripts, redirects.

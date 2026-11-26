@@ -105,7 +105,7 @@ test("an adopted tab's documents get the guards, its frames' too", async () => {
   await h.call("pages.adopt", { space, tab, as: "home" });
   assert.deepEqual(await guarded(space, tab), [true, true], "adopt returns once its documents are guarded");
 
-  // The clipboard guard (zen-ux's actor) went into the same document: the
+  // The clipboard guard (the UI's actor) went into the same document: the
   // page's own clipboard call, from the agent's click, fills the Space's
   // clipboard instead of the system one.
   await asPage(

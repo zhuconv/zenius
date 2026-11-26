@@ -1,10 +1,10 @@
-// The agent's code in an isolated world, content side (zen-observe).
+// The agent's code in an isolated world, content side (the observe layer).
 //
 // The agent's page code runs in a sandbox per document, never in the page's
 // own JavaScript. This module keeps the worlds of this process, discards
-// them, and answers the page flags zen-input's guard reads synchronously:
+// them, and answers the page flags the input layer's guard reads synchronously:
 // - written: the agent's world wrote into one of the page's documents, so
-//   zen-core reloads it before the user types there;
+//   the core reloads it before the user types there;
 // - made: the page's top document is one the agent made (data:, blob:).
 // The parent (observe/agentworld.sys.mjs) publishes both as sharedData sets
 // of innerWindowIds, so a reload or a new load clears a flag by itself.
@@ -833,7 +833,7 @@ export function noteWorkerStart(win) {
  * written too. A write of the world flags the documents already there
  * (flagWritten); this flags those that come later, so the hand-off's check
  * of the held page can trust the flags alone, not the sites where the
- * agent's code ran (as zen-sdk's rehearsal showed). A tab's own earlier
+ * agent's code ran (as the SDK's rehearsal showed). A tab's own earlier
  * document never runs beside its next one: it's gone, or frozen in the
  * back-forward cache, so a clean copy of a written page starts clean.
  *
@@ -873,7 +873,7 @@ function tellParent(data) {
 
 // The URL a document had before the agent's code changed it in place
 // (pushState, replaceState, the hash, a location set to the same document),
-// so zen-core's clean load goes back there and not to an address the agent
+// so the core's clean load goes back there and not to an address the agent
 // chose. innerWindowId → {before, agentSet}.
 const urls = new Map();
 let urlsPending = null;
@@ -2135,7 +2135,7 @@ function discardWorld(id, world) {
 
 /**
  * Discard the agent's worlds that could reach `target`'s page through an
- * Xray: every world of its BrowsingContextGroup in this process. zen-input's
+ * Xray: every world of its BrowsingContextGroup in this process. The input layer's
  * guard calls it at Take over, at the user's first key or press, before any
  * page listener; the parent's discard calls it in each process of the group.
  * Synchronous, cheap when there's nothing to discard, safe at any time.
@@ -2199,7 +2199,7 @@ export function isWritten(target) {
 }
 
 /**
- * zen-input's flag for the page `target` is in: "drop" when its top
+ * The input layer's flag for the page `target` is in: "drop" when its top
  * document is one the agent made, "clean" when it's written, else null.
  * Kept pages after the task included.
  *

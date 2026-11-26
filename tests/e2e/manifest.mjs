@@ -107,7 +107,7 @@ const table = {
   "pure CDP workflow": ["workflow-chains.mjs", "cdp", "na", "drives a page only through raw CDP (SPEC §2: no CDP emulation)"],
   "snapshot workflow": ["workflow-chains.mjs", "v2", "run"],
   "visual workflow": ["workflow-chains.mjs", "v2", "run"],
-  // zen-eval's own cases (tests/e2e/zen-cases/), not part of Ego's suite.
+  // The eval harness's own cases (tests/e2e/zen-cases/), not part of Ego's suite.
   "zen-eval: v2 control lifecycle": ["zen-cases/control-lifecycle.mjs", "v2", "run"],
   "zen-eval: v2 checks from N/A cases": ["zen-cases/v2-na-coverage.mjs", "v2", "run"],
   "zen-eval: pdf.js viewer download": ["zen-cases/pdfjs-download.mjs", "gecko", "run", "drives Firefox's pdf.js viewer; zenius only, the counterpart of Ego's Page Chromium PDF viewer download"],

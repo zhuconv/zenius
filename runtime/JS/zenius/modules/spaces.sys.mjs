@@ -14,11 +14,11 @@
 //                         prompt); `reason` says why, with Ego's keys
 //   user                  the user's space: never claimed, or its task ended
 //                         (`ended`)
-// plus `paused`, set while zen-ux's takeover prompt is open: agent actions
+// plus `paused`, set while the UI's takeover prompt is open: agent actions
 // that change the page wait until the user decides.
 //
 // This module is the only writer of ownership, reason, paused and stateText.
-// zen-ux's prompt and panel call setPaused/setOwnership; the spaces.* methods
+// The UI's prompt and panel call setPaused/setOwnership; the spaces.* methods
 // call the same functions.
 
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
@@ -111,7 +111,7 @@ const AGENTS_SPACE_NAME = "Agents";
 /**
  * A task's source: who drives it, which the
  * sidebar's directory shows as text. A field stays only in the remote
- * label's plain set (zen-observe's sidebar.start LABEL), and anything else
+ * label's plain set (the observe layer's sidebar.start LABEL), and anything else
  * is left out, so an odd folder name never blocks the task.
  */
 const SOURCE_FIELD = /^[A-Za-z0-9 _.:@#/-]{1,80}$/;
@@ -1077,18 +1077,18 @@ export class Spaces {
    *   source: who decided: "agent" (an RPC), "user" (prompt or panel),
    *     "permission" (a permission prompt)
    *   via: where the user decided, when the agent should know. No caller
-   *     sets it since zen-ux dropped its own-tab notice ("ownTab"); the
+   *     sets it since the UI dropped its own-tab notice ("ownTab"); the
    *     reports stay until the SDK drops the field
    *   reloaded, carried: for agentDelegatedToUser, what the hold's quiet
    *     load did to the page the user holds (modules/handoff.sys.mjs):
    *     "reload" or "get" when it loaded afresh, and whether a field came
-   *     back filled; zen-ux's card says so
+   *     back filled; the UI's card says so
    *   secret: for agentDelegatedToUser, the agent's hand-off said the step
-   *     will show a secret, and the hand back blanks the tab; zen-ux's card
+   *     will show a secret, and the hand back blanks the tab; the UI's card
    *     tells the user to copy what they need first
    *   evidence: for agentDelegatedToUser, label → the evidence each page
    *     the hold loaded afresh had before its load ({reason: detail},
-   *     zen-observe's), so zen-ux's reload card says why
+   *     the observe layer's), so the UI's reload card says why
    *   endedHow: for a task that ends here, how: "closed" (its tabs went),
    *     else "finished" when the agent decided and "stopped" when the user
    *     did; the feed shows it, and so does the agent's next call
@@ -1247,7 +1247,7 @@ export class Spaces {
   }
 
   /**
-   * The last hand back's via, once (none since zen-ux dropped "ownTab"): spaces.takeOver and
+   * The last hand back's via, once (none since the UI dropped "ownTab"): spaces.takeOver and
    * spaces.waitForControl report it with the control it gave back.
    *
    * @returns {string|null}
@@ -1438,7 +1438,7 @@ export class Spaces {
 
   /**
    * The user's real input reached one of the record's tabs, whoever controls
-   * it (zen-ux's takeover detector). Kept in memory only.
+   * it (the UI's takeover detector). Kept in memory only.
    *
    * @param {SpaceRecord} rec
    */
@@ -1461,7 +1461,7 @@ export class Spaces {
       return;
     }
     const retryAfterMs = Math.ceil(USER_INPUT_QUIET_MS - ago);
-    // What happened only: zen-sdk's error guide says what to do next.
+    // What happened only: the SDK's error guide says what to do next.
     throw new ZenError(
       "ZEN_TASK_SPACE_USER_IN_CONTROL",
       `The user is working in task space ${rec.id}: their last input there was ${(ago / 1000).toFixed(1)} s ago, ` +
@@ -1470,13 +1470,13 @@ export class Spaces {
     );
   }
 
-  /** Claims waiting for the user's answer, oldest first, for a window that opens meanwhile (zen-ux). */
+  /** Claims waiting for the user's answer, oldest first, for a window that opens meanwhile (the UI). */
   pendingClaims() {
     return [...this.#asks.values()].map(({ id, space, name, client, until }) => ({ id, space, name, client, until }));
   }
 
   /**
-   * The user answered a claim's prompt (zen-ux: a real click on Allow or Deny).
+   * The user answered a claim's prompt (the UI: a real click on Allow or Deny).
    *
    * @param {string} id  from claimAsked
    * @param {boolean} allow
@@ -1494,7 +1494,7 @@ export class Spaces {
 
   /**
    * Wait for the user to let an agent claim `rec`, a workspace of theirs or
-   * an ended task (SPEC §3.4). zen-ux shows its prompt at claimAsked and
+   * an ended task (SPEC §3.4). The UI shows its prompt at claimAsked and
    * calls answerClaim; claimSettled ends it. One ask per space: a later
    * claim of it joins the first, and its deadline.
    *
@@ -1582,7 +1582,7 @@ function claimError(ask, verdict, rec) {
   if (verdict === "gone" && (!rec || rec.gone)) {
     return new ZenError("ZEN_TASK_SPACE_NOT_FOUND", `Task space not found: ${ask.space}`, { space: ask.space });
   }
-  // What happened only: zen-sdk's error guide says what to do next.
+  // What happened only: the SDK's error guide says what to do next.
   const messages = {
     deny: `The user said no, in the browser, to an agent working in their Space "${ask.name}".`,
     timeout: `Nobody answered, in the browser, the request to work in Space "${ask.name}".`,

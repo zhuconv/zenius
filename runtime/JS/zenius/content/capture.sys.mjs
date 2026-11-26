@@ -1,5 +1,5 @@
 // Mouse input state that Gecko shares between the tabs of a content process
-// (zen-input).
+// (the input layer).
 //
 // - A page's pointer capture holds one pointer id, in its process and in
 //   the parent, which sends that id's input to the capturing page's

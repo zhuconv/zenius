@@ -2,7 +2,7 @@
 // Window sync sets a copy's icon from the page's image attribute, which
 // Gecko makes a moz-remote-image: URL for an SVG favicon. setIcon refuses
 // that for the copy, which keeps the icon it had: for a new page, none.
-// zen-core gives an agent's page's copies the icon from the page's browser
+// The core gives an agent's page's copies the icon from the page's browser
 // instead (windows.sys.mjs, copyIcon).
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";

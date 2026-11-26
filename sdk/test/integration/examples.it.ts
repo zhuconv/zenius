@@ -558,7 +558,7 @@ console.log(JSON.stringify({ ...stored, refused }));${FINISH}`;
   },
 };
 
-/** On the Mac a miss would reach macOS's own consent prompts, so those probes skip there, as zen-observe's vectors do. */
+/** On the Mac a miss would reach macOS's own consent prompts, so those probes skip there, as the observe layer's vectors do. */
 const MAC_MISS = process.platform === "darwin";
 
 /**
@@ -597,7 +597,7 @@ answers.push(await page.evaluate('new Promise((resolve) => navigator.geolocation
   "Private, link-local and `.local` hosts": {
     answers: ["TypeError", "net::ERR_ACCESS_DENIED"],
     skip: MAC_MISS && "a miss would ask macOS about the local network",
-    // 172.31.254.1, as zen-observe's vectors use: private, and routed nowhere here.
+    // 172.31.254.1, as the observe layer's vectors use: private, and routed nowhere here.
     code: `answers.push(await page.evaluate('fetch("http://172.31.254.1/").then((r) => "status " + r.status, (e) => e.name)'));
 answers.push(await page.goto("http://172.31.254.1/").then(() => "loaded", (e) => /net::ERR_[A-Z_]+/.exec(String(e.message))?.[0] ?? String(e.code)));`,
   },
@@ -746,7 +746,7 @@ describe("the guide's lines on what a task's pages refuse", () => {
     const url = /page\.goto\("([^"]+)"\)/.exec(code)![1]!;
     try {
       // The probe's code writes into the page: with page code in a sandbox, a
-      // page it only read keeps no refusals after the task (zen-observe).
+      // page it only read keeps no refusals after the task (the observe layer).
       // Landing (2) reloads a written kept page at the finish; with the quiet
       // reload off, the page stays written, standing in for a failed reload.
       await context.rpc.call("dev.evalChrome", { code: `Services.prefs.setBoolPref("zenius.handoff.quietReload", false); return true;` });

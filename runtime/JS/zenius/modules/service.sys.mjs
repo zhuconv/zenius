@@ -110,9 +110,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   capturing: "chrome://userscripts/content/zenius/observe/capture.sys.mjs",
 });
 
-/** @type {object|null|undefined} zen-observe's isolated world once loaded; null if it isn't there */
+/** @type {object|null|undefined} the observe layer's isolated world once loaded; null if it isn't there */
 let agentWorldModule;
-/** zen-observe's isolated world (observe/agentworld.sys.mjs). It loads with the first hold or the first task's end (I4). */
+/** The observe layer's isolated world (observe/agentworld.sys.mjs). It loads with the first hold or the first task's end (I4). */
 function agentWorld() {
   if (agentWorldModule === undefined) {
     try {
@@ -216,7 +216,7 @@ class Service {
   #access = new Map();
   /**
    * Readiness checks for page.* methods, from method modules' `pageGates`
-   * exports in index order (zen-observe: pending navigation, open dialog).
+   * exports in index order (the observe layer: pending navigation, open dialog).
    *
    * @type {{gate: (ctx: object, params: object, method: string) => void|Promise<void>, module: string}[]}
    */
@@ -241,9 +241,9 @@ class Service {
   /** @type {JsonStore|null} */
   #store = null;
   #notePage = undefined;
-  /** zen-ux's notePageCall (ui/pages.sys.mjs), null without it. */
+  /** the UI's notePageCall (ui/pages.sys.mjs), null without it. */
   #notePageCall = undefined;
-  /** zen-input's step ring (input/steps.sys.mjs), null without it. */
+  /** the input layer's step ring (input/steps.sys.mjs), null without it. */
   #steps = undefined;
   /** browserIds last published as agent task pages (publishAgentBrowsers). */
   #taskBrowserIds = new Set();
@@ -268,7 +268,7 @@ class Service {
   }
 
   /**
-   * zenius feedback's reports, for the sidebar's card (zen-sidebar):
+   * zenius feedback's reports, for the sidebar's card:
    * pending(), cooldown() and the actions it takes on the user's own click.
    * Until a client composes a report, the module isn't loaded and both reads
    * are null, so the sidebar's reads load nothing.
@@ -639,7 +639,7 @@ class Service {
   }
 
   /**
-   * zen-ux's takeover detector: the space and page of a tab, without
+   * The UI's takeover detector: the space and page of a tab, without
    * refreshing anything (it runs on every click and keypress).
    *
    * @param {Element} tab
@@ -697,7 +697,7 @@ class Service {
 
   /**
    * Zen moved a page's docShell to another window's copy of its tab (window
-   * sync): the page is that copy now. Keep-alive goes with it, and zen-ux
+   * sync): the page is that copy now. Keep-alive goes with it, and the UI
    * moves the pill and the cursor on pageMoved, an in-process event (it
    * carries the elements).
    */
@@ -751,7 +751,7 @@ class Service {
     Services.ppmm.sharedData.flush();
     // Before a new page's first load, as the guards.
     this.updateBackstops();
-    // zen-observe: its observers of the user's own browsing run only from
+    // The observe layer: its observers of the user's own browsing run only from
     // the first task page to the last (I4), so they hear of each change.
     this.emitLocal("taskBrowsers", { count: taskIds.size });
     // Guards go into a document at DOMWindowCreated only if its tab is a
@@ -774,7 +774,7 @@ class Service {
   }
 
   /**
-   * An actor whose child guards a task's documents: zen-ux's ZeniusClipboard
+   * An actor whose child guards a task's documents: the UI's ZeniusClipboard
    * and ZeniusSystemUi. The Zenius actor makes it in a task's new documents,
    * at its own DOMWindowCreated, and calls its installGuards(); it answers
    * "installGuards" for the documents a tab already has. Published before
@@ -881,11 +881,11 @@ class Service {
   /**
    * Closed groups, item 3: should the parent refuse this open? Yes for an
    * opener-linked one whose opener's browsing context group holds a
-   * document with the agent's code (zen-observe's marks, zen-ux's kept
+   * document with the agent's code (the observe layer's marks, the UI's kept
    * ones), unless the opener is a page of a live task, whose popups join it
    * (item 2). A refused open opens nothing: the parent can't tell a form's
    * POST from a GET there, and turning a POST into a GET is never right.
-   * zen-ux's pill tells the user the page can't open windows until it
+   * The UI's pill tells the user the page can't open windows until it
    * reloads.
    *
    * @param {nsIOpenURIInFrameParams} params  createContentWindowInFrame's
@@ -946,21 +946,21 @@ class Service {
   /**
    * The user is about to hold `browser`'s page: an agent's hand-off
    * (source "agent", spaces.handOff) or the user's Take over (source "user",
-   * zen-ux's userTakeOver). modules/handoff.sys.mjs holds it and makes it
+   * the UI's userTakeOver). modules/handoff.sys.mjs holds it and makes it
    * safe for their typing, then the task is the user's to hold, with the
-   * reload on the spaceChanged for zen-ux's card. A page the agent made is
+   * reload on the spaceChanged for the UI's card. A page the agent made is
    * refused to the agent; the user's Take over holds it as it is.
    *
    * With `secret`, the agent's step will show a secret (an API key, a
    * token, recovery codes): the held tab is blanked at the hand back
-   * (blankSecretSteps), and spaceChanged says secret, for zen-ux's card.
+   * (blankSecretSteps), and spaceChanged says secret, for the UI's card.
    *
    * @param {object} rec  the live task's SpaceRecord
    * @param {Element} browser
    * @param {{source?: "agent"|"user", reason?: string, secret?: boolean}} [opts]
    * @returns {Promise<{agentPage: boolean, how: "reload"|"get"|null, reloaded: string[], carried: boolean, openerCut: boolean, evidence: Record<string, Record<string, string>>}>}
    *   evidence: label → the evidence each reloaded page had before its load
-   *   (zen-observe's {reason: detail}), for zen-ux's notice
+   *   (the observe layer's {reason: detail}), for the UI's notice
    * @throws {ZenError} ZEN_HANDOFF_REFUSED
    */
   async holdForUser(rec, browser, { source = "user", reason = "manual_takeover", secret = false } = {}) {
@@ -972,7 +972,7 @@ class Service {
     // The agent's hand-off of its own page is refused before its code is discarded.
     const result = await lazy.holdFor(this, rec, browser, { refuseAgentPage: source === "agent" });
     const labels = result.reloaded.map(b => this.pages.forBrowser(b)?.label).filter(Boolean);
-    // What each reloaded page had, for zen-ux's notice (Take over's result)
+    // What each reloaded page had, for the UI's notice (Take over's result)
     // and its hand-off card (spaceChanged).
     const evidence = {};
     for (const b of result.reloaded) {
@@ -1019,7 +1019,7 @@ class Service {
   }
 
   /**
-   * zen-observe's discard: the agent's sandboxes, and the workers they
+   * The observe layer's discard: the agent's sandboxes, and the workers they
    * started, in every process, at a hand-off, Take over and the task's end.
    * Resolves once every process has done it.
    *
@@ -1034,7 +1034,7 @@ class Service {
   }
 
   /**
-   * The page's evidence, its top document and frames (zen-observe's
+   * The page's evidence, its top document and frames (the observe layer's
    * evidenceOf): reason → detail. Unreadable, it counts as hooked.
    *
    * @param {Element|BrowsingContext} target
@@ -1046,11 +1046,11 @@ class Service {
 
   /**
    * Does the page get a clean copy before the user types there? Its
-   * documents have what the agent's code left hooked in them (zen-observe's
+   * documents have what the agent's code left hooked in them (the observe layer's
    * evidence), and the agent didn't make it: a
-   * page the agent made comes back the same from a reload, so zen-input's
+   * page the agent made comes back the same from a reload, so the input layer's
    * guard drops the typing there instead. A listed or flagged page gets
-   * zen-ux's warning, not a clean copy.
+   * the UI's warning, not a clean copy.
    *
    * @param {Element|BrowsingContext} target
    * @param {Record<string, string>} [evidence]  the page's, if already read
@@ -1061,7 +1061,7 @@ class Service {
 
   /**
    * Where a clean load of the page goes, if not to its current URL:
-   * zen-observe's urlBefore (the URL before the agent's code changed it in
+   * the observe layer's urlBefore (the URL before the agent's code changed it in
    * place). Null on an error: the current URL then.
    *
    * @param {Element|BrowsingContext} target
@@ -1078,7 +1078,7 @@ class Service {
   }
 
   /**
-   * zen-input's typing guard stopped the user's first press or key in a page
+   * The input layer's typing guard stopped the user's first press or key in a page
    * the agent's code left something hooked in, and holds their keys there:
    * the page loads afresh (needsCleanCopy), its form and the focus carried
    * over (modules/handoff.sys.mjs cleanLoad), and the task's hand back names
@@ -1091,7 +1091,7 @@ class Service {
    * @param {Element} browser
    * @returns {Promise<{how: "reload"|"get"|null, carried: boolean, focused: boolean, urlBefore?: string|null, evidence: Record<string, string>}>}
    *   evidence: the page's as the user's press came, before any load
-   *   (zen-ux's notice says why it reloaded)
+   *   (the UI's notice says why it reloaded)
    */
   async cleanOnDemand(browser) {
     const evidence = this.evidenceOf(browser);
@@ -1161,7 +1161,7 @@ class Service {
    * first await), before endTask's publish drops the tabs from
    * zenius:taskSpaces, where a {task} discard looks. Without that, the
    * world kept running in a kept page and heard the user's clicks and keys
-   * (zen-snapshot's kept group, 2026-11-20).
+   * (the snapshot layer's kept group, 2026-11-20).
    *
    * Each page that stays has its process held up (holdPriority) from before
    * its discard until zenius is done with it: the callers release keepAlive
@@ -1592,14 +1592,14 @@ class Service {
     }
   }
 
-  /** zen-ux's Take over, in every form: the prompt, its countdown, the panel, the user's typing. */
+  /** The UI's Take over, in every form: the prompt, its countdown, the panel, the user's typing. */
   userTakeOver(rec, browser) {
     return this.holdForUser(rec, browser, { source: "user", reason: "manual_takeover" });
   }
 
   /**
    * Before the agent gets a held task back by its own call (spaces.takeOver,
-   * spaces.claim), as at the user's Resume: zen-ux replaces this
+   * spaces.claim), as at the user's Resume: the UI replaces this
    * (ZeniusUI.beforeHandBack) to reload the pages the user typed a secret
    * into. Resolves with the <browser>s it reloaded.
    *
@@ -1610,7 +1610,7 @@ class Service {
   /**
    * Load a page afresh, quietly (modules/handoff.sys.mjs): a new GET entry,
    * its visible ordinary fields and the focus carried over, typing dropped
-   * meanwhile. zen-ux's Resume reload.
+   * meanwhile. The UI's Resume reload.
    *
    * @returns {Promise<{how: "reload"|"get", openerCut: boolean, carried: boolean, focused: boolean}>}
    */
@@ -1618,7 +1618,7 @@ class Service {
     return lazy.cleanLoad(this, browser, opts);
   }
 
-  /** zen-ux's Resume reloaded these pages before the agent gets control back: the hand back says so. */
+  /** The UI's Resume reloaded these pages before the agent gets control back: the hand back says so. */
   noteReloaded(rec, browsers) {
     this.spaces.noteReloaded(
       rec,
@@ -1659,7 +1659,7 @@ class Service {
    * it can matter: a task is live, or a document holds the agent's code
    * (I4). Checked as tasks start, end and change
    * hands, as a tab joins or leaves one, and as the marks change
-   * (observe/setup.sys.mjs's syncHooks, which keeps zen-observe's own hooks
+   * (observe/setup.sys.mjs's syncHooks, which keeps the observe layer's own hooks
    * on the same terms).
    */
   updatePopupWindowGuard() {
@@ -1739,7 +1739,7 @@ class Service {
 
   /**
    * Collect the popups that page `openerLabel` opens until stop() is called.
-   * zen-input wraps an action in this to fill the receipt's `popups`.
+   * The input layer wraps an action in this to fill the receipt's `popups`.
    *
    * @returns {{popups: {label: string, targetId: string}[], labels: string[], stop(): {label: string, targetId: string}[]}}
    */
@@ -1765,7 +1765,7 @@ class Service {
   #onTabClose(event) {
     const tab = event.target;
     // A tab moving to another window closes here but lives on there; its
-    // permanentKey carries over, so keep the page. What zen-ux shows on it
+    // permanentKey carries over, so keep the page. What the UI shows on it
     // goes with it, once this close is done.
     if (event.detail?.adoptedBy) {
       const to = event.detail.adoptedBy;
@@ -1850,7 +1850,7 @@ class Service {
 
   /**
    * An agent close of a tab a window shows waits (SPEC §3.5): the page has
-   * ended for the agent, and zen-ux's "Task finished" pill follows
+   * ended for the agent, and the UI's "Task finished" pill follows
    * `tabClosing {space, tab}`, an in-process event (it carries the element).
    */
   #onDeferredClose(tab, { space, page, tabId }) {
@@ -1950,7 +1950,7 @@ class Service {
         }
         if (value.closing) {
           // A close that waited when Zen quit waits again if a window shows
-          // the tab. zen-ux's pill, which says why it will close and offers
+          // the tab. The UI's pill, which says why it will close and offers
           // Keep, comes with the method modules. Its task is usually gone (a
           // finish that kept nothing), so the start had no agent work to
           // load them for. ZeniusUI draws the pill on a waiting tab when it
@@ -2126,7 +2126,7 @@ class Service {
   /**
    * Would the auto-close take this task? The agent still owns it and never
    * handed it to the user, the agent opened every tab in it, and no client
-   * named it for zenius.autoCloseHours. zen-ux's panel marks the same.
+   * named it for zenius.autoCloseHours. The UI's panel marks the same.
    */
   isIdleTask(rec, now = Date.now()) {
     const hours = this.autoCloseHours;
@@ -2212,7 +2212,7 @@ class Service {
   #onSpaceEvent(name, params) {
     if (name === "spaceChanged" && "ownership" in params && params.ownership !== "agentDelegatedToUser") {
       // Every end of the user's hold comes here: Resume, the agent's
-      // takeOver, Stop, finish (zen-observe's holds end with it).
+      // takeOver, Stop, finish (the observe layer's holds end with it).
       const rec = this.spaces.peek(params.space);
       if (rec && this.#heldForUser) {
         lazy.releaseHolds(rec);
@@ -2663,13 +2663,13 @@ class Service {
 
   /**
    * Load the method modules, once. Most of them install hooks for agent
-   * tabs as they load: zen-input's picker, file chooser and autofill
-   * guards, zen-observe's dialog, network and download hooks, zen-ux's
+   * tabs as they load: the input layer's picker, file chooser and autofill
+   * guards, the observe layer's dialog, network and download hooks, the UI's
    * overlay. A browser with no agent work needs none of that until an agent
    * connects, so they load at the first connection or call (SPEC §5, idle
    * cost: about 4.7 MiB of the parent's memory on the Linux server, 85 ms on that first
    * call), at start when there's agent work (#agentWorkAtStart), or when
-   * the restart rebuild finds a close that waits again (zen-ux's pill).
+   * the restart rebuild finds a close that waits again (the UI's pill).
    * Each module's setup also covers the windows already open.
    *
    * @param {string} [why]  for the log: what needed them
@@ -2770,7 +2770,7 @@ class Service {
 
   /**
    * Every method with its module, access and I5 class, and whether its
-   * module declared each (dev.registry, for zen-input's registry test).
+   * module declared each (dev.registry, for the input layer's registry test).
    *
    * @returns {{method: string, module: string, access: string, accessDeclared: boolean, i5: string|null, i5Declared: boolean}[]}
    */
@@ -2928,7 +2928,7 @@ class Service {
       return this.#rebuilding.then(() => this.dispatch(method, params, conn, { onHold, pageBudget, request }));
     }
     const t0 = now();
-    // A client's call shows in its task's steps while it runs (zen-input's
+    // A client's call shows in its task's steps while it runs (the input layer's
     // ring); a handler's own calls don't.
     const startedAt = Date.now();
     // A script's connection (methods/script.sys.mjs) nests its steps under
@@ -3037,7 +3037,7 @@ class Service {
   }
 
   /**
-   * After the agent acted on a page, tell zen-ux (ui/pages.sys.mjs notePage):
+   * After the agent acted on a page, tell the UI (ui/pages.sys.mjs notePage):
    * the user who opens the space lands on that page, and its badge shows
    * activity. Pointer actions also do this through moveCursor.
    */
@@ -3067,7 +3067,7 @@ class Service {
 
   /**
    * Agent actions that note their page without a call of their own here
-   * (zen-input's keys, zen-ux's cursor) make it the task's front tab too.
+   * (the input layer's keys, the UI's cursor) make it the task's front tab too.
    */
   #followNotePage() {
     const url = `${BASE_URL}ui/pages.sys.mjs`;
@@ -3077,7 +3077,7 @@ class Service {
   }
 
   /**
-   * zen-input's step ring (input/steps.sys.mjs): what the sidebar shows of
+   * The input layer's step ring (input/steps.sys.mjs): what the sidebar shows of
    * each task. A ring that fails to load costs only the steps: every call
    * still runs.
    */
@@ -3121,7 +3121,7 @@ class Service {
   /**
    * The listed evidence: a new document of
    * a task page whose site Gecko's phishing or malware lists name is marked
-   * listed, with the list, for zen-ux's warning. Gecko blocks such a page as
+   * listed, with the list, for the UI's warning. Gecko blocks such a page as
    * it loads, so this finds the one someone clicked through its warning to.
    * The classifier asks the network only for a prefix that matched the
    * lists on disk.
@@ -3180,7 +3180,7 @@ class Service {
   }
 
   /**
-   * What zen-observe's i5Status needs for browser.health's `i5`: the page
+   * What the observe layer's i5Status needs for browser.health's `i5`: the page
    * gates, and ctx.content as a method that acts in documents gets it.
    */
   i5Hooks() {
@@ -3258,7 +3258,7 @@ class Service {
       resolveSpace: params => this.resolveSpace(params),
       resolvePage: params => {
         const resolved = this.resolvePage(params);
-        // The agent's call names this page of its task: zen-ux takes the
+        // The agent's call names this page of its task: the UI takes the
         // cursor off its other pages (notePageCall). Not a dev method's.
         if (i5 !== "dev" && this.spaces.isAgentTask(resolved.space)) {
           try {
@@ -3300,7 +3300,7 @@ class Service {
       onStopped: fn => onStopped(request, fn),
       unlessStopped: (promise, cleanup) => unlessStopped(request, method, promise, cleanup),
       // The agent's code left `detail` in a page that wasn't hooked before
-      // (zen-observe's evidence): the request's final frame carries the
+      // (the observe layer's evidence): the request's final frame carries the
       // first such, as `hooked`, so its client can say the page now loads
       // afresh before the user acts there and at the task's end.
       noteHooked: detail => {
@@ -3424,7 +3424,7 @@ class Service {
   // Events
 
   /**
-   * In-process listeners (zen-ux's controller, watchPopups).
+   * In-process listeners (the UI's controller, watchPopups).
    *
    * @param {(event: string, params: object) => void} listener
    * @returns {() => void} unsubscribe
@@ -3434,7 +3434,7 @@ class Service {
     return () => this.#eventListeners.delete(listener);
   }
 
-  /** An event for in-process listeners only (zen-ux), such as one that carries an element. */
+  /** An event for in-process listeners only (the UI), such as one that carries an element. */
   emitLocal(event, params) {
     for (const listener of this.#eventListeners) {
       try {
@@ -3481,7 +3481,7 @@ class Service {
    * process is the untrusted side, so only the names content modules send
    * (CONTENT_EVENTS), only from a document of an agent task's page, with
    * the space and page set here; anything else is dropped. A forged
-   * spaceChanged or popup would reach zen-ux's UI and action receipts.
+   * spaceChanged or popup would reach the UI's UI and action receipts.
    */
   onContentEvent(actor, msg) {
     const name = msg?.name;
@@ -3516,7 +3516,7 @@ class Service {
   }
 
   /**
-   * The reminders' hook (zen-ux's choice A): a refusal in a document no live
+   * The reminders' hook (the UI's choice A): a refusal in a document no live
    * task holds, in a tab whose top document holds the agent's code and so
    * keeps the task's refusals (content/refusals.sys.mjs). The event comes
    * from the page's own process: only a kind the guards report passes, with

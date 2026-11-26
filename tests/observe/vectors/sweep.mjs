@@ -1,5 +1,5 @@
-// The I1/I4 sweep (zen-observe): fire every way a page could reach past its
-// agent tab, by an agent action (zen-input's trusted click or key, which
+// The I1/I4 sweep (the observe layer): fire every way a page could reach past its
+// agent tab, by an agent action (the input layer's trusted click or key, which
 // grants user activation) and by the page's own script, in a hidden agent
 // tab and in one the user is watching. Record what changes outside the
 // page: windows, dialogs, doorhangers, panels, fullscreen, sound, focus, the

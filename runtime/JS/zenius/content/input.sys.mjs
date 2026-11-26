@@ -1,4 +1,4 @@
-// Input synthesis in the page's own process (zen-input).
+// Input synthesis in the page's own process (the input layer).
 //
 // Everything here works in a tab the user can't see and never reaches the
 // parent: mouse events go through window.synthesizeMouseEvent, keys through
@@ -1115,7 +1115,7 @@ function clipboardCommand(e, isMac) {
 const SYSTEM_CAPTURE = { capture: true, mozSystemGroup: true };
 const SYSTEM_BUBBLE = { mozSystemGroup: true };
 
-/** zen-ux's ClipData (MIME type → data, most preferred first) from {text, html}. */
+/** The UI's ClipData (MIME type → data, most preferred first) from {text, html}. */
 export function toClipData({ text = "", html = null } = {}) {
   return html != null ? { "text/html": html, "text/plain": text } : { "text/plain": text };
 }
@@ -1145,7 +1145,7 @@ const copyCutHandlers = new WeakMap();
  * leaves Gecko nothing to write. A cut the page didn't cancel still deletes
  * its selection, through the editor, so undo restores it.
  *
- * The last handler installed for a tab gets each event: zen-ux's page guards
+ * The last handler installed for a tab gets each event: the UI's page guards
  * install one for the page's own copy and cut, and the agent's chords
  * install theirs on top while they run.
  *
@@ -1245,7 +1245,7 @@ export function sanitizePastedHtml(html) {
  * What in the agent's pasted html counts as hooked, in a few words, or null:
  * code, a frame, a form, a field, an
  * editable area, a base, a meta refresh or a
- * style sheet, by zen-observe's hookedMarkup, which its world runs on what
+ * style sheet, by the observe layer's hookedMarkup, which its world runs on what
  * the agent's code inserts, so the two count the same things. It reads the
  * markup as the agent sent it, not as the sanitizer lets it through: a paste
  * that carries code is evidence against the page, though the page never

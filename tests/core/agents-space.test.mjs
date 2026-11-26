@@ -82,7 +82,7 @@ const taskTabs = space =>
      });`,
     space
   );
-/** A tab's session value and zen-ux's tag, by page label or tab id. */
+/** A tab's session value and the UI's tag, by page label or tab id. */
 // A value that names its tab's sync id, as each should, without that id
 // (a value naming another is returned whole, so the check fails).
 const OWN = `const own = (P, t) => { const v = P.readTabValue(t); if (v && v.sync === (t.id || null)) delete v.sync; return v; };`;

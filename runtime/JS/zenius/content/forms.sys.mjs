@@ -1,4 +1,4 @@
-// Content side of the quiet reload's form carry-over (zen-core, 2026-11-20).
+// Content side of the quiet reload's form carry-over (the core, 2026-11-20).
 // Before zenius reloads a page the user is about to
 // hold, record() keeps the values of its visible, ordinary fields and which
 // field had the focus; fill() puts them back into the new document, and the
@@ -165,13 +165,13 @@ const sameValues = (a, b) => a.length === b.length && a.every((v, i) => v === b[
  */
 /** Top document → the field the user went for (noteUserTarget). */
 const userTargets = new WeakMap();
-/** Top document → the user's field, where fill() put the focus back (zen-input's glue, for its replay). */
+/** Top document → the user's field, where fill() put the focus back (the input layer's glue, for its replay). */
 const userFieldsBack = new WeakMap();
 
 /**
- * zen-input's replay of the keys the user typed while the clean copy
+ * The input layer's replay of the keys the user typed while the clean copy
  * loaded: the field they went for, if fill() put the focus back there in
- * `doc`, else null (zen-input's glue).
+ * `doc`, else null (the input layer's glue).
  *
  * @param {Document} doc
  * @returns {Element|null}
@@ -182,7 +182,7 @@ export function userFieldBack(doc) {
 }
 
 /**
- * zen-input's typing guard stopped the user's first press or key into this
+ * The input layer's typing guard stopped the user's first press or key into this
  * field of a written page, before the focus moved there: the reload on
  * demand (ZeniusService.cleanOnDemand) puts the focus there, not where the
  * page had it.
@@ -228,8 +228,8 @@ export function clearActivation(actor) {
 /**
  * The URL whose response is this document: its channel's, after any
  * redirects. The site's own pushState and replaceState change the URL the
- * page shows, never this one, so zen-core's quiet load goes here when the
- * URL shown would lead to another site (zen-snapshot's siteRouterRedirect).
+ * page shows, never this one, so the core's quiet load goes here when the
+ * URL shown would lead to another site (the snapshot layer's siteRouterRedirect).
  */
 function loadedFrom(actor) {
   try {
@@ -243,7 +243,7 @@ function recordFields(doc) {
   const fields = [];
   let focused = null;
   const target = userTargets.get(doc)?.deref();
-  // Whether `focused` is the user's field, not the page's own focus (zen-input's glue).
+  // Whether `focused` is the user's field, not the page's own focus (the input layer's glue).
   const userTarget = !!target?.isConnected;
   const active = target?.isConnected ? target : deepActiveElement(doc);
   for (const { el, kind, key, carry } of fieldsOf(doc)) {

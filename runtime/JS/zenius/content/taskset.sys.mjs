@@ -1,16 +1,16 @@
-// Which documents are an agent task's (zen-core): the checks the Zenius
+// Which documents are an agent task's (the core): the checks the Zenius
 // actor makes at every new document of a web tab, and the sharedData keys
 // the parent publishes for them. A leaf that imports nothing, so a user's
 // document loads this and the actor's own module, nothing else of zenius
 // (I4). The guards themselves (content/guards.sys.mjs, content/refusals.sys.mjs)
-// and zen-ux's guard actors load in a task's documents only.
+// and the UI's guard actors load in a task's documents only.
 //
-// The checks moved here from content/guards.sys.mjs and zen-observe's
+// The checks moved here from content/guards.sys.mjs and the observe layer's
 // content/refusals.sys.mjs, which re-export them.
 
 /** The tabs the agent drives right now (browserIds; modules/service.sys.mjs). */
 export const AGENT_BROWSERS_KEY = "zenius:agentBrowserIds";
-/** Every page of an agent task, also while the user holds it (zen-ux glue). */
+/** Every page of an agent task, also while the user holds it (the UI glue). */
 export const TASK_BROWSERS_KEY = "zenius:taskBrowserIds";
 /**
  * The pages a finished task kept for the user that a reply in its Work chat
@@ -33,7 +33,7 @@ export const AGENT_CODE_DOCS_KEY = "zenius:agentCodeDocIds";
 export const HELD_PAGES_KEY = "zenius:heldPages";
 /**
  * The actors besides the Zenius actor whose children guard a task's
- * documents (ZeniusService.addGuardActor: zen-ux's ZeniusClipboard and
+ * documents (ZeniusService.addGuardActor: the UI's ZeniusClipboard and
  * ZeniusSystemUi). The Zenius actor makes them in a task's new documents
  * and calls their installGuards(), so a user's document never makes them.
  */
@@ -84,7 +84,7 @@ const popupOpeners = new WeakMap();
  * opened stays the user's when the agent later takes that tab. False once
  * the opener's task has ended and its document is replaced.
  *
- * zen-core's actor installs the refusals in such a popup's documents,
+ * The core's actor installs the refusals in such a popup's documents,
  * frames included, from its first document (actors/ZeniusChild.sys.mjs), so
  * the opener can't take a fresh popup's natives (own-tab.md, second round).
  *
@@ -115,7 +115,7 @@ function openerCounts(opener, depth) {
 }
 
 /**
- * Does a document that isn't a task's page need the refusals (zen-core's
+ * Does a document that isn't a task's page need the refusals (the core's
  * actor asks at DOMWindowCreated)? A popup of a task's page, or any
  * document of a tab whose top document ran the agent's code: a frame or
  * popup the code left there makes after the task gets them from its first

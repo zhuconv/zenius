@@ -1,4 +1,4 @@
-// zen-observe's sidebar.* methods (PROTOCOL.md, "Remote tasks: the sidebar")
+// The observe layer's sidebar.* methods (PROTOCOL.md, "Remote tasks: the sidebar")
 // on the mock runtime: enough of the states, limits and codes for the tests of
 // `zenius sidebar` and the bridge. Tests move a task along with answer(),
 // needUser() and end().

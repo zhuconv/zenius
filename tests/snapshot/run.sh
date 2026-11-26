@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# zen-snapshot runtime tests: start a headless dev Zen (fresh profile on Linux), run
+# The snapshot layer's runtime tests: start a headless dev Zen (fresh profile on Linux), run
 # tests/snapshot/*.test.mjs against it, stop it.
 #
 #   tests/snapshot/run.sh                         instance "snaptest-<checkout suffix>"

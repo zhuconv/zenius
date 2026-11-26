@@ -2,7 +2,7 @@
 // script. Once it runs, every method, getter and setter of every prototype
 // in the page's realm, and the window's own functions and getters, is a
 // trap. Each call checks what it was handed (this, arguments, a setter's
-// value) for an object of another realm: zen-snapshot's sandbox shares the
+// value) for an object of another realm: the snapshot layer's sandbox shares the
 // page's compartment, so any object of ours a page function receives leads
 // it to the sandbox's global.
 //

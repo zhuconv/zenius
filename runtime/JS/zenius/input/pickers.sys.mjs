@@ -1,4 +1,4 @@
-// Picker panels in agent tabs (zen-input). A click on <input type=date>, a
+// Picker panels in agent tabs (the input layer). A click on <input type=date>, a
 // <select> or <input type=color> opens browser UI over the page: the date
 // and time panel takes keyboard focus, the dropdown covers the page, and on
 // the Mac the color picker is the OS's own panel. While the agent drives a

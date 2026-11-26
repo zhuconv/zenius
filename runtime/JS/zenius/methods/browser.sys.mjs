@@ -1,4 +1,4 @@
-// browser.* and profiles.* methods (zen-core).
+// browser.* and profiles.* methods (the core).
 
 import { RUNTIME_VERSION, zenVersion } from "chrome://userscripts/content/zenius/modules/util.sys.mjs";
 import { listProfiles } from "chrome://userscripts/content/zenius/modules/spaces.sys.mjs";
@@ -32,7 +32,7 @@ export const methods = {
 
   // webdriver: what pages would see as navigator.webdriver (true while
   // Marionette or the Remote Agent runs), read from a browser window so
-  // zenius doctor can check I4 without opening a page. i5: zen-observe's
+  // zenius doctor can check I4 without opening a page. i5: the observe layer's
   // I5 status, for doctor's check of the agent boundary. strayAgentsSpaces:
   // Spaces zenius made as its Agents Space that a start left as they were,
   // since they hold tabs, for doctor to list. dnsDisableIPv6: the one pref

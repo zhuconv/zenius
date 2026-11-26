@@ -14,7 +14,7 @@ let vectors;
 before(async () => {
   env = await setup();
   vectors = await startVectorServer();
-  // Code planted before a hand-off stays in the page: these tests check the refusals it meets during the hold (zen-core's glue).
+  // Code planted before a hand-off stays in the page: these tests check the refusals it meets during the hold (the core's glue).
   await env.chrome(`Services.prefs.setBoolPref("zenius.handoff.quietReload", false); return true;`);
 });
 after(async () => {

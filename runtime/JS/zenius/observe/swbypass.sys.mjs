@@ -1,4 +1,4 @@
-// zen-observe: a task's pages don't use the site's service worker.
+// The observe layer: a task's pages don't use the site's service worker.
 //
 // The worker a site registered from the user's own tabs runs for them,
 // outside the task. Left alone, it would control the task's pages too: its

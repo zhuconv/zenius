@@ -1,6 +1,6 @@
 // The method registry behind dispatch (docs/SPI.md, "Dispatch"): each
 // method's module, access and I5 class, and whether its module declared
-// them. zen-input's registry test checks every module's declarations; this
+// them. The input layer's registry test checks every module's declarations; this
 // file checks the plumbing.
 import assert from "node:assert/strict";
 import net from "node:net";

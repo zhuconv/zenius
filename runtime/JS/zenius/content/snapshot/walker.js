@@ -1,4 +1,4 @@
-// zen-snapshot's page walker, run inside a document's sandbox
+// The snapshot layer's page walker, run inside a document's sandbox
 // (content/snapshot/sandbox.sys.mjs) after aria.js and locators.js. It turns
 // one document into Ego's snapshot tree:
 // roles, names, text, hidden content, compaction, viewport clipping, refs and
@@ -483,7 +483,7 @@
   }
 
   // `detached`: also a node the page took out of the document and may put
-  // back, as Ego's refs reach (zen-input's actions). Only
+  // back, as Ego's refs reach (the input layer's actions). Only
   // while it's this document's node: one the page moved into another
   // document (a frame's, another window's, a windowless one) still counts as
   // connected there, and an action would act outside the ref's page.

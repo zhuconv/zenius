@@ -53,14 +53,14 @@ node $X/shots.mjs --instance $I /tmp/$I-shots 2
 
 The second pref lets the mock run: the sidebar starts only agents zenius can
 hold to the browser (Claude Code, for now), and greys out any other agent
-unless `zenius.agentSidebar.allowUnknownAgents` is true (zen-observe's
+unless `zenius.agentSidebar.allowUnknownAgents` is true (the observe layer's
 limits, `agent-sidebar/workspace.sys.mjs`). A run without it shows both mocks
 greyed out, and no agent starts.
 
 Each `SCENARIO:flights` run names its zenius task "Tokyo flights". Until
-zen-sdk's fix (a taken name gets a number), a second run while the first is
+the SDK's fix (a taken name gets a number), a second run while the first is
 open or held joins the first, so stop or close it first.
 
 The scene takes about 20 s on the mock. With a real `claude` agent in the
 config, the tab's chat and the shown task run on it instead, which is how
-zen-sidebar's shots for the user are made, and which takes the network.
+the sidebar's shots for the user are made, and which takes the network.

@@ -1,4 +1,4 @@
-// Media in agent tabs the user can't see (zen-observe; SPEC §3.5).
+// Media in agent tabs the user can't see (the observe layer; SPEC §3.5).
 // (The import below: the agent's worlds get these shims too.)
 //
 // keepAlive keeps an agent tab's document visible, so its timers and rAF run

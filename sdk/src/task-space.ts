@@ -110,7 +110,7 @@ export class TaskSpace {
    * - `blanked`: the labels of the Pages zenius emptied (about:blank, with no
    *   history) at the hand back of a handOff({ secret: true }), so the secret
    *   the user's step showed can't be read.
-   * The own tab, and its `via: "ownTab"`, went with zen-ux's safe holds.
+   * The own tab, and its `via: "ownTab"`, went with the UI's safe holds.
    */
   get handBack(): Readonly<HandBack> | undefined {
     return this.#handBack;
@@ -182,10 +182,10 @@ export class TaskSpace {
       throw new TypeError('task.handOff message must name the step, such as "Sign in at 10.0.0.1". Expected: await task.handOff({ message? })');
     }
     // The hold card in the agent's tab shows the space's state text as the
-    // agent's words (zen-ux), so the message goes there before the hand-off.
+    // agent's words (the UI), so the message goes there before the hand-off.
     if (message) await this.#call("spaces.setState", "task.handOff", { text: message });
     try {
-      // secret: zenius blanks the held tab at the hand back (zen-core).
+      // secret: zenius blanks the held tab at the hand back (the core).
       // reason: why the step is the user's, which Zen's strip names.
       await this.#call("spaces.handOff", "task.handOff", {
         ...(options.secret ? { secret: true } : {}),

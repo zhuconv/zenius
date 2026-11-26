@@ -1,4 +1,4 @@
-// Agent tabs make sound only while the user can see them (zen-observe). A
+// Agent tabs make sound only while the user can see them (the observe layer). A
 // tab the user can't see is muted through its MediaController, the switch
 // behind the tab's speaker button, so the
 // page plays on silently: media keeps its clock and events, and agent tasks
@@ -11,7 +11,7 @@
 // calling a muted tab audible, so the content guards report each start of
 // playback (content/refusals.sys.mjs).
 //
-// zen-ux's indicator: the tab has the attribute zenius-muted while zenius
+// The UI's indicator: the tab has the attribute zenius-muted while zenius
 // keeps it muted, and zenius-muted-sound once its page has played sound in
 // that time.
 
@@ -102,7 +102,7 @@ function watchWindow(win) {
   }
   windows.add(win);
   const sync = () => syncAll();
-  // As in zen-ux's cursor: TabSelect comes before the new panel shows,
+  // As in the UI's cursor: TabSelect comes before the new panel shows,
   // TabSwitchDone once it is on screen; a Space switch selects a tab.
   win.addEventListener("TabSelect", sync);
   win.addEventListener("TabSwitchDone", sync, true);
@@ -209,7 +209,7 @@ function tabOf(browser) {
 
 /**
  * Mute or unmute every agent tab, and every tab zenius muted, by whether
- * the user can see it. The agent's tabs come from zen-core's list: Zen's
+ * the user can see it. The agent's tabs come from the core's list: Zen's
  * gBrowser.tabs leaves out other workspaces' tabs.
  */
 export function syncAll() {

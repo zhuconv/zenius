@@ -1,7 +1,7 @@
-// zenius feedback's reports and the sidebar card's actions on them (zen-core).
+// zenius feedback's reports and the sidebar card's actions on them (the core).
 //
 // feedback.compose keeps a report's text under a new id; feedback.propose
-// shows it in every open agent sidebar (zen-sidebar's card) and waits for the
+// shows it in every open agent sidebar (the sidebar's card) and waits for the
 // user. The card calls this module's actions in process, each on the user's
 // own click: send (search for an open issue with the same title, then post),
 // postNew, comment (on an issue that search found), copyAndOpen, defer (the

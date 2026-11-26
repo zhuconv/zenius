@@ -103,7 +103,7 @@ test("copy, cut and paste use the Space's clipboard, never the system one", asyn
 });
 
 test("paste into a contenteditable lands after the tab navigated", async () => {
-  // The paste command event dropped every paste after a re-goto (zen-sdk's find).
+  // The paste command event dropped every paste after a re-goto (the SDK's find).
   const page = track(await task.newPage());
   for (let i = 0; i < 3; i++) {
     await page.goto(`data:text/html,<div id=editor contenteditable style=min-height:40px></div>`);
@@ -135,7 +135,7 @@ test("an agent's paste with html counts as the agent's code in the page, as page
 });
 
 test("an agent's paste with html is refused in a page that shares a window group outside the task; text alone still pastes (closed groups)", async () => {
-  // zen-core's pages.codeRefusal decides which pages those are, and its own
+  // The core's pages.codeRefusal decides which pages those are, and its own
   // tests build them. Here it answers for this page only, as for a popup
   // the user's tab opened.
   const page = track(await h.newPageAt(task, `${h.baseUrl}/zoo/forms.html?refused=${Date.now()}`));
@@ -177,7 +177,7 @@ test("an agent's paste with html is refused in a page that shares a window group
 });
 
 // A site's own rich-text editor, whose paste handler inserts the pasted html
-// as is (zen-snapshot's /sb editor), with Gecko's editor next to it and a
+// as is (the snapshot layer's /sb editor), with Gecko's editor next to it and a
 // copy handler that fills the clipboard with that html. Served here, so no
 // data: URL or page.evaluate marks the page first. The page counts its image
 // errors: an error is when a pasted onerror would run.
@@ -241,7 +241,7 @@ const writtenFlag = page =>
     code: `const { isWritten } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/agentworld.sys.mjs");
       return isWritten(ctx.resolvePage(arg).browser);`,
   });
-/** zen-observe's evidence against `page`, as its own process reads it (content/evidence.sys.mjs), at once after a paste there. */
+/** The observe layer's evidence against `page`, as its own process reads it (content/evidence.sys.mjs), at once after a paste there. */
 const evidenceInPage = page =>
   h.call("dev.evalChrome", {
     arg: { space: page.spaceId, page: page.label },
@@ -256,7 +256,7 @@ const evidenceOf = page =>
       return EV.evidenceOf(ctx.resolvePage(arg).browser);`,
   });
 const ONERROR = { hooked: "a paste with an inline handler (onerror)" };
-/** zen-core's pages.codeRefusal, answering for `page` only, as in a page the user's tab opened. */
+/** The core's pages.codeRefusal, answering for `page` only, as in a page the user's tab opened. */
 const refuseCodeIn = (page, on) =>
   h.call("dev.evalChrome", {
     arg: { space: page.spaceId, page: page.label, on },
@@ -316,7 +316,7 @@ test("Ctrl/Cmd+V of the Space clipboard's html is sanitized too, and the page it
   }));
 
 // The agent's pasted markup, and the evidence it leaves: only what
-// zen-observe's hookedMarkup counts, read from the markup as the agent sent
+// the observe layer's hookedMarkup counts, read from the markup as the agent sent
 // it, the whole document, head included.
 const PASTE_CASES = [
   ["<b>bold</b> and <i>italic</i>", {}],
@@ -376,7 +376,7 @@ test("Ctrl/Cmd+V in a page that shares a window group outside the task pastes th
   }));
 
 test("a page's own copy and cut stay in the Space; the agent's chords take precedence while they run", async () => {
-  // Plays zen-ux's page guard: a lasting interceptCopyCut handler that
+  // Plays the UI's page guard: a lasting interceptCopyCut handler that
   // records what it gets in the page.
   const page = await homePage();
   await page.privileged(`
@@ -426,7 +426,7 @@ test("ControlOrMeta+S on a pdf.js page saves the PDF as an agent download", asyn
   const page = await h.newPageAt(task, `${h.baseUrl}/api/openai-gpt-4-system-card.pdf`);
   track(page);
   // pdf.js's state is the viewer's own JavaScript, which the agent's
-  // isolated world doesn't see: wait for it in the page's (glue by zen-observe).
+  // isolated world doesn't see: wait for it in the page's (glue by the observe layer).
   for (const end = Date.now() + 10000; ; await new Promise(r => setTimeout(r, 100))) {
     const loaded = await h
       .call("dev.evalContent", { space: task.spaceId, page: page.label, code: "window.PDFViewerApplication?.pdfDocument != null" })
@@ -806,7 +806,7 @@ test("a file chooser the agent holds goes back with control: no answer after a h
   // code (h.asUser): a data: page would be the agent's own, and a hand-off
   // of it is refused. The agent's code ran on this site earlier in the
   // task, so the hand-off would load the page afresh, chooser and all: the
-  // quiet reload is off here, as this test is of the chooser (zen-core's glue).
+  // quiet reload is off here, as this test is of the chooser (the core's glue).
   await h.call("dev.evalChrome", { code: `Services.prefs.setBoolPref("zenius.handoff.quietReload", false); return true;` });
   t.after(() => h.call("dev.evalChrome", { code: `Services.prefs.clearUserPref("zenius.handoff.quietReload"); return true;` }).catch(() => {}));
   const PAGE = `${h.baseUrl}/?chooser=${Date.now()}`;
@@ -1644,7 +1644,7 @@ test("a dialog ends the gesture that opened it, and raw input returns at once, a
 });
 
 // I1 at the two moments that brought Ego's window on screen and to the front
-// in zen-eval's run (docs/eval/no-preemption.md): a dialog with input sent
+// in the eval harness's run (docs/eval/no-preemption.md): a dialog with input sent
 // behind it, and a middle click on a link. What the user sees is
 // dev.viewState (the active window, and each window's selected tab, Space
 // and focus), plus each window's state and bounds, and every tab in every
@@ -2729,7 +2729,7 @@ test("a press the agent holds keeps the user's mouse in the user's tab: a select
       assert.ok(userLog.includes("click@userbtn"), `${where}: the user's click reached their button: ${JSON.stringify(userLog)}`);
       // Not even through what Gecko does with the user's first event there:
       // a selection drag step, or the page's pending pointer capture taken
-      // at the user's point (zen-snapshot's rerun).
+      // at the user's point (the snapshot layer's rerun).
       assert.deepEqual(await page.evaluate(() => window.__log.splice(0)), [], `${where}: the agent's page heard none of the user's input`);
       assert.equal(await page.evaluate(() => String(getSelection())), selection, `${where}: the agent's selection didn't move to the user's point`);
       await page.mouse.up();
@@ -3375,7 +3375,7 @@ for (const [id, shared] of [
 }
 
 test("a press the agent holds on its text leaves the user's press and release in their tab", { timeout: 90_000 }, async () => {
-  // zen-snapshot's replay: Gecko's press on text captures the mouse for
+  // The snapshot layer's replay: Gecko's press on text captures the mouse for
   // the whole process, so the user's press, their first event there, went
   // to the agent's page, where the guard dropped it. Their page got the
   // release alone.
@@ -3872,7 +3872,7 @@ test("an action the page can't return from fails past its deadline, instead of h
   // The content side ends its call by the deadline, unless the page can't
   // return: a busy script, or a browser prompt's nested event loop that no
   // watcher reports (Firefox's warning before a secure page posts a form
-  // over http: zen-snapshot's find, where page.click never returned).
+  // over http: the snapshot layer's find, where page.click never returned).
   const BUSY_MS = 7500;
   const page = await homePage();
   try {
@@ -3901,7 +3901,7 @@ test("an action the page can't return from fails past its deadline, instead of h
 });
 
 test("a refusal at an add-on's frame doesn't name the add-on's URL, whose host is its id in this profile", { timeout: 60_000 }, async () => {
-  // zen-observe's add-on checks: a page that frames an add-on's page, as a
+  // The observe layer's add-on checks: a page that frames an add-on's page, as a
   // password manager's inline menu.
   const dir = mkdtempSync(join(tmpdir(), "zenius-input-addon-"));
   writeFileSync(

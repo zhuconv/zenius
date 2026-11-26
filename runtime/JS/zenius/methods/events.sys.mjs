@@ -1,4 +1,4 @@
-// events.* methods (zen-core): event frames on this connection.
+// events.* methods (the core): event frames on this connection.
 
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
 

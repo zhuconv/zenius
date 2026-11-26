@@ -1,4 +1,4 @@
-// Shared setup for zen-snapshot runtime tests. tests/snapshot/run.sh starts
+// Shared setup for the snapshot layer's runtime tests. tests/snapshot/run.sh starts
 // a fresh headless dev Zen and sets ZENIUS_INSTANCE; tests drive it over RPC
 // and run content-side checks through dev.evalContent.
 import assert from "node:assert/strict";

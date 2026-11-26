@@ -1,4 +1,4 @@
-// The I1/I4 sweep's pages (zen-observe): one trigger per way a page could
+// The I1/I4 sweep's pages (the observe layer): one trigger per way a page could
 // reach past its agent tab. Each vector is a button (#v-<id>) whose click
 // handler fires it, and window.__vectors[id]() fires it from page script.
 // Outcomes the page can see land in window.__vectorResults[id].

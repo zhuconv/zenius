@@ -102,7 +102,7 @@ console.log(JSON.stringify({ receipt, listed }));`);
     assert.equal(out.listed, false);
   });
 
-  // zen-core's page.flag: the SDK checks only that the reason is a string, so
+  // The core's page.flag: the SDK checks only that the reason is a string, so
   // the runtime's rules (one line, 1 to 200 characters) are the ones that hold.
   it("page.flag(reason) flags the loaded page and returns nothing; the runtime refuses an empty, multi-line or long reason", async (t) => {
     if (!needs(t, context, "spaces.create", "page.goto", "page.flag")) return;
@@ -158,7 +158,7 @@ console.log(await task.page("p1").snapshot());`);
       pagecode: "ok",
     });
     assert.match(report.checks.find((check) => check.id === "zen")!.summary, /\(from the running instance, pid \d+\)$/);
-    // I5, from the real runtime's browser.health.i5 (zen-observe's).
+    // I5, from the real runtime's browser.health.i5 (the observe layer's).
     assert.equal(
       report.checks.find((check) => check.id === "boundary")!.summary,
       "agents load only http:, https:, data:, blob: and about:blank; page gate on; self-tests refused about:config, file:/// and a browser document",

@@ -1,4 +1,4 @@
-// Folder uploads, the SDK half (the runtime half is zen-input's): the CLI
+// Folder uploads, the SDK half (the runtime half is the input layer's): the CLI
 // walks the folder with lstat, never follows a link, makes the runtime's
 // checks before reading, and reads each file only if it is still the one the
 // walk saw.

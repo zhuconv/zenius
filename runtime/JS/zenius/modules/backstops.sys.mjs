@@ -1,7 +1,7 @@
-// The parent's backstops for a task's pages (zen-observe; built by zen-core,
+// The parent's backstops for a task's pages (the observe layer; built by the core,
 // 2026-11-20, and acting on a page's evidence since 2026-11-21).
 //
-// zen-observe's page refusals (content/refusals.sys.mjs) and the agent
+// The observe layer's page refusals (content/refusals.sys.mjs) and the agent
 // world's mirror of them refuse in the page. These refuse the same requests
 // again in the parent process, which the agent's code can't reach, for when
 // the page's line is bypassed: a mirror that failed, or a native API reached
@@ -18,7 +18,7 @@
 // Devices and peer connections are refused while the agent drives the page,
 // since the agent never uses the user's devices, and when the page shows
 // evidence of danger (observe/evidence.sys.mjs); prompts only on evidence.
-// Otherwise a prompt goes on to Firefox's own: to zen-ux's hand-off while the
+// Otherwise a prompt goes on to Firefox's own: to the UI's hand-off while the
 // agent drives (ui/permissions.sys.mjs), to the user during their hold or
 // Take over, when the devices ask the user too. A stream started then stops
 // when the agent has the page again (observe/capture.sys.mjs). Frames count
@@ -397,7 +397,7 @@ function promptWhy(browser) {
 /**
  * What the override does with a prompt from this tab: "cancel" it, on
  * evidence of danger in a live task's page, or "pass" it on to Firefox's
- * own. Every type alike: while the agent drives, zen-ux hands the task to
+ * own. Every type alike: while the agent drives, the UI hands the task to
  * the user with the prompt; during the hold, the user answers it. Exported
  * for tests.
  *

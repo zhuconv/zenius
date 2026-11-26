@@ -292,7 +292,7 @@ run_install --loader ${install_args[@]+"${install_args[@]}"} || { app_note; die 
 
 cli "$RELEASE" || die "scripts/install-cli.sh failed (above)"
 
-# The sidebar's agents, when the release has them (zen-ux's runtime/agents):
+# The sidebar's agents, when the release has them (the UI's runtime/agents):
 # npm checks each package against the lock's integrity hashes. The sidebar
 # reads the user's own config.json first, and its agents win over the
 # built-in ones, whose adapters would then never run: an install that has

@@ -377,7 +377,7 @@ test("install without --disable-ipv6 leaves user.js as it is, zenius's earlier l
   // No user.js: none is made, and nothing is recorded for uninstall.
   const fresh = sandbox("dns-optin-fresh");
   const f = fresh.profile();
-  // The dry run promises no pref (zen-sdk's rehearsal of the runbook).
+  // The dry run promises no pref (the SDK's rehearsal of the runbook).
   const dry = fresh.install(f, "--dry-run").out;
   assert.match(dry, /change nothing else there:$/m);
   assert.doesNotMatch(dry, /one pref|disableIPv6|user\.js/);
@@ -574,7 +574,7 @@ test("uninstall gives back the user's own user.js as it was, and the pref's earl
   fs.writeFileSync(path.join(p, "user.js"), USER);
   fs.writeFileSync(path.join(p, "prefs.js"), `user_pref("a.b", 1);\n${OWN}\n`);
   const installed = s.install(p, "--disable-ipv6").out;
-  // zen-sdk's install rehearsal: a first install backs up user.js before
+  // The SDK's install rehearsal: a first install backs up user.js before
   // adding its line, and says so, in its output and in install.json.
   const folder = installed.match(/^  backed up user\.js to (\S+)$/m)?.[1];
   assert.ok(folder?.startsWith(path.join(s.zhome, "backups")), installed);
@@ -814,7 +814,7 @@ test("Undo takes out the sidebar's agent workspace after a backup, and install n
   writeTree(ws, { claude: { ".claude": { "settings.json": "{}\n" } }, codex: { "notes.txt": "left by Codex\n" } });
   const written = snap(ws);
   // And the user's chats with it, which stay theirs: its Work tasks, and
-  // each tab's Chat (zen-sidebar's chat persistence).
+  // each tab's Chat (the sidebar's chat persistence).
   const chats = path.join(p, "agent-sidebar-tasks.json");
   const tabChats = path.join(p, "agent-sidebar-chats.json");
   fs.writeFileSync(chats, '{"tasks":[{"title":"a chat"}]}\n');

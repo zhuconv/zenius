@@ -1,7 +1,7 @@
-// sidebar.* methods (zen-observe): remote tasks, which another of the user's
+// sidebar.* methods (the observe layer): remote tasks, which another of the user's
 // agents sends to the sidebar's agent (PROTOCOL "Remote tasks: the
-// sidebar"). zen-sdk's bridge calls them for the requests it takes from
-// zen-core's gate. It's cross-owner work: the sidebar is zen-ux's.
+// sidebar"). The SDK's bridge calls them for the requests it takes from
+// the core's gate. It's cross-owner work: the sidebar is the UI's.
 //
 // The sidebar keeps each task's remote state (agent-sidebar/remote.sys.mjs).
 // This module checks the params, holds the limits, and stops tasks: at their
@@ -31,7 +31,7 @@ const ADDRESS = /^[A-Za-z0-9._:@/-]{1,64}$/;
 const ID = /^[A-Za-z0-9._-]{1,64}$/;
 // A label is a short tag: ASCII letters and digits, spaces and - _ . / : @ #.
 // Nothing in it can close the quotes the agent's rules put it in, make
-// markup, or reorder the card's text as a bidi override would. zen-core's
+// markup, or reorder the card's text as a bidi override would. The core's
 // gate allows the same set, so the gate never passes a label that start
 // refuses.
 const LABEL = /^[A-Za-z0-9 _.:@#/-]{0,80}$/;
@@ -270,7 +270,7 @@ function afterEnd(A, R, conv) {
   clearTimeout(timers.get(conv.uid));
   timers.delete(conv.uid);
   watchOff(A, R);
-  // Its chat, row and title say why it stopped (zen-ux's remoteEnd), at
+  // Its chat, row and title say why it stopped (the UI's remoteEnd), at
   // once, even when no turn ran to end.
   A.refreshTask(conv);
 }

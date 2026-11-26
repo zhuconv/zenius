@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# zen-input runtime tests: start a fresh headless dev Zen, run
+# The input layer's runtime tests: start a fresh headless dev Zen, run
 # tests/input/*.test.mjs against it (Ego's Page API e2e cases plus zenius's
 # own checks), stop it.
 #

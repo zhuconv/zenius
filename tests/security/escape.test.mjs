@@ -6,7 +6,7 @@
 // Each probe tries one way out and must fail with
 // a clear error; the first test shows that ordinary agent work still works.
 //
-// The probes are zen-eval's from the Mac (docs/eval/live-pilot.md), with the
+// The probes are the eval harness's from the Mac (docs/eval/live-pilot.md), with the
 // profile seeded as there: a saved login and a cookie. Each test runs all its
 // probes and then lists every one that got through, so a run shows the whole
 // picture. tests/security/run.sh runs this on a fresh headless dev instance,

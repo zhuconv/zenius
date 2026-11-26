@@ -75,7 +75,7 @@ const pixel = (s, x, y) =>
     { b64: s.bytes.toString("base64"), x, y }
   );
 
-// zen-eval's page for Ego's rule (2026-11-20): a green page, scrolled, with a
+// The eval harness's page for Ego's rule (2026-11-20): a green page, scrolled, with a
 // classic scrollbar in magenta (the Linux server's headless Zen has a 12 px one too).
 const BARRED = `data:text/html,<title>bar</title><html style="scrollbar-color:magenta magenta"><body style="margin:0;background:green"><div style="height:3000px"></div>`;
 const MAGENTA = "255,0,255";
@@ -83,7 +83,7 @@ const GREEN = "0,128,0";
 
 /**
  * Classic scrollbars for `fn`, which take room and are always drawn: macOS
- * draws overlay ones by default, which take none and fade (zen-eval's Mac
+ * draws overlay ones by default, which take none and fade (the eval harness's Mac
  * runs of 2026-11-21). A function declaration, so the clip case above can
  * use it.
  */

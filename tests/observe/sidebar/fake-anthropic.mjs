@@ -8,7 +8,7 @@
 //
 // `blocks` are whole content blocks, as a server tool's turn has them: the
 // answer to WebSearch's own request (server_tool_use, web_search_tool_result,
-// text). zen-sidebar added them for Chat's fetch rule.
+// text), added for Chat's fetch rule in the sidebar.
 //   api.url, api.requests (each { system, tools, messages, last }), api.close()
 //
 // `last` is the newest user turn as plain text, tool results included

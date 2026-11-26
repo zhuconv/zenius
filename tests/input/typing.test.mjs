@@ -1,15 +1,15 @@
 // The typing guard (content/typing.sys.mjs, input/typing.sys.mjs), on
 // evidence only. In a page the
-// agent's code left something hooked in (zen-observe's evidence), the user's
+// agent's code left something hooked in (the observe layer's evidence), the user's
 // first press or key is stopped before any listener of the page, and so is
-// their typing there until the page's top document is replaced, and zen-core
+// their typing there until the page's top document is replaced, and the core
 // is asked for a clean copy. A page the agent's code only filled, clicked or
 // wrote text into has no evidence, and neither has one it pasted plain
 // markup into: the user's input goes in. A listed or flagged page doesn't
 // hold it either, since a clean copy can't remove the page's own danger
-// (zen-ux warns there). A page the agent made keeps the user's typing on.
-// The page's own listeners stand for code the agent left in it. zen-core's
-// cleanOnDemand is stubbed here, since its reload is zen-core's to test,
+// (the UI warns there). A page the agent made keeps the user's typing on.
+// The page's own listeners stand for code the agent left in it. The core's
+// cleanOnDemand is stubbed here, since its reload is the core's to test,
 // except in the replay's cases at the end: their keys go into its clean
 // copy. The user's input needs the page shown, so these cases run in a
 // watched agent tab.
@@ -66,10 +66,10 @@ const heard = page => h.asUser(page, "return window.__heard.splice(0)");
 const valueOf = (page, selector) => h.asUser(page, `return document.querySelector(${JSON.stringify(selector)}).value`);
 const activeId = page => h.asUser(page, "return document.activeElement?.id || document.activeElement?.getAttribute('name') || document.activeElement?.localName");
 
-/** zen-ux's side: what onUserTyping reported, in order. */
+/** The UI's side: what onUserTyping reported, in order. */
 const triggers = () => chrome(`return win.__zeniusTyping ?? [];`);
 const someTrigger = (n = 1) => h.until(async () => (await triggers()).length >= n, "the user's trigger reported");
-/** The pages zen-core was asked to load afresh, by browserId. */
+/** The pages the core was asked to load afresh, by browserId. */
 const cleanCalls = () => chrome(`return win.__zenInputCleanCalls ?? [];`);
 const browserIdOf = page => chrome(`${SERVICE} return ZeniusService.resolvePage(arg).browser.browserId;`, where(page));
 
@@ -77,7 +77,7 @@ const browserIdOf = page => chrome(`${SERVICE} return ZeniusService.resolvePage(
  * Back to the page's top, for the user's clicks on its fields. After the
  * agent's paste, the page's scroll to the editor waits for the next refresh
  * tick, and under load that tick can come after a plain scrollTo, taking the
- * fields out of view before the user's click (zen-core's flake, 2026-11-21).
+ * fields out of view before the user's click (the core's flake, 2026-11-21).
  * So let the ticks pass, and scroll again until the top holds.
  */
 const toTop = page =>
@@ -161,11 +161,11 @@ function moveOnce(page) {
 }
 
 /**
- * Evidence against the page's current top document (zen-observe's
+ * Evidence against the page's current top document (the observe layer's
  * markEvident), with `reason`: hooked, as its world marks what the agent's
  * code left there, and written too, as the world marks that until written
- * retires (zen-core's real clean copy reads written until its switch);
- * listed, as zen-core's list check; flagged, as the agent's own flag.
+ * retires (the core's real clean copy reads written until its switch);
+ * listed, as the core's list check; flagged, as the agent's own flag.
  */
 async function flagEvident(page, reason = "hooked", detail = "a script element") {
   await chrome(
@@ -182,7 +182,7 @@ async function flagEvident(page, reason = "hooked", detail = "a script element")
 const evidenceInPage = page =>
   inPageAsChrome(page, `return ChromeUtils.importESModule("chrome://userscripts/content/zenius/content/evidence.sys.mjs").evidenceOf(actor.contentWindow);`);
 
-/** zen-observe's written flag, which the guard doesn't read since the switch to evidence. */
+/** The observe layer's written flag, which the guard doesn't read since the switch to evidence. */
 const writtenFlag = page => chrome(`${SERVICE} ${WORLD} return AW.isWritten(ZeniusService.resolvePage(arg).browser);`, where(page));
 /** The page's evidence, as the parent holds it. */
 const evidenceOf = page => chrome(`${SERVICE} ${EVIDENCE} return EV.evidenceOf(ZeniusService.resolvePage(arg).browser);`, where(page));
@@ -194,14 +194,14 @@ const inPageAsChrome = (page, code) =>
      return ZeniusService.content(browser.browsingContext, "dev#evalContent", { code: arg.code, privileged: true });`,
     { ...where(page), code }
   );
-/** zen-observe's evidence flag in the page's process: "clean", "drop" (a page the agent made) or null. */
+/** The observe layer's evidence flag in the page's process: "clean", "drop" (a page the agent made) or null. */
 const pageFlag = page =>
   inPageAsChrome(page, `return ChromeUtils.importESModule("chrome://userscripts/content/zenius/content/evidence.sys.mjs").evidenceFlag(actor.contentWindow);`);
 
 /**
  * The agent takes its Space back, as after the user approved: the user's
  * input in a task page took it over (manual_takeover). Their last input
- * holds a takeOver for 10 s (zen-core's rule): age it first.
+ * holds a takeOver for 10 s (the core's rule): age it first.
  */
 async function takeBack(page) {
   await chrome(
@@ -224,7 +224,7 @@ async function letAgentGoOn(page) {
   );
 }
 
-/** zen-ux's hook and zen-core's reload, as stand-ins that record their calls. */
+/** The UI's hook and the core's reload, as stand-ins that record their calls. */
 const listen = () =>
   chrome(
     `${SERVICE} ${TYPING}
@@ -457,7 +457,7 @@ test("the hold ends with the document: the next one is unflagged, and the user's
     await h.userPress(page, "x");
     await someTrigger();
     await letAgentGoOn(page);
-    // As zen-core's clean copy: a new document.
+    // As the core's clean copy: a new document.
     await page.goto(formsUrl("ends-next"));
     assert.equal(await pageFlag(page), null, "the new document carries no flag");
     await h.asUser(page, LISTEN("#email"));
@@ -484,7 +484,7 @@ test("a page the agent's code wrote into, leaving nothing hooked, keeps the user
   inWatchedPage(formsUrl("unhooked"), async page => {
     // The agent's own page code, as in the Cloudflare case: a value, an
     // attribute, text, a class and a style on elements already there, an
-    // event and a click. It made the page written (zen-observe's old flag),
+    // event and a click. It made the page written (the observe layer's old flag),
     // and none of it is evidence.
     const filled = await h.call("page.evaluate", {
       ...where(page),
@@ -575,9 +575,9 @@ test("the agent's paste of plain markup leaves the user's input on; a paste whos
   }));
 
 test("a page with evidence the user keeps after the task still keeps their typing out", async () => {
-  // zen-core's landing (2) reloads a written page at its task's end (one with
+  // The core's landing (2) reloads a written page at its task's end (one with
   // evidence, after its switch); with its quiet loads off (as for the
-  // hand-off's other layers) the page stays as it was (glue by zen-core).
+  // hand-off's other layers) the page stays as it was (glue by the core).
   await chrome(`Services.prefs.setBoolPref("zenius.handoff.quietReload", false); return true;`);
   const { id: space } = await h.call("spaces.create", { name: `zen-input kept ${Date.now() % 100000}` });
   const mark = `zen-input-kept-${Date.now()}`;
@@ -661,7 +661,7 @@ test("zen-core's dropUserTyping holds the user's typing in a page until released
       await hold();
       await h.until(seesHold, "the page's process to see the hold");
       await h.userPress(page, "b");
-      // zen-core's hold drops typing only: the user's presses pass.
+      // The core's hold drops typing only: the user's presses pass.
       await h.userClick(page, "[name=nickname]");
       await h.until(async () => (await activeId(page)) === "nickname", "the user's click in the held tab");
       assert.equal(await valueOf(page, "#email"), "a", "the key before it went nowhere");
@@ -716,7 +716,7 @@ test("zen-core's failed release keeps the user's typing out of the document the 
 
 // ------------------------------------------------- the clean copy's replay
 // The keys the user types while a page with evidence loads afresh are typed again
-// into its clean copy, in the field they went for. zen-core's real clean
+// into its clean copy, in the field they went for. The core's real clean
 // copy, from a site whose second load of
 // a page is slow: the user's keys come while it loads.
 
@@ -744,7 +744,7 @@ const REPLAY_PAGE = `<!doctype html><meta charset="utf-8"><title>replay</title>
 
 /**
  * A site of the test's own on loopback. Each page's first load is quick;
- * from its second on (zen-core's clean copy) it waits `slowMs`, and is
+ * from its second on (the core's clean copy) it waits `slowMs`, and is
  * `again`. `slowLoadMs` holds the clean copy's load event back that much
  * more, behind an image.
  */
@@ -782,7 +782,7 @@ async function withReloadSite(fn, { slowMs = 1000, again = REPLAY_PAGE, slowLoad
   }
 }
 
-/** A watched task page at `url`, hooked (and written, see flagEvident), with zen-core's real clean copy. */
+/** A watched task page at `url`, hooked (and written, see flagEvident), with the core's real clean copy. */
 async function inEvidentPage(url, fn) {
   const page = await h.newPageAt(task, url);
   const back = await h.watch(page);
@@ -810,7 +810,7 @@ const FIELDS = `const u = document.getElementById("user");
 /** The replay page's fields, as the user sees them. */
 const fields = page => h.asUser(page, FIELDS);
 
-/** zen-core's clean copy is in, and its hold on the tab lifted. */
+/** The core's clean copy is in, and its hold on the tab lifted. */
 async function cleanCopyIn(page) {
   const id = await browserIdOf(page);
   await h.until(async () => (await fields(page)).load === "2", "the clean copy", 15_000);
@@ -1030,9 +1030,9 @@ test("no replay when the trigger press went for no field, or the clean copy lack
   ));
 
 test("a kept page's clean copy holds the keys the user types into it until their replay, though its task is over", async () => {
-  // As in "a page with evidence the user keeps after the task": zen-core's
+  // As in "a page with evidence the user keeps after the task": the core's
   // quiet loads off, so the task's end leaves the page as it was (glue by
-  // zen-core).
+  // the core).
   await chrome(`Services.prefs.setBoolPref("zenius.handoff.quietReload", false); return true;`);
   const mark = `zen-input-kept-replay-${Date.now()}`;
   /** Chrome code with `tab` and `browser` for the kept page, in whichever window it went to. */

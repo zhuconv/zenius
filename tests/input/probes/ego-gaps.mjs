@@ -1,5 +1,5 @@
 // The input cases where Chromium's own behavior decides what Ego does, run
-// on Ego and on zenius to compare them (zen-input). Also the dialog, focus,
+// on Ego and on zenius to compare them (the input layer). Also the dialog, focus,
 // idle and drag cases whose Ego side was read from its code, checked before
 // zenius changes them. Run it on either target:
 //   ego-browser nodejs < tests/input/probes/ego-gaps.mjs
@@ -132,7 +132,7 @@ function handle(req, res) {
 }
 
 // Ego's embedded Node (stdin mode) resolves listen() only while a timer is
-// pending (zen-eval's note in tests/observe/ego/title-after-click.mjs).
+// pending (the eval harness's note in tests/observe/ego/title-after-click.mjs).
 const keepAlive = setInterval(() => {}, 20);
 const server = http.createServer(handle);
 await new Promise(r => server.listen(0, "127.0.0.1", r));

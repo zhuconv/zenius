@@ -1,6 +1,6 @@
 // Run a browser script on one of the two targets the eval compares:
 //   ego     Ego Lite, through `ego-browser nodejs` (its embedded Node + SDK)
-//   zenius  our runtime, through `zenius nodejs --instance <name>` from zen-sdk
+//   zenius  our runtime, through `zenius nodejs --instance <name>` from the SDK
 // Both read the script from stdin and expose the same Ego-style globals.
 
 import { spawn } from "node:child_process";

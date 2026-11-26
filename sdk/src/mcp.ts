@@ -1,4 +1,4 @@
-// zenius as an MCP server for Claude Code and Codex (zen-core): `zenius mcp`
+// zenius as an MCP server for Claude Code and Codex (the core): `zenius mcp`
 // speaks the Model Context Protocol on stdin and stdout, so an agent works in
 // the user's Zen through browser tools instead of shell commands. Each call
 // reads as a step the user can follow ('Open shop.example.com/checkout',
@@ -1182,7 +1182,7 @@ const TOOLS: Tool[] = [
       required: ["reason"],
     },
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-    // zen-ux's warning on the page: "The agent flagged this page · <reason>".
+    // The UI's warning on the page: "The agent flagged this page · <reason>".
     step: (args) => `Flag the page: ${quoted(args.reason, 80)}`,
     run: async (args, session) => {
       const page = session.page(args);

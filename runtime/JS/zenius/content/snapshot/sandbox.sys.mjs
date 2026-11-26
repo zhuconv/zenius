@@ -1,4 +1,4 @@
-// One sandbox per document for zen-snapshot's content scripts. Each
+// One sandbox per document for the snapshot layer's content scripts. Each
 // sandbox has the page's principal, so
 // it reads the DOM without Xrays, and its own copies of the core DOM
 // prototypes, which the walker calls as primordials. Page script can't see

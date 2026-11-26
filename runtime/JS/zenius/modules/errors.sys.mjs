@@ -15,7 +15,7 @@ export const ErrorCodes = Object.freeze(
       "ZEN_TASK_SPACE_UNAVAILABLE",
       "ZEN_TASK_SPACE_USER_IN_CONTROL",
       "ZEN_TASK_SPACE_NAME_IN_USE",
-      // zen-core's claim approval (SPEC §3.4), which Ego doesn't have: the
+      // The core's claim approval (SPEC §3.4), which Ego doesn't have: the
       // user denied an agent's claim in the browser, or didn't answer.
       "ZEN_TASK_SPACE_CLAIM_DENIED",
       "ZEN_PROFILE_NOT_FOUND",
@@ -34,38 +34,38 @@ export const ErrorCodes = Object.freeze(
       "ZEN_NOT_ACTIONABLE",
       "ZEN_DIALOG_NOT_FOUND",
       "ZEN_DOWNLOAD_FAILED",
-      // zen-observe's methods. The first three mirror Ego's codes; Ego
+      // The observe layer's methods. The first three mirror Ego's codes; Ego
       // throws the last two as plain Errors (the error's data.plain).
       "ZEN_NAVIGATION_TIMEOUT",
       "ZEN_PAGE_DIALOG_OPENED",
       "ZEN_URL_OPENED_IN_POPUP",
       "ZEN_EVALUATION_FAILED",
       "ZEN_FETCH_FAILED",
-      // zen-observe's I5 checks (SPEC §3.9), which Ego doesn't have: a load
+      // The observe layer's I5 checks (SPEC §3.9), which Ego doesn't have: a load
       // of a URL agents may not open; a method in a document that isn't
       // web content.
       "ZEN_URL_NOT_ALLOWED",
       "ZEN_PAGE_NOT_WEB_CONTENT",
-      // The isolated world (zen-observe), which Ego doesn't have: the
+      // The isolated world (the observe layer), which Ego doesn't have: the
       // agent's code read a page global its world can't see.
       "ZEN_PAGE_GLOBAL_HIDDEN",
-      // Closed groups, which Ego doesn't have (zen-observe's methods that run
-      // the agent's code, and zen-input's paste with html): the page shares a
+      // Closed groups, which Ego doesn't have (the observe layer's methods that run
+      // the agent's code, and the input layer's paste with html): the page shares a
       // window group with a window outside the task.
       "ZEN_AGENT_CODE_REFUSED",
-      // zen-core's hand-off, which Ego doesn't have: spaces.handOff can't
+      // The core's hand-off, which Ego doesn't have: spaces.handOff can't
       // make the page safe for the user's typing (data.reason).
       "ZEN_HANDOFF_REFUSED",
-      // zen-input's methods, mirroring Ego's codes: an action opened a file
+      // The input layer's methods, mirroring Ego's codes: an action opened a file
       // chooser nobody waited for; page.waitForFileChooser timed out.
       "ZEN_FILE_CHOOSER_OPENED",
       "ZEN_FILE_CHOOSER_TIMEOUT",
-      // The user's setting for agents' page code (zen-observe), which Ego
+      // The user's setting for agents' page code (the observe layer), which Ego
       // doesn't have: it is "never", or "ask" and the site isn't allowed
       // (data.site, data.asked, data.declined).
       "ZEN_PAGE_CODE_OFF",
       "ZEN_PAGE_CODE_ASKED",
-      // Remote tasks (zen-observe's sidebar.* methods), which Ego doesn't
+      // Remote tasks (the observe layer's sidebar.* methods), which Ego doesn't
       // have: the user's off pref, a limit (data.limit), no such task, a
       // turn still running or waiting for the user, a task that ended, and
       // a sidebar that can't run one (data.reason).
@@ -75,11 +75,11 @@ export const ErrorCodes = Object.freeze(
       "ZEN_REMOTE_TASK_BUSY",
       "ZEN_REMOTE_TASK_ENDED",
       "ZEN_SIDEBAR_UNAVAILABLE",
-      // The post-install self-check (zen-core), which Ego doesn't have: a
+      // The post-install self-check (the core), which Ego doesn't have: a
       // run is already going, or this profile can't run one.
       "ZEN_SELFCHECK_BUSY",
       "ZEN_SELFCHECK_UNAVAILABLE",
-      // zenius feedback's card (zen-core), which Ego doesn't have: another
+      // zenius feedback's card (the core), which Ego doesn't have: another
       // report waits for the user, or the user discarded one a moment ago.
       "ZEN_FEEDBACK_PENDING",
       "ZEN_FEEDBACK_DECLINED",

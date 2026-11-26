@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# zen-observe's boundary tests: what a page in an agent tab can reach past
+# The observe layer's boundary tests: what a page in an agent tab can reach past
 # it (surfaces.test.mjs, the I1/I4 vectors; i5.test.mjs, web content only;
 # caps.test.mjs, memory and disk), and what agent JavaScript can do once the
 # user has the Space (control.test.mjs, I3). They were half of tests/observe, which set

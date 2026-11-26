@@ -1,4 +1,4 @@
-// zen-eval's own case, not Ego's. In Ego's suite the v2 control lifecycle
+// The eval harness's own case, not Ego's. In Ego's suite the v2 control lifecycle
 // (handOff, takeOverTaskSpace, waitForControl, userPage, ownership, finish
 // with kept Pages, claimTaskSpace, adopt) is checked only inside "task spaces
 // and control", which mostly tests legacy v1 helpers and is N/A for rubric A.

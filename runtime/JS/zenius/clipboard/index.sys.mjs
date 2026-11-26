@@ -1,4 +1,4 @@
-// Starts the per-Space clipboard (zen-ux): registers the ZeniusClipboard
+// Starts the per-Space clipboard (the UI): registers the ZeniusClipboard
 // actor, whose child guards page-initiated clipboard calls in agent tabs, and
 // empties a Space's clipboard when its task ends. methods/ui.sys.mjs calls
 // startClipboard() when it loads.
@@ -17,9 +17,9 @@ export function startClipboard(service) {
   started = true;
   const def = {
     parent: { esModuleURI: `${BASE}ZeniusClipboardParent.sys.mjs` },
-    // No DOMWindowCreated of its own: zen-core's Zenius actor makes this
+    // No DOMWindowCreated of its own: the core's Zenius actor makes this
     // one in a task's documents only, at theirs, before the page's scripts
-    // (installGuards). A user's document never loads it (zen-core's I4).
+    // (installGuards). A user's document never loads it (the core's I4).
     child: { esModuleURI: `${BASE}ZeniusClipboardChild.sys.mjs` },
     allFrames: true,
     safeForUntrustedWebProcess: true,
@@ -34,7 +34,7 @@ export function startClipboard(service) {
     ChromeUtils.registerWindowActor(ACTOR, def);
   }
   // A tab that becomes a task's page gets the guard in the documents it
-  // already has (zen-core's ZeniusService.installGuards).
+  // already has (the core's ZeniusService.installGuards).
   service.addGuardActor(ACTOR);
   service.addEventListener((event, params) => {
     const id = params?.space;

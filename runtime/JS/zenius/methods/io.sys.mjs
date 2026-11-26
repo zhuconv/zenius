@@ -1,4 +1,4 @@
-// Files in and out (zen-observe): page.fetch and the Download methods.
+// Files in and out (the observe layer): page.fetch and the Download methods.
 // Portions adapted from citrolabs/ego-lite (MIT License).
 //
 // Semantics follow Ego (page-model.ts page.fetch, driver/downloads.ts). I5
@@ -32,7 +32,7 @@ function downloadFor(params) {
   return entry;
 }
 
-/** A call's whole result stays under Playwright's remote limit, as uploads do (zen-input). */
+/** A call's whole result stays under Playwright's remote limit, as uploads do (the input layer). */
 const MAX_BYTES = 50 * 1024 * 1024;
 
 // ---------------------------------------------------------------------------

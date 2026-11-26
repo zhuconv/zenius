@@ -1,6 +1,6 @@
-// The post-install self-check's entry (zen-core; PROTOCOL.md, "Self-check"):
+// The post-install self-check's entry (the core; PROTOCOL.md, "Self-check"):
 // its socket, a run's window, output and cleanup, and retention. The agent
-// sidebar's scenarios are zen-sidebar's, with their own tests; here a run
+// sidebar's scenarios are the UI's, with their own tests; here a run
 // gets stand-ins for prepare, run and cleanup through SelfCheck.start's
 // options, which only chrome JS can pass (dev.evalChrome, on dev Zens).
 import assert from "node:assert/strict";

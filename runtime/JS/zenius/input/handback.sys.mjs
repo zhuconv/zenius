@@ -1,6 +1,6 @@
 // Password fields, card details and one-time codes the user filled while
 // holding an agent tab are cleared before the agent gets the tab back
-// (zen-input, hooked with zen-ux, which owns hand back). Card details are a card's number, security code and
+// (the input layer, hooked with the UI, which owns hand back). Card details are a card's number, security code and
 // expiry; addresses stay, since the user fills them so the agent can go on. A tab the agent
 // takes over with pages.adopt gets the same clear before its first call.
 //
@@ -18,14 +18,14 @@
 // results, so the user's first ArrowDown searches afresh and the user's
 // results don't outlast their turn.
 //
-// Ordering: zen-core's setOwnership and setPaused emit spaceChanged before
+// Ordering: the core's setOwnership and setPaused emit spaceChanged before
 // they wake the agent's held calls, and this listener sends each frame its
 // message right then (ZeniusService.content sends before it awaits). A
 // frame handles its messages in order, so the clear runs before any agent
 // call reaches it.
 //
 // The snapshot has one race. When the user's first key pauses the Space
-// (zen-ux's takeover prompt), the key goes on to the page right after the
+// (the UI's takeover prompt), the key goes on to the page right after the
 // snapshot is sent. Gecko runs input ahead of other messages in a busy
 // content process (dom.input_event_queue), so that key can land first: a
 // password pasted with Cmd+V would then be in the snapshot and survive. So
@@ -68,7 +68,7 @@ function framesOf(service, rec) {
 /** <browser> → its last clear's total (fields emptied), once its frames answer. */
 const lastClears = new WeakMap();
 
-/** The user's key or drop opened zen-ux's takeover prompt, and so paused the Space. */
+/** The user's key or drop opened the UI's takeover prompt, and so paused the Space. */
 function pausedByUserKey(rec) {
   if (rec.ownership !== "agent" || !rec.paused) {
     return false;
@@ -178,10 +178,10 @@ export function installHandBackGuard(service) {
 }
 
 /**
- * zen-ux's Resume (the card, the panel, an unpause) asks before it hands
+ * The UI's Resume (the card, the panel, an unpause) asks before it hands
  * back: the <browser> of each page of the Space with a frame whose current
  * document holds secret fields the clear would empty, those that changed or
- * appeared since the snapshot. zen-ux reloads those (zen-core's cleanLoad),
+ * appeared since the snapshot. The UI reloads those (the core's cleanLoad),
  * so no page state keeps the secret, then hands back, and the clear runs as
  * usual on whatever is left. A document that came after the snapshot (a
  * two-step login's password page) counts with every secret field holding a
@@ -248,7 +248,7 @@ export function lastClearOf(browser) {
 }
 
 /**
- * A tab the agent takes with pages.adopt (zen-core's glue): empty every
+ * A tab the agent takes with pages.adopt (the core's glue): empty every
  * secret field holding a value the agent didn't set, before its first call.
  * The messages are sent before this returns, so they reach each frame
  * ahead of any call on the new page.
@@ -269,18 +269,18 @@ export function clearAdopted(browser) {
   }
 }
 
-/** zen-ux's onSecretTyped hooks. */
+/** The UI's onSecretTyped hooks. */
 const secretHooks = new Set();
 /** Documents already reported, by their WindowGlobalParent. */
 const secretTypedDocs = new WeakSet();
 
 /**
- * zen-ux: `fn({browser})` when the user's own input first changes a secret
+ * The UI: `fn({browser})` when the user's own input first changes a secret
  * field (a password, a card's number, expiry or code, a one-time code: what
  * Resume clears) in a document of a task's tab, once per document, frames
  * included. Their typing, paste, drop and IME count, and so does their
  * autofill (the password manager, card autofill). zenius's own input and a
- * page's script never do. It fires whoever holds the Space: zen-ux keeps
+ * page's script never do. It fires whoever holds the Space: the UI keeps
  * what it needs for the hold card.
  *
  * @param {(e: {browser: Element}) => void} fn

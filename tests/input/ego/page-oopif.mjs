@@ -119,6 +119,6 @@ export async function pageOopifRestoreCase(h, saved) {
     "clicked:true",
     "the restored Page routes the iframe action to the child session"
   );
-  // zenius: that a closed Page's handle rejects is the SDK's check (zen-sdk).
+  // zenius: that a closed Page's handle rejects is the SDK's check.
   await page.close();
 }

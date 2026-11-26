@@ -1,4 +1,4 @@
-// Console messages from agent tabs (zen-observe), forwarded to the parent as
+// Console messages from agent tabs (the observe layer), forwarded to the parent as
 // Runtime.consoleAPICalled for page.events(). One observer per content
 // process; it costs a lookup per console call in tabs the agent doesn't drive.
 

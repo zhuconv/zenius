@@ -1,4 +1,4 @@
-// Caps on the page text zenius carries (zen-observe). Page script decides
+// Caps on the page text zenius carries (the observe layer). Page script decides
 // what a console call, an alert, a notification or a URL holds, and it all
 // ends up in the main process, where running out of memory takes every
 // window with it. Content modules cut what they send, and the parent cuts

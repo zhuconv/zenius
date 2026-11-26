@@ -1,4 +1,4 @@
-// Red team of the runtime's staging folders (zen-input's find, 2026-11-21):
+// Red team of the runtime's staging folders (the input layer's find, 2026-11-21):
 // a file chooser's upload, and an agent tab's download, are written by the
 // browser, outside any agent sandbox. If the agent's own CLI can write the
 // folder they go through (the system temp folder, $TMPDIR, which sandboxed
@@ -29,7 +29,7 @@
 // a link: no race), downloadPartLink (a link where the download's .part
 // file goes). Each says where the bytes landed. Headless on the Linux server only.
 //
-// Folder uploads (input-gaps 24; cases added by zen-input, as glue, at the
+// Folder uploads (input-gaps 24; cases added by the input layer, as glue, at the
 // manager's word): a folder chooser's answer is a tree,
 // upload-<n>/<relativePath>, and Gecko walks it for the page afterwards.
 // folderTopLink (a link where the folder itself goes, the race right after
@@ -274,7 +274,7 @@ const BIG = Buffer.alloc(24 * 1024 * 1024, 0x61).toString("base64");
 const PAYLOAD = "ZS_AGENT_CHOSEN_BYTES\n";
 
 const CASES = {
-  // zen-input's case: while the first, big file is written, the CLI puts a
+  // The input layer's case: while the first, big file is written, the CLI puts a
   // link where the second file's folder goes.
   async uploadSubLink() {
     const target = fresh("uploadSubLink");

@@ -3,7 +3,7 @@
 // a dev Zen through tests/input/harness.mjs. Each case checks Ego's
 // observable behavior: which element an action reaches, trusted events,
 // messages, timings. After all of them, the user's view must be unchanged
-// (I1) and every Space must still be the agent's (zen-ux's takeover detector
+// (I1) and every Space must still be the agent's (the UI's takeover detector
 // never saw the agent's input).
 import { after, before, test } from "node:test";
 import { openHarness } from "./harness.mjs";

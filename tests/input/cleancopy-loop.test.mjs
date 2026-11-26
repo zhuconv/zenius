@@ -1,4 +1,4 @@
-// zen-core's clean copy on demand beside a hooked window of its group, on
+// The core's clean copy on demand beside a hooked window of its group, on
 // evidence. A popup on the page's site
 // that the agent's code opened shares the page's group. In an earlier
 // version, each new document of the
@@ -8,7 +8,7 @@
 // end. Now only what the agent's code left in a document marks it: the copy
 // comes in clean, the user's keys come back into it once, and the page
 // isn't loaded again. A copy that does come in with evidence fails
-// (stillEvident). zen-core's test, here in zen-input's suite for its
+// (stillEvident). The core's test, here in the input layer's suite for its
 // harness: the user's click and keys in a watched agent tab.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
@@ -106,7 +106,7 @@ const fields = page =>
      return { load: document.body?.dataset.load ?? null, user: u?.value ?? null, typed: u?.getAttribute("data-typed") ?? null };`
   );
 
-/** zen-core's clean copies on demand since `count()` began counting. */
+/** The core's clean copies on demand since `count()` began counting. */
 const COUNT = `${SERVICE}
   if (!Object.hasOwn(ZeniusService, "cleanOnDemand")) {
     const real = ZeniusService.cleanOnDemand;

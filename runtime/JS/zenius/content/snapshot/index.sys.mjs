@@ -240,7 +240,7 @@ function frameContent(el, optionsJSON) {
   }
   const { clip } = JSON.parse(optionsJSON);
   const doc = el.contentDocument;
-  // I5 (zen-observe glue): a frame that isn't web content (an error page)
+  // I5 (the observe layer glue): a frame that isn't web content (an error page)
   // prints as an empty frame.
   if (doc && !isWebDocument(doc)) {
     return "";

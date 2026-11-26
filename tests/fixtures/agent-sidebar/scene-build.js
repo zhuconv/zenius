@@ -2,7 +2,7 @@
 // tab with its chat, and six tasks across Needs you, Working and Done, on the
 // mock agent (config.mjs), whose scenarios hold each state; serve.mjs must be
 // up. With a real "claude" agent in the config, the tab's chat and the shown
-// task run on it instead (zen-sidebar's shots), which takes the network. It
+// task run on it instead (the sidebar's shots), which takes the network. It
 // starts everything and returns; scene-ready.js says when the scene is done.
 const g = win.ucAgentSidebar, A = g.AgentService;
 const W = "http://127.0.0.1:47231";

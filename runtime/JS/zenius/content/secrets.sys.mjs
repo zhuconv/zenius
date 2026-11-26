@@ -232,7 +232,7 @@ function undo(el, before) {
 }
 
 /**
- * zen-ux's Resume asks first (input/handback.sys.mjs, typedSecrets): how many
+ * The UI's Resume asks first (input/handback.sys.mjs, typedSecrets): how many
  * secret fields the clear would empty here. It changes nothing.
  */
 export function changedSince(actor) {

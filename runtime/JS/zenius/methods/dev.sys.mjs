@@ -1,4 +1,4 @@
-// dev.* methods (zen-core). Registered only on a dev profile (readSettings in
+// dev.* methods (the core). Registered only on a dev profile (readSettings in
 // modules/util.sys.mjs): pref zenius.dev, which scripts/zen-dev.sh sets, in a
 // profile under ~/.zenius-dev/profiles/. A daily profile never has them, even
 // with the pref.
@@ -62,7 +62,7 @@ export const methods = {
 
   /**
    * Every registered method: its module, access and I5 class, and whether
-   * its module declared each (zen-input's registry test).
+   * its module declared each (the input layer's registry test).
    */
   "dev.registry": async ctx => ctx.service.registry(),
 

@@ -16,7 +16,7 @@
 // what it heard. The agent speaks with page.evaluate; the user's tab is read
 // and driven with dev#evalContent, which marks nothing.
 //
-// A task's BroadcastChannels are its own (zen-observe's: a constructor
+// A task's BroadcastChannels are its own (the observe layer's: a constructor
 // wrapper in its documents and workers). In a and b the agent's
 // code then also tries other ways to a channel (bypassRun): the prototype's
 // constructor, a frame's constructor (a fresh about:blank one, srcdoc, a

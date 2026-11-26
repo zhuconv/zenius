@@ -1,5 +1,5 @@
 // The names the agent's world shares between the content and parent
-// processes (zen-observe). They have a module of their own, so the parent
+// processes (the observe layer). They have a module of their own, so the parent
 // needn't evaluate content/agentworld.sys.mjs (its setup source and tables)
 // to read them.
 
@@ -24,8 +24,8 @@ export const EVIDENCE_DOCS_KEY = "zenius:evidenceDocs";
  *   of its world: code in the page's own realm, or a change that redirects
  *   what the user types next;
  * - made: a data: or blob: top document the agent opened;
- * - listed: Gecko's phishing or malware lists name it (zen-core);
- * - flagged: the agent flagged it (zen-core's tool).
+ * - listed: Gecko's phishing or malware lists name it (the core);
+ * - flagged: the agent flagged it (the core's tool).
  */
 export const EVIDENCE_REASONS = Object.freeze(["hooked", "made", "listed", "flagged"]);
 

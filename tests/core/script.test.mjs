@@ -1,4 +1,4 @@
-// zen-core: a script's step (methods/script.sys.mjs, input/steps.sys.mjs).
+// The core: a script's step (methods/script.sys.mjs, input/steps.sys.mjs).
 // zenius mcp's script tool runs each script on a connection of its own,
 // which begins the script's step in the task and ends it; the steps of that
 // connection's calls carry `within`, the script step's id. These cases speak

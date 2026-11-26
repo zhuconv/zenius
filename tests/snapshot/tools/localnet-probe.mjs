@@ -1,4 +1,4 @@
-// Bypass probes for zen-observe's local network refusal
+// Bypass probes for the observe layer's local network refusal
 // (runtime/JS/zenius/observe/localnet.sys.mjs).
 // The parent cancels a task page's requests to private and link-local
 // addresses and .local names. It finds a request's tab from its load info,
@@ -260,7 +260,7 @@ const clickOn = (s, target, page = "p1") => call("page.click", { space: s, page,
 
 /**
  * expect: what the refusal's design says. "refused", or why a request may
- * go out: "residual" (zen-observe lists it) or "pending" (the per-document
+ * go out: "residual" (the observe layer lists it) or "pending" (the per-document
  * refusal we may add, not built yet).
  */
 const VECTORS = {

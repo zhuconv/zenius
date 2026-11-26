@@ -1,4 +1,4 @@
-// Downloads from agent tabs (zen-observe): no panel, no toolbar animation,
+// Downloads from agent tabs (the observe layer): no panel, no toolbar animation,
 // nothing in ~/Downloads or in history. Each file is staged in a folder of its
 // own under the profile's zenius-downloads, out of the agent's reach, and once
 // finished it moves into the working folder (modules/workingfolder.sys.mjs),
@@ -187,7 +187,7 @@ export async function remakeDownloadRoot() {
 /**
  * Remove what the root holds that no download does (a folder a refusal
  * left while the root wasn't zenius's own, say), and nothing outside it.
- * Tests and zen-snapshot's staging-probe call it while no download starts.
+ * Tests and the snapshot layer's staging-probe call it while no download starts.
  *
  * Earlier versions kept the root in the temp folder
  * (zenius-downloads-<hash>, -1, …). Those stay there for install.sh's

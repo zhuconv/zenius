@@ -1,16 +1,16 @@
-// zen-core: the page the user holds (H), at an agent's hand-off or the
+// The core: the page the user holds (H), at an agent's hand-off or the
 // user's Take over, made safe against page code capturing what the user
 // types after a takeover, on evidence since 2026-11-21. In this order: nothing the agent's code left can
 // reach what the user types in H; H keeps its opener when it can; only a
 // document the agent's code left something in loads afresh, never one that
 // is only reachable from such a document. That's
-// zen-observe's evidence flag (observe/evidence.sys.mjs) with reason
+// the observe layer's evidence flag (observe/evidence.sys.mjs) with reason
 // hooked: what the agent's code left that outlives the discard of its
 // world. A page the agent made (made, a data: or blob: page it opened) is
 // held as it is, and the agent's own hand-off of it is refused. A listed or
-// flagged page gets zen-ux's warning instead: a reload brings its danger
+// flagged page gets the UI's warning instead: a reload brings its danger
 // back. The discard runs at every hand-off all the
-// same, and zen-observe's holdPage keeps everything else away while the
+// same, and the observe layer's holdPage keeps everything else away while the
 // user holds H (observe/hold.sys.mjs). This module picks the remedy and
 // does the loads.
 //
@@ -32,7 +32,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
-// zen-observe's modules, whole, once a hold needs them.
+// The observe layer's modules, whole, once a hold needs them.
 Object.defineProperties(lazy, {
   agentCode: { get: () => ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/agentcode.sys.mjs") },
   evidence: { get: () => ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/evidence.sys.mjs") },
@@ -41,7 +41,7 @@ Object.defineProperties(lazy, {
 
 /** How long a quiet load may take to bring a new document. */
 const LOAD_TIMEOUT_MS = 15000;
-/** How long every process gets to end the agent's sandboxes (zen-observe's discard). */
+/** How long every process gets to end the agent's sandboxes (the observe layer's discard). */
 const DISCARD_TIMEOUT_MS = 10000;
 /** How long a form's record may take: the user waits on a hand-off's. */
 const RECORD_TIMEOUT_MS = 3000;
@@ -86,7 +86,7 @@ const quietSites = new Map();
 const holds = new Map();
 let hookOn = false;
 
-/** zen-input's: typing to the page is dropped until the returned function is called (input/typing.sys.mjs). */
+/** The input layer's: typing to the page is dropped until the returned function is called (input/typing.sys.mjs). */
 function dropTyping(browser) {
   try {
     const typing = ChromeUtils.importESModule("chrome://userscripts/content/zenius/input/typing.sys.mjs");
@@ -174,10 +174,10 @@ function redirectTarget(channel) {
 }
 
 // ---------------------------------------------------------------------------
-// Evidence (zen-observe's flag), the defenses' trigger
+// Evidence (the observe layer's flag), the defenses' trigger
 
 /**
- * The page's evidence: zen-observe's evidenceOf, over its top document and
+ * The page's evidence: the observe layer's evidenceOf, over its top document and
  * frames. When it can't be read, the page counts as hooked: a needless load
  * costs less than a page left with what the agent's code left there.
  *
@@ -196,7 +196,7 @@ export function evidenceOf(target) {
 /**
  * Has the evidence a reason a clean copy clears: hooked or made? Those are
  * the defenses' trigger (since 2026-11-21); listed and
- * flagged pages get zen-ux's warning instead.
+ * flagged pages get the UI's warning instead.
  *
  * @param {Record<string, string>} evidence
  */
@@ -317,7 +317,7 @@ let requestHookOn = false;
 /**
  * While a quiet load that must stay on its site is under way, no document
  * request of its tab goes to another site: a redirect's, or one the
- * page's own script starts as it loads (zen-snapshot's
+ * page's own script starts as it loads (the snapshot layer's
  * siteRouterJsRedirect). It's cancelled before it's sent.
  */
 const requestHook = {
@@ -424,7 +424,7 @@ const responseHook = {
     } catch {}
     // COOP counts on the final response, not on a redirect's.
     if (status >= 300 && status < 400) {
-      // zen-snapshot's siteRouterRedirect: the site's own router can put
+      // The snapshot layer's siteRouterRedirect: the site's own router can put
       // its open redirect in the URL (pushState accepts any same-origin
       // one), so zenius's quiet load of the page would carry the user to
       // another site. The load stops here, before anything of that site
@@ -457,14 +457,14 @@ const responseHook = {
 
 /**
  * Load the page in `browser` afresh, quietly (see the top of this file):
- * typing to it is dropped meanwhile (zen-input), its visible ordinary
+ * typing to it is dropped meanwhile (the input layer), its visible ordinary
  * fields come back, and so does the focus, in the field that had it.
  *
  * Fields come back only into a document of the same origin: the user's
  * typing never goes to another site's page.
  *
  * It loads the URL the page had before the agent's code last changed it in
- * place (zen-observe's urlBefore), while
+ * place (the observe layer's urlBefore), while
  * the page still shows the URL the agent's code set; else the current one.
  * The site's own routing (its pushState) stays the target.
  *
@@ -474,7 +474,7 @@ const responseHook = {
  *   sameSite: the load must end on the page's site (the page the user is
  *   about to hold): a redirect off it, or a load of another site that the
  *   new document starts, is stopped before it's sent. The site's own router
- *   can show its open redirect (zen-snapshot's siteRouterRedirect), so the
+ *   can show its open redirect (the snapshot layer's siteRouterRedirect), so the
  *   load then goes once more, to the URL that brought the document
  *   (loadedFromURL), stopped off the site the same way; if there's no such
  *   URL, or it's stopped too, the load fails
@@ -534,7 +534,7 @@ export async function cleanLoad(svc, browser, { sameSite = false, evidentFails =
     quietSites.set(browser.browserId, quiet);
   }
   syncResponseHook();
-  // zen-observe's glue: what this load brings holds nothing of the agent's,
+  // The observe layer's glue: what this load brings holds nothing of the agent's,
   // so the sites where the agent's code may be (agentcode.sys.mjs's
   // agentSitesNear, for a hold's frame and COOP rule) leave it out until the
   // agent's code runs in its group again.
@@ -585,7 +585,7 @@ export async function cleanLoad(svc, browser, { sameSite = false, evidentFails =
         }
       }
       // What the carry-over saw, as counts, for a test or a bug report that
-      // finds the fields missing (zen-ux's carried false once under a loaded
+      // finds the fields missing (the UI's carried false once under a loaded
       // test-all, 2026-11-20, not reproduced since).
       svc.lastQuietLoad = { recorded: form ? (form.fields?.length ?? 0) : null, focus: !!form?.focused, filled, trouble };
       if (quiet) {
@@ -651,7 +651,7 @@ export async function cleanLoad(svc, browser, { sameSite = false, evidentFails =
     };
   } catch (e) {
     // No new document: the old one may still hold the agent's code, so
-    // typing stays dropped until one commits (zen-input).
+    // typing stays dropped until one commits (the input layer).
     release?.({ failed: true });
     // The last load was stopped on its way off the site: where it would
     // have gone (holdFor's data.offSite).
@@ -670,7 +670,7 @@ export async function cleanLoad(svc, browser, { sameSite = false, evidentFails =
 /**
  * The manager's channel mute (2026-11-20): close the BroadcastChannels and
  * shared-worker ports H's documents opened before the hold, in each of them
- * (zen-observe's content/refusals.sys.mjs, muteChannels). Opened in the
+ * (the observe layer's content/refusals.sys.mjs, muteChannels). Opened in the
  * task's scope, they let H hear the task's pages, and them H, both ways;
  * what H opens from now on gets the held scope. This happens only when
  * something the agent's code left could be at the other end (channelsReach). It runs after the agent-page check, so a hand-off
@@ -844,13 +844,13 @@ export function heldWith(browser) {
 
 /**
  * The user is about to hold the page in `browser` (H): hold it
- * (zen-observe's holdPage), then make it safe, on evidence (see the top of
+ * (the observe layer's holdPage), then make it safe, on evidence (see the top of
  * this file).
  * - A page the agent made (made, a data: or blob: page it opened) is held
  *   and left as it is (`agentPage`). With `refuseAgentPage` (the agent's
  *   own hand-off) nothing else happens, and the caller refuses it.
  * - Before any load, the agent's sandboxes go, with the workers they
- *   started, in every process (zen-observe's discard): what the agent's
+ *   started, in every process (the observe layer's discard): what the agent's
  *   code left running can't act on H or on the loads. H's channels are
  *   muted when channelsReach says so.
  * - Each window of H's group that could reach it and that the agent's code
@@ -867,7 +867,7 @@ export function heldWith(browser) {
  * @param {{refuseAgentPage?: boolean}} [opts]
  * @returns {Promise<{agentPage: boolean, how: "reload"|"get"|null, reloaded: Element[], carried: boolean, openerCut: boolean, evidence: Map<Element, Record<string, string>>}>}
  *   how: H's own load, if it had one; reloaded: every tab loaded afresh;
- *   evidence: what each of them had before its load (zen-ux's notice)
+ *   evidence: what each of them had before its load (the UI's notice)
  * @throws {ZenError} ZEN_HANDOFF_REFUSED (reason "discardFailed", "reloadFailed" or "reachable"), with the hold released;
  *   a "reloadFailed" whose load of H would have left H's site has data.offSite, the other site's URL
  */
@@ -884,7 +884,7 @@ export async function holdFor(svc, rec, browser, { refuseAgentPage = false } = {
   held.add(browser);
   syncResponseHook();
   const result = { agentPage: false, how: null, reloaded: [], carried: false, openerCut: false, evidence: new Map() };
-  // What each page had before its first load here (zen-ux's notice and card).
+  // What each page had before its first load here (the UI's notice and card).
   const noteEvidence = b => {
     if (!result.evidence.has(b)) {
       result.evidence.set(b, evidenceOf(b));
@@ -908,7 +908,7 @@ export async function holdFor(svc, rec, browser, { refuseAgentPage = false } = {
   const loadOther = async (other, why) => {
     log(`${svc.pages.forBrowser?.(other)?.label ?? "a page"}, which could reach the held page, loads afresh in place: ${why}`);
     noteEvidence(other);
-    // Its documents from now on are the hold's (zen-observe's holdReload),
+    // Its documents from now on are the hold's (the observe layer's holdReload),
     // and codeRefusal refuses new code there for the whole hold.
     hold.holdReload?.(other, browser);
     try {
@@ -993,7 +993,7 @@ export async function holdFor(svc, rec, browser, { refuseAgentPage = false } = {
             `The page didn't load afresh (${e.message}). Call task.handOff() again once; if it fails again, tell the user in your reply and go on without the hand-off.`
           );
     // A load that would have left the site fails the same way again, so
-    // zen-ux's card offers no Try again for it.
+    // the UI's card offers no Try again for it.
     if (!(e instanceof ZenError) && e?.offSite) {
       error.data = { ...error.data, offSite: e.offSite };
     }

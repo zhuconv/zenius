@@ -1,4 +1,4 @@
-// Content side of the I1 guards (zen-core). Runs in every new document of an
+// Content side of the I1 guards (the core). Runs in every new document of an
 // agent task's tab, before the page's own scripts.
 
 import { installRefusalGuards } from "chrome://userscripts/content/zenius/content/refusals.sys.mjs";
@@ -50,7 +50,7 @@ export function installPageGuards(actor) {
     return false;
   }
   guarded.add(doc);
-  // zen-observe's refusals: fullscreen, pointer lock, wake lock, speech, share.
+  // The observe layer's refusals: fullscreen, pointer lock, wake lock, speech, share.
   try {
     installRefusalGuards(actor);
   } catch (e) {
@@ -72,7 +72,7 @@ export function installPageGuards(actor) {
     return Reflect.apply(nativeOpen, page, args);
   };
   Cu.exportFunction(open, win, { defineAs: "open" });
-  // zen-observe's glue: the agent's worlds see the native open through Xrays.
+  // The observe layer's glue: the agent's worlds see the native open through Xrays.
   lazy.mirrorMethod(win, "", "open", open);
   return true;
 }

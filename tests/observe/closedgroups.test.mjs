@@ -1,5 +1,5 @@
 // Closed groups: in a page that shares a window group with a window
-// outside its task (zen-core's pages.codeRefusal), the agent's code doesn't
+// outside its task (the core's pages.codeRefusal), the agent's code doesn't
 // run. page.evaluate and page.waitForFunction are refused, and so is
 // page.goto to the agent's own page (data:, blob:) or to another site.
 // The page's own site still loads, and nothing is marked.
@@ -25,7 +25,7 @@ before(async () => {
   base = `http://127.0.0.1:${site.address().port}`;
   otherSite = base.replace("127.0.0.1", "localhost");
   // A page's own window.open with no click, kept in the background (as
-  // zen-core's closed-groups test does).
+  // the core's closed-groups test does).
   await env.chrome(
     `Services.prefs.setBoolPref("dom.disable_open_during_load", false);
      Services.prefs.setBoolPref("browser.tabs.loadDivertedInBackground", true);

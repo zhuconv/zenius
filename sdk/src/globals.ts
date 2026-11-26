@@ -11,7 +11,7 @@ import { round } from "./round.ts";
 import { clearHandOffMessage, createTaskSpace, TaskSpace, type TaskSpaceDescriptor, type UserPageEntry } from "./task-space.ts";
 
 const SAFETY_TIMEOUT_MS = 25_000;
-/** How long the runtime waits for the user's answer to a claim (zen-core's claim gate). */
+/** How long the runtime waits for the user's answer to a claim (the core's claim gate). */
 const CLAIM_WAIT_MS = 600_000;
 const GRACE_MS = 10_000;
 
@@ -29,7 +29,7 @@ export function clientLabel(env: NodeJS.ProcessEnv = process.env): string | unde
   return undefined;
 }
 
-/** Who drives a task, for the sidebar's list of every zenius task (zen-core's spaces.create and spaces.claim). */
+/** Who drives a task, for the sidebar's list of every zenius task (the core's spaces.create and spaces.claim). */
 export type TaskSource = { terminal?: string; agent: string; folder?: string; sidebar?: string };
 
 // The runtime keeps a source field only within the remote labels' set and
@@ -43,7 +43,7 @@ function fitSourceField(value: string | undefined): string | undefined {
   return fitted || undefined;
 }
 
-// The sidebar's conversation uid, which zen-ux gives its own zenius server
+// The sidebar's conversation uid, which the UI gives its own zenius server
 // (ZENIUS_SIDEBAR_TASK): the sidebar tells its tasks from external ones by
 // it, so it goes exactly as given or not at all. Fitted like a label, it could
 // name another chat. Like the rest of the source, it's the script's own claim.

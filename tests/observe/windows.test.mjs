@@ -1,4 +1,4 @@
-// zen-observe's per-page state follows a page when Zen's window sync moves
+// The observe layer's per-page state follows a page when Zen's window sync moves
 // its docShell to another window's copy of its tab (SPI "Windows: a page is
 // its sync id"). The copy holds the page's browserId, BrowsingContext and
 // web progress; the copy it left holds a blank docShell.
@@ -18,7 +18,7 @@ after(async () => {
 const NAV = "chrome://userscripts/content/zenius/observe/navtracker.sys.mjs";
 const AUDIO = "chrome://userscripts/content/zenius/observe/audio.sys.mjs";
 
-// Chrome-side helpers, as zen-core's tests/core/windows.test.mjs has them.
+// Chrome-side helpers, as the core's tests/core/windows.test.mjs has them.
 // Windows are compared by outerWindowID, and timers belong to no window: a
 // window this code closes takes its own timers with it.
 const W = `
@@ -115,7 +115,7 @@ const until = async (what, fn, ms = 10000) => {
   throw new Error(`timed out waiting for ${what}`);
 };
 
-// As in zen-core's suite: the second window opens first, then the task, and
+// As in the core's suite: the second window opens first, then the task, and
 // the task is made directly; tests/core/windows.test.mjs checks what the
 // user sees (I1) with two windows.
 test("navigation state and zenius's mute follow a page into another window's copy of its tab, and back", async () => {

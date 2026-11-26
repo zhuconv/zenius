@@ -1,4 +1,4 @@
-// Parent backstops, for zen-observe. For each
+// Parent backstops, for the observe layer. For each
 // vector, the parent-side hook that sees which tab asked, can deny before
 // anything reaches the device or the OS, and fails closed:
 // - gum, gdm: getUserMedia and getDisplayMedia, at WebRTCParent's

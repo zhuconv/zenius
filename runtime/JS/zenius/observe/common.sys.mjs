@@ -1,4 +1,4 @@
-// Shared by zen-observe's method modules: Ego's defaults, deadlines and
+// Shared by the observe layer's method modules: Ego's defaults, deadlines and
 // option checks, and which pages the agent has used.
 
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";

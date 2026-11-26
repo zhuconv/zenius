@@ -19,7 +19,7 @@ const NO_PAGE_CODE = [
   "browser.health", "browser.methods", "browser.version", "profiles.list",
   "spaces.claim", "spaces.create", "spaces.finish", "spaces.handOff", "spaces.list", "spaces.open", "spaces.setState", "spaces.takeOver", "spaces.waitForControl",
   "pages.adopt", "pages.close", "pages.list", "pages.release", "pages.userPage", "tabs.list",
-  // zen-core's evidence: page.flag marks the page's document and runs none of its code.
+  // The core's evidence: page.flag marks the page's document and runs none of its code.
   "page.flag",
   "events.subscribe", "page.events", "page.waitForEvent",
   "page.url", "page.title", "page.info", "page.snapshot", "page.screenshot", "page.waitForSelector", "page.waitForURL", "page.waitForLoadState",
@@ -119,7 +119,7 @@ test("always, the default, runs the agent's page code; never refuses it everywhe
 
 test("ask: a site runs page code once the user allows it; one ask per task and site; after Not now the agent hears it was declined; its own page runs unasked", () =>
   env.inSpace("page code ask", async page => {
-    // What the card hears (zen-input's card listens the same way).
+    // What the card hears (the input layer's card listens the same way).
     await env.chrome(
       `${PC} win.__zeniusPageCodeAsks = [];
        win.__zeniusPageCodeOff = PC.onPageCodeAsk(a => win.__zeniusPageCodeAsks.push({ site: a.site, mine: a.browser === ctx.resolvePage(arg).browser }));

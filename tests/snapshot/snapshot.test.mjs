@@ -137,7 +137,7 @@ test("a ref to a node the page moved into another document is stale, also to act
   // isConnected holds in any document: a same-origin frame's, or a windowless
   // one from createHTMLDocument. A ref names a node of its own page, so the
   // walker's resolve checks the node's document too. Element actions resolve
-  // with `detached` and wait while the page has the node out (zen-input,
+  // with `detached` and wait while the page has the node out (the input layer,
   // input-gaps 11); they wait only for a node still of the ref's document.
   // Before the check, the click landed in the frame, and the windowless
   // document's node threw ZEN_INTERNAL.
@@ -194,10 +194,10 @@ test("refs follow the page's browserId, not its <browser>: Zen's window copies e
 test("refs the agent read before its page moved into the page's copy in a second window still click, and the next snapshot keeps them", async () => {
   // The user views the agent's page from a second window. Zen moves the live
   // docShell, and its browserId, into that window's copy of the tab
-  // (zen-core's design). resolvePage then returns the copy, another
+  // (the core's design). resolvePage then returns the copy, another
   // <browser>. The window comes first, so the page
   // opens with a copy in it.
-  // Helpers after zen-core's tests/core/windows.test.mjs.
+  // Helpers after the core's tests/core/windows.test.mjs.
   const W = `
     const Win = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/windows.sys.mjs");
     const wins = () => [...Services.wm.getEnumerator("navigator:browser")];
@@ -267,7 +267,7 @@ test("refs the agent read before its page moved into the page's copy in a second
     );
     assert.deepEqual(moved, { inSecondWindow: true, otherBrowser: true, sameBrowserId: true });
     // The fixture's count is the page's own JavaScript, which the agent's
-    // isolated world doesn't see: read it in the page's (glue by zen-observe).
+    // isolated world doesn't see: read it in the page's (glue by the observe layer).
     const clicks = () => h.call("dev.evalContent", { space: h.space, page, code: "window.__fixtureState.clicks" });
     const before = await clicks();
     await h.call("page.click", { space: h.space, page, target: `@${ref}` });

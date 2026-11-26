@@ -1,5 +1,5 @@
-// zen-observe's Mac checks: screenshots in CSS pixels on a Retina display,
-// and no download or dialog UI for agent tabs. zen-eval runs them on the
+// The observe layer's Mac checks: screenshots in CSS pixels on a Retina display,
+// and no download or dialog UI for agent tabs. The eval harness runs them on the
 // Mac in a visible dev Zen:
 //
 //   ZENIUS_OBSERVE_HEADED=1 tests/observe/run.sh tests/observe/mac/mac.test.mjs

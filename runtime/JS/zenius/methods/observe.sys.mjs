@@ -1,4 +1,4 @@
-// Observation (zen-observe): evaluate, waitForFunction, waitForSelector,
+// Observation (the observe layer): evaluate, waitForFunction, waitForSelector,
 // screenshot, info, events and the JS dialog answers.
 // Portions adapted from citrolabs/ego-lite (MIT License).
 //
@@ -203,7 +203,7 @@ function contextDestroyed(e) {
  */
 /**
  * Closed groups: the agent's code doesn't run in a page that shares
- * a window group with a window outside its task. zen-core's
+ * a window group with a window outside its task. The core's
  * pages.codeRefusal answers, and its answer sticks for the page's time in
  * the task. Checked before each run, and before the document is marked.
  * Not asked while the document runs outside a web content process, where
@@ -236,7 +236,7 @@ async function runEvaluation(ctx, target, args, params, apiName) {
   const control = watchControl(target.space, ctx);
   let lost = null;
   control.lost.then(l => (lost = l));
-  // zen-ux warns at a handOff on a site where the agent's code may linger.
+  // The UI warns at a handOff on a site where the agent's code may linger.
   noteAgentCode(target.space, target.browsingContext, { world: true });
   // The world's own hook stops the agent's code just before the parent's
   // execution limit: the hang monitor's cancel doesn't reach a sandbox.
@@ -437,7 +437,7 @@ async function waitForFunction(ctx, params) {
       ctx.noteHooked(reply.hooked);
       if (reply.lost) {
         // The pause reached us before the user's input reached the page
-        // (zen-ux pauses first, in the parent), and this message goes to the
+        // (the UI pauses first, in the parent), and this message goes to the
         // page's process ahead of that input.
         await ctx.content(bc, "evaluate#cancelWait", { id }, { timeout: 1000 }).catch(() => {});
         control.stop();
@@ -522,7 +522,7 @@ async function waitForSelector(ctx, params) {
     throw new ZenError("ZEN_INVALID_ARGUMENT", 'page.waitForSelector state must be one of attached, detached, visible, hidden');
   }
   const timeoutMs = timeoutOption(options, WAIT_TIMEOUT_MS);
-  // zen-input's selector engine, shared with the actions; a malformed
+  // The input layer's selector engine, shared with the actions; a malformed
   // locator fails here, before any page work.
   let target;
   try {
@@ -583,7 +583,7 @@ function probeFrame(ctx, bc, args, deadline) {
  * Ego's resolver for waitForSelector (element-resolver.ts, no actionability):
  * a raw CSS or XPath selector takes the first frame with a match, main frame
  * first, frames in tree order; a locator must match once in the main frame
- * or, failing that, once across the others (zen-input's decide()). Whether
+ * or, failing that, once across the others (the input layer's decide()). Whether
  * `state` holds for the element found, or for none when nothing matches.
  */
 async function lookAcrossFrames(ctx, browser, target, state, deadline) {

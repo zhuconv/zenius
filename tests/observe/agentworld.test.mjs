@@ -885,7 +885,7 @@ test("the URL before the agent's code changed it in place: pushState, replaceSta
     await page.goto(start);
     const before = () => env.chrome(`${PARENT} return AW.urlBefore(p.browser);`, { P: page.P });
     assert.equal(await before(), null);
-    // zen-snapshot's cases: an open redirect, and a consent page.
+    // The snapshot layer's cases: an open redirect, and a consent page.
     await page.evaluate(`history.replaceState(null, "", "/redirect?to=https://example.invalid/"); 1`);
     await until("urlBefore", async () => (await before()) === start);
     assert.equal(await isWrittenNow(page.P), true);
@@ -1310,7 +1310,7 @@ test("the agent closing a popup the user is viewing ends its group's worlds, the
         await sleep(50);
       }
       assert.deepEqual(await worldIn(ids.popup, "1"), { gone: true }, "the popup closed once the user left it");
-      // zen-core keeps the opener refused; were it to run the agent's code
+      // The core keeps the opener refused; were it to run the agent's code
       // again, that would be in a fresh world.
       const next = await env.call("page.evaluate", { ...page.P, fn: "typeof window.__probe", isFunction: false }).then(
         value => ({ value }),

@@ -1,13 +1,13 @@
-// The agent's code in an isolated world, parent side (zen-observe).
+// The agent's code in an isolated world, parent side (the observe layer).
 //
 // The hooks the others call:
 // - isWritten(target): did the agent's world write into the page, its top
-//   document or a frame? zen-core reloads a written page before the user
-//   types there; zen-ux and zen-core decide refusals after the task by it.
+//   document or a frame? The core reloads a written page before the user
+//   types there; the UI and the core decide refusals after the task by it.
 // - onWritten(fn): a document of a page became written.
 // - discard(target): end the agent's worlds that could reach the page (its
 //   group, every process), or every world of a task, and the workers they
-//   started. zen-core calls it at a hand-off and at the task's end.
+//   started. The core calls it at a hand-off and at the task's end.
 // - urlBefore(target): where a clean load of the page goes: the URL it had
 //   before the agent's code changed it in place (pushState, replaceState,
 //   the hash), while it still shows the agent's; null for its current one.
@@ -26,7 +26,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   forgetWorldMarks: "chrome://userscripts/content/zenius/observe/agentcode.sys.mjs",
 });
 
-/** Writes are tracked: isWritten answers for the agent's world (zen-ux and zen-core key on it). */
+/** Writes are tracked: isWritten answers for the agent's world (the UI and the core key on it). */
 export const tracksWrites = true;
 
 /** Written documents (innerWindowId) → their tab's browserId. */
@@ -95,7 +95,7 @@ export function onWritten(fn) {
 
 /**
  * Content saw the agent's world write into these documents of `bc`'s tab,
- * and, in `urls`, change their URLs in place (zen-core's glue). Flags only
+ * and, in `urls`, change their URLs in place (the core's glue). Flags only
  * ever get added from content: a forged one costs a reload.
  *
  * @param {BrowsingContext} bc  any BrowsingContext of the tab
@@ -194,7 +194,7 @@ export function urlBefore(target) {
 
 /**
  * The agent made the page's current top document: page.goto or a reload to
- * data: or blob: (methods/navigation.sys.mjs). zen-input's guard can drop
+ * data: or blob: (methods/navigation.sys.mjs). The input layer's guard can drop
  * the user's keys there.
  *
  * @param {BrowsingContext} bc
@@ -239,7 +239,7 @@ function onePerProcess(group) {
 
 /**
  * End the agent's worlds that could reach a page: those of its group, in
- * every process. Or of several pages: zen-core's finish passes the task's
+ * every process. Or of several pages: the core's finish passes the task's
  * <browser>s, taken before endTask drops them from the task. Or, with
  * `{task}`, those of every page still in a live task, and their groups. The
  * workers the worlds started go with them.
@@ -307,14 +307,14 @@ export async function discard(target) {
  * A tab left its task (observe/setup.sys.mjs, publishTaskSpaces): kept at
  * the finish, left by a Stop, released. It's the user's now, so the agent's
  * worlds that could reach it end at once, whatever order the task's end ran
- * in (zen-snapshot's sandbox-probe, its kept group).
+ * in (the snapshot layer's sandbox-probe, its kept group).
  *
  * @param {number} browserId
  */
 export function discardLeftTab(browserId) {
   // A tab that closes takes its own worlds with its documents. Discarding
   // its group would also end the worlds of the task's other pages in it: an
-  // opener whose adopted popup the agent closed, as zen-eval's e2e found.
+  // opener whose adopted popup the agent closed, as the eval harness's e2e found.
   // The page leaves the task before its tab starts closing, so wait a turn:
   // by then the agent's close has removed the tab, and the user's is
   // animating it out, marked closing. A tab that is neither stays open
@@ -347,9 +347,9 @@ function tabClosing(top) {
 }
 
 /**
- * The agent put markup into this document outside its world: zen-input's
+ * The agent put markup into this document outside its world: the input layer's
  * html paste, which a page's paste handler may insert as live markup
- * (zen-snapshot's pasteHtml). The document counts as written.
+ * (the snapshot layer's pasteHtml). The document counts as written.
  *
  * @param {BrowsingContext} bc  the document's
  */
@@ -405,7 +405,7 @@ function onWrittenMessage(msg) {
       entry(wgp.browsingContext.top).urls[key] = rec;
     }
   }
-  // noteWritten (zen-core's shape) checks each URL record, chains the
+  // noteWritten (the core's shape) checks each URL record, chains the
   // agent's consecutive changes and drops closed tabs' records.
   for (const [top, { ids, urls }] of byTop) {
     noteWritten(top, ids, urls);

@@ -1,5 +1,5 @@
-// The private clipboard of each agent Space (zen-ux). Agent copy, cut and
-// paste never touch the system clipboard, which is the user's. zen-input's
+// The private clipboard of each agent Space (the UI). Agent copy, cut and
+// paste never touch the system clipboard, which is the user's. The input layer's
 // chords (methods/actions.sys.mjs) and the page guards of the
 // ZeniusClipboard actor read and write this store instead, so a page's own
 // "Copy" button and the agent's Ctrl/Cmd+V meet here.
@@ -14,7 +14,7 @@
 // (read) is the agent's choice, like a user's paste, and isn't limited.
 
 /**
- * MIME type → data, most preferred first (zen-input's toClipData and
+ * MIME type → data, most preferred first (the input layer's toClipData and
  * fromClipData convert to and from {text, html}). Text types are strings,
  * others (images) Uint8Array.
  *

@@ -11,7 +11,7 @@
 // One that holds NOTICE starts its answer with a config warning, as
 // codex-acp 2.6.0 sends Codex's: a session notice to a client whose
 // initialize declared session.notices, else text in the answer. NOTICE:error
-// sends an error notice instead (zen-sidebar), as claude-agent-acp's v2
+// sends an error notice instead (the sidebar), as claude-agent-acp's v2
 // sends an API error.
 // --no-close: an agent that declares no sessionCapabilities.close.
 //   node mock-acp.mjs LOG [--no-close]

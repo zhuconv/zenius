@@ -1,4 +1,4 @@
-// A task's pages and the local network (zen-observe). They may not reach
+// A task's pages and the local network (the observe layer). They may not reach
 // private-network addresses or .local names: an app's first reach into the
 // local network raises macOS 15's Local Network prompt, whose answer covers
 // the whole Zen.app, the user's own Zen included. A lookup alone raises it
@@ -15,7 +15,7 @@
 // code, until that document is replaced (observe/agentcode.sys.mjs). There a
 // load the user starts from the browser (the address bar, a bookmark) goes
 // through: it replaces that document. A load the user started that is
-// refused is told to onUserLoadRefused's listeners (zen-ux's notice in the
+// refused is told to onUserLoadRefused's listeners (the UI's notice in the
 // tab), so it isn't cancelled silently.
 //
 // The parent cancels a task page's request as it opens
@@ -349,7 +349,7 @@ export function typedTopLoad(channel) {
   }
 }
 
-/** Listeners for refused loads the user started (zen-ux's notice). */
+/** Listeners for refused loads the user started (the UI's notice). */
 const userLoadListeners = new Set();
 
 /**

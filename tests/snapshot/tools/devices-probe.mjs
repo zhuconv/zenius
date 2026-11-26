@@ -1,4 +1,4 @@
-// Bypass probes for zen-observe's refusal of the camera, microphone, screen
+// Bypass probes for the observe layer's refusal of the camera, microphone, screen
 // capture, location and MIDI in agent tabs (content/refusals.sys.mjs). A
 // hidden agent tab's getUserMedia raised macOS's camera prompt for Zen.app.
 // In Gecko 160 that prompt comes from WebRTCParent.checkOSPermission, which
@@ -237,7 +237,7 @@ const VECTORS = {
   },
   persistThenAsk: {
     // persist() raises a real doorhanger with no gesture, which hands the
-    // task to the user without them doing anything (zen-ux's automatic
+    // task to the user without them doing anything (the UI's automatic
     // handoff); guards that check per call whether the agent drives then
     // stand down.
     setup: ["persistent-storage"],
@@ -253,7 +253,7 @@ const VECTORS = {
     },
   },
   // A tab of the user's that the agent adopts after the user allows its
-  // claim of their Space. zen-core guards the documents the tab has when it
+  // claim of their Space. The core guards the documents the tab has when it
   // joins the task ("installGuards"); its first page waits in the bfcache,
   // and a page coming back from there gets no new DOMWindowCreated.
   adoptBack: {
@@ -350,7 +350,7 @@ const VECTORS = {
     },
   },
   // The agent's code ran in an earlier page of a tab the task then lets go
-  // (kept at the finish, or released). zen-core empties the tab's bfcache
+  // (kept at the finish, or released). The core empties the tab's bfcache
   // as it leaves, so the user's Back loads that page afresh.
   backAfterKeep: { custom: s => plantedThenBack(s, "keep") },
   backAfterRelease: { custom: s => plantedThenBack(s, "release") },
@@ -377,7 +377,7 @@ const VECTORS = {
   },
   // What reaches past the tab is a desktop notification, which the alert
   // counter sees. requestPermission()'s doorhanger is a page's ordinary
-  // permission prompt (zen-ux hands the task to the user), and zen-ux gives
+  // permission prompt (the UI hands the task to the user), and the UI gives
   // a page the agent drives a quiet Notification that fires show without
   // showing anything (ZeniusSystemUiChild), so neither counts.
   notification: {
@@ -768,7 +768,7 @@ function grant() {
 
 /**
  * End the task. A prompt that handed it to the user is removed, as an
- * unanswered prompt, which gives it back (zen-ux's #onPermissionGone); a
+ * unanswered prompt, which gives it back (the UI's #onPermissionGone); a
  * handOff is handed back on the pill. cleanTabs also clears both sites' data
  * and permissions.
  */
@@ -802,7 +802,7 @@ async function finish(s) {
 /**
  * Granted mode: Gecko grants a stored camera or microphone permission only
  * when the doorhanger is about to show, never in a background tab
- * (WebRTCParent's "showing" handler). The user who follows zen-ux's handoff
+ * (WebRTCParent's "showing" handler). The user who follows the UI's handoff
  * opens the task's tab, and the grant then runs checkOSPermission, where
  * macOS asks. So the user opens the tab with the pending camera prompt.
  */
@@ -841,7 +841,7 @@ function verdictOf(c, hits, outcome, setup = []) {
   if (hits.geo) reached.push(`location server requests ${hits.geo}`);
   if (hits.hub) reached.push(`model hub requests ${hits.hub}`);
   if (c.alerts) reached.push(`notifications shown ${c.alerts}`);
-  // Not a notification's show: zen-ux's quiet one fires it too. The alert counter decides there.
+  // Not a notification's show: the UI's quiet one fires it too. The alert counter decides there.
   if (/stream \(|position|midi access|audiostart|labels [1-9]/.test(JSON.stringify(outcome ?? ""))) {
     reached.push("the page got it");
   }

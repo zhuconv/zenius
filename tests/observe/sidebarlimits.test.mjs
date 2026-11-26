@@ -354,7 +354,7 @@ test("the zenius-only hook: web search and fetch run in Chat and Work, but WebFe
   assert.equal(bad.status, 2, "input it can't read");
 });
 
-// zen-observe's drift loop. The hook's lists and the tools Work offers once
+// The observe layer's drift loop. The hook's lists and the tools Work offers once
 // drifted apart: the hook refused Work's AskUserQuestion, and the mock, which
 // sends elicitation/create itself, hid it (until Claude's ask fix). So
 // each mode's own session/new options go through the real hook, both ways.
@@ -550,7 +550,7 @@ test("the agent's process gets none of Zen's environment but a few names, starts
   assert.equal(start.env.PATH, process.env.PATH);
   assert.equal(start.env.CLAUDE_CODE_EXECUTABLE, "/nonexistent/claude");
   // claude-agent-acp's switch for Claude Code's thinking as summaries, which
-  // the chat's thinking row shows (zen-sidebar, 2026-11-22): this process's
+  // the chat's thinking row shows (the sidebar, 2026-11-22): this process's
   // only, never the user's ~/.claude.
   assert.equal(start.env.CLAUDE_CODE_THINKING_DISPLAY, "summarized");
   // Claude Code keeps its MCP calls in the foreground, so a message the user
@@ -1168,7 +1168,7 @@ test("an agent's warnings never open an answer: the sidebar declares ACP's sessi
 
 test("'none' and a config.json that can't be read leave no agents, and an agent zenius doesn't know is greyed out", async () => {
   // One that's there but isn't JSON: with no config.json at all, the sidebar
-  // offers its built-in agents (zen-ux's builtin.sys.mjs, tests/ux/sidebar.test.mjs).
+  // offers its built-in agents (the UI's builtin.sys.mjs, tests/ux/sidebar.test.mjs).
   const broken = join(dir, "broken.json");
   writeFileSync(broken, "{");
   const result = await chrome(

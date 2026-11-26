@@ -24,7 +24,7 @@
 // - sidebarTakeover (only when named): the same after the user presses Take
 //   over on the agent sidebar's live card, for a work chat linked to the
 //   task (agent-sidebar step 6); panelTakeover: after zenius's tasks panel's
-//   Take over, the control. Both should be zen-core's userTakeOver.
+//   Take over, the control. Both should be the core's userTakeOver.
 //
 //   scripts/zen-dev.sh zen-snapshot start
 //   ZENIUS_INSTANCE=zen-snapshot node tests/snapshot/tools/sandbox-probe.mjs [run] [read] [leave] [hold] [model] [route ...]
@@ -55,7 +55,7 @@ const outcome = p => p.then(
   e => ({ error: brief(e) })
 );
 // Bound one case: a held page whose clean copy never renders headless sends
-// the runtime's clean-copy-on-demand into a reload storm (zen-core),
+// the runtime's clean-copy-on-demand into a reload storm (the core),
 // so a hung case records a timeout and the group goes on, naming the culprit,
 // instead of stalling the whole run.
 const CASE_MS = 30000;
@@ -283,7 +283,7 @@ const ROUTES = {
   sitePopupScript: { pre: "#sitePop", code: `() => { const w = window.open("", "zsSbSitePop"); const s = w.document.createElement("script"); s.textContent = OPAYLOAD; w.document.head.append(s); return "appended"; }` },
   // Not evaluate: an agent's paste with html, which the site's editor inserts with innerHTML.
   pasteHtml: { paste: true },
-  // zen-input's case: the agent copies html with an onerror in another page
+  // The input layer's case: the agent copies html with an onerror in another page
   // of the task (another site's, or this site's), then presses
   // ControlOrMeta+V in p1's editor, so Gecko's own paste reads the
   // clipboard. A headless Zen's clipboard is in memory; never run this
@@ -308,7 +308,7 @@ const ROUTES = {
   // the URL from before the agent's last change still picks it.
   siteRouterRedirect: { reload: true, code: `() => { document.getElementById("user").value = "/redirect?to=" + encodeURIComponent(BBASE + "/hold?role=phish"); document.getElementById("siteGo").click(); return location.href; }` },
   // The same through a redirect the site's page makes with its own script
-  // (zen-core stops a redirect response that leaves the site, and
+  // (the core stops a redirect response that leaves the site, and
   // names this as not covered): at once, and 1.5 s after the page's load.
   siteRouterJsRedirect: { reload: true, code: `() => { document.getElementById("user").value = "/jsnext?to=" + encodeURIComponent(BBASE + "/hold?role=phish"); document.getElementById("siteGo").click(); return location.href; }` },
   siteRouterJsRedirectLate: { reload: true, code: `() => { document.getElementById("user").value = "/jsnext?delay=1500&to=" + encodeURIComponent(BBASE + "/hold?role=phish"); document.getElementById("siteGo").click(); return location.href; }` },
@@ -560,7 +560,7 @@ const groups = {
 
   // takeover: the same, but the user takes the live task's tab with their
   // click and keys, with no hand-off: zenius discards the agent's worlds and
-  // reloads only a written page (zen-input's typing guard).
+  // reloads only a written page (the input layer's typing guard).
   async takeover(only) {
     return this.hold(only, "takeover");
   },
@@ -611,7 +611,7 @@ const groups = {
         r.reloadedAtHandOff = (await chrome(C + `return docOf(tabById(arg));`, before.id)) !== before.doc;
         r.urlAfter = await chrome(C + `return tabById(arg)?.linkedBrowser.currentURI.spec.replace(${JSON.stringify(A.base)}, "A").replace(${JSON.stringify(B.base)}, "B") ?? null;`, before.id);
         r.writtenAtHandOff = await chrome(C + `return written(tabById(arg));`, before.id);
-        // The hold card names the site the user is on (zen-ux).
+        // The hold card names the site the user is on (the UI).
         r.cardAtHandOff = await chrome(C + CARD, { space, was: null });
         const seen = await chrome(
           C +
@@ -668,7 +668,7 @@ const groups = {
 // Groups that run only when named.
 const NAMED_ONLY = ["model", "sidebarTakeover", "panelTakeover"];
 
-// The plan's mechanisms modeled in the page (world-plan-probe.js), before zen-observe's code lands.
+// The plan's mechanisms modeled in the page (world-plan-probe.js), before the observe layer's code lands.
 groups.model = async function model() {
   const { readFileSync } = await import("node:fs");
   const code = readFileSync(new URL("./world-plan-probe.js", import.meta.url), "utf8");

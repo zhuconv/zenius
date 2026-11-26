@@ -1,4 +1,4 @@
-// JavaScript dialogs in agent tabs (zen-observe).
+// JavaScript dialogs in agent tabs (the observe layer).
 //
 // alert, confirm, prompt and beforeunload reach the parent as "Prompt:Open"
 // in PromptParent, which would open the tab-modal SubDialog, fire
@@ -13,7 +13,7 @@
 // agent drives, they're answered Cancel at once and the agent is told
 // (`browserConfirmation`): an agent doesn't answer the browser's security
 // questions, and left to Firefox the dialog would wait unseen in a hidden
-// tab, holding the agent's action (zen-snapshot, 2026-11-20).
+// tab, holding the agent's action (the snapshot layer, 2026-11-20).
 //
 // Other owners: watchDialogs(browser) gives an action's receipt its `dialog`
 // (docs/SPI.md, "Navigation and observation").
@@ -285,7 +285,7 @@ export function onDialogOpened(fn) {
 
 /**
  * Hand the open dialog to Firefox's own prompt UI, for a user who takes over
- * the tab (zen-ux): they answer it there, and the agent no longer sees it.
+ * the tab (the UI): they answer it there, and the agent no longer sees it.
  * Firefox flags the tab for attention; a beforeunload prompt also selects
  * its tab. Returns false when no dialog is open.
  */

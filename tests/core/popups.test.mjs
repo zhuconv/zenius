@@ -29,7 +29,7 @@ const button = (id, onclick) =>
 /**
  * The agent's click, as tests/core/lib.mjs agentClick, through any client: its
  * own page.click. A synthesized click looks like the user's, whose press on a
- * page the agent wrote (setBody) waits for a clean copy (zen-observe's glue).
+ * page the agent wrote (setBody) waits for a clean copy (the observe layer's glue).
  */
 const click = (client, space, page, selector) => client.call("page.click", { space, page, target: selector });
 async function loaded(space, page, path) {

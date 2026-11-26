@@ -1,6 +1,6 @@
 // Speculative-connect probes: paths
 // from a task page that reach the network with no HTTP channel, so without
-// http-on-opening-request, where zen-observe's local network refusal runs:
+// http-on-opening-request, where the observe layer's local network refusal runs:
 // - <link rel=preconnect>, the agent's and the page's own;
 // - a preconnect in a 103 Early Hints on the agent's navigation;
 // - DNS prefetch: <link rel=dns-prefetch>, and an http page's anchors;
@@ -215,7 +215,7 @@ const fetchCode = url => `return fetch(${JSON.stringify(url)}).then(r => "status
  * mark() to count only what follows.
  */
 const VECTORS = {
-  // Controls. A task page's own request: zen-observe cancels it.
+  // Controls. A task page's own request: the observe layer cancels it.
   fetchTask: { port: 4500, kind: "control", run: s => agentPage(s, `${PUB_BASE}/p`, `fetch(${JSON.stringify(`${P(4500)}/x`)}).catch(() => {}); return "fetching";`) },
   // A user tab's request, from a public page, then from a loopback page: Gecko's LNA alone.
   fetchUserPublic: { port: 4510, kind: "control", user: true, run: () => userTab(`${PUB_BASE}/p`, fetchCode(`${P(4510)}/x`)) },

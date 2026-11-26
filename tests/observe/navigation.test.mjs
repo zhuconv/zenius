@@ -1,5 +1,5 @@
 // goto, reload, url, title, info and the page gate's pending-navigation
-// wait, against zen-eval's fixture server (Ego's e2e routes). The cases
+// wait, against the eval harness's fixture server (Ego's e2e routes). The cases
 // follow Ego's page-pending-navigation and page-load-states e2e cases.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
@@ -150,7 +150,7 @@ test("a pending navigation holds the next call once, then is stopped", () =>
     assert.equal(await page.evaluate("document.title"), "ego-lite nav target");
   }));
 
-// zen-eval's "page basic operations": a click returns before its link's
+// The eval harness's "page basic operations": a click returns before its link's
 // navigation commits, and url() must still read the new URL.
 // What the gate promises: these reads come after the click's navigation
 // commits, so they read the new document, never the old one. Its <title>

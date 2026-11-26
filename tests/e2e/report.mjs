@@ -88,7 +88,7 @@ export function missingMethods(rows) {
   return [...byMethod].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
 }
 
-// zen-eval's own cases (tests/e2e/zen-cases/) are reported apart from Ego's 83.
+// The eval harness's own cases (tests/e2e/zen-cases/) are reported apart from Ego's 83.
 const isZenEvalCase = (name) => name.startsWith("zen-eval:");
 
 /** The merged runs without the cases' raw output, safe to commit. */
@@ -166,7 +166,7 @@ async function baseline() {
   );
   lines.push("");
   if (extraRows.length) {
-    lines.push("zen-eval's own cases (`tests/e2e/zen-cases/`), outside Ego's suite and its counts:");
+    lines.push("The cases zenius adds (`tests/e2e/zen-cases/`), outside Ego's suite and its counts:");
     lines.push("");
     for (const r of extraRows) lines.push(`- **${r.name}**: ${r.verdict}${r.assertions ? `, ${r.assertions} assertions` : ""}${r.lastFailure ? ` (${escape(r.lastFailure)})` : ""}`);
     lines.push("");

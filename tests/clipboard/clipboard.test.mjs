@@ -25,7 +25,7 @@ let h;
 let space;
 let P;
 let userView;
-// zen-observe's I1 check: the user's view at the start, a focus probe in the
+// The observe layer's I1 check: the user's view at the start, a focus probe in the
 // parent, and each step's start and end, for the timeline a failure (or
 // ZENIUS_FOCUS_LOG=1) prints.
 let focusProbe = null;
@@ -206,7 +206,7 @@ async function pageResult() {
   throw new Error("the page's handler didn't finish");
 }
 
-/** The agent clicks a button (zen-input's page.click). */
+/** The agent clicks a button (the input layer's page.click). */
 async function agentClick(id) {
   await evaluate("(() => { window.__r = undefined; document.getElementById('src').value = 'SELECTED-TEXT'; return true; })()");
   await h.call("page.click", { space, page: "p1", target: `#${id}` });
@@ -315,7 +315,7 @@ test("the agent's paste pastes what the page copied, and the page reads what the
     await h.call("page.keyboard", { space, page: "p1", action: "press", key: "ControlOrMeta+V" });
   });
   assert.equal(await evaluate("document.getElementById('dst').value"), "SELECTED-TEXT");
-  // The agent cuts with its own keys (zen-input's chords); the page reads it.
+  // The agent cuts with its own keys (the input layer's chords); the page reads it.
   const read = await untouched("the agent's cut keys, then the page's read", async () => {
     await h.call("page.fill", { space, page: "p1", target: "#dst", value: "AGENT-CUT" });
     await h.call("page.keyboard", { space, page: "p1", action: "press", key: "ControlOrMeta+A" });

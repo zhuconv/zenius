@@ -1,5 +1,5 @@
 // The record of the agent's own code (observe/agentcode.sys.mjs), behind
-// zen-ux's handOff warning: by site, per task, for the task's life.
+// the UI's handOff warning: by site, per task, for the task's life.
 // 127.0.0.1 (both fixture servers) and localhost are the two sites.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
@@ -280,7 +280,7 @@ test("zen-ux's handOff warning finds the record", async () => {
 const SERVICE = `const { ZeniusService } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/service.sys.mjs");`;
 
 test("agentMadePage: a blank tab of the user's that the agent adopted is the user's, even after its code ran there; what the agent loads in it is the agent's", async () => {
-  // A Space of the user's with one blank tab, as zen-input's adoption test makes it.
+  // A Space of the user's with one blank tab, as the input layer's adoption test makes it.
   const { space, uuid } = await env.chrome(
     `${SERVICE}
      const W = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/windows.sys.mjs");

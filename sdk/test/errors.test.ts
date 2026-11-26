@@ -235,7 +235,7 @@ describe("an error's message", () => {
 
   it("tells page code that read a page global to read the DOM instead", () => {
     const error = fromWireError(
-      // zen-observe's words, which already say to read the DOM: only the markup tip is added.
+      // The observe layer's words, which already say to read the DOM: only the markup tip is added.
       { code: "ZEN_PAGE_GLOBAL_HIDDEN", message: "page.evaluate: the agent's code read appState, which is the page's own JavaScript. zenius runs the agent's code in an isolated world that shares only the page's DOM, so it can't see the page's globals. Read what you need from the DOM: text, attributes, form values.", data: { name: "appState" } },
       "page.evaluate",
     );
@@ -248,7 +248,7 @@ describe("an error's message", () => {
   });
 
   it("passes the user's page-code refusals on as zen-observe words them, with their data on the error", () => {
-    // zen-observe's five messages (observe/pagecode.sys.mjs), each with its next step.
+    // The observe layer's five messages (observe/pagecode.sys.mjs), each with its next step.
     const site = "https://shop.example.com";
     const cases: Array<[string, string, Record<string, unknown>]> = [
       ["ZEN_PAGE_CODE_OFF", "page.evaluate: the user has turned off agents' page code in this Zen, so zenius runs none. Read the page and act through clicks, fills and keys instead.", { method: "page.evaluate", page: "p1", setting: "never" }],
@@ -272,7 +272,7 @@ describe("an error's message", () => {
   });
 
   it("says what to do for each reason a hand-off is refused, once", () => {
-    // zen-core's messages, which each name their next step.
+    // The core's messages, which each name their next step.
     const messages: [string, string][] = Object.entries({
       agentPage:
         "p1 is a page the agent made (a data: or blob: URL, or an about:blank the agent wrote into), where nothing the user types is safe. Load the site's own page with page.goto() and hand that off.",

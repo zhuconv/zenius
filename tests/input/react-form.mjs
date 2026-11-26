@@ -180,7 +180,7 @@ export async function reactFormSite() {
  * text; clicks for the custom controls. The attribute is a write
  * (content/agentworld.sys.mjs), so the page is written, as Cloudflare's was.
  * None of it is evidence: it leaves nothing in the page that outlives the
- * agent's world (zen-observe's hooked), so the page isn't hooked. With
+ * agent's world (the observe layer's hooked), so the page isn't hooked. With
  * `hook`, the code also leaves something that is: "script", a script element
  * in the page; "handler", an inline handler on the text field.
  *

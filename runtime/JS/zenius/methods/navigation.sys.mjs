@@ -1,4 +1,4 @@
-// Navigation (zen-observe): goto, reload, the waits for URLs, load states and
+// Navigation (the observe layer): goto, reload, the waits for URLs, load states and
 // events, and the page gate that holds content-bound calls while a
 // navigation is pending or a dialog is open.
 // Portions adapted from citrolabs/ego-lite (MIT License).
@@ -553,7 +553,7 @@ async function navigate(ctx, params, method) {
 }
 
 // ---------------------------------------------------------------------------
-// The page gate (docs/SPI.md "Dispatch"): zen-core's dispatcher runs it after
+// The page gate (docs/SPI.md "Dispatch"): the core's dispatcher runs it after
 // the ownership gate for every page.* method.
 
 /**
@@ -656,7 +656,7 @@ async function waitForPendingNavigation(params, method, nav, label) {
  * it checks the document a pending navigation leads to.
  */
 export function webContentGate(ctx, params, method) {
-  // The method's declared I5 class, from zen-core's dispatch (ctx.i5); a ctx
+  // The method's declared I5 class, from the core's dispatch (ctx.i5); a ctx
   // without one goes by the method's name.
   if ((ctx.i5 ?? (OUTSIDE_DOCUMENT.has(method) ? "outside" : "document")) === "outside") {
     return undefined;
@@ -805,7 +805,7 @@ export const methods = {
     markUsed(page);
     const event = params.event;
     if (event === "filechooser") {
-      // zen-input's chooser interception (the SDK's page.waitForFileChooser),
+      // The input layer's chooser interception (the SDK's page.waitForFileChooser),
       // armed here before the next frame's action runs.
       const { waitForChooser } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/input/filechooser.sys.mjs");
       return waitForChooser(browser, timeoutOption(params.options, WAIT_TIMEOUT_MS), ctx.conn, ctx);

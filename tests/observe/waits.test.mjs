@@ -181,7 +181,7 @@ async function clickNewLink(page, id, href, target = "_blank") {
     { id, href, target }
   );
   // The agent's own click: a user's press on a page the agent's code wrote
-  // waits for a clean copy of it (zen-input's guard).
+  // waits for a clean copy of it (the input layer's guard).
   await page.call("page.click", { target: `#${id}` });
 }
 

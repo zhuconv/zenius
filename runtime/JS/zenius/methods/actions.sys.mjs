@@ -1,6 +1,6 @@
 // Portions adapted from citrolabs/ego-lite (MIT License).
 //
-// Page actions (zen-input): click, dblclick, hover, dragAndDrop, fill,
+// Page actions (the input layer): click, dblclick, hover, dragAndDrop, fill,
 // selectOption, focus, press, setInputFiles, page.mouse, page.keyboard,
 // filechooser.setFiles (and filechooser.wait for page.waitForEvent).
 //
@@ -131,7 +131,7 @@ export function inputState(ctx, rp) {
 }
 
 // The Space's clipboard: agent copy, cut and paste never touch the system
-// clipboard, which is the user's. zen-ux's
+// clipboard, which is the user's. The UI's
 // store, shared with the page guards: a page's own "Copy" button and these
 // chords use the same clipboard.
 function clipboardOf(space) {
@@ -158,11 +158,11 @@ function clipboardFor(ctx, rp) {
  * The agent's input pasted html into `bc`'s document, page.keyboard's or the
  * Space clipboard's. The page got it sanitized (content/input.sys.mjs), and
  * it still counts as the agent's code there, as page.evaluate does, and as
- * written, as the agent's world's writes do (zen-observe's flags), until
+ * written, as the agent's world's writes do (the observe layer's flags), until
  * written retires once every defense reads the evidence flag. Evidence comes
  * from content only when the markup carries something hooked
  * (content/actions.sys.mjs): the typing guard then holds the
- * user's first press there and has the page reloaded clean (zen-core's
+ * user's first press there and has the page reloaded clean (the core's
  * cleanOnDemand).
  */
 function markPastedHtml(rp, bc) {
@@ -185,7 +185,7 @@ function notePastedHtml(rp, result) {
 
 function noteClipboard(rp, result) {
   if (result?.clipboard) {
-    // zen-ux's glue: pages read it only from the origin it was copied on,
+    // The UI's glue: pages read it only from the origin it was copied on,
     // as long as the call's process hosts that origin in the tab.
     const bc = (result.bcId && BrowsingContext.get(result.bcId)) || rp.browsingContext;
     SpaceClipboard.write(rp.space.id, result.clipboard, hostedOrigin(bc, result.clipboardOrigin));
@@ -202,7 +202,7 @@ function noteClipboard(rp, result) {
  * The content side ends its call by the deadline (`until`), unless the page
  * can't return. A busy script can hold it, and so can a browser prompt's
  * nested event loop that no watcher reports, such as Firefox's warning
- * before a secure page posts a form over http (zen-snapshot's find): the
+ * before a secure page posts a form over http (the snapshot layer's find): the
  * click waited in it for good, whatever its timeout. So the method stops
  * waiting STUCK_PAST_DEADLINE_MS past the deadline.
  *
@@ -324,7 +324,7 @@ export async function observed(ctx, rp, fn, { guardChooser = false } = {}) {
   const popups = ctx.watchPopups(rp.space.id, rp.page.label);
   const guard = guardChooser && !isWaiting(rp.browser) ? guardChoosers(rp.browser) : null;
   const dialogs = lazy.watchDialogs(rp.browser);
-  // What zenius refused on the way (zen-observe's glue): print, HTTP sign-in.
+  // What zenius refused on the way (the observe layer's glue): print, HTTP sign-in.
   const refusals = lazy.watchRefusals(rp.browser);
   const hints = {};
   let value;
@@ -411,13 +411,13 @@ function dialogShape(d) {
 
 /**
  * Before a pointer action dispatches in a tab someone can see, fly the cursor
- * there, then pass zen-core's control gate (the user may have clicked during
+ * there, then pass the core's control gate (the user may have clicked during
  * the flight). Returns the ms the gate held, which don't count against the
  * action's timeout.
  */
 async function cursorThenGate(ctx, rp, point, kind, options) {
   await moveCursor(rp.tab, point, { label: options?.label, kind });
-  // zen-core's ctx.gate (SPI "Held calls"); absent in older runtimes.
+  // The core's ctx.gate (SPI "Held calls"); absent in older runtimes.
   return (await ctx.gate?.()) ?? 0;
 }
 
@@ -918,7 +918,7 @@ async function runKeys(ctx, rp, steps, extra = {}, method = "page.keyboard") {
 /**
  * What Firefox's chrome does for Accel+S that the page didn't cancel,
  * limited to pdf.js: it saves the PDF (contentAreaUtils' saveBrowser), and
- * zen-observe makes that an agent download. Other pages would get Save Page
+ * the observe layer makes that an agent download. Other pages would get Save Page
  * As, which agents don't get.
  */
 function savePage(browser) {
@@ -941,7 +941,7 @@ const OBSERVED_RAW_INPUT = new Set(["page.mouse.click", "page.keyboard.press", "
 /**
  * While a JavaScript dialog is open, Ego's code drops raw input silently.
  * The raw input that runs as an action fails at once, as every action does
- * here, where Ego's actions wait for the answer. zen-observe's page gate
+ * here, where Ego's actions wait for the answer. The observe layer's page gate
  * leaves both to us.
  *
  * @returns {boolean} whether to return without sending
@@ -1036,7 +1036,7 @@ async function keyboard(ctx, params) {
       const content = { text: params.text, html: params.html ?? null };
       // The agent's html is the agent's code, as page.evaluate's is: a
       // page's paste handler may insert it with innerHTML, where it runs as
-      // script. So the document gets zen-observe's mark first, as for
+      // script. So the document gets the observe layer's mark first, as for
       // page.evaluate.
       if (content.html) {
         // So in a page that shares a window group with a window outside the
@@ -1044,7 +1044,7 @@ async function keyboard(ctx, params) {
         // only text is pasted.
         const refusal = ctx.pages.codeRefusal(rp.space, rp.page);
         if (refusal) {
-          // zen-observe's message and data for its methods, so one guide
+          // The observe layer's message and data for its methods, so one guide
           // entry covers both.
           throw new ZenError(
             "ZEN_AGENT_CODE_REFUSED",
@@ -1054,7 +1054,7 @@ async function keyboard(ctx, params) {
         }
         lazy.noteAgentCode(rp.space, rp.browsingContext);
         // And it counts as written, as the agent's world's writes do: the
-        // page is cleaned before the user types there (zen-observe's glue).
+        // page is cleaned before the user types there (the observe layer's glue).
         lazy.noteWrittenDocument(rp.browsingContext);
       }
       // Ego puts the content on the system clipboard around ControlOrMeta+V;
@@ -1474,7 +1474,7 @@ export const methods = {
     const st = inputState(ctx, rp);
     const start = Date.now();
     const timeout = options.timeout ?? DEFAULT_ACTION_TIMEOUT_MS;
-    // The ms zen-core's control gate held the drag, which don't count against its timeout.
+    // The ms the core's control gate held the drag, which don't count against its timeout.
     let held = 0;
     const { receipt } = await observed(ctx, rp, async hints => {
       for (;;) {

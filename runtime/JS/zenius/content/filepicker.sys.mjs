@@ -1,4 +1,4 @@
-// File choosers in a content process where a task page lives (zen-input).
+// File choosers in a content process where a task page lives (the input layer).
 //
 // A page's <input type=file> asks its own process for an nsIFilePicker:
 // Gecko's proxy for the parent's picker (input/filechooser.sys.mjs). While
@@ -41,7 +41,7 @@ let initing = null;
 // Firefox asks before a folder pick reaches a page (HTMLInputElement's
 // nsFilePickerShownCallback calls nsIPromptCollection.confirmFolderUpload,
 // Bug 1338637: a site mustn't trick a person into a folder pick), and in an
-// agent tab zen-observe's handler answers Cancel. When the folder is the
+// agent tab the observe layer's handler answers Cancel. When the folder is the
 // runtime's own (page.setInputFiles or fileChooser.setFiles with a folder:
 // the agent named every file, and its sandbox bounded what it read), the
 // question is answered yes, once:
@@ -310,7 +310,7 @@ function installPrompts() {
     registrar.registerFactory(cid, "zenius prompt collection (content)", PROMPTS, factory);
     promptsInstalled = { cid, factory, origCID };
   } catch (e) {
-    // Folder uploads then meet Firefox's question, and zen-observe's Cancel.
+    // Folder uploads then meet Firefox's question, and the observe layer's Cancel.
     console.error("[zenius] couldn't put zenius's prompt collection in this content process", e);
   }
 }

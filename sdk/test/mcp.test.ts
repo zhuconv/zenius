@@ -1,4 +1,4 @@
-// zenius mcp's steps (zen-core's src/mcp.ts), as a call's arguments give
+// zenius mcp's steps (the core's src/mcp.ts), as a call's arguments give
 // them: the lines the user reads in the sidebar, and what a failure shows.
 // They must never show a typed secret, a URL's token, or text that reads as
 // something else. test/integration/mcp.it.ts drives the

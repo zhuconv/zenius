@@ -1,9 +1,9 @@
 // Each task's recent steps (input/steps.sys.mjs): every zenius task shows
 // in the sidebar,
-// whoever drives it, and its view lists what the agent did. zen-core's
-// dispatcher tells the ring of each call a client made; zen-ux reads it
-// beside zen-core's task feed (stepsOf, onStep). A step is a line the user
-// reads, and it lasts (zen-snapshot's points): never what the agent typed,
+// whoever drives it, and its view lists what the agent did. The core's
+// dispatcher tells the ring of each call a client made; the UI reads it
+// beside the core's task feed (stepsOf, onStep). A step is a line the user
+// reads, and it lasts (the snapshot layer's points): never what the agent typed,
 // pasted or chose, nor code or a value; a navigation shows its origin only;
 // a name from the page is one line, without invisible characters, capped,
 // and can't close its quotes.

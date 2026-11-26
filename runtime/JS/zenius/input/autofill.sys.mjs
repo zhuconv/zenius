@@ -1,4 +1,4 @@
-// Saved logins, addresses and cards stay out of agent tabs (zen-input).
+// Saved logins, addresses and cards stay out of agent tabs (the input layer).
 //
 // An agent must never see the user's saved passwords. Firefox fills them
 // into the page as it loads, where evaluate, snapshot or a page script

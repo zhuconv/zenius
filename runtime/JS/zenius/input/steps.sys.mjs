@@ -1,23 +1,23 @@
-// Each task's recent steps (zen-input).
+// Each task's recent steps (the input layer).
 // Every zenius task shows in the sidebar, whoever
 // drives it (a Claude or Codex session in a terminal, a script, the sidebar's
-// own agents), and its view lists what the agent did there. zen-core's
+// own agents), and its view lists what the agent did there. The core's
 // dispatcher tells this module of each call a client makes, as it begins and
 // as it ends (beginCall, endCall). The calls that are steps go into their
 // task's ring, running until they end; past STEPS_PER_TASK the oldest that
 // have ended go first, so a running one, such as a script's own step under
-// its calls' steps, stays while it runs. zen-ux reads the rings beside
-// zen-core's task feed (stepsOf, onStep).
+// its calls' steps, stays while it runs. The UI reads the rings beside
+// the core's task feed (stepsOf, onStep).
 //
 // A script that zenius mcp's script tool runs is a step of its own, which
-// its connection begins and ends (zen-core's script.begin and script.end):
+// its connection begins and ends (the core's script.begin and script.end):
 // each step that connection's calls make in the task carries `within`, the
 // script step's id, so the sidebar shows them under it. Its title is the
 // tool's purpose, the agent's own words, quoted as a page's names are, so
 // it reads as the agent's claim and the steps under it as what happened.
 // The sidebar's Stop is stopScript.
 //
-// A step is a line the user reads, and it lasts (zen-snapshot's points):
+// A step is a line the user reads, and it lasts (the snapshot layer's points):
 // - It never holds what the agent typed, pasted or chose, nor code, a value
 //   or a file the call carried. A key shows only when it types no text.
 // - A navigation shows the page's origin only, as snapshot, permissions and
@@ -25,7 +25,7 @@
 // - An element's name comes from the page (content/actions.sys.mjs,
 //   stepName): it's put on one line, invisible and control characters go,
 //   it's capped, and it's quoted with any quote marks of its own turned
-//   into apostrophes, so it can't read as the panel's own text. zen-ux
+//   into apostrophes, so it can't read as the panel's own text. The UI
 //   renders it as text.
 
 const lazy = {};
@@ -48,7 +48,7 @@ let nextId = 1;
 const scripts = new Map();
 
 /**
- * zen-core's dispatcher: a client's call begins. A call on a task that's a
+ * The core's dispatcher: a client's call begins. A call on a task that's a
  * step joins the task's ring at once, running, so a long wait shows while
  * it lasts; endCall settles it.
  *
@@ -84,7 +84,7 @@ function withinOf(script, space) {
 }
 
 /**
- * zen-core's dispatcher: the call beginCall gave `step` for has ended. The
+ * The core's dispatcher: the call beginCall gave `step` for has ended. The
  * step gets its outcome and run time, and its text what the handler learned:
  * the element's name from the page. A call that names no task (a chooser's)
  * becomes a step here, once its handler has found the task.
@@ -124,7 +124,7 @@ export function endCall(step, { method, params, outcome, ms, at, found, script }
 }
 
 /**
- * zen-core's script.begin: a script of zenius mcp's script tool begins in
+ * The core's script.begin: a script of zenius mcp's script tool begins in
  * the task `space`, on a connection of its own. Its step, method "script",
  * runs until endScript; the steps of its connection's calls in the task
  * carry its id as `within` meanwhile.
@@ -152,7 +152,7 @@ export function beginScript({ space, purpose, at, stop }) {
 }
 
 /**
- * The script's step ends: zen-core's script.end with "ok", an error's code
+ * The script's step ends: the core's script.end with "ok", an error's code
  * or "failed", or "stopped" when its connection closed first or the user
  * stopped it (stopScript).
  *
@@ -179,7 +179,7 @@ export function endScript(script, { outcome } = {}) {
 /**
  * The sidebar's Stop for a script: its step ends as stopped, and its
  * connection closes, which stops that connection's waits and page code and
- * refuses its later calls (zen-core's dispatcher). So the user's Stop stops
+ * refuses its later calls (the core's dispatcher). So the user's Stop stops
  * the script, whatever the agent's client does with the call.
  *
  * @param {number} id  the script step's id
@@ -248,7 +248,7 @@ function tell(space, step) {
  * The task's recent steps, in the order their calls began, oldest first:
  * `{id, at, ms, method, text, outcome, page, within?}`. `outcome` is "running" until
  * the call ends, then "ok" or the error's code, or "stopped" for one that
- * failed once its client canceled it or its connection closed (zen-core's
+ * failed once its client canceled it or its connection closed (the core's
  * dispatcher), and `ms` null until then.
  * `id` grows from step to step, across tasks; `page` is the tab's label,
  * null for a call that names none (pages.new). A script's own step has

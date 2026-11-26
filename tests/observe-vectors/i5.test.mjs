@@ -105,7 +105,7 @@ const FORBIDDEN = [
   ["ftp://127.0.0.1/", "ftp"],
 ];
 
-// zenius doctor's check of the agent boundary (zen-sdk): browser.health
+// zenius doctor's check of the agent boundary (the SDK): browser.health
 // reports I5 from what enforces it, and opens nothing.
 test("browser.health reports the I5 status doctor checks, computed, with nothing opened", async () => {
   const tabs = () => env.chrome(`return [...Services.wm.getEnumerator("navigator:browser")].reduce((n, w) => n + w.gBrowser.tabs.length, 0);`);
@@ -878,7 +878,7 @@ test("window.open and target=_blank links from an agent's page fail for privileg
     try {
       for (let i = 0; i < urls.length; i++) {
         // The agent's clicks: a user's press on a page the agent's code wrote
-        // waits for a clean copy of it (zen-input's guard).
+        // waits for a clean copy of it (the input layer's guard).
         await page.call("page.click", { target: `#open${i}` });
         await page.call("page.click", { target: `#link${i}` });
       }

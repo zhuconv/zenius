@@ -223,7 +223,7 @@ test("a page torn off into a new window comes back after a restart, still the ta
 
 /**
  * Tear off a task's page the agent's code hooked (a style sheet outlives the
- * discard of its world: zen-observe's evidence), run `between`, hand off,
+ * discard of its world: the observe layer's evidence), run `between`, hand off,
  * and return what the hand-off held and loaded afresh.
  */
 test("a hand-off with secret: a page torn off into a new window during the user's step blanks there at the hand back, and no copy's saved state keeps the step's page", async () => {

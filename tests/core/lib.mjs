@@ -1,4 +1,4 @@
-// Shared setup for zen-core runtime tests. tests/core/run.sh starts a fresh
+// Shared setup for the core's runtime tests. tests/core/run.sh starts a fresh
 // headless dev Zen and sets ZENIUS_INSTANCE.
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
@@ -72,7 +72,7 @@ export async function setup() {
      * on the Mac, would collect them otherwise.
      */
     madeSpaces: new Set(),
-    /** zen-ux's takeover prompt opening or closing, as ui/takeover.sys.mjs does it. */
+    /** The UI's takeover prompt opening or closing, as ui/takeover.sys.mjs does it. */
     pause: (space, paused) => h.chrome("ctx.spaces.setPaused(ctx.spaces.get(arg.space), arg.paused)", { space, paused }),
     /** The user takes control in the page (prompt's "Take over"). */
     userTakesOver: space =>
@@ -180,8 +180,8 @@ export async function setup() {
     /**
      * A click the agent makes in its page: its own page.click. A click
      * synthesized in the content process looks like the user's to
-     * zen-input's guard, which loads a clean copy of a page the agent's
-     * code wrote before the user's press reaches it (zen-observe's glue).
+     * the input layer's guard, which loads a clean copy of a page the agent's
+     * code wrote before the user's press reaches it (the observe layer's glue).
      */
     agentClick: (space, page, selector) => h.call("page.click", { space, page, target: selector }),
     async until(fn, ms = 5000) {

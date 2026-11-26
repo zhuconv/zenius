@@ -40,7 +40,7 @@ export class ZeniusChild extends JSWindowActorChild {
         lazy.assessSignIn(this, true);
         lazy.watchReuse(this);
       });
-      // zen-ux's guard actors (ZeniusClipboard, ZeniusSystemUi) have no
+      // The UI's guard actors (ZeniusClipboard, ZeniusSystemUi) have no
       // DOMWindowCreated of their own: they're made here, in a task's
       // documents only, top and frames, before the page's scripts. An actor
       // without installGuards() still guards at its own DOMWindowCreated.
@@ -54,7 +54,7 @@ export class ZeniusChild extends JSWindowActorChild {
       }
       adoptLast(this);
     } else if (needsRefusals(this.browsingContext)) {
-      // zen-observe: a popup a task's page opened, before the parent makes
+      // The observe layer: a popup a task's page opened, before the parent makes
       // it a page of the task, or a document of a tab whose page ran the
       // agent's code. Its documents get the storage refusals from the
       // first, frames too, so the opener can't take their natives.

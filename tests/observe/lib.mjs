@@ -1,6 +1,6 @@
-// Shared setup for zen-observe's runtime tests. tests/observe/run.sh starts a
+// Shared setup for the observe layer's runtime tests. tests/observe/run.sh starts a
 // fresh headless dev Zen and sets ZENIUS_INSTANCE; tests drive it over RPC
-// against zen-eval's fixture server (Ego's e2e routes).
+// against the eval harness's fixture server (Ego's e2e routes).
 //
 // Every test runs inside `inSpace()`, which checks I1: what the user sees
 // (dev.viewState: each window's selected tab, active workspace and focused

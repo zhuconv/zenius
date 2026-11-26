@@ -5,7 +5,7 @@
 // - pointer capture and the active pointers;
 // - the element held :active;
 // - the last pointer position, from which movementX/Y is computed;
-// - the wheel transaction, which zen-input found.
+// - the wheel transaction, which the input layer's tests found.
 // Can zenius's input in one tab change how another tab of the same process
 // handles input, or reach it?
 //
@@ -298,7 +298,7 @@ async function oneUserDrag(procs, agentDoes, gesture) {
 }
 
 /**
- * zen-eval's two press-without-release sequences (Mac hands stretch):
+ * The eval harness's two press-without-release sequences (Mac hands stretch):
  * - holdAfterDrop: the user's HTML5 drag, then a long selection hold with
  *   moves; the agent's click starts mid-hold (20:15:12). holdNoDrop is the
  *   same without the drag.
@@ -427,19 +427,19 @@ const FRAMES = {
 };
 
 /**
- * One wheel case (from zen-input):
+ * One wheel case (from the input layer):
  * - together: the user wheels 12 notches 15 ms into an agent's 900 px motion;
  * - waits: the agent's wheel while the user scrolls for 1.5 s, then for 4 s
  *   (past page.mouse's 3 s deadline);
  * - heldButton: the agent holds a press, wheels, and the user wheels at once
- *   (zen-input's documented limit: there their wheel reaches neither page);
+ *   (the input layer's documented limit: there their wheel reaches neither page);
  * - oopFrame: the agent's motion over a frame of the other site, whose
- *   process is the user's tab's (zen-input: not checked yet);
+ *   process is the user's tab's (the input layer: not checked yet);
  * - sameSiteFrame: the same over a frame of its own site, in one process
  *   with the user's tab;
  * - latchFrame: the agent's motion scrolls its page until a same-site frame
- *   comes under the pointer (zen-input found: each step after that
- *   stalled 1.6 s, and the motion stopped halfway).
+ *   comes under the pointer (the input layer's tests found that each step after
+ *   that stalled 1.6 s, and the motion stopped halfway).
  */
 async function oneWheel(procs, kind) {
   const other = procs === "two" || kind === "oopFrame";
@@ -1274,7 +1274,7 @@ const experiments = {
   },
 
   /**
-   * The user's own drag next to the agent's input (zen-eval's Mac session,
+   * The user's own drag next to the agent's input (the eval harness's Mac session,
    * 20:15:12 and 20:19:43 UTC: the user's page got a press with no release).
    * In one process and in two, the agent is idle, holds a press on its text,
    * or holds its emulated drag mid-way, while the user drags in their tab:
@@ -1300,7 +1300,7 @@ const experiments = {
     return out;
   },
 
-  /** zen-eval's press-without-release sequences, in one process and in two (oneUserPress). */
+  /** The eval harness's press-without-release sequences, in one process and in two (oneUserPress). */
   async userPress() {
     const out = {};
     const only = process.env.USER_PRESS_ONLY?.split(",");

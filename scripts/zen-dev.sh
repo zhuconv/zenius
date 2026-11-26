@@ -218,7 +218,7 @@ running() { [[ -f $PIDFILE ]] && alive "$(cat "$PIDFILE")"; }
 # user's daily Zen included. An open file's path comes back with symlinks
 # resolved (Linux's /proc and the Mac's lsof alike: the Mac's temp folders
 # under /var/folders are /private/var/folders), so it's compared with the
-# profile's real path as well as the path as given (zen-eval's fix).
+# profile's real path as well as the path as given (the eval harness's fix).
 holds_lock() {
   local pid=$1 fd path files real
   real=$(cd "$PROFILE" 2>/dev/null && pwd -P) || real=
@@ -1293,7 +1293,7 @@ case $CMD in
     stop
     rm -rf "$PROFILE"
     # zenius's records of that profile's workspaces and tasks go with it:
-    # kept, an ended task's name stays taken in the next run (zen-ux's
+    # kept, an ended task's name stays taken in the next run (the UI's
     # clipboard suite). Never in the account's own zenius home (ZHOME).
     account_zhome || rm -rf "$ZHOME/state/$NAME"
     remove_default_work

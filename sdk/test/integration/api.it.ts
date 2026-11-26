@@ -342,8 +342,8 @@ console.log(JSON.stringify({ logged, again }));`,
     },
   );
 
-  // Refused surfaces (PROTOCOL.md): zen-observe's print, HTTP sign-in and app
-  // links, and zen-input's pickers. A script sees each in the action's
+  // Refused surfaces (PROTOCOL.md): the observe layer's print, HTTP sign-in and app
+  // links, and the input layer's pickers. A script sees each in the action's
   // receipt.refused and as a Zenius.refused event.
   verified(
     "a refused print dialog is in the click's receipt and in events(), and print() returns as after Cancel",
@@ -567,7 +567,7 @@ console.log(JSON.stringify({ alert, accepted, dismissed, none, state }));`,
     },
   );
 
-  // zen-observe's dialog methods without zen-input's click: goto reports a
+  // The observe layer's dialog methods without the input layer's click: goto reports a
   // dialog the page opens while it loads (PROTOCOL: goto and reload receipts).
   verified(
     "a dialog that opens while the page loads shows in goto's receipt, and closes once",

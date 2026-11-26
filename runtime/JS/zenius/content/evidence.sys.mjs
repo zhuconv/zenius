@@ -1,4 +1,4 @@
-// The evidence flag, content side (zen-observe).
+// The evidence flag, content side (the observe layer).
 //
 // The defenses act only on evidence of phishing or danger: one flag per
 // document, with its reasons (hooked, made, listed, flagged). The parent
@@ -7,10 +7,10 @@
 // with the marks this process made before the parent's copy comes back.
 //
 // It also holds the check of inserted markup (hookedMarkup) that the agent's
-// world runs on the nodes its code inserts, and that zen-input's paste runs on
+// world runs on the nodes its code inserts, and that the input layer's paste runs on
 // the agent's markup, so the two count exactly the same things.
 //
-// Light on purpose: zen-input's guard imports it into every task page, and the
+// Light on purpose: the input layer's guard imports it into every task page, and the
 // parent may import it too. It imports only the shared names.
 
 import { EVIDENCE_DOCS_KEY, EVIDENCE_REASONS, evidenceDetail } from "chrome://userscripts/content/zenius/content/worldkeys.sys.mjs";
@@ -124,7 +124,7 @@ export function isEvident(target) {
 }
 
 /**
- * zen-input's flag for the page, pageFlag's contract on evidence: "drop" when
+ * The input layer's flag for the page, pageFlag's contract on evidence: "drop" when
  * its top document is one the agent made, "clean" when a document of it is
  * hooked (or made), else null. Listed and flagged pages get a warning, not a
  * clean copy: the danger is the page itself, which a reload brings back.
@@ -149,7 +149,7 @@ export function evidenceFlag(target) {
 
 /**
  * The agent left code or a redirecting change in this window's document,
- * outside anything the parent sees: its world's insertions, or zen-input's
+ * outside anything the parent sees: its world's insertions, or the input layer's
  * paste of markup that carries code. The document is hooked, here at once and
  * in the parent. Only that one: a window is hooked when the agent's code
  * wrote into it, not when page code left there could reach it: the defenses

@@ -1,12 +1,12 @@
 // The names, limits and rules the typing guard shares between the content
-// and parent processes (zen-input). They have a module of their own, with
+// and parent processes (the input layer). They have a module of their own, with
 // no imports, so the parent needn't evaluate content/typing.sys.mjs, nor
 // the agent's world it imports, to read them, and a test can run the rules
 // in node.
 
 /** sharedData: top documents (innerWindowId) whose tab's typing is held since the user's trigger. */
 export const TYPING_HELD_DOCS_KEY = "zenius:typingHeldDocs";
-/** sharedData: browserIds whose typing zen-core holds around a hand-off's quiet reload (dropUserTyping). */
+/** sharedData: browserIds whose typing the core holds around a hand-off's quiet reload (dropUserTyping). */
 export const TYPING_HELD_TABS_KEY = "zenius:typingHeldTabs";
 
 /**

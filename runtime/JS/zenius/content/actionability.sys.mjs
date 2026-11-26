@@ -1,6 +1,6 @@
 // Portions adapted from citrolabs/ego-lite (MIT License).
 //
-// Actionability for page actions (zen-input): composed-tree walks, the
+// Actionability for page actions (the input layer): composed-tree walks, the
 // enabled state, the action point, the scroll request, the hit test and the
 // wrapper-to-control rules. These follow Ego's action-target.ts so that the
 // same element passes or fails, with the same message, on both browsers.

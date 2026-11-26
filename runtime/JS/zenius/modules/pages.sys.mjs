@@ -58,7 +58,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
  * A tab moved to another window adds `movedFrom` (movedValue).
  */
 export const TAB_VALUE_KEY = "zenius";
-/** The task id on a task's pages that aren't the user's: zen-ux's tag reads it. */
+/** The task id on a task's pages that aren't the user's: the UI's tag reads it. */
 export const TASK_ATTR = "zenius-task";
 
 /** Write a tab's session value on every copy of it, or delete it (null) with a secret step's mark. */
@@ -107,7 +107,7 @@ function movedValue(value, from, to) {
   return moved;
 }
 
-/** zen-ux's tag on every copy of a tab: the task id, or none (null). */
+/** The UI's tag on every copy of a tab: the task id, or none (null). */
 function writeTag(tab, taskId) {
   for (const copy of copiesOf(tab)) {
     if (taskId === null) {
@@ -128,7 +128,7 @@ function rawValue(tab, key) {
 }
 
 /**
- * The session value that marks the user's own tab (zen-ux's "Use your own
+ * The session value that marks the user's own tab (the UI's "Use your own
  * tab"): no task ever holds it (I2).
  */
 export const OWN_TAB_KEY = "zenius-own";
@@ -391,12 +391,12 @@ export class Pages {
   /**
    * Runs every change zenius makes to a tab strip and returns its value. A
    * tab added or moved above the one a window shows moves that tab down a
-   * row, and Zen's strip has no scroll anchoring: zen-ux's view keeper
+   * row, and Zen's strip has no scroll anchoring: the UI's view keeper
    * (ui/viewkeeper.sys.mjs) replaces this to put every window's view back.
    */
   keepView = fn => fn();
 
-  /** Can the strip this window shows scroll? zen-ux's stripCanScroll replaces it. */
+  /** Can the strip this window shows scroll? The UI's stripCanScroll replaces it. */
   stripCanScroll = win => stripOverflows(win);
 
   /**
@@ -644,7 +644,7 @@ export class Pages {
   }
 
   /**
-   * zen-ux's "Use your own tab": the tab the user opens for a page they log
+   * The UI's "Use your own tab": the tab the user opens for a page they log
    * in to themselves. No task ever holds it, not even one that claims its
    * workspace, so no agent call reaches it (I2). Its own session value keeps
    * the mark across restarts and window moves. An agent's page can't be
@@ -713,7 +713,7 @@ export class Pages {
   /**
    * A window opened later gets its copies of every tab from Zen: give each
    * the marks of the tab's other copies (the session values and the tag), so
-   * restarts and zen-ux's tags see the same tab in every window.
+   * restarts and the UI's tags see the same tab in every window.
    *
    * @param {Element[]} tabs  new copies, in one window or several
    */
@@ -848,7 +848,7 @@ export class Pages {
   }
 
   /**
-   * Write a task tab's session value and zen-ux's tag. Only tasks have
+   * Write a task tab's session value and the UI's tag. Only tasks have
    * them: a workspace's tabs are its by where they are, and its Space
    * shows whose it is.
    */
@@ -1004,18 +1004,18 @@ export class Pages {
    * the page never runs it again while it's in the task: code there could
    * reach that window, and code run earlier would stay. register() checks
    * when a tab joins a task, and every method that runs the agent's code
-   * checks before each call (zen-observe's and zen-input's). In memory only:
+   * checks before each call (the observe layer's and the input layer's). In memory only:
    * after a restart every tab has a group of its own.
    *
    * No answer, and nothing kept, while the tab's document isn't in a web
    * content process. An add-on's page (about:compat, any moz-extension:
    * page) shares its group with the add-on's background page, which is no
-   * window of the user's (zen-observe measured it on Linux). zenius
+   * window of the user's (measured on Linux). zenius
    * runs no agent code in such a document (observe/webcontent.sys.mjs), and
    * a load from it to the web gets a group of its own, which the next check
    * sees.
    *
-   * While the user holds a page of the group (zen-observe's holdPage), it
+   * While the user holds a page of the group (the observe layer's holdPage), it
    * counts as outside the task: no agent code runs anywhere in the group,
    * where a page could still hold the held page's handle. That refusal
    * ("hold") isn't kept: it ends with the hold.
@@ -1598,7 +1598,7 @@ export class Pages {
   /**
    * Ego's current Page, for a task in the shared Agents Space: the tab the
    * user would see on opening the task, where the panel's Open lands. It's
-   * whichever came last of a tab the agent made current (zen-ux's
+   * whichever came last of a tab the agent made current (the UI's
    * notePage: a new page, an acting call) and a task tab the user
    * selected; else the task's first page, else its first tab. If that tab
    * closes, the same fallback applies. It moves no window (I1).

@@ -29,7 +29,7 @@ const ALLOWED = {
   // None: zenius's one, the service's state save at quit
   // (modules/service.sys.mjs), is a quit-application observer (QUIT_ONLY).
   observers: {},
-  // zen-core, modules/service.sys.mjs and modules/guards.sys.mjs, in each
+  // The core, modules/service.sys.mjs and modules/guards.sys.mjs, in each
   // window: the tabs zenius follows, and the focus and keep-alive guards.
   window: {
     "EndSwapDocShells capture": 1,
@@ -43,7 +43,7 @@ const ALLOWED = {
   },
   document: {},
   tabContainer: {},
-  // zen-core's Zenius actor: its DOMWindowCreated listener on every tab.
+  // The core's Zenius actor: its DOMWindowCreated listener on every tab.
   tabListeners: { DOMWindowCreated: 1 },
   // Live in each new document of a web tab.
   tabActors: ["Zenius"],

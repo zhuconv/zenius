@@ -1,6 +1,6 @@
 // Portions adapted from citrolabs/ego-lite (MIT License).
 //
-// The selector engine for page actions (zen-input), following Ego's
+// The selector engine for page actions (the input layer), following Ego's
 // element-resolver.ts: refs (@N, ref=N, N), loc=css:/role:/href:, text=,
 // xpath=, raw CSS through open shadow roots, and the Playwright subset (css=,
 // terminal :has-text()/:text-is(), >> nth=N). Parsing has no DOM or
@@ -758,7 +758,7 @@ export function contextsFrom(win) {
     for (const child of bc.children) {
       if (child.docShell) {
         const w = child.docShell.domWindow;
-        // I5 (zen-observe glue): never into a document that isn't web
+        // I5 (the observe layer glue): never into a document that isn't web
         // content (an error page).
         if (w?.document && !isWebDocument(w.document)) {
           continue;

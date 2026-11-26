@@ -1,4 +1,4 @@
-// Red-teaming the user's setting for agents' page code (zen-observe's
+// Red-teaming the user's setting for agents' page code (the observe layer's
 // observe/pagecode.sys.mjs): zenius.agentTabs.pageCode
 // is "always" (the default), "ask" (only sites the user allowed, in
 // zenius.agentTabs.pageCodeSites) or "never". Does each refusal hold where it
@@ -125,14 +125,14 @@ try {
   await client.call("page.goto", { space, page: "p1", url: `${A}/leave`, options: {} });
   const t0 = Date.now();
   out.ask.waitWhileLeaving = { ...(await waitFn("p1", 8000)), ms: Date.now() - t0 };
-  // A pref of another type reads as ask (zen-sdk's find): a Boolean false.
+  // A pref of another type reads as ask (the SDK's find): a Boolean false.
   await setting(false, null);
   await client.call("page.goto", { space, page: "p1", url: `${A}/`, options: {} });
   out.ask.booleanPref = await evaluate();
 
   step("self");
   // Can the agent allow itself? Its loads of the settings pages, its keys in
-  // the page (zen-input's, dispatched in the content process), and the
+  // the page (the input layer's, dispatched in the content process), and the
   // module's Allow with anything but the user's click.
   await setting("ask", null);
   out.self = {
@@ -147,7 +147,7 @@ try {
   }
   out.self.typed = await outcome(client.call("page.keyboard", { space, page: "p1", action: "type", text: "about:config", options: {} })).then(r => r.ok || r.code);
   out.self.enter = await outcome(client.call("page.keyboard", { space, page: "p1", action: "press", key: "Enter", options: {} })).then(r => r.ok || r.code);
-  // With the card asking (zen-input's change): the agent tabs through
+  // With the card asking (the input layer's change): the agent tabs through
   // the page and past its end, then presses Enter and Space. Does the
   // focus ever reach the card's Allow, and is anything written?
   await setting("ask", null);
@@ -172,7 +172,7 @@ try {
   // The module's Allow, called by chrome code with a click it made: chrome
   // code's events are trusted, so this passes (and writes; restored below).
   // It shows only that the function trusts its caller: no agent or page can
-  // call it (chrome code only; its one caller is zen-input's card).
+  // call it (chrome code only; its one caller is the input layer's card).
   out.self.allowFromChromeCode = await chrome(`
     const m = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/pagecode.sys.mjs");
     const card = win.document.createElement("div");

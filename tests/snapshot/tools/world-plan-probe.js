@@ -1,8 +1,8 @@
 // The isolated-world plan, modeled, to try
-// escapes before zen-observe's code lands. The body of a privileged
+// escapes before the observe layer's code lands. The body of a privileged
 // dev.evalContent call in the fixture's
 // /sb page (sandbox-probe.mjs's "model" group runs it). It builds:
-// - the world: zen-observe's sandbox, with window and self as its global, and
+// - the world: the observe layer's sandbox, with window and self as its global, and
 //   setTimeout and setInterval that refuse a string (typeof);
 // - the count: our calls into the world, plus the world's callbacks, found by
 //   a Debugger on the world whose onEnterFrame is set only while the count

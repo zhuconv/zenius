@@ -1,4 +1,4 @@
-// The storage refusals in workers (zen-observe): see content/refusals.sys.mjs.
+// The storage refusals in workers (the observe layer): see content/refusals.sys.mjs.
 // This classic script runs in the debugger global of a worker that a page of
 // an agent task started. Gecko holds the worker until this script reports
 // back, so the refusals are in the worker's own realm before its script runs.

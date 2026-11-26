@@ -1,4 +1,4 @@
-// Red team of the agent sidebar and the '>' dispatch (zen-snapshot, for the
+// Red team of the agent sidebar and the '>' dispatch (the snapshot layer, for the
 // manager, 2026-11-21): can a page or an agent reach the sidebar's chrome
 // code, read the user's chats or start a process, and does agent activity
 // leave the user's focus and tab alone (I1)?
@@ -17,7 +17,7 @@
 // its cost), watch (Watch and Ctrl+Tab by the user, a page and the agent),
 // pill (the watch chip: a hint where zenius's strip
 // can't be read, and Ctrl+Tab the only way back), refused (a Take over
-// zen-core refuses, for real: the page's fresh load would leave its site),
+// the core refuses, for real: the page's fresh load would leave its site),
 // cost (one picture alone, the parent stall around it) and namelink (the
 // chat follows a task by the name its agent reports);
 // sessions (last: it reads what the others started). The Take over's
@@ -66,7 +66,7 @@ if (mode === "setup") {
     join(dir, "prefs.js"),
     `user_pref("uc.agent-sidebar.config", ${JSON.stringify(join(dir, "config.json"))});\n` +
       `user_pref("uc.agent-sidebar.harness", "zsred");\n` +
-      // zen-observe's limits run only known adapters; the fixtures' mock and this scripted agent need this.
+      // The observe layer's limits run only known adapters; the fixtures' mock and this scripted agent need this.
       `user_pref("zenius.agentSidebar.allowUnknownAgents", true);\n` +
       // actorStall: one content process per site, so the user's page and the agent's share one.
       (wanted.includes("--one-process") ? `user_pref("dom.ipc.processCount.webIsolated", 1);\n` : "")
@@ -711,7 +711,7 @@ const CASES = {
     return {
       asked: asked.done,
       contentType: await chrome(`return win.gBrowser.selectedBrowser.documentContentType;`),
-      // Neither mark contains the other (zen-ux: an earlier fake mark was part of the visible one).
+      // Neither mark contains the other (the UI: an earlier fake mark was part of the visible one).
       gotFakeText: text.includes("PDFAPI_ONLY_MARK"),
       gotVisibleText: text.includes("VISIBLE_FAKEPDF_MARK"),
       header: text.split("\n\n")[0],
@@ -960,11 +960,11 @@ const CASES = {
       // The picture never goes to the agent: the next question carries text only.
       await chrome(`const sent = g.submit(theConv(), { question: "ECHO after the card", selection: "", attachments: [] }); sent.catch(() => {}); await until(() => !theConv().busy, 10000); return true;`);
       out.promptTypes = entriesSince(n, "prompt").map(e => e.data.types ?? null);
-      // The manager's condition 2, with zen-sidebar's bar: a picture every 2 s
+      // The manager's condition 2, with the sidebar's bar: a picture every 2 s
       // at most while the card shows (8 s: 4, and one as it appears), none
       // while it doesn't, and no stall over 50 ms from the card on the costly page.
       // The bar is judged by each stretch's worst stall, whatever caused it
-      // (zen-sidebar's ask), and a card that drew fewer than 2 pictures in
+      // (the sidebar's ask), and a card that drew fewer than 2 pictures in
       // view fails: its pictures weren't counted, so nothing else can pass.
       const count = label => out[label]?.pictures ?? null;
       const seen = count("visible");
@@ -1062,7 +1062,7 @@ const CASES = {
       // sending itself Ctrl+Tab; the agent ends its task. The
       // window stays and keeps Ctrl+Tab's way back ("Task done"), which the
       // page's own Ctrl+Tab must not take. Then the user's Ctrl+Tab goes back,
-      // and the page they left closes a tick later (zen-core's closeLeft).
+      // and the page they left closes a tick later (the core's closeLeft).
       out.agentGotoDone = typeof out.agentNewTab === "string" && out.agentNewTab !== "ok"
         ? await client.call("page.goto", { space, page: out.agentNewTab, url: `${A}/live?ctrltab=1&done=1` }).then(() => "ok", e => ({ error: e.message }))
         : "no page label";
@@ -1092,7 +1092,7 @@ const CASES = {
         // Whether Zen then moves a tab depends on the Space's tabs.
         laterIsZens: (out.userCtrlTab?.reachedZen ?? []).includes("later"),
         hintGoneAfter: out.userCtrlTab?.back?.strip === null && out.userCtrlTab?.back?.chip === null,
-        // After the task's end (zen-ux's suggested check).
+        // After the task's end (a check suggested for the UI).
         doneHint: f.watching === null && f.zenius === null && f.attr === null && f.done === space && f.stripState === "done" && f.strip === "Task done, Ctrl+Tab back to your tabs" && f.chip === null,
         doneNothingMoved: out.agentGotoDone === "ok" && !!f.tab && f.tab === out.watch3?.tab,
         doneBack: out.doneBack?.tab === out.home?.tab && out.doneBack?.done === null && out.doneBack?.strip === null,
@@ -1121,7 +1121,7 @@ const CASES = {
   async pill() {
     const out = {};
     const long = n => `zs-pill-${"x".repeat(n - 14)}-${suffix()}`;
-    // A name over 80 characters links only by id (zen-sidebar's change):
+    // A name over 80 characters links only by id (the sidebar's change):
     // before it, the chat looked its task up by its title, cut at 80.
     for (const [label, name, how] of [["short", `zs-pill-${suffix()}`, "watch"], ["long75", long(75), "watch"], ["long200", long(200), "watch"], ["long200TakeOver", long(200), "takeOver"]]) {
       const opened = await chrome(START_CHAT, { url: `${A}/plain`, question: `LINK ${name} HOLD 60` });
@@ -1268,7 +1268,7 @@ const CASES = {
     return out;
   },
 
-  // A Take over zen-core refuses, for real (S42; zenius's tests stub the
+  // A Take over the core refuses, for real (S42; zenius's tests stub the
   // refusal): the agent's code ran in its page, so Take over first loads the
   // page afresh, and that load would leave the site (the page redirects to
   // the other site once loaded), so zenius stops it. What the user meets:
@@ -1446,7 +1446,7 @@ const CASES = {
   // asked only for an agent tab of the chat's task (never a user's tab), its
   // pictures only to the panel, no events or observers (I4), and a costly
   // page costs only itself. The agent's page is /trap; the user's own page is
-  // on the other site, so in another process. Since zen-ux's guard,
+  // on the other site, so in another process. Since the UI's guard,
   // drawPicture(conv, tab, size) must refuse any tab but an agent
   // page of the chat's live task, before it makes an actor in the tab.
   async actor() {

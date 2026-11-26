@@ -228,7 +228,7 @@ export class MockRuntime {
     let result: unknown;
     try {
       if (!handler) throw new MockError("ZEN_UNSUPPORTED", `mock runtime has no method ${frame.method}`);
-      // As zen-core's dispatcher: a bad per-process field fails before dispatch.
+      // As the core's dispatcher: a bad per-process field fails before dispatch.
       if ("pageBudget" in frame && !(Number.isInteger(frame.pageBudget) && frame.pageBudget! > 0)) {
         throw new MockError("ZEN_INVALID_ARGUMENT", "pageBudget must be a positive integer");
       }

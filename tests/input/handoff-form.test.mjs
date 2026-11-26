@@ -3,7 +3,7 @@
 // a token form with page code and handed off. The page loaded afresh under
 // the user, and they submitted it at its defaults: a framework's state doesn't
 // come back with the form's fields. Under the evidence model, only a page the
-// agent's code left something in that outlives its world (zen-observe's
+// agent's code left something in that outlives its world (the observe layer's
 // hooked) loads afresh for the user:
 //   (a) Page code that only sets values, dispatches events and clicks, as
 //       on Cloudflare's form, leaves nothing: the page is written but not
@@ -12,7 +12,7 @@
 //       user's Take over.
 //   (b) The same code with a script element or an inline handler added: the
 //       page is hooked. The user's press in the agent's tab gets the clean
-//       copy and zen-ux's notice, and is dropped. The custom select and
+//       copy and the UI's notice, and is dropped. The custom select and
 //       multi-select come back at their defaults (the text field comes back
 //       by the carry-over). A hand-off or the user's Take over loads the
 //       page afresh first, and the user's press sends the defaults.
@@ -57,14 +57,14 @@ const formOf = page =>
               submits: Number(d.submits ?? 0), submitted: d.submitted ? JSON.parse(d.submitted) : null };`
   );
 
-/** zen-observe's evidence on the page's document: reason → detail. */
+/** The observe layer's evidence on the page's document: reason → detail. */
 const evidenceOf = page =>
   chrome(`${SERVICE} ${EV} const { tab } = ZeniusService.resolvePage(arg); return { ...EV.evidenceOf(tab.linkedBrowser) };`, where(page));
 
-/** The page, once zen-observe has marked it hooked: what hooked it. */
+/** The page, once the observe layer has marked it hooked: what hooked it. */
 const hookedBy = page => h.until(async () => (await evidenceOf(page)).hooked, "the page, hooked");
 
-/** zen-ux's notice on the page's tab that it loaded afresh, or null. */
+/** The UI's notice on the page's tab that it loaded afresh, or null. */
 const reloadNotice = page =>
   chrome(
     `${SERVICE} ${N} const { tab } = ZeniusService.resolvePage(arg);
@@ -73,7 +73,7 @@ const reloadNotice = page =>
     where(page)
   );
 
-/** zen-core's clean copies on demand since the case began. */
+/** The core's clean copies on demand since the case began. */
 const COUNT = `${SERVICE}
   if (!Object.hasOwn(ZeniusService, "cleanOnDemand")) {
     const real = ZeniusService.cleanOnDemand;
@@ -98,7 +98,7 @@ async function handOff(page) {
   }
 }
 
-/** The user's Take over, as the prompt's or the panel's (zen-ux's takeOverByUser). */
+/** The user's Take over, as the prompt's or the panel's (the UI's takeOverByUser). */
 async function userTakesOver(page) {
   await chrome(`${SERVICE} ${UI} await UI.takeOverByUser(ZeniusService.spaces.peek(arg)); return true;`, page.spaceId);
   await h.until(async () => (await ownership(page)) === "agentDelegatedToUser", "the task, the user's");
@@ -274,7 +274,7 @@ test("(b) the same code adding an inline handler hooks the page: hand_off loads 
     assert.deepEqual(handed.result.reloaded, [page.label], "the hand-off loaded the page afresh");
     const fresh = await freshDoc(page, filled.doc, "the page, loaded afresh at the hand-off");
     assert.deepEqual(custom(fresh.state), custom(DEFAULTS), "the custom select and the multi-select are at their defaults");
-    // zen-ux's notice says so, as at Take over (zen-ux's glue; its title gains why once zen-core's evidence comes with the hold).
+    // The UI's notice says so, as at Take over (the UI's glue; its title gains why once the core's evidence comes with the hold).
     const notice = await h.until(() => reloadNotice(page), "zen-ux's notice");
     assert.match(notice.text, /^This page reloaded(?: · |$)/);
     assert.match(notice.note, NOTE);

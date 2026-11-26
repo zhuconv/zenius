@@ -1,6 +1,6 @@
-// Content side of the refusals (zen-observe): page APIs whose effect would
+// Content side of the refusals (the observe layer): page APIs whose effect would
 // reach past an agent tab fail with the denial a page already handles, and
-// the parent is told (a Zenius.refused event). zen-core's page guards
+// the parent is told (a Zenius.refused event). The core's page guards
 // install them in every new document of a tab the agent drives, before the
 // page's scripts. Each call checks again, so a tab handed to the user
 // behaves normally.
@@ -40,7 +40,7 @@
 //   whole life: a worker can't read the hold or the evidence.
 
 // The checks a user's document needs (needsRefusals and the rest) are in the
-// leaf content/taskset.sys.mjs, zen-core's, which this module re-exports: a
+// leaf content/taskset.sys.mjs, the core's, which this module re-exports: a
 // user's document never loads this one (I4).
 import {
   HELD_PAGES_KEY,
@@ -84,7 +84,7 @@ const WORLD_GEOLOCATION_DENIED = `Object.create(
 const guarded = new WeakSet();
 
 /**
- * Install the guards in the actor's document, once. zen-core's page guards
+ * Install the guards in the actor's document, once. The core's page guards
  * call it for each new document of an agent tab, and for the documents a
  * tab already has when it becomes the agent's (ZeniusService.installGuards).
  * The caller hands the document to the agent's worlds afterwards
@@ -138,7 +138,7 @@ function installAll(actor, win, doc, { done, closed }) {
   const reportedOnce = new Set();
   /** `once`: true for once per kind, or a key for once per kind and key. */
   // `what`, for the devices and notifications: the API (the once-key) and
-  // what it asked for in a few words, so zen-ux's card for a page kept with
+  // what it asked for in a few words, so the UI's card for a page kept with
   // the agent's code needn't read the agent's message.
   const report = (kind, message, once = false, what = null) => {
     if (once) {
@@ -418,7 +418,7 @@ function installAll(actor, win, doc, { done, closed }) {
 /**
  * The page's own BroadcastChannels and shared workers, per document (its
  * WindowGlobalChild), held weakly: muteChannels closes them as the user is
- * about to hold the page. Glue by zen-core.
+ * about to hold the page. Glue by the core.
  *
  * @type {WeakMap<object, Array<{kind: "channel"|"worker", ref: WeakRef<object>}>>}
  */
@@ -450,7 +450,7 @@ function noteChannel(owner, kind, obj) {
  * world opened go with its discard. The site's code keeps working:
  * postMessage on a closed channel would throw (the spec's InvalidStateError),
  * so each closed channel gets an own postMessage that does nothing, and a
- * closed port drops its messages as it is. Glue by zen-core.
+ * closed port drops its messages as it is. Glue by the core.
  *
  * @returns {{channels: number, workers: number}}
  */
@@ -596,7 +596,7 @@ function guardServiceWorkerAccess(win, page, { report, guard, guardGetter, appli
 }
 
 /** What a getUserMedia() call asks for, read through Xrays, so no page getter runs. */
-/** What a getUserMedia() call asks for: words for zen-ux ("camera microphone", "screen") and text for the agent. */
+/** What a getUserMedia() call asks for: words for the UI ("camera microphone", "screen") and text for the agent. */
 function askedOf(constraints) {
   let video = false;
   let audio = false;
@@ -763,7 +763,7 @@ function guardDevices(page, win, { report, later, guard, worldGuard, devices, pr
     prompts
   );
 
-  // A page's own passkey request waits for the user (zen-ux,
+  // A page's own passkey request waits for the user (the UI,
   // ui/systemui/ZeniusSystemUiChild.sys.mjs), whose prototype the world's
   // Xrays don't see. The agent's own code gets a no: a passkey is the
   // user's, and the hand-off that wait starts would end the very world that
@@ -999,7 +999,7 @@ function refuseInPage(win, name, refuse) {
 
 /**
  * Wrap the page's constructor `name`, made in chrome with no script, as
- * zen-ux's notification guard builds its own: the page's Proxy, with a
+ * the UI's notification guard builds its own: the page's Proxy, with a
  * handler that has no prototype and `trap` (chrome's) as its construct trap,
  * so its statics, prototype and instanceof stay, and its prototype's
  * constructor is the Proxy too. No realm the page can reach holds anything
@@ -1117,11 +1117,11 @@ function simulateFailure(name) {
 /**
  * Notifications, refused while `applies()` (on evidence of danger), even
  * where the site has the user's grant: one would show on the user's desktop.
- * While the agent drives, zen-ux's guard keeps a granted site's quiet
+ * While the agent drives, the UI's guard keeps a granted site's quiet
  * (ui/systemui/ZeniusSystemUiChild.sys.mjs).
  *
  * The agent's own code gets a no every time, as for a passkey: the world's
- * Xrays don't see zen-ux's quiet one, so it would reach the native, and the
+ * Xrays don't see the UI's quiet one, so it would reach the native, and the
  * agent has nothing of its own to show on the user's desktop.
  */
 function guardNotifications(win, page, { report, guard, applies, why, done, closed }) {
@@ -1639,7 +1639,7 @@ function workerMark(dbg) {
 /**
  * A worker's URL, whole: the debugger's url is the string the page or the
  * worker passed to the constructor, so a relative one is resolved against
- * the URL of the worker that started it, or the page's (zen-snapshot's
+ * the URL of the worker that started it, or the page's (the snapshot layer's
  * note: reports named some workers relative).
  */
 function absoluteWorkerURL(dbg, owner) {

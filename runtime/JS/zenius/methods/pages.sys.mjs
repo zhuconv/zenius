@@ -1,4 +1,4 @@
-// pages.* and tabs.* methods (zen-core): Ego's page model. Managed pages have
+// pages.* and tabs.* methods (the core): Ego's page model. Managed pages have
 // labels; every tab of a space has a tab id for task.tabs(), adopt and
 // release.
 
@@ -15,7 +15,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   markEvident: "chrome://userscripts/content/zenius/observe/evidence.sys.mjs",
 });
 
-/** zen-observe's limit on an evidence detail, which zen-ux's notice shows the user. */
+/** The observe layer's limit on an evidence detail, which the UI's notice shows the user. */
 const FLAG_REASON_MAX = 200;
 /** One line the user reads: no C0 or C1 control character, and no bidi formatting character to reorder it. */
 const FLAG_REASON_BAD = /[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/;
@@ -26,7 +26,7 @@ function tabInfo(tab, current) {
     // their own tabs too: a page that shows the code may show it there.
     title: showsSignInResult(tab.linkedBrowser) ? "" : (tab.label ?? ""),
     // As page.url() reads it: a popup still loading its first document lists
-    // the URL it's loading (zen-observe's displayURL).
+    // the URL it's loading (the observe layer's displayURL).
     url: tab.linkedBrowser ? displayURL(tab.linkedBrowser) : "",
     active: sameTab(tab, current),
   };
@@ -121,11 +121,11 @@ export const methods = {
     ctx.pages.checkBudget(space, ctx.pageBudget);
     const openedBy = space.ledger.unmanaged[params.tab] ?? "unknown";
     const page = ctx.pages.register(space, tab, openedBy, { label: params.as });
-    // zen-observe: the document a tab of the user's shows now is theirs, so
+    // The observe layer: the document a tab of the user's shows now is theirs, so
     // the kept-code pill never says the agent made it.
     noteAdopted(tab.linkedBrowser, openedBy);
     keepAlive(tab);
-    // zen-input: passwords and card details the agent didn't set are emptied
+    // The input layer: passwords and card details the agent didn't set are emptied
     // before its first call on the page. Sent before anything here awaits,
     // so even a call pipelined behind this one finds them gone.
     clearAdopted(tab.linkedBrowser);
@@ -149,7 +149,7 @@ export const methods = {
       const labels = mates.map(other => other.label);
       throw new ZenError(
         "ZEN_PAGE_GROUP_SHARED",
-        // In the SDK's terms, as agents read it (zen-sdk's suggestion).
+        // In the SDK's terms, as agents read it.
         `page ${page.label} shares a window group with page${labels.length > 1 ? "s" : ""} ` +
           `${labels.join(", ")} of this task, whose code could reach it once it's the user's. Release them ` +
           `together with task.release("${page.label}", { group: true }), or close ` +
@@ -187,7 +187,7 @@ export const methods = {
 
   // The agent's own evidence:
   // the page looks like phishing or wants what the task doesn't need. Its
-  // document then gets every defense that reads evidence, and zen-ux's
+  // document then gets every defense that reads evidence, and the UI's
   // notice tells the user the reason. Per document, as all evidence is: a
   // reload or a new load starts clean.
   "page.flag": async (ctx, params) => {

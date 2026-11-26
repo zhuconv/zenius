@@ -1,14 +1,14 @@
 // The user's own input in a task's tab, and in a page that may hold the
 // agent's code, seen at the tab's root before any listener of the page
-// (zen-input). Only those tabs' roots get these listeners: the user's own
+// (the input layer). Only those tabs' roots get these listeners: the user's own
 // tabs never do (I4).
 //
 // - Take over: the user's first key
 //   or press in a live task's tab discards the agent's worlds there
-//   (zen-observe's discard, content/agentworld.sys.mjs), synchronously,
+//   (the observe layer's discard, content/agentworld.sys.mjs), synchronously,
 //   before any listener of the page sees it.
 // - The typing guard, on evidence only. In a page the agent's code left
-//   something hooked in (zen-observe's evidence, reason hooked), the
+//   something hooked in (the observe layer's evidence, reason hooked), the
 //   user's first press
 //   or key anywhere in the tab is stopped before any listener of the page,
 //   and so is every press and key of theirs after it, until the tab's top
@@ -16,14 +16,14 @@
 //   A page the agent's code only filled, clicked or read has no evidence,
 //   and the user's input goes through as in any page. Nor does a listed or
 //   flagged page hold it: the danger there
-//   is the page itself, which a clean copy can't remove, so zen-ux warns
+//   is the page itself, which a clean copy can't remove, so the UI warns
 //   instead. A
-//   stopped press is stopped whole, so the focus stays where it was. zen-core
+//   stopped press is stopped whole, so the focus stays where it was. The core
 //   reloads the page (cleanOnDemand, from the parent's half,
 //   input/typing.sys.mjs) with the form carried over, and puts the focus on
 //   the field the user went for, if any (noteUserTarget). Scrolls and pointer
 //   moves pass. A page the agent made (flag "drop") keeps the user's input
-//   on: zen-ux reminds them instead.
+//   on: the UI reminds them instead.
 //   The keys the user types while the clean copy loads are typed again into
 //   it, in the field they went for, as the hold lifts (the replay, below).
 //   The replay's own keys never set off a hold.
@@ -129,7 +129,7 @@ function isKeptTab(bc) {
 
 /**
  * Did the agent's code leave something hooked in `bc`'s page, its top
- * document or a frame (zen-observe's evidence)? Only that holds the user's
+ * document or a frame (the observe layer's evidence)? Only that holds the user's
  * input. A page the agent made reads "drop", and keeps it on, hooked or not.
  */
 const isHookedPage = bc => evidenceFlag(bc) !== "drop" && evidenceOf(bc).hooked !== undefined;
@@ -153,7 +153,7 @@ function documentHeld(bc) {
   return !!doc && (heldHere.has(doc) || !!Services.cpmm.sharedData.get(TYPING_HELD_DOCS_KEY)?.has(doc));
 }
 
-/** Does zen-core hold the typing of `bc`'s tab around a hand-off's reload? Presses pass. */
+/** Does the core hold the typing of `bc`'s tab around a hand-off's reload? Presses pass. */
 function tabTypingHeld(bc) {
   try {
     return !!bc?.browserId && !!Services.cpmm.sharedData.get(TYPING_HELD_TABS_KEY)?.has(bc.browserId);
@@ -244,7 +244,7 @@ function drop(e) {
   }
 }
 
-/** zen-core's note of the field the user went for, so its reload puts the focus back there. */
+/** The core's note of the field the user went for, so its reload puts the focus back there. */
 function noteTarget(field) {
   try {
     ChromeUtils.importESModule("chrome://userscripts/content/zenius/content/forms.sys.mjs").noteUserTarget?.(field);
@@ -368,7 +368,7 @@ function onUserEvent(e) {
 // it during the swap), but it passed the parent. As the tab's hold
 // lifts, the clean copy's process types it all again, in the order it came,
 // before the user's next key. Only into the field the user went for, and
-// only where zen-core's carry-over put the focus back (forms.sys.mjs's
+// only where the core's carry-over put the focus back (forms.sys.mjs's
 // userFieldBack).
 
 /** browserId → the user's input this guard dropped in its tab's current top document here: {doc, entries}. */
@@ -379,7 +379,7 @@ const userFields = new Map();
 const pendingReplays = new Map();
 let watchingHolds = false;
 
-/** zen-core's carry-over: the user's field, where it put the focus back in `doc`. */
+/** The core's carry-over: the user's field, where it put the focus back in `doc`. */
 function userFieldBack(doc) {
   try {
     return ChromeUtils.importESModule("chrome://userscripts/content/zenius/content/forms.sys.mjs").userFieldBack?.(doc) ?? null;

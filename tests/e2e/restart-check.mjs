@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// zen-eval's Mac restart check for the Agents Space (SPEC §3.4, "Restarts";
+// The eval harness's Mac restart check for the Agents Space (SPEC §3.4, "Restarts";
 // docs/SPI.md, "Tasks in the Agents Space"). Tasks share the Agents Space, and
 // a task's tabs carry their task in the session value `zenius`. After a
 // restart or a crash the runtime puts each restored tab back in its task
@@ -17,7 +17,7 @@
 //   task's page in the Agents Space at the quit, so Zen loads that page at
 //   start; the first call finds it guarded.
 // - crash: one task stays until Zen's own session file has it; another is a
-//   few seconds old when Zen is killed (SIGKILL). zen-core found that the
+//   few seconds old when Zen is killed (SIGKILL). The core's tests showed that the
 //   periodic save drops tabs whose history it hasn't collected yet, so that
 //   task should end as not_restored.
 // --startup-page 0 keeps zen-dev.sh's usual value instead, as a control.

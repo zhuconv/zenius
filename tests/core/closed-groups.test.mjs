@@ -1,9 +1,9 @@
 // Closed groups (SPI.md, "Closed groups"): a
 // document where the agent's code can run never shares a browsing context
-// group with a window outside its task. zen-core's parts: the group check
-// (pages.codeRefusal, which zen-observe's and zen-input's methods ask before
+// group with a window outside its task. The core's parts: the group check
+// (pages.codeRefusal, which the observe layer's and the input layer's methods ask before
 // running the agent's code), the refusal of a release that would split a
-// group, and the hook on which zen-ux's pill hears a refused new window.
+// group, and the hook on which the UI's pill hears a refused new window.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { setup } from "./lib.mjs";
@@ -510,7 +510,7 @@ test("after the task, a refusal in a kept page with the agent's code reaches onK
     const { label: k1 } = await h.call("pages.new", { space, url: url("/api/text?cg=KR1") });
     // The agent's code runs in KR1: its document is marked. It also leaves a
     // style sheet, evidence, which a notification's refusal needs since
-    // zen-observe's C (A8).
+    // the observe layer's C (A8).
     await h.call("page.evaluate", {
       space,
       page: k1,

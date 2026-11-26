@@ -77,7 +77,7 @@ export const PRE = `
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /**
- * Connects to the dev Zen (ZENIUS_INSTANCE, else zen-snapshot) and starts the
+ * Connects to the dev Zen (ZENIUS_INSTANCE, else the snapshot layer) and starts the
  * fixture sites: A at 127.0.0.1, B at 127.0.0.2.
  */
 export async function openKit() {
@@ -119,7 +119,7 @@ export async function openKit() {
   }
 
   /**
-   * The user resumes the agent: Resume agent on the pill (zen-ux's change;
+   * The user resumes the agent: Resume agent on the pill (the UI's change;
    * Hand back before it, on the own tab's notice, while there was one).
    */
   async function handBack(space) {

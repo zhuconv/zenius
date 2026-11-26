@@ -1,4 +1,4 @@
-// File choosers in agent tabs (zen-input).
+// File choosers in agent tabs (the input layer).
 //
 // A page's <input type=file> asks the parent process for an nsIFilePicker.
 // We register a wrapper factory for "@mozilla.org/filepicker;1": a picker for
@@ -292,7 +292,7 @@ function onConnectionClose(conn, fn) {
 }
 
 /**
- * Run `fn` once when `browser`'s page closes for the agent: zen-core's
+ * Run `fn` once when `browser`'s page closes for the agent: the core's
  * pageClosed, which comes when the tab's last window copy closes.
  *
  * @returns {() => void} stop listening

@@ -2,7 +2,7 @@
 // the agent's away from the page H while the user holds it.
 // agentSitesNear (observe/agentcode.sys.mjs) names the sites of the
 // windows near H that may hold the agent's code, for the hold's frame and
-// COOP rule. What a hand-off loads afresh is zen-core's call, from the
+// COOP rule. What a hand-off loads afresh is the core's call, from the
 // evidence flag (tests/core/handoff.test.mjs).
 // 127.0.0.1 (env.base, vectors.base) and localhost (vectors.crossBase) are
 // the fixture's two sites.
@@ -101,7 +101,7 @@ const closeTabs = urls =>
     )
     .catch(() => {});
 
-/** Listen to the hold's refusals (zen-ux's hook) in the browser window; returns a reader. */
+/** Listen to the hold's refusals (the UI's hook) in the browser window; returns a reader. */
 async function holdRefusals() {
   await env.chrome(
     `const HOLD = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/hold.sys.mjs");
@@ -192,7 +192,7 @@ test("a clean copy zenius loaded isn't near the agent's code by site, until the 
       await env.chrome(`${FIND} find(arg).reload(); return true;`, X);
       await loaded();
       assert.deepEqual(await near(page.P, Y), [A], "a reload of the page's or the user's, by site");
-      // zenius's clean load (zen-input's clean copy on demand goes through it).
+      // zenius's clean load (the input layer's clean copy on demand goes through it).
       loaded = await fresh("the clean copy");
       await env.chrome(`${FIND} await ctx.service.cleanLoad(find(arg), { sameSite: true }); return true;`, X);
       await loaded();
@@ -235,7 +235,7 @@ test("the hold: a window zen-core reloads for it isn't near the agent's code by 
       await until("H", () => docOf(H));
       assert.equal(await hold(H), true);
       assert.deepEqual(await near(page.P, H), [A], "T, where the agent's code ran");
-      // zen-core reloads T for the hold: T's fresh document doesn't count by site.
+      // The core reloads T for the hold: T's fresh document doesn't count by site.
       const t1 = await docOf(T);
       assert.equal(await env.chrome(`${FIND} return HOLD.holdReload(find(arg.T), find(arg.H));`, { T, H }), true);
       await env.chrome(`${FIND} find(arg).reload(); return true;`, T);
@@ -266,7 +266,7 @@ test("the hold: a task may hold several pages (zen-core's holdFor); for one, a t
       assert.equal(await hold(H1), true);
       assert.equal(await hold(H2), true);
       assert.notEqual(await holdOf(H1), await holdOf(H2), "two holds");
-      // zen-core reloads T for H1's hold, so only H2 is left to count.
+      // The core reloads T for H1's hold, so only H2 is left to count.
       const t1 = await docOf(T);
       assert.equal(await env.chrome(`${FIND} return HOLD.holdReload(find(arg.T), find(arg.H));`, { T, H: H1 }), true);
       await env.chrome(`${FIND} find(arg).reload(); return true;`, T);
@@ -359,7 +359,7 @@ test("the hold: others' loads into H and its frames are refused, H's own and its
     }
   }));
 
-/** Does the tab's history entry for `url` keep its document in the back-forward cache? (zen-core's guards.test.mjs) */
+/** Does the tab's history entry for `url` keep its document in the back-forward cache? (the core's guards.test.mjs) */
 const cached = (browserId, url) =>
   env.chrome(
     `const sh = BrowsingContext.getCurrentTopByBrowserId(arg.browserId).sessionHistory;
@@ -380,7 +380,7 @@ test("the hold: H's back-forward cache is evicted, and its fresh documents' chan
     const browserId = await env.chrome(`return ctx.resolvePage(arg).tab.linkedBrowser.browserId;`, H.P);
     // H shows A, then B, until A waits in its back-forward cache. Gecko
     // doesn't cache a page left while its load group still holds a request,
-    // so each try waits longer after the load (as zen-core's test does).
+    // so each try waits longer after the load (as the core's test does).
     let A = null;
     let B = null;
     for (let n = 1, settle = 250; n <= 4 && !A; n++, settle *= 2) {

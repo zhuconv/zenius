@@ -1,4 +1,4 @@
-// zenius mcp (zen-core's src/mcp.ts) driven over stdio as Claude Code or
+// zenius mcp (the core's src/mcp.ts) driven over stdio as Claude Code or
 // Codex would, against the suite's dev Zen: the tools, the steps they read
 // as, the errors from the guide, and what the server never offers.
 import assert from "node:assert/strict";
@@ -99,7 +99,7 @@ async function spaceNamed(name: string): Promise<Listed> {
   return space;
 }
 const chrome = (code: string, arg: unknown) => context.rpc.call("dev.evalChrome", { code, arg });
-/** zen-ux's Take over of the task's p1, as the user presses it (tests/core/handoff.test.mjs). */
+/** The UI's Take over of the task's p1, as the user presses it (tests/core/handoff.test.mjs). */
 const takeOver = (space: number) =>
   chrome(
     `const s = ctx.spaces.get(arg.space);
@@ -109,7 +109,7 @@ const takeOver = (space: number) =>
   );
 /** The user's Resume agent (tests/core/ownership.test.mjs gives a task back this way). */
 const resumeAgent = (space: number) => chrome(`ctx.spaces.setOwnership(ctx.spaces.get(arg), "agent", { source: "user" }); return true;`, space);
-/** The user's Resume agent as zen-ux's panel presses it: beforeHandBack first, where a secret step's tab is blanked (tests/core/handoff.test.mjs). */
+/** The user's Resume agent as the UI's panel presses it: beforeHandBack first, where a secret step's tab is blanked (tests/core/handoff.test.mjs). */
 const resumeByUser = (space: number) =>
   chrome(
     `const s = ctx.spaces.get(arg);
@@ -241,7 +241,7 @@ test("mcp: after the user's Take over the agent waits for Resume agent, and afte
   assert.ok(id, JSON.stringify(listed));
   const chrome = (code: string, arg: unknown) => context.rpc.call("dev.evalChrome", { code, arg });
 
-  // zen-ux's Take over, as the user presses it (tests/core/handoff.test.mjs).
+  // The UI's Take over, as the user presses it (tests/core/handoff.test.mjs).
   await chrome(
     `const s = ctx.spaces.get(arg.space);
      await ctx.service.userTakeOver(s, ctx.pages.tabFor(ctx.pages.get(s, arg.label)).linkedBrowser);
@@ -418,7 +418,7 @@ test("mcp: two chats that name their tasks alike get a task each, also while the
   try {
     await one.ok("open", { url: `${context.base}/`, task: name });
     const first = await spaceNamed(name);
-    // zen-sidebar's case: the user has the first chat's task (Take over).
+    // The sidebar's case: the user has the first chat's task (Take over).
     await takeOver(first.id);
     const opened = await other.ok("open", { url: `${context.base}/form`, task: name });
     assert.match(opened, new RegExp(`Started the task "${escaped(name)} 2"\\. Opened p1: sdk form`));

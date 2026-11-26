@@ -1,6 +1,6 @@
-// zen-core's evidence (SPI.md, "Flagged and listed"): the agent's own
+// The core's evidence (SPI.md, "Flagged and listed"): the agent's own
 // flag (page.flag) and the Safe Browsing lists (listed), both kept in
-// zen-observe's evidence flag (observe/evidence.sys.mjs), per document.
+// the observe layer's evidence flag (observe/evidence.sys.mjs), per document.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { setup } from "./lib.mjs";
@@ -13,7 +13,7 @@ after(() => h?.close());
 
 const url = path => `${h.base}${path}`;
 const EVIDENCE = "chrome://userscripts/content/zenius/observe/evidence.sys.mjs";
-/** zen-observe's evidenceOf of a page's tab: {reason: detail}. */
+/** The observe layer's evidenceOf of a page's tab: {reason: detail}. */
 const evidenceOf = (space, label) =>
   h.chrome(
     `const s = ctx.spaces.get(arg.space);

@@ -27,7 +27,7 @@ const UI = `const UI = ChromeUtils.importESModule("chrome://userscripts/content/
 
 before(async () => {
   h = await openHarness("handback");
-  // The agent's own values stay in the page across a hand-off: these tests check what the hand back clears (zen-core's glue).
+  // The agent's own values stay in the page across a hand-off: these tests check what the hand back clears (the core's glue).
   await chrome(`Services.prefs.setBoolPref("zenius.handoff.quietReload", false); return true;`);
   task = await h.taskSpace("zen-input handback");
   site = await loginSite(h, SAVED);
@@ -47,7 +47,7 @@ const space = page => ({ space: page.spaceId });
 const handOff = page => h.call("spaces.handOff", { ...space(page), reason: "login" });
 /**
  * The user's last real input in a task holds a takeOver, or a claim of it,
- * for 10 s (zen-core's rule, once zen-ux's detector reports input). These
+ * for 10 s (the core's rule, once the UI's detector reports input). These
  * tests act as the user, then at once as the agent: age that input, as if the
  * user had stopped a while ago.
  */
@@ -351,7 +351,7 @@ test("a one-time code the user typed while they held the tab is cleared on Resum
   }));
 
 // ---------------------------------------------------------------------------
-// onSecretTyped (zen-ux's line on the hold card): the user's own input
+// onSecretTyped (the UI's line on the hold card): the user's own input
 // first changing a field Resume clears,
 // once per document.
 
@@ -838,7 +838,7 @@ test("while the user holds an agent tab, their click in a card field gets their 
 // every password and card detail the agent didn't set emptied before its
 // first call, so the agent never reads what the user typed there.
 
-/** A Space of the user's own with one tab, loaded as the user loads a URL (zen-core's tests do the same). */
+/** A Space of the user's own with one tab, loaded as the user loads a URL (the core's tests do the same). */
 const userSpace = (name, url) =>
   chrome(
     `${SERVICE}
@@ -913,7 +913,7 @@ test("a Space the agent claims back after the user stopped it has their password
 /**
  * The hold card's Resume agent, the entry the agent sidebar's send counts as
  * (docs/SPI.md, "A send as Resume agent"): a case on the task's page held by
- * the user's Take over, with zen-core's quiet loads on, as in a real profile.
+ * the user's Take over, with the core's quiet loads on, as in a real profile.
  */
 async function onHeldPage(fn) {
   await chrome(`Services.prefs.clearUserPref("zenius.handoff.quietReload"); return true;`);
@@ -961,7 +961,7 @@ test("Resume agent on the hold card: a page holding a password the user typed, a
     assert.equal(await innerId(), before, "a clean page: the Take over had nothing to load afresh");
     await type();
     const typedIn = await innerId();
-    // zen-observe's flag on the document the user typed in, as when something
+    // The observe layer's flag on the document the user typed in, as when something
     // of the agent's code reached it during the hold.
     const marked = await chrome(
       `${SERVICE}

@@ -173,7 +173,7 @@ test("pages.userPage is the tab the user would see in the space", async () => {
 });
 
 // Ego activates a Page for evaluate, navigation, snapshot, waits on the page
-// and actions, but not for metadata reads (zen-eval's e2e, "page basic
+// and actions, but not for metadata reads (the eval harness's e2e, "page basic
 // operations"). The current Page is the tab the user lands on in the space.
 test("metadata reads, waitForURL and events leave the current Page alone; evaluate and goto activate", async () => {
   const space = await h.space("pages current");

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Space clipboard tests (zen-ux): start a headless dev Zen, run tests/clipboard/*.test.mjs
+# Space clipboard tests (the UI): start a headless dev Zen, run tests/clipboard/*.test.mjs
 # against it, stop it.
 #
 #   tests/clipboard/run.sh                     instance "cliptest-<checkout suffix>"

@@ -1,4 +1,4 @@
-// Per-page event buffers for page.events() (zen-observe).
+// Per-page event buffers for page.events() (the observe layer).
 //
 // Ego's page.events() returns the CDP events its session buffered for the
 // Page and clears the buffer. We keep the same {method, params} records:

@@ -34,7 +34,7 @@ export function plant() {
 
 /**
  * Every scheme I5 keeps from an agent's loads, each with a URL that would
- * show something private or privileged if it opened: the probes zen-eval ran
+ * show something private or privileged if it opened: the probes the eval harness ran
  * on the Mac (docs/eval/live-pilot.md), and the rest of I5's list. `base` is
  * the fixture server's origin; `extension` is a live add-on's page, if any.
  */
@@ -288,7 +288,7 @@ return browser.webProgress?.isLoadingDocument ? "" : browser.currentURI.spec;`,
 
 /**
  * A page of an add-on running in the instance: webcompat's about:compat page,
- * whose add-on may read every site's cookies, as on zen-eval's Mac profile.
+ * whose add-on may read every site's cookies, as on the eval harness's Mac profile.
  * Another add-on's manifest otherwise, or undefined when none runs.
  */
 export async function liveExtension() {
@@ -300,7 +300,7 @@ return other ? other.getURL("manifest.json") : undefined;`);
 }
 
 /**
- * What the user's daily profile holds, seeded here as zen-eval seeded its
+ * What the user's daily profile holds, seeded here as the eval harness seeded its
  * Mac profile: a saved login and a cookie, both for a site no probe visits,
  * with the canary in their values so a leak of either fails the probe.
  */

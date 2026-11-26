@@ -1,4 +1,4 @@
-// The sites where the agent ran its own code (zen-observe), for zen-ux's
+// The sites where the agent ran its own code (the observe layer), for the UI's
 // "Use your own tab" (ui/index.sys.mjs). Code the agent runs on a site can
 // outlive the document it ran in, and could read what the user types there:
 // - in a same-site popup or frame it wrote a script into;
@@ -167,7 +167,7 @@ function topOf(target) {
 
 /**
  * Is the tab's current top document one where this module saw the agent's
- * code run? (zen-ux may fold it into its mark.)
+ * code run? (the UI may fold it into its mark.)
  *
  * @param {Element|WindowGlobalParent|BrowsingContext} target
  */
@@ -312,9 +312,9 @@ export function agentCodeOnSite(rec, site) {
 
 /**
  * Whether the page in `browser` shows a site where the task's agent ran its
- * code: its top document's or any frame's. zen-ux asks at a handOff or a
+ * code: its top document's or any frame's. The UI asks at a handOff or a
  * takeover, and again at each of the page's navigations while the user
- * holds the task. Pass the <browser> that holds the page (zen-core's
+ * holds the task. Pass the <browser> that holds the page (the core's
  * `pages.tabFor`), whether or not the tab is still one of the task's pages.
  *
  * @param {{id: number}} rec  the task's space record
@@ -357,13 +357,13 @@ function siteRanIn(rec, top, counts = () => true) {
 const adoptedDocs = new Map();
 
 /**
- * zen-core's pages.adopt calls this as a tab joins a task. A tab of the
+ * The core's pages.adopt calls this as a tab joins a task. A tab of the
  * user's (not one the agent opened) shows the user's document, so
  * agentMadePage never calls it the agent's. Documents the tab loads later
  * follow the usual rule.
  *
  * @param {Element} browser  the adopted tab's <browser>
- * @param {string} openedBy  zen-core's: "agent" for a tab the agent opened
+ * @param {string} openedBy  the core's: "agent" for a tab the agent opened
  */
 export function noteAdopted(browser, openedBy) {
   if (openedBy === "agent") {
@@ -386,7 +386,7 @@ const MADE_URL = /^(?:about:(?:blank|srcdoc)(?:[?#]|$)|data:|blob:)/i;
 
 /**
  * Whether the page's top document is one the agent may have made itself,
- * not a page a website served. zen-ux's pill then says the agent made the
+ * not a page a website served. The UI's pill then says the agent made the
  * page and offers no own tab. Its address is about:blank, about:srcdoc,
  * data: or blob: (what script makes or writes, and the agent's own data:
  * page), and either it has no site behind it, or its site (the precursor's,
@@ -440,7 +440,7 @@ function sitesIn(top) {
  * May the agent's code be in this tab's documents? Its top document is
  * marked, or, while the task lives, one of its documents shows a site where
  * the task's agent ran code, other than the fresh ones: a held tab's made
- * since its hold began, a window's that zen-core reloaded for a hold
+ * since its hold began, a window's that the core reloaded for a hold
  * (holdReload), and a clean copy's (noteCleanLoad).
  */
 function mayHoldCode(rec, live, tab) {
@@ -452,7 +452,7 @@ function mayHoldCode(rec, live, tab) {
 }
 
 /**
- * Tabs zenius loaded afresh (zen-core's cleanLoad: the clean copy on demand
+ * Tabs zenius loaded afresh (the core's cleanLoad: the clean copy on demand
  * at the user's press, Resume's reload, the hand-off's own loads):
  * browserId → the tab's documents (innerWindowId) just before the load. The
  * documents the load brought hold nothing of the agent's, so the site rule
@@ -464,7 +464,7 @@ function mayHoldCode(rec, live, tab) {
 const cleanLoaded = new Map();
 
 /**
- * zen-core's cleanLoad, just before it loads `browser`'s page afresh.
+ * The core's cleanLoad, just before it loads `browser`'s page afresh.
  *
  * @param {Element} browser
  */
@@ -546,7 +546,7 @@ function othersOutsideHold(top) {
  * H could be reached from there, through top, opener and frames, and
  * scripted (document.domain joins a site's origins). During a hold, a frame
  * of such a site in H is refused (observe/navguard.sys.mjs), and a load
- * that would make H's top one gets zen-core's COOP (holdNeedsCoop).
+ * that would make H's top one gets the core's COOP (holdNeedsCoop).
  *
  * @param {{id: number}|null} rec  the task's space record while it lives, else null
  * @param {Element|BrowsingContext} browser  H's <browser>, or a BrowsingContext in it

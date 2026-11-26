@@ -7,7 +7,7 @@
 // in another document, with its editor.composing true.
 //
 // The user's tab and an agent's task page are both on the lab page of
-// tests/snapshot/tools/owntab-site.mjs (zen-snapshot's kit), in one process.
+// tests/snapshot/tools/owntab-site.mjs (the snapshot layer's kit), in one process.
 // The user composes in their field through a text input processor on the
 // chrome window. Its callback logs what the parent's IME is asked
 // ("request-to-commit") and leaves the composition open, so the page's own

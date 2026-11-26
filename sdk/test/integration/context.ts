@@ -36,7 +36,7 @@ export function useContext(): Context {
     context.methods = new Set((await context.rpc.call<{ methods: string[] }>("browser.methods")).methods);
   });
   // Runs even when tests or before() failed, with a time limit, so a kept
-  // profile (zen-eval's Mac instance, a --reuse run) never collects them.
+  // profile (the eval harness's Mac instance, a --reuse run) never collects them.
   after(
     async () => {
       try {

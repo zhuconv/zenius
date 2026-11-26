@@ -13,7 +13,7 @@
 //   - codePage: such a page where the agent's code ran too (H_PLANT);
 //   - madePage: a page the agent made (data:), check only.
 // - Runs:
-//   - check: whether H needs a clean copy at the hand-off, from zen-core's
+//   - check: whether H needs a clean copy at the hand-off, from the core's
 //     own decision (needsCleanCopy(evidenceOf(H)), modules/handoff.sys.mjs),
 //     and whether H was reloaded or moved to a new group;
 //   - agentCode: the agent's calls during the hold, on H and on T;
@@ -25,7 +25,7 @@
 //     click, and H's own popup;
 //   - loads: loads into H and its frame that T's code starts;
 //   - backData, backBlob: Back into an entry the agent made before the hold.
-// spaces.handOff holds the task's front page (zen-core), so the
+// spaces.handOff holds the task's front page (the core), so the
 // probe shows H's tab first. The probe holds nothing itself: each result
 // lists what the hand-off held (handOff.held), and a hand-off that holds
 // nothing says so there. A refused hand-off skips the run.

@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           i4probe
-// @description    zen-core's idle-cost probe: measurement profiles only
+// @description    the core's idle-cost probe: measurement profiles only
 // ==/UserScript==
 
 // Loaded by fx-autoconfig as a background module in both arms of the

@@ -1,14 +1,14 @@
-// The evidence flag, parent side (zen-observe).
+// The evidence flag, parent side (the observe layer).
 //
 // The defenses (the typing hold, the clean-copy reloads, the hold's COOP and
 // muting, the task-end reload, the permission prompts' denial) act only on
 // evidence of phishing or danger. Each document (innerWindowId) may have
 // reasons, each with a one-line detail:
 // - hooked: the agent's code left something that outlives the discard of its
-//   world (content/agentworld.sys.mjs, and zen-input's paste);
+//   world (content/agentworld.sys.mjs, and the input layer's paste);
 // - made: a data: or blob: top document the agent opened (noteMade);
-// - listed: Gecko's phishing or malware lists name it (zen-core);
-// - flagged: the agent flagged it (zen-core's tool).
+// - listed: Gecko's phishing or malware lists name it (the core);
+// - flagged: the agent flagged it (the core's tool).
 // The flags are per document, so a reload or a new load starts clean, and
 // they're only ever added. Content reads them from sharedData
 // (content/evidence.sys.mjs) and tells this module of hooked documents by the

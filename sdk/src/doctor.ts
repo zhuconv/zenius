@@ -90,7 +90,7 @@ type Live = {
   /**
    * ui.sidebarStatus: what the running Zen knows of zenius's sidebar; config is "found", "missing",
    * "none", or "builtin" when there's no config file and its built-in agents can run (builtin says which).
-   * zen-input's count of every window adds open, failed and perWindow (windowCounts).
+   * The input layer's count of every window adds open, failed and perWindow (windowCounts).
    */
   sidebar?: {
     loaded?: boolean;
@@ -459,7 +459,7 @@ function installRecordCheck(o: Resolved, entry: Check, profileDir: string): void
 }
 
 /**
- * What the sidebar found of its built-in agents, without a config file (zen-ux's builtinStatus): those
+ * What the sidebar found of its built-in agents, without a config file (the UI's builtinStatus): those
  * that can run, the adapters' folder, each agent's CLI and adapter, and its own line when none can run.
  */
 type SidebarBuiltin = {
@@ -508,7 +508,7 @@ const SIDEBAR_MARKER = "// zenius: agent-sidebar";
  * (~/.zenius/install.json lists chrome/JS/agent-sidebar.uc.js). Another
  * installer can put a different sidebar over it, which Zen then loads at its
  * next start, so the file must still carry zenius's marker line.
- * While Zen runs, the runtime's ui.sidebarStatus (zen-ux) says whether
+ * While Zen runs, the runtime's ui.sidebarStatus (the UI) says whether
  * zenius's sidebar started and found its config.
  */
 function sidebarCheck(o: Resolved, profileDir: string | undefined, live: Live, installed: boolean): Check {
@@ -620,7 +620,7 @@ type WindowCounts = {
 };
 
 /**
- * zen-input's count of every window: open (M) is the browser windows whose
+ * The input layer's count of every window: open (M) is the browser windows whose
  * toolbar shows, windows (N) those where zenius's
  * sidebar started, failed those where its start threw, and the rest haven't
  * recorded a start, as a window still opening. perWindow lists popups too,
@@ -709,7 +709,7 @@ function installsSidebar(o: Resolved, profileDir: string): boolean {
 /**
  * The sidebar gives its agents zenius's browser tools by starting
  * `~/.local/bin/zenius mcp` (or the CLI that uc.agent-sidebar.zenius-cli
- * names) on this Zen's instance (zen-sidebar's AgentRules). A CLI from
+ * names) on this Zen's instance (the sidebar's AgentRules). A CLI from
  * before `zenius mcp`, such as the first daily install's, can't, and the
  * agents then have no browser. So doctor starts the same command, as the
  * sidebar would, and asks for its tools: it answers without Zen and writes
@@ -941,16 +941,16 @@ function socketModeCheck(entry: Check, socket: string): void {
  * Prefs only tests set, each with the value that turns a protection off:
  * zenius never writes them outside tests, so one in the daily profile is a
  * test's leftover or a change by hand.
- * - zenius.handoff.quietReload false (zen-core) turns off the quiet
+ * - zenius.handoff.quietReload false (the core) turns off the quiet
  *   reloads: a written page's before the user types in it, those of written
  *   pages in a held page's window group, and Resume's of a page the user
- *   typed a secret into (zen-ux).
- * - zenius.test.pageWorldEvaluate true (zen-observe) runs the agent's page
+ *   typed a secret into (the UI).
+ * - zenius.test.pageWorldEvaluate true (the observe layer) runs the agent's page
  *   code in the page's own JavaScript instead of its sandbox.
- * - zenius.test.loopCounterOff true (zen-observe) runs it without the
+ * - zenius.test.loopCounterOff true (the observe layer) runs it without the
  *   world's loop counter, which stops a loop that calls no built-in at its
  *   deadline.
- * - zenius.agentSidebar.allowUnknownAgents true (zen-observe) lets the agent
+ * - zenius.agentSidebar.allowUnknownAgents true (the observe layer) lets the agent
  *   sidebar start an agent that is neither Claude Code nor Codex, such as
  *   the tests' mock agent. zenius can't hold such an agent to the browser,
  *   so it runs with none of zenius's limits.
@@ -1453,7 +1453,7 @@ function dnsInUserJs(file: string): { value?: string; zenius: boolean } {
 }
 
 /**
- * The user's setting for agents' page code (zen-observe's
+ * The user's setting for agents' page code (the observe layer's
  * observe/pagecode.sys.mjs). zenius.agentTabs.pageCode is always (the
  * default), ask or never, and any other value acts as ask.
  * zenius.agentTabs.pageCodeSites lists the sites the user allowed. Only the

@@ -1,7 +1,7 @@
-// Locators, ARIA roles and accessible names for content code: zen-input's
+// Locators, ARIA roles and accessible names for content code: the input layer's
 // selector engine and the snapshot walker resolve `loc=` the same way.
-// The SPI is in docs/SPI.md, "Refs and locators (zen-snapshot)"; keep these
-// exports stable and tell zen-input before changing them.
+// The SPI is in docs/SPI.md, "Refs and locators (the snapshot layer)"; keep these
+// exports stable and tell the input layer before changing them.
 //
 // The work runs in the document's sandbox (sandbox.sys.mjs): Playwright's
 // role and name code (aria.js) and Ego's locator rules (locators.js).

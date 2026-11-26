@@ -1,6 +1,6 @@
 // Portions adapted from citrolabs/ego-lite (MIT License).
 //
-// Content side of page actions (zen-input). Each export runs in one frame's
+// Content side of page actions (the input layer). Each export runs in one frame's
 // own process, called from methods/actions.sys.mjs. Work that belongs to an
 // out-of-process iframe comes back as `{forward: {bcId, args}}` (input routed
 // by coordinates or focus) or `{frames: [...]}` (a selector the parent must
@@ -260,7 +260,7 @@ function documentAt(win, x, y) {
 }
 
 /**
- * SPEC I5: input lands only in web content. zen-observe's gate checks the
+ * SPEC I5: input lands only in web content. The observe layer's gate checks the
  * document each content call goes to, out-of-process frames included, but
  * events sent here reach this process's frames on their own. One of those
  * can be Firefox's error page for a frame that failed (with its "Accept the
@@ -274,7 +274,7 @@ function documentAt(win, x, y) {
 function checkLanding(doc, method, where) {
   const why = whyNotWebDocument(doc);
   if (why === ADDON_PAGE) {
-    // As zen-observe's checks: the frame's host is the add-on's id in this
+    // As the observe layer's checks: the frame's host is the add-on's id in this
     // profile, which the page may not see, and the agent didn't ask for it.
     throw new ZenError(
       "ZEN_PAGE_NOT_WEB_CONTENT",
@@ -2246,7 +2246,7 @@ function focusedWindow(win) {
  * Run keyboard steps in the focused frame:
  * {k: "down"|"up", def: {key, code, keyCode, location}, mods, repeat},
  * {k: "insert", text} or {k: "sleep", ms}. Clipboard chords act on the
- * Space's clipboard (`clipboard`, zen-ux's ClipData, or `pasteContent`
+ * Space's clipboard (`clipboard`, the UI's ClipData, or `pasteContent`
  * {text, html} for keyboard.paste).
  *
  * @returns {{clipboard?: object}} ClipData that a copy or cut produced
@@ -2332,11 +2332,11 @@ async function runKeySteps(win, { steps, isMac, clipboard, pasteContent, guardCh
             // (markPastedHtml), sanitized as it is, as a second layer.
             (out.htmlPastedIn ??= []).push(into.browsingContext.id);
             // And it counts as written here at once, before the paste: a
-            // page's paste handler may insert it as live markup (zen-observe's
+            // page's paste handler may insert it as live markup (the observe layer's
             // glue).
             lazy.noteWrittenWindow(into);
             // Evidence against the page only when the markup carries what
-            // zen-observe counts as hooked: here at once, before the paste,
+            // the observe layer counts as hooked: here at once, before the paste,
             // and in the parent. Inert markup,
             // formatted text into a mail or a document, is none.
             const hooked = I.hookedPaste(into, content["text/html"]);
@@ -2349,7 +2349,7 @@ async function runKeySteps(win, { steps, isMac, clipboard, pasteContent, guardCh
         }
         if (req.content) {
           out.clipboard = req.content;
-          // zen-ux's glue: the Space's clipboard is readable by this origin only.
+          // The UI's glue: the Space's clipboard is readable by this origin only.
           out.clipboardOrigin = kwin.document.nodePrincipal.origin;
           out.bcId = I.processTopWindow(kwin).browsingContext.id;
           // A later paste in the same call uses what was just copied.

@@ -1,4 +1,4 @@
-// page.snapshot (zen-snapshot): Ego's semantic snapshot of a page. The walk
+// page.snapshot (the snapshot layer): Ego's semantic snapshot of a page. The walk
 // runs in content (content/snapshot/); this side checks options, numbers the
 // refs through the tab's registry and adds Ego's header and viewport footer.
 //
@@ -13,7 +13,7 @@ import { Refs } from "chrome://userscripts/content/zenius/snapshot/refs.sys.mjs"
 
 const SIGNATURE = "await page.snapshot({ scope?, root?, includeActionMarks?, includeStableLocator? })";
 const SCOPES = ["full_page", "only_within_viewport", "subtree"];
-// Ego's default (EGO_BROWSER_PAGE_BUDGET), until zen-core's dispatcher hands
+// Ego's default (EGO_BROWSER_PAGE_BUDGET), until the core's dispatcher hands
 // over the process's budget as ctx.pageBudget; the header shows it near the
 // limit.
 const PAGE_BUDGET = 8;
@@ -105,7 +105,7 @@ function tabTitle(browser) {
 function header(ctx, space, page, browser) {
   try {
     const pages = ctx.pages.list(space.id);
-    // The space's tabs that aren't pages, by zen-core's own pairing: for a
+    // The space's tabs that aren't pages, by the core's own pairing: for a
     // task in the shared Agents Space, only its own tabs, and a page's copy
     // in another window is still that page.
     const untracked = ctx.pages.inventory(space).filter(entry => !entry.page).length;

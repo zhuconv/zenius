@@ -858,7 +858,7 @@ test("a close that waits again after a restart loads the method modules for its 
     { beforeConnect: () => untilLogged(/\[zenius\] restart rebuild: /) }
   );
   assert.deepEqual(loadReasons(), ["a close waits"]);
-  // zen-ux's pill on the waiting tab says why it will close.
+  // The UI's pill on the waiting tab says why it will close.
   await h.until(
     () =>
       h.chrome(

@@ -293,10 +293,10 @@ def say(session, text, size=12, message=None):
         update(session, {"sessionUpdate": "agent_message_chunk", "messageId": message, "content": {"type": "text", "text": text[i:i + size]}})
 
 
-# --- zen-sidebar: scripted browser tasks through the real zenius MCP server ------
+# --- The sidebar: scripted browser tasks through the real zenius MCP server ------
 
 WWW = os.environ.get("MOCK_WWW", "http://127.0.0.1:47231")
-# zen-eval's renders: {message: keyword} (MOCK_ROUTES, in the docstring).
+# The eval harness's renders: {message: keyword} (MOCK_ROUTES, in the docstring).
 ROUTES = json.loads(os.environ.get("MOCK_ROUTES") or "{}")
 SCENARIOS = {
     "flights": [
@@ -615,13 +615,13 @@ SUMMARY = (
 )
 
 
-# Steering (zen-sidebar): the sessions with a turn running, the steers that
+# Steering (the sidebar): the sessions with a turn running, the steers that
 # joined each one, and those whose turn ends at once (RACE).
 running = set()
 steers = {}
 finish_now = set()
 
-# --- zen-sidebar: the agent's own ask (elicitation/create) ------------------------
+# --- The sidebar: the agent's own ask (elicitation/create) ------------------------
 
 ASK_CHOICES = [
     {"const": "Nara", "title": "Nara", "description": "Deer park and temples"},
@@ -779,7 +779,7 @@ def prompt(request):
         time.sleep(1.2)
         say(session, "Here is the answer.")
     elif "THINKAGAIN" in text:
-        # zen-ux: the first wait has its row; a later one only the status.
+        # The UI: the first wait has its row; a later one only the status.
         thought(session, "**Reading the paper**")
         time.sleep(1.2)
         say(session, "word0 ")
@@ -834,7 +834,7 @@ def prompt(request):
                 break
             time.sleep(0.1)
     elif "HOLDTURN" in text:
-        # zen-ux: a turn that stays open, for what the panel shows while
+        # The UI: a turn that stays open, for what the panel shows while
         # the agent waits on the user (its own question).
         say(session, "word0 ", message=new_message(session))
         for _ in range(600):
@@ -853,7 +853,7 @@ def prompt(request):
             if steers.get(session):
                 # The steer joined the turn. The message it cut goes on until
                 # the agent takes the steer: its next word comes after the
-                # steer, every run (zen-sidebar, for the steer race). Then the
+                # steer, every run (the sidebar, for the steer race). Then the
                 # turn answers the steer in a message of its own and runs a
                 # little longer, as a real one does.
                 say(session, f"word{i} ", message=message)
@@ -1093,7 +1093,7 @@ for line in sys.stdin:
         elif method == "session/set_config_option":
             params = message["params"]
             if params["configId"] == "model" and params["value"] not in [m[0] for m in MODELS]:
-                # Both adapters refuse a model they don't list (zen-sidebar).
+                # Both adapters refuse a model they don't list (the sidebar).
                 send({"jsonrpc": "2.0", "id": message["id"], "error": {"code": -32602, "message": f"Invalid value for config option model: {params['value']}"}})
                 continue
             state = sessions[params["sessionId"]]

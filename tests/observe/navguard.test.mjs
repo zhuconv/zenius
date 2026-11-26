@@ -44,7 +44,7 @@ before(async () => {
   await new Promise(r => site.listen(0, "127.0.0.1", r));
   base = `http://127.0.0.1:${site.address().port}`;
   // A page's own window.open with no click, kept in the background (as
-  // zen-core's closed-groups test does).
+  // the core's closed-groups test does).
   await env.chrome(
     `Services.prefs.setBoolPref("dom.disable_open_during_load", false);
      Services.prefs.setBoolPref("browser.tabs.loadDivertedInBackground", true);
@@ -208,7 +208,7 @@ test("what stays allowed: an adopted popup the agent ran nothing in moving its o
     // A sign-in popup the agent adopted but ran nothing in: its own code
     // moves its opener. First, while no document of the group holds the
     // agent's code: then the user's tab opens it with an opener (once one
-    // does, zen-core opens it without one).
+    // does, the core opens it without one).
     const oauth = `${base}/oauth?to=${encodeURIComponent(hit("signed-in"))}`;
     await userOpens(mark, oauth);
     await adopt(space, oauth, "signin");

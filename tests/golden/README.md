@@ -1,7 +1,7 @@
 # Golden snapshots
 
 Snapshots that Ego Lite 0.6.3.17 (Chromium 156, skill guide v2.2.1) produced
-for fixture pages and live public sites, for zen-snapshot to match. Captured
+for fixture pages and live public sites, for the snapshot layer to match. Captured
 with the default options an agent uses: `page.snapshot()` (viewport) and
 `page.snapshot({ scope: "full_page" })`.
 

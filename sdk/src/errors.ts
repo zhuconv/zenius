@@ -48,7 +48,7 @@ const INACTIVE_GUIDANCE = [
   `Offer the user choices like "Continue" or "Done" if your harness supports it; otherwise tell them: "This task has ended and the space is yours. Reply 'continue' if you want me to resume in it."`,
 ].join("\n");
 
-// The user's Stop in Zen's panel or sidebar (zen-core's data.reason "stopped"):
+// The user's Stop in Zen's panel or sidebar (the core's data.reason "stopped"):
 // zenius lists every task there, whoever drives it, and it ends at their word.
 const STOPPED_GUIDANCE = [
   "The user stopped this task in Zen. This is a hard stop, not an obstacle to route around: don't retry, and don't start another task for the same goal.",

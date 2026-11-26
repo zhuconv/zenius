@@ -1,4 +1,4 @@
-// What a page in an agent tab can reach through zen-snapshot's sandbox.
+// What a page in an agent tab can reach through the snapshot layer's sandbox.
 // The sandbox shares the
 // page's compartment, so any object of ours a page function receives leads
 // it to the sandbox's global. Checked here:
@@ -89,7 +89,7 @@ for (const mode of ["spy", "hostile"]) {
     await load(PAGE, HOSTILE.replace("%MODE%", mode));
     const shots = [];
     for (const scope of ["full_page", "viewport"]) shots.push((await snap({ scope })).text);
-    // zen-input's locators run aria.js and locators.js in the same sandbox.
+    // The input layer's locators run aria.js and locators.js in the same sandbox.
     for (const target of ['role:button[name="Labelled"]', 'role:textbox[name*="Name"]', 'role:button[name="Div button"]',
       'css:input[name="q"]', "href:/somewhere"]) {
       await h.call("page.focus", { space: h.space, page: "p1", target, options: {} }).catch(() => {});

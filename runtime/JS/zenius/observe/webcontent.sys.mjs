@@ -1,10 +1,10 @@
-// SPEC §3.9 I5 (zen-observe): the browser is no way out of an agent's
+// SPEC §3.9 I5 (the observe layer): the browser is no way out of an agent's
 // sandbox. Zen runs with the user's full rights, so an agent may load only
 // web URLs, and act only in web-content documents. This module decides
 // both: navigation's goto and reload check their URL; the page gate
 // (methods/navigation.sys.mjs) checks the page's document before every
 // method that acts in or reads it; and every content call such a method
-// makes checks the document it reaches, frames included (zen-core's ctx).
+// makes checks the document it reaches, frames included (the core's ctx).
 //
 // Before, goto loaded with the system principal: file: and resource: pages
 // opened, about:config and chrome:// pages loaded in the parent process,
@@ -203,7 +203,7 @@ export function notWebContent(wgp) {
 /**
  * Does the browsing context's document run in a web content process? Only
  * there can the agent's code run, and only there does its browsing context
- * group matter to closed groups (zen-core's pages.codeRefusal). An add-on's,
+ * group matter to closed groups (the core's pages.codeRefusal). An add-on's,
  * the browser's, a privileged about: page's or a file's process has groups
  * of its own, which a top-level load to the web leaves for a new group
  * (measured in Gecko 160, 2026-11-20). An add-on's pages share its group
@@ -259,7 +259,7 @@ export function checkWebContent(browser, { method, label }) {
  *
  * @param {string} method
  * @param {BrowsingContext} bc
- * @param {string} [i5]  the method's declared I5 class, from zen-core's
+ * @param {string} [i5]  the method's declared I5 class, from the core's
  *   dispatch: outside and dev go unchecked, any other is checked. A caller
  *   that passes none gets the method's name's (actsInDocument).
  * @throws {ZenError} ZEN_PAGE_NOT_WEB_CONTENT
@@ -349,7 +349,7 @@ export function checkPaintable(method, browser, label) {
 
 /**
  * Content side, for code that walks into a same-process frame's document
- * itself (zen-snapshot's capture, zen-input's frame contexts): is `doc` web
+ * itself (the snapshot layer's capture, the input layer's frame contexts): is `doc` web
  * content? A web page's frame in its own process can still be Firefox's
  * error page for a frame that failed.
  *
@@ -360,7 +360,7 @@ export function isWebDocument(doc) {
 }
 
 /**
- * Content side: why `doc` isn't web content, or null when it is (zen-input's
+ * Content side: why `doc` isn't web content, or null when it is (the input layer's
  * input checks put it in their refusals).
  *
  * @param {Document} doc
@@ -376,7 +376,7 @@ export function whyNotWebDocument(doc) {
 
 /**
  * The runtime's I5 status, for zenius doctor (browser.health's `i5`, agreed
- * with zen-sdk): an install from a stale commit can't pass. Everything is
+ * with the SDK): an install from a stale commit can't pass. Everything is
  * computed from what enforces I5, and nothing opens a tab:
  * - loads: what checkAgentLoad allows, sorted;
  * - pageGate: webContentGate is among the service's page gates;

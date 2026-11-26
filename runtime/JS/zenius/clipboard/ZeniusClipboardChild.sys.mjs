@@ -1,4 +1,4 @@
-// Child half of the "ZeniusClipboard" actor (zen-ux). In a tab the agent
+// Child half of the "ZeniusClipboard" actor (the UI). In a tab the agent
 // drives, the page's own clipboard calls never reach the system clipboard,
 // which is the user's. The parent decides whether a call belongs to the
 // agent (the Space's clipboard) or to the user using the agent's page (their
@@ -10,7 +10,7 @@
 //   would write (the page's clipboardData if the page cancelled the event,
 //   else the selection), empties and cancels the event so Gecko writes
 //   nothing, deletes a cut's selection, and sends the content to the parent.
-//   zen-input's interceptCopyCut, which the agent's chords install while
+//   The input layer's interceptCopyCut, which the agent's chords install while
 //   they run, catches its events in the capture phase of the same group and
 //   empties them, so this listener then sees a cancelled, empty event and
 //   leaves it alone. This guard doesn't install through interceptCopyCut:
@@ -26,9 +26,9 @@
 // handed to the user behaves natively, and the guard is there again when the
 // user hands it back.
 //
-// zen-core's Zenius actor makes this one only in a task's documents, at its
+// The core's Zenius actor makes this one only in a task's documents, at its
 // DOMWindowCreated, and calls installGuards(). Its helpers load on first use,
-// so nothing of zen-ux loads in a user's tab (zen-core's I4).
+// so nothing of the UI loads in a user's tab (the core's I4).
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -41,7 +41,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   selectionContent: "chrome://userscripts/content/zenius/content/input.sys.mjs",
   settle: "chrome://userscripts/content/zenius/ui/pagecall.sys.mjs",
   toClipData: "chrome://userscripts/content/zenius/content/input.sys.mjs",
-  // The agent's world (zen-observe) sees the page through Xrays, which show
+  // The agent's world (the observe layer) sees the page through Xrays, which show
   // only the native methods: it gets these wrappers too. Loaded with a
   // task's first guarded document (I4).
   mirrorMethod: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
@@ -58,7 +58,7 @@ export class ZeniusClipboardChild extends JSWindowActorChild {
    * Guard this document if it's a task's: from the Zenius actor's
    * DOMWindowCreated, and for the documents a tab already had when it
    * became a task's page (an adopted tab, a task claimed again after a
-   * Stop; zen-core's ZeniusService.installGuards).
+   * Stop; the core's ZeniusService.installGuards).
    * @returns {boolean} whether the guard went in now
    */
   installGuards() {

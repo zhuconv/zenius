@@ -1,5 +1,5 @@
-// The fixture site for zen-snapshot's probes, first written for the own
-// tab, which zen-ux removed. Loopback
+// The fixture site for the snapshot layer's probes, first written for the own
+// tab, which the UI removed. Loopback
 // only: 127.0.0.1 is the site, 127.0.0.2 a second site.
 import http from "node:http";
 

@@ -1,4 +1,4 @@
-// Firefox UI an agent page may not open (zen-observe): anything that would
+// Firefox UI an agent page may not open (the observe layer): anything that would
 // show over the user's view, leave the browser or touch the OS. In a tab the
 // agent drives, zenius refuses it and tells the agent, never silently: a
 // "Zenius.refused" event in page.events(), and `refused: [{kind, message}]`
@@ -75,7 +75,7 @@ export function recentGuardFailures() {
  * @param {string} message  what happened and what the agent can do instead
  * @param {string} [url]    the document or request that asked
  * @param {{api?: string, asked?: string}} [what]  for a device or a
- *   notification: the API and what it asked for in a few words (zen-ux's
+ *   notification: the API and what it asked for in a few words (the UI's
  *   card for a kept page reads them)
  */
 export function reportRefused(browser, kind, message, url, what = null) {

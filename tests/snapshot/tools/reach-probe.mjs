@@ -4,7 +4,7 @@
 // 1. the paths that put a task document in a group with a user's window:
 //    adopting a popup, claiming a tab that has an opener or popups, tabs the
 //    user opens from a task page while they hold it (Use your own tab,
-//    gone since zen-ux removed it, was one too);
+//    gone since the UI removed it, was one too);
 // 2. the handles the task document's code gets: opener, a named lookup
 //    (window.open('', name)), a message's source, the site's own variables,
 //    and frames, parent, top and opener through each;
@@ -643,7 +643,7 @@ async function keptPairRun() {
   return out;
 }
 
-/** zen-observe's agent-code mark and written flag of the browser \`b\`, for code in C. */
+/** The observe layer's agent-code mark and written flag of the browser \`b\`, for code in C. */
 const FLAGS = `const flags = {};
   try { flags.mark = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/agentcode.sys.mjs").agentCodeTop(b); } catch (e) { flags.mark = "n/a"; }
   try { flags.written = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/agentworld.sys.mjs").isWritten(b); } catch (e) { flags.written = "n/a"; }`;
@@ -757,9 +757,9 @@ async function refusalOf(setup) {
     ["evaluate", () => call("page.evaluate", { ...t, fn: "() => 1", isFunction: true })],
     ["waitForFunction", () => call("page.waitForFunction", { ...t, fn: "() => true", isFunction: true, options: { timeout: 2000 } })],
     ["paste html", () => call("page.keyboard", { ...t, action: "paste", text: "zs", html: "<b>zs</b>", options: {} })],
-    // zen-input's neighbor: html on the Space's clipboard, copied in a page of
+    // The input layer's neighbor: html on the Space's clipboard, copied in a page of
     // the task outside T's group, then the agent's ControlOrMeta+V in T's
-    // editor. What landed, and zen-observe's agent-code mark and written
+    // editor. What landed, and the observe layer's agent-code mark and written
     // flag on T before and after.
     ["Ctrl+V html", async () => {
       const flags = () =>

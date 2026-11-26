@@ -3,7 +3,7 @@
 // and its "Accept the Risk and Continue" adds a lasting certificate
 // exception to the user's profile. An agent can't operate one, as its page
 // or in a frame of it: not by a click at a point, keys, a forced click or a
-// wheel. zen-observe's gate refuses every method on such a page and every
+// wheel. The observe layer's gate refuses every method on such a page and every
 // call to such a frame; content/actions.sys.mjs refuses input that the
 // page's own process would deliver into one.
 import assert from "node:assert/strict";
@@ -85,7 +85,7 @@ const exceptions = () =>
     untrusted.port
   );
 
-/** zen-observe's gate names the page's URL; a frame's refusal, the frame's document. */
+/** The observe layer's gate names the page's URL; a frame's refusal, the frame's document. */
 const ERROR_PAGE_REFUSAL = /it is Firefox's error page|about:certerror/;
 
 async function refused(what, attempt) {
@@ -108,7 +108,7 @@ async function warningIn(page, where) {
 test("an agent can't click through a certificate warning shown as its page", async () => {
   const page = await task.newPage();
   try {
-    // zen-observe's goto fails on a certificate warning, and the page shows it.
+    // The observe layer's goto fails on a certificate warning, and the page shows it.
     const nav = await page.goto(`${untrusted.origin}/`).then(
       () => null,
       e => e

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# zen-observe runtime tests: start a fresh headless dev Zen, run
+# The observe layer's runtime tests: start a fresh headless dev Zen, run
 # tests/observe/*.test.mjs against it through RPC, stop it.
 #
 #   tests/observe/run.sh                          instance "obstest-<checkout suffix>"
@@ -31,7 +31,7 @@ export ZENIUS_AGENT_SCRIPTS=1
 HEADED=${ZENIUS_OBSERVE_HEADED:-}
 LIMIT=${ZENIUS_OBSERVE_TIMEOUT:-$([[ $HEADED == 1 ]] && echo 180 || echo 900)}
 
-# fresh: a new profile on Linux; on the Mac the profile is kept (zen-core's
+# fresh: a new profile on Linux; on the Mac the profile is kept (the core's
 # convention: new Mac profiles trigger refused xattr calls).
 "$DEV" "$NAME" fresh >/dev/null
 run=; watchdog=

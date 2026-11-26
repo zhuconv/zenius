@@ -1045,7 +1045,7 @@ export function addBackgroundTab(win, workspaceUuid, { userContextId = 0, addTab
 
 // ---------------------------------------------------------------------------
 // Closed groups (SPI.md, "Closed groups"): after a task, a page whose group holds the agent's code gets no
-// handle to a new window. The parent refuses the opener-linked open; zen-ux's
+// handle to a new window. The parent refuses the opener-linked open; the UI's
 // pill tells the user when nothing opened in its place.
 
 /** @type {Set<(info: {browser: Element, url: string, reopened: boolean, evident?: true, evidence?: Record<string, string>}) => void>} */
@@ -1085,8 +1085,8 @@ export function noteOpenRefused(info) {
 
 /**
  * The events add `evident: true` and the page's `evidence` ({reason:
- * detail}, zen-observe's) when the page has evidence a clean copy clears:
- * hooked or made, the defenses' trigger. Otherwise they leave both out, and zen-ux reads the page.
+ * detail}, the observe layer's) when the page has evidence a clean copy clears:
+ * hooked or made, the defenses' trigger. Otherwise they leave both out, and the UI reads the page.
  * A caller's own value stands.
  */
 function withEvidence(info) {
@@ -1102,8 +1102,8 @@ function withEvidence(info) {
   }
 }
 
-// The reminders (zen-ux): after its task, a page whose top document holds the
-// agent's code keeps the task's refusals (content/refusals.sys.mjs). zen-ux's
+// The reminders (the UI): after its task, a page whose top document holds the
+// agent's code keeps the task's refusals (content/refusals.sys.mjs). The UI's
 // card tells the user when their own action there was refused.
 
 /**
@@ -1133,7 +1133,7 @@ const keptRefusedListeners = new Set();
 /**
  * Call `fn` for each refusal in a page no live task holds whose top
  * document holds the agent's code. `browser` is the tab's top <browser>,
- * `kind` one of KEPT_REFUSAL_KINDS, and `api` and `asked` zen-observe's
+ * `kind` one of KEPT_REFUSAL_KINDS, and `api` and `asked` the observe layer's
  * strings from the event, at most KEPT_TEXT_MAX characters each ("" when
  * absent). Returns a remover.
  *

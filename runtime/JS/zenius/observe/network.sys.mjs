@@ -1,4 +1,4 @@
-// Per-tab network activity in the parent (zen-observe): requests in flight,
+// Per-tab network activity in the parent (the observe layer): requests in flight,
 // network idle, and the Network.* events page.events() reports, without
 // devtools or the accessibility service.
 //
@@ -245,7 +245,7 @@ export function inflight(browserId) {
 /**
  * How long the tab has had no counted request in flight, in ms: 0 while one
  * is, Infinity before any was seen. A request's end counts as activity too,
- * as in Ego's lastActivityAt. For zen-input's missing-target fail-fast.
+ * as in Ego's lastActivityAt. For the input layer's missing-target fail-fast.
  */
 export function networkQuietMs(browserId) {
   const net = tabs.get(browserId);

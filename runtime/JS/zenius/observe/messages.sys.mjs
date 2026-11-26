@@ -1,4 +1,4 @@
-// Error texts for zen-observe's methods.
+// Error texts for the observe layer's methods.
 // Portions adapted from citrolabs/ego-lite (MIT License).
 //
 // The wording follows Ego (driver/page-waits.ts, page-model.ts,
@@ -15,7 +15,7 @@ function plain(code, message, data = {}) {
 
 /**
  * ZEN_AGENT_CODE_REFUSED, for closed groups: the page shares a window group
- * with a window outside the task (zen-core's pages.codeRefusal), so the
+ * with a window outside the task (the core's pages.codeRefusal), so the
  * agent's code doesn't run there, and page.goto loads neither the agent's
  * own page (`what` "agentPage") nor another site ("site"). It names no
  * window or URL of the user's.

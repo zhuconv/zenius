@@ -1,4 +1,4 @@
-// zen-eval's own case: the zenius counterpart of Ego's "Page Service Worker
+// The eval harness's own case: the zenius counterpart of Ego's "Page Service Worker
 // startup", which is N/A on zenius. In an agent task's pages zenius refuses
 // service worker registration and Cache Storage writes: either
 // would outlive the task and reach the user's own tabs on the site. The

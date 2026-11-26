@@ -1,4 +1,4 @@
-// Content side of navigation and observation (zen-observe): load states,
+// Content side of navigation and observation (the observe layer): load states,
 // page geometry and waitForSelector, in the page's process. Called through
 // the Zenius actor.
 // Portions adapted from citrolabs/ego-lite (MIT License).
@@ -238,7 +238,7 @@ function stateHolds(el, state) {
 
 /**
  * One look for page.waitForSelector's target in this document; the parent
- * polls the page's frames with it, main frame first. `target` is zen-input's
+ * polls the page's frames with it, main frame first. `target` is the input layer's
  * parsed target (content/resolve.sys.mjs), so waits and actions read a
  * selector the same way. `count` is how many elements match here (0 or 1
  * for a ref); `holds` says whether `state` holds for the first match (with

@@ -136,7 +136,7 @@ function writeInstallJson(profile: string, fields: Record<string, unknown>): voi
   );
 }
 
-/** browser.health's i5 from a runtime that holds I5 (zen-observe's observe/webcontent.sys.mjs). */
+/** browser.health's i5 from a runtime that holds I5 (the observe layer's observe/webcontent.sys.mjs). */
 const I5_OK = { loads: ["about:blank", "blob:", "data:", "http:", "https:"], pageGate: true, contentGate: true, refuses: true };
 const I5_SUMMARY = "agents load only http:, https:, data:, blob: and about:blank; page gate on; self-tests refused about:config, file:/// and a browser document";
 const DAILY_FIX = "Install the runtime from this CLI's checkout (scripts/install.sh, with the user's OK), then the user quits and reopens Zen.";
@@ -1182,7 +1182,7 @@ describe("zenius doctor's sidebar check", () => {
 
   describe("with the runtime's count of every window (zen-input's ui.sidebarStatus)", () => {
     type Win = { kind: "browser" | "private" | "popup"; sidebar: "started" | "failed" | "skipped" | "none"; error?: string };
-    /** The status zen-input's runtime answers for these windows: popups count in none of windows, open, failed or error. */
+    /** The status the input layer's runtime answers for these windows: popups count in none of windows, open, failed or error. */
     const counted = (perWindow: Win[]) => {
       const kept = perWindow.filter((w) => w.kind !== "popup");
       const windows = kept.filter((w) => w.sidebar === "started").length;

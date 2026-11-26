@@ -1,5 +1,5 @@
 // `zenius sidebar …`: remote tasks in the sidebar of the user's Zen, through
-// zen-observe's sidebar.* methods (PROTOCOL.md, "Remote tasks: the sidebar").
+// the observe layer's sidebar.* methods (PROTOCOL.md, "Remote tasks: the sidebar").
 // This command is for a person or an agent on the Mac, and for tests.
 //
 // It never starts Zen: with Zen closed, every verb fails with

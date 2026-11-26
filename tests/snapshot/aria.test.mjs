@@ -1,4 +1,4 @@
-// content/snapshot/aria.sys.mjs, the locator, role and name API zen-input
+// content/snapshot/aria.sys.mjs, the locator, role and name API the input layer
 // builds on (docs/SPI.md, "Refs and locators"): Ego's locator grammar and
 // matching rules, open but not closed shadow roots, hidden elements counted
 // by css: and not by role:, Xray results, and no change to the user's view.
@@ -76,7 +76,7 @@ test("role locators match role and accessible name like Ego", async () => {
   assert.deepEqual(out.singleQuoted, ["input#city"]);
   assert.deepEqual(out.option, ["li"]);
   // Chromium's tree names ARIA's img image, and Ego's queries compare its
-  // names: role:img matches nothing there (zen-input's input-gaps, D).
+  // names: role:img matches nothing there (the input layer's input-gaps, D).
   assert.deepEqual(out.img, []);
   assert.deepEqual(out.image, ["div[Five stars]"]);
   assert.deepEqual(out.presentation, [], "Chromium ignores presentation, so Ego never matches it");

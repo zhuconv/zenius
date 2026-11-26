@@ -1,4 +1,4 @@
-// zen-observe: a document where the agent's code ran doesn't navigate a
+// The observe layer: a document where the agent's code ran doesn't navigate a
 // window outside the task. It's the closed groups' second layer.
 //
 // The first keeps such a document from holding a handle to a window
@@ -57,7 +57,7 @@ function sourceTop(loadInfo) {
 /**
  * Is the tab `target` outside the task of the tab `source`? Not when it is
  * that tab or a page of the same live task. Nor a window that shows nothing
- * yet but its initial about:blank: one being opened, which zen-core's items
+ * yet but its initial about:blank: one being opened, which the core's items
  * 2 and 3 let open or not, and with an opener or not. A window that has
  * shown a page is outside even with the source as its opener:
  * window.open(url, name) on the user's named tab makes the caller its
@@ -124,7 +124,7 @@ function refuseHeld(location, source, target) {
   return C.REJECT_REQUEST;
 }
 
-/** Refuse a load in a held tab that no other page started, and tell zen-ux once. */
+/** Refuse a load in a held tab that no other page started, and tell the UI once. */
 function refuseInHold(target, kind, url) {
   if (firstTelling(`${kind} ${target.id} ${url}`)) {
     opts.heldRefused?.(target, kind, url);
@@ -146,11 +146,11 @@ function historyLoad(top) {
  * reached this policy, and leaves it there until a document commits; the
  * next history load counts from it (CanonicalBrowsingContext::HistoryGo).
  * So the history menu's pick of the agent's entry loaded H's first entry
- * afresh, with what the user typed gone (zen-snapshot's hold map). A
+ * afresh, with what the user typed gone (the snapshot layer's hold map). A
  * goToIndex far past the end makes nsSHistory::LoadEntry clear it and load
  * nothing (measured in Gecko 160, 2026-11-20: the document and the user's
  * field stayed, and the next pick was refused as the first). Glue by
- * zen-core.
+ * the core.
  */
 function forgetRefusedIndex(target) {
   let refused = -1;
@@ -241,7 +241,7 @@ const policy = {
  * @param {(top: BrowsingContext) => boolean} options.isAgentCode  did this top document run the agent's code?
  * @param {(browser: Element|null) => unknown} options.taskOf  the live task a tab is a page of, or null
  * @param {(top: BrowsingContext) => unknown} options.holdOf  the hold a tab is in, or undefined
- * @param {(top: BrowsingContext, kind: string, url: string) => void} options.heldRefused  tell zen-ux of a refusal in a held tab
+ * @param {(top: BrowsingContext, kind: string, url: string) => void} options.heldRefused  tell the UI of a refusal in a held tab
  * @param {(top: BrowsingContext, uri: nsIURI) => boolean} options.agentSiteNear  is the URI of a site a window near this held tab may hold the agent's code on?
  */
 export function installNavGuard({ isAgentCode, taskOf, holdOf, heldRefused, agentSiteNear }) {

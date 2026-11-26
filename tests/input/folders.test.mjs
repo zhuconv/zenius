@@ -358,7 +358,7 @@ test("two names that land on one file fail the folder", { skip: process.platform
 });
 
 // Firefox asks before any folder pick reaches a page (Bug 1338637), and in
-// an agent tab zen-observe's handler answers Cancel. The runtime's own folder
+// an agent tab the observe layer's handler answers Cancel. The runtime's own folder
 // passes once, in its frame (content/filepicker.sys.mjs, expectOwnFolder);
 // nothing else does, and a user's tab gets Firefox's question as before.
 const ASK = `return Cc["@mozilla.org/embedcomp/prompt-collection;1"].getService(Ci.nsIPromptCollection).confirmFolderUpload(arg.bc ? BrowsingContext.get(arg.bc) : window.browsingContext, arg.name);`;

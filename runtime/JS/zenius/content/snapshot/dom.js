@@ -1,4 +1,4 @@
-// zen-snapshot's realm-safe DOM access, run first in each document's sandbox
+// The snapshot layer's realm-safe DOM access, run first in each document's sandbox
 // (content/snapshot/sandbox.sys.mjs). aria.js, locators.js and walker.js
 // read the page through it.
 //

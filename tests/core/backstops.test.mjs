@@ -4,7 +4,7 @@
 // the user, as any site does, and a stream started then stops when the agent
 // has the page again. Each request comes from a sandbox with the page's
 // principal and Xrays, made by privileged code in the tab: it reaches the
-// native API past zen-observe's page refusals, as the agent's world would if
+// native API past the observe layer's page refusals, as the agent's world would if
 // its mirror of them failed.
 import assert from "node:assert/strict";
 import http from "node:http";
@@ -143,7 +143,7 @@ async function userTab(prefix, url) {
 /** Every prompt type the override may see, Gecko's later ones included. */
 const PROMPT_TYPES = ["desktop-notification", "geolocation", "persistent-storage", "midi", "serial", "xr", "speech-recognition-model-download", "storage-access", "local-network", "loopback-network", "a-type-gecko-adds-later"];
 
-/** Mark the tab's page with evidence, as zen-core's flag tool does. */
+/** Mark the tab's page with evidence, as the core's flag tool does. */
 const flag = (id, detail) => h.chrome(`${C} return E.markEvident(tabById(arg.id).linkedBrowser, "flagged", arg.detail);`, { id, detail });
 
 /** The user's Resume: the agent has the task again. */
@@ -615,7 +615,7 @@ test("a stream the user starts in a held page stops when the agent has the page 
     await resume(space);
     // The tracks end in content, and webrtcUI drops the stream when content
     // reports it: a read between the two sees one done and not the other
-    // (a flake zen-core once saw), so wait for both.
+    // (a flake the core once saw), so wait for both.
     const end = Date.now() + 5000;
     let now;
     while (!((now = await streamState(id)).tracks === "ended ended" && !now.listed) && Date.now() < end) {

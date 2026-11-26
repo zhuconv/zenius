@@ -159,7 +159,7 @@ export async function main(argv: string[], launch: LaunchTimes = {}): Promise<nu
       const docsOnly = flag === "--docs-only";
       const sidebar = flag === "--sidebar";
       if (args.rest.length > 0 && !docsOnly && !sidebar) return usageError(`zenius mcp takes no arguments but --docs-only or --sidebar`);
-      // zen-core's MCP server (src/mcp.ts), loaded on demand like doctor.
+      // The core's MCP server (src/mcp.ts), loaded on demand like doctor.
       if (args.instance) process.env.ZENIUS_INSTANCE = args.instance;
       const { serveMcp } = await import("./mcp.ts");
       return serveMcp({ docsOnly, sidebar });

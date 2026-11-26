@@ -1,4 +1,4 @@
-// zen-observe: a task's pages don't prefetch DNS.
+// The observe layer: a task's pages don't prefetch DNS.
 //
 // A page's <link rel=dns-prefetch> and an http page's links look names up
 // with no channel, so neither the local-network refusal nor Firefox's LNA

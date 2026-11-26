@@ -1,4 +1,4 @@
-// The post-install self-check's runs (zen-core; PROTOCOL.md, "Self-check").
+// The post-install self-check's runs (the core; PROTOCOL.md, "Self-check").
 //
 // After an install, a script or the user's own shell runs `zenius
 // selfcheck` outside zenius's sandbox. That front connects to a socket of the
@@ -54,7 +54,7 @@ const WAIT_POLL_MS = 200;
 const CLEANUP_MS = 3000;
 const CLOSE_MS = 5000;
 // The window holds the panel (420 CSS px) and All tasks' drawer (264) beside
-// it, as zen-sidebar measured them.
+// it, as measured in the sidebar.
 const WIDTH = 720;
 const HEIGHT = 760;
 const MARGIN = 16;

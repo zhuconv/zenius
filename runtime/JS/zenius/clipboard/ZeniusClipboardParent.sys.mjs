@@ -1,4 +1,4 @@
-// Parent half of the "ZeniusClipboard" actor (zen-ux): where a clipboard
+// Parent half of the "ZeniusClipboard" actor (the UI): where a clipboard
 // write or read made by a page in an agent tab goes.
 //
 // - The agent's work (its clicks run the page's "Copy" button, its keys

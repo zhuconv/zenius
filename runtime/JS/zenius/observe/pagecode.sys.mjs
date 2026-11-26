@@ -1,4 +1,4 @@
-// The user's setting for agents' page code (zen-observe). The agent's page
+// The user's setting for agents' page code (the observe layer). The agent's page
 // code is what page.evaluate and page.waitForFunction run in its isolated
 // world, and the agent's own pages (data:, blob:), whose code is all the
 // agent's (PAGE_CODE_METHODS, OWN_PAGE_LOADS). html pasted into a page isn't
@@ -16,7 +16,7 @@
 // separated, each as its site origin (scheme://eTLD+1, as Gecko's
 // siteOriginNoSuffix gives it, so https://example.com covers
 // mail.example.com). Only the user writes either pref: in about:config, or
-// with a click on the Allow button of the card (zen-input's, in zen-ux's
+// with a click on the Allow button of the card (the input layer's, in the UI's
 // files), through allowPageCodeSite, which writes the exact site on that
 // click's trusted event only (as with allowPrivateNetworks). Agents can't
 // reach either: they get no about:config and no pref method, and their
@@ -109,7 +109,7 @@ const listeners = new Set();
 
 /**
  * Hear the asks: `fn({space, browser, site})` the first time a task's call
- * meets a site the user hasn't allowed, under "ask". zen-ux's card shows the
+ * meets a site the user hasn't allowed, under "ask". The UI's card shows the
  * ask in that tab and writes the site on its Allow button's trusted click.
  *
  * @param {(ask: {space: object, browser: Element, site: string}) => void} fn

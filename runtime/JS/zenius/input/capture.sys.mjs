@@ -6,7 +6,7 @@
 // when its last task page goes. The guard is about input state that Gecko
 // shares between a process's tabs, so where no task page lives there is
 // nothing to guard. A page the agent's code left something hooked in
-// (zen-observe's evidence, reason hooked) also arms its processes, after its
+// (the observe layer's evidence, reason hooked) also arms its processes, after its
 // task too: the typing guard (content/typing.sys.mjs)
 // watches the user's keys there. So does a tab whose typing is held
 // (input/typing.sys.mjs), until the hold lifts: the keys the user types in
@@ -226,14 +226,14 @@ function onWindowGlobal(wg, topic) {
 
 /**
  * Is the document `innerWindowId` hooked, the only evidence the typing guard
- * acts on? Listed and flagged pages get zen-ux's warning instead, and a page
+ * acts on? Listed and flagged pages get the UI's warning instead, and a page
  * the agent made keeps the user's input on (content/typing.sys.mjs).
  */
 function flagged(innerWindowId) {
   return !!innerWindowId && guards(Services.ppmm.sharedData.get(EVIDENCE_DOCS_KEY)?.get(innerWindowId));
 }
 
-/** {reason: detail} of a document, as zen-observe's EVIDENCE_DOCS_KEY holds it: hooked? */
+/** {reason: detail} of a document, as the observe layer's EVIDENCE_DOCS_KEY holds it: hooked? */
 const guards = reasons => !!reasons && reasons.hooked !== undefined;
 
 /** The hooked documents, which the typing guard acts on. */

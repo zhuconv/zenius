@@ -1,4 +1,4 @@
-// The working folder (zen-core; docs/SPI.md "The working folder"): where an
+// The working folder (the core; docs/SPI.md "The working folder"): where an
 // agent tab's finished downloads land, and where the agent's scripts read,
 // write and delete files. The installers set it (--working-dir,
 // ~/zenius-files by default) in <zenius home>/config.json, which the runtime

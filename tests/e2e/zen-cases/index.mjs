@@ -1,4 +1,4 @@
-// Cases zen-eval adds to Ego's suite, run after Ego's 83 and reported apart.
+// Cases the eval harness adds to Ego's suite, run after Ego's 83 and reported apart.
 // `targets` limits a case to the targets it applies to; elsewhere it is N/A.
 import { v2ControlLifecycleCase } from "./control-lifecycle.mjs";
 import { pdfjsViewerDownloadCase } from "./pdfjs-download.mjs";

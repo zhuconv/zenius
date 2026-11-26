@@ -157,7 +157,7 @@ test("finish keeps pages for the user; the task stays ended until the agent clai
 test("the user's Stop ends the task but not its labels: after a claim, p1 still works", async () => {
   const space = await h.space("own stop");
   await h.call("page.goto", { space, page: "p1", url: url("/api/text") });
-  // zen-ux's panel Stop.
+  // The UI's panel Stop.
   await h.chrome('ctx.spaces.setOwnership(ctx.spaces.get(arg), "user", { source: "user" })', space);
   await assert.rejects(h.call("page.evaluate", { space, page: "p1", fn: "1", isFunction: false }), {
     code: "ZEN_TASK_SPACE_INACTIVE",
@@ -260,7 +260,7 @@ test("ownership survives a clean browser restart", async () => {
 test("the user's own tab never joins a task, not even one that claims its Space", async () => {
   const mine = "data:text/html,<title>the user's tab</title>mine";
   const space = await h.userSpace("own tab", mine);
-  // zen-ux's "Use your own tab": the user opens a page there to log in themselves.
+  // The UI's "Use your own tab": the user opens a page there to log in themselves.
   const ownURL = "data:text/html,<title>own tab secret</title>own";
   const own = await h.chrome(
     `const W = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/windows.sys.mjs");
@@ -313,7 +313,7 @@ test("the user's own tab never joins a task, not even one that claims its Space"
   );
 });
 
-/** The user hands the task back in zen-ux's UI, from their own tab (via "ownTab") or not. */
+/** The user hands the task back in the UI's UI, from their own tab (via "ownTab") or not. */
 const handBack = (space, via) =>
   h.chrome(
     `ctx.spaces.setOwnership(ctx.spaces.get(arg.space), "agent", { source: "user", via: arg.via });

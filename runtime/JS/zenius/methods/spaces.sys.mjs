@@ -1,4 +1,4 @@
-// spaces.* methods (zen-core): Ego's task-space lifecycle on Zen workspaces.
+// spaces.* methods (the core): Ego's task-space lifecycle on Zen workspaces.
 // Ownership changes go through modules/spaces.sys.mjs. The dispatcher's gate
 // checks control before these run, by the classes declared below.
 
@@ -68,7 +68,7 @@ export const i5 = {
 
 /**
  * The agent takes a held task back by its own call: first what the user's
- * Resume does before the agent gets control (zen-ux's beforeHandBack: the
+ * Resume does before the agent gets control (the UI's beforeHandBack: the
  * pages the user typed a secret into load afresh). The user may act
  * meanwhile, so the state is checked again after.
  */
@@ -131,7 +131,7 @@ export const methods = {
     if (params.name !== undefined && typeof params.name !== "string") {
       throw new ZenError("ZEN_INVALID_ARGUMENT", "spaces.claim name must be a string");
     }
-    // The name the client gives itself, for the claim prompt (zen-sdk fills it).
+    // The name the client gives itself, for the claim prompt (the SDK fills it).
     if (params.client !== undefined && params.client !== null && typeof params.client !== "string") {
       throw new ZenError("ZEN_INVALID_ARGUMENT", "spaces.claim client must be a string");
     }
@@ -341,7 +341,7 @@ export function finishTask(ctx, rec, keep) {
       close(tab);
     }
     ctx.pages.dropSpace(rec.id);
-    // Before the record goes, so listeners (zen-ux's badge) still find it.
+    // Before the record goes, so listeners (the UI's badge) still find it.
     ctx.emit("spaceFinished", { space: rec.id, closedSpace: true });
     ctx.spaces.remove(rec, { endedHow: "finished" });
     return {

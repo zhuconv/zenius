@@ -1,20 +1,20 @@
 # tests/
 
-zen-eval's suites, runnable against Ego Lite (`--target ego`) and against a
-zenius dev instance (`--target zenius --instance <name>`), so both browsers run
-the same scripts. Each worker keeps its own runtime tests in `tests/<area>/`
-(zen-ux: `tests/ux/` and `tests/parse/`); the rest of `tests/` is zen-eval's.
+Each area of zenius keeps its tests here, in `tests/<area>/`; SPEC section 8
+says which are whose. The eval harness's suites run against Ego Lite
+(`--target ego`) and against a zenius dev instance
+(`--target zenius --instance <name>`), so both browsers run the same scripts.
 
 | Path | What | Run |
 |---|---|---|
 | `fixtures/server.mjs` | Ego's e2e fixture server (ported), `/zoo/` pages, golden DOM replays | `node tests/fixtures/server.mjs --port 8765` |
 | `golden/` | Ego's snapshots of fixture pages and live sites (see `golden/README.md`) | `node tests/golden/capture.mjs --target ego` |
-| `e2e/` | Ego's real-browser e2e suite, 83 cases, plus zen-eval's own cases; on zenius, against a fresh headless dev instance | `tests/e2e/run.sh` |
+| `e2e/` | Ego's real-browser e2e suite, 83 cases, plus the eval harness's own cases; on zenius, against a fresh headless dev instance | `tests/e2e/run.sh` |
 | `bench/` | latency benchmarks, 20 iterations, p50/p95 | `node tests/bench/bench.mjs --target ego` |
 | `live/` | rubric C: live-site tasks, one fresh Claude Code agent each, scored by script and a blind judge | `node tests/live/run.mjs --instance <name> --keys <json> --judge` |
 | `unit/` | checks for the tooling itself, no browser needed; part of `scripts/test-all.sh` | `tests/unit/run.sh` |
-| `parse/` | zen-ux's parse check: every script in `runtime/JS` parses as Gecko loads it, so a bad rebase fails in a second with its file and line; no browser needed; part of `scripts/test-all.sh` | `tests/parse/run.sh` |
-| `security/` | zen-sdk's escape suite (SPEC I5): zen-eval's browser probes on a headless dev instance, and the canary of the launcher `install-cli.sh --sandbox` writes; part of `scripts/test-all.sh` | `tests/security/run.sh` |
+| `parse/` | The parse check: every script in `runtime/JS` parses as Gecko loads it, so a bad rebase fails in a second with its file and line; no browser needed; part of `scripts/test-all.sh` | `tests/parse/run.sh` |
+| `security/` | The SDK's escape suite (SPEC I5): the eval harness's browser probes on a headless dev instance, and the canary of the launcher `install-cli.sh --sandbox` writes; part of `scripts/test-all.sh` | `tests/security/run.sh` |
 | `lib/targets.mjs` | runs a script on either target | |
 
 The zenius target runs `sdk/bin/zenius` under Node 24 (`ZENIUS_NODE`
@@ -58,7 +58,7 @@ suite's `run.sh` makes one when its caller gave none.
   carrying the run's nonce, so a launcher that never runs the script can't
   pass anything.
 - `e2e/manifest.mjs` says how each case counts for rubric A (SPEC §6) and
-  why a case is N/A. `e2e/zen-cases/` holds cases zen-eval adds where Ego's
+  why a case is N/A. `e2e/zen-cases/` holds cases the eval harness adds where Ego's
   suite leaves a v2 API covered only by legacy-helper cases, or where Zen
   needs its own counterpart of a Chromium case (pdf.js). A case's `targets`
   limits where it runs; elsewhere it is N/A.

@@ -57,7 +57,7 @@ test("each method's declared I5 class fits its name", () => {
 });
 
 test("the content check refuses non-web documents for every class but outside and dev", async () => {
-  // Asked of a document with the system principal, as zen-core's dispatch
+  // Asked of a document with the system principal, as the core's dispatch
   // asks it: with the method's declared class.
   const refused = await h.chrome(
     `const { checkContentCall } = ChromeUtils.importESModule(arg.url);

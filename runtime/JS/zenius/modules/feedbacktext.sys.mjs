@@ -1,4 +1,4 @@
-// The text of a `zenius feedback` problem report (zen-core): the agent's
+// The text of a `zenius feedback` problem report (the core): the agent's
 // line cleaned, the checks on what a client may send, the issue's title and
 // body, and GitHub's limits. Plain functions with no imports, so Node's unit
 // tests load this file as well (tests/unit/feedback-text.test.mjs) and check

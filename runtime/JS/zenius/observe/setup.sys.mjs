@@ -1,4 +1,4 @@
-// Installs zen-observe's process-wide hooks once, when the first of its
+// Installs the observe layer's process-wide hooks once, when the first of its
 // method modules loads: dialog interception, download diversion, the network
 // observers and the event buffers. They must be in place before any agent
 // page runs, since a click from another module can open a dialog or start a
@@ -69,7 +69,7 @@ function taskPagesLive() {
  * have something of the agent's to watch: the request observers and the
  * blocked-download one while a task has pages, and the local-network
  * refusal also while a page keeps the agent's code after its task. Called
- * when a task's pages change (zen-core's taskBrowsers event) and when the
+ * when a task's pages change (the core's taskBrowsers event) and when the
  * marks do. (audio.sys.mjs and agentcode.sys.mjs time their own observers.)
  */
 function syncHooks() {
@@ -83,9 +83,9 @@ function syncHooks() {
   setServiceWorkerBypassActive(kept);
   setAgentWorldActive(kept);
   // A held page is a task's, so a hold implies a task; the guard stays on
-  // for one all the same until zen-core releases it.
+  // for one all the same until the core releases it.
   setNavGuardActive(kept || holdingAny());
-  // zen-core's popup window guard, on the same terms (glue).
+  // The core's popup window guard, on the same terms (glue).
   ZeniusService.updatePopupWindowGuard();
 }
 
@@ -96,7 +96,7 @@ let publishedMap = new Map();
 /**
  * Tell content which task each task tab is a page of (browserId → space
  * id), for the BroadcastChannel scope (content/refusals.sys.mjs
- * channelScope). Called with every change to the task set, which zen-core
+ * channelScope). Called with every change to the task set, which the core
  * publishes before a new page's first load.
  */
 function publishTaskSpaces() {
@@ -272,14 +272,14 @@ const agentRequests = new WeakSet();
 
 /** Network.* events for page.events(), shaped as CDP sends them. */
 function networkEvent(event, browserId, info, channel) {
-  // Only what a tab requests while the agent drives it (zen-core's set,
+  // Only what a tab requests while the agent drives it (the core's set,
   // which the content guards read too), decided at the request's start:
   // what a tab the user holds requests is theirs (the sign-in's form and
   // cookies, a secret step's pages, a reset link), its response and end
   // after the hand back included.
   if (event === "request") {
     // A secret step's tab notes each site it loads, for the hand back's
-    // cache clearing (zen-core's noteSecretRequest).
+    // cache clearing (the core's noteSecretRequest).
     ZeniusService.noteSecretRequest(browserId, channel);
     if (!Services.ppmm.sharedData.get(AGENT_BROWSERS_KEY)?.has(browserId)) {
       return;
@@ -508,14 +508,14 @@ export function setupObserve() {
   watchAgentTabs();
 }
 
-// zen-core publishes which tabs the agent drives (content/guards.sys.mjs).
+// The core publishes which tabs the agent drives (content/guards.sys.mjs).
 // Joining or leaving decides the tab's sound. A tab that joins with its page
 // already loaded gets the content guards (the refusals among them) from
-// zen-core's installGuards, in every frame. A tab that joins stops any
+// the core's installGuards, in every frame. A tab that joins stops any
 // stream in it, the user's from their hold among them, and a device prompt
 // still waiting there goes, denied: the agent never uses the user's
 // devices. Resume, a claim, an adoption and a reply after a finish all come
-// here, once each (zen-core's set changes with the Space's ownership).
+// here, once each (the core's set changes with the Space's ownership).
 function watchAgentTabs() {
   let agentIds = new Set(Services.cpmm.sharedData.get(AGENT_BROWSERS_KEY) ?? []);
   Services.cpmm.sharedData.addEventListener("change", event => {

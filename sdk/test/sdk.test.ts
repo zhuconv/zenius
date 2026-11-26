@@ -279,7 +279,7 @@ describe("globals", () => {
     }));
 
   // The sidebar lists every zenius task by its source.
-  // zen-core keeps each field that fits the label set and drops the rest, so a
+  // The core keeps each field that fits the label set and drops the rest, so a
   // task always starts; the SDK fits them first, so nothing useful is dropped.
   it("taskSource names the hc terminal, the agent's kind and the folder's name, fitted to the label set, and never a path", () => {
     assert.deepEqual(taskSource({ HC_TERMINAL_ID: "t5x", CLAUDECODE: "1" }, "/Users/me/Projects/zenius-eval", false), {
@@ -304,7 +304,7 @@ describe("globals", () => {
     assert.deepEqual(taskSource({}, "/tmp/zenius-sandbox-501/run.Ab12Cd", true), { agent: "script" });
   });
 
-  // The sidebar's own tasks (zen-ux gives its zenius server ZENIUS_SIDEBAR_TASK,
+  // The sidebar's own tasks (the UI gives its zenius server ZENIUS_SIDEBAR_TASK,
   // its conversation's uid): the sidebar matches on it, so it goes exactly as
   // given or not at all. Fitted like a label, it could name another chat.
   it("taskSource carries the sidebar's conversation id exactly as given, or not at all", () => {
@@ -642,7 +642,7 @@ describe("Page", () => {
       assert.deepEqual(refused.map((event) => [event.params.kind, event.params.url]), [["print", "http://127.0.0.1/x"]]);
     }));
 
-  // The agent's own evidence for zenius's defenses: zen-core's page.flag marks
+  // The agent's own evidence for zenius's defenses: the core's page.flag marks
   // the page's current document as flagged.
   it("flag(reason) asks zenius to guard the page, sends only the reason, and leaves its rules to the runtime", () =>
     withMock(async ({ mock }) => {
@@ -880,7 +880,7 @@ describe("Page", () => {
       assert.deepEqual(mock.requests.at(-1)!.params.matcher, { type: "regex", value: "example\\.com\\/a", flags: "i" });
       await page.waitForURL((url: URL) => url.searchParams.get("q") === "1");
       assert.equal(mock.requests.at(-1)!.method, "page.url");
-      // A poll never waits for a pending navigation (zen-observe's runtime).
+      // A poll never waits for a pending navigation (the observe layer's runtime).
       assert.equal(mock.requests.at(-1)!.params.poll, true);
       await assert.rejects(
         () => page.waitForURL((url: URL) => url.pathname === "/never", { timeout: 250 }),

@@ -1,4 +1,4 @@
-// Content side of dev.evalContent (zen-core). Dev profiles only.
+// Content side of dev.evalContent (the core). Dev profiles only.
 
 import { evalAsync, pageWorldSandbox, systemSandbox } from "chrome://userscripts/content/zenius/modules/sandbox.sys.mjs";
 

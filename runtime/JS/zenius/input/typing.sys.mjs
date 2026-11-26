@@ -1,19 +1,19 @@
-// The typing guard's parent half (zen-input), on evidence only.
+// The typing guard's parent half (the input layer), on evidence only.
 // content/typing.sys.mjs stops the user's first press or key anywhere in a
-// page the agent's code left something hooked in (zen-observe's evidence),
+// page the agent's code left something hooked in (the observe layer's evidence),
 // and tells this module, which:
 // - holds the tab's typing in every process of the tab, through sharedData,
 //   until its top document is replaced;
-// - asks zen-core for a clean copy (ZeniusService.cleanOnDemand): the page
+// - asks the core for a clean copy (ZeniusService.cleanOnDemand): the page
 //   loads afresh, with the form carried over and the focus back on the
 //   field;
-// - tells zen-ux (onUserTyping);
+// - tells the UI (onUserTyping);
 // - when the trigger went for a field, keeps what the user's input leaves
 //   in the documents the clean copy replaces, and records the user's keys
 //   itself as it routes them to the tab, until the clean copy is in. Then
 //   it hands both to the clean copy, to be typed again there as its hold
 //   lifts (content/typing.sys.mjs's replay), and drops them.
-// zen-core also holds a tab's typing around a hand-off's quiet reload
+// The core also holds a tab's typing around a hand-off's quiet reload
 // (dropUserTyping), whether or not the user set anything off.
 
 import {
@@ -29,7 +29,7 @@ import {
 const heldDocs = new Map();
 /** browserId → how many dropUserTyping holds are on. */
 const heldTabs = new Map();
-/** zen-ux's hooks. */
+/** The UI's hooks. */
 const hooks = new Set();
 
 const TRIGGERS = new Set(["press", "key", "paste", "drop", "composition"]);
@@ -180,7 +180,7 @@ function publish() {
 }
 
 /**
- * zen-core, around a hand-off's quiet reload (modules/handoff.sys.mjs):
+ * The core, around a hand-off's quiet reload (modules/handoff.sys.mjs):
  * drop the user's keys, pastes, drops and compositions to `browser`'s page,
  * in every process of the tab, until the returned release is called.
  * Clicks and scrolls pass. Holds nest, and a release is idempotent.
@@ -190,7 +190,7 @@ function publish() {
  * another document replaces it; a document that already did goes free.
  *
  * `release({failed: true, holdNow: true})`: a new document came, but it
- * can't take the user's typing either (zen-core's clean copy that came in
+ * can't take the user's typing either (the core's clean copy that came in
  * written, beside a window of its group that holds the agent's writes). Its
  * typing stays dropped too, until another document replaces it.
  *
@@ -239,12 +239,12 @@ export function dropUserTyping(browser) {
 }
 
 /**
- * zen-ux: `fn({browser, trigger, field, reloaded})` when the typing guard
+ * The UI: `fn({browser, trigger, field, reloaded})` when the typing guard
  * stopped the user's first press or key in a hooked page
  * (anywhere in the tab, a button too), once per document. `trigger`
  * is "press", "key", "paste", "drop" or "composition". `field`: the trigger
  * went for a field, so the clean copy gets its focus and the user's keys
- * back (the replay); else their press went nowhere. `reloaded` is zen-core's
+ * back (the replay); else their press went nowhere. `reloaded` is the core's
  * cleanOnDemand promise: it resolves once the clean document is in with the
  * form and focus back, and rejects if none came; the user's keys there stay
  * dropped then.
@@ -257,7 +257,7 @@ export function onUserTyping(fn) {
   return () => hooks.delete(fn);
 }
 
-/** zen-core's clean copy of `browser`'s page. */
+/** The core's clean copy of `browser`'s page. */
 function cleanCopy(browser) {
   const reloaded = Promise.resolve().then(() => {
     const { ZeniusService } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/service.sys.mjs");

@@ -150,7 +150,7 @@ describe("zenius selfcheck", () => {
   });
 
   it("names the run's own error, a failure outside the checks, on its summary line, cleaned", async () => {
-    // zen-observe's stand-in: the window didn't open, so no check ran.
+    // The observe layer's stand-in: the window didn't open, so no check ran.
     let { text, code } = formatResult({ ok: false, error: "Error: the window didn't open", checks: [] }, "default");
     assert.equal(code, 2);
     assert.match(text, /\nThe self-check ran no check: the run failed \(Error: the window didn't open\)\.\n/);

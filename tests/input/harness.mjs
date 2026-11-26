@@ -130,7 +130,7 @@ export async function openHarness(suite) {
   };
   const methods = new Set((await call("browser.methods")).methods);
   const userView = await call("dev.viewState");
-  // zen-observe's focus probe: tells the OS giving focus to another app (the
+  // The observe layer's focus probe: tells the OS giving focus to another app (the
   // user at the Mac) from I1 preemption.
   const focusProbe = await call("dev.evalChrome", { code: FOCUS_PROBE_START }).catch(() => null);
   let probeStopped = !focusProbe;
@@ -184,7 +184,7 @@ export async function openHarness(suite) {
       return this.#rpc("page.goto", { url, options });
     }
 
-    /** Stand-in for zen-observe's page.url: a new popup reads about:blank until its load commits. */
+    /** Stand-in for the observe layer's page.url: a new popup reads about:blank until its load commits. */
     async url() {
       const deadline = Date.now() + 2000;
       for (;;) {
@@ -246,7 +246,7 @@ export async function openHarness(suite) {
     }
 
     async waitForFileChooser(options = {}) {
-      // As the SDK does: zen-observe's page.waitForEvent hands it to zen-input.
+      // As the SDK does: the observe layer's page.waitForEvent hands it to the input layer.
       const result = await this.#rpc("page.waitForEvent", { event: "filechooser", options });
       return {
         isMultiple: () => result.multiple === true,
@@ -325,7 +325,7 @@ export async function openHarness(suite) {
 
     async screenshot(options = {}) {
       if (has("page.screenshot")) {
-        // I5 (zen-observe glue): the runtime returns the PNG's bytes and
+        // I5 (the observe layer glue): the runtime returns the PNG's bytes and
         // writes no file; the client writes path, as the SDK does.
         const { path, ...rest } = options;
         const { base64 } = await this.#rpc("page.screenshot", { options: rest });
@@ -595,7 +595,7 @@ export async function openHarness(suite) {
     },
     /**
      * Play the user: a click on `selector` in the shown page, entering
-     * through the parent like OS input (zen-ux's takeover tests do the
+     * through the parent like OS input (the UI's takeover tests do the
      * same). The page must be the selected tab. With `frame`, `selector` is
      * in that same-origin iframe of the page. Headless Zen doesn't pass the
      * click on into an out-of-process iframe; it focuses the iframe only.
@@ -678,7 +678,7 @@ export async function openHarness(suite) {
       probeStopped = true;
       await checkView(`zen-input ${suite}`, userView, after, { probe: focusProbe, steps, log });
     },
-    /** zen-ux's takeover detector never saw agent input: every Space is still the agent's. */
+    /** The UI's takeover detector never saw agent input: every Space is still the agent's. */
     async assertAgentStillInControl() {
       const { taskSpaces } = await call("spaces.list");
       for (const id of spaces.values()) {

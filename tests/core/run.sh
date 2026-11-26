@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# zen-core runtime tests: start a headless dev Zen (a fresh profile, except
+# The core's runtime tests: start a headless dev Zen (a fresh profile, except
 # on the Mac: see zen-dev.sh fresh), run
 # tests/core/*.test.mjs against it, stop it. A full run also runs the I4
 # guard, tests/core/i4/guard.test.mjs, beside them.

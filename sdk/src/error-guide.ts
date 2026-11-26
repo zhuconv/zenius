@@ -105,7 +105,7 @@ export const CODE_GUIDE: Record<string, CodeGuide> = {
   ZEN_HANDOFF_REFUSED: {
     what: "task.handOff() didn't hand the task to the user, and it stays yours (data.page, data.reason): the page they'd hold is one your code made, data: or blob: or a blank page it wrote (\"agentPage\"); a page zenius meant to load afresh brought no new document, and the message names it (\"reloadFailed\"); another of your Pages on its site could still reach it (\"reachable\"); or your page code didn't stop in every process within 10 s (\"discardFailed\"). Except after agentPage, zenius has already discarded your page code's sandboxes, as at a hand back: their globals, listeners and timers are gone.",
     next: "data.reloaded names the Pages that had already loaded afresh: what your code kept there is gone, so look again. agentPage: load the site's own page and hand that off. reloadFailed or discardFailed: call task.handOff() once more; if it fails again, tell the user and go on without the hand-off. reachable: close your other Pages on that site with page.close(), then call task.handOff() again.",
-    // zen-core's four messages each say their own next step.
+    // The core's four messages each say their own next step.
     said: /hand that off|task\.handOff\(\) again/,
   },
   ZEN_PROFILE_NOT_FOUND: {
@@ -243,7 +243,7 @@ export const CODE_GUIDE: Record<string, CodeGuide> = {
   ZEN_PAGE_CODE_OFF: {
     what: "The user turned off agents' page code in this Zen (zenius.agentTabs.pageCode is never): page.evaluate() and page.waitForFunction() don't run, and the agent's own data: and blob: pages don't load in page.goto(), task.newPage() or page.reload() (data.method, data.page, data.setting).",
     next: "Work without page code: read the page with snapshot() and act through clicks, fills and keys, on the site's own pages. The setting is the user's: don't look for another way to run code in the page. If the task can't be done without it, tell the user why.",
-    // zen-observe's messages say what to do, in words an MCP agent's tools share.
+    // The observe layer's messages say what to do, in words an MCP agent's tools share.
     said: /clicks, fills and keys instead|the site's own pages/,
   },
   ZEN_PAGE_CODE_ASKED: {

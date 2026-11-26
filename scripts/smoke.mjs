@@ -88,7 +88,7 @@ try {
       space: space.id,
       page: "p1",
       // The agent's code runs in its isolated world, which shares only the
-      // page's DOM: the page's script leaves its value there (glue by zen-observe).
+      // page's DOM: the page's script leaves its value there (glue by the observe layer).
       fn: "() => [document.title, document.getElementById('greeting').textContent, Number(document.getElementById('greeting').dataset.value)]",
       isFunction: true,
     })

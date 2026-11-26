@@ -1,4 +1,4 @@
-// zen-eval's own case: the pdf.js counterpart of Ego's "Page Chromium PDF
+// The eval harness's own case: the pdf.js counterpart of Ego's "Page Chromium PDF
 // viewer download", which is N/A on zenius because it drives Chromium's
 // viewer. Zen opens a PDF link in pdf.js. An agent must be able to read it
 // (the snapshot shows pdf.js's page counter), use its toolbar, and save the

@@ -3,11 +3,11 @@
 // Only a page the agent's code left something hooked in, or one the agent
 // made, gets the quiet load, the hold's COOP, the channel mute and the
 // refusal of new windows: filling, clicking and reading are no evidence, nor
-// is a flag or a list, which zen-ux warns of instead. zen-core's parts: the
+// is a flag or a list, which the UI warns of instead. The core's parts: the
 // quiet load (a new GET entry, the form and the focus carried over), the
 // two-step replacement of a site's marked windows, the hold's refusal of new
 // windows, the discard of the agent's sandboxes,
-// and what the hand back tells the agent. zen-observe's guards
+// and what the hand back tells the agent. The observe layer's guards
 // (tests/observe) cover the rest.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -174,7 +174,7 @@ const activate = (space, label) =>
     { space, label }
   );
 const LEAVE_HANDLER = `window.onbeforeunload = e => { e.preventDefault(); e.returnValue = "stay"; }; return 1;`;
-/** The page's document, history length, group, and whether zen-observe holds it. */
+/** The page's document, history length, group, and whether the observe layer holds it. */
 const info = (space, label) =>
   h.chrome(
     `const s = ctx.spaces.get(arg.space);
@@ -249,13 +249,13 @@ const READ = `const f = document.forms[0];
 
 /**
  * Agent code that leaves something hooked in the page: a style sheet, which
- * outlives the discard of its world (zen-observe's evidence). Every document
+ * outlives the discard of its world (the observe layer's evidence). Every document
  * of the page's site in its window group is marked with it.
  */
 const HOOK = `(document.head.append(document.createElement("style")), 1)`;
 const hook = (space, label) => h.call("page.evaluate", { space, page: label, isFunction: false, fn: HOOK });
 const EV_URL = "chrome://userscripts/content/zenius/observe/evidence.sys.mjs";
-/** The page's evidence, its top document and frames (zen-observe's evidenceOf). */
+/** The page's evidence, its top document and frames (the observe layer's evidenceOf). */
 const evidenceIn = (space, label) =>
   h.chrome(
     `const s = ctx.spaces.get(arg.space);
@@ -535,7 +535,7 @@ test("a held popup whose opener is on another site keeps it: the agent's hooked 
     assert.equal((await info(space, P)).tops, 3, "P keeps its group");
     assert.equal(await inPage(space, P, "return String(window.opener !== null);"), "true");
     // P kept its window (its opener, above); the agent's handle lived in its
-    // world, which the hand-off ended (zen-observe's glue).
+    // world, which the hand-off ended (the observe layer's glue).
     assert.deepEqual(await worldOf(space, T), { none: true }, "the agent's world and its handle are gone");
     const refusal = label =>
       h.chrome(`const s = ctx.spaces.get(arg.space); return ctx.pages.codeRefusal(s, ctx.pages.get(s, arg.label));`, { space, label });
@@ -575,7 +575,7 @@ test("the held page's load onto a site where the agent's code left something hoo
     await inPage(space, P, `location.href = ${JSON.stringify(site("/form?ho=7cb"))}; return 1;`);
     await loaded(space, P, "ho=7cb");
     assert.equal((await info(space, P)).tops, 1, "alone in its group");
-    // The agent's handle lived in its world, which the hand-off ended (zen-observe's glue).
+    // The agent's handle lived in its world, which the hand-off ended (the observe layer's glue).
     assert.deepEqual(await worldOf(space, T), { none: true }, "the agent's world and its handle are gone");
     await resume(space);
     const back = await h.call("spaces.waitForControl", { space, timeout: 5000 });
@@ -684,7 +684,7 @@ test("a load that brings no new document refuses the hand-off, which names the p
     await hook(space, T);
     await front(space, P);
     // With this Gecko pref a leave prompt shows without an activation too,
-    // and in an agent tab zen-observe holds it for the agent: H's load
+    // and in an agent tab the observe layer holds it for the agent: H's load
     // can't happen.
     await h.chrome(
       `Services.prefs.setBoolPref("dom.require_user_interaction_for_beforeunload", false);
@@ -729,7 +729,7 @@ test("a load that brings no new document refuses the hand-off, which names the p
   }
 });
 
-/** The site's own router puts its open redirect in the URL (zen-snapshot's siteRouterRedirect): the page's own code, which the native hook doesn't see. */
+/** The site's own router puts its open redirect in the URL (the snapshot layer's siteRouterRedirect): the page's own code, which the native hook doesn't see. */
 const routeTo = (space, label, to) =>
   inPage(space, label, `history.replaceState(null, "", "/redirect?to=" + encodeURIComponent(${JSON.stringify(to)})); return location.href;`);
 const userTakeOver = (space, label) =>
@@ -955,7 +955,7 @@ test("a page that sends itself to another site with its own script as it loads a
 });
 
 // Landing (2): zenius's clean loads under the isolated world, on evidence.
-// zen-observe's world records the URL the
+// The observe layer's world records the URL the
 // agent's code set in place (observe/agentworld.sys.mjs noteWritten), and
 // marks what its code left hooked; these tests set both through those hooks,
 // as content would.
@@ -997,7 +997,7 @@ test("landing (2): the clean copy on demand loads a hooked page afresh, its form
     assert.deepEqual(await clean(), { how: null, carried: false, focused: false, evidence: marks }, "a clean copy can't remove a list's or a flag's danger");
     assert.equal((await info(space, label)).inner, before.inner, "nothing loaded");
     // The agent's code left something hooked, and the user's press went for
-    // the textarea (zen-input's guard notes it before the focus moves).
+    // the textarea (the input layer's guard notes it before the focus moves).
     const evidence = await markPage(space, label);
     await h.chrome(
       `${BROWSER}
@@ -1259,7 +1259,7 @@ test("landing (2): onKeptRefused and onOpenRefused say evident, with the page's 
        return got;`,
       { space, label }
     );
-    // Without hooked or made, both are left out, so zen-ux reads the page.
+    // Without hooked or made, both are left out, so the UI reads the page.
     const none = JSON.stringify([null, null, false]);
     const yes = JSON.stringify([true, { hooked: "a form", listed: "phishing: test-list" }, false]);
     assert.deepEqual(got, [
@@ -1314,7 +1314,7 @@ test("landing (2): finish({keep}) sends the discard to every tab of the task, th
   }
 });
 
-/** The user's Resume as zen-ux's button does it: the hand back's step before the agent runs (beforeHandBack), then the agent has the task. */
+/** The user's Resume as the UI's button does it: the hand back's step before the agent runs (beforeHandBack), then the agent has the task. */
 const resumeByUser = space =>
   h.chrome(
     `const s = ctx.spaces.get(arg);

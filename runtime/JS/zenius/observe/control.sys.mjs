@@ -1,5 +1,5 @@
 // Agent JavaScript runs in a page only while the agent controls its Space
-// (I3; zen-observe). The gate holds new calls while the Space is paused (a
+// (I3; the observe layer). The gate holds new calls while the Space is paused (a
 // takeover prompt, the panel's Pause) and refuses them under user control.
 // This module covers the calls already running when control goes: without
 // it, a predicate polling a password field would read it as the user typed.

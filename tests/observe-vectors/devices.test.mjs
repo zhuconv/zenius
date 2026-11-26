@@ -196,7 +196,7 @@ before(async () => {
     "geo.provider.use_gpsd": false,
     "network.dns.localDomains": [localDomains, "lan.local", "lan-ok.local"].filter(Boolean).join(","),
     "zenius.agentTabs.allowPrivateNetworks": "lan-ok.local",
-    // Code planted before a hand-off stays in the page: these tests check the refusals it meets during the hold (zen-core's glue).
+    // Code planted before a hand-off stays in the page: these tests check the refusals it meets during the hold (the core's glue).
     "zenius.handoff.quietReload": false,
   });
   await proxyPreflight();
@@ -301,7 +301,7 @@ const MEDIA = {
   "media-cross-frame": ["NotAllowedError"],
   ...(MAC ? {} : { screen: ["NotAllowedError"], "select-audio-output": ["NotAllowedError"], "speech-recognition": ["error not-allowed", "end"] }),
 };
-// zen-ux's card reads what was asked from these, not from the message.
+// The UI's card reads what was asked from these, not from the message.
 const MEDIA_WORDS = { "the camera and microphone": "camera microphone", "the camera": "camera", "the microphone": "microphone", "the screen": "screen", "the camera or microphone": "camera microphone" };
 const ASKED = {
   enumerateDevices: "device list",
@@ -1293,7 +1293,7 @@ test("a link the user clicks in a kept page the agent's code wrote: the press lo
     await env.call("page.goto", { ...P, url: `${vectors.base}/plain?kept-link` });
     // The agent's code adds the link: the page ran it. And a style sheet,
     // so the page is hooked: a link alone is no evidence, and the typing
-    // guard holds the user's press only in a hooked page (zen-input's glue).
+    // guard holds the user's press only in a hooked page (the input layer's glue).
     await env.call("page.evaluate", {
       ...P,
       fn: `() => { const a = document.createElement("a"); a.id = "lan"; a.href = "http://lan.local:${port}/hit?kept-link"; a.textContent = "the printer"; document.body.append(a); document.head.append(document.createElement("style")); }`,
@@ -1320,7 +1320,7 @@ test("a link the user clicks in a kept page the agent's code wrote: the press lo
       mark
     );
     // The page holds the agent's writes, so the user's press waits for a
-    // clean copy (zen-core's cleanOnDemand): the link the agent
+    // clean copy (the core's cleanOnDemand): the link the agent
     // added is gone before the press could follow it.
     await until("the clean copy", () =>
       env.chrome(

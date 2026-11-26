@@ -1,4 +1,4 @@
-// Red-teaming zen-observe's sw-bypass: a task's pages don't use the site's
+// Red-teaming the observe layer's sw-bypass: a task's pages don't use the site's
 // service worker that the user's tabs registered. The manager's checks for
 // the final candidate (2026-11-21):
 // - an agent page on a site where the user's tab registered a service
@@ -12,7 +12,7 @@
 //   frame's, and one that first deletes the members the guard replaced.
 // - a worker the task's shared worker starts from a URL skips
 //   the site's worker, before and after the claim; a blob one started after
-//   the claim is zen-observe's documented bound (reported, not judged).
+//   the claim is the observe layer's documented bound (reported, not judged).
 // Then the offer, apart from those: the site's worker posts a port to every
 // client it sees, twice. Does any of the task's clients (its page and frame,
 // its dedicated and shared workers, the agent's world and worker) answer
@@ -143,7 +143,7 @@ const SW = `
     else if (u.pathname === "/sw-nav") e.respondWith(new Response("<!doctype html><title>SW_NAV</title><p>SW_NAV", { headers: { "content-type": "text/html" } }));
   });
 `;
-// From inside a worker: its own navigator.serviceWorker (zen-observe's find,
+// From inside a worker: its own navigator.serviceWorker (the observe layer's find,
 // 2026-11-21: a task page's workers still had it). label names the pings.
 const WORKER_REACH = (label, prelude = "") => `(async () => {
   ${prelude}
@@ -375,7 +375,7 @@ const AGENT_OFFER_LISTEN = `async () => {
 const AGENT_OFFER_READ = `() => ({ world: window.__zsOffers || null, worker: window.__zsWorkerOffers || null })`;
 const outcome = p => p.then(r => r?.result ?? r?.value ?? r, e => ({ error: `${e.code ?? ""} ${String(e.message).slice(0, 200)}` }));
 // The worker a report names: "... a worker the page started (<url>) ...".
-// zen-observe resolves it to an absolute URL (the debugger's
+// The observe layer resolves it to an absolute URL (the debugger's
 // url was the string passed to new Worker()).
 const reportUrl = e => (/started \(([^)]*)\)/.exec(e.message ?? "") ?? [])[1] ?? null;
 const absolute = u => /^(https?:|blob:)/.test(u ?? "");
@@ -451,7 +451,7 @@ try {
   `, A);
   out.swSaw = [...swLog];
   // A blob worker that the task's claimed shared worker starts after the
-  // claim inherits the site's worker: zen-observe's documented bound.
+  // claim inherits the site's worker: the observe layer's documented bound.
   const isBound = u => /from=blob-nest-agent/.test(u ?? "");
   out.swSawAgent = swLog.filter(u => /agent/.test(u ?? "") && !isBound(u));
   out.boundSeen = swLog.filter(isBound);

@@ -1,6 +1,6 @@
-// zen-observe: the page the user holds (H), for the hand-off rule: while the
+// The observe layer: the page the user holds (H), for the hand-off rule: while the
 // user types in H, nothing of the agent's reaches it.
-// zen-core calls holdPage() as a hand-off (or the user's Take over) begins,
+// The core calls holdPage() as a hand-off (or the user's Take over) begins,
 // before its quiet reload, and releasePage() at Resume agent or at any other
 // end of the hold. While H is held:
 // - observe/navguard.sys.mjs refuses a load into H or one of its frames that
@@ -14,17 +14,17 @@
 // - for the frame and COOP rule below, agentcode.sys.mjs's agentSitesNear
 //   counts by site only documents from before a hold: a held tab's
 //   documents made since its hold began (a task may hold several pages,
-//   zen-core's holdFor) and those of a window zen-core reloaded for a hold
+//   the core's holdFor) and those of a window the core reloaded for a hold
 //   (holdReload) are fresh, since the agent's code is refused in a held
 //   group.
 // - a Back or Forward into a data: or blob: entry, the agent's kind of page,
 //   is refused, and the user's history stays as it was;
 // - a frame in H of a site that a window near H, which may hold the agent's
 //   code, also shows is refused: from there it could be scripted. A load
-//   that would make H's top such a site gets zen-core's COOP
+//   that would make H's top such a site gets the core's COOP
 //   (holdNeedsCoop), so H leaves the group as it loads.
 // A popup H opens during the hold joins it: the user's sign-in flow may
-// continue there. zen-ux hears each refusal (onHoldRefusal) for its line.
+// continue there. The UI hears each refusal (onHoldRefusal) for its line.
 
 import { HELD_PAGES_KEY } from "chrome://userscripts/content/zenius/content/refusals.sys.mjs";
 
@@ -36,12 +36,12 @@ const held = new Map();
  * ones made since by site.
  */
 const before = new Map();
-/** Tabs zen-core reloads for a hold (browserId) → the hold and their documents from before the reload. */
+/** Tabs the core reloads for a hold (browserId) → the hold and their documents from before the reload. */
 const reloaded = new Map();
 let watching = false;
 /** `fn()` after the holds change (observe/setup.sys.mjs's hooks). */
 let holdsListener = null;
-/** zen-ux's listeners for the guard's refusals in held pages. */
+/** The UI's listeners for the guard's refusals in held pages. */
 const refusalListeners = new Set();
 
 export function onHolds(fn) {
@@ -177,7 +177,7 @@ export function releasePage(browser) {
 }
 
 /**
- * zen-core reloads `browser`, a window of the held page's group that could
+ * The core reloads `browser`, a window of the held page's group that could
  * reach it, so that the hold keeps H's opener: call it right before the
  * reload. The documents the tab gets from then on count as fresh, as H's
  * do, until the hold ends: from holdPage on, the agent's code is refused in
@@ -185,7 +185,7 @@ export function releasePage(browser) {
  * those windows are reloaded. The tab doesn't join the hold: its loads into
  * H are still refused.
  *
- * @param {Element} browser  the window zen-core reloads
+ * @param {Element} browser  the window the core reloads
  * @param {Element} heldBrowser  H's <browser>
  * @returns {boolean} whether H is held, so it counts
  */
@@ -221,7 +221,7 @@ export function holdingAny() {
 }
 
 /**
- * Hear the navigation guard's refusals in held pages, for zen-ux's line:
+ * Hear the navigation guard's refusals in held pages, for the UI's line:
  * `fn({browser, kind, url})`, where `browser` is the held tab's <browser>
  * and `kind` is "history" (Back or Forward into a data: or blob: entry),
  * "navigation" (another page's load into it) or "agentSite" (a frame of a
@@ -261,9 +261,9 @@ export function siteOfURI(uri) {
 }
 
 /**
- * zen-core asks at the response of a load into a held tab's top document:
+ * The core asks at the response of a load into a held tab's top document:
  * would it make H a site that a window near H, which may hold the agent's
- * code, also shows? Then zen-core puts COOP on it, and H leaves the group
+ * code, also shows? Then the core puts COOP on it, and H leaves the group
  * as it loads. A sign-in popup returning to the agent's site is the case.
  *
  * @param {{id: number}|null} rec  the task's space record while it lives, else null
@@ -285,7 +285,7 @@ export function holdNeedsCoop(rec, browser, uri) {
 }
 
 /**
- * Was this document in the tab before its hold began, or before zen-core
+ * Was this document in the tab before its hold began, or before the core
  * reloaded it for a hold (holdReload)? True for every document of a tab
  * that's neither.
  *

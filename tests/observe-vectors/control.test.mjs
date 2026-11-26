@@ -52,7 +52,7 @@ async function until(fn, ms = 5000) {
 /**
  * The agent takes its Space back so it can finish it; then finish. A
  * takeOver waits until 10 s after the user's last real input in the task
- * (zen-core's wait, which zen-ux's detector feeds), and this test played
+ * (the core's wait, which the UI's detector feeds), and this test played
  * the user just before: age that input first.
  */
 async function finish(page) {
@@ -78,7 +78,7 @@ test("a predicate polling a password field during a takeover prompt never sees a
     waiting.catch(() => {});
     await until(async () => ((await worldValue(page, "window.__seen?.length ?? 0")) ?? 0) >= 3);
 
-    // The user opens the agent's Space and types in the field. zen-ux's
+    // The user opens the agent's Space and types in the field. The UI's
     // prompt pauses the agent at the first key, before the page sees it.
     await withPage(
       page,

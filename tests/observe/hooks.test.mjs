@@ -1,4 +1,4 @@
-// I4: zen-observe's observers that see the user's own browsing (every
+// I4: the observe layer's observers that see the user's own browsing (every
 // request, every blocked download, every new frame) run only while they
 // have something of the agent's to watch (observe/setup.sys.mjs, syncHooks):
 // from a task's first page to its last, and for the local-network refusal

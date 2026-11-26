@@ -1,4 +1,4 @@
-// feedback.* methods (zen-core): a problem report about zenius itself, which
+// feedback.* methods (the core): a problem report about zenius itself, which
 // the user reads in the sidebar's card and sends, copies, keeps working on
 // with the agent, or discards (modules/feedback.sys.mjs). The report holds
 // zenius's own data and the agent's one line, nothing from pages.

@@ -47,7 +47,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 ZHOME=${ZENIUS_HOME:-$HOME/.zenius}
 RECORD=$ZHOME/install.json
-# The agent's scripts installed beside the runtime (SPEC 8, zen-ux's): each
+# The agent's scripts installed beside the runtime (SPEC 8, the UI's): each
 # runtime/JS/<name>.uc.js, with its runtime/JS/<name>/ if it has one, when
 # the checkout has it. The profile may already hold a script of that name:
 # the install that first replaces it keeps it in that run's backup and notes
@@ -254,7 +254,7 @@ dns_line_present() {
 
 # user.js, which set_dns_pref is about to add its line to, goes into this
 # run's backup folder with the zenius files, so the output and install.json's
-# backup say everything the run backed up (zen-sdk's install rehearsal).
+# backup say everything the run backed up (the SDK's install rehearsal).
 backup_user_js() {
   if [[ -e $PROFILE/user.js ]] && ! dns_line_present; then
     backup "$PROFILE/user.js"
@@ -1063,7 +1063,7 @@ uninstall() {
   local working
   if working=$(wf_saved) && [[ -n $working && -d $working ]]; then kept+=", the working folder and its files ($working)"; fi
   # The user's chats with zenius's sidebar, its Work tasks and each tab's
-  # Chat: theirs, so Undo neither removes nor copies them (zen-sdk's runbook
+  # Chat: theirs, so Undo neither removes nor copies them (the SDK's runbook
   # lists them as staying).
   local chats="" file
   for file in agent-sidebar-tasks.json agent-sidebar-chats.json; do

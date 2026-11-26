@@ -1,20 +1,20 @@
 // The user closes a popup the task adopted: does the opener's world survive?
-// For zen-observe's tabClosing fix.
+// For the observe layer's tabClosing fix.
 //
 // discardLeftTab (observe/agentworld.sys.mjs) waits a main-thread turn after
 // a page leaves its task, then skips a tab that's closing: a closing tab
 // takes only its own worlds. On Gecko 160 its closing check never saw a
 // closing tab. The agent's close (pages.close) removes the tab at once, so
-// zen-observe's test, which closes that way, passed. The user's close
+// the observe layer's test, which closes that way, passed. The user's close
 // button animates (gBrowser.removeTab with animate, as the tab strip calls
 // it), so the tab may still be in the strip, closing, when the check runs,
 // and the popup's group lost its worlds, the opener's included.
 //
-// Each case is its own task. As in zen-observe's test, a listener of the
+// Each case is its own task. As in the observe layer's test, a listener of the
 // world opens the popup at the agent's click, and the popup joins the task.
 // - userClose, userCloseXS: the user shows the task's Space and clicks the
 //   popup tab's close button. A same-site and a cross-site popup.
-// - agentClose (control, zen-observe's 1107591 case): pages.close.
+// - agentClose (control, the observe layer's 1107591 case): pages.close.
 // - release (control): pages.release with group lets the popup and its
 //   opener go to the user, still open. Their worlds must end, so the skip
 //   is only for a closing tab.

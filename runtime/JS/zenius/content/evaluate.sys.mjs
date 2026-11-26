@@ -1,4 +1,4 @@
-// Main-world evaluation (zen-observe), run in the page's process.
+// Main-world evaluation (the observe layer), run in the page's process.
 // Portions adapted from citrolabs/ego-lite (MIT License).
 //
 // Debugger.executeInGlobal() runs source in the page's own global, as
@@ -60,7 +60,7 @@ function pageWorldForTests() {
 }
 
 /**
- * Tests only, for zen-sdk's corpus run both ways: the agent's code as
+ * Tests only, for the SDK's corpus run both ways: the agent's code as
  * written, without the world's loop counter (instrumentLoops). zenius never
  * sets this preference.
  */

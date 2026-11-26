@@ -46,7 +46,7 @@ export type SelfcheckResult = {
   ok?: unknown;
   timedOut?: unknown;
   callerLeft?: unknown;
-  /** A failure outside the checks, as zen-core's PROTOCOL section has it. */
+  /** A failure outside the checks, as the core's PROTOCOL section has it. */
   error?: unknown;
   /** How long the run waited for Zen to be in the background before it started, in ms. */
   waitedMs?: unknown;

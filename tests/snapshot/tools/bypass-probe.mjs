@@ -1,7 +1,7 @@
 // Bypass probes for two own-tab defences, written
 // before the defences landed:
-// - record: zen-observe's record, by site, of where the agent ran its
-//   code, and zen-ux's pill, which asks it about every frame. Can the
+// - record: the observe layer's record, by site, of where the agent ran its
+//   code, and the UI's pill, which asks it about every frame. Can the
 //   agent's code reach a document whose site the record lacks, and read
 //   what the user types there? Each probe prints, for the page the user
 //   types in:
@@ -10,7 +10,7 @@
 //   - what the pill says;
 //   - what the agent's code caught.
 // - storage: the refusal of serviceWorker.register and Cache put, add and
-//   addAll in agent tabs (zen-observe). Can any caller still register a
+//   addAll in agent tabs (the observe layer). Can any caller still register a
 //   service worker or write Cache Storage on the site's origin? Each vector
 //   prints what the page saw, and what the origin holds afterwards, as read
 //   from a tab of the user's.
@@ -71,7 +71,7 @@ async function userTypes(s, probe, { act = "" } = {}) {
   const got = caught.filter(c => c.probe === probe).map(c => c.v);
   await handBack(s).catch(e => step(probe, "hand back failed:", e.message));
   const at = seen.atTyping;
-  // The site warning, or the agent-made page's line (zen-ux).
+  // The site warning, or the agent-made page's line (the UI).
   const warned = /ran its own code|The agent made this page/.test(at?.pill?.note ?? "");
   let verdict = "nothing caught";
   if (got.length) {
