@@ -340,6 +340,18 @@ SCENARIOS = {
         ("tool", "read_page", {}),
         ("hold", "open", {"url": f"{WWW}/shop.html?shop=2"}),
     ],
+    # A script call, which the tests' plain CLI doesn't offer: the mock
+    # answers it itself once the test writes its result (run_gated).
+    "script": [
+        ("tool", "open", {"url": f"{WWW}/article.html", "task": "Script check"}),
+        ("gated", "script", {"purpose": 'Compare the "three" flights\' prices', "code": "return 1", "seconds": 60}, "gate-script"),
+        ("say", "Compared them."),
+    ],
+    # A script as the chat's first call, which starts its task.
+    "scriptfirst": [
+        ("gated", "script", {"purpose": "Open the shop", "code": "await zenius.task('Script started')", "seconds": 60}, "gate-script"),
+        ("say", "Opened the shop."),
+    ],
     "weather": [
         ("tool", "open", {"url": f"{WWW}/article.html", "task": "Weekend reading"}),
         ("tool", "read_page", {}),
@@ -508,6 +520,37 @@ def run_tool(session, name, args, hold=False, cut_name=None, bare=False, backgro
     return not failed
 
 
+def run_gated(session, name, args, gate):
+    """A zenius call the mock answers itself, as claude-agent-acp reports
+    one, for a tool the tests' plain CLI doesn't offer (script). It runs
+    until the test writes the file `gate` beside the log: {"blocks": [text,
+    ...], "failed": bool}, which it reads and removes. Then it ends with
+    those blocks, each a content item of its own and fenced when failed, as
+    claude-agent-acp sends an MCP result's. A cancel first ends it as
+    claude-agent-acp ends a cut call."""
+    tool_counter[0] += 1
+    call_id = f"toolu_{os.getpid()}_{tool_counter[0]}"
+    full = f"mcp__zenius__{name}"
+    update(session, {"sessionUpdate": "tool_call", "toolCallId": call_id, "name": full, "title": full,
+                     "kind": "other", "status": "pending", "rawInput": args, "content": [],
+                     "_meta": {"claudeCode": {"toolName": full}}})
+    tool_update(session, call_id, full, args, status="in_progress")
+    path = os.path.join(os.path.dirname(LOG), gate)
+    while not os.path.exists(path):
+        if session in cancelled:
+            tool_update(session, call_id, full, args, status="failed", **CANCELLED_CALL)
+            return False
+        time.sleep(0.1)
+    with open(path) as f:
+        result = json.load(f)
+    os.remove(path)
+    failed = bool(result.get("failed"))
+    content = [{"type": "content", "content": {"type": "text", "text": f"```\n{text}\n```" if failed else text}}
+               for text in result.get("blocks", [])]
+    tool_update(session, call_id, full, args, status="failed" if failed else "completed", content=content)
+    return not failed
+
+
 def run_cycle(session, call, steps):
     """Claude Code's own cycle: once a call it moved to the background ends
     in the server (`call`, its thread), its notification starts a model
@@ -547,6 +590,9 @@ def run_scenario(session, name):
         elif kind == "hold":
             run_tool(session, step[1], step[2], hold=True)
             return "cancelled"
+        elif kind == "gated":
+            if not run_gated(session, step[1], step[2], step[3]) and session in cancelled:
+                return "cancelled"
         elif kind == "ends":
             run_tool(session, step[1], step[2], ends=True)
             if session in cancelled:

@@ -1141,6 +1141,54 @@ body.busy .msg.user > .actions {
   overflow-wrap: anywhere;
 }
 
+/* A script's lines under its step (panel.js, scriptLines): its steps, drawn
+   as the directory's view draws a task's (.ext-step) without the time, the
+   newest under a row that opens to the earlier ones, then the files it
+   touched, records with no mark. Under the step's words. */
+.step .script-lines {
+  display: flex;
+  flex-direction: column;
+  margin-inline-start: 19px;
+}
+
+.step .script-line {
+  padding: 1px 0;
+}
+
+.step .script-earlier > summary,
+.step .script-gap,
+.step .script-file {
+  padding: 1px 0;
+  padding-inline-start: 19px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.step .script-earlier > summary {
+  display: block;
+}
+
+.step .script-earlier > summary::after {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-inline-start: 6px;
+  background: url("chrome://global/skin/icons/arrow-down-12.svg") center / contain no-repeat;
+  -moz-context-properties: fill;
+  fill: var(--faint);
+  vertical-align: 0;
+  transition: transform 0.12s;
+}
+
+.step .script-earlier[open] > summary::after {
+  transform: rotate(180deg);
+}
+
+.step .script-gap {
+  color: var(--faint);
+}
+
 .msg.error {
   color: var(--danger);
   white-space: pre-wrap;

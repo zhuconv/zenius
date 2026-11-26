@@ -175,6 +175,8 @@ const ZENIUS_SERVICE = "chrome://userscripts/content/zenius/modules/service.sys.
 const ZENIUS_UI = "chrome://userscripts/content/zenius/ui/index.sys.mjs";
 // zenius's tasks panel: its words for what a waiting task waits for (handOff).
 const ZENIUS_PANEL = "chrome://userscripts/content/zenius/ui/panel.sys.mjs";
+/** zen-input's steps (stepsOf, onStep, stopScript): a script's lines (SPI "Each task's steps"). */
+const STEPS_MODULE = "chrome://userscripts/content/zenius/input/steps.sys.mjs";
 // zenius's version, from its runtime: read as an agent starts, so the
 // sidebar's start loads no zenius module.
 const ZENIUS_UTIL = "chrome://userscripts/content/zenius/modules/util.sys.mjs";
@@ -1145,6 +1147,10 @@ const ZEN_STEPS = {
   hand_off: a => `Ask the user: ${quoted(a.message, 80)}`,
   finish: () => "Finish",
   evaluate: () => "Run code in the page",
+  // The purpose is the agent's words: quoted, its own quote marks turned
+  // into apostrophes, so it never reads as zenius's own step (as the server's).
+  script: a =>
+    typeof a.purpose === "string" && oneLine(a.purpose) ? `Run a script: ${quoted(a.purpose.replace(/"/g, "'"), 80)}` : "Run a script",
 };
 
 /**
@@ -1502,17 +1508,136 @@ function resultText(update) {
 }
 
 /**
- * The step a zenius result starts with: its first line, and the indented
- * lines under it (finish lists the tabs it kept there). `rest` is the
- * result's other text. claude-agent-acp fences an error's text.
+ * A tool result's text blocks, apart: claude-agent-acp's content items (each
+ * of an error's fenced), or codex-acp's MCP result's blocks. Both keep an MCP
+ * result's blocks apart, and the script tool sends its own text first, then
+ * the server's lines in a block of their own, which the script can't write.
  */
-function resultStep(text) {
+function resultBlocks(update) {
+  const blocks = [];
+  for (const item of update.content ?? []) {
+    if (item?.type === "content" && item.content?.type === "text") {
+      blocks.push(unfenced(item.content.text));
+    }
+  }
+  if (!blocks.length) {
+    const out = update.rawOutput;
+    const list = out?.result?.content ?? out?.content;
+    if (Array.isArray(list)) {
+      for (const block of list) {
+        if (block?.type === "text") {
+          blocks.push(unfenced(block.text));
+        }
+      }
+    }
+  }
+  return blocks;
+}
+
+/** Text without claude-agent-acp's fence around an error's block. */
+function unfenced(text) {
+  return String(text ?? "")
+    .replace(/^\s*```[^\n]*\n/, "")
+    .replace(/\n```\s*$/, "");
+}
+
+/** The server's lines on the files a script touched (sdk/src/mcp-script.ts, fileLines). */
+const SCRIPT_FILE_LINE = /^(?:Read|Listed|Wrote|Deleted|Uploaded) |^The working folder holds more than /;
+
+/**
+ * What the server's own block of a script's result says: the task the
+ * script started (its open line), and the files it touched, as far as the
+ * server saw. Only that block: the script's output could print the same
+ * words.
+ *
+ * @param {string} block
+ * @returns {{started: string|null, files: string[]}}
+ */
+export function scriptServerLines(block) {
+  const lines = String(block ?? "")
+    .split("\n")
+    .map(line => line.trim());
+  const started = lines.map(line => /^Started the task "(.+)"\.$/.exec(line)?.[1]).find(Boolean) ?? null;
+  const files = lines.filter(line => SCRIPT_FILE_LINE.test(line)).slice(0, 20);
+  return { started, files: files.map(line => oneLine(line, 300)) };
+}
+
+/**
+ * The chat's script call that waits for its runtime step: the oldest one
+ * running with none yet. The server runs a session's calls one at a time,
+ * in order, so the next script step of the chat's task is that call's.
+ */
+function scriptCallWaiting(conv) {
+  return (
+    conv.messages.find(
+      m => m.role === "tool" && m.zen === "script" && m.scriptStep == null && !["completed", "failed"].includes(m.status)
+    ) ?? null
+  );
+}
+
+/** How many of a script's lines its step keeps: the first ones, then the last ones, with a count of those between. */
+export const SCRIPT_LINES_FIRST = 10;
+export const SCRIPT_LINES_LAST = 40;
+
+/**
+ * A step of a script (zen-input's, with `within`) as a line under the
+ * script's step: the runtime's text, which SPI's rules on steps already
+ * keep to what a step may show, and its outcome, as the directory's view
+ * has them ("running", "ok", "stopped" or the error's code). A call refused
+ * because the user has the task shows as stopped: the user stopped it. A
+ * hand-off that went through reads as the hand_off tool's step does, with
+ * the agent's words from the task (the feed's message), quoted.
+ *
+ * @param {{id: number, method: string, text: string, outcome: string}} step
+ * @param {string|null} [handOff]  the task's message once the hand-off ended
+ * @returns {{id: number, text: string, outcome: string}}
+ */
+export function scriptLine(step, handOff = null) {
+  const outcome = step.outcome === "ZEN_TASK_SPACE_USER_IN_CONTROL" ? "stopped" : oneLine(step.outcome || "failed", 60);
+  const text =
+    step.method === "spaces.handOff" && step.outcome === "ok" && handOff
+      ? `Ask the user: ${quoted(handOff.replace(/["\u201C\u201D]/g, "'"), 80)}`
+      : oneLine(step.text, 300);
+  return { id: step.id, text, outcome };
+}
+
+/**
+ * A line into a script's record (`{lines, moreLines}`): a step that began is
+ * added, one that ended updates its line. Past the cap, the oldest of the
+ * last ones goes, counted in moreLines: the first SCRIPT_LINES_FIRST stay.
+ * An end whose begin isn't kept (it went, or came before the sidebar
+ * listened) adds nothing.
+ */
+export function addScriptLine(record, line) {
+  const at = record.lines.findIndex(l => l.id === line.id);
+  if (at >= 0) {
+    record.lines[at] = line;
+    return;
+  }
+  if (line.outcome !== "running") {
+    return;
+  }
+  if (record.lines.length >= SCRIPT_LINES_FIRST + SCRIPT_LINES_LAST) {
+    record.lines.splice(SCRIPT_LINES_FIRST, 1);
+    record.moreLines += 1;
+  }
+  record.lines.push(line);
+}
+
+/**
+ * The step a zenius result starts with: its first line, and with `under`,
+ * the indented lines under it (finish lists the tabs it kept there). `rest`
+ * is the result's other text. claude-agent-acp fences an error's text.
+ * Only finish's result has such lines: another's text after its step line
+ * can be a page's or a script's output, which mustn't pass for the step's.
+ */
+function resultStep(text, { under = false } = {}) {
   const lines = String(text)
     .replace(/^\s*```[^\n]*\n/, "")
     .replace(/\n```\s*$/, "")
     .split("\n");
   const step = [lines[0]];
-  for (const line of lines.slice(1)) {
+  for (const line of under ? lines.slice(1) : []) {
     if (!/^ {2}\S/.test(line)) {
       break;
     }
@@ -1582,6 +1707,7 @@ function describeTool(tool) {
   const zen = zeniusCall(tool);
   tool.zen = zen?.tool ?? null;
   tool.args = zen ? zen.args : null;
+  tool.userStopped = false;
   if (zen) {
     const build = ZEN_STEPS[zen.tool];
     const provisional = build ? build(zen.args) : oneLine(zen.tool.replace(/_/g, " "));
@@ -1601,7 +1727,7 @@ function describeTool(tool) {
         .trim();
       return;
     }
-    const { step, rest } = resultStep(tool.result);
+    const { step, rest } = resultStep(tool.result, { under: zen.tool === "finish" });
     const [first, ...under] = step.split("\n");
     const failed = /\sfailed\.$/.test(first);
     // codex-acp reports a result the server marked isError as completed.
@@ -1621,6 +1747,10 @@ function describeTool(tool) {
     }
     tool.step = [failed ? first.replace(/\sfailed\.$/, "") : first, ...under].join("\n");
     tool.detail = failed ? rest : "";
+    // Refused because the user has the task (their Take over, a hand-off, a
+    // browser prompt): the user stopped it, so it shows as stopped, and its
+    // fold keeps the server's words on what the agent does next.
+    tool.userStopped = failed && /^ZEN_TASK_SPACE_USER_IN_CONTROL\b/.test(rest.trim());
     return;
   }
   const input = objectOr(tool.rawInput);
@@ -1656,10 +1786,19 @@ function describeTool(tool) {
  * text, not the name the agent asked for.
  */
 function startedTask(tool) {
-  if (tool.zen !== "open" || tool.status !== "completed" || !tool.result) {
+  if (!tool.result) {
     return null;
   }
-  const said = /^Started the task "(.+?)"\. Opened /.exec(resultStep(tool.result).rest)?.[1];
+  let said;
+  if (tool.zen === "open" && tool.status === "completed") {
+    said = /^Started the task "(.+?)"\. Opened /.exec(resultStep(tool.result).rest)?.[1];
+  } else if (tool.zen === "script") {
+    // From the server's own block (scriptServerLines), failed or not: the
+    // task stays started.
+    said = tool.started;
+  } else {
+    return null;
+  }
   if (!said) {
     return null;
   }
@@ -2353,6 +2492,16 @@ function serializeMessage(m) {
               : null,
         rawTitle: "",
         detail: "",
+        userStopped: !!m.userStopped,
+        // A script's lines and files, never its code: a line still running
+        // when the chat saves shows as stopped if it never ends.
+        ...(m.zen === "script"
+          ? {
+              lines: (m.lines ?? []).map(l => ({ text: l.text, outcome: l.outcome === "running" ? "stopped" : l.outcome })),
+              moreLines: m.moreLines ?? 0,
+              files: m.files ?? [],
+            }
+          : {}),
       };
     case "permission":
       return { role: "permission", title: m.title, options: m.options, answer: m.answer ?? "cancelled" };
@@ -2684,6 +2833,13 @@ export const AgentService = {
   taskListeners: new Set(),
   taskTimers: new Map(), // conv -> the timer of its batched notice to taskListeners
   ownWorkTimers: new Map(), // conv -> the timer that ends its agent's own work (settleOwnWork)
+  // The chats' scripts, by the runtime's script step id: {id, space, conv,
+  // tool, lines, moreLines, ended} (onScriptStep). One that ended stays until
+  // the next script begins, for its lines' own ends (sweepScripts).
+  scripts: new Map(),
+  /** zen-input's steps module, null without it; tests set a stand-in (stepsModule). */
+  steps: undefined,
+  offSteps: null,
   saveTasksTimer: null,
   zeniusService: undefined, // the zenius runtime's service: undefined until looked for, null if absent
   zeniusUnsubscribe: null,
@@ -3993,6 +4149,9 @@ export const AgentService = {
     const service = this.zeniusService?.startedAt ? this.zeniusService : null;
     if (service && !this.zeniusUnsubscribe) {
       this.zeniusUnsubscribe = service.addEventListener((event, params) => this.onZenEvent(event, params));
+      // A script's steps from the start: its step may begin before the
+      // agent's call reaches the chat.
+      void this.stepsModule;
       // What zenius said before the sidebar listened is lost: each task's
       // state goes to zenius again (noteZen), after the call that got here.
       setTimeout(() => {
@@ -4433,6 +4592,154 @@ export const AgentService = {
     conv.laterNotes = null;
     for (const text of notes ?? []) {
       conv.push({ role: "note", text });
+    }
+  },
+
+  // --- A script's lines (section 7 of the script tool's design) ----------------------
+
+  get stepsModule() {
+    if (this.steps === undefined) {
+      try {
+        this.steps = ChromeUtils.importESModule(STEPS_MODULE);
+      } catch {
+        this.steps = null;
+      }
+      this.listenToSteps();
+    }
+    return this.steps;
+  },
+
+  /** A stand-in for zen-input's module (tests); null restores the real one. */
+  set stepsModule(module) {
+    this.offSteps?.();
+    this.offSteps = null;
+    this.steps = module ?? undefined;
+    if (module) {
+      this.listenToSteps();
+    } else {
+      void this.stepsModule;
+    }
+  },
+
+  listenToSteps() {
+    try {
+      const off = this.steps?.onStep?.(event => this.onScriptStep(event));
+      this.offSteps = typeof off === "function" ? off : null;
+    } catch (e) {
+      debug("onStep failed:", e.message);
+    }
+  },
+
+  /**
+   * A step began or ended (zen-input's onStep). A script step in a chat's
+   * task is that chat's running script call's; each step that carries its
+   * id (`within`) is a line under the call, live, kept on the call's message.
+   * Other tasks' steps, a terminal agent's script's say, are left alone.
+   */
+  onScriptStep({ space, step } = {}) {
+    if (!step || !Number.isSafeInteger(space)) {
+      return;
+    }
+    if (step.method === "script") {
+      let record = this.scripts.get(step.id);
+      if (!record && step.outcome === "running") {
+        // The chat's own task, or one its script started, which the
+        // sidebar knows as the chat's from the feed's source.sidebar.
+        let source = null;
+        try {
+          source = this.zenius()?.spaces?.peek?.(space)?.source ?? null;
+        } catch {}
+        const conv = this.chatOfSpace(space, source);
+        if (!conv) {
+          return;
+        }
+        this.sweepScripts();
+        record = { id: step.id, space, conv, tool: null, lines: [], moreLines: 0, ended: false };
+        this.scripts.set(step.id, record);
+        const tool = scriptCallWaiting(conv);
+        if (tool) {
+          this.linkScript(record, tool);
+        }
+      }
+      // Its calls' ends may come after its own: a closed connection ends
+      // them as stopped.
+      if (record && step.outcome !== "running") {
+        this.endScriptRecord(record);
+      }
+      return;
+    }
+    const record = step.within === undefined || step.within === null ? null : this.scripts.get(step.within);
+    // The runtime gives `within` only to a step in the script's own task.
+    if (!record || record.space !== space) {
+      return;
+    }
+    let handOff = null;
+    if (step.method === "spaces.handOff" && step.outcome === "ok") {
+      try {
+        handOff = this.zenius()?.spaces?.peek?.(space)?.stateText || null;
+      } catch {}
+    }
+    addScriptLine(record, scriptLine(step, handOff));
+    if (record.tool) {
+      record.tool.lines = record.lines;
+      record.tool.moreLines = record.moreLines;
+      record.conv.touch(record.tool);
+    }
+  },
+
+  /**
+   * Forget the scripts that ended, and those whose step no longer runs in
+   * its task's ring: one that fell out of it while it ran never reports its
+   * end (steps.sys.mjs keeps a task's last 50 steps).
+   */
+  sweepScripts() {
+    for (const [id, record] of this.scripts) {
+      let running = false;
+      try {
+        running = !record.ended && (this.stepsModule?.stepsOf?.(record.space)?.some(s => s.id === id && s.outcome === "running") ?? false);
+      } catch {}
+      if (!running) {
+        this.endScriptRecord(record);
+        this.scripts.delete(id);
+      }
+    }
+  },
+
+  /** The runtime's script step and the chat's call it runs for. */
+  linkScript(record, tool) {
+    record.tool = tool;
+    tool.scriptStep = record.id;
+    tool.lines = record.lines;
+    tool.moreLines = record.moreLines;
+    // While it runs, a line still running is under way (the panel), even
+    // after a call Claude Code moved to the background ended for the chat.
+    tool.scriptRunning = !record.ended;
+    record.conv.touch(tool);
+  },
+
+  /** A script's step ended: a line of it still running has stopped, unless its own end comes. */
+  endScriptRecord(record) {
+    record.ended = true;
+    if (record.tool?.scriptRunning) {
+      record.tool.scriptRunning = false;
+      record.conv.touch(record.tool);
+    }
+  },
+
+  /**
+   * The user's Stop: each running script of the chat stops in the runtime
+   * (stopScript closes its connection), whatever the agent's client does
+   * with the call.
+   */
+  stopScripts(conv) {
+    for (const record of this.scripts.values()) {
+      if (record.conv === conv && !record.ended) {
+        try {
+          this.stepsModule?.stopScript?.(record.id);
+        } catch (e) {
+          debug("stopScript failed:", e.message);
+        }
+      }
     }
   },
 
@@ -6027,6 +6334,7 @@ export const AgentService = {
     remoteStoppedByUser(conv);
     // Nothing waiting goes out after a Stop: it goes back into the box.
     const back = this.queueToDraft(conv);
+    this.stopScripts(conv);
     if (!conv.busy) {
       // The agent's own work, and a call Claude Code moved, keep the session
       // no longer: the callers close it next (archiveTask, reset), and that
@@ -6435,6 +6743,27 @@ export const AgentService = {
     // An ask's tool call (onAsk): the card stands for it.
     tool.hidden = !!tool.forAsk || isHiddenTool(tool);
     describeTool(tool);
+    if (tool.zen === "script") {
+      const blocks = resultBlocks(update);
+      if (blocks.length) {
+        // The server's own block, apart from the script's text: the task the
+        // script started and the files it touched. A result in one block
+        // says neither, so the script's output can't pass for them.
+        const server = blocks.length > 1 ? scriptServerLines(blocks.at(-1)) : { started: null, files: [] };
+        tool.started = server.started;
+        tool.files = server.files;
+        // The server's failure or stop says why in the script's block, then
+        // the script's output, which is for the agent ("Its output before
+        // that:"); its own lines show as file lines.
+        const [first, ...why] = blocks[0].split("\n");
+        tool.scriptWhy = /\s(?:failed|stopped)\.$/.test(first) ? why.join("\n").split("\nIts output before that:\n")[0].trim() : null;
+      }
+      // The fold says only why, at every update: describeTool folds the
+      // whole result again.
+      if (tool.detail && typeof tool.scriptWhy === "string") {
+        tool.detail = tool.scriptWhy;
+      }
+    }
     if (tool.moved && !tool.movedAt) {
       // Claude Code moved the call to the background, where it goes on: its
       // session stays in use until the call's result comes back as the
@@ -6454,6 +6783,13 @@ export const AgentService = {
       // Once per call: its later updates change nothing here.
       tool.linkTried = true;
       this.linkZen(conv, this.startedRecord(tool, said));
+    }
+    // The runtime's script step may have begun first (onScriptStep).
+    if (tool.zen === "script" && scriptCallWaiting(conv) === tool) {
+      const record = [...this.scripts.values()].find(r => r.conv === conv && !r.tool && !r.ended);
+      if (record) {
+        this.linkScript(record, tool);
+      }
     }
     this.refreshTask(conv);
   },

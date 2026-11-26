@@ -14,7 +14,7 @@ import { imageFromClipboard, kindOf, readAttachment, Refused } from "./attachmen
 import { copyText, extensionFor, fileName, saveText } from "./saving.mjs";
 import { mountFeedback } from "./feedback.mjs";
 
-const { AgentService, editLossText, isCredentialAsk, MODEL_OPTION, EFFORT_OPTIONS, optionValues, concreteModel, modelGeneration, newestModels, STATE_LABELS, age, ago, remoteSource, remoteEnd, taskName } = ChromeUtils.importESModule(
+const { AgentService, editLossText, isCredentialAsk, MODEL_OPTION, EFFORT_OPTIONS, optionValues, concreteModel, modelGeneration, newestModels, STATE_LABELS, age, ago, remoteSource, remoteEnd, taskName, SCRIPT_LINES_FIRST } = ChromeUtils.importESModule(
   new URL("AgentService.sys.mjs", import.meta.url).href
 );
 const { ENDED_TEXT, sourceParts } = ChromeUtils.importESModule(new URL("external.sys.mjs", import.meta.url).href);
@@ -322,14 +322,17 @@ function clockTime(at) {
 }
 
 /** A step's row: its text, its page when the task has more than one, its
- * outcome, its time. `prev` is the step before it: the look shows a page
- * where it changes (data-same-page). A call its client canceled, or whose
- * connection closed, ended without acting: the runtime's "stopped", shown
- * as the sidebar's own stopped steps are, not as a failure. */
-function stepRow(step, withPage, prev = null) {
+ * outcome, its time (unless `time` is false: a script's line). `prev` is the
+ * step before it: the look shows a page where it changes (data-same-page).
+ * A call its client canceled, or whose connection closed, ended without
+ * acting: the runtime's "stopped", shown as the sidebar's own stopped steps
+ * are, not as a failure. */
+function stepRow(step, withPage, prev = null, { time = true } = {}) {
   const outcome = ["running", "ok", "stopped"].includes(step.outcome) ? step.outcome : "failed";
   const row = div("ext-step");
-  row.dataset.step = String(step.id);
+  if (Number.isSafeInteger(step.id)) {
+    row.dataset.step = String(step.id);
+  }
   row.dataset.outcome = outcome;
   const text = span("ext-text");
   fillStepText(text, plainText(step.text, 300));
@@ -340,7 +343,10 @@ function stepRow(step, withPage, prev = null) {
       row.dataset.samePage = "true";
     }
   }
-  row.append(span("ext-outcome", outcome === "failed" ? plainText(String(step.outcome ?? ""), 60) : ""), span("ext-time", clockTime(step.at)));
+  row.append(span("ext-outcome", outcome === "failed" ? plainText(String(step.outcome ?? ""), 60) : ""));
+  if (time) {
+    row.append(span("ext-time", clockTime(step.at)));
+  }
   return row;
 }
 
@@ -779,6 +785,11 @@ function stepStatus(message) {
     return message.zen === "wait" && message.args?.user && AgentService.isHeld(conv) ? "waiting" : "done";
   }
   if (message.status === "failed") {
+    // Refused because the user has the task (their Take over, a hand-off, a
+    // browser prompt): they stopped it (AgentService's userStopped).
+    if (message.userStopped) {
+      return "stopped";
+    }
     // Cut short when the user stopped the agent, or by their message or the
     // session's end (Claude Code's words, cutShort): not a failure of the step.
     return message.cut && (conv?.stopped || message.cutShort) ? "stopped" : "failed";
@@ -804,9 +815,12 @@ function fillStep(el, message) {
   const [first, ...more] = String(message.step || message.title || "Tool").split("\n");
   const line = [span("mark"), span("label", first)];
   const sub = more.map(text => div("sub", text.trim()));
+  const earlierOpen = !!el.querySelector(":scope > .script-lines > .script-earlier")?.open;
   // A step the user stopped folds nothing: the agent's note on the stop
-  // ("The user doesn't want to proceed…") is for the agent.
-  if (message.detail && el.dataset.status !== "stopped") {
+  // ("The user doesn't want to proceed…") is for the agent. One refused
+  // because the user has the task keeps the server's words on what the
+  // agent does next.
+  if (message.detail && (el.dataset.status !== "stopped" || message.userStopped)) {
     const wasOpen = !!el.querySelector(":scope > details")?.open;
     const details = document.createElement("details");
     const summary = document.createElement("summary");
@@ -820,7 +834,58 @@ function fillStep(el, message) {
     el.replaceChildren(div("line"), ...sub);
     el.firstChild.append(...line);
   }
+  if (message.zen === "script") {
+    const box = scriptLines(message, message.scriptRunning || el.dataset.status === "running", earlierOpen);
+    if (box) {
+      el.append(box);
+    }
+  }
   el.title = message.step?.includes("\n") ? message.step : "";
+}
+
+/** How many of a script's lines show under its step: the newest. */
+const SCRIPT_LINES_SHOWN = 12;
+
+/**
+ * A script's lines under its step (AgentService's onScriptStep): each a step
+ * of the script, as the directory's view draws a task's steps (stepRow, each
+ * quoted name in its own isolate), without the time. The newest
+ * SCRIPT_LINES_SHOWN show, under one row that opens to the earlier ones, so
+ * a long script stays a short block with its newest line in view. Where the
+ * chat kept only the first and the last ones, a row counts those between.
+ * Then the files the script touched, as the server listed them: records,
+ * with no mark. A line still running once the script isn't (`live`) stopped
+ * with it.
+ */
+function scriptLines(message, live, earlierOpen) {
+  const lines = Array.isArray(message.lines) ? message.lines : [];
+  const files = Array.isArray(message.files) ? message.files : [];
+  if (!lines.length && !files.length) {
+    return null;
+  }
+  const rows = lines.map(line => {
+    const row = stepRow(line.outcome === "running" && !live ? { ...line, outcome: "stopped" } : line, false, null, { time: false });
+    row.classList.add("script-line");
+    return row;
+  });
+  const between = Math.max(0, Math.floor(Number(message.moreLines) || 0));
+  if (between) {
+    rows.splice(Math.min(SCRIPT_LINES_FIRST, rows.length), 0, div("script-gap", `${between} more ${between === 1 ? "step" : "steps"}`));
+  }
+  const box = div("script-lines");
+  const hidden = rows.length > SCRIPT_LINES_SHOWN ? rows.splice(0, rows.length - SCRIPT_LINES_SHOWN) : [];
+  if (hidden.length) {
+    const count = hidden.filter(row => row.classList.contains("script-line")).length + (hidden.some(row => row.classList.contains("script-gap")) ? between : 0);
+    const earlier = document.createElement("details");
+    earlier.className = "script-earlier";
+    const summary = document.createElement("summary");
+    summary.textContent = `${count} earlier ${count === 1 ? "step" : "steps"}`;
+    earlier.append(summary, ...hidden);
+    earlier.open = earlierOpen;
+    box.append(earlier);
+  }
+  box.append(...rows, ...files.map(text => div("script-file", plainText(text, 300))));
+  return box;
 }
 
 // --- The agent's wait for its first words --------------------------------------

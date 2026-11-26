@@ -289,6 +289,42 @@ stable, and a change to one is announced to zen-eval first.
     done, except a wait for the user, which shows as waiting while the task
     is the user's. Its result comes back later as the agent's own work
     (below), and its session stays in use meanwhile (Sessions, under State).
+  - **A script** (zenius's `script` tool, where the server offers it) is
+    one step: `Run a script: "<purpose>"`, the agent's words, quoted with
+    their own quote marks turned into apostrophes, from the call's
+    arguments until the result's first line says the same. The chat never
+    shows or saves its code. The result's text after that line is the
+    script's output, for the agent: only finish's indented lines are ever
+    lines of a step.
+    - **Its lines** are the runtime's steps of that script, as they happen.
+      AgentService listens to zen-input's `onStep`. The script step that
+      begins in the chat's task, or in a task whose `source.sidebar` is the
+      chat's when the script starts one, is the chat's oldest running
+      script call's (the server runs a session's calls in order), and each
+      step `within` it is a line under the call. They're drawn as the
+      directory's view draws a task's steps, each quoted name in its own
+      isolate, without the time.
+    - The newest 12 show, under one row, "N earlier steps", that opens to
+      the rest. The chat keeps the first 10 and the last 40, with a row
+      counting those between ("15 more steps"), and saves them with the
+      step. A line still running once its script isn't reads stopped.
+    - A hand-off's line reads as the hand_off step does, `Ask the user:
+      "<message>"`, with the task's message once it went through. A call
+      refused because the user has the task
+      (ZEN_TASK_SPACE_USER_IN_CONTROL) shows as stopped, line and step,
+      and the step folds the server's words on what the agent does next. A
+      one-step call refused that way shows as stopped too.
+    - A failure folds why, never the script's output ("Its output before
+      that:").
+    - **Its files** come at its end, from the result's second block, the
+      server's own, which the script can't write: `Read ...`, `Listed
+      ...`, `Wrote ...`, `Deleted ...`, `Uploaded ... to <origin>`, as
+      records with no mark. A result in one block names none. The task a
+      script started links the chat from that block's `Started the task
+      "..."` line, as open's result does.
+    - **The user's Stop** stops each running script of the chat in the
+      runtime (zen-input's `stopScript`, with its step's id), whatever the
+      agent's client does with the call.
 - **The agent's own work**: updates that come while no turn of the
   sidebar's is open show in the chat as they come, as a turn's do. Claude
   Code sends them when a call it moved to the background ends: its

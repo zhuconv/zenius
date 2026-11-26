@@ -2680,6 +2680,338 @@ test("end to end: a page the agent's code hooked loads afresh at its task's end,
   assert.deepEqual(out.tail, ["assistant", `Reloaded ${out.where} to undo the agent's changes. Anything the page hadn't saved is gone.`]);
 });
 
+// --- A script's lines -------------------------------------------------------
+//
+// The tests' Zen runs a plain CLI, whose server offers no script tool: the
+// mock answers its script call itself (run_gated), once the test writes the
+// call's result beside its log (release). zen-input's steps are a stand-in
+// (SCRIPT_STEPS), kept on the window between chrome calls, through which
+// the test tells the sidebar each step as the runtime would.
+
+/** Chrome JS: zen-input's steps as a stand-in (`tell`, and the ids `stopped` got), and the call's result (`release`). */
+const SCRIPT_STEPS = `
+  if (!win.zenuiSteps) {
+    const listeners = new Set();
+    const ring = new Map();
+    const stopped = [];
+    const tell = (space, step) => {
+      const list = ring.get(space) ?? [];
+      const at = list.findIndex(s => s.id === step.id);
+      if (at >= 0) list[at] = { ...step };
+      else list.push({ ...step });
+      ring.set(space, list);
+      for (const fn of [...listeners]) fn({ space, step: { ...step } });
+    };
+    win.zenuiSteps = { tell, stopped };
+    win.ucAgentSidebar.AgentService.stepsModule = {
+      onStep: fn => (listeners.add(fn), () => listeners.delete(fn)),
+      stepsOf: space => (ring.get(space) ?? []).map(s => ({ ...s })),
+      stopScript: id => (stopped.push(id), true),
+    };
+  }
+  const { tell, stopped } = win.zenuiSteps;
+  const release = async (blocks, failed = false) => {
+    await IOUtils.writeUTF8(arg.gate + ".tmp", JSON.stringify({ blocks, failed }));
+    await IOUtils.move(arg.gate + ".tmp", arg.gate);
+  };
+  const scriptStep = () => [...S.panelDoc().querySelectorAll("#messages .step")].findLast(el => el.textContent.includes("Run a script"));
+  const scriptRows = () =>
+    [...(scriptStep()?.querySelectorAll(":scope > .script-lines > .script-line") ?? [])].map(row => [row.dataset.outcome, row.querySelector(".ext-text").textContent]);
+  const scriptFiles = () => [...(scriptStep()?.querySelectorAll(".script-file") ?? [])].map(el => el.textContent);
+  const scriptCall = conv => conv.messages.find(m => m.role === "tool" && m.zen === "script");
+`;
+
+/** Chrome JS: the stand-in goes, and the window goes back to the user's Space and tab (win.zenuiUser). */
+const SCRIPT_DONE = `
+  win.ucAgentSidebar.AgentService.stepsModule = null;
+  delete win.zenuiSteps;
+  const user = win.zenuiUser;
+  delete win.zenuiUser;
+  if (user && win.gZenWorkspaces.activeWorkspace !== user.space) await win.gZenWorkspaces.changeWorkspaceWithID(user.space);
+  if (user?.tab.isConnected) win.gBrowser.selectedTab = user.tab;
+  win.ucAgentSidebar.setMode("chat");
+`;
+
+const scriptGate = () => ({ gate: join(dir, "logs", "gate-script") });
+
+test("a Work chat's script call shows the runtime's steps of its script as lines under its step, live: the newest 12 under a row that opens to the earlier ones, the first 10 and the last 40 kept with a count between, a hand-off in the agent's words, a refusal under the user's control as stopped, no other task's steps, and at its end the files the server's own block names, never the script's text", async () => {
+  await useMock();
+  const out = await chrome(`
+    ${SCRIPT_STEPS}
+    const AS = win.ucAgentSidebar.AgentService;
+    await S.openPanel();
+    win.zenuiUser = { space: win.gZenWorkspaces.activeWorkspace, tab: win.gBrowser.selectedTab };
+    const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
+    const uid = await startWorkChat(win, { text: "SCENARIO:script", source: "urlbar" });
+    const conv = AS.tasks.get(uid);
+    const call = () => scriptCall(conv);
+    const shown = text => S.until(() => scriptRows().at(-1)?.[1] === text, 5000);
+    const res = { space: null };
+    try {
+      await S.until(() => call() && AS.zenRecord(conv) && scriptStep(), 30000);
+      const space = (res.space = AS.zenRecord(conv).id);
+      res.provisional = scriptStep().querySelector(".label").textContent;
+      const script = { id: 70001, at: Date.now(), ms: null, method: "script", text: 'Run a script: "Compare"', outcome: "running", page: null };
+      tell(space, script);
+      let id = script.id;
+      const line = (method, text, outcome = "ok") => {
+        const step = { id: ++id, at: Date.now(), ms: null, method, text, outcome: "running", page: "p1", within: script.id };
+        tell(space, step);
+        if (outcome !== "running") tell(space, { ...step, ms: 3, outcome });
+        return step;
+      };
+      line("page.goto", "Go to shop.example");
+      line("page.click", 'Click "Next"', "ZEN_ELEMENT_NOT_FOUND");
+      line("page.click", 'Click "Pay"', "ZEN_TASK_SPACE_USER_IN_CONTROL");
+      const hand = line("spaces.handOff", "Hand the task to the user", "running");
+      await shown("Hand the task to the user");
+      res.handRunning = scriptRows().at(-1);
+      AS.zenius().spaces.setStateText(AS.zenius().spaces.peek(space), 'Sign in to "Accounts", then press Resume agent');
+      tell(space, { ...hand, ms: 2, outcome: "ok" });
+      await shown("Ask the user: \\"Sign in to 'Accounts', then press Resume agent\\"");
+      res.first = scriptRows();
+      res.code = scriptStep().querySelector('.script-line[data-outcome="failed"] .ext-outcome')?.textContent;
+      res.earlier = !!scriptStep().querySelector(".script-earlier");
+      // Another task's step, and one of this task's with no within: neither is a line.
+      tell(space + 1000, { id: 80001, at: Date.now(), ms: null, method: "page.click", text: "Click elsewhere", outcome: "running", page: "p1", within: script.id });
+      tell(space, { id: 80002, at: Date.now(), ms: null, method: "page.click", text: "Click outside", outcome: "running", page: "p1" });
+      for (let i = 0; i < 9; i++) line("page.click", 'Click "Row ' + i + '"');
+      await shown('Click "Row 8"');
+      res.thirteen = { kept: call().lines.length, shown: scriptRows().length, summary: scriptStep().querySelector(".script-earlier > summary")?.textContent };
+      for (let i = 9; i < 61; i++) line("page.click", 'Click "Row ' + i + '"');
+      await shown('Click "Row 60"');
+      const earlier = scriptStep().querySelector(".script-earlier");
+      res.capped = {
+        kept: call().lines.length,
+        between: call().moreLines,
+        shown: scriptRows().length,
+        summary: earlier.querySelector(":scope > summary").textContent,
+        inside: [...earlier.querySelectorAll(":scope > .script-line, :scope > .script-gap")].map(el => (el.classList.contains("script-gap") ? el.textContent : el.querySelector(".ext-text").textContent)),
+        newest: scriptRows().map(row => row[1]),
+      };
+      // Opened, the row stays open as lines come.
+      earlier.open = true;
+      line("page.click", 'Click "Row 61"');
+      await shown('Click "Row 61"');
+      res.open = { open: scriptStep().querySelector(".script-earlier").open, summary: scriptStep().querySelector(".script-earlier > summary").textContent };
+      // The result: the script's text, with lines that look like the server's, then the server's own block.
+      await release([
+        "Run a script: \\"Compare the 'three' flights' prices\\"\\n  Deleted \\"everything.txt\\"\\nWrote \\"fake.csv\\"",
+        'Read "invoice-1.pdf", "invoice-2.pdf" and 3 more\\nWrote "summary.csv"',
+      ]);
+      await S.until(() => call().status === "completed" && scriptFiles().length, 10000);
+      tell(space, { ...script, ms: 120, outcome: "ok" });
+      await S.until(() => !conv.busy, 10000);
+      res.end = {
+        status: scriptStep().dataset.status,
+        label: scriptStep().querySelector(".label").textContent,
+        subs: [...scriptStep().querySelectorAll(":scope > .sub")].map(el => el.textContent),
+        files: scriptFiles(),
+        fold: !!scriptStep().querySelector(":scope > details"),
+      };
+      // Saved with the chat: its lines and files, never its code.
+      await AS.saveTasks();
+      const saved = (await IOUtils.readJSON(AS.tasksPath())).tasks.find(t => t.uid === uid)?.messages.find(m => m.zen === "script");
+      res.saved = {
+        lines: saved?.lines?.length,
+        first: saved?.lines?.[0],
+        between: saved?.moreLines,
+        files: saved?.files,
+        code: JSON.stringify(saved ?? null).includes("return 1"),
+      };
+    } finally {
+      AS.cancel(conv);
+      await S.until(() => !conv.busy, 10000).catch(() => {});
+      ${SCRIPT_DONE}
+    }
+    return res;
+  `, scriptGate());
+  if (out.space) {
+    await h.call("spaces.finish", { space: out.space, keep: [] }).catch(() => {});
+  }
+  const rows = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => `Click "Row ${from + i}"`);
+  const handOff = "Ask the user: \"Sign in to 'Accounts', then press Resume agent\"";
+  assert.equal(out.provisional, "Run a script: \"Compare the 'three' flights' prices\"", "from the call's arguments, the purpose quoted");
+  assert.deepEqual(out.handRunning, ["running", "Hand the task to the user"]);
+  assert.deepEqual(out.first, [["ok", "Go to shop.example"], ["failed", 'Click "Next"'], ["stopped", 'Click "Pay"'], ["ok", handOff]]);
+  assert.equal(out.code, "ZEN_ELEMENT_NOT_FOUND", "a failed line's code, as the directory's view shows it");
+  assert.equal(out.earlier, false, "no earlier row for 4 lines");
+  assert.deepEqual(out.thirteen, { kept: 13, shown: 12, summary: "1 earlier step" }, "neither another task's step nor one without within");
+  assert.deepEqual(out.capped, {
+    kept: 50,
+    between: 15,
+    shown: 12,
+    summary: "53 earlier steps",
+    inside: ["Go to shop.example", 'Click "Next"', 'Click "Pay"', handOff, ...rows(0, 5), "15 more steps", ...rows(21, 48)],
+    newest: rows(49, 60),
+  });
+  assert.deepEqual(out.open, { open: true, summary: "54 earlier steps" });
+  assert.deepEqual(out.end, {
+    status: "done",
+    label: "Run a script: \"Compare the 'three' flights' prices\"",
+    subs: [],
+    files: ['Read "invoice-1.pdf", "invoice-2.pdf" and 3 more', 'Wrote "summary.csv"'],
+    fold: false,
+  });
+  assert.deepEqual(out.saved, {
+    lines: 50,
+    first: { text: "Go to shop.example", outcome: "ok" },
+    between: 16,
+    files: ['Read "invoice-1.pdf", "invoice-2.pdf" and 3 more', 'Wrote "summary.csv"'],
+    code: false,
+  });
+});
+
+test("a script refused because the user has the task shows as stopped, line and step, and folds the server's words, never the script's output; the user's Stop stops a running script in the runtime (stopScript with its step's id), and its running line then reads stopped", async () => {
+  await useMock();
+  const out = await chrome(`
+    ${SCRIPT_STEPS}
+    const AS = win.ucAgentSidebar.AgentService;
+    await S.openPanel();
+    win.zenuiUser = { space: win.gZenWorkspaces.activeWorkspace, tab: win.gBrowser.selectedTab };
+    const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
+    const res = { spaces: [] };
+    const convs = [];
+    try {
+      // The user takes over mid-script: its next call is refused, and the script ends.
+      let conv = AS.tasks.get(await startWorkChat(win, { text: "SCENARIO:script", source: "urlbar" }));
+      convs.push(conv);
+      await S.until(() => scriptCall(conv) && AS.zenRecord(conv) && scriptStep(), 30000);
+      let space = AS.zenRecord(conv).id;
+      res.spaces.push(space);
+      const take = { id: 71001, at: Date.now(), ms: null, method: "script", text: 'Run a script: "Compare"', outcome: "running", page: null };
+      const pay = { id: 71002, at: Date.now(), ms: null, method: "page.click", text: 'Click "Pay"', outcome: "running", page: "p1", within: take.id };
+      tell(space, take);
+      tell(space, pay);
+      tell(space, { ...pay, ms: 4, outcome: "ZEN_TASK_SPACE_USER_IN_CONTROL" });
+      await release(
+        [
+          'Run a script: "Compare" failed.\\nZEN_TASK_SPACE_USER_IN_CONTROL: The user has the task now (you handed it off, or they pressed Take over in Zen), so browser tools are paused.\\nIts output before that:\\ncard 4242 4242 4242 4242',
+          'Wrote "notes.txt"',
+        ],
+        true
+      );
+      await S.until(() => scriptCall(conv).status === "failed" && scriptFiles().length, 10000);
+      tell(space, { ...take, ms: 50, outcome: "ZEN_TASK_SPACE_USER_IN_CONTROL" });
+      await S.until(() => !conv.busy, 10000);
+      res.refused = {
+        status: scriptStep().dataset.status,
+        label: scriptStep().querySelector(".label").textContent,
+        fold: scriptStep().querySelector(":scope > details > pre")?.textContent,
+        output: scriptStep().textContent.includes("4242") || JSON.stringify(scriptCall(conv).detail).includes("4242"),
+        rows: scriptRows(),
+        files: scriptFiles(),
+      };
+      // The user's Stop while a call of the script waits.
+      conv = AS.tasks.get(await startWorkChat(win, { text: "SCENARIO:script", source: "urlbar" }));
+      convs.push(conv);
+      await S.until(() => scriptCall(conv) && AS.zenRecord(conv) && scriptStep(), 30000);
+      space = AS.zenRecord(conv).id;
+      res.spaces.push(space);
+      const stop = { id: 72001, at: Date.now(), ms: null, method: "script", text: 'Run a script: "Compare"', outcome: "running", page: null };
+      const wait = { id: 72002, at: Date.now(), ms: null, method: "page.waitForSelector", text: 'Wait for "Results"', outcome: "running", page: "p1", within: stop.id };
+      tell(space, stop);
+      tell(space, wait);
+      await S.until(() => scriptRows().length === 1, 5000);
+      res.before = [...stopped];
+      AS.cancel(conv);
+      res.stopped = [...stopped];
+      // As the runtime does: the script ends as stopped, and its closed connection's wait with it.
+      tell(space, { ...wait, ms: 9, outcome: "stopped" });
+      tell(space, { ...stop, ms: 10, outcome: "stopped" });
+      await S.until(() => !conv.busy && scriptStep()?.dataset.status === "stopped" && scriptRows()[0]?.[0] === "stopped", 10000);
+      res.stop = { status: scriptStep().dataset.status, rows: scriptRows(), fold: !!scriptStep().querySelector(":scope > details") };
+    } finally {
+      for (const conv of convs) {
+        AS.cancel(conv);
+        await S.until(() => !conv.busy, 10000).catch(() => {});
+      }
+      ${SCRIPT_DONE}
+    }
+    return res;
+  `, scriptGate());
+  for (const space of out.spaces) {
+    await h.call("spaces.finish", { space, keep: [] }).catch(() => {});
+  }
+  assert.deepEqual(out.refused, {
+    status: "stopped",
+    label: 'Run a script: "Compare"',
+    fold: "ZEN_TASK_SPACE_USER_IN_CONTROL: The user has the task now (you handed it off, or they pressed Take over in Zen), so browser tools are paused.",
+    output: false,
+    rows: [["stopped", 'Click "Pay"']],
+    files: ['Wrote "notes.txt"'],
+  });
+  assert.deepEqual(out.before, []);
+  assert.deepEqual(out.stopped, [72001], "only the running script of the chat the user stopped");
+  assert.deepEqual(out.stop, { status: "stopped", rows: [["stopped", 'Wait for "Results"']], fold: false });
+});
+
+test("a script as a Work chat's first call: its step begins in the task it starts, whose source names the chat, its lines show under the call, and the server's Started the task line links the chat to that task", async () => {
+  await useMock();
+  const first = await chrome(`
+    ${SCRIPT_STEPS}
+    const AS = win.ucAgentSidebar.AgentService;
+    await S.openPanel();
+    win.zenuiUser = { space: win.gZenWorkspaces.activeWorkspace, tab: win.gBrowser.selectedTab };
+    const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
+    const uid = await startWorkChat(win, { text: "SCENARIO:scriptfirst", source: "urlbar" });
+    const conv = AS.tasks.get(uid);
+    await S.until(() => scriptCall(conv) && scriptStep(), 30000).catch(() => {});
+    return { uid, linked: !!AS.zenRecord(conv) };
+  `, scriptGate());
+  let task = null;
+  try {
+    // What zenius's server does at the script's first page: it starts the
+    // task, with the chat's uid as its source.
+    task = await h.call("spaces.create", { name: "Script started", source: { sidebar: first.uid } });
+    const out = await chrome(`
+      ${SCRIPT_STEPS}
+      const AS = win.ucAgentSidebar.AgentService;
+      const conv = AS.tasks.get(arg.uid);
+      const res = {};
+      try {
+        const script = { id: 73001, at: Date.now(), ms: null, method: "script", text: 'Run a script: "Open the shop"', outcome: "running", page: null };
+        const go = { id: 73002, at: Date.now(), ms: null, method: "page.goto", text: "Go to shop.example", outcome: "running", page: "p1", within: script.id };
+        tell(arg.space, script);
+        tell(arg.space, go);
+        tell(arg.space, { ...go, ms: 5, outcome: "ok" });
+        await S.until(() => scriptRows().length === 1, 5000);
+        res.during = { rows: scriptRows(), linked: AS.zenRecord(conv)?.id ?? null };
+        await release(['Run a script: "Open the shop"\\nDone: it printed and returned nothing.', 'Started the task "Script started".\\nWrote "list.txt"']);
+        await S.until(() => scriptCall(conv).status === "completed" && scriptFiles().length, 10000);
+        tell(arg.space, { ...script, ms: 80, outcome: "ok" });
+        await S.until(() => AS.zenRecord(conv)?.id === arg.space, 5000);
+        await S.until(() => !conv.busy, 10000);
+        res.after = { rows: scriptRows(), linked: AS.zenRecord(conv)?.id ?? null, files: scriptFiles() };
+      } finally {
+        AS.cancel(conv);
+        await S.until(() => !conv.busy, 10000).catch(() => {});
+        ${SCRIPT_DONE}
+      }
+      return res;
+    `, { ...scriptGate(), uid: first.uid, space: task.id });
+    assert.equal(first.linked, false, "no task before the script starts one");
+    assert.deepEqual(out.during, { rows: [["ok", "Go to shop.example"]], linked: null });
+    assert.deepEqual(out.after, { rows: [["ok", "Go to shop.example"]], linked: task.id, files: ['Wrote "list.txt"'] });
+  } finally {
+    // The second call's own finally cleans up; this covers a failure before it.
+    await chrome(`
+      const AS = win.ucAgentSidebar.AgentService;
+      const conv = AS.tasks.get(arg.uid);
+      if (conv) {
+        AS.cancel(conv);
+        await S.until(() => !conv.busy, 10000).catch(() => {});
+      }
+      if (win.zenuiSteps || win.zenuiUser) {
+        ${SCRIPT_DONE}
+      }
+    `, { uid: first.uid }).catch(() => {});
+    if (task) {
+      await h.call("spaces.finish", { space: task.id, keep: [] }).catch(() => {});
+    }
+  }
+});
+
 test("where an edit takes the agent back (editPlan): to the newest answer (or, with Claude Code, thought) of its session, in a turn that ended, that nothing finished after before the user's next message; it keeps everything when only steps the edit's message cut short or moved lie between, and otherwise counts the steps and messages the agent forgets, all of them when no such point exists", async () => {
   const out = await chrome(`
     const { editPlan, editLossText } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentService.sys.mjs");
