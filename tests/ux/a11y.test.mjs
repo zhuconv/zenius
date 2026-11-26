@@ -19,7 +19,7 @@ let P;
 before(async () => {
   h = await setup();
   userView = await h.call("dev.viewState");
-  name = `zen-ux a11y ${Date.now().toString(36).slice(-5)}`;
+  name = `UI a11y ${Date.now().toString(36).slice(-5)}`;
   ({ id: space } = await h.createSpace({ name }));
   // A plain-text page: nothing in it takes the focus, so Tab leaves it.
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/api/text` });
@@ -185,7 +185,7 @@ test("a passkey or permission handoff is announced and raises the opted-in OS no
 });
 
 test("a handoff's OS notification goes when the task stops waiting: handed back, or stopped; a hand back with none up closes nothing", async () => {
-  const { id: other } = await h.createSpace({ name: `zen-ux a11y stop ${Date.now().toString(36).slice(-5)}` });
+  const { id: other } = await h.createSpace({ name: `UI a11y stop ${Date.now().toString(36).slice(-5)}` });
   await h.call("page.goto", { space: other, page: "p1", url: `${h.base}/api/text` });
   const out = await h.chrome(`${P}
     const restore = stubAlerts();
@@ -252,7 +252,7 @@ test("the claim prompt is announced and raises the opted-in OS notification, whi
 });
 
 test("moments that come together are heard together: one announcement, each named in the order it came", async () => {
-  const otherName = `zen-ux a11y burst ${Date.now().toString(36).slice(-5)}`;
+  const otherName = `UI a11y burst ${Date.now().toString(36).slice(-5)}`;
   const { id: other } = await h.createSpace({ name: otherName });
   await h.call("page.goto", { space: other, page: "p1", url: `${h.base}/api/text` });
   const id = `a11y-burst-${Date.now()}`;

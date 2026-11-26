@@ -9,8 +9,8 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { iso, prelude, setup } from "./lib.mjs";
 
-const A = "zen-ux watch A";
-const B = "zen-ux watch B";
+const A = "UI watch A";
+const B = "UI watch B";
 /** The key as the platform shows it (watch.sys.mjs's BACK_KEY). */
 const KEY = process.platform === "darwin" ? "⌃Tab" : "Ctrl+Tab";
 let h;
@@ -328,7 +328,7 @@ test("where the strip can't be read (a collapsed sidebar, compact mode), the chi
 });
 
 test("a watched task's end keeps the way back: the window stays on its page, the strip says 'Task done, [Ctrl+Tab] back to your tabs', a screen reader hears it, and Ctrl+Tab goes back, which closes the page", async () => {
-  const C = "zen-ux watch C";
+  const C = "UI watch C";
   const c = await newTask(C);
   await h.chrome(`${P}
     win.__zuEvents = [];
@@ -390,7 +390,7 @@ test("a watched task's end keeps the way back: the window stays on its page, the
 });
 
 test("after a watched task's end, the user's own pick of another tab ends the way back where they went; the page's Close, another task's Open and the chip where the strip can't be read keep it, and only the words after the key are cut", async () => {
-  const d = await newTask("zen-ux watch D");
+  const d = await newTask("UI watch D");
   await watchThenFinish(d);
   const picked = await h.chrome(`${P}
     const t = win.__zuShown;
@@ -411,7 +411,7 @@ test("after a watched task's end, the user's own pick of another tab ends the wa
     }
     return res;
   `);
-  const e = await newTask("zen-ux watch E");
+  const e = await newTask("UI watch E");
   await watchThenFinish(e);
   const kept = await h.chrome(`${P}
     const N = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/notices.sys.mjs");

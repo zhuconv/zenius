@@ -20,7 +20,7 @@ let P;
 before(async () => {
   h = await setup();
   userView = await h.call("dev.viewState");
-  name = `zen-ux layouts ${Date.now().toString(36).slice(-5)}`;
+  name = `UI layouts ${Date.now().toString(36).slice(-5)}`;
   ({ id: space } = await h.createSpace({ name }));
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/` });
   P = `${prelude(space)}

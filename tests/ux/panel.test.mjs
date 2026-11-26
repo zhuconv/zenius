@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { prelude, setup, iso } from "./lib.mjs";
 
-const NAME = "zen-ux panel test";
+const NAME = "UI panel test";
 let h;
 
 /** The site the hold cards name: the fixture's host, isolated as the card's texts are. */
@@ -326,7 +326,7 @@ test("Stop ends the task: a waiting action fails, and the Space becomes the user
 test("a Space deleted in Zen leaves the panel and loses its badge", async () => {
   // A Space of the task's own, which a claimed user Space is: the Agents
   // Space's tasks share theirs.
-  const { id: other } = await h.claimedSpace("zen-ux panel test, deleted");
+  const { id: other } = await h.claimedSpace("UI panel test, deleted");
   const out = await h.chrome(`${P}
     const gone = ctx.spaces.peek(${other});
     await until(() => B.spaceBadge(gone.uuid));
@@ -345,7 +345,7 @@ test("a Space deleted in Zen leaves the panel and loses its badge", async () => 
 // The tests themselves switch Spaces as the user would, which moves focus;
 // what must come back is the user's Space and tab.
 test("each task lists its tabs, and a tab's name opens that tab", async () => {
-  const { id: two } = await h.createSpace({ name: `zen-ux two tabs ${Date.now() % 100000}` });
+  const { id: two } = await h.createSpace({ name: `UI two tabs ${Date.now() % 100000}` });
   await h.call("page.goto", { space: two, page: "p1", url: `${h.base}/` });
   await h.call("pages.new", { space: two, url: `${h.base}/zoo/frames.html` });
   const out = await h.chrome(`${P}
@@ -375,7 +375,7 @@ test("each task lists its tabs, and a tab's name opens that tab", async () => {
 
 test("idle tasks: marked with the auto-close's wait in days, and closed in one click", async () => {
   // A task in the Agents Space the agent left alone past zenius.autoCloseHours.
-  const { id: idle } = await h.createSpace({ name: `zen-ux idle task ${Date.now() % 100000}` });
+  const { id: idle } = await h.createSpace({ name: `UI idle task ${Date.now() % 100000}` });
   await h.call("page.goto", { space: idle, page: "p1", url: `${h.base}/` });
   const out = await h.chrome(`${P}
     const { idleText } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/panel.sys.mjs");

@@ -196,7 +196,7 @@ before(async () => {
   h = await setup();
   // The user's side: a Work task of theirs, saved, shown in their sidebar
   // with All tasks open, and a zenius task in the strip.
-  await h.createSpace({ name: `zen-sidebar selfcheck ${run}` });
+  await h.createSpace({ name: `sidebar selfcheck ${run}` });
   user = await h.call("dev.evalChrome", {
     code: `
       const g = win.ucAgentSidebar;

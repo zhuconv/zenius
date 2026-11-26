@@ -89,10 +89,10 @@ const K = `
 
 /** A task with a page on `url`, p1. */
 async function task(name, url) {
-  const { id: space } = await h.createSpace({ name: `zen-ux nowin ${name} ${run}` });
+  const { id: space } = await h.createSpace({ name: `UI nowin ${name} ${run}` });
   await h.call("page.goto", { space, page: "p1", url });
   const p1 = await h.chrome(`return ctx.resolvePage({ space: ${space}, page: "p1" }).browser.browserId;`);
-  return { space, name: `zen-ux nowin ${name} ${run}`, p1 };
+  return { space, name: `UI nowin ${name} ${run}`, p1 };
 }
 
 const view = bid =>

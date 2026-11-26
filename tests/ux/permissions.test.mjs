@@ -28,7 +28,7 @@ let userView;
 before(async () => {
   h = await setup();
   userView = await h.call("dev.viewState");
-  ({ id: space } = await h.createSpace({ name: "zen-ux permissions test" }));
+  ({ id: space } = await h.createSpace({ name: "UI permissions test" }));
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/` });
   P = `${prelude(space)}
     const PN = win.PopupNotifications;
@@ -268,7 +268,7 @@ test("persist() from the page's own code: while the agent drives, its prompt han
       await h.chrome(`${P}
         if (${evident}) {
           const { markEvident, isEvident } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/evidence.sys.mjs");
-          markEvident(browser, "flagged", "zen-ux's permissions test");
+          markEvident(browser, "flagged", "the UI's permissions test");
           if (!isEvident(browser)) throw new Error("the page has no evidence");
         }
         if (${held}) ctx.spaces.setOwnership(rec, "agentDelegatedToUser", { reason: "manual_takeover", source: "user" });
@@ -478,7 +478,7 @@ test("after 3 unanswered requests in a task, no page can hand it to the user; th
 // browser; storage access comes from a cross-site frame. The page gets real
 // evidence for the last cases, so the override is what cancels them (their
 // C); the watcher's own cancel is the test before.
-test("real requests through Firefox's prompt service, past zen-observe's backstops: while the agent drives, each hands the task to the user with its reason; while the user holds the task, each is theirs; on evidence of danger, each is cancelled before any doorhanger, held or not", async () => {
+test("real requests through Firefox's prompt service, past the observe layer's backstops: while the agent drives, each hands the task to the user with its reason; while the user holds the task, each is theirs; on evidence of danger, each is cancelled before any doorhanger, held or not", async () => {
   // A new document: the core tells the agent of each cancelled type once per document.
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/?prompt-service` });
   await h.call("page.events", { space, page: "p1" });
@@ -519,7 +519,7 @@ test("real requests through Firefox's prompt service, past zen-observe's backsto
     try {
       for (const [name, holder, evident] of [["agent", "agent", false], ["user", "user", false], ["evidentAgent", "agent", true], ["evidentUser", "user", true]]) {
         if (evident && !isEvident(browser)) {
-          markEvident(browser, "flagged", "zen-ux's permissions test");
+          markEvident(browser, "flagged", "the UI's permissions test");
           if (!isEvident(browser)) throw new Error("the page has no evidence");
         }
         for (const [type, id] of Object.entries(TYPES)) {

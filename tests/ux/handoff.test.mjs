@@ -55,7 +55,7 @@ const run = Date.now().toString(36).slice(-5);
 before(async () => {
   h = await setup();
   userView = await h.call("dev.viewState");
-  name = `zen-ux hand-off ${run}`;
+  name = `UI hand-off ${run}`;
   ({ id: space } = await h.createSpace({ name }));
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/` });
   P = `${prelude(space)}
@@ -222,7 +222,7 @@ test("a hand-off with no reload: Agent needs you, with the task, Resume agent, t
 
 test("a hold that ends before its announcement goes out isn't heard: the user's Resume right after the hand-off, or the agent's finish while the user holds the task; one that lasts is heard once (on a Mac, one test's hold was heard in the next)", async () => {
   // A task of its own, to finish.
-  const { id: own } = await h.createSpace({ name: `zen-ux brief hold ${run}` });
+  const { id: own } = await h.createSpace({ name: `UI brief hold ${run}` });
   await h.call("page.goto", { space: own, page: "p1", url: `${h.base}/` });
   try {
     const out = await h.chrome(`${P}
@@ -261,7 +261,7 @@ test("a hold that ends before its announcement goes out isn't heard: the user's 
 const NO_MARK_CALLS = `ctx.service.markSecretByUser = undefined; ctx.service.secretStepOf = undefined;`;
 const MARK_CALLS_BACK = `delete ctx.service.markSecretByUser; delete ctx.service.secretStepOf;`;
 
-test("a hand-off whose step shows the user a secret (zen-core's secret flag, on spaceChanged): the card leads with what Resume agent does to the page, the agent's words behind the '?', and it's heard so; the tasks panel's row says it under Resume agent; a hand-off without it, a Take over, and the agent's run again say nothing of it", async () => {
+test("a hand-off whose step shows the user a secret (the core's secret flag, on spaceChanged): the card leads with what Resume agent does to the page, the agent's words behind the '?', and it's heard so; the tasks panel's row says it under Resume agent; a hand-off without it, a Take over, and the agent's run again say nothing of it", async () => {
   const out = await h.chrome(`${P}
     const row = () => UI.tasks().find(r => r.id === rec.id) ?? null;
     ${NO_MARK_CALLS}
@@ -630,7 +630,7 @@ test("the hold card's site is the page's registrable domain as Firefox's address
   });
 });
 
-test("a hand-off zen-core reloaded first says so on the page, as Take over does, since a form there may be back at its defaults though it looks filled in (zen-input's form tests): the hold's card, then the reload's, each heard", async () => {
+test("a hand-off the core reloaded first says so on the page, as Take over does, since a form there may be back at its defaults though it looks filled in (the input layer's form tests): the hold's card, then the reload's, each heard", async () => {
   const out = await h.chrome(`${P}
     try {
       await showTask();
@@ -648,7 +648,7 @@ test("a hand-off zen-core reloaded first says so on the page, as Take over does,
   assert.equal(out.heard, `Agent needs you in ${iso(name)}, on ${site()}. The agent says: “${iso("Log in to continue")}”. This page reloaded. ${RELOADED_NOTE} ${RELOADED_MORE}`);
 });
 
-test("a hand-off that loaded another page of the task afresh, by zen-core's label, says so on that page, and not on a page that didn't reload", async () => {
+test("a hand-off that loaded another page of the task afresh, by the core's label, says so on that page, and not on a page that didn't reload", async () => {
   const { label } = await h.call("pages.new", { space });
   await h.call("page.goto", { space, page: label, url: `${h.base}/` });
   try {
@@ -674,9 +674,9 @@ test("a hand-off that loaded another page of the task afresh, by zen-core's labe
   }
 });
 
-test("end to end, on zen-core's real hand-off: the agent's code left a field in the page (zen-observe's hooked), so the hand-off loads it afresh first, and the page says it reloaded, and why, from the hold's evidence", async () => {
+test("end to end, on the core's real hand-off: the agent's code left a field in the page (the observe layer's hooked), so the hand-off loads it afresh first, and the page says it reloaded, and why, from the hold's evidence", async () => {
   // A task of its own: the evidence and the hold start clean.
-  const { id: own } = await h.createSpace({ name: `zen-ux hand-off reload ${run}` });
+  const { id: own } = await h.createSpace({ name: `UI hand-off reload ${run}` });
   await h.call("page.goto", { space: own, page: "p1", url: `${h.base}/zoo/forms.html` });
   const Q = `${prelude(own)}
     const N = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/notices.sys.mjs");
@@ -686,7 +686,7 @@ test("end to end, on zen-core's real hand-off: the agent's code left a field in 
   try {
     await h.call("page.evaluate", { space: own, page: "p1", fn: "() => { document.body.insertAdjacentHTML('beforeend', '<input id=zenius-agent-field>'); return true; }", isFunction: true });
     const before = await h.chrome(`${Q} await until(() => EV.evidenceOf(browser).hooked, 5000); return { doc: doc(), hooked: EV.evidenceOf(browser).hooked ?? null };`);
-    assert.ok(before.hooked, "zen-observe's world flagged the page hooked");
+    assert.ok(before.hooked, "the observe layer's world flagged the page hooked");
     const handed = await h.call("spaces.handOff", { space: own });
     assert.equal(handed.ownership, "agentDelegatedToUser");
     assert.deepEqual(handed.reloaded, ["p1"], "the hand-off loaded the page afresh");
@@ -708,7 +708,7 @@ test("end to end, on zen-core's real hand-off: the agent's code left a field in 
     assert.deepEqual(out, {
       fresh: true,
       field: false,
-      pill: `Agent needs you · ${iso(`zen-ux hand-off reload ${run}`)} on ${site()}`,
+      pill: `Agent needs you · ${iso(`UI hand-off reload ${run}`)} on ${site()}`,
       // The core's hold says why, by the page's label (spaceChanged's evidence).
       reloaded: { text: "This page reloaded · the agent's code had changed it", note: RELOADED_NOTE, more: `${RELOADED_MORE} What its code left: ${iso(before.hooked)}.` },
     });
@@ -718,7 +718,7 @@ test("end to end, on zen-core's real hand-off: the agent's code left a field in 
   }
 });
 
-test("Take over goes through zen-core's userTakeOver: the agent stays paused while the page reloads; then You're in control, unannounced, and the page says it reloaded, since a form may be back at its defaults; a Take over with no reload says nothing of one", async () => {
+test("Take over goes through the core's userTakeOver: the agent stays paused while the page reloads; then You're in control, unannounced, and the page says it reloaded, since a form may be back at its defaults; a Take over with no reload says nothing of one", async () => {
   const out = await h.chrome(`${P}
     try {
       await showTask();
@@ -748,7 +748,7 @@ test("Take over goes through zen-core's userTakeOver: the agent stays paused whi
   assert.equal(out.noReload, null);
 });
 
-test("zen-input's typing hook changes nothing in who holds the task: zen-core reloads the page itself; a reload that doesn't come brings a card with Reload, which tries again, and the card goes with the next document", async () => {
+test("the input layer's typing hook changes nothing in who holds the task: the core reloads the page itself; a reload that doesn't come brings a card with Reload, which tries again, and the card goes with the next document", async () => {
   const out = await h.chrome(`${P}
     const offCard = () => {
       const el = N.noticeElement(tab, "zenius-typing-off");
@@ -787,7 +787,7 @@ test("zen-input's typing hook changes nothing in who holds the task: zen-core re
   assert.deepEqual(out.card, { text: "This page couldn't reload", note: "Clicks and typing here stay off until it does.", buttons: ["Reload", "Dismiss"] });
 });
 
-test("a quiet reload whose new document came in with evidence too (zen-core's stillEvident: a popup or other window on the site holds the agent's code): the card and what's heard give the way out, since Reload alone can't help", async () => {
+test("a quiet reload whose new document came in with evidence too (the core's stillEvident: a popup or other window on the site holds the agent's code): the card and what's heard give the way out, since Reload alone can't help", async () => {
   const out = await h.chrome(`${P}
     const offCard = () => {
       const el = N.noticeElement(tab, "zenius-typing-off");
@@ -811,7 +811,7 @@ test("a quiet reload whose new document came in with evidence too (zen-core's st
   assert.deepEqual(out.heard, [`This page couldn't reload. ${note}`]);
 });
 
-test("a Take over that loaded another page of the task afresh, by zen-core's label (a form page that a popup the agent acted in last could reach), says so on that page, and not on the page taken over when it didn't reload itself", async () => {
+test("a Take over that loaded another page of the task afresh, by the core's label (a form page that a popup the agent acted in last could reach), says so on that page, and not on the page taken over when it didn't reload itself", async () => {
   const { label } = await h.call("pages.new", { space });
   await h.call("page.goto", { space, page: label, url: `${h.base}/` });
   try {
@@ -858,7 +858,7 @@ test("a Take over that loaded another page of the task afresh, by zen-core's lab
 // holdForUser's by label). Only the agent's code (hooked) and its own page
 // (made) reload: a listed or flagged page gets its warning instead, so those
 // two never say why a page reloaded.
-test("the reload notice says why the page reloaded: the agent's code changed it, with what it left, or the agent made it; a list or the agent's flag isn't why; at the user's press, from zen-core's result or the hook's own read; at Take over and the agent's hand-off, by the page's label", async () => {
+test("the reload notice says why the page reloaded: the agent's code changed it, with what it left, or the agent made it; a list or the agent's flag isn't why; at the user's press, from the core's result or the hook's own read; at Take over and the agent's hand-off, by the page's label", async () => {
   const out = await h.chrome(`${P}
     try {
       await showTask();
@@ -968,7 +968,7 @@ test("a clean copy at the user's press says so on the page: their click didn't g
   assert.deepEqual(out.failed, { reloaded: null, off: true }, "a reload that didn't come has its own card");
 });
 
-test("the Resume line comes just in time: once the user typed into a password, card or code field of the task (zen-input's onSecretTyped), it leads the card then up or the next, the agent's words behind the '?'; it goes once the agent runs again", async () => {
+test("the Resume line comes just in time: once the user typed into a password, card or code field of the task (the input layer's onSecretTyped), it leads the card then up or the next, the agent's words behind the '?'; it goes once the agent runs again", async () => {
   const out = await h.chrome(`${P}
     try {
       await showTask();
@@ -1224,7 +1224,7 @@ test("a Take over that couldn't begin says why on its page, in a line, with what
   assert.equal(out.events, true, "the agent sidebar heard the task needs the user (taskBadge)");
 });
 
-test("Resume agent first reloads each page with evidence of danger where the user typed a secret, through zen-core's cleanLoad, tells zen-core, then hands back", async () => {
+test("Resume agent first reloads each page with evidence of danger where the user typed a secret, through the core's cleanLoad, tells the core, then hands back", async () => {
   const out = await h.chrome(`${P}
     try {
       await showTask();
@@ -1264,7 +1264,7 @@ for (const [what, evidence] of [
   ["on a phishing or malware list", { listed: "goog-phish-proto" }],
   ["that the agent flagged", { flagged: "it asks for a seed phrase" }],
 ]) {
-test(`Resume agent leaves a page ${what} as it is, though the user typed a secret there: nothing reloads, zen-core hears of no reload, and the agent gets the task back`, async () => {
+test(`Resume agent leaves a page ${what} as it is, though the user typed a secret there: nothing reloads, the core hears of no reload, and the agent gets the task back`, async () => {
   const out = await h.chrome(`${P}
     try {
       await showTask();
@@ -1297,7 +1297,7 @@ test(`Resume agent leaves a page ${what} as it is, though the user typed a secre
 });
 }
 
-test("with zen-core's quiet loads off (zenius.handoff.quietReload, a test's switch), Resume agent asks nothing and reloads nothing: the agent has the task before the press returns; zen-core's own way back reloads nothing either", async () => {
+test("with the core's quiet loads off (zenius.handoff.quietReload, a test's switch), Resume agent asks nothing and reloads nothing: the agent has the task before the press returns; the core's own way back reloads nothing either", async () => {
   const out = await h.chrome(`${P}
     Services.prefs.setBoolPref("zenius.handoff.quietReload", false);
     try {
@@ -1327,7 +1327,7 @@ test("with zen-core's quiet loads off (zenius.handoff.quietReload, a test's swit
   assert.deepEqual(out, { asked: [], hook: 0, ownership: "agent" });
 });
 
-test("zen-core's own ways back to the agent await service.beforeHandBack, the same reload step, which leaves who holds the task alone", async () => {
+test("the core's own ways back to the agent await service.beforeHandBack, the same reload step, which leaves who holds the task alone", async () => {
   const out = await h.chrome(`${P}
     try {
       await showTask();
@@ -1445,9 +1445,9 @@ test("a page the agent made itself: the user's Take over keeps it as it is, and 
   }
 });
 
-test("end to end, on zen-observe's real record: a data: page the agent went to, and a blob: page its code made on the site, say the agent made them when the user takes them over", async () => {
+test("end to end, on the observe layer's real record: a data: page the agent went to, and a blob: page its code made on the site, say the agent made them when the user takes them over", async () => {
   // A task of its own: the record lasts the task's life.
-  const { id: made } = await h.createSpace({ name: `zen-ux agent-made ${run}` });
+  const { id: made } = await h.createSpace({ name: `UI agent-made ${run}` });
   const Q = `${prelude(made)}
     const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;
     const N = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/notices.sys.mjs");
@@ -1483,7 +1483,7 @@ test("end to end, on zen-observe's real record: a data: page the agent went to, 
   assert.deepEqual(blob, { scheme: "blob", note: `${CLEARS} ${TELL}`, more: MADE_NOTE, buttons: ["Resume agent"] });
 });
 
-test("siteName: the registrable domain zen-observe's record goes by, shown as Firefox shows IDNs", async () => {
+test("siteName: the registrable domain the observe layer's record goes by, shown as Firefox shows IDNs", async () => {
   const out = await h.chrome(`
     const { siteName } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs");
     const f = s => siteName(Services.io.newURI(s));

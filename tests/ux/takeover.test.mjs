@@ -21,7 +21,7 @@ const QUIET_MS = 1500;
 before(async () => {
   h = await setup();
   userView = await h.call("dev.viewState");
-  ({ id: space } = await h.createSpace({ name: "zen-ux takeover test" }));
+  ({ id: space } = await h.createSpace({ name: "UI takeover test" }));
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/` });
   P = `${prelude(space)}
     const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;
@@ -178,7 +178,7 @@ test("the agent's own input never opens the prompt, nor counts as the user's", a
   assert.equal(s.prompt, null);
   assert.equal(s.paused, false);
   assert.equal(s.ownership, "agent");
-  assert.equal(await h.chrome(`${P} return rec.lastUserInputAt ?? null;`), null, "zen-core's 10 s rule counts only the user's input");
+  assert.equal(await h.chrome(`${P} return rec.lastUserInputAt ?? null;`), null, "the core's 10 s rule counts only the user's input");
 });
 
 test("keys that aren't typing don't count", async () => {
@@ -197,7 +197,7 @@ test("a user click pauses the agent and shows the prompt in the agent's page", a
     return { pausedAtOnce, noted, text: N.noticeText(tab, T.PROMPT) };
   `);
   assert.equal(out.pausedAtOnce, true, "paused synchronously, inside the input listener");
-  assert.ok(out.noted >= 0 && out.noted < 1000, `zen-core has the time of the user's input (${out.noted} ms ago)`);
+  assert.ok(out.noted >= 0 && out.noted < 1000, `the core has the time of the user's input (${out.noted} ms ago)`);
   // This file shortens the quiet time to 1.5 s.
   assert.match(out.text, /^Agent paused · it resumes in [12] s$/);
   const s = await state();
@@ -258,7 +258,7 @@ test("an ignored prompt after typing leaves the user in control", async () => {
   assert.equal(drawn, false, "no agent cursor appears while the user is in control");
 });
 
-test("input while the user is in control opens no prompt, but still counts for zen-core's 10 s rule; Resume agent returns control", async () => {
+test("input while the user is in control opens no prompt, but still counts for the core's 10 s rule; Resume agent returns control", async () => {
   const ago = await h.chrome(`${P} delete rec.lastUserInputAt; userClick(); return Date.now() - (rec.lastUserInputAt ?? 0);`);
   assert.ok(ago >= 0 && ago < 2000, `the user's input in a task they hold is noted (${ago} ms ago)`);
   assert.equal((await state()).prompt, null);
@@ -481,7 +481,7 @@ test("while Take over's prompt is open on a page, the agent's cursor there hides
   await sleep(3200); // the grace period after Resume agent
 });
 
-test("a step that left its task's ring while it ran (zen-input keeps 50 steps) no longer keeps its page's cursor", async () => {
+test("a step that left its task's ring while it ran (the input layer keeps 50 steps) no longer keeps its page's cursor", async () => {
   const p2 = await h.call("pages.new", { space, url: `${h.base}/` });
   try {
     await h.chrome(`${P} gBrowser.selectedTab = tab; await until(() => gBrowser.selectedTab === tab);`);

@@ -97,7 +97,7 @@ const K = `
 
 /** A task with one page, p1, on `url`. */
 async function task(name, url) {
-  const { id: space } = await h.createSpace({ name: `zen-ux localnet ${name} ${run}` });
+  const { id: space } = await h.createSpace({ name: `UI localnet ${name} ${run}` });
   await h.call("page.goto", { space, page: "p1", url });
   const bid = await h.chrome(`return ctx.resolvePage({ space: ${space}, page: "p1" }).browser.browserId;`);
   return { space, bid };
@@ -344,7 +344,7 @@ test("in a kept page with the agent's writes, a load the page chose after the us
   }
 });
 
-test("after the user's Stop, the page is theirs: a refused load shows no notice there, unless zen-observe's scope says the tab is a task's", async () => {
+test("after the user's Stop, the page is theirs: a refused load shows no notice there, unless the observe layer's scope says the tab is a task's", async () => {
   const { space, bid } = await task("stop", `${h.base}/zoo/forms.html`);
   try {
     const out = await h.chrome(`${K}
@@ -367,7 +367,7 @@ test("after the user's Stop, the page is theirs: a refused load shows no notice 
   }
 });
 
-test("end to end, on zen-observe's refusal: in the user's hold, an address they type to a .local name isn't opened, and the tab says why", async () => {
+test("end to end, on the observe layer's refusal: in the user's hold, an address they type to a .local name isn't opened, and the tab says why", async () => {
   const { space, bid } = await task("e2e", `${h.base}/zoo/forms.html`);
   try {
     const out = await h.chrome(`${K}

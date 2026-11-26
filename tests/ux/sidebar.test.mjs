@@ -73,7 +73,7 @@ const PAGES = {
      </script>`
   ),
   "/zen-ux/hidden.html": page(
-    "zen-ux hidden text",
+    "UI hidden text",
     `<nav>NAV_MARK</nav>
      <p>VISIBLE_MARK</p>
      <p>Read <span class="sr">SRINLINE_MARK</span>more here.</p>
@@ -102,7 +102,7 @@ const PAGES = {
   ),
   // A page that says it is Firefox's PDF viewer.
   "/zen-ux/fakepdf.html": page(
-    "zen-ux ordinary page",
+    "UI ordinary page",
     `<p>ORDINARY_TEXT on an ordinary page.</p>`,
     `<script>
       window.PDFViewerApplication = {
@@ -113,7 +113,7 @@ const PAGES = {
   ),
   // Links the user can see and ones they can't (Chat's fetch rule).
   "/zen-ux/links.html": page(
-    "zen-ux links",
+    "UI links",
     `<nav><a href="https://nav.example/">NAV_LINK</a></nav>
      <p>Read <a href="https://shown.example/a?x=1">the A page</a> or <a href="/zen-ux/rel.html">a relative one</a>.</p>
      <p><a href="https://shown.example/a?x=1">A again</a></p>
@@ -127,7 +127,7 @@ const PAGES = {
     `<style>.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }</style>`
   ),
   "/zen-ux/manylinks.html": page(
-    "zen-ux many links",
+    "UI many links",
     Array.from({ length: 230 }, (_, i) => `<p><a href="https://many.example/${i}">Link ${i}</a></p>`).join("")
   ),
 };
@@ -170,7 +170,7 @@ before(async () => {
       return;
     }
     if (path === "/zen-ux/real.pdf") {
-      const pdf = onePagePdf("REAL_PDF_LINE from zen-ux");
+      const pdf = onePagePdf("REAL_PDF_LINE from the UI");
       res.writeHead(200, { "content-type": "application/pdf", "content-length": pdf.length }).end(pdf);
       return;
     }
@@ -795,7 +795,7 @@ test("renaming a task: More's Rename task, or a double-click on the header's nam
 test("the user's name for a task wins: its first question, the agent's name for the zenius task its open starts, and a name the agent gives that task later (as a claim does) leave it, and the zenius task takes the user's; a task a script or a terminal agent drives, and a Chat chat, have no Rename", async () => {
   await useMock();
   const name = `Book a table ${run}`;
-  const ext = `zen-sidebar rename external ${run}`;
+  const ext = `sidebar rename external ${run}`;
   const { id } = await h.createSpace({ name: ext, source: { terminal: "laptop/t5x", agent: "Claude Code" } });
   try {
     const out = await chrome(
@@ -868,7 +868,7 @@ test("the user's name for a task wins: its first question, the agent's name for 
 test("a name another live task has already: the sidebar shows it as the user typed it, and the zenius task takes it with a number, as a new task's name gets one ('<name> 2'), so a script's taskSpace(name) still finds the script's own task; the number stays when the agent names the task again, and an empty name gives the zenius task the agent's name back, numbered too while another live task has it", async () => {
   await useMock();
   const name = `Plan a route ${run}`;
-  const taken = `zen-sidebar script task ${run}`;
+  const taken = `sidebar script task ${run}`;
   const { id } = await h.createSpace({ name: taken, source: { agent: "script", folder: "zenius-eval" } });
   try {
     const out = await chrome(
@@ -1908,7 +1908,7 @@ for (const [label, realKeys] of [
 }
 
 test("a task another program drives has Pin and Rename in All tasks' menu, and Archive once it ended, as the ⋯ menu has it; its Rename names it in the sidebar only, its zenius task keeping its program's name; pinned, it stays in Pinned while zenius's feed keeps it, through a restart as an archive does; and tasks that share an id share no marks: it takes none of an earlier task's, and a new task given its id later none of its own", async () => {
-  const name = `zen-ux row menu external ${run}`;
+  const name = `UI row menu external ${run}`;
   const { id } = await h.createSpace({ name });
   const out = await chrome(
     `
@@ -2055,7 +2055,7 @@ const EXTERNAL_ROW = `
 `;
 
 test("a sidebar name with emoji is kept whole: a name of 54 characters, 94 UTF-16 units, and one cut at 80 characters, 159 units, stay through the feed's next word, in the tasks file, and after a restart", async () => {
-  const name = `zen-ux row menu emoji ${run}`;
+  const name = `UI row menu emoji ${run}`;
   const { id } = await h.createSpace({ name });
   try {
     const out = await chrome(
@@ -2107,7 +2107,7 @@ test("a sidebar name with emoji is kept whole: a name of 54 characters, 94 UTF-1
 });
 
 test("a Rename left as it was names nothing: Enter or a click outside on a program's task's name keeps no name of the sidebar's, so its program's later names show; its program's own name typed in clears the sidebar's; a task of the user's left as it was isn't renamed at all", async () => {
-  const name = `zen-ux row menu as it was ${run}`;
+  const name = `UI row menu as it was ${run}`;
   const { id } = await h.createSpace({ name });
   try {
     const out = await chrome(
@@ -2692,7 +2692,7 @@ test("the note on the pages zenius reloaded at a task's end (reloadedNote) names
   assert.equal(out.long, one(`example.com/${"x".repeat(47)}…`));
 });
 
-test("a Work chat whose task ended gets zen-core's pagesReloaded as a note: after the turn when its agent is still answering, at once when idle, and never for another task", async () => {
+test("a Work chat whose task ended gets the core's pagesReloaded as a note: after the turn when its agent is still answering, at once when idle, and never for another task", async () => {
   await useMock();
   const out = await chrome(`
     const g = win.ucAgentSidebar;
@@ -2744,7 +2744,7 @@ test("a Work chat whose task ended gets zen-core's pagesReloaded as a note: afte
   assert.equal(out.shown, true);
 });
 
-test("end to end: a page the agent's code hooked loads afresh at its task's end, and the chat says so after the agent's last words (zen-core's pagesReloaded)", async () => {
+test("end to end: a page the agent's code hooked loads afresh at its task's end, and the chat says so after the agent's last words (the core's pagesReloaded)", async () => {
   await useMock();
   const out = await chrome(`
     const g = win.ucAgentSidebar;
@@ -4204,7 +4204,7 @@ const EXTERNAL = `
 `;
 
 test("a task another agent drives (a terminal's Claude Code) shows in the directory under its state, with where it's driven from, and a search finds it; opened, it's read-only: the source line, its steps as text with each quoted name in its own isolate, a failed step's code, the live card, Needs you with the agent's words, and Stop, which ends it; done, it says how it ended and can go to Archived and back; a claim to be the sidebar's own counts only for a chat the sidebar has", async () => {
-  const name = `zen-ux external ${run}`;
+  const name = `UI external ${run}`;
   const { id } = await h.createSpace({ name });
   await h.call("page.goto", { space: id, page: "p1", url: `${www()}/zen-ux/hidden.html?external` });
   const out = await chrome(
@@ -4434,7 +4434,7 @@ test("a task another agent drives (a terminal's Claude Code) shows in the direct
 });
 
 test("leaving a task another agent drives, for '+ New task', a Work chat of the sidebar's or Chat, leaves none of its read-only view behind: its bar ('Finished just now'), source line, steps and live card go, and the question box and Send come back", async () => {
-  const name = `zen-ux external switch ${run}`;
+  const name = `UI external switch ${run}`;
   const { id } = await h.createSpace({ name });
   await h.call("page.goto", { space: id, page: "p1", url: `${www()}/zen-ux/hidden.html?switch` });
   const out = await chrome(
@@ -4510,8 +4510,8 @@ test("leaving a task another agent drives, for '+ New task', a Work chat of the 
   assert.deepEqual(out.chat, back, "in Chat");
 });
 
-test("end to end, on zen-core's real feed and zen-input's real steps: a task made over zenius's RPC with a source shows in the directory as driven from there, working on its last step, which its view lists; its hand-off moves it to Needs you with the agent's words, and its finish to Done as Finished", async () => {
-  const name = `zen-ux external feed ${run}`;
+test("end to end, on the core's real feed and the input layer's real steps: a task made over zenius's RPC with a source shows in the directory as driven from there, working on its last step, which its view lists; its hand-off moves it to Needs you with the agent's words, and its finish to Done as Finished", async () => {
+  const name = `UI external feed ${run}`;
   const { id } = await h.createSpace({ name, source: { terminal: "laptop/t5x", agent: "Claude Code" } });
   await h.call("page.goto", { space: id, page: "p1", url: `${www()}/zen-ux/hidden.html?feed` });
   // Each look opens the drawer and waits for the row to say `want`.
@@ -4565,7 +4565,7 @@ test("end to end, on zen-core's real feed and zen-input's real steps: a task mad
 });
 
 test("zenius's Open on a task another agent drives, while it waits for the user, shows that task's read-only view in the sidebar, not the Work chat it showed: the hand-off card, with that agent's whole message as text (the Work chat's card's path), Show tab and Resume agent; where to reply, in the question box's place; nothing the user sends goes anywhere; Resume agent gives the task back, and the sidebar stays on it", async () => {
-  const name = `zen-ui external open ${run}`;
+  const name = `UI external open ${run}`;
   // Another agent's words, whole and uncapped: its markup must stay text.
   const words = `Sign in with <b>your</b> work account <img src=x onerror="document.title='x'"> & press Continue. ${"Then wait for the code by mail. ".repeat(10)}`.trim();
   const { id } = await h.createSpace({ name, source: { agent: "Claude Code", folder: "zenius-eval" } });
@@ -4666,7 +4666,7 @@ test("zenius's Open on a task another agent drives, while it waits for the user,
 });
 
 test("the hand-off card's title isolates the task's name, in Work's card and in the card of a task another agent drives: a stray isolate close and a right-to-left override in the name are gone, and zenius's own words after it read left to right", async () => {
-  const base = `zen-ui rlo ${run}`;
+  const base = `UI rlo ${run}`;
   // A name made to escape the title's isolate (a stray close), then reverse
   // what follows it: zenius's "needs a sign-in".
   const { id } = await h.createSpace({ name: `${base} \u2069\u202eSPOOF`, source: { agent: "Claude Code", folder: "zenius-eval" } });
@@ -4742,7 +4742,7 @@ test("the hand-off card's title isolates the task's name, in Work's card and in 
 });
 
 test("a task another agent drives: its hand-off card in the sidebar and its pill end with the same line on what comes after Resume agent, which follows a wait for control as it comes and goes", async () => {
-  const name = `zen-ui after resume ${run}`;
+  const name = `UI after resume ${run}`;
   const { id } = await h.createSpace({ name, source: { agent: "Codex", terminal: "laptop/t5x" } });
   await h.call("page.goto", { space: id, page: "p1", url: `${www()}/zen-ux/hidden.html?after` });
   await h.call("spaces.setState", { space: id, text: "Sign in to your account" });
@@ -4805,7 +4805,7 @@ test("a task another agent drives: its hand-off card in the sidebar and its pill
 // in handoff.test.mjs, here on a task another agent drives, whose card
 // zenius's Open shows.
 test("the hand-off card's 'This step shows a secret', as on zenius's pill: with no such call in zenius, no box; ticked, the card says Resume agent clears the page and that the agent can't take it back, and the pill follows; unticked, as before; the agent's own mark shows ticked and fixed; fixed from the card's Resume agent on", async () => {
-  const name = `zen-ui secret toggle ${run}`;
+  const name = `UI secret toggle ${run}`;
   const { id } = await h.createSpace({ name, source: { agent: "Claude Code", folder: "deploy" } });
   await h.call("page.goto", { space: id, page: "p1", url: `${www()}/zen-ux/hidden.html?secret` });
   await h.call("spaces.setState", { space: id, text: "Create the key, then press Resume agent" });
@@ -4947,7 +4947,7 @@ test("the hand-off card's 'This step shows a secret', as on zenius's pill: with 
 // on a scratch home that borrows only this Zen's socket and registry
 // (shareRuntime), never the account's own.
 test("a terminal agent's real wait (zenius wait): both cards say something waits while it runs, the card's Resume agent ends it with exit 0, and once a wait ends otherwise both say to tell the agent again", async () => {
-  const name = `zen-ui real wait ${run}`;
+  const name = `UI real wait ${run}`;
   // Made in the try, so the finally ends whatever there is of them.
   let id = null;
   let home = null;
@@ -5098,7 +5098,7 @@ test("where an external task is driven from, without a terminal: its agent and f
 
 test("the strip's count and Work's are one number: a task another agent drives that needs the user, and a sidebar chat's question before its agent opened a zenius task, count once in each; the tasks panel has a line for the chat's, whose Open shows it in the sidebar", async () => {
   await useMock();
-  const name = `zen-ux external count ${run}`;
+  const name = `UI external count ${run}`;
   const { id } = await h.createSpace({ name });
   await h.call("page.goto", { space: id, page: "p1", url: `${www()}/zen-ux/hidden.html?count` });
   const out = await chrome(
@@ -6283,7 +6283,7 @@ test("the page's links the user can see go with the page, after its text, for Ch
   assert.deepEqual(list.slice(1), Array.from({ length: 60 }, (_, i) => `- https://many.example/${i} "Link ${i}"`));
 });
 
-test("Chat's list of the URLs it may fetch (Chat's fetch rule, zen-sidebar's allowFetches) holds, after a question, the page's address, its links as read, and the question's and the selection's URLs (bare ones too), without a fragment and with http as https; never a hidden link, a URL only in text the page hides, the site's navigation or a link that isn't http(s); a fork carries the list to its new session, and New chat drops every session's list", async () => {
+test("Chat's list of the URLs it may fetch (Chat's fetch rule, the sidebar's allowFetches) holds, after a question, the page's address, its links as read, and the question's and the selection's URLs (bare ones too), without a fragment and with http as https; never a hidden link, a URL only in text the page hides, the site's navigation or a link that isn't http(s); a fork carries the list to its new session, and New chat drops every session's list", async () => {
   // A mock that looks like claude-agent-acp (its adapter, UUID session ids,
   // fork): only Claude Code's Chat sessions have lists.
   const acp = join(dir, "config-acp.json");
@@ -6934,7 +6934,7 @@ test("only Firefox's PDF viewer reads as a PDF: a page that defines PDFViewerApp
   assert.ok(!fake.includes("PDF text"), "not headed as a PDF");
   const real = await ask("/zen-ux/real.pdf", `ECHO realpdf ${run}`);
   assert.match(real, /PDF text, pages 1-1 of 1/);
-  assert.ok(real.includes("REAL_PDF_LINE from zen-ux"), real);
+  assert.ok(real.includes("REAL_PDF_LINE from the UI"), real);
 });
 
 test("a page that never finishes reading can't hold a question up: it goes without the page after the read's bound, with a note, and Stop ends it before that", async () => {
@@ -7138,7 +7138,7 @@ test("the live card draws only while the user can see it; Watch moves the window
 });
 test("the card paints only an agent's page of its chat's own task, checked before the actor is made: never the user's tab, a tab they opened from the task's page, or another task's page; a picture is raw pixels of the size asked; a page too busy to answer costs only itself, and the card keeps what it has", async () => {
   await useMock();
-  const other = await h.createSpace({ name: `zen-ux sidebar other ${run}` });
+  const other = await h.createSpace({ name: `UI sidebar other ${run}` });
   let out;
   try {
     await h.call("page.goto", { space: other.id, page: "p1", url: `${www()}/zen-ux/hidden.html?other` });

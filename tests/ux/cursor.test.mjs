@@ -15,7 +15,7 @@ let userView;
 before(async () => {
   h = await setup();
   userView = await h.call("dev.viewState");
-  ({ id: space } = await h.createSpace({ name: "zen-ux cursor test" }));
+  ({ id: space } = await h.createSpace({ name: "UI cursor test" }));
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/` });
   P = prelude(space);
 });
@@ -275,7 +275,7 @@ test("a task the user stopped forgets its cursor", async () => {
 // cursor and its label stayed on the kept tab, over the pages the user
 // opened there next.
 test("a finish that keeps the agent's tab forgets its cursor there: no cursor layer stays in the kept tab's browserStack, and showing the tab draws none", async () => {
-  const { id: task } = await h.createSpace({ name: "zen-ux cursor kept" });
+  const { id: task } = await h.createSpace({ name: "UI cursor kept" });
   await h.call("page.goto", { space: task, page: "p1", url: `${h.base}/` });
   try {
     const drawn = await h.chrome(`${prelude(task)}
@@ -331,9 +331,9 @@ test("a finish that keeps the agent's tab forgets its cursor there: no cursor la
 // loses its cursor at the agent's next call (498fae9), and a hold hides the
 // rest; a tab an earlier task kept has none since its finish.
 test("a hand-off shows no agent cursor: not on the page the agent works on, not on one of the task's pages it left, and not on a tab an earlier task kept", async () => {
-  const earlier = await h.createSpace({ name: "zen-ux cursor earlier" });
+  const earlier = await h.createSpace({ name: "UI cursor earlier" });
   await h.call("page.goto", { space: earlier.id, page: "p1", url: `${h.base}/` });
-  const { id: task } = await h.createSpace({ name: "zen-ux cursor hand-off" });
+  const { id: task } = await h.createSpace({ name: "UI cursor hand-off" });
   await h.call("page.goto", { space: task, page: "p1", url: `${h.base}/` });
   const p2 = await h.call("pages.new", { space: task, url: `${h.base}/` });
   try {

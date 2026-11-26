@@ -16,7 +16,7 @@ before(async () => {
   // A Space of the task's own, which a claimed user Space is: the Agents
   // Space's shared badge is tests/ux/agentsspace.test.mjs's.
   let page;
-  ({ id: space, page } = await h.claimedSpace("zen-ux badge test"));
+  ({ id: space, page } = await h.claimedSpace("UI badge test"));
   P = prelude(space, page);
 });
 
@@ -48,7 +48,7 @@ test("a badge shows the state, the state text and the current action", async () 
   `);
   assert.equal(out.attr, "working");
   assert.equal(out.dots, 1);
-  assert.equal(out.tooltip, `${iso("zen-ux badge test")} — Agent working ${iso("Finding a table for 2")}, ${iso("Click Submit")}`);
+  assert.equal(out.tooltip, `${iso("UI badge test")} — Agent working ${iso("Finding a table for 2")}, ${iso("Click Submit")}`);
   assert.equal(out.status, `Agent working ${iso("Finding a table for 2")}, ${iso("Click Submit")}`);
   assert.equal(out.statusState, "working");
 });
@@ -57,14 +57,14 @@ test("the badge survives Zen re-rendering the switcher", async () => {
   const out = await h.chrome(`${P}${READ}
     const ws = gZenWorkspaces.getWorkspaceFromId(rec.uuid);
     const updated = new Promise(r => win.addEventListener("ZenWorkspacesUIUpdate", r, { once: true }));
-    await gZenWorkspaces.saveWorkspace({ ...ws, name: "zen-ux badge test renamed" });
+    await gZenWorkspaces.saveWorkspace({ ...ws, name: "UI badge test renamed" });
     await updated;
     await sleep(50);
     return read();
   `);
   assert.equal(out.attr, "working");
   assert.equal(out.dots, 1, "still exactly one badge");
-  assert.ok(out.tooltip.startsWith(`${iso("zen-ux badge test renamed")} — Agent working`), out.tooltip);
+  assert.ok(out.tooltip.startsWith(`${iso("UI badge test renamed")} — Agent working`), out.tooltip);
 });
 
 test("state changes restyle the badge; the end of the task removes it", async () => {
@@ -82,6 +82,6 @@ test("state changes restyle the badge; the end of the task removes it", async ()
   assert.equal(out.cleared.attr, null);
   assert.equal(out.cleared.dots, 0);
   assert.equal(out.cleared.status, null);
-  assert.equal(out.cleared.tooltip, "zen-ux badge test renamed", "Zen's own tooltip is back");
+  assert.equal(out.cleared.tooltip, "UI badge test renamed", "Zen's own tooltip is back");
   assert.deepEqual(await h.call("dev.viewState"), userView, "the user's view is unchanged");
 });

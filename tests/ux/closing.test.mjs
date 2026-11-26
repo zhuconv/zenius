@@ -83,7 +83,7 @@ async function shownTask(name) {
 }
 
 test("the agent closing the page the user is looking at: it waits, with a pill; Keep tab makes it theirs", async () => {
-  const name = `zen-ux closing keep ${run}`;
+  const name = `UI closing keep ${run}`;
   const space = await shownTask(name);
   const closed = await h.call("pages.close", { space, page: "p1" });
   assert.equal(closed.deferred, true, "the premise: the close waits, as the user sees the tab");
@@ -120,7 +120,7 @@ test("the agent closing the page the user is looking at: it waits, with a pill; 
 
 test("finish() while the user looks at the task's page: 'Task finished', and Close now closes it", async () => {
   // Either model: a task's own workspace stays while a window shows it, too.
-  const name = `zen-ux closing finish ${run}`;
+  const name = `UI closing finish ${run}`;
   const space = await shownTask(name);
   const receipt = await h.call("spaces.finish", { space, keep: [] });
   assert.ok(receipt.pendingCloseCount >= 1, JSON.stringify(receipt));
@@ -144,7 +144,7 @@ test("finish() while the user looks at the task's page: 'Task finished', and Clo
 });
 
 test("leaving the tab closes it, pill and all", async () => {
-  const space = await shownTask(`zen-ux closing leave ${run}`);
+  const space = await shownTask(`UI closing leave ${run}`);
   await h.call("pages.close", { space, page: "p1" });
   const out = await h.chrome(`${Q()}
     try {
@@ -161,7 +161,7 @@ test("leaving the tab closes it, pill and all", async () => {
 });
 
 test("after a restart (tabClosing with no task), the pill says only that the agent closed it", async () => {
-  const space = await shownTask(`zen-ux closing restart ${run}`);
+  const space = await shownTask(`UI closing restart ${run}`);
   await h.call("pages.close", { space, page: "p1" });
   const out = await h.chrome(`${Q()}
     try {
@@ -183,7 +183,7 @@ test("after a restart (tabClosing with no task), the pill says only that the age
 });
 
 test("a close no one sees doesn't wait, and shows no pill", async () => {
-  const { id: space } = await h.createSpace({ name: `zen-ux closing hidden ${run}` });
+  const { id: space } = await h.createSpace({ name: `UI closing hidden ${run}` });
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/` });
   await h.chrome(`${prelude(space)} win.__zuTab = tab;`);
   const closed = await h.call("pages.close", { space, page: "p1" });

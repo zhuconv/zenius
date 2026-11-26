@@ -97,7 +97,7 @@ const K = `
  * Returns its id, its name, and each page's label and browserId by key.
  */
 async function task(name, urls) {
-  const full = `zen-ux kept ${name} ${run}`;
+  const full = `UI kept ${name} ${run}`;
   const { id: space } = await h.createSpace({ name: full });
   const bids = {};
   const labels = {};
@@ -265,7 +265,7 @@ test("a kept page the agent made that asks for no secret: the user's click into 
   }
 });
 
-test("a refusal of what the user just did in a kept page with evidence of danger loads it afresh, quietly, through zen-core's cleanLoad: no card, nothing heard, no view moved; with no input of theirs just before, for the speakers, or in a page without evidence a clean copy clears (none, or a list's or the agent's flag), nothing happens", async () => {
+test("a refusal of what the user just did in a kept page with evidence of danger loads it afresh, quietly, through the core's cleanLoad: no card, nothing heard, no view moved; with no input of theirs just before, for the speakers, or in a page without evidence a clean copy clears (none, or a list's or the agent's flag), nothing happens", async () => {
   const { space, bids, labels } = await task("refused", { p1: `${h.base}/zoo/forms.html` });
   try {
     await agentCode(space, labels.p1);
@@ -471,8 +471,8 @@ test("a page the agent made that the user kept from its close while the task wen
   }
 });
 
-test("in a claimed Space, a blank tab of the user's that the agent adopted, wrote into and released: after the finish, the user's click there brings a clean copy, and zen-ux adds nothing: no note, no card, no load of its own", async () => {
-  const { id: space, page } = await h.claimedSpace(`zen-ux kept adopted ${run}`);
+test("in a claimed Space, a blank tab of the user's that the agent adopted, wrote into and released: after the finish, the user's click there brings a clean copy, and the UI adds nothing: no note, no card, no load of its own", async () => {
+  const { id: space, page } = await h.claimedSpace(`UI kept adopted ${run}`);
   const user = await h.chrome(`${K}
     const rec = ctx.spaces.peek(${space});
     const agentBid = ctx.resolvePage({ space: ${space}, page: ${JSON.stringify(page)} }).browser.browserId;
@@ -559,7 +559,7 @@ test("the panel's Stop leaves the page the agent made noted, with nothing shown 
 });
 
 test("in a claimed Space the user's own blank tab isn't noted, and the page the agent made is: a document with no site counts as the agent's only in a tab the agent opened", async () => {
-  const { id: space, page } = await h.claimedSpace(`zen-ux kept claimed ${run}`);
+  const { id: space, page } = await h.claimedSpace(`UI kept claimed ${run}`);
   const out = await h.chrome(`${K}
     const rec = ctx.spaces.peek(${space});
     const agentBid = ctx.resolvePage({ space: ${space}, page: ${JSON.stringify(page)} }).browser.browserId;
@@ -582,7 +582,7 @@ test("in a claimed Space the user's own blank tab isn't noted, and the page the 
 // kept goes to the core (noteKeptInput; finishedTaskOf too, stand-ins here),
 // so a reply to the task's chat leaves that page with the user. The user's
 // input enters through the parent, as OS input does (takeover.test.mjs).
-test("the user's click and typing in a tab an ended task kept reach zen-core as clicked and typed; an arrow key and Escape don't count, nor does input in a tab no task kept", async () => {
+test("the user's click and typing in a tab an ended task kept reach the core as clicked and typed; an arrow key and Escape don't count, nor does input in a tab no task kept", async () => {
   const out = await h.chrome(`
     const svc = win.ucAgentSidebar.AgentService.zenius();
     const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;

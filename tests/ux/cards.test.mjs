@@ -18,7 +18,7 @@ let userView;
 before(async () => {
   h = await setup();
   userView = await h.call("dev.viewState");
-  ({ id: space } = await h.createSpace({ name: "zen-ux cards test" }));
+  ({ id: space } = await h.createSpace({ name: "UI cards test" }));
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/` });
   P = `${prelude(space)}
     const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;

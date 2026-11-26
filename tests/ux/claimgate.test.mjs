@@ -57,7 +57,7 @@ const claim = params =>
   );
 
 test("Allow lets an agent's claim of the user's Space through, after a prompt that quotes the agent's own label; nothing moves", async () => {
-  const space = await h.userSpace(`zen-ux claim allow ${run}`);
+  const space = await h.userSpace(`UI claim allow ${run}`);
   const pending = claim({ space, client: "Trip\u202E planner", timeout: 30000 });
   const out = await h.chrome(`${R()}
     const focused = Services.focus.focusedElement;
@@ -88,7 +88,7 @@ test("Allow lets an agent's claim of the user's Space through, after a prompt th
 });
 
 test("Deny refuses the claim with ZEN_TASK_SPACE_CLAIM_DENIED, and the Space stays the user's", async () => {
-  const space = await h.userSpace(`zen-ux claim deny ${run}`);
+  const space = await h.userSpace(`UI claim deny ${run}`);
   const pending = claim({ space, timeout: 30000 });
   const out = await h.chrome(`${R()}
     await until(() => askFor(${space}) && pillOf(askFor(${space}).id));
@@ -107,7 +107,7 @@ test("Deny refuses the claim with ZEN_TASK_SPACE_CLAIM_DENIED, and the Space sta
 });
 
 test("no answer denies it when the call's time runs out, and the prompt goes", async () => {
-  const space = await h.userSpace(`zen-ux claim timeout ${run}`);
+  const space = await h.userSpace(`UI claim timeout ${run}`);
   const pending = claim({ space, client: "Slow agent", timeout: 1500 });
   const shown = await h.chrome(`${R()}
     await until(() => askFor(${space}) && pillOf(askFor(${space}).id));

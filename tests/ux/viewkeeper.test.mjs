@@ -47,9 +47,9 @@ before(async () => {
   userView = await h.call("dev.viewState");
   // Zen puts each new tab at the top of its Space: A1 ends up first.
   ({ tall, short } = await h.chrome(`${K}
-    const t = await gZenWorkspaces.createAndSaveWorkspace("zen-ux view keeper, tall", undefined, true);
+    const t = await gZenWorkspaces.createAndSaveWorkspace("UI view keeper, tall", undefined, true);
     for (let i = 30; i >= 1; i--) add(t.uuid, "A" + i);
-    const s = await gZenWorkspaces.createAndSaveWorkspace("zen-ux view keeper, short", undefined, true);
+    const s = await gZenWorkspaces.createAndSaveWorkspace("UI view keeper, short", undefined, true);
     for (let i = 3; i >= 1; i--) add(s.uuid, "S" + i);
     return { tall: t.uuid, short: s.uuid };
   `));

@@ -14,7 +14,7 @@ let userView;
 before(async () => {
   h = await setup();
   userView = await h.call("dev.viewState");
-  ({ id: space } = await h.createSpace({ name: "zen-ux tag test" }));
+  ({ id: space } = await h.createSpace({ name: "UI tag test" }));
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/` });
   P = `${prelude(space)}
     const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;
@@ -49,7 +49,7 @@ test("a task page wears its task's tag: the state on the tab, the name for the c
   `);
   assert.equal(out.state, "working");
   assert.equal(out.state, out.badge, "the tag and the badge agree");
-  assert.equal(out.name, "zen-ux tag test");
+  assert.equal(out.name, "UI tag test");
   if (out.expanded) {
     assert.notEqual(out.chip.content, "none");
     assert.notEqual(out.chip.display, "none");
@@ -76,7 +76,7 @@ test("the tag follows the task: paused, needs-user, user, and back", async () =>
   assert.deepEqual(out, { paused: "paused", needs: "needs-user", user: "user", back: "working" });
 });
 
-test("a tab zen-core tags later gets the tag at once; untagged, it loses it", async () => {
+test("a tab the core tags later gets the tag at once; untagged, it loses it", async () => {
   const out = await h.chrome(`${P}
     tab.removeAttribute("zenius-task");
     await tick();
@@ -86,7 +86,7 @@ test("a tab zen-core tags later gets the tag at once; untagged, it loses it", as
     return { untagged, tagged: read() };
   `);
   assert.deepEqual(out.untagged, { state: null, name: null });
-  assert.equal(out.tagged.name, "zen-ux tag test");
+  assert.equal(out.tagged.name, "UI tag test");
   assert.ok(["working", "idle"].includes(out.tagged.state), out.tagged.state);
 });
 
@@ -97,7 +97,7 @@ test("the tab's tooltip names the task and its state", async () => {
     ctx.spaces.setOwnership(rec, "agent", { source: "user" });
     return text;
   `);
-  assert.ok(tooltip.endsWith(`\nTask: ${iso("zen-ux tag test")} · Agent needs you`), tooltip);
+  assert.ok(tooltip.endsWith(`\nTask: ${iso("UI tag test")} · Agent needs you`), tooltip);
 });
 
 test("with the sidebar collapsed to icons, the tag is a dot on the tab's icon", async () => {

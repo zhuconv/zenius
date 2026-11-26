@@ -105,7 +105,7 @@ function openWindow() {
 /** A task on one page, made while the first window is the most recent, so its tab opens there. */
 async function task(name, url = `${h.base}/zoo/forms.html`) {
   await h.chrome(`${W()} await focusWin(0); return true;`);
-  const { id } = await h.createSpace({ name: `zen-ux two windows: ${name} ${run}` });
+  const { id } = await h.createSpace({ name: `UI two windows: ${name} ${run}` });
   await h.call("page.goto", { space: id, page: "p1", url });
   return id;
 }
@@ -244,7 +244,7 @@ test("the takeover prompt goes with the page into the other window", async () =>
 });
 
 test("a claim prompt shows in every window, and answered in one it goes from every window", async () => {
-  const space = await h.userSpace(`zen-ux two windows claim ${run}`);
+  const space = await h.userSpace(`UI two windows claim ${run}`);
   // Both windows show the same tab: each has a prompt on its own copy. It's
   // a tab of the test's own, which window sync copies to the second window.
   // The first window's selected tab may have no copy: in a fresh profile

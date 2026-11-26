@@ -24,7 +24,7 @@ import { parseArgs } from "node:util";
 import { scratchHome } from "../../lib/scratch-home.mjs";
 import { prelude, setup } from "../lib.mjs";
 
-const NAME = "zen-ux guided check";
+const NAME = "UI guided check";
 const { values: args } = parseArgs({
   options: {
     instance: { type: "string" },
@@ -175,7 +175,7 @@ try {
     await sleep(400);
     await C.moveCursor(tab, { x: 260, y: 160 }, { label: "Waiting for you", kind: "move" });
   `);
-  console.log(`The dev Zen window shows the Space "zen-ux guided check" with the agent's
+  console.log(`The dev Zen window shows the Space "UI guided check" with the agent's
 cursor ("Waiting for you"). Bring that window to the front, then follow each step.`);
 
   await step("G1", "Click anywhere in the page (not the sidebar). A pill should appear at the bottom center: \"Agent paused · it resumes in 10 s\", counting down.",
@@ -271,7 +271,7 @@ cursor ("Waiting for you"). Bring that window to the front, then follow each ste
     win.PopupNotifications.show(browser, "storage-access", "Allow the sign-in frame to use its cookies here?", "storage-access-notification-icon",
       { label: "Allow", accessKey: "A", callback() {} }, [{ label: "Block", accessKey: "B", callback() {} }], {});
   `);
-  await step("G10a", "The sidebar strip should now say \"zen-ux guided check needs your permission\". Click it: it goes straight to the task. The browser's prompt asks to let a sign-in frame use its cookies, and the card says why the agent stopped.",
+  await step("G10a", "The sidebar strip should now say \"UI guided check needs your permission\". Click it: it goes straight to the task. The browser's prompt asks to let a sign-in frame use its cookies, and the card says why the agent stopped.",
     s => s.ownership === "agentDelegatedToUser" && s.reason === "storage_access" && /asks for storage access/.test(s.controlNotice ?? ""));
   await step("G10b", "Click \"Block\" in the browser's prompt (not Allow). Control goes back to the agent.",
     s => s.ownership === "agent" && !s.controlNotice);
@@ -283,7 +283,7 @@ cursor ("Waiting for you"). Bring that window to the front, then follow each ste
       ctx.spaces.setStateText(rec, "Log in to continue");
       ctx.spaces.setOwnership(rec, "agentDelegatedToUser", { source: "agent" });
     `);
-    console.log(`\nG9. A macOS notification "An agent needs you: zen-ux guided check" should appear. Click it: the dev window should open the agent's Space.`);
+    console.log(`\nG9. A macOS notification "An agent needs you: UI guided check" should appear. Click it: the dev window should open the agent's Space.`);
     const ok = await chrome(`
       const end = Date.now() + ${STEP_MS};
       while (Date.now() < end && gZenWorkspaces.activeWorkspace !== rec.uuid) await sleep(100);

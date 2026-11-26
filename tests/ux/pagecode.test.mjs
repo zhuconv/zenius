@@ -84,7 +84,7 @@ const K = `
 
 /** A task with one page, p1, on the fixture's forms page. */
 async function task(name) {
-  const { id: space } = await h.createSpace({ name: `zen-ux pagecode ${name} ${run}` });
+  const { id: space } = await h.createSpace({ name: `UI pagecode ${name} ${run}` });
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/zoo/forms.html?${name}` });
   const bid = await h.chrome(`return ctx.resolvePage({ space: ${space}, page: "p1" }).browser.browserId;`);
   return { space, bid };
@@ -105,7 +105,7 @@ const backToUser = () =>
     `if (gZenWorkspaces.activeWorkspace !== ${JSON.stringify(userView.windows[0].activeWorkspace)}) await gZenWorkspaces.changeWorkspaceWithID(${JSON.stringify(userView.windows[0].activeWorkspace)}); return true;`
   );
 
-test("under ask, the agent's page code on a site the user hasn't allowed raises the card in its tab, in zen-observe's words, once per task and site; another task gets its own; nothing takes focus or moves the user's view; always, the default, shows none", async () => {
+test("under ask, the agent's page code on a site the user hasn't allowed raises the card in its tab, in the observe layer's words, once per task and site; another task gets its own; nothing takes focus or moves the user's view; always, the default, shows none", async () => {
   const a = await task("ask-a");
   const b = await task("ask-b");
   try {

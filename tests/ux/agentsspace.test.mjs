@@ -13,8 +13,8 @@ let b;
 // Ended tasks keep their names in the instance's state across runs (until
 // the core's restart step drops tasks whose tabs didn't come back).
 const run = Date.now().toString(36).slice(-5);
-const nameA = `zen-ux agents A ${run}`;
-const nameB = `zen-ux agents B ${run}`;
+const nameA = `UI agents A ${run}`;
+const nameB = `UI agents B ${run}`;
 
 // Chrome-side helpers for both tasks.
 const Q = () => `

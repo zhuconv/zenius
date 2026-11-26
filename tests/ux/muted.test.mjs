@@ -33,7 +33,7 @@ const SILENT_WAV = (() => {
 before(async () => {
   h = await setup();
   userView = await h.call("dev.viewState");
-  ({ id: space } = await h.createSpace({ name: "zen-ux muted test" }));
+  ({ id: space } = await h.createSpace({ name: "UI muted test" }));
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/` });
   await h.call("page.evaluate", {
     space,
@@ -85,7 +85,7 @@ test("zenius-muted-sound puts a muted badge on the tab's icon and a line in its 
   assert.equal(out.off.tooltip, false);
 });
 
-test("with zen-observe's mute: a page the user can't see plays sound, the badge shows, and goes when they look", async () => {
+test("with the observe layer's mute: a page the user can't see plays sound, the badge shows, and goes when they look", async () => {
   await h.call("page.click", { space, page: "p1", target: "#play" });
   const out = await h.chrome(`${P}
     await until(() => tab.hasAttribute("zenius-muted-sound"), 5000);

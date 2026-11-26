@@ -164,7 +164,7 @@ test("Save As, replacing a name that's a link: the link goes, never what it poin
         }.QueryInterface(iid);
       },
     };
-    registrar.registerFactory(newCID, "zen-ux saving test picker", CONTRACT, factory);
+    registrar.registerFactory(newCID, "UI saving test picker", CONTRACT, factory);
     Services.prefs.setBoolPref("browser.download.useDownloadDir", false);
     try {
       const path = await Saving.saveText(win, { name: "picked.sh", text: ${JSON.stringify(ANSWER)}, source: "https://example.com/" });

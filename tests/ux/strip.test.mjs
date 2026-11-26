@@ -72,9 +72,9 @@ test("the tasks panel's Open goes to the chat that drives the task: the waiting 
     };
     return { first: make("First errand"), second: make("Second errand") };
   `);
-  const first = await h.createSpace({ name: `zen-ux strip first ${run}`, source: { sidebar: chats.first } });
-  const second = await h.createSpace({ name: `zen-ux strip second ${run}`, source: { sidebar: chats.second } });
-  const other = await h.createSpace({ name: `zen-ux strip other ${run}`, source: { agent: "Codex", terminal: "devbox/t1" } });
+  const first = await h.createSpace({ name: `UI strip first ${run}`, source: { sidebar: chats.first } });
+  const second = await h.createSpace({ name: `UI strip second ${run}`, source: { sidebar: chats.second } });
+  const other = await h.createSpace({ name: `UI strip other ${run}`, source: { agent: "Codex", terminal: "devbox/t1" } });
   for (const { id } of [first, second, other]) {
     await h.call("page.goto", { space: id, page: "p1", url: `${h.base}/` });
   }
@@ -162,8 +162,8 @@ test("one waiting task: the strip names it and what it waits for, and its click 
     };
     return { first: make("First errand"), second: make("Second errand") };
   `);
-  const first = await h.createSpace({ name: `zen-ux strip one ${run}`, source: { sidebar: chats.first } });
-  const second = await h.createSpace({ name: `zen-ux strip two ${run}`, source: { sidebar: chats.second } });
+  const first = await h.createSpace({ name: `UI strip one ${run}`, source: { sidebar: chats.first } });
+  const second = await h.createSpace({ name: `UI strip two ${run}`, source: { sidebar: chats.second } });
   for (const { id } of [first, second]) {
     await h.call("page.goto", { space: id, page: "p1", url: `${h.base}/` });
   }
@@ -209,7 +209,7 @@ test("one waiting task: the strip names it and what it waits for, and its click 
     `,
       { chats, second: second.id }
     );
-    const name = iso(`zen-ux strip two ${run}`);
+    const name = iso(`UI strip two ${run}`);
     assert.deepEqual(one.one, { says: `${name} needs a sign-in`, title: `${name} needs a sign-in`, named: true, all: true });
     assert.deepEqual(one.clicked, { sidebar: true, chat: chats.second, watching: second.id, panel: "closed", all: false }, "straight to the task and its chat; watching, the strip says so and All agent tasks goes");
     assert.equal(one.allOpens, null, "All agent tasks opens the panel and goes nowhere");
@@ -229,7 +229,7 @@ test("one waiting task: the strip names it and what it waits for, and its click 
     );
     assert.deepEqual(two.two, {
       says: "2 agents need you",
-      title: `2 agents need you\n${iso(`zen-ux strip one ${run}`)} needs your OK\n${name} needs a sign-in`,
+      title: `2 agents need you\n${iso(`UI strip one ${run}`)} needs your OK\n${name} needs a sign-in`,
       named: false,
       all: false,
     });

@@ -94,7 +94,7 @@ test("it moves with the selection, so it stays in sight", async () => {
   assert.deepEqual(out, { onOther: true, onFirst: false });
 });
 
-test("Allow and Deny answer zen-core once, and the prompt goes", async () => {
+test("Allow and Deny answer the core once, and the prompt goes", async () => {
   const [allowId, denyId] = [`ask-${++seq}`, `ask-${++seq}`];
   const out = await h.chrome(`${Q()}
     const tab = gBrowser.selectedTab;
@@ -114,7 +114,7 @@ test("Allow and Deny answer zen-core once, and the prompt goes", async () => {
   assert.deepEqual(out.left, [false, false]);
 });
 
-test("zen-core's claimSettled (a timeout, the client gone) removes it; with none, it goes a second past its time", async () => {
+test("the core's claimSettled (a timeout, the client gone) removes it; with none, it goes a second past its time", async () => {
   const [settled, lapsed] = [`ask-${++seq}`, `ask-${++seq}`];
   const out = await h.chrome(`${Q()}
     const tab = gBrowser.selectedTab;

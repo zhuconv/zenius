@@ -195,7 +195,7 @@ async function shot(name) {
 }
 
 for (const theme of ["light", "dark"]) {
-  test(`${theme}: every zen-ux surface renders`, () =>
+  test(`${theme}: every UI surface renders`, () =>
     inTheme(theme, async () => {
       const shots = [];
       const run = code => h.chrome(`${P}${code}`);

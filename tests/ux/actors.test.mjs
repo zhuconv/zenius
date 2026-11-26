@@ -18,7 +18,7 @@ before(async () => {
   h = await setup();
   userView = await h.call("dev.viewState");
   // A task is live through every test: a user's document stays bare anyway.
-  ({ id: space } = await h.createSpace({ name: `zen-ux actors ${run}` }));
+  ({ id: space } = await h.createSpace({ name: `UI actors ${run}` }));
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/api/text?task` });
 });
 
@@ -51,8 +51,8 @@ const K = `
   };
 `;
 
-test("a document in the user's own tab, and its frame, get neither of zen-ux's actors, while a task is live", async () => {
-  const userSpace = await h.userSpace(`zen-ux actors user ${run}`);
+test("a document in the user's own tab, and its frame, get neither of the UI's actors, while a task is live", async () => {
+  const userSpace = await h.userSpace(`UI actors user ${run}`);
   const out = await h.chrome(`${K}
     const W = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/windows.sys.mjs");
     const tab = W.tabsInWorkspace(ctx.spaces.get(${userSpace}).uuid)[0];
@@ -68,7 +68,7 @@ test("a document in the user's own tab, and its frame, get neither of zen-ux's a
   assert.deepEqual(out, { task: false, top: [false, false], frame: [false, false] });
 });
 
-test("a task's new documents, top and frame, get both of zen-ux's actors", async () => {
+test("a task's new documents, top and frame, get both of the UI's actors", async () => {
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/api/text?task-again` });
   const out = await h.chrome(`${K}
     const { browser } = ctx.resolvePage({ space: ${space}, page: "p1" });
