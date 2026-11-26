@@ -23,7 +23,7 @@ import { DOC_TOPICS, docsText } from "./docs.ts";
 import { ZeniusError } from "./errors.ts";
 import { workingDir } from "./files.ts";
 import { cleanLine, composeFacts, declinedText, MAX_LINE, outcomeText, showReport, type Shown } from "./feedback.ts";
-import { taskSpace, startTaskSpace, clientLabel } from "./globals.ts";
+import { taskSpace, startTaskSpace, clientLabel, listTaskSpaces, sidebarTask } from "./globals.ts";
 import { instanceName, socketPath } from "./instance.ts";
 import {
   CALL_MARGIN_S,
@@ -378,6 +378,14 @@ export class Session implements ScriptHost {
    * Used once, at the first call (resume()).
    */
   #resume: string | undefined;
+  /** ZENIUS_SIDEBAR_TASK: the agent sidebar's chat this server works for. */
+  readonly #sidebar: string | undefined;
+  /**
+   * The task this server last worked in, once it ended, and the page it
+   * last used: a reply in the sidebar's chat may hand a finished task back
+   * (the runtime's resumeFinishedTask), and the next call goes on in it.
+   */
+  #ended: { id: number; current: string | undefined } | undefined;
 
   /** --docs-only: the docs tool alone, which never reaches Zen. */
   readonly docsOnly: boolean;
@@ -402,6 +410,7 @@ export class Session implements ScriptHost {
     { docsOnly = false, sidebar = false, scripts }: { docsOnly?: boolean; sidebar?: boolean; scripts?: boolean } = {},
   ) {
     this.#resume = env.ZENIUS_TASK_SPACE;
+    this.#sidebar = sidebarTask(env);
     this.docsOnly = docsOnly;
     this.scripts = !docsOnly && (scripts ?? (underLauncher(env) && (!sidebar || env.ZENIUS_GRANTS === "sidebar")));
     const timeout = Number(env.ZENIUS_TOOL_TIMEOUT);
@@ -490,7 +499,7 @@ export class Session implements ScriptHost {
   async resume(): Promise<void> {
     const value = this.#resume;
     this.#resume = undefined;
-    if (value === undefined || this.#task) return;
+    if (value === undefined || this.#task) return this.#rejoin();
     const ignore = (why: string) =>
       void process.stderr.write(`zenius mcp: ignoring ZENIUS_TASK_SPACE=${JSON.stringify(value)}: ${why}. The agent's open starts a new task.\n`);
     if (!/^\d+$/.test(value.trim())) return ignore("it isn't a task's id");
@@ -506,6 +515,38 @@ export class Session implements ScriptHost {
     } catch (error) {
       ignore(error instanceof ZeniusError && error.code === "ZEN_TASK_SPACE_NOT_FOUND" ? `no task has that id in instance ${quoted(instanceName(undefined), 40)}` : readable(error));
     }
+  }
+
+  /**
+   * After a task of the sidebar's chat ended: when the user's reply in that
+   * chat handed it back (the runtime's resumeFinishedTask), go on in it, on
+   * the page the agent last used if that came back. Until then each call
+   * looks again, so a later reply can still do it. A task that's gone, or
+   * another chat's or client's by now, is forgotten.
+   */
+  async #rejoin(): Promise<void> {
+    const ended = this.#ended;
+    if (!ended || this.#task) return;
+    let entry: { ownership?: string; source?: unknown } | undefined;
+    try {
+      entry = (await listTaskSpaces()).find((space) => space.id === ended.id);
+    } catch {
+      return;
+    }
+    const source = entry?.source as { sidebar?: unknown } | null | undefined;
+    if (!entry || source?.sidebar !== this.#sidebar) {
+      this.#ended = undefined;
+      return;
+    }
+    if (entry.ownership !== "agent" && entry.ownership !== "agentDelegatedToUser") return;
+    try {
+      const task = await taskSpace(ended.id);
+      const pages = await task.pages().catch(() => [] as Page[]);
+      this.#ended = undefined;
+      this.#task = task;
+      // One tab is the current one by itself; with more, the agent names one (page) or opens one.
+      this.#current = pages.find((page) => page.label === ended.current) ?? (pages.length === 1 ? pages[0] : undefined);
+    } catch {}
   }
 
   /**
@@ -703,6 +744,8 @@ export class Session implements ScriptHost {
   }
 
   ended(): void {
+    // Only the sidebar's own chat can hand a task back with a reply.
+    this.#ended = this.#task && this.#sidebar ? { id: this.#task.id, current: this.#current?.label } : undefined;
     this.#task = undefined;
     this.#current = undefined;
     this.#reads.clear();

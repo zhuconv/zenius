@@ -205,6 +205,16 @@ export function cleanable(evidence) {
 }
 
 /**
+ * The evidence for which Resume's clean-up loads afresh a page whose secret
+ * field changed during the hold (ui/index.sys.mjs #cleanable), as a reply
+ * after a finish does (service.resumeFinishedTask): the agent's code
+ * (hooked), its own page (made), and evidence the UI couldn't read
+ * (unknown). The rest, a list's and the agent's flag, is the page itself.
+ * One list, so the two never differ.
+ */
+export const RESUME_CLEANABLE = Object.freeze(["hooked", "made", "unknown"]);
+
+/**
  * Does the page need a clean copy: did the agent's code leave something in
  * it (hooked), in a page it didn't make? A reload of a page the agent made
  * would only bring it back.
@@ -471,9 +481,11 @@ const responseHook = {
  *   evidentFails: the clean copy on demand. A load whose document comes in
  *   with evidence a clean copy clears fails (`stillEvident` and `evidence`
  *   on the error), the tab's typing held on it and nothing replayed
- * @returns {Promise<{how: "reload"|"get", openerCut: boolean, carried: boolean, focused: boolean, urlBefore: string|null, loadedFrom: string|null}>}
+ * @returns {Promise<{how: "reload"|"get", openerCut: boolean, carried: boolean, focused: boolean, urlBefore: string|null, loadedFrom: string|null, doc: number}>}
  *   how: "get" when a POST result was loaded again by GET; loadedFrom: the
- *   URL that brought the document, when the load went there instead
+ *   URL that brought the document, when the load went there instead; doc:
+ *   the innerWindowId of the document this load made, so a caller can tell
+ *   it from a later load's (the user's or the page's own)
  */
 export async function cleanLoad(svc, browser, { sameSite = false, evidentFails = false, recordMs = RECORD_TIMEOUT_MS } = {}) {
   service = svc;
@@ -589,7 +601,7 @@ export async function cleanLoad(svc, browser, { sameSite = false, evidentFails =
           throw Object.assign(new Error(`it ended on ${now.documentURI?.spec}, on another site`), { offSite: now.documentURI?.spec ?? null });
         }
       }
-      return { filled, focused };
+      return { filled, focused, doc: fresh.innerWindowId };
     };
     let done;
     let wentInstead = false;
@@ -635,6 +647,7 @@ export async function cleanLoad(svc, browser, { sameSite = false, evidentFails =
       focused: done.focused,
       urlBefore: back?.spec ?? null,
       loadedFrom: wentInstead ? instead.spec : null,
+      doc: done.doc,
     };
   } catch (e) {
     // No new document: the old one may still hold the agent's code, so

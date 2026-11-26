@@ -45,11 +45,10 @@ function canRun(rec) {
   return !!rec && !rec.gone && rec.ownership === "agent" && !rec.paused;
 }
 
-/** Every frame of every page of the Space, with its tab's browser. */
-function framesOf(service, rec) {
+/** Every frame of each <browser>, with its browser. */
+function framesIn(browsers) {
   const out = [];
-  for (const page of service.pages.list(rec.id)) {
-    const browser = service.pages.tabFor(page)?.linkedBrowser;
+  for (const browser of browsers) {
     const top = browser?.browsingContext;
     if (!top) {
       continue;
@@ -60,6 +59,14 @@ function framesOf(service, rec) {
   }
   return out;
 }
+
+/** Every frame of every page of the Space, with its tab's browser. */
+function framesOf(service, rec) {
+  return framesIn(service.pages.list(rec.id).map(page => service.pages.tabFor(page)?.linkedBrowser));
+}
+
+/** <browser> → its last clear's total (fields emptied), once its frames answer. */
+const lastClears = new WeakMap();
 
 /** The user's key or drop opened zen-ux's takeover prompt, and so paused the Space. */
 function pausedByUserKey(rec) {
@@ -101,7 +108,7 @@ function clearFrames(service, frames, why) {
     byBrowser.set(browser, [...(byBrowser.get(browser) ?? []), reply]);
   }
   for (const [browser, replies] of byBrowser) {
-    Promise.all(replies).then(results => {
+    const total = Promise.all(replies).then(results => {
       const sum = kind => results.reduce((n, r) => n + (r?.[kind] ?? 0), 0);
       const passwords = sum("passwords");
       const cards = sum("cards");
@@ -123,7 +130,9 @@ function clearFrames(service, frames, why) {
           url: browser.currentURI?.spec ?? "",
         });
       }
+      return count;
     });
+    lastClears.set(browser, total);
   }
 }
 
@@ -184,9 +193,37 @@ export function installHandBackGuard(service) {
  * @param {object} rec  the Space's record
  * @returns {Promise<Element[]>}
  */
-export async function typedSecrets(service, rec) {
+export function typedSecrets(service, rec) {
+  return typedSecretsIn(service, service.pages.list(rec.id).map(page => service.pages.tabFor(page)?.linkedBrowser));
+}
+
+/**
+ * A finished task's kept tabs, for a reply in its Work chat that may hand
+ * them back (service.resumeFinishedTask): every frame records its secret
+ * fields now, as at any hold's start. The finish's own snapshot finds no
+ * pages: endTask has dropped them by its spaceChanged.
+ *
+ * @param {object} service  ZeniusService
+ * @param {Element[]} browsers
+ */
+export function snapshotKept(service, browsers) {
+  stats.snapshots++;
+  for (const { bc } of framesIn(browsers)) {
+    service.content(bc, "secrets#snapshot", { skipFocused: false }).catch(() => {});
+  }
+}
+
+/**
+ * typedSecrets for the given tabs: those with a frame whose secret fields
+ * changed or appeared since the snapshot.
+ *
+ * @param {object} service  ZeniusService
+ * @param {Element[]} browsers
+ * @returns {Promise<Element[]>}
+ */
+export async function typedSecretsIn(service, browsers) {
   const pages = new Map();
-  for (const { browser, bc } of framesOf(service, rec)) {
+  for (const { browser, bc } of framesIn(browsers)) {
     const reply = service.content(bc, "secrets#changedSince", {}).catch(() => null);
     pages.set(browser, [...(pages.get(browser) ?? []), reply]);
   }
@@ -197,6 +234,17 @@ export async function typedSecrets(service, rec) {
     }
   }
   return named;
+}
+
+/**
+ * How many secret fields the last clear in this tab emptied, once its
+ * frames answer; 0 when none ran.
+ *
+ * @param {Element} browser
+ * @returns {Promise<number>}
+ */
+export function lastClearOf(browser) {
+  return lastClears.get(browser) ?? Promise.resolve(0);
 }
 
 /**

@@ -776,3 +776,97 @@ describe("zenius mcp script", () => {
     });
   });
 });
+
+/**
+ * The sidebar's server (ZENIUS_SIDEBAR_TASK) on a mock runtime, after a
+ * finish that kept p1 and p2: `resume` does what the runtime's
+ * resumeFinishedTask does when the user's reply in the chat hands the task
+ * back, and `chat` names the chat the task's source gives.
+ */
+async function afterFinish(
+  env: Record<string, string>,
+  body: (context: {
+    mock: MockRuntime;
+    id: number;
+    call: (name: string, args?: Record<string, unknown>) => Promise<{ text: string; isError?: boolean }>;
+    resume: (chat?: string) => void;
+  }) => Promise<void>,
+): Promise<void> {
+  const mock = await new MockRuntime().start();
+  const socket = process.env.ZENIUS_SOCKET;
+  process.env.ZENIUS_SOCKET = mock.socketPath;
+  const session = new Session(env);
+  const call = async (name: string, args: Record<string, unknown> = {}) => {
+    const result = await callTool(session, name, args);
+    return { text: result.content.map((part) => part.text).join("\n"), isError: result.isError };
+  };
+  try {
+    await call("open", { url: "https://shop.example.com/" });
+    await call("open", { url: "https://shop.example.com/cart" });
+    const id = session.task.id;
+    const space = mock.spaces.get(id)!;
+    // The runtime keeps the chat the source names (the test's own process has none).
+    space.source = { agent: "Claude Code", sidebar: "conv-1" };
+    const finished = await call("finish", { keep: ["p1", "p2"] });
+    assert.equal(finished.isError, undefined, finished.text);
+    const resume = (chat = "conv-1") => {
+      space.source = { agent: "Claude Code", sidebar: chat };
+      space.ownership = "agent";
+      space.pages.forEach((page, i) => (page.label = `p${i + 1}`));
+    };
+    await body({ mock, id, call, resume });
+  } finally {
+    session.drop();
+    if (socket === undefined) delete process.env.ZENIUS_SOCKET;
+    else process.env.ZENIUS_SOCKET = socket;
+    await mock.stop();
+  }
+}
+
+/** The page the last call that named one went to. */
+function lastPage(mock: MockRuntime): unknown {
+  return mock.requests.filter((request) => request.method.startsWith("page.") && "page" in request.params).at(-1)?.params.page;
+}
+
+describe("zenius mcp: a reply after a finish", () => {
+  it("goes on in the task once a reply in its chat hands it back, on the page the agent last used", async () => {
+    await afterFinish({ ZENIUS_SIDEBAR_TASK: "conv-1" }, async ({ mock, id, call, resume }) => {
+      const before = await call("read_page", {});
+      assert.equal(before.isError, true);
+      assert.match(before.text, /there is no task yet/);
+      resume();
+      const read = await call("read_page", {});
+      assert.equal(read.isError, undefined, read.text);
+      assert.equal(lastPage(mock), "p2", "the page it used last");
+      const snapshot = mock.requests.filter((request) => request.method === "page.snapshot").at(-1)!;
+      assert.equal(snapshot.params.space, id, "the same task, not a new one");
+      // Back in the task, no call looks for it again.
+      const lists = mock.requests.filter((request) => request.method === "spaces.list").length;
+      await call("read_page", { page: "p1" });
+      assert.equal(mock.requests.filter((request) => request.method === "spaces.list").length, lists);
+      assert.equal(lastPage(mock), "p1");
+    });
+  });
+
+  it("goes on in no task another chat took, nor without a chat of its own, and open then starts a new task", async () => {
+    await afterFinish({ ZENIUS_SIDEBAR_TASK: "conv-1" }, async ({ mock, id, call, resume }) => {
+      resume("conv-2");
+      const read = await call("read_page", {});
+      assert.equal(read.isError, true, "another chat's task now");
+      assert.match(read.text, /there is no task yet/);
+      // Forgotten: the next call doesn't look.
+      const lists = mock.requests.filter((request) => request.method === "spaces.list").length;
+      await call("read_page", {});
+      assert.equal(mock.requests.filter((request) => request.method === "spaces.list").length, lists);
+      const opened = await call("open", { url: "https://shop.example.com/" });
+      assert.equal(opened.isError, undefined, opened.text);
+      assert.notEqual(mock.requests.filter((request) => request.method === "page.goto").at(-1)!.params.space, id);
+    });
+    await afterFinish({}, async ({ mock, call, resume }) => {
+      resume();
+      const read = await call("read_page", {});
+      assert.equal(read.isError, true, "only the sidebar's own server goes on");
+      assert.ok(!mock.requests.slice(-3).some((request) => request.method === "spaces.list"));
+    });
+  });
+});

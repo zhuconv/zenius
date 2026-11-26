@@ -13,6 +13,12 @@ export const AGENT_BROWSERS_KEY = "zenius:agentBrowserIds";
 /** Every page of an agent task, also while the user holds it (zen-ux glue). */
 export const TASK_BROWSERS_KEY = "zenius:taskBrowserIds";
 /**
+ * The pages a finished task kept for the user that a reply in its Work chat
+ * may still hand back (browserIds; service.resumeFinishedTask): the typing
+ * sense watches them, and only notes the user's input there.
+ */
+export const KEPT_BROWSERS_KEY = "zenius:keptBrowserIds";
+/**
  * The top documents (innerWindowId) where the agent's code ran, in a task's
  * tab (observe/agentcode.sys.mjs).
  * The refusals that hold for a task's whole life stay on such a document

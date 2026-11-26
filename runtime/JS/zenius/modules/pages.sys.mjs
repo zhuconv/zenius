@@ -875,7 +875,8 @@ export class Pages {
    * one, and its ledger entry go, and so do its session value and tag, so
    * no claim, adoption or restart gives it back to the task. A secret
    * step's tab that didn't blank, at the hand back
-   * (service.blankSecretSteps).
+   * (service.blankSecretSteps), and the kept tabs the user touched after a
+   * finish, at a reply in the task's Work chat (service.resumeFinishedTask).
    *
    * @param {object} space  SpaceRecord
    * @param {Element} tab  any copy

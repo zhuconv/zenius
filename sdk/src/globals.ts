@@ -49,6 +49,12 @@ function fitSourceField(value: string | undefined): string | undefined {
 // name another chat. Like the rest of the source, it's the script's own claim.
 const SIDEBAR_TASK = /^[A-Za-z0-9-]{1,64}$/;
 
+/** The sidebar's conversation uid (ZENIUS_SIDEBAR_TASK) exactly as given, when it fits. */
+export function sidebarTask(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  const sidebar = env.ZENIUS_SIDEBAR_TASK;
+  return sidebar && SIDEBAR_TASK.test(sidebar) ? sidebar : undefined;
+}
+
 /**
  * The task's source: the hc terminal (HC_TERMINAL_ID, a local id such as
  * "t5x"), the agent's kind, the working folder's base name, never a path,
@@ -60,12 +66,12 @@ export function taskSource(env: NodeJS.ProcessEnv = process.env, cwd: string = p
   const terminal = fitSourceField(env.HC_TERMINAL_ID);
   const agent = fitSourceField(clientLabel(env)) ?? "script";
   const folder = fitSourceField(sandboxed ? env.ZENIUS_FOLDER : nodePath.basename(cwd));
-  const sidebar = env.ZENIUS_SIDEBAR_TASK;
+  const sidebar = sidebarTask(env);
   return {
     ...(terminal ? { terminal } : {}),
     agent,
     ...(folder ? { folder } : {}),
-    ...(sidebar && SIDEBAR_TASK.test(sidebar) ? { sidebar } : {}),
+    ...(sidebar ? { sidebar } : {}),
   };
 }
 

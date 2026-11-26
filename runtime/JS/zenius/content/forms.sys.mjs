@@ -16,6 +16,7 @@ import { secretFields } from "chrome://userscripts/content/zenius/content/secret
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
+  dispatchIn: "chrome://userscripts/content/zenius/content/capture.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
@@ -294,6 +295,11 @@ function loaded(doc, ms) {
  * fields of the new document, and the focus into the field that had it. A
  * field the user already changed keeps what they typed.
  *
+ * Its writes make trusted events, as the user's input does, so each carries
+ * zenius's input mark (capture.sys.mjs dispatchIn): the typing sense
+ * (content/typing.sys.mjs) never takes them for the user's, in a page a
+ * finished task kept among others.
+ *
  * @returns {Promise<{filled: number, focused: boolean}>}
  */
 export async function fill(actor, { fields = [], focused = null, userTarget = false } = {}) {
@@ -324,10 +330,10 @@ export async function fill(actor, { fields = [], focused = null, userTarget = fa
         // A radio can't be unchecked by a click; its group's checked one is
         // carried instead.
         if (field.checked && !el.checked && el.checked === el.defaultChecked) {
-          el.click();
+          lazy.dispatchIn(win, () => el.click());
           filled++;
         } else if (!field.checked && el.checked && el.type === "checkbox" && el.checked === el.defaultChecked) {
-          el.click();
+          lazy.dispatchIn(win, () => el.click());
           filled++;
         }
       } else if (kind === "select") {
@@ -344,13 +350,15 @@ export async function fill(actor, { fields = [], focused = null, userTarget = fa
           }
         }
         if (changed) {
-          el.dispatchEvent(new win.Event("input", { bubbles: true }));
-          el.dispatchEvent(new win.Event("change", { bubbles: true }));
+          lazy.dispatchIn(win, () => {
+            el.dispatchEvent(new win.Event("input", { bubbles: true }));
+            el.dispatchEvent(new win.Event("change", { bubbles: true }));
+          });
           filled++;
         }
       } else if (el.value === el.defaultValue && el.value !== field.value) {
         // As form autofill fills: the page's handlers see it as typing.
-        el.setUserInput(field.value);
+        lazy.dispatchIn(win, () => el.setUserInput(field.value));
         filled++;
       }
     } catch (e) {

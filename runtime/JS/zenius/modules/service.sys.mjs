@@ -47,6 +47,7 @@ import {
   AGENT_BROWSERS_KEY,
   AGENT_CODE_DOCS_KEY,
   GUARD_ACTORS_KEY,
+  KEPT_BROWSERS_KEY,
   TASK_BROWSERS_KEY,
 } from "chrome://userscripts/content/zenius/content/taskset.sys.mjs";
 import {
@@ -82,6 +83,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   markEvident: "chrome://userscripts/content/zenius/observe/evidence.sys.mjs",
   // The hold's module loads with a task's first hold, not at startup (I4).
   cleanLoad: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
+  RESUME_CLEANABLE: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
   TASK_END_RECORD_TIMEOUT_MS: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
   cleanable: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
   evidenceOf: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
@@ -101,6 +103,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   signInGateFor: "chrome://userscripts/content/zenius/content/signin.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
+  // The reply after a finish's hand-back steps load with its first finish (I4).
+  lastClearOf: "chrome://userscripts/content/zenius/input/handback.sys.mjs",
+  snapshotKept: "chrome://userscripts/content/zenius/input/handback.sys.mjs",
+  typedSecretsIn: "chrome://userscripts/content/zenius/input/handback.sys.mjs",
+  capturing: "chrome://userscripts/content/zenius/observe/capture.sys.mjs",
 });
 
 /** @type {object|null|undefined} zen-observe's isolated world once loaded; null if it isn't there */
@@ -140,6 +147,13 @@ const GUARD_TIMEOUT_MS = 2000;
  * copy comes in written again (seen in probes of Take over).
  */
 const CLEAN_COPY_CAP = { max: 5, windowMs: 60_000 };
+/**
+ * The reply after a finish waits this long at most for the finish's own
+ * loads (endTaskCode) before it takes the kept pages' baselines, and for
+ * the pages' answers on secret fields at the resume.
+ */
+const FINISH_LOADS_WAIT_MS = 10_000;
+const KEPT_SECRETS_WAIT_MS = 3000;
 /**
  * What a Safe Browsing list says of a page, for its listed evidence: the
  * classifier's result codes.
@@ -216,6 +230,8 @@ class Service {
   #eventListeners = new Set();
   /** The clean load running for a hooked page, by <browser> (#cleanCopy). */
   #cleanLoads = new WeakMap();
+  /** <browser> → the top document (innerWindowId) its last clean copy made (#cleanCopy). */
+  #cleanDocs = new WeakMap();
   /** <browser> → when its recent clean copies on demand began (ms), for CLEAN_COPY_CAP. */
   #cleanCopyTimes = new WeakMap();
   /** Tasks whose end endTaskCode has handled, until the agent has them again. */
@@ -731,6 +747,7 @@ class Service {
     this.#syncListedCheck();
     Services.ppmm.sharedData.set(AGENT_BROWSERS_KEY, ids);
     Services.ppmm.sharedData.set(TASK_BROWSERS_KEY, taskIds);
+    Services.ppmm.sharedData.set(KEPT_BROWSERS_KEY, this.#keptBrowserIds());
     Services.ppmm.sharedData.flush();
     // Before a new page's first load, as the guards.
     this.updateBackstops();
@@ -1107,7 +1124,13 @@ class Service {
       if (onDemand) {
         this.#countCleanCopy(browser);
       }
-      running = lazy.cleanLoad(this, browser, { sameSite: true, evidentFails: onDemand, recordMs }).finally(() => this.#cleanLoads.delete(browser));
+      running = lazy
+        .cleanLoad(this, browser, { sameSite: true, evidentFails: onDemand, recordMs })
+        .then(result => {
+          this.#cleanDocs.set(browser, result?.doc ?? null);
+          return result;
+        })
+        .finally(() => this.#cleanLoads.delete(browser));
       this.#cleanLoads.set(browser, running);
     }
     return running;
@@ -1147,7 +1170,8 @@ class Service {
    *
    * @param {object} rec  the task
    * @param {Set<Element>} [closing]  tabs finish() closes: discarded, never reloaded
-   * @returns {Promise<void>}
+   * @returns {Promise<Element[]>} the pages that loaded afresh (a reply
+   *   after the finish takes its baselines from those new documents)
    */
   endTaskCode(rec, closing = new Set()) {
     // Once per end: later events of the user's space don't run it again.
@@ -1173,8 +1197,14 @@ class Service {
     return Promise.all(discards)
       .then(() => this.reloadHookedAfterTask(stays, held))
       .then(
-        reloaded => this.#notePagesReloaded(rec, reloaded, labels),
-        e => log("reloading the hooked pages at the task's end failed:", e.message)
+        reloaded => {
+          this.#notePagesReloaded(rec, reloaded, labels);
+          return reloaded;
+        },
+        e => {
+          log("reloading the hooked pages at the task's end failed:", e.message);
+          return [];
+        }
       )
       .finally(() => {
         for (const release of held.values()) {
@@ -1739,6 +1769,7 @@ class Service {
     // goes with it, once this close is done.
     if (event.detail?.adoptedBy) {
       const to = event.detail.adoptedBy;
+      this.#keptTabGone(tab, "moved", to);
       const page = this.pages.carryOver(tab, to);
       if (page) {
         Promise.resolve().then(() => this.emitLocal("pageMoved", { space: page.spaceId, page: page.label, from: tab, to }));
@@ -1751,6 +1782,7 @@ class Service {
     if (copiesOf(tab).length) {
       return;
     }
+    this.#keptTabGone(tab, "closed");
     this.pages.forgetDeferred(tab);
     const id = this.pages.tabId(tab);
     const page = this.pages.forTab(tab);
@@ -2238,6 +2270,392 @@ class Service {
     for (const { tab, openedBy } of members ?? []) {
       this.pages.addUnmanaged(rec, tab, openedBy);
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // The reply after a finish (docs/SPI.md, "The reply after a finish")
+
+  /**
+   * A finished task → the pages its finish kept for the user, which a reply
+   * in its Work chat may hand back (resumeFinishedTask), until the task runs
+   * again, its record goes, or Zen quits. In memory only, so a restart ends
+   * the chance.
+   *
+   * Each kept page: its label then, who opened it and from which page, its
+   * tab (any copy: the live one is found by its browserId, which moves with
+   * its document), and why it can't come back once the user closed, moved,
+   * clicked or typed in it. Then its top document at the finish (finished),
+   * once the finish's own loads were done (base), and after a clean copy
+   * zenius made at the resume (clean).
+   *
+   * @type {Map<object, {kept: object[], ready: Promise<void>}>}
+   */
+  #finished = new Map();
+
+  /**
+   * finish() kept these pages for the user: a reply in the task's Work chat
+   * may hand back those the user leaves alone. Their baselines (each top
+   * document, and every frame's secret fields) are taken once the finish's
+   * own loads are done, so a clean copy the finish made isn't a navigation
+   * of the user's. Only a Work chat's task can be replied to.
+   *
+   * @param {object} rec  the task, just finished
+   * @param {{label: string, openedBy: string, opener: string|null, tab: Element}[]} kept
+   * @param {Promise<Element[]>} loads  endTaskCode's: the pages it loaded afresh
+   */
+  noteFinished(rec, kept, loads) {
+    this.#finished.delete(rec);
+    if (!rec.source?.sidebar || !kept.length) {
+      return;
+    }
+    const state = {
+      kept: kept.map(({ label, openedBy, opener, tab }) => ({
+        label,
+        openedBy,
+        opener: opener ?? null,
+        tab,
+        browserId: tab.linkedBrowser?.browserId || 0,
+        why: null,
+        finished: topDocOf(tab.linkedBrowser),
+        base: null,
+        clean: null,
+      })),
+      ready: null,
+    };
+    let timer = 0;
+    const late = new Promise(resolve => {
+      timer = lazy.setTimeout(() => resolve(null), FINISH_LOADS_WAIT_MS);
+    });
+    const done = Promise.resolve(loads).then(
+      reloaded => (Array.isArray(reloaded) ? reloaded : []),
+      () => []
+    );
+    state.ready = Promise.race([done, late]).then(reloaded => {
+      lazy.clearTimeout(timer);
+      this.#takeKeptBases(rec, state, reloaded);
+    });
+    this.#finished.set(rec, state);
+    this.publishAgentBrowsers();
+  }
+
+  /**
+   * The kept pages' baselines, once the finish's loads are done (reloaded:
+   * the pages they loaded afresh; null when they took too long). A page
+   * with another top document by now that no load of the finish's explains
+   * was navigated meanwhile, by the user or by itself: it stays theirs. A
+   * page loaded afresh counts only in the document its own clean copy made:
+   * the user may have loaded another while a slower page's copy still ran.
+   */
+  #takeKeptBases(rec, state, reloaded) {
+    if (this.#finished.get(rec) !== state) {
+      return;
+    }
+    const browsers = [];
+    for (const kept of state.kept) {
+      const browser = this.#keptTab(kept)?.linkedBrowser;
+      if (kept.why || !browser?.browsingContext) {
+        continue;
+      }
+      const now = topDocOf(browser);
+      const copied = reloaded?.find(b => b === browser || (kept.browserId && b.browserId === kept.browserId));
+      if (copied ? now.doc === null || now.doc !== this.#cleanDocs.get(copied) : !sameDoc(now, kept.finished)) {
+        kept.why = "navigated";
+        continue;
+      }
+      kept.base = now;
+      browsers.push(browser);
+    }
+    try {
+      lazy.snapshotKept(this, browsers);
+    } catch (e) {
+      console.error("[zenius] the kept pages' snapshot failed", e);
+    }
+    this.publishAgentBrowsers();
+  }
+
+  /** A kept page's live tab now (window sync), or null once it's gone. */
+  #keptTab(kept) {
+    return kept.tab ? liveCopy(kept.tab, kept.browserId) : null;
+  }
+
+  /** Is `tab`, or the <browser> with `id`, this kept page? */
+  #isKept(kept, tab, id) {
+    return !!kept.tab && (kept.tab === tab || (!!id && kept.browserId === id));
+  }
+
+  /**
+   * The finished task that kept this tab for a reply in its Work chat, or
+   * null. A tab that moved to another window's copy is found by its
+   * browserId, which moves with its document.
+   *
+   * @param {Element} tab  any copy
+   * @returns {object|null}
+   */
+  finishedTaskOf(tab) {
+    const id = tab?.linkedBrowser?.browserId || 0;
+    for (const [rec, state] of this.#finished) {
+      if (!rec.gone && rec.ownership === "user" && state.kept.some(kept => this.#isKept(kept, tab, id))) {
+        return rec;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * A finished task's kept pages, once their baselines are taken, and why
+   * each can't come back now (null while it may), or null when a reply in
+   * its Work chat can hand none back: for tests, and for the sidebar to
+   * tell ahead of a reply.
+   *
+   * @param {number} spaceId
+   * @returns {Promise<{page: string, why: string|null}[]|null>}
+   */
+  async keptPagesOf(spaceId) {
+    const rec = this.spaces.peek(spaceId);
+    const state = rec ? this.#finished.get(rec) : null;
+    if (!state) {
+      return null;
+    }
+    await state.ready;
+    if (this.#finished.get(rec) !== state) {
+      return null;
+    }
+    return state.kept.map(kept => ({ page: kept.label, why: this.#notBackWhy(kept) }));
+  }
+
+  /**
+   * The user clicked or typed in a finished task's kept page (zen-ui's
+   * takeover listener; the typing sense, for fills): it stays theirs at a
+   * reply. The first reason stays.
+   *
+   * @param {object} rec  finishedTaskOf's
+   * @param {Element} browser
+   * @param {"clicked"|"typed"} kind
+   */
+  noteKeptInput(rec, browser, kind) {
+    if (kind !== "clicked" && kind !== "typed") {
+      return;
+    }
+    const id = browser?.browserId || 0;
+    // Not ownerGlobal: zenius's module scope doesn't see it.
+    const tab = browser?.ownerDocument?.defaultView?.gBrowser?.getTabForBrowser?.(browser) ?? null;
+    const kept = this.#finished.get(rec)?.kept.find(k => this.#isKept(k, tab, id));
+    if (kept && !kept.why) {
+      kept.why = kind;
+      log(`a finished task's kept page was ${kind} in: it stays the user's`);
+      this.publishAgentBrowsers();
+    }
+  }
+
+  /** A kept page closed, or moved to another window (to: its tab there). */
+  #keptTabGone(tab, why, to = null) {
+    const id = tab.linkedBrowser?.browserId || 0;
+    for (const state of this.#finished.values()) {
+      for (const kept of state.kept) {
+        if (this.#isKept(kept, tab, id)) {
+          kept.why ??= why;
+          kept.tab = to;
+          kept.browserId = to?.linkedBrowser?.browserId || kept.browserId;
+        }
+      }
+    }
+  }
+
+  /** The kept pages the typing sense watches: those that may still come back. */
+  #keptBrowserIds() {
+    const ids = new Set();
+    for (const [rec, state] of this.#finished) {
+      // Claimed, stopped again or gone: no reply hands these back now.
+      if (rec.gone || rec.ownership !== "user") {
+        this.#finished.delete(rec);
+        continue;
+      }
+      for (const kept of state.kept) {
+        if (kept.tab && kept.browserId && !kept.why) {
+          ids.add(kept.browserId);
+        }
+      }
+    }
+    return ids;
+  }
+
+  #canResume(rec, source) {
+    return (
+      !rec.gone &&
+      rec.kind === "task" &&
+      rec.ownership === "user" &&
+      rec.ended === true &&
+      rec.endedHow === "finished" &&
+      typeof source?.sidebar === "string" &&
+      source.sidebar !== "" &&
+      rec.source?.sidebar === source.sidebar
+    );
+  }
+
+  /** Why a kept page can't come back now, or null. */
+  #notBackWhy(kept) {
+    if (kept.why) {
+      return kept.why;
+    }
+    const tab = this.#keptTab(kept);
+    if (!tab?.linkedBrowser) {
+      return "closed";
+    }
+    // Out of the Agents Space: into a Space of the user's, or marked their
+    // own ("Use your own tab"), or a page of another task by now.
+    if (!this.spaces.isAgentsSpace(tab.getAttribute("zen-workspace-id")) || this.pages.isUserOwn(tab) || this.pages.forTab(tab)) {
+      return "moved";
+    }
+    // Another top document, or the same one at another history entry or
+    // address: the user's navigation, or the page's own, which counts too.
+    // So does a tab the browser unloaded meanwhile.
+    if (!sameDoc(topDocOf(tab.linkedBrowser), kept.clean ?? kept.base)) {
+      return "navigated";
+    }
+    return null;
+  }
+
+  /**
+   * A reply in a finished task's Work chat: zen-ui's send, in process, never
+   * over the socket. It hands the task back to its agent with the pages its
+   * finish kept that the user hasn't touched since. The user's message is
+   * the approval, so no claim prompt shows.
+   *
+   * A kept page the user closed, moved out of the Agents Space, navigated,
+   * or clicked or typed in stays theirs and leaves the task, so no
+   * adoption, claim or restart gives it back. The agent hears which pages,
+   * and why. With none left, the task stays ended.
+   *
+   * Resume's clean-up runs first, on the pages that may come back: a page
+   * whose secret fields changed since the finish loads afresh (reloaded).
+   * Then come the check and the handover, in one step with no await
+   * between. Each page is checked again and registered under its old label
+   * where it's free, and the ownership flips. Its camera, microphone and
+   * screen streams stop as it joins the agent's tabs (stopped, what they
+   * captured), and the flip's spaceChanged runs the hand-back guard's clear
+   * against the snapshot the finish took (cleared, the fields it emptied).
+   *
+   * @param {number} spaceId  the chat's task (conv.zen.id)
+   * @param {{sidebar?: string}} source  the chat (conv.uid), which must be the task's
+   * @returns {Promise<null|{space: number, name: string, pages: {page: string, url: string, reloaded: boolean, stopped: string[], cleared: number}[], notBack: {page: string, url: string, why: string}[]}>}
+   *   null when this chat has no finished task to take up. A page not back
+   *   gives the address it had at the finish, never where the user took it.
+   */
+  async resumeFinishedTask(spaceId, source = {}) {
+    const t0 = now();
+    const rec = this.spaces.peek(spaceId);
+    const state = rec ? this.#finished.get(rec) : null;
+    if (!state || !this.#canResume(rec, source)) {
+      return null;
+    }
+    await state.ready;
+    const current = () => this.#finished.get(rec) === state && this.#canResume(rec, source);
+    if (!current()) {
+      return null;
+    }
+    // Resume's clean-up first (ui/index.sys.mjs #reloadTyped): a page with a
+    // secret field that changed since the finish loads afresh, so no page
+    // state keeps what was put there, when its evidence says a clean copy
+    // helps. Without an answer in time, the guard's clear alone runs.
+    const candidates = state.kept.filter(kept => !this.#notBackWhy(kept));
+    const browsers = candidates.map(kept => this.#keptTab(kept).linkedBrowser);
+    let typed = [];
+    let timer = 0;
+    try {
+      const late = new Promise(resolve => {
+        timer = lazy.setTimeout(() => resolve(null), KEPT_SECRETS_WAIT_MS);
+      });
+      typed = (await Promise.race([lazy.typedSecretsIn(this, browsers), late])) ?? [];
+    } catch (e) {
+      log("the kept pages' secret fields didn't answer:", e.message);
+    } finally {
+      lazy.clearTimeout(timer);
+    }
+    const reloads = typed.filter(browser => {
+      const kept = candidates[browsers.indexOf(browser)];
+      const evidence = lazy.evidenceOf(browser) ?? {};
+      return kept && !this.#notBackWhy(kept) && lazy.RESUME_CLEANABLE.some(reason => Object.hasOwn(evidence, reason));
+    });
+    await Promise.all(
+      reloads.map(async browser => {
+        const kept = candidates[browsers.indexOf(browser)];
+        try {
+          const { doc } = await this.cleanLoad(browser);
+          const now = topDocOf(this.#keptTab(kept)?.linkedBrowser);
+          // Only the document this load made: another by now is a load
+          // since, the user's or the page's own.
+          if (now.doc !== null && now.doc === doc) {
+            kept.clean = now;
+          } else {
+            kept.why ??= "navigated";
+          }
+        } catch (e) {
+          // A secret the page may still hold keeps it the user's.
+          log("a kept page's clean load failed:", e.message);
+          kept.why ??= "typed";
+        }
+      })
+    );
+    if (!current()) {
+      return null;
+    }
+    // One step from here to the flip: no await.
+    const back = [];
+    const notBack = [];
+    for (const kept of state.kept) {
+      const why = this.#notBackWhy(kept);
+      const tab = this.#keptTab(kept);
+      if (why) {
+        // The address the agent had at the finish: where the page is now may
+        // be the user's own browsing since.
+        notBack.push({ page: kept.label, url: kept.finished?.url ?? "", why });
+        if (tab) {
+          this.pages.leaveTask(rec, tab);
+        }
+        // Its label named that page only: a call naming it hears the page
+        // was released, and a new page gets another.
+        if (!rec.ledger.usedLabels.includes(kept.label)) {
+          rec.ledger.usedLabels.push(kept.label);
+        }
+        rec.ledger.releasedLabels.push(kept.label);
+        continue;
+      }
+      // Its address is still the finish's (or its clean copy's): #notBackWhy's check.
+      const url = urlOf(tab);
+      const label = rec.ledger.usedLabels.includes(kept.label) ? undefined : kept.label;
+      const page = this.pages.register(rec, tab, kept.openedBy, { label, opener: kept.opener });
+      keepAlive(tab);
+      // The agent never uses the user's devices: what the page captures stops
+      // as it joins the agent's tabs at the flip (observe/setup.sys.mjs).
+      const stopped = lazy.capturing(tab.linkedBrowser);
+      // The guard's clear at the flip replaces this, if any: an older one
+      // isn't this hand back's.
+      const priorClear = lazy.lastClearOf(tab.linkedBrowser);
+      back.push({ kept, tab, page, url, stopped, priorClear });
+    }
+    this.#finished.delete(rec);
+    if (!back.length) {
+      this.publishAgentBrowsers();
+      log(`a reply after a finish: no kept page of task ${rec.id} came back (${notBack.length}), in ${(now() - t0).toFixed(1)} ms`);
+      return { space: rec.id, name: rec.name, pages: [], notBack };
+    }
+    this.spaces.setOwnership(rec, "agent", { source: "user" });
+    // The pages' documents predate this, so they get their guards now.
+    await Promise.all(back.map(({ tab }) => this.installGuards(tab).catch(e => log("a returned page's guards failed:", e.message))));
+    const pages = await Promise.all(
+      back.map(async ({ kept, tab, page, url, stopped, priorClear }) => {
+        const clear = lazy.lastClearOf(tab.linkedBrowser);
+        return {
+          page: page.label,
+          url,
+          reloaded: kept.clean !== null,
+          stopped,
+          cleared: clear === priorClear ? 0 : await clear.catch(() => 0),
+        };
+      })
+    );
+    log(`a reply after a finish: task ${rec.id} is the agent's again with ${pages.length} page(s), ${notBack.length} not back, in ${(now() - t0).toFixed(1)} ms`);
+    return { space: rec.id, name: rec.name, pages, notBack };
   }
 
   // ---------------------------------------------------------------------------
@@ -3135,6 +3553,38 @@ class Service {
 }
 
 /** Did Zen restore the tab unloaded, or the user unload it? */
+/** A tab's top document now: its id, address and history entry. */
+function topDocOf(browser) {
+  const bc = browser?.browsingContext;
+  let doc = null;
+  let index = null;
+  let url = "";
+  try {
+    doc = bc?.currentWindowGlobal?.innerWindowId ?? null;
+  } catch {}
+  try {
+    index = bc?.sessionHistory?.index ?? null;
+  } catch {}
+  try {
+    url = browser.currentURI?.spec ?? "";
+  } catch {}
+  return { doc, url, index };
+}
+
+/** The same top document at the same entry and address, both known. */
+function sameDoc(a, b) {
+  return !!a && !!b && a.doc !== null && a.doc === b.doc && a.url === b.url && a.index === b.index;
+}
+
+/** A tab's address, "" when it has none to read. */
+function urlOf(tab) {
+  try {
+    return tab?.linkedBrowser?.currentURI?.spec ?? "";
+  } catch {
+    return "";
+  }
+}
+
 function isUnloaded(tab) {
   return !tab.linkedPanel || tab.hasAttribute("pending");
 }

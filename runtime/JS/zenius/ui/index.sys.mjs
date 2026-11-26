@@ -61,6 +61,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
+  RESUME_CLEANABLE: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
   currentDialog: "chrome://userscripts/content/zenius/observe/dialogs.sys.mjs",
   releaseDialog: "chrome://userscripts/content/zenius/observe/dialogs.sys.mjs",
 });
@@ -117,12 +118,6 @@ const TYPING_OFF_NOTICE = "zenius-typing-off";
 const RELOADED_NOTICE = "zenius-reloaded";
 /** The warning on a page on a phishing or malware list, or that the agent flagged (#updatePageWarning). */
 const PAGE_WARNING_NOTICE = "zenius-page-warning";
-/**
- * The evidence that a clean copy clears (#cleanable): the agent's code
- * (hooked), its own page (made), and evidence zen-ux couldn't read
- * (unknown). The rest, a list's and the agent's flag, is the page itself.
- */
-const CLEANABLE = ["hooked", "made", "unknown"];
 /** The notice on a page whose Take over couldn't begin: why, and what still works. */
 const TAKEOVER_REFUSED_NOTICE = "zenius-takeover-refused";
 /** The claim gate's prompt, one per ask: this plus zen-core's id. */
@@ -2217,15 +2212,16 @@ class UiController {
 
   /**
    * Is there evidence in `browser`'s page that a clean copy clears
-   * (CLEANABLE): the agent's code or its own page? What reloads keys on
-   * these alone: on a page on a list, or that the agent flagged, the danger
+   * (handoff.sys.mjs RESUME_CLEANABLE): the agent's code or its own page?
+   * What reloads keys on these alone: on a page on a list, or that the
+   * agent flagged, the danger
    * is the page itself, which a clean copy can't remove (a listed copy is
    * marked again, a flagged one loses its flag). Such a page gets its
    * warning instead (#updatePageWarning).
    */
   #cleanable(browser) {
     const evidence = this.#evidence(browser);
-    return CLEANABLE.some(reason => Object.hasOwn(evidence, reason));
+    return lazy.RESUME_CLEANABLE.some(reason => Object.hasOwn(evidence, reason));
   }
 
   /**

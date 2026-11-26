@@ -373,12 +373,21 @@ export function finishTask(ctx, rec, keep) {
     ...agentUnmanaged.filter(item => retainedEarlier.has(item.id)).map(item => item.id),
     ...anchorsLeftOpen,
   ];
+  // The pages it keeps, read while they're still pages: a reply in the
+  // task's Work chat may hand back those the user leaves alone.
+  const keptPages = keptManagedLabels
+    .map(label => byLabel.get(label))
+    .filter(Boolean)
+    .map(page => ({ label: page.label, openedBy: page.openedBy, opener: page.opener ?? null, tab: ctx.pages.tabFor(page) }))
+    .filter(kept => kept.tab);
   // Before endTask drops the tabs from the task: the agent's code goes from
   // every one, kept pages included, and the written ones load afresh.
-  ctx.service.endTaskCode(rec, closed);
+  const loads = ctx.service.endTaskCode(rec, closed);
   // The task ends: labels end, keep-alive stops, the space is the user's.
   ctx.service.endTask(rec);
   ctx.spaces.setOwnership(rec, "user", { source: "agent" });
+  // Once the Space is the user's: the kept set holds only finished tasks.
+  ctx.service.noteFinished?.(rec, keptPages, loads);
   ctx.emit("spaceFinished", { space: rec.id, closedSpace: false });
   return {
     spaceId: rec.id,

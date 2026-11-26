@@ -14,13 +14,14 @@
 
 import { EVIDENCE_DOCS_KEY } from "chrome://userscripts/content/zenius/content/worldkeys.sys.mjs";
 import { TASK_BROWSERS_KEY } from "chrome://userscripts/content/zenius/content/guards.sys.mjs";
+import { KEPT_BROWSERS_KEY } from "chrome://userscripts/content/zenius/content/taskset.sys.mjs";
 import { TYPING_HELD_DOCS_KEY, TYPING_HELD_TABS_KEY } from "chrome://userscripts/content/zenius/content/typingkeys.sys.mjs";
 import { noteSecretTyped } from "chrome://userscripts/content/zenius/input/handback.sys.mjs";
 import { noteHeldInput, noteUserTyping } from "chrome://userscripts/content/zenius/input/typing.sys.mjs";
 import { allTabs } from "chrome://userscripts/content/zenius/modules/windows.sys.mjs";
 
 const ACTOR = "ZeniusInput";
-const WATCHED_KEYS = [TASK_BROWSERS_KEY, EVIDENCE_DOCS_KEY, TYPING_HELD_TABS_KEY, TYPING_HELD_DOCS_KEY];
+const WATCHED_KEYS = [TASK_BROWSERS_KEY, EVIDENCE_DOCS_KEY, TYPING_HELD_TABS_KEY, TYPING_HELD_DOCS_KEY, KEPT_BROWSERS_KEY];
 
 export class ZeniusInputParent extends JSWindowActorParent {
   receiveMessage({ name, data }) {
@@ -28,6 +29,10 @@ export class ZeniusInputParent extends JSWindowActorParent {
       // The user's input changed a secret field of this document in a task's
       // tab (content/typing.sys.mjs).
       noteSecretTyped(this.manager);
+    } else if (name === "keptInput") {
+      // The user's input in a finished task's kept page (content/typing.sys.mjs):
+      // a reply in the task's Work chat leaves that page theirs.
+      noteKeptInput(this.manager?.browsingContext?.top?.embedderElement ?? null);
     } else if (name === "typingHeld") {
       // The typing guard stopped the user's first press or key in a hooked
       // page (content/typing.sys.mjs).
@@ -89,10 +94,29 @@ function heldTabIds() {
   return Services.ppmm.sharedData.get(TYPING_HELD_TABS_KEY) ?? new Set();
 }
 
-/** The top BrowsingContexts of task pages, of hooked pages, and of tabs whose typing is held. */
+/** A finished task's kept pages that a reply may still hand back. */
+function keptIds() {
+  return Services.ppmm.sharedData.get(KEPT_BROWSERS_KEY) ?? new Set();
+}
+
+function noteKeptInput(browser) {
+  try {
+    const { ZeniusService } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/service.sys.mjs");
+    // Not ownerGlobal: Gecko 160 has no Node.ownerGlobal.
+    const tab = browser?.ownerDocument?.defaultView?.gBrowser?.getTabForBrowser?.(browser) ?? null;
+    const rec = tab ? ZeniusService.finishedTaskOf(tab) : null;
+    if (rec) {
+      ZeniusService.noteKeptInput(rec, browser, "typed");
+    }
+  } catch (e) {
+    console.error("[zenius] noting the user's input in a kept page failed", e);
+  }
+}
+
+/** The top BrowsingContexts of task pages, of hooked pages, of tabs whose typing is held, and of kept pages. */
 function guardedTops() {
   const tops = new Set();
-  for (const id of [...taskIds(), ...heldTabIds()]) {
+  for (const id of [...taskIds(), ...heldTabIds(), ...keptIds()]) {
     const top = BrowsingContext.getCurrentTopByBrowserId(id);
     if (top) {
       tops.add(top);

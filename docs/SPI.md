@@ -400,6 +400,60 @@ The sidebar checks the rest itself, and only then hands back:
   guard's clear and the resume token. It sends the prompt only once that
   resolves, so the agent's first call finds the task its own.
 
+**The reply after a finish** (the core's part). The user's send in a
+finished task's Work chat hands the task back to its agent with the pages
+its finish kept that the user left alone. No claim prompt shows: the
+user's message is the approval. The core gives the sidebar these, in
+process:
+- `service.resumeFinishedTask(space, {sidebar})`, with the chat's task
+  (`conv.zen.id`) and the chat (`conv.uid`). It resolves null when there's
+  nothing to take up: no such task, one its agent's finish didn't end,
+  another chat's (the task's `source.sidebar`), one that kept no page, or
+  one finished before a restart (the kept pages live in memory only).
+  Otherwise it resolves `{space, name, pages, notBack}`:
+  - `pages`: those that came back, each `{page, url, reloaded, stopped,
+    cleared}`, under its old label where it's free. `reloaded`: it loaded
+    afresh first, since a secret field changed and its evidence says a
+    clean copy helps (Resume's rule). `stopped`: what its streams
+    captured ("camera", "microphone", "screen"), which stop as it joins
+    the agent's tabs. `cleared`: the secret fields the hand-back guard
+    emptied.
+  - `notBack`: those that stay the user's, each `{page, url, why}`. `why`
+    is `closed`, `moved` (out of the Agents Space, marked the user's own,
+    or another task's page), `navigated` (another document, history entry
+    or address than after the finish's own loads, the page's own changes
+    included), `clicked` or `typed`. `url` is the address at the finish,
+    never where the user took the page. Such a page leaves the task: no
+    ledger entry and no session value, so no adoption, claim or restart
+    gives it back, and a call naming its label hears it was released.
+  - With `pages` empty the task stays ended. Otherwise the pages' last
+    check, their registration and the flip to the agent are one step, as
+    a claim's are.
+- `service.finishedTaskOf(tab)`: the finished task that kept `tab` for a
+  reply, or null, for any window's copy.
+- `service.noteKeptInput(rec, browser, kind)`: the user clicked
+  (`"clicked"`) or typed (`"typed"`) in a kept page, and the first reason
+  stays. The UI's takeover listener calls it. So does the typing sense
+  (content/typing.sys.mjs), for any trusted input event in a kept page,
+  fills included: it watches the pages in `zenius:keptBrowserIds`
+  (`KEPT_BROWSERS_KEY`) and holds nothing back there.
+- `service.keptPagesOf(space)`: the kept pages once their baselines are
+  taken, `[{page, why}]` with `why` null while the page may come back, or
+  null when none may: for tests, and for the sidebar to tell ahead.
+
+The finish (`finishTask`) notes the kept pages of a task a Work chat
+drives (`noteFinished`). Once its own loads are done (`endTaskCode`'s
+promise, 10 s at most) it takes their baselines: each top document, and
+every frame's secret fields (`snapshotKept`). A page the finish loaded
+afresh counts only in the document its own clean load made (`cleanLoad`'s
+`doc`): another one by then, such as the user's load while a slower
+page's clean copy still ran, makes it `navigated`. The reply's own clean load
+counts the same way. The sidebar calls
+`resumeFinishedTask` for the user's own sends only, after its session is
+up and before the prompt. The chat's zenius MCP server
+(`ZENIUS_SIDEBAR_TASK`) goes on in the task at its next call, on the page
+the agent last used if that came back (docs/mcp.md).
+
 ### The task feed (the core, for the UI's sidebar)
 
 Every task's life for the sidebar's directory, whoever drives it.
@@ -1353,7 +1407,9 @@ Entry points (`modules/service.sys.mjs`):
   unloaded: that hand back's save never came.
   With the UI's quiet loads off (a test switch), Resume doesn't run
   `beforeHandBack`, so nothing is blanked there.
-- `cleanLoad(browser)`: the quiet load alone, for the UI's Resume.
+- `cleanLoad(browser)`: the quiet load alone, for the UI's Resume. It
+  resolves with `doc`, the innerWindowId of the document it made, among
+  the rest.
 - Landing (2), the clean loads under the isolated world, on evidence:
   - `evidenceOf(target)`, the page's evidence over its top document and
     frames (unreadable, it counts as hooked), and the observe layer's
@@ -1526,7 +1582,9 @@ The quiet load (`cleanLoad`):
   that key. Never carried: secrets (the input layer's `secretFields`: passwords,
   card fields), one-time codes, hidden, invisible, disabled or read-only
   fields. A field the user already changed keeps their text. Text goes in
-  with `setUserInput`, as form autofill does.
+  with `setUserInput`, as form autofill does. Each write carries the input
+  layer's mark (`dispatchIn`), so the typing sense never takes it for the
+  user's input.
 - The input layer's `dropUserTyping(browser)` (`input/typing.sys.mjs`), when it
   exists, drops the user's typing until the form is back, and stays on
   after a failed load.

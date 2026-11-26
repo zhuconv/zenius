@@ -75,6 +75,13 @@ keep Ego's `taskSpace()`, which finds a task again by its name.
     before the chat's task is replaced before the chat's next session (a
     session's own ACP server would replace `CODEX_CONFIG`'s whole
     `mcp_servers` table in codex-acp 2.6.0).
+- **A reply after a finish.** The sidebar's own server (`ZENIUS_SIDEBAR_TASK`)
+  keeps in mind the task its agent finished. Once the user's reply in the
+  chat hands that task back (SPI, "The reply after a finish"), the server's
+  next call goes on in it, on the tab the agent last used if that came
+  back; otherwise the agent names one (`page`). Until then each call looks
+  again. A task that's gone, or another chat's or client's by now, is
+  forgotten, and the agent's `open` starts a new task.
 
 ## When the task isn't the agent's
 

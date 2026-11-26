@@ -38,6 +38,8 @@ export type MockSpace = {
   resumeOnWait?: boolean;
   /** The space's state text (spaces.setState), which the hold card shows. */
   stateText?: string;
+  /** Who drives the task (spaces.create's source), listed as the runtime lists it. */
+  source?: Record<string, unknown>;
   /** spaces.handOff refuses with ZEN_HANDOFF_REFUSED and this reason. */
   refuseHandOff?: string;
 };
@@ -396,6 +398,7 @@ export class MockRuntime {
           profileId: space.profileId ?? "default",
           profileName: space.profileId ? "Work" : "Default",
           recentTabTitles: space.pages.map((page) => page.title).filter(Boolean).slice(0, 3),
+          source: space.source ?? null,
           // I3: only a space the agent controls lists its Pages.
           ...(space.ownership === "agent" ? { pages: mock.pageEntries(space) } : {}),
         })),
@@ -410,6 +413,7 @@ export class MockRuntime {
         if (clash) throw new MockError("ZEN_TASK_SPACE_NAME_IN_USE", `A task space named ${JSON.stringify(params.name)} already exists (id ${clash.id}).`, { spaceId: clash.id });
         const space = mock.addSpace(params.name, "agent");
         space.profileId = params.profileId;
+        if (params.source && typeof params.source === "object") space.source = params.source;
         mock.addPage(space);
         return { id: space.id, name: space.name, ownership: "agent", createdBy: "agent", pages: mock.pageEntries(space) };
       },

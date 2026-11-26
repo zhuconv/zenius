@@ -610,6 +610,31 @@ test("a hand-off with secret: the hand back saves the session at once, so a cras
   }
 });
 
+test("a reply after a restart takes up nothing of a task finished before it: the scope is one Zen session", async () => {
+  // A Work chat's id, in the form the sidebar gives it (ZENIUS_SIDEBAR_TASK).
+  const chat = "5e1f0c3a-7b2d-4c19-9a8e-2f6d4b1c0a03";
+  const task = await h.call("spaces.create", { name: h.unique("restart finish reply"), source: { agent: "zen-core test", sidebar: chat } });
+  const kept = url("/zoo/forms.html?finish-reply");
+  try {
+    await h.call("page.goto", { space: task.id, page: "p1", url: kept });
+    await h.call("spaces.finish", { space: task.id, keep: ["p1"] });
+    assert.deepEqual(await h.chrome(`return await ctx.service.keptPagesOf(arg);`, task.id), [{ page: "p1", why: null }], "kept, and the chat could take it up now");
+    await saveSession([kept]);
+
+    await restart({ "browser.startup.page": 3, "zen.workspaces.continue-where-left-off": false });
+
+    assert.equal(await h.chrome(`return await ctx.service.keptPagesOf(arg);`, task.id), null, "no kept pages after the restart");
+    assert.equal(
+      await h.chrome(`return await ctx.service.resumeFinishedTask(arg.space, { sidebar: arg.chat });`, { space: task.id, chat }),
+      null,
+      "the chat's reply starts a new task"
+    );
+    assert.equal(await anyTabAt(kept), true, "the kept tab is still open, the user's");
+  } finally {
+    await h.remove(task.id).catch(() => {});
+  }
+});
+
 test("a start that restores no tabs ends every task, and the empty Agents Space goes", async () => {
   const one = await task("restart none 1", ["/api/text?n1"]);
   const two = await task("restart none 2", ["/api/text?n2"]);

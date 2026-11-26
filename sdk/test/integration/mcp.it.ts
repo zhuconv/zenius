@@ -645,3 +645,36 @@ test("mcp: a download zenius refuses is told once, with the reason, whichever re
     await chat.close();
   }
 });
+
+test("mcp: the sidebar's own server goes on in the task it finished once the user's reply in the chat hands the task back, on the page it kept", async () => {
+  // A Work chat's id, in the form the sidebar gives it (ZENIUS_SIDEBAR_TASK).
+  const chat = "5e1f0c3a-7b2d-4c19-9a8e-2f6d4b1c0a05";
+  const sidebar = await started({ ZENIUS_SIDEBAR_TASK: chat });
+  try {
+    const task = unique("it mcp reply");
+    await sidebar.ok("open", { url: `${context.base}/form`, task });
+    const { id } = await spaceNamed(task);
+    await sidebar.ok("finish", { keep: ["p1"] });
+    const before = await sidebar.call("read_page");
+    assert.equal(before.isError, true, "no task until the reply");
+    assert.match(before.content[0]!.text, /there is no task yet/);
+    // The user's reply in the chat, as the sidebar sends it: in process.
+    const back = (await chrome(`return await ctx.service.resumeFinishedTask(arg.space, { sidebar: arg.chat });`, { space: id, chat })) as {
+      pages: Array<{ page: string }>;
+      notBack: unknown[];
+    };
+    assert.deepEqual([back.pages.map((page) => page.page), back.notBack], [["p1"], []]);
+    const read = await sidebar.ok("read_page");
+    assert.equal(read.split("\n")[0], "Read the page");
+    assert.match(read, /loc=css:input\[name="name"\]/, "the page it kept");
+    const listed = (await spaces()).filter((entry) => entry.name === task);
+    assert.deepEqual(
+      listed.map((entry) => [entry.id, entry.ownership]),
+      [[id, "agent"]],
+      "the same task, the agent's again",
+    );
+    await sidebar.ok("finish", { keep: "none" });
+  } finally {
+    await sidebar.close();
+  }
+});

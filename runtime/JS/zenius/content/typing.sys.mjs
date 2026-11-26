@@ -39,6 +39,7 @@
 // events.
 
 import { TASK_BROWSERS_KEY } from "chrome://userscripts/content/zenius/content/guards.sys.mjs";
+import { KEPT_BROWSERS_KEY } from "chrome://userscripts/content/zenius/content/taskset.sys.mjs";
 import { secretKind } from "chrome://userscripts/content/zenius/content/secrets.sys.mjs";
 import { discard } from "chrome://userscripts/content/zenius/content/agentworld.sys.mjs";
 import { evidenceFlag, evidenceOf } from "chrome://userscripts/content/zenius/content/evidence.sys.mjs";
@@ -107,6 +108,20 @@ export function setZeniusInputTest(fn) {
 function isTaskTab(bc) {
   try {
     return !!bc && !!Services.cpmm.sharedData.get(TASK_BROWSERS_KEY)?.has(bc.browserId);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A page a finished task kept that a reply in its Work chat may hand back:
+ * here the sense only reports the user's input to the parent (onInput),
+ * so that page stays the user's. Nothing is dropped, held or discarded for
+ * it.
+ */
+function isKeptTab(bc) {
+  try {
+    return !!bc && !!Services.cpmm.sharedData.get(KEPT_BROWSERS_KEY)?.has(bc.browserId);
   } catch {
     return false;
   }
@@ -617,6 +632,9 @@ export function receiveReplay(win, { keys = [], entries = [], until = 0, void: v
   }
 }
 
+/** Documents of kept pages whose user input the parent has heard of. */
+const keptReported = new WeakSet();
+
 function onInput(e) {
   const root = e.currentTarget;
   if (!e.isTrusted || isZeniusInput(root)) {
@@ -624,11 +642,24 @@ function onInput(e) {
   }
   const target = targetOf(e);
   const doc = target?.ownerDocument;
-  if (!doc || reported.has(doc)) {
+  if (!doc) {
     return;
   }
   const win = doc.defaultView;
   const bc = win?.browsingContext;
+  // Any trusted input in a kept page, the user's typing, a paste, a drop
+  // or a fill, keeps it the user's at a reply after its task's finish.
+  if (bc && !keptReported.has(doc) && isKeptTab(bc.top)) {
+    keptReported.add(doc);
+    try {
+      win.windowGlobalChild?.getActor("ZeniusInput")?.sendAsyncMessage("keptInput");
+    } catch (err) {
+      console.error("[zenius] couldn't report the user's input in a kept page", err);
+    }
+  }
+  if (reported.has(doc)) {
+    return;
+  }
   if (!bc || !isTaskTab(bc) || !secretKind(target)) {
     return;
   }
@@ -680,7 +711,7 @@ export function syncTypingRoot(root, bc = tabOfRoot.get(root)) {
   watchTabs();
   let want = false;
   try {
-    want = !bc.isDiscarded && (isTaskTab(bc) || isHookedPage(bc) || typingHeld(bc));
+    want = !bc.isDiscarded && (isTaskTab(bc) || isHookedPage(bc) || typingHeld(bc) || isKeptTab(bc));
   } catch {}
   if (want === typingRoots.has(root)) {
     return;
@@ -702,7 +733,7 @@ export function setArmedRoots(fn) {
   rootsOfProcess = fn;
 }
 
-const WATCHED_KEYS = [TASK_BROWSERS_KEY, EVIDENCE_DOCS_KEY, TYPING_HELD_TABS_KEY, TYPING_HELD_DOCS_KEY];
+const WATCHED_KEYS = [TASK_BROWSERS_KEY, EVIDENCE_DOCS_KEY, TYPING_HELD_TABS_KEY, TYPING_HELD_DOCS_KEY, KEPT_BROWSERS_KEY];
 
 function watchTabs() {
   if (watching) {

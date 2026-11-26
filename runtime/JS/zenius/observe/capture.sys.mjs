@@ -43,6 +43,39 @@ const WORDS = [
   ["browser", "screen"],
 ];
 
+/**
+ * What the tab's streams capture now, as the agent hears it ("camera",
+ * "microphone", "screen"; "devices" when a stream's state names none),
+ * empty when nothing captures. It stops nothing: a reply after a finish
+ * (service.resumeFinishedTask) names what the watch of the agent's tabs
+ * (observe/setup.sys.mjs) stops as the pages join.
+ *
+ * @param {Element} browser
+ * @returns {string[]}
+ */
+export function capturing(browser) {
+  let streams;
+  try {
+    streams = browser?.browsingContext ? streamsOf(browser) : [];
+  } catch {
+    return [];
+  }
+  const used = new Set();
+  let live = 0;
+  for (const { state } of streams) {
+    if (!state?.windowId) {
+      continue;
+    }
+    live++;
+    for (const [key, words] of WORDS) {
+      if (state[key]) {
+        used.add(words);
+      }
+    }
+  }
+  return live && !used.size ? ["devices"] : [...used];
+}
+
 /** "the camera", "the camera and microphone", "the camera, microphone and screen". */
 function listed(words) {
   if (!words.length) {
