@@ -73,10 +73,40 @@ async function stop(child) {
   }
 }
 
+/**
+ * What a failed start needs for a later look, kept out of `work`, which
+ * after() removes: the Zen's whole log, how its first process ended, and
+ * the processes still on its profile. Once, that process ended within 3 s
+ * with only the headless line in its log, and nothing else was left to
+ * read. Under test-all a failed suite keeps its temporary folder, tmpdir().
+ *
+ * @returns {string} where it went, for the test's report
+ */
+function keepZenLog(logFile, child, profile) {
+  const kept = join(tmpdir(), `dev-gate-zen-${process.pid}.log`);
+  try {
+    let onProfile;
+    try {
+      onProfile = execFileSync("ps", ["-u", String(process.getuid()), "-o", "pid=,ppid=,etimes=,args="], { encoding: "utf8" })
+        .split("\n")
+        .filter(line => line.includes(profile))
+        .join("\n");
+    } catch (error) {
+      onProfile = `ps failed: ${error.message}`;
+    }
+    const ended = child.exitCode === null && child.signalCode === null ? "still running" : `exit code ${child.exitCode}, signal ${child.signalCode}`;
+    const text = existsSync(logFile) ? readFileSync(logFile, "utf8") : "(no log)\n";
+    writeFileSync(kept, `${text}\n--- its first process: ${ended}\n--- processes on ${profile}:\n${onProfile || "(none)"}\n`, { mode: 0o600 });
+    return `the Zen's log, its exit and the processes on its profile: ${kept}`;
+  } catch (error) {
+    return `keeping the Zen's log failed: ${error.message}`;
+  }
+}
+
 test(
   "a daily-like profile whose user.js sets zenius.dev gets no dev methods",
   { skip: process.platform !== "linux" && "Linux only: on a Mac its Zen would be the user's own Zen.app, started outside zen-dev.sh" },
-  async () => {
+  async t => {
     assert.ok(DEV_ONLY.has("dev.evalChrome") && DEV_ONLY.has("dev.answerClaim"), `found ${[...DEV_ONLY].join(", ")}`);
     const lane = process.env.ZENIUS_INSTANCE;
     assert.ok(lane, "ZENIUS_INSTANCE is not set; run tests/core/run.sh");
@@ -122,7 +152,7 @@ test(
     const tail = () => readFileSync(logFile, "utf8").split("\n").slice(-40).join("\n");
     let client;
     try {
-      const alive = () => assert.ok(child.exitCode === null && child.signalCode === null, `Zen exited before zenius answered:\n${tail()}`);
+      const alive = () => assert.ok(child.exitCode === null && child.signalCode === null, "Zen exited before zenius answered:");
       client = await connectTo(join(zhome, "run", `${instance}.sock`), Date.now() + 120_000, alive).catch(error => {
         throw new Error(`${error.message}\n${tail()}`);
       });
@@ -137,6 +167,9 @@ test(
       for (const method of [...DEV_ONLY, "dev.anything"]) {
         await assert.rejects(client.call(method, { code: "return Services.appinfo.name" }), { code: "ZEN_UNSUPPORTED" }, method);
       }
+    } catch (error) {
+      t.diagnostic(keepZenLog(logFile, child, profile));
+      throw error;
     } finally {
       client?.close();
       await stop(child);
