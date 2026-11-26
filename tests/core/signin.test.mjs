@@ -295,6 +295,9 @@ describe("in the browser", () => {
   let base = "";
   let closedPort = 0;
   const beacons = [];
+  // Loads of the callback's address with no query, as Back loads a stripped
+  // callback that the back-forward cache didn't keep.
+  let bareCallbackLoads = 0;
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, "http://x");
     const q = url.searchParams;
@@ -313,6 +316,9 @@ describe("in the browser", () => {
         return;
       // The app's callback, which shows its code, as a manual flow's page does.
       case "/cb":
+        if (!url.search) {
+          bareCallbackLoads++;
+        }
         html(`<title>Code ${q.get("code") ?? ""}</title><p id=code>Your code: ${q.get("code") ?? ""}</p>
 <a id=on href="/landing">on</a>
 <script>
@@ -495,16 +501,35 @@ $Config=${config};
     try {
       await h.call("page.goto", { ...p, url: `${base}/cb#access_token=${TOKEN}&token_type=bearer` });
       assert.equal(await outcome("page.snapshot", p), "ZEN_SIGN_IN_PAGE");
-      await h.call("page.goto", { ...p, url: `${base}/cb?code=${CODE}&strip=1&bf=1` });
-      assert.equal(await h.call("page.url", p), `${base}/cb`, "the page didn't strip its query");
-      assert.equal(await outcome("page.snapshot", p), "ZEN_SIGN_IN_PAGE");
-      await h.call("page.goto", { ...p, url: `${base}/page?bf=1` });
-      assert.equal(await outcome("page.snapshot", p), "ok");
       // Back restores the stripped callback from the back-forward cache: the
-      // same document, whose address no longer shows the code.
-      await h.call("page.evaluate", { ...p, fn: "history.back()", isFunction: false });
-      await h.until(async () => (await h.call("page.url", p)) === `${base}/cb`, 5000);
-      assert.equal(await outcome("page.snapshot", p), "ZEN_SIGN_IN_PAGE", "the page Back brought back was readable");
+      // same document, whose address no longer shows the code. Under load
+      // the cache may not keep it, and Back loads the address it was left
+      // at afresh: /cb, a page without the code, which the agent may read.
+      // So every try checks that no read shows the code, and the test needs
+      // one restore from the cache, which must be refused.
+      let restored = 0;
+      for (let attempt = 1; attempt <= 3 && !restored; attempt++) {
+        await h.call("page.goto", { ...p, url: `${base}/cb?code=${CODE}&strip=1&bf=1` });
+        assert.equal(await h.call("page.url", p), `${base}/cb`, "the page didn't strip its query");
+        assert.equal(await outcome("page.snapshot", p), "ZEN_SIGN_IN_PAGE");
+        await h.call("page.goto", { ...p, url: `${base}/page?bf=1` });
+        assert.equal(await outcome("page.snapshot", p), "ok");
+        const loads = bareCallbackLoads;
+        await h.call("page.evaluate", { ...p, fn: "history.back()", isFunction: false });
+        // A load from the server comes before the address changes.
+        await h.until(async () => (await h.call("page.url", p)) === `${base}/cb`, 5000);
+        const read = await h.call("page.snapshot", p).then(
+          s => s.text,
+          e => e.code
+        );
+        if (bareCallbackLoads === loads) {
+          restored = attempt;
+          assert.equal(read, "ZEN_SIGN_IN_PAGE", "the page Back restored from the back-forward cache was readable");
+        } else {
+          assert.ok(!read.includes(CODE), `try ${attempt}: Back loaded /cb afresh, and the read showed the code: ${read}`);
+        }
+      }
+      assert.ok(restored, "Back never restored the callback from the back-forward cache in 3 tries");
     } finally {
       await h.remove(space);
     }
