@@ -1774,6 +1774,30 @@ export function harnessWords(tool) {
   return said ?? (["interrupted", "cancelled"].includes(tool.nonExecution) ? "cut" : null);
 }
 
+/**
+ * The user's Stop ended the turn `from` started (a user message in
+ * conv.messages): each of its steps that hadn't completed keeps the Stop on
+ * itself (stopped), as one Claude Code cut keeps its words (cutShort). So
+ * the step still reads stopped once the user's next message clears
+ * conv.stopped, and a step that failed in an earlier turn stays failed (the
+ * panel's stepStatus reads it only on a step cut short).
+ *
+ * @param {Conversation} conv
+ * @param {object|undefined} from
+ */
+function keepStop(conv, from) {
+  const start = from ? conv.messages.lastIndexOf(from) : -1;
+  if (start < 0) {
+    return;
+  }
+  for (const m of conv.messages.slice(start + 1)) {
+    if (m.role === "tool" && m.status !== "completed" && !m.stopped) {
+      m.stopped = true;
+      conv.touch(m);
+    }
+  }
+}
+
 /** Set a tool message's step (what the user reads) and detail (folded under it). */
 function describeTool(tool) {
   // Claude Code moved the call, or ended it short of its result: the step
@@ -2565,6 +2589,7 @@ function serializeMessage(m) {
         cut: !!m.cut,
         moved: !!m.moved,
         cutShort: !!m.cutShort,
+        stopped: !!m.stopped,
         args:
           m.zen === "hand_off" && m.args?.message
             ? { message: m.args.message }
@@ -4203,6 +4228,12 @@ export const AgentService = {
         message.after = message.after ? { ...message.after, sentPages: new Map() } : null;
       }
       conv.messages.push(message);
+    }
+    // A file from 0.1.8 or earlier keeps the user's Stop on the task alone:
+    // the stopped turn's steps take it now, that turn as far as the file
+    // tells, from the user's last message on (it doesn't mark a steer).
+    if (conv.stopped) {
+      keepStop(conv, conv.messages.findLast(m => m.role === "user"));
     }
     conv.task = {
       state: saved.task?.state ?? "done",
@@ -6089,6 +6120,7 @@ export const AgentService = {
         // The user's Stop, unless the remote task had ended first (its
         // caller, its time limit, the off pref).
         remoteStoppedByUser(conv);
+        keepStop(conv, user);
       }
       // The answer the stop cut short, or, after the agent's steps, a note.
       if (conv.current && conv.messages.at(-1) === conv.current) {

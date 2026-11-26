@@ -2242,7 +2242,8 @@ test("the self-check's window has no row menu: a right-click on a row of its All
 });
 
 // How a step reads once it has failed: the panel shows one cut short by the
-// user's Stop as stopped (message.cut && conv.stopped), any other as failed.
+// user's Stop as stopped (message.cut && message.stopped), any other as
+// failed.
 const STEP_MARK = `
   const A = win.ucAgentSidebar.AgentService;
   const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
@@ -2296,6 +2297,89 @@ test("the mock's held step ends on Stop as claude-agent-acp ends a call a cancel
     }
   `);
   assert.deepEqual(out, { result: "The turn was cancelled before this tool call returned a result.", cut: true, stopped: true, mark: "stopped" });
+});
+
+test("a step the user's Stop cut short stays stopped through their next message, while it runs and once it ends, and after a restart, while a step that failed in an earlier turn stays failed; a tasks file from 0.1.8 or earlier, with the Stop on the task alone, shows its stopped turn's step as stopped", async () => {
+  await useMock();
+  const out = await chrome(`
+    await S.openPanel();
+    const g = win.ucAgentSidebar;
+    const A = g.AgentService;
+    const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
+    const res = {};
+    const backs = [];
+    const uid = await startWorkChat(win, { text: "FAILBARE", source: "new" });
+    const conv = A.tasks.get(uid);
+    const steps = () => conv.messages.filter(m => m.role === "tool");
+    const marks = () => [...S.panelDoc().querySelectorAll(".steps > .step")].map(el => el.dataset.status);
+    const file = async () => {
+      await A.saveTasks();
+      return (await IOUtils.readJSON(A.tasksPath())).tasks.find(t => t.uid === conv.uid);
+    };
+    try {
+      // A step that fails on its own, then one the user's Stop cuts short.
+      await S.until(() => !conv.busy && steps()[0]?.status === "failed", 30000);
+      const held = A.send(conv, { question: "HOLDBARE" });
+      await S.until(() => conv.busy && steps()[1]?.status === "in_progress", 30000);
+      A.cancel(conv);
+      await held;
+      await S.until(() => !conv.busy && steps()[1]?.status === "failed", 30000);
+      await S.sleep(300);
+      res.stopped = marks();
+      const atStop = await file();
+      // The user's next message: SLOW streams for some 6 s, then ends.
+      const next = A.send(conv, { question: "SLOW" });
+      await S.until(() => conv.busy && !conv.stopped, 10000);
+      await S.sleep(500);
+      res.running = { busy: conv.busy, marks: marks() };
+      // A step the harness never ended, as the mock's always are: it keeps
+      // the Stop too, and reads neither running in this turn nor waiting as
+      // a wait for the user.
+      const cut = steps()[1];
+      const was = { status: cut.status, zen: cut.zen, args: cut.args };
+      cut.status = "in_progress";
+      conv.touch(cut);
+      await S.sleep(300);
+      res.unended = { busy: conv.busy, marks: marks() };
+      Object.assign(cut, { zen: "wait", args: { user: true } });
+      conv.touch(cut);
+      await S.sleep(300);
+      res.unendedWait = { busy: conv.busy, marks: marks() };
+      Object.assign(cut, was);
+      conv.touch(cut);
+      await next;
+      await S.sleep(300);
+      res.ended = { busy: conv.busy, stopped: conv.stopped, marks: marks() };
+      const after = await file();
+      res.saved = after.messages.filter(m => m.role === "tool").map(m => m.stopped ?? null);
+      // A restart: the file after that turn, and the one from the Stop as
+      // 0.1.8 wrote it, with no Stop on its steps.
+      const shown = async (saved, tag) => {
+        const back = A.restoreTask(JSON.parse(JSON.stringify({ ...saved, uid: tag + conv.uid, zen: null })));
+        backs.push(back);
+        g.showTask(back);
+        await S.until(() => g.currentTask === back && marks().length === 2, 5000);
+        await S.sleep(300);
+        return marks();
+      };
+      res.restored = await shown(after, "restored-");
+      const older = { ...atStop, messages: atStop.messages.map(({ stopped, ...m }) => m) };
+      res.older = { stopped: older.stopped, marks: await shown(older, "older-") };
+      return res;
+    } finally {
+      for (const back of backs) A.forget(back);
+      A.removeTask(conv);
+      g.setMode("chat");
+    }
+  `);
+  assert.deepEqual(out.stopped, ["failed", "stopped"], "the Stop's step reads stopped, and the earlier turn's step, which failed on its own, failed");
+  assert.deepEqual(out.running, { busy: true, marks: ["failed", "stopped"] }, "while the user's next message runs");
+  assert.deepEqual(out.unended, { busy: true, marks: ["failed", "stopped"] }, "a step its harness never ended doesn't run again");
+  assert.deepEqual(out.unendedWait, { busy: true, marks: ["failed", "stopped"] }, "nor wait, as a wait for the user");
+  assert.deepEqual(out.ended, { busy: false, stopped: false, marks: ["failed", "stopped"] }, "once it ended on its own");
+  assert.deepEqual(out.saved, [false, true], "the tasks file keeps the Stop on its step");
+  assert.deepEqual(out.restored, ["failed", "stopped"], "after a restart");
+  assert.deepEqual(out.older, { stopped: true, marks: ["failed", "stopped"] }, "a file from 0.1.8 or earlier: its stopped turn's step takes the Stop as it loads");
 });
 
 test("a Work chat's hand-off through zenius's MCP tool carries its reason: the strip names the task and what it waits for, and the tasks panel's row quotes the agent", async () => {

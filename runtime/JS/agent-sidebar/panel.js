@@ -794,18 +794,22 @@ function stepStatus(message) {
     if (message.userStopped) {
       return "stopped";
     }
-    // Cut short when the user stopped the agent, or by their message or the
-    // session's end (Claude Code's words, cutShort): not a failure of the step.
-    return message.cut && (conv?.stopped || message.cutShort) ? "stopped" : "failed";
+    // Cut short by the user's Stop (stopped, which the step keeps from its
+    // turn's end on: AgentService's keepStop), or by their message or the
+    // session's end (Claude Code's words, cutShort): not a failure of the
+    // step.
+    return message.cut && (message.stopped || message.cutShort) ? "stopped" : "failed";
   }
   if (message.status === "completed") {
     return "done";
   }
-  if (message.zen === "wait" && message.args?.user) {
+  // A step the user's Stop cut short that its harness never ended keeps the
+  // Stop (keepStop): it neither waits nor runs again in a later turn.
+  if (message.zen === "wait" && message.args?.user && !message.stopped) {
     return "waiting";
   }
   // The agent's own work, outside a turn, runs as a turn does (ownWork).
-  return conv?.busy || conv?.ownWork ? "running" : "stopped";
+  return !message.stopped && (conv?.busy || conv?.ownWork) ? "running" : "stopped";
 }
 
 /**

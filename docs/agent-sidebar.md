@@ -278,7 +278,13 @@ tests in the same commit.
   failure isn't the server's own words (claude-agent-acp's "The turn was
   cancelled before this tool call returned a result."), or that failed with
   no result at all (codex-acp's, when Codex gives an interrupted call none).
-  The mock's held steps end on Stop as claude-agent-acp's do.
+  The mock's held steps end on Stop as claude-agent-acp's do. Such a step
+  stays stopped after the user's next message and after a restart: each
+  step of the turn the Stop ended keeps it (`keepStop`, a tool message's
+  `stopped`, saved with it), so a step that failed in an earlier turn
+  stays failed, and one its harness never ended reads neither running nor
+  waiting. A tasks file from 0.1.8 or earlier kept the Stop on the task
+  alone; as it loads, its last turn's steps take it.
   - Claude Code's own words for a call it ended or moved are never a step's
     text (`harnessWords`; Claude Code 2.1.332's texts, and
     claude-agent-acp's `nonExecutionKind` `interrupted` or `cancelled`). The
