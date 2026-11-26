@@ -331,6 +331,17 @@ function removeLayer(st) {
 }
 
 /**
+ * The tabs that have a cursor now, drawn or hidden. zen-ux forgets a task's
+ * at its end wherever they are, on a tab that is no longer one of its pages
+ * too (ui/index.sys.mjs).
+ *
+ * @returns {Element[]}
+ */
+export function cursorTabs() {
+  return [...live];
+}
+
+/**
  * The cursor's recorded state, for tests and the status panel.
  *
  * @param {Element} tab

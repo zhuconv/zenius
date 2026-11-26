@@ -1651,6 +1651,11 @@ deadline += await ctx.gate();
   clicks only). A call waits before it starts while the prompt is open, but
   an action already under way may move meanwhile: that move draws nothing
   then, and the cursor comes back at its point.
+- A hold hides, and a task's end forgets, the cursor on every tab the task
+  drew one on, not only on its pages: finish releases a kept page from the
+  task before it says the user has the task, and that tab keeps no cursor
+  either. zen-ux records each draw's task through its cursor policy and
+  finds the tabs with `cursorTabs()` (`ui/cursor.sys.mjs`).
 - Then pass the control gate (`await ctx.gate()`, see "Held calls" below)
   before dispatching. The user watching may have clicked during the
   120–380 ms flight and opened the takeover prompt. Add the ms it returns to

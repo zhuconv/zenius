@@ -269,6 +269,136 @@ test("a task the user stopped forgets its cursor", async () => {
   assert.equal(out.afterClaim, null, "claiming the Space again doesn't bring an old cursor back");
 });
 
+// zen-core's finish releases a kept page from its task before it tells
+// zen-ux that the user has the task (endTask, then the ownership "user"),
+// and the cursor went only from the task's pages. On the user's 0.1.7 the
+// cursor and its label stayed on the kept tab, over the pages the user
+// opened there next.
+test("a finish that keeps the agent's tab forgets its cursor there: no cursor layer stays in the kept tab's browserStack, and showing the tab draws none", async () => {
+  const { id: task } = await h.createSpace({ name: "zen-ux cursor kept" });
+  await h.call("page.goto", { space: task, page: "p1", url: `${h.base}/` });
+  try {
+    const drawn = await h.chrome(`${prelude(task)}
+      const Pages = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/pages.sys.mjs");
+      const userWs = gZenWorkspaces.activeWorkspace;
+      // The Agents Space holds other tasks' tabs: the switch lands on this one.
+      Pages.landOn(tab);
+      await gZenWorkspaces.changeWorkspaceWithID(rec.uuid);
+      await until(() => gBrowser.selectedTab === tab);
+      await C.moveCursor(tab, { x: 120, y: 80 }, { label: "Clicking element", kind: "click" });
+      await until(() => C.cursorState(tab)?.inDom);
+      // dev.evalChrome's calls share no globalThis: the window keeps it.
+      win.zenuxKeptTab = tab;
+      const layers = browser.parentElement.querySelectorAll(".zenius-cursor-layer").length;
+      await gZenWorkspaces.changeWorkspaceWithID(userWs);
+      return { layers, label: C.cursorState(tab)?.label };
+    `);
+    await h.call("spaces.finish", { space: task, keep: ["p1"] });
+    const kept = await h.chrome(`
+      const C = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/cursor.sys.mjs");
+      const sleep = ms => new Promise(r => win.setTimeout(r, ms));
+      const tab = win.zenuxKeptTab;
+      const layers = () => tab.linkedBrowser.parentElement.querySelectorAll(".zenius-cursor-layer").length;
+      const atEnd = { kept: tab.isConnected, state: C.cursorState(tab), layers: layers() };
+      // The user opens the kept tab: a cursor still kept would be drawn there now.
+      const userWs = gZenWorkspaces.activeWorkspace;
+      const userTab = gBrowser.selectedTab;
+      gBrowser.selectedTab = tab;
+      await sleep(300);
+      C.syncVisibleCursors(win);
+      const opened = { state: C.cursorState(tab), layers: layers() };
+      if (gZenWorkspaces.activeWorkspace !== userWs) await gZenWorkspaces.changeWorkspaceWithID(userWs);
+      if (userTab.isConnected) gBrowser.selectedTab = userTab;
+      return { atEnd, opened };
+    `);
+    assert.deepEqual(drawn, { layers: 1, label: "Clicking element" }, "drawn in the task's page first");
+    assert.deepEqual(kept.atEnd, { kept: true, state: null, layers: 0 }, "the kept tab has no cursor once the task ended");
+    assert.deepEqual(kept.opened, { state: null, layers: 0 }, "and none comes back when the user opens it");
+  } finally {
+    await h
+      .chrome(`
+        const tab = win.zenuxKeptTab;
+        delete win.zenuxKeptTab;
+        if (tab?.isConnected) gBrowser.removeTab(tab);
+      `)
+      .catch(() => {});
+    await h.call("spaces.finish", { space: task, keep: [] }).catch(() => {});
+  }
+});
+
+// The user's R2 report (issue #3): during a hand-off the agent's cursor
+// still showed on a page the agent had left. A page of the task it left
+// loses its cursor at the agent's next call (498fae9), and a hold hides the
+// rest; a tab an earlier task kept has none since its finish.
+test("a hand-off shows no agent cursor: not on the page the agent works on, not on one of the task's pages it left, and not on a tab an earlier task kept", async () => {
+  const earlier = await h.createSpace({ name: "zen-ux cursor earlier" });
+  await h.call("page.goto", { space: earlier.id, page: "p1", url: `${h.base}/` });
+  const { id: task } = await h.createSpace({ name: "zen-ux cursor hand-off" });
+  await h.call("page.goto", { space: task, page: "p1", url: `${h.base}/` });
+  const p2 = await h.call("pages.new", { space: task, url: `${h.base}/` });
+  try {
+    // The earlier task clicks in its page, and its finish keeps it.
+    await h.chrome(`${prelude(earlier.id)}
+      const Pages = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/pages.sys.mjs");
+      win.zenuxUser = { ws: gZenWorkspaces.activeWorkspace, tab: gBrowser.selectedTab };
+      Pages.landOn(tab);
+      await gZenWorkspaces.changeWorkspaceWithID(rec.uuid);
+      await until(() => gBrowser.selectedTab === tab);
+      await C.moveCursor(tab, { x: 140, y: 90 }, { label: "Clicking element", kind: "click" });
+      await until(() => C.cursorState(tab)?.inDom);
+      win.zenuxKeptTab = tab;
+    `);
+    await h.call("spaces.finish", { space: earlier.id, keep: ["p1"] });
+    // This task clicks in p1, then goes on in p2.
+    await h.chrome(`${prelude(task)}
+      const Pages = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/pages.sys.mjs");
+      Pages.landOn(tab);
+      await gZenWorkspaces.changeWorkspaceWithID(rec.uuid);
+      gBrowser.selectedTab = tab;
+      await until(() => gBrowser.selectedTab === tab);
+      await C.moveCursor(tab, { x: 120, y: 80 }, { label: "Clicking element", kind: "click" });
+      await until(() => C.cursorState(tab)?.inDom);
+      win.zenuxLeftTab = tab;
+      const p2 = ctx.resolvePage({ space: ${task}, page: ${JSON.stringify(p2.label)} }).tab;
+      gBrowser.selectedTab = p2;
+      await until(() => gBrowser.selectedTab === p2);
+      win.zenuxWorkTab = p2;
+    `);
+    await h.call("ui.cursor", { space: task, page: p2.label, x: 60, y: 60, label: "Typing", kind: "move" });
+    await h.call("spaces.handOff", { space: task, reason: "sign_in" });
+    const held = await h.chrome(`
+      const C = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/cursor.sys.mjs");
+      const sleep = ms => new Promise(r => win.setTimeout(r, ms));
+      await sleep(300);
+      C.syncVisibleCursors(win);
+      const of = tab => ({
+        state: C.cursorState(tab) && { hidden: C.cursorState(tab).hidden, inDom: C.cursorState(tab).inDom },
+        layers: tab.linkedBrowser.parentElement.querySelectorAll(".zenius-cursor-layer").length,
+      });
+      return { work: of(win.zenuxWorkTab), left: of(win.zenuxLeftTab), kept: of(win.zenuxKeptTab) };
+    `);
+    assert.deepEqual(held.work, { state: { hidden: true, inDom: false }, layers: 0 }, "the page the agent works on: hidden while the user has the task");
+    assert.deepEqual(held.left, { state: null, layers: 0 }, "the task's page the agent left: forgotten at its next call");
+    assert.deepEqual(held.kept, { state: null, layers: 0 }, "the earlier task's kept tab: forgotten at that task's finish");
+  } finally {
+    await h
+      .chrome(`
+        const tab = win.zenuxKeptTab;
+        const user = win.zenuxUser;
+        for (const key of ["zenuxKeptTab", "zenuxLeftTab", "zenuxWorkTab", "zenuxUser"]) delete win[key];
+        if (tab?.isConnected) gBrowser.removeTab(tab);
+        // Handed back first, so the finish below ends it.
+        const rec = ctx.spaces.peek(${task});
+        if (rec && !rec.gone && rec.ownership !== "agent") ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+        if (user && gZenWorkspaces.activeWorkspace !== user.ws) await gZenWorkspaces.changeWorkspaceWithID(user.ws);
+        if (user?.tab.isConnected) gBrowser.selectedTab = user.tab;
+      `)
+      .catch(() => {});
+    await h.call("spaces.finish", { space: task, keep: [] }).catch(() => {});
+    await h.call("spaces.finish", { space: earlier.id, keep: [] }).catch(() => {});
+  }
+});
+
 test("ui.cursor validates its parameters", async () => {
   await assert.rejects(h.call("ui.cursor", { space, page: "p1", x: "1", y: 2 }), { code: "ZEN_INVALID_ARGUMENT" });
   await assert.rejects(h.call("ui.cursor", { space, page: "p1", x: 1, y: 2, kind: "teleport" }), { code: "ZEN_INVALID_ARGUMENT" });

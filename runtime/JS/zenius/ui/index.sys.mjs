@@ -15,6 +15,7 @@ import {
 } from "chrome://userscripts/content/zenius/ui/badges.sys.mjs";
 import {
   cursorState,
+  cursorTabs,
   forgetCursor,
   hideCursor,
   moveCursorTab,
@@ -308,6 +309,8 @@ class UiController {
   // The steps under way, by id: the task and page each acts on (zen-input's
   // onStep). A page with one keeps its cursor when a call names another.
   #runningSteps = new Map();
+  /** tab → the task that last asked the cursor policy to draw there (#cursorTabsOf). */
+  #cursorTask = new WeakMap();
   /** zen-input's typedSecrets, null without it; see typedSecrets. */
   #typedSecretsFn = undefined;
   /**
@@ -457,6 +460,9 @@ class UiController {
     // when the agent goes on (#promptCursor).
     setCursorPolicy(tab => {
       const rec = this.lookup(tab)?.rec;
+      if (rec) {
+        this.#cursorTask.set(tab, rec.id);
+      }
       const ownership = rec?.ownership;
       if (ownership === "agentDelegatedToUser" || ownership === "user") {
         return false;
@@ -1597,9 +1603,10 @@ class UiController {
     }
     // Control left the agent: no prompt, no cursor, no dialog held for the
     // agent, and a notice in the agent's page saying who has control and how
-    // to hand it back. A task that ended forgets its cursor.
+    // to hand it back. A task that ended forgets its cursor, in a tab its
+    // finish kept too.
     this.takeover.resolve(rec.id, "cancel");
-    for (const tab of this.#tabsOf(rec)) {
+    for (const tab of this.#cursorTabsOf(rec)) {
       if (ownership === "user") {
         forgetCursor(tab);
       } else {
@@ -2818,6 +2825,9 @@ class UiController {
     if (!from || !to || from === to) {
       return;
     }
+    if (this.#cursorTask.has(from)) {
+      this.#cursorTask.set(to, this.#cursorTask.get(from));
+    }
     moveCursorTab(from, to);
     this.takeover.movePage(from, to);
     const ui = this.#spaces.get(space);
@@ -3636,10 +3646,36 @@ class UiController {
       .filter(Boolean);
   }
 
+  /**
+   * The tabs with a cursor the task drew: its pages', and any other tab
+   * where it last asked the cursor policy to draw (#cursorTask). A finish
+   * keeps a tab after zen-core has released its page from the task
+   * (endTask, then the ownership "user"), so #tabsOf no longer has it; its
+   * cursor used to stay, and a later showing of the tab drew it again.
+   *
+   * @param {object} rec
+   */
+  #cursorTabsOf(rec) {
+    const tabs = new Set(this.#tabsOf(rec));
+    for (const tab of cursorTabs()) {
+      if (this.#cursorTask.get(tab) === rec.id) {
+        tabs.add(tab);
+      }
+    }
+    return [...tabs];
+  }
+
   #forget(id) {
     for (const [step, { space }] of this.#runningSteps) {
       if (space === id) {
         this.#runningSteps.delete(step);
+      }
+    }
+    // A task that ended without saying the user has it (its last tab
+    // closed) leaves no cursor either.
+    for (const tab of cursorTabs()) {
+      if (this.#cursorTask.get(tab) === id) {
+        forgetCursor(tab);
       }
     }
     setTaskTag(id, null);
