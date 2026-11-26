@@ -1,4 +1,5 @@
-/* Agent Sidebar: the limits zenius puts on its agents' processes (SPEC §8).
+/* Agent Sidebar: the limits zenius puts on its agents' processes
+ * (docs/agent-sidebar.md, "The agents' limits").
  *
  * What a session may do depends on its kind:
  *  - Both kinds may search the web and fetch pages: it only reads, and an
