@@ -127,6 +127,13 @@ const END_HOWS = ["stopped", "finished", "closed"];
 /** Ended tasks the registry no longer holds, which the feed still lists as done, for a day. */
 const ENDED_FEED_KEPT = 50;
 const ENDED_FEED_MS = 24 * 60 * 60 * 1000;
+/**
+ * How long a task still reads as waited on (agentWaiting) once its last
+ * wait ended without control coming back: a client's next wait, or its
+ * reconnect, comes within it, so the user's card doesn't flicker to "tell
+ * the agent" in between.
+ */
+const AGENT_WAITING_GRACE_MS = 10_000;
 
 /**
  * @param {unknown} raw  spaces.create's or spaces.claim's source, or feedback.compose's
@@ -313,6 +320,12 @@ export class Spaces {
   #nextId = 1;
   /** @type {Map<number, Set<() => void>>} space id → callbacks to run on any control change */
   #waiters = new Map();
+  /** @type {Map<number, number>} space id → the waitForControl calls waiting on it now (agentWaiting) */
+  #waitCounts = new Map();
+  /** @type {Map<number, number>} space id → the grace timer after its last wait ended (AGENT_WAITING_GRACE_MS) */
+  #waitGrace = new Map();
+  /** Tests shorten AGENT_WAITING_GRACE_MS. */
+  agentWaitingGraceMs = null;
   /**
    * The shared Agents Space: its workspace while it exists, and the name and
    * icon it gets back when it's created again (a rename by the user sticks).
@@ -1299,6 +1312,10 @@ export class Spaces {
    * open), without taking control. A space whose task ended fails at once
    * with INACTIVE, as Ego's probe does.
    *
+   * While it waits, the task reads as waited on (rec.agentWaiting, in
+   * memory only): whoever calls it, the user's card can say the agent goes
+   * on by itself at Resume. A wait that returns at once marks nothing.
+   *
    * @param {SpaceRecord} rec
    * @param {{timeout?: number, stopped?: () => Error|null}} [opts]
    *   stopped: the error to end with once the call's client canceled it or
@@ -1307,29 +1324,81 @@ export class Spaces {
    */
   async waitForControl(rec, { timeout = CONTROL_WAIT_TIMEOUT_MS, stopped = () => null } = {}) {
     const deadline = Date.now() + timeout;
-    while (true) {
-      const stop = stopped();
-      if (stop) {
-        throw stop;
+    let waiting = false;
+    try {
+      while (true) {
+        const stop = stopped();
+        if (stop) {
+          throw stop;
+        }
+        if (rec.gone) {
+          throw new ZenError("ZEN_TASK_SPACE_NOT_FOUND", `Task space not found: ${rec.id}`, { space: rec.id });
+        }
+        if (rec.ownership === "user" && rec.ended) {
+          throw controlError(rec);
+        }
+        if (rec.ownership === "agent" && !rec.paused) {
+          return;
+        }
+        const left = deadline - Date.now();
+        if (left <= 0) {
+          throw new ZenError("ZEN_TIMEOUT", `task.waitForControl timed out after ${timeout}ms`, {
+            space: rec.id,
+            ownership: rec.ownership,
+            reason: rec.reason,
+          });
+        }
+        if (!waiting) {
+          waiting = true;
+          this.#waitBegins(rec);
+        }
+        await this.#nextChange(rec, left);
       }
-      if (rec.gone) {
-        throw new ZenError("ZEN_TASK_SPACE_NOT_FOUND", `Task space not found: ${rec.id}`, { space: rec.id });
+    } finally {
+      if (waiting) {
+        this.#waitEnds(rec);
       }
-      if (rec.ownership === "user" && rec.ended) {
-        throw controlError(rec);
+    }
+  }
+
+  #waitBegins(rec) {
+    this.#waitCounts.set(rec.id, (this.#waitCounts.get(rec.id) ?? 0) + 1);
+    lazy.clearTimeout(this.#waitGrace.get(rec.id));
+    this.#waitGrace.delete(rec.id);
+    this.#setAgentWaiting(rec, true);
+  }
+
+  #waitEnds(rec) {
+    const left = (this.#waitCounts.get(rec.id) ?? 1) - 1;
+    if (left > 0) {
+      this.#waitCounts.set(rec.id, left);
+      return;
+    }
+    this.#waitCounts.delete(rec.id);
+    // Control came back, or the task is over: nothing waits now. Otherwise
+    // (a timeout, a client that stopped or lost its connection) the next
+    // wait may come at once.
+    if (rec.gone || rec.ended || (rec.ownership === "agent" && !rec.paused)) {
+      this.#setAgentWaiting(rec, false);
+      return;
+    }
+    const timer = lazy.setTimeout(() => {
+      if (this.#waitGrace.get(rec.id) === timer) {
+        this.#waitGrace.delete(rec.id);
+        this.#setAgentWaiting(rec, false);
       }
-      if (rec.ownership === "agent" && !rec.paused) {
-        return;
-      }
-      const left = deadline - Date.now();
-      if (left <= 0) {
-        throw new ZenError("ZEN_TIMEOUT", `task.waitForControl timed out after ${timeout}ms`, {
-          space: rec.id,
-          ownership: rec.ownership,
-          reason: rec.reason,
-        });
-      }
-      await this.#nextChange(rec, left);
+    }, this.agentWaitingGraceMs ?? AGENT_WAITING_GRACE_MS);
+    this.#waitGrace.set(rec.id, timer);
+  }
+
+  /** Emits `spaceChanged {space, agentWaiting}` when it flips. */
+  #setAgentWaiting(rec, waiting) {
+    if (!!rec.agentWaiting === waiting) {
+      return;
+    }
+    rec.agentWaiting = waiting;
+    if (!rec.gone) {
+      this.#emit("spaceChanged", { space: rec.id, agentWaiting: waiting });
     }
   }
 

@@ -300,7 +300,7 @@ which would wait in a tab nobody sees.
 | `spaces.setOwnership(rec, ownership, {reason, source})` | `ownership`: `agent`, `agentDelegatedToUser` or `user`. `reason` (Ego's key) is kept only for `agentDelegatedToUser`, default `manual_takeover`. `source`: `agent` (a method), `user` (prompt or panel), `permission` (a permission prompt). An agent task that goes to `user` has ended (`rec.ended`): calls fail with `ZEN_TASK_SPACE_INACTIVE` until a claim. `finish()` also ends its labels, as Ego discards its ledger; after the user's Stop they stay for a later claim. It never changes `paused`. `spaceChanged {space, ownership, reason, source}` |
 | `spaces.setStateText(rec, text)` | Ego's setAgentTaskState. `spaceChanged {space, stateText}` |
 | `spaces.gate(rec, access = "mutate")` | The I3 check: `null` when the call may go on now, a promise while a takeover prompt holds it (no timeout of its own; it rejects if ownership changes), or a throw: `ZEN_TASK_SPACE_USER_IN_CONTROL` with `data.reason`, `ZEN_TASK_SPACE_INACTIVE`, `ZEN_TASK_SPACE_NOT_FOUND`. |
-| `spaces.waitForControl(rec, {timeout, stopped})` | Resolves when ownership is `agent` and no prompt is open. `stopped`: `ctx.stopped`, checked whenever the wait wakes; `spaces.wake(rec)` wakes it. |
+| `spaces.waitForControl(rec, {timeout, stopped})` | Resolves when ownership is `agent` and no prompt is open. `stopped`: `ctx.stopped`, checked whenever the wait wakes; `spaces.wake(rec)` wakes it. While one waits, `rec.agentWaiting` is true (in memory, never saved), each flip a `spaceChanged {space, agentWaiting}`: from the first wait that waits until 10 s after the last one ends (`spaces.agentWaitingGraceMs` in tests), or at once when the agent has control or the task ended or went. A wait that returns at once marks nothing. |
 | `ZeniusService.lookup(tab)` | `{rec, page}` for a managed tab, or null, without refreshing anything (cheap enough for every click). |
 
 Events, from `ZeniusService.addEventListener((event, params) => …)` in
@@ -379,7 +379,8 @@ they're watching. The core gives it these, in process:
   address or a one-label host as itself, shown as the address bar shows it
   (punycode for a name that could spoof another). The UI's cards name
   sites by the same rule.
-- `spaces.takeHandBackNotes(rec)`, given once: the task's pages zenius
+- `spaces.takeHandBackNotes(rec)`, given once (a `spaces.waitForControl`
+  with `keepNotes` leaves them): the task's pages zenius
   loaded afresh since the agent last had control (`reloaded`: at the Take
   over, at the user's first press in a hooked page, or at the hand back),
   the secret steps' tabs it blanked (`blanked`), and whether the held page

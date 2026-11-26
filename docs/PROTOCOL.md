@@ -116,13 +116,13 @@ Each frame is one JSON object followed by `\n`, over the Unix socket
 
 | Method | Params | Result |
 |---|---|---|
-| `spaces.list` | none | `{taskSpaces: [{id, name, createdBy, ownership, profileId, profileName, recentTabTitles, pages?, source?}]}`; only spaces with ownership `agent` carry `pages` (below), and only those created or claimed with a source carry `source`. `recentTabTitles` is empty for a workspace of the user's that no agent claimed: its tabs' titles are the user's (I2). A sign-in result's title there is `""` (Errors, `ZEN_SIGN_IN_PAGE`). |
+| `spaces.list` | none | `{taskSpaces: [{id, name, createdBy, ownership, profileId, profileName, recentTabTitles, pages?, source?, agentWaiting?}]}`; only spaces with ownership `agent` carry `pages` (below), and only those created or claimed with a source carry `source`. `agentWaiting: true` while a `spaces.waitForControl` waits on the space (`spaceChanged` below). `recentTabTitles` is empty for a workspace of the user's that no agent claimed: its tabs' titles are the user's (I2). A sign-in result's title there is `""` (Errors, `ZEN_SIGN_IN_PAGE`). |
 | `spaces.create` | `{name, profileId?, source?}` | `{id, name, ownership, profileId, pages}`, where `pages` is the live Pages as `[{label, tab, openedBy}]` (here `[{label: "p1", tab: "t…", openedBy: "agent"}]`), so the SDK has each `targetId` without a call; creates the task in the Agents Space (and the Space itself if needed) without switching any window and, as in Ego, starts it with managed page `p1` (`about:blank`). A name any task or user workspace already has fails with `ZEN_TASK_SPACE_NAME_IN_USE` (`data.spaceId`). `source` says who drives the task, for the sidebar's directory: `{terminal?, agent?, folder?, sidebar?}`, for example `{terminal: "t5x", agent: "Claude Code", folder: "zenius-eval"}`. Each of the first three is kept only when, trimmed, it's 1 to 80 characters of ASCII letters, digits, spaces and `- _ . / : @ #`. `sidebar`, the agent sidebar's conversation id, is kept only exactly as given: 1 to 64 ASCII letters, digits and `-`. Anything else is left out, and the task starts anyway. |
 | `spaces.open` | `{space}` | `{id, name, ownership}`; fails unless the agent controls the space |
 | `spaces.claim` | `{space, name?, client?, timeout?, source?}` | `{id, name, ownership: "agent", userPage, pages}` (`pages` as in `spaces.create`). A user Space or an ended task needs the user's Allow in the browser first: the call waits for it, up to `timeout` ms (Ego's 600000), and fails with `ZEN_TASK_SPACE_CLAIM_DENIED` on Deny or no answer. `client` is the name the client gives itself, which the prompt quotes after zenius's own words. A task handed to the user follows `spaces.takeOver`'s 10 s rule. Tabs that aren't pages stay unmanaged until adopted; `finish()` ended the old labels, a Stop by the user didn't. `name` renames the space. |
 | `spaces.takeOver` | `{space}` | `{id, name, ownership: "agent", userPage, pages, openerCut?, reloaded?, blanked?}` (`pages` as in `spaces.create`; `openerCut`, `reloaded` and `blanked` below). For a task handed to the user; an ended task or a user Space fails with `ZEN_TASK_SPACE_INACTIVE` (claim it instead). Fails with `ZEN_TASK_SPACE_USER_IN_CONTROL` (`data.retryAfterMs`) until 10 s after the user's last real input in the task's tabs, and so does `spaces.claim` of such a task: an agent can't take a task back while the user types. |
 | `spaces.handOff` | `{space, reason?, secret?}` | `{id, ownership: "agentDelegatedToUser", reloaded?}`; `reason` defaults to `manual_takeover`. The SDK's `task.handOff({reason})` and the MCP tool `hand_off` send `sign_in`, `irreversible`, `human_check` or `other`, which Zen names where the task waits for the user. Before the user gets the task, the page they see is made safe for their typing (below, "The hand-off"): `reloaded` lists the pages that loaded afresh. `secret: true` says the user's step will show a secret (an API key, a token, recovery codes): at the hand back, before the agent has control, the tab shows `about:blank` with its history gone (`blanked`, below). Fails with `ZEN_HANDOFF_REFUSED` when it can't be, and the task stays the agent's. |
-| `spaces.waitForControl` | `{space, interval?, timeout?}` | `{ownership: "agent", openerCut?, reloaded?, blanked?}` once the agent controls the space without taking control; `timeout` defaults to Ego's 600000 ms (`ZEN_TIMEOUT`); an ended task fails at once with `ZEN_TASK_SPACE_INACTIVE` |
+| `spaces.waitForControl` | `{space, interval?, timeout?, keepNotes?}` | `{ownership: "agent", openerCut?, reloaded?, blanked?}` once the agent controls the space without taking control; `timeout` defaults to Ego's 600000 ms (`ZEN_TIMEOUT`); an ended task fails at once with `ZEN_TASK_SPACE_INACTIVE`. With `keepNotes: true` (`zenius wait`'s), `{space, ownership: "agent"}` alone: the hand back's notes stay for the task's next `spaces.takeOver`. Any client may wait, and while one waits the space is `agentWaiting` |
 | `spaces.setState` | `{space, text}` | `{ok}`: the agent's progress text on the space (Ego's `setAgentTaskState`) |
 | `spaces.finish` | `{space, keep: "all" \| [labels]}` | Ego's receipt `{spaceId, closedSpace, keptManagedLabels, closedManagedLabels, preservedUnmanagedCount}` plus `protectedTabCount` and `pendingCloseCount`. Closes the agent's pages not kept and ends the task. A tab a window shows closes once the user leaves it: it counts in `closedManagedLabels` and `pendingCloseCount`. `closedSpace` is true when none of the task's tabs stays, as with `keep: []` and no tab of user or unknown origin. Otherwise those tabs go to the user. A claimed workspace of the user's is never removed (SPEC 3.4): there `closedSpace` is false even then, and the workspace stays listed as the user's. |
 
@@ -137,8 +137,9 @@ error's `data.reason` says how the task ended, when zenius knows: `stopped`
 `closed` (its tabs were closed). `spaces.claim` takes a `source` as
 `spaces.create` does.
 
-The first `spaces.takeOver` or `spaces.waitForControl` after a hold also
-reports, once, and only when there's something to say:
+The first `spaces.takeOver` or `spaces.waitForControl` (without
+`keepNotes`) after a hold also reports, once, and only when there's
+something to say:
 - `reloaded`: the labels of the task's pages zenius loaded afresh since the
   agent last had control: at the hand-off, at the user's Take over, or at
   Resume after the user typed a secret into the page.
@@ -1325,7 +1326,9 @@ a field came back filled, `secret: true` when the agent's hand-off said
 the step will show a secret, and `evidence: {label: {reason: detail}}`, for
 each page the hold loaded afresh, the evidence it had (the observe layer's
 reasons: `hooked`, `made`, `listed`, `flagged`); or `paused`, or
-`stateText`, or `name`),
+`stateText`, or `name`, or `agentWaiting`: `true` once a
+`spaces.waitForControl` waits on the space, `false` 10 s after the last
+one ended, or at once when control came back or the task ended),
 `spaceFinished {space, closedSpace}`, `pageClosed {space, page, tab}`,
 `popup {space, page, tab, opener}`.
 

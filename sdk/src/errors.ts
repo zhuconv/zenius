@@ -56,20 +56,29 @@ const STOPPED_GUIDANCE = [
   "  const task = await claimTaskSpace(spaceId)",
 ].join("\n");
 
+// A terminal agent whose harness tells it when a background command exits
+// leaves `zenius wait` running (wait.ts) and goes on at the user's Resume
+// agent; skill/guide.md says the same after a hand-off. hardStopGuidance puts
+// in the task's id.
+const BACKGROUND_WAIT =
+  "If your harness tells you when a background command exits, run `zenius wait <spaceId>` as one and end your turn: it exits once the user gives the task back, and says what to do next.";
+
 const USER_CONTROL_GUIDANCE = [
   "Control of this task space is with the user, either through task.handOff() or a takeover in the browser, so browser commands are paused.",
   "This is a hard stop, not an obstacle to route around — do not retry and do not take control back on your own.",
-  "Wait until the user explicitly asks you to continue, then take control back and resume:",
+  `${BACKGROUND_WAIT} Tell the user to press Resume agent in Zen when they're done.`,
+  "Otherwise wait until the user explicitly asks you to continue, then take control back and resume:",
   "  const task = await takeOverTaskSpace(spaceId)",
   "",
-  `Offer the user choices like "Continue" or "Finish task" if your harness supports it; otherwise tell them: "You now control this task space. Reply 'continue' when ready and I will resume."`,
+  `Without that wait, offer the user choices like "Continue" or "Finish task" if your harness supports it; otherwise tell them: "You now control this task space. Reply 'continue' when ready and I will resume."`,
 ].join("\n");
 
 function userPromptGuidance(firstLine: string): string {
   return [
     firstLine,
     "The user now controls this task space. Wait for the user to handle the prompt.",
-    "Resume only after the user confirms, using takeOverTaskSpace(spaceId).",
+    `${BACKGROUND_WAIT} Answering the prompt gives it back.`,
+    "Otherwise resume only after the user confirms, using takeOverTaskSpace(spaceId).",
   ].join("\n");
 }
 
@@ -116,7 +125,8 @@ export function hardStopGuidance(code: unknown, data?: Record<string, unknown>):
   if (code === "ZEN_TASK_SPACE_INACTIVE") return data?.reason === "stopped" ? STOPPED_GUIDANCE : INACTIVE_GUIDANCE;
   if (code !== "ZEN_TASK_SPACE_USER_IN_CONTROL" || isUserInputWait(code, data)) return undefined;
   const reason = typeof data?.reason === "string" ? data.reason : undefined;
-  return (reason && Object.hasOwn(USER_CONTROL_REASONS, reason) && USER_CONTROL_REASONS[reason]) || USER_CONTROL_GUIDANCE;
+  const guidance = (reason && Object.hasOwn(USER_CONTROL_REASONS, reason) && USER_CONTROL_REASONS[reason]) || USER_CONTROL_GUIDANCE;
+  return Number.isInteger(data?.space) ? guidance.replaceAll("zenius wait <spaceId>", `zenius wait ${data!.space}`) : guidance;
 }
 
 /**

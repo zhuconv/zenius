@@ -13,6 +13,7 @@
 
 import { CODE_GUIDE, codeParts, REFUSAL_GUIDE, REFUSED_KINDS } from "./error-guide.ts";
 import { MAX_LINE, MAX_WAIT_S } from "./feedback.ts";
+import { MAX_TIMEOUT_S as MAX_USER_WAIT_S } from "./wait.ts";
 import { readFolders, UPLOAD_LIMIT_BYTES, UPLOAD_LIMIT_FILES, writeFolders } from "./files.ts";
 import { defaultEntries, formatEntry } from "./help.ts";
 import {
@@ -311,6 +312,7 @@ function limitsBody(): string {
     `- Actions such as page.click() and page.fill(): ${duration(L.action.value)} for the element to become usable. A selector that matches nothing on an idle page fails sooner.`,
     `- page.fetch(): ${duration(L.fetch.value)}.`,
     `- task.waitForControl(): ${duration(L.control.value)}.`,
+    `- zenius wait: until the user gives the task back, unless --timeout sets a limit, at most ${duration(MAX_USER_WAIT_S * 1000)}.`,
     "",
     "## A task",
     "",

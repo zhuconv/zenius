@@ -465,6 +465,8 @@ export class MockRuntime {
       "spaces.waitForControl": (params) => {
         const space = mock.space(params);
         if (space.resumeOnWait) space.ownership = "agent";
+        // As the runtime: keepNotes (zenius wait) leaves the hand back's notes for the next takeOver.
+        if (params.keepNotes === true) return { space: space.id, ownership: space.ownership };
         const { handBackOpenerCut: openerCut, handBackReloaded: reloaded, handBackBlanked: blanked } = space;
         delete space.handBackOpenerCut;
         delete space.handBackReloaded;

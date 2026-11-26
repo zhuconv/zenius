@@ -513,23 +513,24 @@ When the user clicks or types in your Page, zenius pauses your next browser
 action and asks them whether to take over:
 
 - If they let you continue, or only clicked and leave the question unanswered
-  for 10 seconds, the action runs after the wait. You don't need to do
-  anything.
+  for 10 seconds, the action runs after the wait.
 - If they take over, or type into the page and leave the question unanswered,
   the call fails with `ZEN_TASK_SPACE_USER_IN_CONTROL` and reason
-  `manual_takeover`. Stop, as for any user control. Tell the user you'll
-  continue when they say so, then resume with `takeOverTaskSpace(id)`.
+  `manual_takeover`. Wait as after `handOff()`, then resume with
+  `takeOverTaskSpace(id)`.
 
 When the user must act in the browser (`sign_in`: login without credentials
 the user gave, or 2FA; `human_check`: CAPTCHA or human verification; `other`: a
 manual step), call `await task.handOff({ message, reason })`, end the round and
-say what to do. Do not guess credentials or work around it silently. zenius
+say what to do, leaving `zenius wait <id>` running in the background if your
+harness tells you when it exits. Do not guess credentials or work around it
+silently. zenius
 never fills the user's saved passwords into your Pages, so a login on a site
 where the user has no session means `handOff()`. `handOff()` badges the Agents
 Space and shows your `message` in your tab until they press Resume agent. Make
 that tab the site's own page: `handOff()` refuses one your code made (`data:`,
 `blob:`, a blank popup it filled) with `ZEN_HANDOFF_REFUSED`. By default nothing
-notifies the user outside the browser: your reply tells them what to do.
+notifies the user outside the browser.
 
 If the user's step shows a secret (an API key, a token, a recovery code), pass
 `secret: true`: zenius empties the tab at Resume. Never reopen it to read it;

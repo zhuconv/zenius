@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { after, describe, it, type TestContext } from "node:test";
 
+import { runCli } from "../helpers.ts";
 import { answerClaims, CREDENTIALS, needs, unique, useContext, zenius, zeniusJson } from "./context.ts";
 import { noted } from "./fixtures.ts";
 
@@ -131,6 +132,43 @@ console.log(JSON.stringify({ value, ownership: entry.ownership, userPage: userPa
       assert.equal(resumed.value, 42);
       assert.equal(resumed.ownership, "agent");
       assert.ok(resumed.userPage, "takeOverTaskSpace() captures the tab the user left active");
+    },
+  );
+
+  verified(
+    "zenius wait ends at the user's Resume agent, marks the task waited on meanwhile, and leaves the hand back's notes to takeOverTaskSpace()",
+    ["spaces.create", "spaces.list", "spaces.handOff", "spaces.waitForControl", "spaces.takeOver", "spaces.finish"],
+    async () => {
+      const id = Number((await zeniusJson(context, `${open("/form")}await task.handOff({ secret: true }); console.log(task.spaceId);`)) as number);
+      const waitedOn = async () =>
+        (await context.rpc.call<{ taskSpaces: { id: number; agentWaiting?: boolean }[] }>("spaces.list")).taskSpaces.find((entry) => entry.id === id)
+          ?.agentWaiting === true;
+      const waiting = runCli(["wait", "--instance", context.instance, String(id)], { timeoutMs: 60_000 });
+      const end = Date.now() + 15_000;
+      while (!(await waitedOn())) {
+        assert.ok(Date.now() < end, "spaces.list never said the task was waited on");
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      // Resume agent, as the UI's panel presses it: the secret step's tab is blanked first.
+      await chrome(
+        `const s = ctx.spaces.get(arg);
+         await ctx.service.beforeHandBack(s);
+         ctx.spaces.setOwnership(s, "agent", { source: "user" });
+         return true;`,
+        id,
+      );
+      const result = await waiting;
+      assert.equal(result.code, 0, result.stderr);
+      assert.equal(result.stdout, `Task ${id} is yours again: the user handed it back. Take it over with takeOverTaskSpace(${id}) and go on.\n`);
+      const back = await zeniusJson(
+        context,
+        `const task = await takeOverTaskSpace(${id});
+const handBack = task.handBack ?? null;
+await task.finish({ keep: [] });
+console.log(JSON.stringify(handBack));`,
+      );
+      assert.deepEqual(back, { blanked: ["p1"] }, "the wait took none of the notes");
+      assert.equal(await waitedOn(), false);
     },
   );
 

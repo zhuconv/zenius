@@ -58,6 +58,9 @@ export function usage(): string {
                                  sandboxed launcher's grants to the agent sidebar's
   zenius sidebar start|send|status|list|stop
                                  remote tasks in the sidebar: zenius sidebar --help
+  zenius wait <task id> [--timeout <seconds>]
+                                 wait until the user hands the task back: exit 0 (then
+                                 takeOverTaskSpace(id)), 3 if the task ended, 4 at --timeout
   zenius feedback "<one line>"   when zenius itself fails: show the user a problem report in the
                                  sidebar, to send, copy or discard (zenius feedback --help)
 ${extra}  zenius --version
@@ -170,6 +173,11 @@ export async function main(argv: string[], launch: LaunchTimes = {}): Promise<nu
       // Loaded on demand, like doctor, which it runs.
       const { feedbackCommand } = await import("./feedback.ts");
       return feedbackCommand(args.rest, args.instance);
+    }
+    case "wait": {
+      // Loaded on demand, like sidebar and feedback.
+      const { waitCommand } = await import("./wait.ts");
+      return waitCommand(args.rest, args.instance);
     }
     case "selfcheck": {
       // Loaded on demand. Left out of usage(), which agents read: the

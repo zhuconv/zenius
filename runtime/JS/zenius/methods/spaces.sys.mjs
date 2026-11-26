@@ -15,6 +15,8 @@ function describe(ctx, rec) {
     profileName: profileName(rec.userContextId),
     recentTabTitles: ctx.spaces.recentTabTitles(rec),
     ...(rec.source ? { source: rec.source } : {}),
+    // A waitForControl call waits on it now, any client's (zenius wait).
+    ...(rec.agentWaiting ? { agentWaiting: true } : {}),
   };
 }
 
@@ -238,6 +240,9 @@ export const methods = {
     if (typeof timeout !== "number" || !(timeout >= 0)) {
       throw new ZenError("ZEN_INVALID_ARGUMENT", "spaces.waitForControl timeout must be a number of ms");
     }
+    if (params.keepNotes !== undefined && typeof params.keepNotes !== "boolean") {
+      throw new ZenError("ZEN_INVALID_ARGUMENT", "spaces.waitForControl keepNotes must be true or false");
+    }
     // A wait its client canceled, or whose connection closed, ends at once,
     // and leaves the hand back's notes to the next one.
     const off = ctx.onStopped(() => ctx.spaces.wake(rec));
@@ -245,6 +250,12 @@ export const methods = {
       await ctx.spaces.waitForControl(rec, { timeout, stopped: ctx.stopped });
     } finally {
       off();
+    }
+    // keepNotes: a wait that only tells when control is back (zenius wait).
+    // The hand back's notes stay for the task's next takeOver or wait, so
+    // another client's wait never takes them from the task's own agent.
+    if (params.keepNotes) {
+      return { space: rec.id, ownership: rec.ownership };
     }
     const via = ctx.spaces.takeHandBackVia(rec);
     return { ownership: rec.ownership, ...(via ? { via } : {}), ...ctx.spaces.takeHandBackNotes(rec) };

@@ -11,6 +11,7 @@ Each call's timeout option sets its own.
 - Actions such as page.click() and page.fill(): 3 s for the element to become usable. A selector that matches nothing on an idle page fails sooner.
 - page.fetch(): 20 s.
 - task.waitForControl(): 10 min.
+- zenius wait: until the user gives the task back, unless --timeout sets a limit, at most 168 h.
 
 ## A task
 
