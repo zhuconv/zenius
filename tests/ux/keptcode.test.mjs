@@ -14,7 +14,7 @@
 // real record here), for that card.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { setup } from "./lib.mjs";
+import { setup, UNTIL_TAKES_INPUT } from "./lib.mjs";
 
 let h;
 let userView;
@@ -70,10 +70,12 @@ const K = `
     b.click();
   };
   const inPage = (bid, code) => ctx.content(tabOf(bid).linkedBrowser.browsingContext, "dev#evalContent", { code });
+  ${UNTIL_TAKES_INPUT}
   // The user's own click at (x, y) in the page in view, entering through the
-  // parent as the OS's would.
-  const userClick = (bid, x, y) => {
+  // parent as the OS's would, once the page takes it.
+  const userClick = async (bid, x, y) => {
     const b = tabOf(bid).linkedBrowser;
+    await untilTakesInput(b);
     const w = b.ownerDocument.defaultView;
     const r = b.getBoundingClientRect();
     for (const type of ["mousedown", "mouseup"]) {
@@ -193,7 +195,7 @@ test("the user's click into a field of a kept page the agent's code ran in shows
     const out = await h.chrome(`${K}
       const b = tabOf(${bids.p1}).linkedBrowser;
       await hush();
-      userClick(${bids.p1}, ${email[0]}, ${email[1]});
+      await userClick(${bids.p1}, ${email[0]}, ${email[1]});
       await sleep(1000);
       return { noted: noted(${bids.p1}), card: card(${bids.p1}), heard: await heard(), focus: Services.focus.focusedElement === b };
     `);
@@ -216,12 +218,12 @@ test("a kept page the agent made itself that asks for a password: as the user is
     await view(bids.p2);
     const out = await h.chrome(`${K}
       await until(() => noted(${bids.p2}));
-      userClick(${bids.p2}, ${field[0]}, ${field[1]});
+      await userClick(${bids.p2}, ${field[0]}, ${field[1]});
       await until(() => cardOf(${bids.p2}));
       const res = { card: card(${bids.p2}) };
       await press(cardOf(${bids.p2}), "Dismiss");
       await until(() => !cardOf(${bids.p2}));
-      userClick(${bids.p2}, ${field[0]}, ${field[1]});
+      await userClick(${bids.p2}, ${field[0]}, ${field[1]});
       await sleep(1000);
       res.dismissed = card(${bids.p2});
       UI.keptRefused({ browser: tabOf(${bids.p2}).linkedBrowser, kind: "deviceAccess", asked: "camera" });
@@ -254,7 +256,7 @@ test("a kept page the agent made that asks for no secret: the user's click into 
     await view(bids.p2);
     const out = await h.chrome(`${K}
       await until(() => noted(${bids.p2}));
-      userClick(${bids.p2}, ${field[0]}, ${field[1]});
+      await userClick(${bids.p2}, ${field[0]}, ${field[1]});
       await sleep(1500);
       return { card: card(${bids.p2}), focused: Services.focus.focusedElement === tabOf(${bids.p2}).linkedBrowser };
     `);
@@ -287,7 +289,7 @@ test("a refusal of what the user just did in a kept page with evidence of danger
       UI.keptRefused({ browser: b, kind: "deviceAccess", asked: "camera" });
       await sleep(200);
       res.unasked = calls.length;
-      userClick(${bids.p1}, 5, 5);
+      await userClick(${bids.p1}, 5, 5);
       await sleep(100);
       UI.keptRefused({ browser: b, kind: "deviceAccess", asked: "speakers" });
       UI.evidenceOf = () => ({});
@@ -305,7 +307,7 @@ test("a refusal of what the user just did in a kept page with evidence of danger
       res.reloaded = { calls: calls.slice(), card: card(${bids.p1}), heard: await heard() };
       // The event's own word: evident, though the page's read says no.
       UI.evidenceOf = () => ({});
-      userClick(${bids.p1}, 5, 5);
+      await userClick(${bids.p1}, 5, 5);
       await sleep(100);
       const next = docOf(${bids.p1});
       UI.keptRefused({ browser: b, kind: "deviceAccess", asked: "camera", evident: true });
@@ -503,7 +505,7 @@ test("in a claimed Space, a blank tab of the user's that the agent adopted, wrot
         Services.prefs.clearUserPref("zenius.handoff.quietReload");
         const hooked = "hooked" in (UI.evidenceOf?.(b) ?? {});
         const before = docOf(${user.bid});
-        userClick(${user.bid}, 5, 5);
+        await userClick(${user.bid}, 5, 5);
         await until(() => (docOf(${user.bid}) || before) !== before, 8000);
         return { hooked, noted: noted(${user.bid}), calls, card: card(${user.bid}) };
       } finally {
@@ -535,7 +537,7 @@ test("the panel's Stop leaves the page the agent made noted, with nothing shown 
       await sleep(200);
       const res = { owner: rec.ownership, p1: noted(${bids.p1}), noted: noted(${bids.p2}), shown: shown(${bids.p2}), card: card(${bids.p2}) };
       // The user goes to type in the page the agent made: its card.
-      userClick(${bids.p2}, ${field[0]}, ${field[1]});
+      await userClick(${bids.p2}, ${field[0]}, ${field[1]});
       await until(() => cardOf(${bids.p2}));
       res.made = card(${bids.p2}).text;
       return res;
