@@ -54,8 +54,8 @@
 // - The launcher's zenius home is that scratch home's zhome/, never ~/.zenius:
 //   its config.json names the instance's working folder, as the instance's
 //   profile does (scripts/zen-dev.sh writes it there), so a script reads what
-//   the browser downloaded; run/ and instances/ link to the dev Zens'
-//   (~/.zenius) for the instance's socket. A run starts with that folder
+//   the browser downloaded; run/ and instances/ link to the instance's
+//   zenius home (ZENIUS_HOME) for its socket. A run starts with that folder
 //   empty, and what it leaves there is listed in its result and removed.
 // - Its environment is built from scratch. CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC
 //   stops the background skill sync and feature-flag cache writes, --settings
@@ -163,7 +163,10 @@ if (!existsSync(NODE)) {
   process.exit(2);
 }
 const BASE_PATH = DARWIN ? "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin" : "/usr/bin:/bin:/usr/sbin:/sbin";
-const SOCKET = instance ? join(homedir(), ".zenius", "run", `${instance}.sock`) : null;
+// The instance's socket, in its zenius home as zen-dev.sh and the SDK take it:
+// zen-dev.sh starts no dev Zen in the account's own ~/.zenius, so the caller
+// exports the one it started the instance in.
+const SOCKET = instance ? join(process.env.ZENIUS_HOME || join(homedir(), ".zenius"), "run", `${instance}.sock`) : null;
 const LOCAL_CONTROL = argv.includes("--local-control");
 if ((!EGO && !instance) || (mode === "tasks" && !argv.includes("--keys"))) {
   console.error("usage: run.mjs [--target zenius] --instance <dev instance> --keys <file> [--tasks T2,T8] [--out dir] [--judge] | --canary | --smoke");
@@ -240,8 +243,8 @@ let workingHeld = false;
  *   (tests/lib/scratch-home.mjs): home/, its HOME, with the CLI copy (cli/)
  *   and the sandboxed launcher (bin/zenius); and zhome/, its ZENIUS_HOME,
  *   which the launcher keeps. zhome/config.json names the instance's working
- *   folder, and zhome/run and zhome/instances link to the dev Zens' (in
- *   ~/.zenius), which hold the instance's socket and registry record; the
+ *   folder, and zhome/run and zhome/instances link to the instance's zenius
+ *   home's (ZENIUS_HOME), which hold its socket and registry record; the
  *   hook keeps commands on --instance.
  */
 function makeRun(id) {

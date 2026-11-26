@@ -61,7 +61,11 @@ const name = opts.name ?? `zen-eval-restart-${opts.case}${opts.startupPage === "
 // "--name .." would name the dev home itself.
 if (!/^[a-z0-9][a-z0-9_-]*$/.test(name) || name === "default") throw new Error("--name must match [a-z0-9][a-z0-9_-]*, not default, as zen-dev.sh's names do");
 const profile = join(DEV_HOME, "profiles", name);
-const stateDir = join(homedir(), ".zenius", "state", name);
+// The instance's zenius home, as zen-dev.sh and the SDK take it: its state,
+// socket and registry entry are there. zen-dev.sh starts no dev Zen in the
+// account's own ~/.zenius, so the caller exports one of its own.
+const ZHOME = process.env.ZENIUS_HOME || join(homedir(), ".zenius");
+const stateDir = join(ZHOME, "state", name);
 
 // Tasks always share the Agents Space (the pref zenius.agentsSpace is gone);
 // only the edge case sets a pref of its own.
@@ -409,8 +413,8 @@ try {
     rmSync(profile, { recursive: true, force: true });
     rmSync(stateDir, { recursive: true, force: true });
     // A killed instance leaves its socket, record and pid file behind.
-    rmSync(join(homedir(), ".zenius", "run", `${name}.sock`), { force: true });
-    rmSync(join(homedir(), ".zenius", "instances", `${name}.json`), { force: true });
+    rmSync(join(ZHOME, "run", `${name}.sock`), { force: true });
+    rmSync(join(ZHOME, "instances", `${name}.json`), { force: true });
     rmSync(join(DEV_HOME, "logs", `${name}.log`), { force: true });
     // and the logs of its earlier starts, which zen-dev.sh keeps.
     rmSync(join(DEV_HOME, "logs", name), { recursive: true, force: true });

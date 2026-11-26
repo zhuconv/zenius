@@ -41,9 +41,13 @@ const flag = (name, fallback) => (process.argv.includes(name) ? process.argv[pro
 const NAME = flag("--instance", "zen-eval-probes");
 const HOME = homedir();
 const PROFILE = join(HOME, ".zenius-dev", "profiles", NAME);
-const STATE = join(HOME, ".zenius", "state", NAME);
+// The instance's zenius home, as zen-dev.sh and the SDK take it: its state,
+// socket and registry entry are there. zen-dev.sh starts no dev Zen in the
+// account's own ~/.zenius, so the caller exports one of its own.
+const ZHOME = process.env.ZENIUS_HOME || join(HOME, ".zenius");
+const STATE = join(ZHOME, "state", NAME);
 const LOG = join(HOME, ".zenius-dev", "logs", `${NAME}.log`);
-const SOCK = join(HOME, ".zenius", "run", `${NAME}.sock`);
+const SOCK = join(ZHOME, "run", `${NAME}.sock`);
 // The Node 24 the launcher runs: Homebrew's node@24 on the Mac, by its opt/ link.
 const NODE = flag("--node", process.platform === "darwin" ? "/opt/homebrew/opt/node@24/bin/node" : process.execPath);
 const BASE_PATH = process.platform === "darwin" ? "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin" : "/usr/bin:/bin:/usr/sbin:/sbin";
@@ -71,9 +75,9 @@ const cliTmp = join(cliRoot, "tmp");
 // The working folder of both the launcher and the instance.
 const files = join(cliRoot, "files");
 // HOME and ZENIUS_HOME for the install and the probes: the launcher keeps this
-// zenius home, whose run/ and instances/ link to the dev Zens' (~/.zenius).
+// zenius home, whose run/ and instances/ link to the instance's (ZHOME).
 const scratch = scratchHome("probes", { parent: cliRoot, workingFolder: files });
-scratch.shareRuntime(join(HOME, ".zenius"));
+scratch.shareRuntime(ZHOME);
 const cliHome = scratch.home;
 mkdirSync(work);
 mkdirSync(cliTmp);
