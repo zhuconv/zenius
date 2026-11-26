@@ -83,8 +83,8 @@ export function buttonsMask(pressed) {
 }
 
 /**
- * One trusted mouse event at viewport CSS px of `win`'s document.
- * isDOMEventSynthesized: false so nothing marks it as a test event.
+ * One trusted mouse event at viewport CSS px of `win`'s document, flagged
+ * as synthesized for tests (isDOMEventSynthesized: true; why at `send`).
  *
  * @returns {boolean} whether the page called preventDefault()
  */
