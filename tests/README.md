@@ -19,7 +19,12 @@ the same scripts. Each worker keeps its own runtime tests in `tests/<area>/`
 
 The zenius target runs `sdk/bin/zenius` under Node 24 (`ZENIUS_NODE`
 overrides; on the Mac, Homebrew's `node@24`). Start the instance first with
-`scripts/zen-dev.sh <name> start`.
+`scripts/zen-dev.sh <name> start`, in a zenius home of its own:
+`export ZENIUS_HOME=$(mktemp -d /tmp/zh-XXXXXX)` before it, for the client
+too, and remove that folder after its stop. zen-dev.sh refuses the account's
+own `~/.zenius`, which holds the user's config and their daily Zen's socket.
+`scripts/test-all.sh` gives each suite a zenius home of its own, and a
+suite's `run.sh` makes one when its caller gave none.
 
 ## e2e
 

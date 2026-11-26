@@ -73,6 +73,16 @@
 # user.js stays a user value even when it equals the default (for example
 # browser.startup.page, whose default in Zen 1.24.3b is 3).
 #
+# ZENIUS_HOME=<dir>: the zenius home where the instance keeps its socket,
+# registry entry, state and self-check. It can't be the account's own
+# ~/.zenius, which holds the user's config and their daily Zen's socket:
+# start and restart refuse it (an unset ZENIUS_HOME with the account's HOME
+# too), and nothing here reads or removes anything in it. By hand, give it
+# one of its own, and the same to its clients: export ZENIUS_HOME=$(mktemp -d
+# /tmp/zh-XXXXXX) (/tmp: a socket's path must fit in 104 bytes on macOS),
+# removed after the stop. scripts/test-all.sh gives each suite one, and a
+# suite's run.sh makes one when its caller gave none.
+#
 # ZENIUS_DEV_WORKING_DIR=<dir> start: the instance's working folder, where its
 # finished downloads land (absolute; made 0700 if missing). By default it's
 # zenius-dev-<uid>/<name> in the caller's TMPDIR (/tmp), made 0700, and fresh
@@ -135,6 +145,58 @@ WORK_PARENT=${TMPDIR:-/tmp}
 WORK_PARENT=${WORK_PARENT%/}/zenius-dev-$(id -u)
 WORK=${ZENIUS_DEV_WORKING_DIR:-$WORK_PARENT/$NAME}
 [[ $WORK == / ]] || WORK=${WORK%/}
+# zenius's home for this instance, where the runtime keeps its socket,
+# registry entry, state and self-check: ZENIUS_HOME, else $HOME/.zenius. It
+# must never be the account's own ~/.zenius, which holds the user's config
+# and their daily Zen's socket: no test or dev Zen may touch the user's
+# config or files. So start refuses it, and nothing here reads or removes
+# anything in it. The account's home is its passwd entry's (account_zhome),
+# not $HOME, which a caller may point at a scratch home; with one, an unset
+# ZENIUS_HOME is fine. tests/lib/scratch-home.mjs's guardHome keeps the same
+# rule for tests, scripts/test-all.sh gives each suite a zenius home of its
+# own, and a suite's run.sh makes one when its caller gave none.
+ZHOME=${ZENIUS_HOME:-$HOME/.zenius}
+# Named to the Zen and the clients this starts, so they keep to the folder
+# checked here: left unset, the runtime takes Gecko's home folder, which on
+# macOS needn't follow HOME.
+export ZENIUS_HOME=$ZHOME
+# The path with every link resolved, up to its deepest folder that exists;
+# the parts below that, which don't exist yet, as written.
+real_path() {
+  local p=$1 rest= real
+  while [[ ! -d $p && $p == */* ]]; do
+    rest=/$(basename -- "$p")$rest
+    p=$(dirname -- "$p")
+  done
+  if [[ -d $p ]] && real=$(cd -P -- "$p" 2>/dev/null && pwd -P); then p=${real%/}; fi
+  printf '%s%s\n' "$p" "$rest"
+}
+# Whether ZHOME is the account's own home, its .zenius, or inside that.
+account_zhome() {
+  local user home= zreal oreal
+  # The account's passwd entry: getent's, by uid, where there's one (Linux,
+  # whose account names may hold an @), else bash's ~user, which reads the
+  # same entry for a name with only these characters, safe to expand.
+  if command -v getent >/dev/null 2>&1; then
+    home=$(getent passwd "$(id -u)" 2>/dev/null | cut -d: -f6) || home=
+  fi
+  if [[ $home != /* ]]; then
+    user=$(id -un 2>/dev/null) || user=
+    if [[ $user =~ ^[A-Za-z0-9._@][A-Za-z0-9._@-]*$ ]]; then eval "home=~$user"; fi
+  fi
+  # No entry found (a name ~ can't expand stays "~name"): then HOME is all
+  # there is.
+  [[ $home == /* ]] || home=$HOME
+  home=$(real_path "$home")
+  oreal=$(real_path "${home%/}/.zenius")
+  zreal=$(real_path "$ZHOME")
+  [[ $zreal == "$home" || $zreal == "$oreal" || $zreal == "$oreal"/* ]]
+}
+refuse_account_zhome() {
+  account_zhome || return 0
+  echo "zen-dev.sh: $NAME's zenius home, $ZHOME, is the account's own ~/.zenius or in it: give the dev Zen one of its own, as scripts/test-all.sh and the suites' run.sh do, with export ZENIUS_HOME=\$(mktemp -d /tmp/zh-XXXXXX) before it starts (remove that folder after its stop), or run a suite through its run.sh or scripts/test-all.sh <suite>" >&2
+  exit 1
+}
 
 # Is the pid file's process alive? Only for the launch, which wrote it a
 # moment ago: anything that signals a pid asks ours/our_pid first.
@@ -1078,6 +1140,7 @@ ensure_working_folder() {
 
 start() {
   local pid
+  refuse_account_zhome
   pid=$(our_pid)
   if [[ -n $pid ]]; then echo "$NAME already running (pid $pid)"; return; fi
   need_zen
@@ -1140,10 +1203,11 @@ clear_watchdog() {
 # this instance's two files: only its own name's, and only when the registry
 # entry names this profile (another ZENIUS_DEV_HOME may use the name).
 clean_instance_files() {
-  local zhome=${ZENIUS_HOME:-$HOME/.zenius}
-  local reg=$zhome/instances/$NAME.json sock=$zhome/run/$NAME.sock owner
+  local reg=$ZHOME/instances/$NAME.json sock=$ZHOME/run/$NAME.sock owner
   [[ -z $(our_pid 2>/dev/null) ]] || return 0
   [[ -z $ZEN_TMP ]] || rm -rf "$ZEN_TMP"
+  # Never in the account's own zenius home (ZHOME above).
+  ! account_zhome || return 0
   [[ -e $reg || -e $sock ]] || return 0
   if [[ -f $reg ]]; then
     owner=$(sed -n 's/.*"profileDir": *"\([^"]*\)".*/\1/p' "$reg" | head -1)
@@ -1200,8 +1264,9 @@ case $CMD in
   stop) stop ;;
   expire) expire "$@" ;;
   quit) quit ;;
-  # Checked before the stop too, so a waiting update doesn't leave it stopped.
-  restart) need_zen; refuse_waiting_update; stop; start "$@" ;;
+  # Checked before the stop too, so a waiting update or the account's own
+  # zenius home doesn't leave it stopped.
+  restart) refuse_account_zhome; need_zen; refuse_waiting_update; stop; start "$@" ;;
   status) pid=$(our_pid); if [[ -n $pid ]]; then echo "$NAME running (pid $pid)"; else echo "$NAME not running"; exit 1; fi ;;
   log) if [[ ${1:-} == -f ]]; then tail -f "$LOG"; else cat "$LOG"; fi ;;
   path) echo "$PROFILE" ;;
@@ -1212,8 +1277,8 @@ case $CMD in
     rm -rf "$PROFILE"
     # zenius's records of that profile's workspaces and tasks go with it:
     # kept, an ended task's name stays taken in the next run (zen-ux's
-    # clipboard suite).
-    rm -rf "${ZENIUS_HOME:-$HOME/.zenius}/state/$NAME"
+    # clipboard suite). Never in the account's own zenius home (ZHOME).
+    account_zhome || rm -rf "$ZHOME/state/$NAME"
     remove_default_work
     echo "$NAME profile removed"
     ;;
@@ -1221,8 +1286,9 @@ case $CMD in
     stop >/dev/null
     if [[ ${ZENIUS_FRESH:-} == 1 || $(uname) != Darwin ]]; then
       rm -rf "$PROFILE"
-      # zenius's records of that profile's workspaces and tasks go with it.
-      rm -rf "${ZENIUS_HOME:-$HOME/.zenius}/state/$NAME"
+      # zenius's records of that profile's workspaces and tasks go with it,
+      # but never from the account's own zenius home (ZHOME).
+      account_zhome || rm -rf "$ZHOME/state/$NAME"
       remove_default_work
       echo "$NAME profile removed"
     else

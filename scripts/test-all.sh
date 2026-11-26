@@ -12,8 +12,9 @@
 # parallel: a run then takes about as long as the longest suite instead of the
 # sum, and main moves less while a merge check runs. ZENIUS_SERIAL=1 runs them
 # one after another, which is the default on the Mac (the user's laptop).
-# Logs go to $TMPDIR/zenius-test-all/. On Linux each suite also gets a
-# temporary folder of its own (see "lane" below). A failed suite's summary
+# Logs go to $TMPDIR/zenius-test-all/. Each suite gets a zenius home of its
+# own, never the user's ~/.zenius, and on Linux a temporary folder of its own
+# too (see "lane_home" and "lane" below). A failed suite's summary
 # lists every test its log names as failed, then the log's last 20 lines.
 set -uo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -96,6 +97,38 @@ suite() {
     *) "tests/$1/run.sh" ;;
   esac
 }
+# Each lane's own zenius home, since no test may touch the user's config or
+# files. A dev Zen keeps its socket, registry entry, state and self-check in
+# the zenius home, which is ~/.zenius unless ZENIUS_HOME names another, so a
+# lane without one of its own wrote into the user's. In the lane's subshell
+# this makes a scratch home (tests/lib/scratch-home.sh), whose config.json
+# names a working folder inside it, exports its ZENIUS_HOME, and removes it
+# when the subshell ends, whatever the verdict. It sits right in the base
+# temporary folder (/tmp on the Mac), not in the lane's own, so the sockets
+# in it stay short: zhome/selfcheck/<instance>.sock must fit in 108 bytes
+# (104 on macOS). HOME stays the account's own: zen-dev.sh finds Zen, node
+# and the dev profiles through it, and the suites that need a scratch HOME
+# make one. A caller's ZENIUS_WORKING_DIR, ZENIUS_DEV_WORKING_DIR,
+# ZENIUS_SOCKET and ZENIUS_INSTANCE could name the user's working folder or
+# Zen, so they go: a suite that wants a working folder for its dev Zen names
+# one itself, and zen-dev.sh otherwise gives each its own. zen-dev.sh
+# refuses to start a dev Zen in the account's own zenius home, so a suite
+# run alone gets one from its run.sh instead.
+lane_home() {
+  # shellcheck source=../tests/lib/scratch-home.sh
+  . "$ROOT/tests/lib/scratch-home.sh" || return 1
+  SCRATCH_ROOT=
+  trap '[[ -z $SCRATCH_ROOT ]] || rm -rf -- "$SCRATCH_ROOT"' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM HUP
+  if ! scratch_home h "${TMPBASE:-/tmp}"; then
+    echo "test-all: no zenius home of its own for this suite in ${TMPBASE:-/tmp}"
+    return 1
+  fi
+  export ZENIUS_HOME=$SCRATCH_ZHOME
+  unset ZENIUS_WORKING_DIR ZENIUS_DEV_WORKING_DIR ZENIUS_SOCKET ZENIUS_INSTANCE
+}
+
 # Runs one suite and leaves "PASS|FAIL <ms> <entries left in its temporary
 # folder>" in its .result file.
 lane() {
@@ -112,8 +145,13 @@ lane() {
     if ! tmp=$(mktemp -d "$TMPBASE/zt-$1-XXXXXX" 2>"$LOGS/$1.log"); then echo "FAIL 0 0" >"$LOGS/$1.result"; return; fi
     echo "$tmp" >"$LOGS/$1.tmpdir"
   fi
-  # A subshell, so that a serial run's next suite doesn't inherit the folder.
-  if (if [[ -n $tmp ]]; then export TMPDIR=$tmp; fi; suite "$1") >"$LOGS/$1.log" 2>&1; then verdict=PASS; fi
+  # A subshell, so that a serial run's next suite doesn't inherit the folder
+  # or the zenius home (lane_home), which goes when the subshell ends.
+  if (
+    if [[ -n $tmp ]]; then export TMPDIR=$tmp; fi
+    lane_home || exit 1
+    suite "$1"
+  ) >"$LOGS/$1.log" 2>&1; then verdict=PASS; fi
   if [[ -n $tmp ]]; then
     # The CLI's compile cache (Node's own folder, from a CLI before 0.1.4),
     # the sandboxed CLI's own folder, and a dev Zen's working folders are

@@ -129,8 +129,13 @@ test("test-all prints a failed suite's failed tests above its tail, so the one t
       return;
     }
     mkdirSync(join(tree, "scripts", "lib"), { recursive: true });
+    mkdirSync(join(tree, "tests", "lib"), { recursive: true });
     copyFileSync(join(REPO_ROOT, "scripts", "test-all.sh"), join(tree, "scripts", "test-all.sh"));
     copyFileSync(join(REPO_ROOT, "scripts", "lib", "test-all-failures.mjs"), join(tree, "scripts", "lib", "test-all-failures.mjs"));
+    // Each suite's zenius home (test-all's lane_home).
+    for (const name of ["scratch-home.sh", "scratch-home.mjs"]) {
+      copyFileSync(join(REPO_ROOT, "tests", "lib", name), join(tree, "tests", "lib", name));
+    }
     const suite = join(tree, "tests", "zz");
     mkdirSync(suite, { recursive: true });
     writeFileSync(join(suite, "a.test.mjs"), `import { test } from "node:test";\ntest("a flake", () => { throw new Error("flaky"); });\n`);
