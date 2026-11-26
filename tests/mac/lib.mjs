@@ -1,10 +1,11 @@
 // Shared setup for zen-eval's Mac tests of the bundle. tests/mac/run.sh
-// starts a dev Zen whose agent sidebar talks to the mock agents and sets
-// ZENIUS_INSTANCE; the tests drive it over RPC and check the chrome through
-// dev.evalChrome. Each chrome check gets `H` (the hooks in hooks.mjs) and `T`
-// (the helpers below) in scope.
+// starts a dev Zen whose agent sidebar talks to the mock agents, in a scratch
+// HOME and ZENIUS_HOME, and sets ZENIUS_INSTANCE; the tests drive it over RPC
+// and check the chrome through dev.evalChrome. Each chrome check gets `H`
+// (the hooks in hooks.mjs) and `T` (the helpers below) in scope.
 import { connect } from "../../scripts/lib/rpc.mjs";
 import { closeFixtureServer, startFixtureServer } from "../fixtures/server.mjs";
+import { guardHome } from "../lib/scratch-home.mjs";
 import * as HOOKS from "./hooks.mjs";
 
 /** A visible window: the look, as the user sees it. */
@@ -152,6 +153,10 @@ export async function setup(name) {
   if (!instance) {
     throw new Error("ZENIUS_INSTANCE is not set; run tests/mac/run.sh");
   }
+  // run.sh runs the tests with the scratch HOME and ZENIUS_HOME it gave the
+  // dev Zen. Run another way, they could drive a Zen that keeps its socket,
+  // state and self-check in the account's own ~/.zenius: refuse that.
+  guardHome(process.env, "tests/mac (run it through tests/mac/run.sh)");
   const client = await connect(instance, { callTimeout: 120000 });
   const fixture = await startFixtureServer(`zen-eval mac ${name}`);
   return {

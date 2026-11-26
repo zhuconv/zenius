@@ -20,6 +20,15 @@
 #   ZENIUS_MAC_INSTANCE=<name>   (default: mactest-<checkout suffix>)
 #   ZENIUS_MAC_TIMEOUT=600       stop a run that hangs, after that many seconds
 #   ZENIUS_MAC_SHOTS=<dir>       where look.test.mjs writes its shots
+#
+# Each run has a zenius home and a working folder of its own, in a scratch
+# home that it makes whatever the caller's environment names and removes at
+# the end (tests/lib/scratch-home.sh). The dev Zen keeps its socket, registry
+# entry, state and self-check in that zenius home and its downloads in that
+# folder, the sidebar's mock agents and their zenius MCP servers take both
+# from Zen, and the tests run with its HOME. So nothing reaches the account's
+# own ~/.zenius or working folder: on a Mac this suite runs beside the user's
+# daily Zen.
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 REPO=$(cd "${ZENIUS_MAC_REPO:-$ROOT}" && pwd)
@@ -48,16 +57,32 @@ MCP=${ZENIUS_MAC_MCP:-"node '$REPO/sdk/bin/zenius' mcp"}
 # would reach the agents the sidebar spawns.
 for v in $(env | grep -o -E '^(CLAUDE|CODEX_|HC_)[A-Za-z0-9_]*' || true); do unset "$v"; done
 
+# The run's scratch home (above), made before anything runs zen-dev.sh, whose
+# stop tidies an instance's files in the zenius home. The dev Zen's socket is
+# in it, and a Unix socket's path must fit in 104 bytes on macOS, where TMPDIR
+# alone takes about 49: there it's in /tmp. Signals exit through the EXIT trap.
+. "$ROOT/tests/lib/scratch-home.sh"
+scratch_parent=${TMPDIR:-/tmp}
+[[ $(uname) == Darwin ]] && scratch_parent=/tmp
+SCRATCH_ROOT=
+trap '[[ -z $SCRATCH_ROOT ]] || rm -rf -- "$SCRATCH_ROOT"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM HUP
+scratch_home mac "${scratch_parent%/}" || exit 2
+export ZENIUS_HOME=$SCRATCH_ZHOME ZENIUS_DEV_WORKING_DIR=$SCRATCH_FILES
+# zen-dev.sh names the working folder to what Zen starts. Unset, a CLI run
+# here reads the scratch config instead of a folder the caller named.
+unset ZENIUS_WORKING_DIR
+
 WWW_PID=
 cleanup() {
   "$DEV" "$NAME" stop >/dev/null 2>&1 || true
   if [[ -n $WWW_PID ]]; then kill "$WWW_PID" 2>/dev/null || true; fi
+  rm -rf -- "${SCRATCH_ROOT:?}"
 }
-# Every way out stops Zen, which closes its window in a headed run. Signals
-# exit through the EXIT trap too.
+# Every way out stops Zen, which closes its window in a headed run, and then
+# removes the scratch home.
 trap cleanup EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM HUP
 
 # zen-sidebar's test pages, on 127.0.0.1 only.
 if [[ -f $FIX/serve.mjs && -d $FIX/www ]]; then
@@ -113,7 +138,7 @@ fi
 
 if (($#)); then files=("$@"); else files=("$ROOT"/tests/mac/*.test.mjs); fi
 limit=${ZENIUS_MAC_TIMEOUT:-600}
-ZENIUS_INSTANCE=$NAME node --test --test-concurrency=1 "${files[@]}" &
+HOME=$SCRATCH_HOME ZENIUS_INSTANCE=$NAME node --test --test-concurrency=1 "${files[@]}" &
 pid=$!
 (
   waited=0

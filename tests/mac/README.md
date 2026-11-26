@@ -4,6 +4,10 @@ The daily Zen's next update brings the two-mode agent sidebar, the address
 bar's '>' and the zenius MCP tools. These tests cover the Mac-only behavior
 that belongs to them: the look, Cmd shortcuts and ⌃Tab.
 They run on a dev profile, never on the daily Zen or the user's try Zen.
+Each run also has a zenius home and a working folder of its own, in a scratch
+home that `run.sh` makes whatever the caller's environment names and removes
+at the end (`tests/lib/scratch-home.sh`), so no test reaches the user's own
+`~/.zenius` or working folder. Run another way, the tests refuse to start.
 
 | File | How | What it checks |
 |---|---|---|
