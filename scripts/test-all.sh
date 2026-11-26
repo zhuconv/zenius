@@ -172,9 +172,9 @@ names=()
 wanted smoke && names+=(smoke)
 for dir in tests/*/; do
   area=$(basename "$dir")
-  # live runs agents against public sites (zen-eval's harness): never here.
-  # mac is zen-eval's Mac-only suite (tests/mac/README.md), run on the Mac
-  # against a checkout with the agent's sidebar: not here either.
+  # live runs agents against public sites (the eval harness's live rounds):
+  # never here. mac holds every area's Mac-only tests (tests/mac/README.md),
+  # run on the Mac against a checkout with the agent's sidebar: not here either.
   case $area in fixtures | golden | bench | live | mac) continue ;; esac
   [[ -x $dir/run.sh ]] && wanted "$area" && names+=("$area")
 done

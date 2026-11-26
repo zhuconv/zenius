@@ -1,4 +1,4 @@
-// zen-ux's parse check, test-all's "parse" lane: every script in runtime/JS
+// The parse check, test-all's "parse" lane: every script in runtime/JS
 // parses the way Gecko loads it. A rebase can leave one that doesn't, with no
 // conflict to show for it: panel.js's two `ago`s (2026-11-23) kept the whole
 // panel from loading, and the panel's tests only timed out. Here it fails in

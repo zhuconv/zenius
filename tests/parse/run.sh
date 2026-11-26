@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# zen-ux's parse check, run by scripts/test-all.sh: every script in runtime/JS
+# The parse check, run by scripts/test-all.sh: every script in runtime/JS
 # parses as Gecko loads it (check.mjs says how). No browser needed, and it
 # takes about a second.
 set -euo pipefail
