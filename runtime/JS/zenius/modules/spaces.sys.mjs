@@ -364,6 +364,12 @@ export class Spaces {
   onPersist = null;
   /** (event, params) => void: in-process listeners only (the service's emitLocal). */
   onLocalEvent = null;
+  /**
+   * (rec) => void, from the service: a held task is about to go to the
+   * agent (setOwnership), in the same synchronous step, so a page still
+   * marked secret leaves the task first.
+   */
+  beforeAgentControl = null;
   /** Ended tasks removed from the registry, newest last, for feed(). */
   #endedFeed = [];
 
@@ -1085,7 +1091,9 @@ export class Spaces {
    *     back filled; the UI's card says so
    *   secret: for agentDelegatedToUser, the agent's hand-off said the step
    *     will show a secret, and the hand back blanks the tab; the UI's card
-   *     tells the user to copy what they need first
+   *     tells the user to copy what they need first. spaceChanged says
+   *     secretBy "agent" with it; a later mark, the user's own too, comes
+   *     in secretStepChanged's
    *   evidence: for agentDelegatedToUser, label → the evidence each page
    *     the hold loaded afresh had before its load ({reason: detail},
    *     the observe layer's), so the UI's reload card says why
@@ -1103,6 +1111,13 @@ export class Spaces {
     const ended = ownership === "user" ? rec.ended || this.isAgentTask(rec) : false;
     if (rec.ownership === ownership && rec.reason === nextReason && rec.ended === ended) {
       return;
+    }
+    if (ownership === "agent" && rec.ownership === "agentDelegatedToUser") {
+      try {
+        this.beforeAgentControl?.(rec);
+      } catch (e) {
+        log("checking the held task's pages before the agent gets it back failed", e.message);
+      }
     }
     const wasEnded = rec.ended;
     rec.ownership = ownership;
@@ -1143,7 +1158,7 @@ export class Spaces {
       ...(typeof via === "string" && via ? { via } : {}),
       ...(held && (reloaded === "reload" || reloaded === "get") ? { reloaded } : {}),
       ...(held && carried ? { carried: true } : {}),
-      ...(held && secret ? { secret: true } : {}),
+      ...(held && secret ? { secret: true, secretBy: "agent" } : {}),
       ...(held && evidence && Object.keys(evidence).length ? { evidence } : {}),
     });
     this.#emitFeed(rec);
@@ -1389,6 +1404,21 @@ export class Spaces {
       }
     }, this.agentWaitingGraceMs ?? AGENT_WAITING_GRACE_MS);
     this.#waitGrace.set(rec.id, timer);
+  }
+
+  /**
+   * The step the user holds became a secret one, or stopped being one, or
+   * its mark changed hands (the service's noteSecretStep and
+   * markSecretByUser): `spaceChanged {space, secret, secretBy}`, for the
+   * UI's cards. The marks themselves are the tabs' (pages.markSecret).
+   *
+   * @param {SpaceRecord} rec
+   * @param {{secret: boolean, secretBy: "agent"|"user"|null}} state
+   */
+  secretStepChanged(rec, { secret, secretBy }) {
+    if (!rec.gone) {
+      this.#emit("spaceChanged", { space: rec.id, secret: !!secret, secretBy: secret ? secretBy : null });
+    }
   }
 
   /** Emits `spaceChanged {space, agentWaiting}` when it flips. */

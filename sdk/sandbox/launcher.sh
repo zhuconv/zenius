@@ -70,8 +70,8 @@ fi
 # On macOS, Codex runs each command inside Seatbelt (CODEX_SANDBOX=seatbelt in
 # every policy but full access), and macOS lets no sandbox start inside
 # another: sandbox-exec fails with "sandbox_apply: Operation not permitted"
-# (Codex 0.169.0, checked on zen-eval's Mac). Earlier steps can fail first,
-# with misleading words.
+# (Codex 0.169.0, checked on the eval harness's Mac). Earlier steps can fail
+# first, with misleading words.
 if [ @PLATFORM@ = macos ] && [ "${CODEX_SANDBOX-}" = seatbelt ]; then
   fail "this runs inside Codex's Seatbelt sandbox, and macOS lets no sandbox start inside another, zenius's included. Rerun this zenius command outside Codex's sandbox (sandbox_permissions \"require_escalated\"), where zenius's own sandbox still applies."
 fi
@@ -361,7 +361,7 @@ esac
 case ${HC_TERMINAL_ID-} in '' | *[!A-Za-z0-9._-]*) terminal= ;; *) terminal=$HC_TERMINAL_ID ;; esac
 [ ${#terminal} -le 64 ] || terminal=
 folder=${work##*/}
-# The sidebar's conversation id, which zen-ux gives the sidebar's zenius mcp
+# The sidebar's conversation id, which the UI gives the sidebar's zenius mcp
 # (this launcher, on a sandboxed install): the sidebar matches on it, so it
 # goes exactly as given or not at all. A script could set it itself, as it
 # can any of the source, so it adds no reach.

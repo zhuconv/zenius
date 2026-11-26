@@ -148,6 +148,13 @@ docs/                        SPEC, PROTOCOL, SPI, PARITY, the install and sideba
   and `claim` of one, fail with `ZEN_TASK_SPACE_USER_IN_CONTROL` until 10 s
   after the user's last real input in the task's tabs, so an agent can't
   take a task back mid-typing.
+- **A secret step waits for Resume agent.** A step marked secret, by the
+  agent's hand-off or by the user's own mark on its card, stays the user's
+  until they press Resume agent, which blanks its tabs: `takeOver` and
+  `claim` fail with `ZEN_TASK_SPACE_USER_IN_CONTROL` (`data.secret`) until
+  then, however long the user has been quiet, since reading the codes they
+  copy isn't input. A mark the user makes while the agent's call runs fails
+  it too, and the page stays theirs.
 - **`finish({ keep })`** closes the task's pages not kept and ends the task.
   - Kept pages, and the task's tabs of user or unknown origin, stay where
     they are, as the user's tabs, without the agent's tag.

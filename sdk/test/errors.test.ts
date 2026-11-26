@@ -218,6 +218,18 @@ describe("an error's message", () => {
     assert.equal(isHardStopCode("ZEN_TASK_SPACE_USER_IN_CONTROL", { reason: "manual_takeover" }), true);
   });
 
+  it("tells a secret step's refusal from the others: a hard stop until the user's Resume agent, with the background wait for its task", () => {
+    const text = "Task space 7's step shows the user a secret, so it stays theirs until they press Resume agent.";
+    const data = { space: 7, reason: "sign_in", secret: true };
+    const error = fromWireError({ code: "ZEN_TASK_SPACE_USER_IN_CONTROL", message: text, data }, "takeOverTaskSpace", false) as ZeniusError;
+    assert.match(error.message, /^takeOverTaskSpace: The user's step in this task space shows a secret/);
+    assert.match(error.message, /takeOverTaskSpace\(\) and claimTaskSpace\(\) are refused until then/);
+    assert.ok(error.message.includes("run `zenius wait 7` as one and end your turn"), error.message);
+    assert.doesNotMatch(error.message, /retryAfterMs|Reply 'continue' when ready/);
+    assert.equal(isHardStopCode(error.code, error.data), true);
+    assert.equal((error as ZeniusError & { secret?: boolean }).secret, true);
+  });
+
   it("tells the agent's code refused during a hold to wait for the hand back, not to open a new Page", () => {
     const text = "page.evaluate: the user holds a page in this page's window group.";
     const hold = fromWireError({ code: "ZEN_AGENT_CODE_REFUSED", message: text, data: { method: "page.evaluate", page: "p1", reason: "hold", windows: 1 } }, "page.evaluate");

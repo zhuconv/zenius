@@ -8,8 +8,10 @@ import { Spaces, newLedger } from "chrome://userscripts/content/zenius/modules/s
 import {
   Pages,
   defaultPageBudget,
+  heldStepOf,
   ownValue,
   readTabValue,
+  secretMarkOf,
   secretSitesOf,
   secretTaskOf,
 } from "chrome://userscripts/content/zenius/modules/pages.sys.mjs";
@@ -326,6 +328,7 @@ class Service {
     this.pages.onTaskValue = () => this.#watchRestores();
     this.spaces.onEvent = (name, params) => this.#onSpaceEvent(name, params);
     this.spaces.onLocalEvent = (name, params) => this.emitLocal(name, params);
+    this.spaces.beforeAgentControl = rec => this.#dropUnblanked(rec);
     this.#store = new JsonStore(paths.stateDir, "spaces.json", () => this.spaces.serialize());
     this.spaces.restore(await this.#store.load());
     // Calls wait for the restart rebuild, which the first window starts.
@@ -924,6 +927,15 @@ class Service {
   /** Task record → its hand back's blank while it runs (blankSecretSteps), for a second hand back meanwhile. */
   #blanking = new WeakMap();
 
+  /** Task record → how many of the agent's own ways back run now (agentHandBack): blankSecretSteps skips meanwhile. */
+  #agentHandBacks = new WeakMap();
+
+  /** Task record → the clear a mark during the step started (#clearAtMark), which the hand back's blank waits for. */
+  #markClears = new WeakMap();
+
+  /** Holds beginning now (holdForUser): their held page's sites are noted while the task is still the agent's. */
+  #holdsStarting = 0;
+
   /**
    * While the user holds a page of a task, a page of that task with
    * evidence a clean copy clears (what the agent's code left there, or a
@@ -969,8 +981,25 @@ class Service {
       this.spaces.clearHandBackNotes(rec);
     }
     this.#heldForUser = true;
-    // The agent's hand-off of its own page is refused before its code is discarded.
-    const result = await lazy.holdFor(this, rec, browser, { refuseAgentPage: source === "agent" });
+    // The held page's value comes before its quiet load, so the step's sites
+    // are noted from its first request: a mark made during the step covers
+    // what it loaded before (markSecretByUser).
+    const tab = tabOfBrowser(browser);
+    const heldTab = tab && this.#ownTabIds(rec).has(this.pages.tabId(tab)) ? tab : null;
+    if (heldTab) {
+      this.pages.markHeld(heldTab, rec);
+    }
+    this.#holdsStarting++;
+    let result;
+    try {
+      // The agent's hand-off of its own page is refused before its code is discarded.
+      result = await lazy.holdFor(this, rec, browser, { refuseAgentPage: source === "agent" });
+    } catch (e) {
+      this.#holdNotBegun(rec, heldTab);
+      throw e;
+    } finally {
+      this.#holdsStarting--;
+    }
     const labels = result.reloaded.map(b => this.pages.forBrowser(b)?.label).filter(Boolean);
     // What each reloaded page had, for the UI's notice (Take over's result)
     // and its hand-off card (spaceChanged).
@@ -987,6 +1016,7 @@ class Service {
     }
     if (result.agentPage && source === "agent") {
       lazy.releaseHold(rec, browser);
+      this.#holdNotBegun(rec, heldTab);
       const page = this.pages.forBrowser(browser)?.label ?? null;
       throw new ZenError(
         "ZEN_HANDOFF_REFUSED",
@@ -997,7 +1027,10 @@ class Service {
     if (rec.gone || !this.spaces.isAgentTask(rec)) {
       // The task ended while the page loaded.
       lazy.releaseHolds(rec);
+      this.#holdNotBegun(rec, heldTab);
     } else if (source === "user" || rec.ownership === "agent") {
+      // The popups that share its hold now are the step's too.
+      this.#noteHeldWith(rec, browser);
       const secretStep = source === "agent" && secret;
       if (secretStep) {
         this.noteSecretStep(rec, browser);
@@ -1011,11 +1044,38 @@ class Service {
         secret: secretStep,
         evidence,
       });
-    } else if (source === "agent" && secret) {
-      // The user's Take over came first: their hold stays, and the step is still a secret one.
-      this.noteSecretStep(rec, browser);
+    } else {
+      // The user's Take over came first: their hold stays, the agent's page
+      // is the step's too, and with secret the step is a secret one.
+      this.#noteHeldWith(rec, browser);
+      if (source === "agent" && secret) {
+        this.noteSecretStep(rec, browser);
+      }
     }
     return { agentPage: result.agentPage, how: result.how, reloaded: labels, carried: result.carried, openerCut: result.openerCut, evidence };
+  }
+
+  /** The ids of the task's own tabs (pages.tabsOf). */
+  #ownTabIds(rec) {
+    return new Set(this.pages.tabsOf(rec).map(tab => this.pages.tabId(tab)));
+  }
+
+  /** H and the popups of its hold are the held step's tabs (pages.markHeld). */
+  #noteHeldWith(rec, browser) {
+    const own = this.#ownTabIds(rec);
+    for (const held of lazy.heldWith(browser)) {
+      const tab = tabOfBrowser(held);
+      if (tab && own.has(this.pages.tabId(tab))) {
+        this.pages.markHeld(tab, rec);
+      }
+    }
+  }
+
+  /** A hold that didn't begin (refused, failed, the task ended): its page's held value goes, unless the task is held anyway. */
+  #holdNotBegun(rec, tab) {
+    if (tab && (rec.gone || rec.ownership !== "agentDelegatedToUser")) {
+      this.pages.clearHeld(tab);
+    }
   }
 
   /**
@@ -1294,22 +1354,167 @@ class Service {
    * as it joins the task (adoptPopup), and so does a tab opened from a
    * marked one with no opener (noteOpenedTab).
    *
+   * A mark made during the step (the agent's secret after the user's Take
+   * over, or the user's own, markSecretByUser) marks every tab with the
+   * step's held value too, after a restart as well, when the hold itself
+   * is gone. The marks take the sites the step loaded before them, whose
+   * caches are cleared now (#clearAtMark), and spaceChanged says so.
+   *
    * @param {object} rec
-   * @param {Element} browser
+   * @param {Element|null} browser  the held page, if the hold names one
+   * @param {{by?: "agent"|"user"}} [opts]  whose mark it is
+   * @returns {boolean} whether a tab is marked
    */
-  noteSecretStep(rec, browser) {
-    if (!tabOfBrowser(browser)) {
-      log("a secret step's page has no tab: the hand back can't blank it");
-      return;
-    }
-    const own = new Set(this.pages.tabsOf(rec).map(tab => this.pages.tabId(tab)));
-    // H, and any popup that joined its hold already.
-    for (const held of lazy.heldWith(browser)) {
+  noteSecretStep(rec, browser, { by = "agent" } = {}) {
+    const own = this.#ownTabIds(rec);
+    const tabs = new Map();
+    // H, and any popup that joined its hold already. Without a hold in this
+    // session (a restart), only the page itself.
+    for (const held of browser ? (this.#heldForUser ? lazy.heldWith(browser) : [browser]) : []) {
       const tab = tabOfBrowser(held);
       if (tab && own.has(this.pages.tabId(tab))) {
-        this.pages.markSecret(tab, rec);
+        tabs.set(this.pages.tabId(tab), tab);
       }
     }
+    for (const tab of this.#heldTabs(rec)) {
+      tabs.set(this.pages.tabId(tab), tab);
+    }
+    if (!tabs.size) {
+      log("a secret step's page has no tab: the hand back can't blank it");
+      return false;
+    }
+    const during = rec.ownership === "agentDelegatedToUser";
+    const before = during ? this.secretStepOf(rec) : null;
+    const { sites, overflow } = this.#heldSites(rec);
+    for (const tab of tabs.values()) {
+      this.pages.markSecret(tab, rec, { by, sites: [...sites], overflow });
+    }
+    // At the hold's start, spaceChanged's own secret says it (setOwnership).
+    if (during) {
+      this.#clearAtMark(rec);
+      const now = this.secretStepOf(rec);
+      if (now.secret !== before.secret || now.secretBy !== before.secretBy) {
+        this.spaces.secretStepChanged(rec, now);
+      }
+    }
+    return true;
+  }
+
+  /** The task's own tabs with the held step's value (pages.markHeld). */
+  #heldTabs(rec) {
+    return this.pages.tabsOf(rec).filter(tab => heldStepOf(tab)?.task === rec.id);
+  }
+
+  /** The sites the held step's tabs loaded, and whether more came than they keep. */
+  #heldSites(rec) {
+    const sites = new Set();
+    let overflow = false;
+    for (const tab of this.pages.tabsOf(rec)) {
+      const held = heldStepOf(tab);
+      if (held?.task === rec.id) {
+        held.sites.forEach(site => sites.add(site));
+        overflow ||= held.overflow;
+      }
+    }
+    return { sites, overflow };
+  }
+
+  /**
+   * A mark made during the step: what the step loaded before it may be in
+   * the HTTP and image caches, where another task's page could read it with
+   * cache "only-if-cached" until the hand back clears them. They go now.
+   * The hand back's blank waits for this clear, and clears the same sites
+   * again after it.
+   */
+  #clearAtMark(rec) {
+    const { sites, overflow } = this.#heldSites(rec);
+    if (!sites.size && !overflow) {
+      return;
+    }
+    const run = (this.#markClears.get(rec) ?? Promise.resolve())
+      .then(() => this.#clearSecretCaches(sites, { overflow }))
+      .catch(e => log(`a mark's clear failed: ${e.message}`));
+    this.#markClears.set(rec, run);
+    run.then(() => {
+      if (this.#markClears.get(rec) === run) {
+        this.#markClears.delete(rec);
+      }
+    });
+  }
+
+  /**
+   * Whether the step the user holds is a secret one, and whose mark makes
+   * it so: "agent" when any of its tabs carries the agent's, else "user".
+   * The UI's cards read it at each draw, after a restart too, so it stays
+   * synchronous: a look at the task's own tabs' marks.
+   *
+   * @param {object} rec
+   * @returns {{secret: boolean, secretBy: "agent"|"user"|null}}
+   */
+  secretStepOf(rec) {
+    let secretBy = null;
+    if (rec && !rec.gone && rec.kind === "task") {
+      for (const tab of this.pages.tabsOf(rec)) {
+        const mark = secretMarkOf(tab);
+        if (mark?.task === rec.id) {
+          secretBy = mark.by;
+          if (secretBy === "agent") {
+            break;
+          }
+        }
+      }
+    }
+    return { secret: secretBy !== null, secretBy };
+  }
+
+  /**
+   * The user's own mark on the step they hold: their click on a card's
+   * toggle (the UI), never an agent's or a page's. No RPC method,
+   * parameter, SDK call or content message reaches it. It takes a task held
+   * after the agent's hand-off or the user's own Take over, checked here.
+   *
+   * On marks the step's tabs as the agent's secret does (noteSecretStep),
+   * with the sites they loaded before, whose caches go at once. From then
+   * on what they load isn't cached, the agent's own way back is refused
+   * (methods/spaces.sys.mjs), and the user's Resume blanks them. The marks
+   * are written before it returns, so a Resume right after blanks too. Off
+   * takes back the user's own marks only: an agent's stays.
+   *
+   * @param {object} rec
+   * @param {boolean} on
+   * @returns {{ok: boolean, why?: string, secret: boolean, secretBy: "agent"|"user"|null}}
+   *   ok: the step is now as asked
+   */
+  markSecretByUser(rec, on) {
+    const started = Date.now();
+    const answer = (ok, why) => {
+      const state = this.secretStepOf(rec);
+      log(`the user's secret mark ${on ? "on" : "off"}: ${ok ? "done" : `not done, ${why}`}; the step is ${state.secret ? `secret by the ${state.secretBy}` : "not secret"} (${Date.now() - started} ms)`);
+      return { ok, ...(ok ? {} : { why }), ...state };
+    };
+    if (typeof on !== "boolean") {
+      return answer(false, "on must be true or false");
+    }
+    if (!rec || rec.gone || rec.ended || rec.kind !== "task") {
+      return answer(false, "the task has ended");
+    }
+    if (rec.ownership !== "agentDelegatedToUser" || (rec.heldBy !== "agent" && rec.heldBy !== "user")) {
+      return answer(false, "the user doesn't hold the task after a hand-off or a Take over");
+    }
+    if (on) {
+      // A hold from before a restart into this version has no held values: its page, then.
+      const browser = this.#heldTabs(rec).length ? null : (this.pages.userTab(rec)?.linkedBrowser ?? null);
+      return this.noteSecretStep(rec, browser, { by: "user" }) ? answer(true) : answer(false, "the step has no page to mark");
+    }
+    const before = this.secretStepOf(rec);
+    for (const tab of this.pages.tabsOf(rec)) {
+      this.pages.unmarkByUser(tab, rec);
+    }
+    const now = this.secretStepOf(rec);
+    if (now.secret !== before.secret || now.secretBy !== before.secretBy) {
+      this.spaces.secretStepChanged(rec, now);
+    }
+    return now.secret ? answer(false, "the agent marked the step secret") : answer(true);
   }
 
   /**
@@ -1333,6 +1538,12 @@ class Service {
    * @returns {Promise<string[]>} the labels of the pages blanked
    */
   blankSecretSteps(rec) {
+    // The agent's own way back never blanks (agentHandBack): a marked step
+    // refuses it, and a mark the user makes meanwhile stays for its check
+    // right before the flip, so the page stays theirs.
+    if (this.#agentHandBacks.has(rec)) {
+      return Promise.resolve([]);
+    }
     let run = this.#blanking.get(rec);
     if (!run) {
       run = this.#blankSteps(rec).finally(() => this.#blanking.delete(rec));
@@ -1341,11 +1552,35 @@ class Service {
     return run;
   }
 
+  /** The user's Resume blanking the task's secret step now (blankSecretSteps), or null: the agent's own way back waits for it. */
+  blanking(rec) {
+    return this.#blanking.get(rec) ?? null;
+  }
+
   async #blankSteps(rec) {
-    const marked = this.pages.tabsOf(rec).filter(tab => secretTaskOf(tab) === rec.id);
-    if (!marked.length) {
-      return [];
+    // A clear that a mark during the step started comes first.
+    await this.#markClears.get(rec);
+    const labels = [];
+    const tried = new Set();
+    // A tab marked while a round runs (the user's mark as they press
+    // Resume) gets a round of its own, and the run ends with no mark left,
+    // with no turn of the event loop between its last look and its end. A
+    // tab gets one round: one that neither blanks nor leaves the task keeps
+    // its mark for the flip's own check (#dropUnblanked).
+    for (;;) {
+      const marked = this.pages.tabsOf(rec).filter(tab => secretTaskOf(tab) === rec.id && !tried.has(this.pages.tabId(tab)));
+      if (!marked.length) {
+        return labels;
+      }
+      for (const tab of marked) {
+        tried.add(this.pages.tabId(tab));
+      }
+      labels.push(...(await this.#blankRound(rec, marked)));
     }
+  }
+
+  /** One round of the hand back's blank (#blankSteps): the marked tabs, their caches, the session. */
+  async #blankRound(rec, marked) {
     // A tab Zen restored unloaded gets its browser first: a load in it is
     // then its restore, so its saved page never loads (#insertUnloaded).
     await Promise.all(
@@ -1362,12 +1597,16 @@ class Service {
       label: this.pages.forTab(tab)?.label ?? null,
     }));
     // The sites whose caches may hold what the step showed: those the marks
-    // noted, and those of each tab's history, read before the blank purges it.
+    // noted, and those of each tab's history, read before the blank purges
+    // it. A mark made during a step that loaded more sites than it keeps
+    // (overflow) clears every site's.
     const sites = new Set();
+    let overflow = false;
     for (const step of steps) {
       for (const site of [...secretSitesOf(step.tab), ...historySites(step.tab)]) {
         sites.add(site);
       }
+      overflow ||= !!secretMarkOf(step.tab)?.overflow;
     }
     const blanked = [];
     for (const step of steps) {
@@ -1392,7 +1631,7 @@ class Service {
         this.#dropSecretTab(rec, tab);
       }
     }
-    await this.#clearSecretCaches(sites);
+    await this.#clearSecretCaches(sites, { overflow });
     await this.#saveBlanks(blanked);
     const labels = blanked.map(step => step.label).filter(Boolean);
     if (labels.length) {
@@ -1406,15 +1645,33 @@ class Service {
    * only, whether its tabs blanked or not: a site that doesn't send no-store
    * (most frameworks' default) would give the step's page or its QR image
    * back to a fetch with cache "force-cache" in any of the agent's tabs
-   * there. Cookies and sign-ins stay.
+   * there. Cookies and sign-ins stay. With `overflow` (a mark made during a
+   * step that loaded more sites than a held value keeps), every site's
+   * caches go: it's rare, and costs only loads afresh.
    *
    * @param {Set<string>} sites  schemeless sites
+   * @param {{overflow?: boolean}} [opts]
    */
-  async #clearSecretCaches(sites) {
+  async #clearSecretCaches(sites, { overflow = false } = {}) {
+    const flags = Ci.nsIClearDataService.CLEAR_NETWORK_CACHE | Ci.nsIClearDataService.CLEAR_IMAGE_CACHE;
+    if (overflow) {
+      try {
+        await timed(
+          new Promise((resolve, reject) =>
+            Services.clearData.deleteData(flags, { onDataDeleted: failed => (failed ? reject(new Error(`flags ${failed} not cleared`)) : resolve()) })
+          ),
+          SESSION_SAVE_MS,
+          "clearing every site's caches"
+        );
+        log("a secret step's caches: every site's cleared, since the step loaded more sites than a mark keeps");
+      } catch (e) {
+        log(`a secret step's caches: clearing every site's failed (${e.message})`);
+      }
+      return;
+    }
     if (!sites.size) {
       return;
     }
-    const flags = Ci.nsIClearDataService.CLEAR_NETWORK_CACHE | Ci.nsIClearDataService.CLEAR_IMAGE_CACHE;
     const clear = site =>
       new Promise((resolve, reject) => {
         const done = { onDataDeleted: failed => (failed ? reject(new Error(`flags ${failed} not cleared`)) : resolve()) };
@@ -1506,6 +1763,24 @@ class Service {
   }
 
   /**
+   * As a held task goes to the agent (spaces.setOwnership calls it before
+   * the change, in the same synchronous step): a tab still marked secret is
+   * one no blank took, a mark the user made after the hand back's blank
+   * last looked, or a hand back whose blank failed. It leaves the task as a
+   * tab that didn't blank does, so the agent never gets a marked page.
+   *
+   * @param {object} rec
+   */
+  #dropUnblanked(rec) {
+    for (const tab of this.pages.tabsOf(rec)) {
+      if (secretTaskOf(tab) === rec.id) {
+        log("a secret step's tab that no blank took leaves the task as the agent gets it back");
+        this.#dropSecretTab(rec, tab);
+      }
+    }
+  }
+
+  /**
    * A secret step's tab that didn't blank leaves its task for good first
    * (pages.leaveTask, which takes its mark), so its page has ended for the
    * agent (pageClosed). As the task's last tab it leaves a blank one of the
@@ -1547,13 +1822,37 @@ class Service {
    * @returns {Element|null}
    */
   secretTabOf(browser) {
-    if (!browser || !this.spaces.records().some(rec => !rec.gone && rec.ownership === "agentDelegatedToUser")) {
+    if (!browser || !this.#anyHeld()) {
       return null;
     }
     const tab = tabOfBrowser(browser);
     const task = tab ? secretTaskOf(tab) : null;
     const rec = task ? this.spaces.peek(task) : null;
     return rec && !rec.gone && rec.ownership === "agentDelegatedToUser" ? tab : null;
+  }
+
+  /** Does the user hold a task now? */
+  #anyHeld() {
+    return this.spaces.records().some(rec => !rec.gone && rec.ownership === "agentDelegatedToUser");
+  }
+
+  /**
+   * The tab of `browser` if it's a held step's (its held value names a live
+   * task), else null: the network capture follows it, and its sites are
+   * noted. Cheap while no task is held and no hold begins: the capture
+   * asks at each request's start.
+   *
+   * @param {Element|null} browser
+   * @returns {Element|null}
+   */
+  heldStepTabOf(browser) {
+    if (!browser || (this.#holdsStarting === 0 && !this.#anyHeld())) {
+      return null;
+    }
+    const tab = tabOfBrowser(browser);
+    const held = tab ? heldStepOf(tab) : null;
+    const rec = held ? this.spaces.peek(held.task) : null;
+    return rec && !rec.gone && !rec.ended ? tab : null;
   }
 
   /**
@@ -1564,30 +1863,50 @@ class Service {
    * the request's site with their marks, so the hand back clears what the
    * caches kept there (#clearSecretCaches), after a restart too. Each of the
    * step's tabs keeps it: a popup that closes itself (a sign-in's) takes its
-   * own mark along.
+   * own mark along. A held step's tabs, marked or not, keep it in their held
+   * values the same way, from the hold's start, so a mark made later covers
+   * what the step loaded before it. The sites never leave the runtime: no
+   * result, event or note names them.
    *
    * @param {number} browserId  the tab's top
    * @param {nsIChannel} channel
    */
   noteSecretRequest(browserId, channel) {
-    const tab = this.secretTabOf(BrowsingContext.getCurrentTopByBrowserId(browserId)?.embedderElement ?? null);
-    if (!tab) {
+    if (this.#holdsStarting === 0 && !this.#anyHeld()) {
       return;
     }
-    try {
-      // At http-on-modify-request, before the channel opens its cache entry.
-      channel.loadFlags |= Ci.nsIRequest.INHIBIT_CACHING;
-    } catch (e) {
-      log(`a secret step's request may be cached: ${e.message}`);
+    const browser = BrowsingContext.getCurrentTopByBrowserId(browserId)?.embedderElement ?? null;
+    const tab = this.secretTabOf(browser);
+    const heldTab = this.heldStepTabOf(browser);
+    if (!tab && !heldTab) {
+      return;
+    }
+    if (tab) {
+      try {
+        // At http-on-modify-request, before the channel opens its cache entry.
+        channel.loadFlags |= Ci.nsIRequest.INHIBIT_CACHING;
+      } catch (e) {
+        log(`a secret step's request may be cached: ${e.message}`);
+      }
     }
     const site = schemelessSite(channel.URI);
     if (!site) {
       return;
     }
-    const task = secretTaskOf(tab);
-    for (const marked of this.pages.tabsOf(this.spaces.peek(task))) {
-      if (secretTaskOf(marked) === task) {
-        this.pages.noteSecretSite(marked, site);
+    const mark = tab ? secretMarkOf(tab) : null;
+    const held = heldTab ? heldStepOf(heldTab) : null;
+    // Every tab of the step keeps every site, so a site the requesting tab
+    // keeps already is in the others too.
+    if ((!mark || mark.sites.includes(site)) && (!held || held.sites.includes(site) || held.overflow)) {
+      return;
+    }
+    const task = mark?.task ?? held.task;
+    for (const other of this.pages.tabsOf(this.spaces.peek(task))) {
+      if (mark && secretTaskOf(other) === task) {
+        this.pages.noteSecretSite(other, site);
+      }
+      if (held && heldStepOf(other)?.task === task) {
+        this.pages.noteHeldSite(other, site);
       }
     }
   }
@@ -1606,6 +1925,33 @@ class Service {
    * @type {(rec: object) => Promise<Element[]>}
    */
   beforeHandBack = async () => [];
+
+  /**
+   * The agent takes a held task back by its own call (spaces.takeOver,
+   * spaces.claim): what the user's Resume does first (beforeHandBack), but
+   * no blank. A step marked secret refuses the agent's own way back
+   * (methods/spaces.sys.mjs), so blankSecretSteps skips while this runs: a
+   * mark the user makes meanwhile stays for the check right before the
+   * flip, and their page stays theirs. The skip ends with it, refused or
+   * not.
+   *
+   * @param {object} rec
+   */
+  async agentHandBack(rec) {
+    this.#agentHandBacks.set(rec, (this.#agentHandBacks.get(rec) ?? 0) + 1);
+    try {
+      if (typeof this.beforeHandBack === "function") {
+        await this.beforeHandBack(rec);
+      }
+    } finally {
+      const left = (this.#agentHandBacks.get(rec) ?? 1) - 1;
+      if (left > 0) {
+        this.#agentHandBacks.set(rec, left);
+      } else {
+        this.#agentHandBacks.delete(rec);
+      }
+    }
+  }
 
   /**
    * Load a page afresh, quietly (modules/handoff.sys.mjs): a new GET entry,
@@ -1644,12 +1990,16 @@ class Service {
     const control = opener ? this.controlOf(opener) : null;
     if (control?.space.kind === "task" && !control.space.ended && tab.linkedBrowser) {
       this.pages.addUnmanaged(control.space, tab, "user");
-      // One the user opens from a secret step's page with no opener (a
-      // middle click, a target=_blank link) never joins its hold, yet the
-      // agent could adopt it after the hand back: the hand back blanks it
-      // too.
-      if (openerTab && secretTaskOf(openerTab) === control.space.id) {
-        this.pages.markSecret(tab, control.space);
+      // One the user opens from a held step's page with no opener (a middle
+      // click, a target=_blank link) never joins its hold, yet the agent
+      // could adopt it after the hand back: it's the step's too, and the
+      // hand back of a secret one blanks it, whoever's mark it carries.
+      if (openerTab && heldStepOf(openerTab)?.task === control.space.id) {
+        this.pages.markHeld(tab, control.space);
+      }
+      const mark = openerTab ? secretMarkOf(openerTab) : null;
+      if (mark?.task === control.space.id) {
+        this.pages.markSecret(tab, control.space, { by: mark.by });
       }
     }
   }
@@ -1726,11 +2076,17 @@ class Service {
     this.pages.moveIn(space, tab);
     // Popups get labels whatever the budget, as in Ego.
     const page = this.pages.register(space, tab, "agent", { opener: openerPage.label });
-    // One a secret step's page opens during the user's hold joins its hold
-    // (heldWith), and the hand back blanks it too. Its own mark keeps that
-    // through a restart, which the hold doesn't survive.
-    if (hold && secretTaskOf(this.pages.tabFor(openerPage)) === space.id) {
-      this.pages.markSecret(tab, space);
+    // One a held step's page opens during the user's hold joins its hold
+    // (heldWith): it's the step's too, and the hand back of a secret one
+    // blanks it. Its own values keep that through a restart, which the hold
+    // doesn't survive.
+    const openerTab = hold ? this.pages.tabFor(openerPage) : null;
+    if (openerTab && heldStepOf(openerTab)?.task === space.id) {
+      this.pages.markHeld(tab, space);
+    }
+    const mark = openerTab ? secretMarkOf(openerTab) : null;
+    if (mark?.task === space.id) {
+      this.pages.markSecret(tab, space, { by: mark.by });
     }
     keepAlive(tab);
     this.emit("popup", { space: space.id, page: page.label, tab: this.pages.tabId(tab), opener: openerPage.label });
@@ -1936,9 +2292,10 @@ class Service {
         }
         const value = readTabValue(tab);
         if (!value) {
-          // A secret step's mark on a tab no task holds is stale: a session
-          // saved before the tab left its task.
+          // A secret step's mark or a held value on a tab no task holds is
+          // stale: a session saved before the tab left its task.
           this.pages.clearSecret(tab);
+          this.pages.clearHeld(tab);
           continue;
         }
         if (!ownValue(tab, value)) {
@@ -1978,6 +2335,11 @@ class Service {
         if (secret !== null && (secret !== rec.id || rec.ownership !== "agentDelegatedToUser")) {
           // A hand back or the task's end handled it after the file's save.
           this.pages.clearSecret(tab);
+        }
+        const held = heldStepOf(tab)?.task ?? null;
+        if (held !== null && (held !== rec.id || rec.ownership !== "agentDelegatedToUser")) {
+          // The hold ended after the file's save.
+          this.pages.clearHeld(tab);
         }
         this.pages.reattach(rec, tab, value);
         found.add(rec.id);
@@ -2216,6 +2578,10 @@ class Service {
       const rec = this.spaces.peek(params.space);
       if (rec && this.#heldForUser) {
         lazy.releaseHolds(rec);
+      }
+      // The held step's values go with the hold, a hold from before a restart included.
+      for (const tab of rec ? this.pages.tabsOf(rec) : []) {
+        this.pages.clearHeld(tab);
       }
     }
     if (name === "spaceChanged" && "ownership" in params) {

@@ -321,6 +321,17 @@ const savedText = () =>
      return [...allTabs()].map(t => SessionStore.getTabState(t)).join("\\n");`
   );
 const ownershipOf = async space => (await h.call("spaces.list")).taskSpaces.find(s => s.id === space)?.ownership ?? null;
+/** The agent's takeOver of a step marked secret: refused until the user's Resume, with no retryAfterMs. */
+const refusedAsSecret = e => e.code === "ZEN_TASK_SPACE_USER_IN_CONTROL" && e.data?.secret === true && e.data?.retryAfterMs === undefined;
+/** The user's own mark on the step they hold (the UI's toggle). */
+const markByUser = (space, on) => h.chrome(`return ctx.service.markSecretByUser(ctx.spaces.get(arg.space), arg.on);`, { space, on });
+/** The step's page's mark and held value, as the session keeps them. */
+const stepValues = (space, page) =>
+  h.chrome(
+    `${TAB} const { heldStepOf, secretMarkOf } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/pages.sys.mjs");
+     return { mark: secretMarkOf(t), held: heldStepOf(t), step: ctx.service.secretStepOf(ctx.spaces.get(arg.space)) };`,
+    { space, page: page ?? "p1" }
+  );
 
 test("a restart brings tasks back from their tabs, unloaded; a call loads a page as the agent's own load", async () => {
   const a = await task("restart a", ["/api/text?a1", "/api/text?a2"]);
@@ -533,6 +544,9 @@ test("a hand-off with secret: after a quit during the user's step, the hand back
       10000
     );
     await userGoesHome();
+    // The step stays the user's past the restart: only their Resume gives it back.
+    await assert.rejects(h.call("spaces.takeOver", { space }), refusedAsSecret);
+    await resumeByUser(space);
     const back = await h.call("spaces.takeOver", { space });
     assert.deepEqual([...(back.blanked ?? [])].sort(), ["p1", pop].sort());
     for (const page of ["p1", pop]) {
@@ -567,12 +581,59 @@ test("a hand-off with secret: after a crash during the user's step, the hand bac
     // Zen's periodic save has the step's page, and the crash comes before the hand back.
     await crash({ "browser.sessionstore.resume_from_crash": true, "browser.startup.page": 0, "zen.workspaces.continue-where-left-off": false }, [token]);
     assert.equal(await ownershipOf(space), "agentDelegatedToUser");
+    await assert.rejects(h.call("spaces.takeOver", { space }), refusedAsSecret);
+    await resumeByUser(space);
     const back = await h.call("spaces.takeOver", { space });
     assert.deepEqual(back.blanked, ["p1"]);
     const now = await tabNow(space, "p1");
     assert.deepEqual([now.url, now.history], ["about:blank", 1]);
   } finally {
     await h.remove(space).catch(() => {});
+  }
+});
+
+test("the user's own mark keeps whose it is through a quit, and a hold begun before the quit keeps the sites its step loaded, for a mark made after it", async () => {
+  const marked = await h.space("restart user secret before");
+  const later = await h.space("restart user secret after");
+  const tokenA = `${stepBase}/?r=u1-token&nostore`;
+  const tokenB = `${stepBase}/?r=u2-token&nostore`;
+  const stepSite = new URL(stepBase).hostname;
+  try {
+    for (const [space, r] of [[marked, "u1"], [later, "u2"]]) {
+      await h.call("page.goto", { space, page: "p1", url: `${stepBase}/?r=${r}` });
+      await h.call("spaces.handOff", { space });
+    }
+    await userLoads(marked, "p1", tokenA);
+    await loadedAt(marked, "p1", "u1-token");
+    await userLoads(later, "p1", tokenB);
+    await loadedAt(later, "p1", "u2-token");
+    assert.equal((await markByUser(marked, true)).secretBy, "user");
+    const heldBefore = await stepValues(later);
+    assert.ok(heldBefore.held?.sites.includes(stepSite), `the held value noted the step's site: ${JSON.stringify(heldBefore)}`);
+    assert.equal(heldBefore.mark, null);
+    await saveSession([tokenA, tokenB]);
+
+    await restart({ "browser.startup.page": 3, "zen.workspaces.continue-where-left-off": false });
+
+    assert.deepEqual((await stepValues(marked)).step, { secret: true, secretBy: "user" }, "whose mark it is came through the quit");
+    await assert.rejects(h.call("spaces.takeOver", { space: marked }), refusedAsSecret);
+    const kept = await stepValues(later);
+    assert.deepEqual([kept.step, kept.held?.sites.includes(stepSite)], [{ secret: false, secretBy: null }, true], JSON.stringify(kept));
+    // The mark after the quit finds the step's tab by its held value, with the site it loaded before.
+    assert.deepEqual(await markByUser(later, true), { ok: true, secret: true, secretBy: "user" });
+    const now = await stepValues(later);
+    assert.ok(now.mark?.sites.includes(stepSite) && now.mark.by === "user", JSON.stringify(now));
+    await userGoesHome();
+    for (const space of [marked, later]) {
+      await resumeByUser(space);
+      const tab = await tabNow(space, "p1");
+      assert.deepEqual([tab.url, tab.history], ["about:blank", 1], `task ${space}: blank, with no history`);
+      assert.deepEqual((await h.call("spaces.takeOver", { space })).blanked, ["p1"]);
+    }
+    assert.equal((await stepValues(later)).held, null, "the held value went with the hold");
+  } finally {
+    await h.remove(marked).catch(() => {});
+    await h.remove(later).catch(() => {});
   }
 });
 

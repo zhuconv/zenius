@@ -104,6 +104,8 @@ describe("the usage guide", () => {
     assert.match(control, /only clicked and leave the question unanswered for 10 seconds, the action runs/);
     assert.match(control, /type into the page and leave the question unanswered, the call fails with `ZEN_TASK_SPACE_USER_IN_CONTROL` and reason `manual_takeover`/);
     assert.match(control, /resume with `takeOverTaskSpace\(id\)`/);
+    // A secret step waits for the user's Resume: the core refuses the agent's own way back.
+    assert.match(control, /On a step you or the user marked secret, it fails with `error\.secret` until their Resume agent: start `zenius wait <id>`\./);
     // The badge is the Agents Space's (SPEC §3.8 "The badge").
     assert.match(control, /`handOff\(\)` badges the Agents Space[^\n]*nothing notifies the user outside the browser/);
   });

@@ -67,19 +67,55 @@ export const i5 = {
 };
 
 /**
- * The agent takes a held task back by its own call: first what the user's
- * Resume does before the agent gets control (the UI's beforeHandBack: the
- * pages the user typed a secret into load afresh). The user may act
- * meanwhile, so the state is checked again after.
+ * A held step marked secret, by the agent's hand-off or by the user, stays
+ * the user's until their Resume agent (SPEC §3.4): the agent's own way back
+ * would blank the page while they may still be copying from it. No
+ * retryAfterMs: it doesn't end by itself.
+ *
+ * @throws {ZenError} ZEN_TASK_SPACE_USER_IN_CONTROL, with data.secret
  */
-async function handBack(ctx, rec) {
-  // A secret step's tab goes blank before anything else of the hand back.
-  await ctx.service.blankSecretSteps(rec);
-  await ctx.service.beforeHandBack(rec);
+function refuseSecretStep(ctx, rec) {
+  if (rec.ownership === "agentDelegatedToUser" && ctx.service.secretStepOf(rec).secret) {
+    throw new ZenError(
+      "ZEN_TASK_SPACE_USER_IN_CONTROL",
+      `Task space ${rec.id}'s step shows the user a secret, so it stays theirs until they press Resume agent.`,
+      { space: rec.id, reason: rec.reason || "manual_takeover", secret: true }
+    );
+  }
+}
+
+/**
+ * Before the agent takes a held task back by its own call: a step marked
+ * secret refuses it, and so does the user's input under 10 s ago. The
+ * user's Resume, if it's blanking the step now, is waited for: it gives the
+ * task back itself.
+ */
+async function mayHandBack(ctx, rec) {
+  await ctx.service.blanking(rec)?.catch(() => {});
   if (rec.gone || rec.ownership === "user") {
     ctx.spaces.gate(rec, "task");
   }
   if (rec.ownership === "agentDelegatedToUser") {
+    refuseSecretStep(ctx, rec);
+    ctx.spaces.checkUserQuiet(rec);
+  }
+}
+
+/**
+ * The agent takes a held task back by its own call: first what the user's
+ * Resume does before the agent gets control (the UI's beforeHandBack: the
+ * pages the user typed a secret into load afresh), with no blank. The user
+ * may act meanwhile, so the state is checked again after, with no await
+ * between that check and the caller's setOwnership: a mark the user made
+ * meanwhile refuses it, and the page stays theirs.
+ */
+async function handBack(ctx, rec) {
+  await ctx.service.agentHandBack(rec);
+  if (rec.gone || rec.ownership === "user") {
+    ctx.spaces.gate(rec, "task");
+  }
+  if (rec.ownership === "agentDelegatedToUser") {
+    refuseSecretStep(ctx, rec);
     ctx.spaces.checkUserQuiet(rec);
   }
 }
@@ -141,8 +177,10 @@ export const methods = {
     }
     if (rec.ownership === "agentDelegatedToUser") {
       // The agent's own task, handed to the user: as takeOver.
-      ctx.spaces.checkUserQuiet(rec);
-      await handBack(ctx, rec);
+      await mayHandBack(ctx, rec);
+      if (rec.ownership === "agentDelegatedToUser") {
+        await handBack(ctx, rec);
+      }
     } else if (rec.ownership === "user") {
       // A workspace of the user's, or an ended task: the user says yes in
       // the browser first (SPEC §3.4).
@@ -180,9 +218,11 @@ export const methods = {
       );
     }
     if (rec.ownership === "agentDelegatedToUser") {
-      // Not while the user types there (SPEC §3.4).
-      ctx.spaces.checkUserQuiet(rec);
-      await handBack(ctx, rec);
+      // Not on a secret step, nor while the user types there (SPEC §3.4).
+      await mayHandBack(ctx, rec);
+      if (rec.ownership === "agentDelegatedToUser") {
+        await handBack(ctx, rec);
+      }
     }
     const userPage = ctx.pages.userPage(rec);
     if (rec.ownership === "agentDelegatedToUser") {
@@ -225,10 +265,8 @@ export const methods = {
       }
       ctx.spaces.setOwnership(rec, "agentDelegatedToUser", { reason, source: "agent" });
     } else if (secret && rec.ownership === "agentDelegatedToUser") {
-      const browser = ctx.pages.userTab(rec)?.linkedBrowser ?? null;
-      if (browser) {
-        ctx.service.noteSecretStep(rec, browser);
-      }
+      // The step's tabs, its held ones included, with what they loaded before.
+      ctx.service.noteSecretStep(rec, ctx.pages.userTab(rec)?.linkedBrowser ?? null);
     }
     return { id: rec.id, ownership: rec.ownership };
   },

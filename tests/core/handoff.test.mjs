@@ -1734,24 +1734,299 @@ test("a hand-off with secret: while the user holds the step, another task's page
   }
 });
 
-test("a hand-off with secret: the agent's own takeOver blanks the tab first too, and so does the hand back after a Take over the user made before the agent's hand-off", async () => {
+/** The user's own mark on the step they hold (the UI's toggle calls this), and its answer. */
+const markByUser = (space, on) => h.chrome(`return ctx.service.markSecretByUser(ctx.spaces.get(arg.space), arg.on);`, { space, on });
+/** Whether the held step is a secret one, and whose mark makes it so. */
+const secretStep = space => h.chrome(`return ctx.service.secretStepOf(ctx.spaces.get(arg));`, space);
+/** The spaceChanged events about the step's mark, from now on. */
+const listenSecret = () =>
+  h.chrome(
+    `ctx.service.hoSecret = [];
+     ctx.service.hoSecretOff?.();
+     ctx.service.hoSecretOff = ctx.service.addEventListener((e, p) => e === "spaceChanged" && "secretBy" in p && ctx.service.hoSecret.push(p));
+     return true;`
+  );
+const secretHeard = () => h.chrome(`return ctx.service.hoSecret ?? [];`);
+const forgetSecret = () =>
+  h.chrome(
+    `ctx.service.hoSecretOff?.(); delete ctx.service.hoSecretOff; delete ctx.service.hoSecret;
+     if (ctx.service.hoBefore) { ctx.service.beforeHandBack = ctx.service.hoBefore; delete ctx.service.hoBefore; }
+     return true;`
+  );
+/** The user's last real input in the task's tabs was `ms` ago: past the 10 s rule. */
+const quietFor = (space, ms) => h.chrome(`ctx.spaces.get(arg.space).lastUserInputAt = Date.now() - arg.ms; return true;`, { space, ms });
+/** A fetch only the HTTP cache can answer, from `page` of `space`: no request goes out. */
+const fromCache = (space, page, url) =>
+  h.call("page.fetch", { space, page, url, options: { cache: "only-if-cached", mode: "same-origin" } }).then(
+    r => r,
+    e => ({ failed: e.code })
+  );
+const refusedAsSecret = what => e => {
+  assert.equal(e.code, "ZEN_TASK_SPACE_USER_IN_CONTROL", what);
+  assert.equal(e.data?.secret, true, what);
+  assert.equal(e.data?.retryAfterMs, undefined, `${what}: it doesn't end by itself`);
+  return true;
+};
+
+test("a hand-off with secret: the agent's own takeOver and claim are refused until the user's Resume agent, though the user has been quiet past 10 s, and the Resume blanks the tab", async () => {
   const space = await h.space("ho secret take");
   try {
     const { label } = await h.call("pages.new", { space, url: site("/form?ho=s2") });
     await loaded(space, label, "ho=s2");
     await h.call("spaces.handOff", { space, secret: true });
+    assert.deepEqual(await secretStep(space), { secret: true, secretBy: "agent" });
     await userLoads(space, label, site("/form?ho=s2-token"));
     await loaded(space, label, "ho=s2-token");
-    const back = await h.call("spaces.takeOver", { space });
-    assert.deepEqual(back.blanked, [label]);
+    // Reading the codes is no input: the 10 s rule alone would let the agent in.
+    await quietFor(space, 11_000);
+    await assert.rejects(h.call("spaces.takeOver", { space }), refusedAsSecret("takeOver"));
+    await assert.rejects(h.call("spaces.claim", { space }), refusedAsSecret("claim"));
+    assert.equal(await h.ownership(space), "agentDelegatedToUser");
+    assert.equal((await info(space, label)).url, site("/form?ho=s2-token"), "the page stays the user's, as it was");
+    await resumeByUser(space);
     assert.equal((await info(space, label)).url, "about:blank");
+    assert.deepEqual((await h.call("spaces.takeOver", { space })).blanked, [label]);
+    // The agent's secret after the user's own Take over: the cards hear of it, and it waits the same.
     await h.call("page.goto", { space, page: label, url: site("/form?ho=s2-b") });
     await loaded(space, label, "ho=s2-b");
     await userTakeOver(space, label);
+    await listenSecret();
     await h.call("spaces.handOff", { space, secret: true });
+    assert.deepEqual(await secretHeard(), [{ space, secret: true, secretBy: "agent" }]);
+    await assert.rejects(h.call("spaces.takeOver", { space }), refusedAsSecret("takeOver after the Take over"));
+    await resumeByUser(space);
+    assert.equal((await info(space, label)).url, "about:blank");
+  } finally {
+    await forgetSecret().catch(() => {});
+    await cleanUp(space);
+  }
+});
+
+test("the user's own mark after their Take over: the step's tabs, a popup and a tab opened before the mark included, are marked as the user's, spaceChanged says so, the agent's takeOver is refused past the quiet, and a Resume right after blanks them", async () => {
+  const space = await h.space("ho user secret");
+  let mid = null;
+  try {
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=u1") });
+    await loaded(space, label, "ho=u1");
+    await userTakeOver(space, label);
+    assert.deepEqual(await secretStep(space), { secret: false, secretBy: null });
+    await userLoads(space, label, site("/form?ho=u1-token"));
+    await loaded(space, label, "ho=u1-token");
+    // Before the mark: the site's popup, which joins the hold, and the user's middle click, which doesn't.
+    assert.equal(await inPage(space, label, `return String(!!window.open(${JSON.stringify(site("/form?ho=u1-pop"))}));`), "true");
+    const pop = await pageOf(space, "ho=u1-pop");
+    await loaded(space, pop, "ho=u1-pop");
+    const midTab = await h.chrome(
+      `const b = ctx.pages.tabFor(ctx.pages.get(ctx.spaces.get(arg.space), arg.label)).linkedBrowser;
+       const tab = b.ownerDocument.defaultView.gBrowser.addTab(arg.url, { openerBrowser: b, inBackground: true, triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+       return ctx.pages.tabId(tab);`,
+      { space, label, url: site("/form?ho=u1-mid") }
+    );
+    await h.until(async () => !!(mid = await tabById(space, midTab)).url?.includes("ho=u1-mid"), 10000);
+    assert.equal(mid.inTask, true, "the tab the user opened is the task's");
+    await listenSecret();
+    assert.deepEqual(await markByUser(space, true), { ok: true, secret: true, secretBy: "user" });
+    assert.deepEqual(await secretHeard(), [{ space, secret: true, secretBy: "user" }], "the cards hear it, and nothing else: no sites");
+    // A second On changes nothing.
+    assert.deepEqual(await markByUser(space, true), { ok: true, secret: true, secretBy: "user" });
+    assert.equal((await secretHeard()).length, 1);
+    await quietFor(space, 11_000);
+    await assert.rejects(h.call("spaces.takeOver", { space }), refusedAsSecret("takeOver"));
+    // Resume one click after the mark: the marks are written already.
+    await resumeByUser(space);
+    for (const page of [label, pop]) {
+      const now = await info(space, page);
+      assert.deepEqual([now.url, now.history], ["about:blank", 1], `${page}: blank, with no history`);
+    }
+    mid = await tabById(space, midTab);
+    assert.ok(mid.gone || !mid.inTask || (mid.url === "about:blank" && mid.history === 1), `the tab opened with no opener: ${JSON.stringify(mid)}`);
+    assert.deepEqual([...((await h.call("spaces.takeOver", { space })).blanked ?? [])].sort(), [label, pop].sort());
+    assert.deepEqual(await secretStep(space), { secret: false, secretBy: null }, "the marks went with the blank");
+  } finally {
+    await forgetSecret().catch(() => {});
+    if (mid?.browserId) {
+      await closeTheirs(mid.browserId).catch(() => {});
+    }
+    await cleanUp(space);
+  }
+});
+
+test("the user's own mark during the step covers what it loaded before: another task's cached read of it ends at the mark, and nothing the step loads after it is cached", async () => {
+  const space = await h.space("ho user secret cache");
+  const another = await h.space("ho user secret cache other");
+  try {
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=u2") });
+    await loaded(space, label, "ho=u2");
+    const { label: fetcher } = await h.call("pages.new", { space: another, url: site("/form?ho=u2-other") });
+    await loaded(another, fetcher, "ho=u2-other");
+    await h.call("spaces.handOff", { space });
+    const marker = `marker-${Date.now()}`;
+    const before = site(`/cached?m=${marker}`);
+    await userLoads(space, label, before);
+    await loaded(space, label, "/cached");
+    // Not marked yet: the cache keeps the page, as for any step.
+    const unmarked = await fromCache(another, fetcher, before);
+    assert.ok(String(unmarked.body ?? "").includes(marker), `the premise: an unmarked step's page is cached: ${JSON.stringify(unmarked).slice(0, 300)}`);
+    assert.equal((await markByUser(space, true)).ok, true);
+    await h.until(async () => !String((await fromCache(another, fetcher, before)).body ?? "").includes(marker), 5000);
+    const after = site(`/cached?m=${marker}-after`);
+    await userLoads(space, label, after);
+    await loaded(space, label, `m=${marker}-after`);
+    const late = await fromCache(another, fetcher, after);
+    assert.ok(late.failed || !String(late.body ?? "").includes(`${marker}-after`), `a page after the mark was cached: ${JSON.stringify(late).slice(0, 300)}`);
     await resumeByUser(space);
     assert.equal((await info(space, label)).url, "about:blank");
   } finally {
     await cleanUp(space);
+    await h.call("spaces.finish", { space: another, keep: [] }).catch(() => {});
+  }
+});
+
+test("the user's Off takes back only their own mark: an agent's secret stays; and the mark is only for a step the user holds after a hand-off or their Take over", async () => {
+  const space = await h.space("ho user secret off");
+  try {
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=u3") });
+    await loaded(space, label, "ho=u3");
+    const driving = await markByUser(space, true);
+    assert.equal(driving.ok, false, "the agent drives the task");
+    assert.match(driving.why, /doesn't hold the task/);
+    assert.deepEqual(await secretStep(space), { secret: false, secretBy: null });
+    // The agent's mark: On keeps it the agent's, Off can't take it back.
+    await h.call("spaces.handOff", { space, secret: true });
+    assert.deepEqual(await markByUser(space, true), { ok: true, secret: true, secretBy: "agent" });
+    const off = await markByUser(space, false);
+    assert.deepEqual([off.ok, off.secret, off.secretBy], [false, true, "agent"]);
+    assert.match(off.why, /the agent marked/);
+    await resumeByUser(space);
+    assert.equal((await info(space, label)).url, "about:blank");
+    // The user's mark alone: Off takes it back, the cards hear each change, and the 10 s rule is all that's left.
+    await h.call("page.goto", { space, page: label, url: site("/form?ho=u3-b") });
+    await loaded(space, label, "ho=u3-b");
+    await h.call("spaces.handOff", { space });
+    await listenSecret();
+    assert.deepEqual(await markByUser(space, true), { ok: true, secret: true, secretBy: "user" });
+    assert.deepEqual(await markByUser(space, false), { ok: true, secret: false, secretBy: null });
+    assert.deepEqual((await secretHeard()).map(e => [e.secret, e.secretBy]), [[true, "user"], [false, null]]);
+    await quietFor(space, 11_000);
+    const back = await h.call("spaces.takeOver", { space });
+    assert.equal(back.ownership, "agent");
+    assert.equal((await info(space, label)).url, site("/form?ho=u3-b"), "an unmarked step isn't blanked");
+    // A permission prompt's hold isn't a step the user marks, nor is an ended task.
+    await h.chrome(`ctx.spaces.setOwnership(ctx.spaces.get(arg), "agentDelegatedToUser", { reason: "camera", source: "permission" }); return true;`, space);
+    assert.equal((await markByUser(space, true)).ok, false, "a permission hold");
+    await resume(space);
+    await h.chrome(`ctx.spaces.setOwnership(ctx.spaces.get(arg), "user", { source: "user" }); return true;`, space);
+    assert.match((await markByUser(space, true)).why, /ended/);
+  } finally {
+    await forgetSecret().catch(() => {});
+    await cleanUp(space);
+  }
+});
+
+test("a mark the user makes while the agent's takeOver runs refuses it right before control changes: the page stays theirs, not blanked, until their Resume blanks it", async () => {
+  const space = await h.space("ho user secret mid");
+  try {
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=u4") });
+    await loaded(space, label, "ho=u4");
+    await h.call("spaces.handOff", { space });
+    await userLoads(space, label, site("/form?ho=u4-token"));
+    await loaded(space, label, "ho=u4-token");
+    await quietFor(space, 11_000);
+    // The user's tick lands while the takeOver's own steps run (its beforeHandBack).
+    await h.chrome(
+      `ctx.service.hoBefore = ctx.service.beforeHandBack;
+       ctx.service.beforeHandBack = async rec => {
+         ctx.service.beforeHandBack = ctx.service.hoBefore;
+         delete ctx.service.hoBefore;
+         ctx.service.hoMid = ctx.service.markSecretByUser(rec, true);
+         return ctx.service.beforeHandBack(rec);
+       };
+       return true;`
+    );
+    await assert.rejects(h.call("spaces.takeOver", { space }), refusedAsSecret("takeOver"));
+    assert.deepEqual(await h.chrome(`return ctx.service.hoMid;`), { ok: true, secret: true, secretBy: "user" });
+    assert.equal(await h.ownership(space), "agentDelegatedToUser");
+    const now = await info(space, label);
+    assert.deepEqual([now.url, now.held], [site("/form?ho=u4-token"), true], "the agent's way back never blanked it");
+    await resumeByUser(space);
+    assert.equal((await info(space, label)).url, "about:blank");
+  } finally {
+    await h.chrome(`delete ctx.service.hoMid; return true;`).catch(() => {});
+    await forgetSecret().catch(() => {});
+    await cleanUp(space);
+  }
+});
+
+test("the user's Resume during the agent's takeOver, with their mark between: the marked tab leaves the task unblanked, out of the agent's reach, before the agent has control", async () => {
+  const space = await h.space("ho user secret race");
+  let ids = null;
+  try {
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=u5") });
+    await loaded(space, label, "ho=u5");
+    ids = await idsOf(space, label);
+    await h.call("spaces.handOff", { space });
+    await userLoads(space, label, site("/form?ho=u5-token"));
+    await loaded(space, label, "ho=u5-token");
+    await quietFor(space, 11_000);
+    await hearCloses();
+    // While the takeOver's own steps run: the user's tick, then their Resume, whose blank skips meanwhile.
+    await h.chrome(
+      `ctx.service.hoBefore = ctx.service.beforeHandBack;
+       ctx.service.beforeHandBack = async rec => {
+         ctx.service.beforeHandBack = ctx.service.hoBefore;
+         delete ctx.service.hoBefore;
+         ctx.service.markSecretByUser(rec, true);
+         await ctx.service.beforeHandBack(rec);
+         ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+         return [];
+       };
+       return true;`
+    );
+    const back = await h.call("spaces.takeOver", { space });
+    assert.equal(back.ownership, "agent");
+    assert.ok(!back.pages.some(p => p.label === label), "the agent never gets the marked page");
+    assert.deepEqual((await closesHeard()).map(c => c.page), [label], "it ended for the agent");
+    const left = await tabState(ids.browserId);
+    assert.ok(left.gone || (left.page === null && left.url === site("/form?ho=u5-token")), `the user's page, out of the task: ${JSON.stringify(left)}`);
+    assert.equal(back.blanked, undefined);
+  } finally {
+    await forgetCloses().catch(() => {});
+    await forgetSecret().catch(() => {});
+    if (ids) {
+      await closeTheirs(ids.browserId).catch(() => {});
+    }
+    await cleanUp(space);
+  }
+});
+
+test("a held step that loaded more sites than it keeps: the user's mark clears every site's caches", async () => {
+  const space = await h.space("ho user secret overflow");
+  const another = await h.space("ho user secret overflow other");
+  try {
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=u6") });
+    await loaded(space, label, "ho=u6");
+    // Another task's cached page on a site the step never loads.
+    const marker = `marker-${Date.now()}`;
+    const elsewhere = other(`/cached?m=${marker}`);
+    const { label: fetcher } = await h.call("pages.new", { space: another, url: elsewhere });
+    await loaded(another, fetcher, "/cached");
+    assert.ok(String((await fromCache(another, fetcher, elsewhere)).body ?? "").includes(marker), "the premise: it's cached");
+    await h.call("spaces.handOff", { space });
+    // The step's sites past what a held value keeps (64), as its requests would note them.
+    const overflow = await h.chrome(
+      `const s = ctx.spaces.get(arg.space);
+       const tab = ctx.pages.tabFor(ctx.pages.get(s, arg.label));
+       for (let i = 0; i < 70; i++) ctx.pages.noteHeldSite(tab, "s" + i + ".example");
+       const { heldStepOf } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/pages.sys.mjs");
+       const held = heldStepOf(tab);
+       return { kept: held.sites.length, overflow: held.overflow };`,
+      { space, label }
+    );
+    assert.deepEqual(overflow, { kept: 64, overflow: true });
+    assert.equal((await markByUser(space, true)).ok, true);
+    await h.until(async () => !String((await fromCache(another, fetcher, elsewhere)).body ?? "").includes(marker), 5000);
+  } finally {
+    await cleanUp(space);
+    await h.call("spaces.finish", { space: another, keep: [] }).catch(() => {});
   }
 });

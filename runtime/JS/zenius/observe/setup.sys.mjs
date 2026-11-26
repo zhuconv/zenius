@@ -278,8 +278,8 @@ function networkEvent(event, browserId, info, channel) {
   // cookies, a secret step's pages, a reset link), its response and end
   // after the hand back included.
   if (event === "request") {
-    // A secret step's tab notes each site it loads, for the hand back's
-    // cache clearing (the core's noteSecretRequest).
+    // A held step's tab notes each site it loads, for the cache clearing of
+    // a secret one (the core's noteSecretRequest).
     ZeniusService.noteSecretRequest(browserId, channel);
     if (!Services.ppmm.sharedData.get(AGENT_BROWSERS_KEY)?.has(browserId)) {
       return;
@@ -365,11 +365,12 @@ export function setupObserve() {
     log("zen-observe: audio hooks failed:", e.message);
   }
   installNetwork({
-    // The agent's pages, and a secret step's other tabs while the user holds
-    // them: the hand back clears the caches of the sites they load.
+    // The agent's pages, and a held step's other tabs while the user holds
+    // them: the hand back of a secret one clears the caches of the sites
+    // they load, and a mark made during the step takes them too.
     track: browserId => {
       const browser = BrowsingContext.getCurrentTopByBrowserId(browserId)?.embedderElement ?? null;
-      return !!managedPage(browser) || !!service.secretTabOf(browser);
+      return !!managedPage(browser) || !!service.secretTabOf(browser) || !!service.heldStepTabOf?.(browser);
     },
   });
   onRequestEvent(networkEvent);

@@ -90,8 +90,8 @@ export const CODE_GUIDE: Record<string, CodeGuide> = {
   ZEN_TASK_SPACE_USER_IN_CONTROL: {
     ego: "EGO_TASK_SPACE_USER_IN_CONTROL",
     owned: true,
-    what: "The user has control of the task: handOff(), a takeover in the browser, or a browser prompt (data.reason says which). With data.retryAfterMs, the user used the tabs of a task handed to them under 10 s ago, so takeOverTaskSpace() and claimTaskSpace() wait.",
-    next: "A hard stop: don't retry. Resume with takeOverTaskSpace(id) once the user says to continue. With error.retryAfterMs, wait that long and make the call once more.",
+    what: "The user has control of the task: handOff(), a takeover in the browser, or a browser prompt (data.reason says which). With data.retryAfterMs, the user used the tabs of a task handed to them under 10 s ago, so takeOverTaskSpace() and claimTaskSpace() wait. With data.secret, the user's step shows a secret (handOff({ secret: true }), or the user marked it), so both are refused until the user presses Resume agent.",
+    next: "A hard stop: don't retry. Resume with takeOverTaskSpace(id) once the user says to continue. With error.retryAfterMs, wait that long and make the call once more. With error.secret, only the user's Resume agent gives the task back: leave `zenius wait <id>` running in the background if your harness tells you when it exits.",
   },
   ZEN_TASK_SPACE_NAME_IN_USE: {
     ego: "EGO_TASK_SPACE_NAME_IN_USE",

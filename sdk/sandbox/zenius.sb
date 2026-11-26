@@ -1,7 +1,7 @@
 (version 1)
 ; Seatbelt profile for the sandboxed zenius launcher on macOS, which
 ; scripts/install-cli.sh --sandbox writes as ~/.local/bin/zenius. Adapted
-; from zen-eval's tests/live/cli-sandbox.sb, whose rules ran rubric C's live
+; from tests/live/cli-sandbox.sb, whose rules ran rubric C's live
 ; agents. The CLI runs agent-written scripts, and agents read untrusted pages,
 ; so this confines that process: it reads only the CLI copy, the instance
 ; registry, its own temporary folder, the working folder, the current folder

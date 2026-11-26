@@ -69,10 +69,12 @@ function writeTabValue(tab, value) {
         lazy.SessionStore.setCustomTabValue(copy, TAB_VALUE_KEY, JSON.stringify(value));
       } else {
         lazy.SessionStore.deleteCustomTabValue(copy, TAB_VALUE_KEY);
-        // Out of its task, a tab carries no secret step's mark into a later
-        // session (SECRET_TAB_KEY).
-        if (rawValue(copy, SECRET_TAB_KEY)) {
-          lazy.SessionStore.deleteCustomTabValue(copy, SECRET_TAB_KEY);
+        // Out of its task, a tab carries no secret step's mark or held
+        // value into a later session (SECRET_TAB_KEY, HELD_TAB_KEY).
+        for (const key of [SECRET_TAB_KEY, HELD_TAB_KEY]) {
+          if (rawValue(copy, key)) {
+            lazy.SessionStore.deleteCustomTabValue(copy, key);
+          }
         }
       }
     } catch (e) {
@@ -141,41 +143,83 @@ export const OWN_TAB_KEY = "zenius-own";
  * window moves, so the hand back finds the tabs to blank after any of them
  * (service.blankSecretSteps). It goes once the hand back has handled the
  * tab, at the task's end, and with the task's value wherever a tab leaves
- * its task. It's JSON, `{task, sites}`: `sites`, the schemeless sites the
- * tab loaded during the step (service.noteSecretRequest), whose caches the
- * hand back clears.
+ * its task. It's JSON, `{task, sites, by, overflow}`:
+ * - `sites`: the schemeless sites the tab loaded during the step
+ *   (service.noteSecretRequest), whose caches the hand back clears. A mark
+ *   made during the step takes those its tabs loaded before it too, from
+ *   their held values (HELD_TAB_KEY).
+ * - `by`: whose mark it is, "agent" (the hand-off's secret) or "user" (the
+ *   user's own, service.markSecretByUser). Only the user's can be undone,
+ *   and a mark saved without it, as 0.1.8 saved them, is the agent's.
+ * - `overflow`: the step loaded more sites before the mark than a mark
+ *   keeps, so the caches' clear takes every site's.
  */
 export const SECRET_TAB_KEY = "zenius-secret";
-/** The sites a mark keeps, at most: a step loads a handful. */
+/** The sites a mark or a held value keeps, at most: a step loads a handful. */
 const SECRET_SITES_MAX = 64;
 
-/** A tab's secret step's mark, `{task, sites}`, from any copy, or null. */
-function secretMarkOf(tab) {
-  for (const copy of tab ? [tab, ...copiesOf(tab).filter(c => c !== tab)] : []) {
-    const raw = rawValue(copy, SECRET_TAB_KEY);
-    if (!raw) {
-      continue;
-    }
-    try {
-      const mark = JSON.parse(raw);
-      if (Number.isSafeInteger(mark?.task) && mark.task > 0) {
-        const sites = Array.isArray(mark.sites) ? mark.sites.filter(site => typeof site === "string") : [];
-        return { task: mark.task, sites };
-      }
-    } catch {}
+/**
+ * The session value on each tab of a step the user holds, marked secret or
+ * not: the held page from the hold's start, its quiet load included, the
+ * popups that join its hold, and the tabs opened from them
+ * (service.holdForUser). It's JSON, `{task, sites, overflow}`: the sites the
+ * step's tabs load (service.noteSecretRequest), and `overflow` once more
+ * came than it keeps. So a mark made during the step (the user's own,
+ * service.markSecretByUser) covers what the step loaded before it. It goes
+ * at the hold's end, and travels as the secret step's mark does.
+ */
+export const HELD_TAB_KEY = "zenius-held";
+
+/** A step's session value on a tab (SECRET_TAB_KEY, HELD_TAB_KEY), its own or another copy's, or null. */
+function stepValueOf(tab, key) {
+  const raw = (tab && rawValue(tab, key)) || (tab ? copiesOf(tab).map(copy => rawValue(copy, key)).find(Boolean) : null);
+  if (!raw) {
+    return null;
   }
+  try {
+    const value = JSON.parse(raw);
+    if (Number.isSafeInteger(value?.task) && value.task > 0) {
+      const sites = Array.isArray(value.sites) ? value.sites.filter(site => typeof site === "string") : [];
+      return { task: value.task, sites, overflow: value.overflow === true, by: value.by };
+    }
+  } catch {}
   return null;
 }
 
-/** Write a secret step's mark on every copy of a tab. */
-function writeSecret(tab, mark) {
+/** Write a step's session value on every copy of a tab. */
+function writeStep(tab, key, value) {
   for (const copy of copiesOf(tab)) {
     try {
-      lazy.SessionStore.setCustomTabValue(copy, SECRET_TAB_KEY, JSON.stringify(mark));
+      lazy.SessionStore.setCustomTabValue(copy, key, JSON.stringify(value));
     } catch (e) {
-      log("writing a secret step's mark failed", e.message);
+      log(`writing a step's ${key} failed`, e.message);
     }
   }
+}
+
+/** Delete a step's session value from every copy of a tab. */
+function clearStep(tab, key) {
+  for (const copy of copiesOf(tab)) {
+    try {
+      if (rawValue(copy, key)) {
+        lazy.SessionStore.deleteCustomTabValue(copy, key);
+      }
+    } catch (e) {
+      log(`clearing a step's ${key} failed`, e.message);
+    }
+  }
+}
+
+/** A tab's secret step's mark, `{task, sites, by, overflow}`, from any copy, or null. */
+export function secretMarkOf(tab) {
+  const mark = stepValueOf(tab, SECRET_TAB_KEY);
+  return mark && { ...mark, by: mark.by === "user" ? "user" : "agent" };
+}
+
+/** The held step's value on a tab, `{task, sites, overflow}`, from any copy, or null. */
+export function heldStepOf(tab) {
+  const held = stepValueOf(tab, HELD_TAB_KEY);
+  return held && { task: held.task, sites: held.sites, overflow: held.overflow };
 }
 
 /** The task whose secret step this tab is (SECRET_TAB_KEY on any copy), or null. */
@@ -683,31 +727,83 @@ export class Pages {
     return copiesOf(tab).some(copy => copy !== tab && rawValue(copy, OWN_TAB_KEY));
   }
 
-  /** Mark a task's tab as a secret step's (SECRET_TAB_KEY), on every copy. */
-  markSecret(tab, space) {
+  /**
+   * Mark a task's tab as a secret step's (SECRET_TAB_KEY), on every copy.
+   * An agent's mark stays the agent's whoever marks the tab again, so the
+   * user can't undo it. `sites` and `overflow`: what the step loaded before
+   * the mark, from its held values, kept with the mark's own.
+   *
+   * @param {Element} tab
+   * @param {object} space
+   * @param {{by?: "agent"|"user", sites?: string[], overflow?: boolean}} [opts]
+   */
+  markSecret(tab, space, { by = "agent", sites = [], overflow = false } = {}) {
     const mark = secretMarkOf(tab);
-    writeSecret(tab, { task: space.id, sites: mark?.task === space.id ? mark.sites : [] });
+    const same = mark?.task === space.id ? mark : null;
+    const all = [...new Set([...(same?.sites ?? []), ...sites])];
+    writeStep(tab, SECRET_TAB_KEY, {
+      task: space.id,
+      sites: all.slice(0, SECRET_SITES_MAX),
+      by: same?.by === "agent" || by === "agent" ? "agent" : "user",
+      ...(same?.overflow || overflow || all.length > SECRET_SITES_MAX ? { overflow: true } : {}),
+    });
   }
 
-  /** A site a secret step's tab loaded (service.noteSecretRequest), kept with its mark. */
+  /** The user's own mark on a task's tab goes (service.markSecretByUser); an agent's stays. Whether one went. */
+  unmarkByUser(tab, space) {
+    const mark = secretMarkOf(tab);
+    if (mark?.task !== space.id || mark.by !== "user") {
+      return false;
+    }
+    this.clearSecret(tab);
+    return true;
+  }
+
+  /**
+   * A site a secret step's tab loaded (service.noteSecretRequest), kept with
+   * its mark. Past SECRET_SITES_MAX nothing more is kept: from the mark on,
+   * what the tab loads isn't cached.
+   */
   noteSecretSite(tab, site) {
     const mark = secretMarkOf(tab);
     if (mark && !mark.sites.includes(site) && mark.sites.length < SECRET_SITES_MAX) {
-      writeSecret(tab, { task: mark.task, sites: [...mark.sites, site] });
+      writeStep(tab, SECRET_TAB_KEY, { task: mark.task, sites: [...mark.sites, site], by: mark.by, ...(mark.overflow ? { overflow: true } : {}) });
     }
   }
 
   /** A secret step's tab that the hand back handled, or whose task ended: its mark goes from every copy. */
   clearSecret(tab) {
-    for (const copy of copiesOf(tab)) {
-      try {
-        if (rawValue(copy, SECRET_TAB_KEY)) {
-          lazy.SessionStore.deleteCustomTabValue(copy, SECRET_TAB_KEY);
-        }
-      } catch (e) {
-        log("clearing a secret step's mark failed", e.message);
-      }
+    clearStep(tab, SECRET_TAB_KEY);
+  }
+
+  /** A tab of the step the user holds (HELD_TAB_KEY), on every copy: the sites it loads from now on are noted. */
+  markHeld(tab, space) {
+    if (heldStepOf(tab)?.task !== space.id) {
+      writeStep(tab, HELD_TAB_KEY, { task: space.id, sites: [] });
     }
+  }
+
+  /**
+   * A site a held step's tab loaded (service.noteSecretRequest), kept with
+   * its held value. Past SECRET_SITES_MAX, `overflow` says more came: the
+   * caches a later mark clears are then every site's.
+   */
+  noteHeldSite(tab, site) {
+    const held = heldStepOf(tab);
+    if (!held || held.sites.includes(site)) {
+      return;
+    }
+    if (held.sites.length < SECRET_SITES_MAX) {
+      writeStep(tab, HELD_TAB_KEY, { task: held.task, sites: [...held.sites, site], ...(held.overflow ? { overflow: true } : {}) });
+    } else if (!held.overflow) {
+      log(`a held step loaded over ${SECRET_SITES_MAX} sites: a mark on it clears every site's caches`);
+      writeStep(tab, HELD_TAB_KEY, { task: held.task, sites: held.sites, overflow: true });
+    }
+  }
+
+  /** The hold ended, or the tab left it: its held value goes from every copy. */
+  clearHeld(tab) {
+    clearStep(tab, HELD_TAB_KEY);
   }
 
   /**
@@ -731,7 +827,7 @@ export class Pages {
           break;
         }
       }
-      for (const key of [TAB_VALUE_KEY, OWN_TAB_KEY, SECRET_TAB_KEY]) {
+      for (const key of [TAB_VALUE_KEY, OWN_TAB_KEY, SECRET_TAB_KEY, HELD_TAB_KEY]) {
         const value = others.map(copy => rawValue(copy, key)).find(Boolean);
         if (value && rawValue(tab, key) !== value) {
           try {
@@ -801,15 +897,19 @@ export class Pages {
       return null;
     }
     writeTabValue(to, movedValue(value, syncId(from), syncId(to)));
-    // A secret step's mark goes where the task's value goes: the hand back
-    // blanks the tab in the window it moved to.
-    const secret = rawValue(from, SECRET_TAB_KEY);
-    if (secret) {
+    // A secret step's mark and a held step's value go where the task's
+    // value goes: the hand back blanks the tab in the window it moved to,
+    // and a mark made later finds it.
+    for (const key of [SECRET_TAB_KEY, HELD_TAB_KEY]) {
+      const step = rawValue(from, key);
+      if (!step) {
+        continue;
+      }
       for (const copy of copiesOf(to)) {
         try {
-          lazy.SessionStore.setCustomTabValue(copy, SECRET_TAB_KEY, secret);
+          lazy.SessionStore.setCustomTabValue(copy, key, step);
         } catch (e) {
-          log("carrying a secret step's mark to the moved tab failed", e.message);
+          log(`carrying a step's ${key} to the moved tab failed`, e.message);
         }
       }
     }

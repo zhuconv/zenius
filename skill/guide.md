@@ -500,7 +500,7 @@ until they close.
 
 A task space that is never finished does not stay: once no script has used it
 for 3 days, zenius closes it with its tabs, unless the user has control of it
-or opened tabs in it. A later reply on that goal then starts a new space.
+or opened tabs in it.
 
 ## User control
 
@@ -550,7 +550,9 @@ const userPage = task.userPage();
 ```
 
 Within 10 s of the user's last input in the task's tabs, `takeOverTaskSpace()`
-fails with `error.retryAfterMs`: wait that long, then retry once.
+fails with `error.retryAfterMs`: wait that long, then retry once. On a step you
+or the user marked secret, it fails with `error.secret` until their Resume
+agent: start `zenius wait <id>`.
 
 Adopt `userPage` if it is unmanaged. After a hand back, your page code's
 sandbox is gone, with its globals, listeners, timers and workers. Each page is
@@ -558,9 +560,8 @@ as the user left it, minus any password, card or code they typed, unless
 `task.handBack` lists it in `reloaded` (look again) or `blanked`. Use
 `waitForControl()` only when the current script must wait in place.
 
-Claim any other user-owned or inactive space only when the user explicitly
-asks; the space you finished for the current goal is claimed as in "Starting
-and ending a reply".
+Claim a user-owned or inactive space other than this goal's own only when the
+user explicitly asks.
 
 User-created and unknown-origin tabs are protected: while any remain,
 `keep: []` doesn't close the space, and the output says so. Your tabs kept in

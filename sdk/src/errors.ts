@@ -73,6 +73,16 @@ const USER_CONTROL_GUIDANCE = [
   `Without that wait, offer the user choices like "Continue" or "Finish task" if your harness supports it; otherwise tell them: "You now control this task space. Reply 'continue' when ready and I will resume."`,
 ].join("\n");
 
+// A step marked secret, by handOff({ secret: true }) or by the user in Zen,
+// stays the user's until their Resume agent: the core refuses takeOver and
+// claim until then (data.secret, with no retryAfterMs).
+const SECRET_STEP_GUIDANCE = [
+  "The user's step in this task space shows a secret (your handOff() said so, or the user marked it in Zen), so the task stays theirs until they press Resume agent, which clears the page: takeOverTaskSpace() and claimTaskSpace() are refused until then.",
+  "This is a hard stop, not an obstacle to route around: don't retry.",
+  `${BACKGROUND_WAIT} Tell the user to press Resume agent in Zen once they've copied what they need.`,
+  "Otherwise end the round: ask the user to press Resume agent when they're done, then resume with takeOverTaskSpace(spaceId) once they say they have.",
+].join("\n");
+
 function userPromptGuidance(firstLine: string): string {
   return [
     firstLine,
@@ -125,7 +135,10 @@ export function hardStopGuidance(code: unknown, data?: Record<string, unknown>):
   if (code === "ZEN_TASK_SPACE_INACTIVE") return data?.reason === "stopped" ? STOPPED_GUIDANCE : INACTIVE_GUIDANCE;
   if (code !== "ZEN_TASK_SPACE_USER_IN_CONTROL" || isUserInputWait(code, data)) return undefined;
   const reason = typeof data?.reason === "string" ? data.reason : undefined;
-  const guidance = (reason && Object.hasOwn(USER_CONTROL_REASONS, reason) && USER_CONTROL_REASONS[reason]) || USER_CONTROL_GUIDANCE;
+  const guidance =
+    data?.secret === true
+      ? SECRET_STEP_GUIDANCE
+      : (reason && Object.hasOwn(USER_CONTROL_REASONS, reason) && USER_CONTROL_REASONS[reason]) || USER_CONTROL_GUIDANCE;
   return Number.isInteger(data?.space) ? guidance.replaceAll("zenius wait <spaceId>", `zenius wait ${data!.space}`) : guidance;
 }
 

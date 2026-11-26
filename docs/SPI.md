@@ -1353,10 +1353,28 @@ Entry points (`modules/service.sys.mjs`):
   result says what happened. Its `evidence` maps each reloaded page's
   label to the evidence it had before its load ({reason: detail}), for
   the UI's notice.
+- Held steps: every hold, the agent's hand-off and the user's Take over,
+  gives H's tab the session value `zenius-held` (`HELD_TAB_KEY`), JSON
+  `{task, sites, overflow?}`, on every copy, before H's quiet load, so the
+  load's first request is noted (`holdForUser`). The popups in its hold get
+  it once the hold begins, a popup that joins later from its opener
+  (`adoptPopup`), and a tab opened from one with no opener
+  (`noteOpenedTab`). The network capture follows them (`heldStepTabOf`),
+  and each request's site, top-level or not, goes into every held value of
+  the task (`noteSecretRequest`), up to 64, then `overflow`. They go at
+  every end of the hold (`#onSpaceEvent`), with a tab's task value, and at
+  the restart rebuild when their task isn't held. The sites never leave the
+  runtime: no result, event or note names them.
 - Secret steps: `spaces.handOff {secret: true}` marks H's tab
   (`noteSecretStep`), and the popups already in its hold: the session
-  value `zenius-secret` (`SECRET_TAB_KEY`), JSON `{task, sites}`, on every
-  copy. Zen's session keeps it through a quit, a crash, an update's restart
+  value `zenius-secret` (`SECRET_TAB_KEY`), JSON `{task, sites, by,
+  overflow?}`, on every copy. `by` is `"agent"` (a mark without it, as
+  0.1.8 saved them, is the agent's too) or `"user"`. A mark made during
+  the step, the agent's `secret` after the user's Take over or the user's
+  own, marks every tab with the step's held value as well, takes their
+  `sites` and `overflow`, and clears those sites' caches at once
+  (`#clearAtMark`; every site's with `overflow`), for the time until the
+  hand back. Zen's session keeps it through a quit, a crash, an update's restart
   and window moves (`carryOver` takes it to the moved tab, `markCopies` to
   a new window's copy). The network capture follows a marked tab while
   its task waits for the user (`secretTabOf`). Each request then gets
@@ -1366,13 +1384,34 @@ Entry points (`modules/service.sys.mjs`):
   that closes itself leaves its sites behind. A popup that joins the hold later
   takes it from its marked opener (`adoptPopup`), and so does a tab opened
   from a marked one with no opener (`noteOpenedTab`), which never joins the
-  hold. `spaceChanged` says
-  `secret: true` for the UI's card, and `spaces.list` gives a marked tab's
-  title as `""`. At the hand back, `blankSecretSteps(rec)` runs before
-  anything else. That's `spaces.takeOver` and `spaces.claim` through
-  `handBack`, and the user's Resume through the UI's `beforeHandBack`,
-  which calls it first (the core's glue). Hand backs of one task share
-  one run. It takes the task's own marked tabs; one the user took out of
+  hold, each with its opener's `by`. `spaceChanged` says `secret: true,
+  secretBy: "agent"` as the hold begins, and `{secret, secretBy}` at each
+  later change (`spaces.secretStepChanged`), for the UI's cards, which read
+  `secretStepOf(rec)` (`{secret, secretBy}`, from the marks, synchronous)
+  at each draw. `spaces.list` gives a marked tab's title as `""`.
+- The user's own mark: `markSecretByUser(rec, on)`, in process only, from
+  the UI's toggles; no RPC method, parameter, SDK call or content message
+  reaches it. It checks the task itself: held after the agent's hand-off
+  or the user's Take over (`heldBy` `agent` or `user`), not ended. On
+  marks the step as the agent's `secret` does, with `by: "user"`, before it
+  returns; off takes back the user's marks only. It returns `{ok, why?,
+  secret, secretBy}`, `ok` when the step is now as asked.
+- A marked step waits for the user's Resume agent: `spaces.takeOver` and
+  `spaces.claim` refuse it (`ZEN_TASK_SPACE_USER_IN_CONTROL`,
+  `data.secret`), at their start, after a running blank of the user's
+  Resume (`blanking(rec)`), and again right before the flip, with no await
+  between that check and `setOwnership`. Between them their
+  `beforeHandBack` runs through `agentHandBack(rec)`, during which
+  `blankSecretSteps` skips, so a mark the user makes meanwhile refuses the
+  call and the page stays theirs. So only the user's Resume blanks, through
+  the UI's `beforeHandBack`, which calls `blankSecretSteps(rec)` first (the
+  core's glue). Hand backs of one task share one run. It waits for a
+  mark's clear, and takes the task's marked tabs round by round, until a
+  look finds none: a mark made during a round gets one of its own. A
+  backstop as a held task goes to the agent (`spaces.beforeAgentControl`,
+  `#dropUnblanked`, in `setOwnership`'s synchronous step): a tab still
+  marked leaves the task as one that won't blank does. The blank takes the
+  task's own marked tabs; one the user took out of
   the task stays as it is. A tab Zen restored unloaded gets its browser
   first (`#insertUnloaded`), so a load in it is its restore and its saved
   page never loads. Then every tab's browserId, from the copy that holds
@@ -1391,8 +1430,9 @@ Entry points (`modules/service.sys.mjs`):
     close stays theirs.
 
   Then the network and image caches of the step's sites go
-  (`Services.clearData`, per site), the marks' and those of each tab's
-  history, read before the blank: a fetch with `cache: "force-cache"`
+  (`Services.clearData`, per site, or every site's when a mark says
+  `overflow`), the marks' and those of each tab's history, read before the
+  blank: a fetch with `cache: "force-cache"`
   can't get the step's page back from them. Cookies stay. Then the
   blanks' history is collected (`TabStateFlusher.flush`), and each blank
   tab's other copies take its state (`#copyBlankState`): every copy keeps
