@@ -204,7 +204,7 @@ docs/                        SPEC, PROTOCOL, SPI, PARITY, the install and sideba
 
 ### 3.5 Tabs and pages
 
-zen-ux measured each rule below in a window showing the Space.
+Each rule below was measured in a window showing the Space.
 
 - **Background only.**
   - Agent tabs and popups open in the background, without Firefox's
@@ -243,7 +243,7 @@ zen-ux measured each rule below in a window showing the Space.
   - So no agent call moves the user's selection. And none empties a Space a
     window shows, where Zen would open a New Tab and focus the URL bar.
 - **A still view.** After an agent change to a strip a window shows, the
-  shown tab stays at the same height on screen. zen-ux's view keeper does
+  shown tab stays at the same height on screen. The UI's view keeper does
   this for every agent change, while the strip can scroll; Zen's strip has
   no scroll anchoring. A strip too short to scroll has no room to make up
   for a new row, so the placement rules above add none above the user's
@@ -334,7 +334,7 @@ without taking focus from the user.
     that asked. A task no Work chat drives (a CLI agent's) opens no
     sidebar.
   - **The tag.** Each agent tab shows a small task tag with the task's state
-    (zen-ux's CSS).
+    (the UI's CSS).
   - **No sidebar grouping.** Zen's sidebar shows the tabs ungrouped:
     - Zen folders pin their tabs;
     - Firefox's tab groups are off in Zen. Headings may come later, behind
@@ -489,28 +489,26 @@ came from a cold run and is superseded by the table above.
 - **M4.** Installed into the user's daily Zen (only with the user's OK), and
   the skill installed for Claude Code and Codex.
 
-## 8. Workstreams
+## 8. Areas
 
-| Worker | Machine | Owns |
+The docs name the parts of zenius by these areas.
+
+| Area | Code | Tests |
 |---|---|---|
-| `zen-core` | Linux | `runtime/JS/zenius.uc.js`; `modules/` (service, server, spaces, pages registry, persistence, keep-alive); `methods/{browser,spaces,pages}.sys.mjs`; the actor pair; `scripts/`; `docs/SPI.md`; `docs/PROTOCOL.md` (shared, append-only for others) |
-| `zen-input` | Linux | `content/{resolve,actionability,input}.sys.mjs`; `methods/actions.sys.mjs` (click, dblclick, hover, dragAndDrop, fill, selectOption, focus, press, setInputFiles, mouse.*, keyboard.*); file-chooser interception; action receipts |
-| `zen-observe` | Linux | `content/{nav,evaluate}.sys.mjs`; `methods/{navigation,observe,io}.sys.mjs` (goto, reload, waits, network idle, evaluate, fetch, screenshot, info, dialogs, downloads, events) |
-| `zen-snapshot` | Linux | `content/snapshot/`; `methods/snapshot.sys.mjs`; the ref registry |
-| `zen-sdk` | Linux | `sdk/`, `skill/`; `tests/security/` (the escape suite for I5, in `scripts/test-all.sh`) |
-| `zen-ux` | Linux, then Mac | `ui/`; `methods/ui.sys.mjs` (cursor, takeover, panel, badges, notifications); `clipboard/`, the per-Space agent clipboard's parent side and store (zen-input builds the synthesized chords and `keyboard.paste` on it) |
-| `zen-eval` | Mac | `tests/`, `docs/eval/`; Ego Lite baseline and golden snapshots; comparison reports |
-| `zen-ux`, with `zen-sidebar` | Linux; zen-sidebar on the Mac | The in-browser agent: `runtime/JS/agent-sidebar.uc.js` and `runtime/JS/agent-sidebar/` (its `vendor/` listed in `THIRD_PARTY.md`), and the '>' dispatch, `runtime/JS/agent-urlbar.uc.js` and `runtime/JS/agent-urlbar/`. zen-sidebar builds on `zen-sidebar/` branches and pushes branches only; zen-ux reviews, adds the headless tests, and merges after test-all |
-| `zen-core` | Linux | The MCP server's own files under `sdk/` (`zenius mcp`); `cli.ts` stays zen-sdk's |
+| The core | `runtime/JS/zenius.uc.js`; `modules/` (service, server, spaces, the pages registry, persistence, keep-alive, the parent backstops, the working folder, the self-check's runner); `methods/{browser,spaces,pages}.sys.mjs`; the actor pair; in `docs/PROTOCOL.md`, the frame format and the space and page methods | `tests/core/` |
+| The input layer | `content/{resolve,actionability,input}.sys.mjs`; `methods/actions.sys.mjs` (click, dblclick, hover, dragAndDrop, fill, selectOption, focus, press, setInputFiles, mouse.*, keyboard.*); `input/` (file-chooser interception, the typing sense, the hand-back guard); action receipts | `tests/input/` |
+| The observe layer | `content/{nav,evaluate}.sys.mjs`; `observe/`; `methods/{navigation,observe,io}.sys.mjs` (goto, reload, waits, network idle, evaluate, fetch, screenshot, info, dialogs, downloads, events) | `tests/observe/`, `tests/observe-vectors/` |
+| The snapshot layer | `content/snapshot/`; `snapshot/`, the ref registry; `methods/snapshot.sys.mjs` | `tests/snapshot/` |
+| The SDK | `sdk/`: the `zenius` CLI, its MCP server (`zenius mcp`) and the sandboxed launcher; `skill/` | `sdk/test/`; `tests/security/`, the escape suite for I5 |
+| The UI | `ui/`; `methods/ui.sys.mjs` (cursor, takeover, panel, badges, notifications); `clipboard/`, the per-Space agent clipboard (the input layer builds the synthesized chords and `keyboard.paste` on it); the sidebar, the in-browser agent: `runtime/JS/agent-sidebar.uc.js` and `runtime/JS/agent-sidebar/` (its `vendor/` listed in `THIRD_PARTY.md`), and the '>' dispatch, `runtime/JS/agent-urlbar.uc.js` and `runtime/JS/agent-urlbar/` | `tests/ux/`, `tests/clipboard/` |
+| The eval harness | the fixture server, the golden snapshots, Ego's e2e suite as ported, the benchmarks and the live rounds; `docs/eval/` | `tests/fixtures/`, `tests/golden/`, `tests/e2e/`, `tests/bench/`, `tests/live/` |
+| Tooling | `scripts/`: dev profiles (`zen-dev.sh`), the installers, doctor, `test-all.sh` | `tests/unit/`, `tests/parse/`, `scripts/test-smoke.sh` |
 
-Each worker also owns `tests/<area>/` for its own runtime-level tests
-(`tests/core/`, `tests/input/`, `tests/observe/` and
-`tests/observe-vectors/`, `tests/snapshot/`, `tests/ux/`; zen-sdk owns
-`tests/security/`, and zen-ux also owns `tests/parse/`). Give each a
-`run.sh` that starts a fresh headless dev Zen. `tests/parse/` needs none:
-it compiles every runtime script, and runs none of them.
-`zen-eval` owns the rest of `tests/`: fixtures, goldens, e2e and bench. The
-SDK's tests stay in `sdk/test/`.
+Each runtime suite's `run.sh` starts a fresh headless dev Zen in a zenius
+home of its own, and `scripts/test-all.sh` runs every suite, the SDK's
+included. `tests/parse/` needs no Zen: it compiles every runtime script, and
+runs none of them. Every area has headless Linux tests, and Mac tests
+(`tests/mac/`) for its Mac-only behavior.
 
 ## 9. References
 

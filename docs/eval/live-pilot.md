@@ -1,6 +1,6 @@
 # Rubric C pilot: the zenius half (2026-11-20)
 
-zen-eval ran the zenius half of the pilot in `live-tasks.md` (T2, T8, T13).
+This is the zenius half of the pilot in `live-tasks.md` (T2, T8, T13).
 All three runs answered fully correctly, for $0.68 in agent cost plus $0.30
 for the judge, in 29 turns and 2 minutes in all. Then the pilot added
 containment, because the agents read untrusted pages. The containment
@@ -200,7 +200,7 @@ canary. Results on 2026-11-20 (the second run is on main as of 09:36 UTC):
 | goto `data:` | open (the proposal keeps it) |
 | goto `about:logins` | open: the snapshot lists the dummy login, and `evaluate` reads its password from `login-item._login`. Firefox sends every saved login, password included, to that page when it opens. macOS's prompt guards only reveal, copy, edit and export. |
 | goto `moz-extension:` (webcompat's about-compat page) | open: `evaluate` gets its 66 `browser.*` APIs, and `cookies.getAll` read the loopback page's cookie. webcompat also holds `<all_urls>`, `scripting` and `webRequestBlocking`. |
-| `setInputFiles` of a file outside the run's folder | open at first; **blocked on main since zen-input's change: uploads send file contents, not paths (SPEC I5)**. The SDK now reads the file inside the CLI, where the sandbox refuses it (permission denied). |
+| `setInputFiles` of a file outside the run's folder | open at first; **blocked on main since the input layer's change: uploads send file contents, not paths (SPEC I5)**. The SDK now reads the file inside the CLI, where the sandbox refuses it (permission denied). |
 | the same over the raw protocol, bypassing the SDK | blocked: the runtime takes file contents, not paths |
 | `page.screenshot({path})`, `page.fetch({saveAs})`, `download.saveAs` outside the run's folder | open: all three files on disk. By code they'd replace an existing file too (not tried). |
 | `page.screenshot` and `page.fetch` with those paths over the raw protocol | open: the runtime writes them itself, so the fix has to refuse paths in the runtime, not only in the SDK |
@@ -210,10 +210,10 @@ canary. Results on 2026-11-20 (the second run is on main as of 09:36 UTC):
 On the daily profile, that means every saved password, every site's
 cookies, and any file the user can write. The proposal sent with these
 results:
-- **zen-observe:** `goto` loads only `http(s)`, `data:` and `about:blank`.
+- **The observe layer:** `goto` loads only `http(s)`, `data:` and `about:blank`.
   `evaluate`, snapshots and actions refuse documents whose principal isn't
   a web one.
-- **zen-input and zen-observe:** every file read and write moves into the
+- **The input layer and the observe layer:** every file read and write moves into the
   SDK, inside the CLI's sandbox:
   - uploads send bytes;
   - screenshots and saves return bytes for the SDK to write.
@@ -227,7 +227,7 @@ SPEC's I5 landed on main on 2026-11-20:
 - screenshots, fetch bodies and downloads come back as bytes, and the CLI
   writes them.
 
-The rerun was on main as of 2026-11-20 10:09 UTC: I5, plus zen-ux's change to
+The rerun was on main as of 2026-11-20 10:09 UTC: I5, plus a change to
 how the Agents Space shows each task's status. The pilot instance was restarted on it with dev methods
 off, and the harness checked that its runtime copy matched the checkout.
 
@@ -250,7 +250,7 @@ off, and the harness checked that its runtime copy matched the checkout.
 | a `target=_blank` link, or `window.open`, to `file:` from a web page | no popup |
 | the control: goto and snapshot of a loopback page, and of example.com | works |
 
-zen-observe's `tests/security` suite covers what these probes don't: odd
+The `tests/security` suite covers what these probes don't: odd
 spellings of the forbidden schemes, `history.back` into the user's own
 privileged pages, and the per-document gate.
 

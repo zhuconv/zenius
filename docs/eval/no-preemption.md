@@ -18,7 +18,7 @@ The evidence is taken so that nothing of the user's is read:
 
 ## 2026-11-20: Ego put its main window on screen during a dialog case
 
-zen-input's gap probe (`tests/input/probes/ego-gaps.mjs`, as it was on
+The input layer's gap probe (`tests/input/probes/ego-gaps.mjs`, as it was on
 2026-11-20) ran through `ego-browser nodejs` against
 the user's running Ego Lite.
 - It used one task space of its own, in the background, and the user wasn't

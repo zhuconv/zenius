@@ -1,15 +1,15 @@
 ## Reading this run
 
 All 67 rubric-A cases pass on round 2's build (`live-round2.md`), a 0.1.0
-pre-release from 2026-11-21, and so do zen-eval's own four cases. The bench
+pre-release from 2026-11-21, and so do the four cases zenius adds. The bench
 and the no-preemption check ran on it too (`bench-comparison.md`,
 `no-preemption.md`), so all four rubrics cite one build.
-- **The checkout:** round 2's build plus zen-eval's round 2 harness, a local
+- **The checkout:** round 2's build plus round 2's harness, a local
   commit that touches only `tests/live`, two unit tests and `docs/eval` (now
   on `main`). The runtime, the SDK and this suite are the build's own.
 - **Same as in the last full run (2026-11-20):** every Ego case keeps its
   verdict and assertion count, except "Page Service Worker startup", which is now
-  a deliberate difference (below). zen-eval's pdf.js case checks one thing
+  a deliberate difference (below). The pdf.js case zenius adds checks one thing
   more (12 assertions, against 11).
 - **What landed in between (812 commits, 301 of them in `runtime/` or
   `sdk/src`).** What this suite sees of it:
@@ -19,7 +19,7 @@ and the no-preemption check ran on it too (`bench-comparison.md`,
     own objects in the page's world ("Adapted for zenius");
   - snapshots print CSS generated content, as Ego does;
   - a middle click on a link opens it as a new page of the task, as on Ego.
-- **Two new zen-eval cases:**
+- **Two new cases zenius adds:**
   - "a task's service worker is refused": the counterpart of Ego's Service
     Worker case. The agent sees the refusal through the public API: the
     page's call rejects with SecurityError, and `page.events()` reports it

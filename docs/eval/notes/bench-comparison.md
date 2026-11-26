@@ -5,7 +5,7 @@
   - A headless dev Zen on the Mac, on a fresh profile, 2026-11-22 01:21 UTC.
     Each row is 20 timed iterations after 2 warm-up ones; the whole run took
     55 s.
-  - The checkout was round 2's build plus zen-eval's round 2 harness, a
+  - The checkout was round 2's build plus round 2's harness, a
     local commit that touches only `tests/live`, two unit tests and
     `docs/eval` (now on `main`). The runtime, the SDK and the bench are the
     build's own.
@@ -66,7 +66,7 @@
   Ego's 1008 ms.** Ego's second goes to its native mouse path, which waits for
   the occluded window (see `bench-ego-0.6.3.17.md`). zenius's 26.8 ms is
   within SPEC §5's "per-action p50 ≤ Ego" target, with room to spare.
-- **The goto row compares like with like (checked by zen-observe).**
+- **The goto row compares like with like.**
   - On both targets, goto returns after the load event of a freshly fetched
     document.
   - Each iteration asks for a different URL (`?goto=<i>`), and the fixture

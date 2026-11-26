@@ -1,15 +1,14 @@
 # Zenius runtime internals (SPI)
 
 How the browser side is put together, and how to add methods and content
-code to it. zen-core owns this file; tell zen-core when something here is
-wrong or missing.
+code to it.
 
 ## Layout
 
 ```text
 runtime/JS/zenius.uc.js            per-window bootstrap (fx-autoconfig loads it into every browser window)
 runtime/JS/zenius/
-  modules/                         parent-process modules (zen-core)
+  modules/                         parent-process modules (the core)
     service.sys.mjs                ZeniusService singleton: server, method registry, ctx, actor registration
     server.sys.mjs                 NDJSON over the Unix socket
     spaces.sys.mjs, pages.sys.mjs  task spaces on Zen workspaces; managed pages p1, p2, …
@@ -31,17 +30,17 @@ lives under `JS/zenius/`. Don't put a `.sys.mjs` file at the top level.
 
 Window actors (JSWindowActors), each in every frame of tab browsers
 (`messageManagerGroups: ["browsers"]`):
-- `Zenius` (zen-core, `actors/`): content modules, the page guards at
-  DOMWindowCreated, `installGuards`, and zen-ux's guard actors in a task's
+- `Zenius` (the core, `actors/`): content modules, the page guards at
+  DOMWindowCreated, `installGuards`, and the UI's guard actors in a task's
   documents. A user's document loads only its module and the leaf
   `content/taskset.sys.mjs`.
-- `ZeniusClipboard` (zen-ux, `clipboard/`): made by the Zenius actor in a
+- `ZeniusClipboard` (the UI, `clipboard/`): made by the Zenius actor in a
   task's documents only (`installGuards()`), it guards a page's own
   clipboard calls there (the Space's clipboard).
-- `ZeniusSystemUi` (zen-ux, `ui/systemui/`): made the same way, it guards
+- `ZeniusSystemUi` (the UI, `ui/systemui/`): made the same way, it guards
   passkey requests and notifications from a task's pages, which would open
   the system's UI over the user's view.
-- `ZeniusInput` (zen-input, `input/capture.sys.mjs`, child
+- `ZeniusInput` (the input layer, `input/capture.sys.mjs`, child
   `content/capture.sys.mjs`): web processes only, armed where a task page
   or a page the agent's code hooked lives. Capture listeners for
   mouse, pointer, wheel and dragstart events, which do nothing until zenius
@@ -81,12 +80,12 @@ export const methods = {
   Space whose ownership isn't `user`), they load at the start instead,
   before the socket listens, so a restored agent tab never loads before
   its guards. They also load when the restart rebuild finds a close that
-  waits again (a tab marked closing that a window shows): zen-ux's pill
+  waits again (a tab marked closing that a window shows): the UI's pill
   for it comes with them, and its task is usually gone. That's I4's idle
   cost: on the Linux server most of zenius's +4.7 MiB in
   the main process came from these modules. So a module's import-time
   setup must cover the windows and documents that already exist, as
-  zen-ux's, zen-observe's and zen-input's do (enumerate the open windows,
+  the UI's, the observe layer's and the input layer's do (enumerate the open windows,
   patch prototypes, register actors and `addGuardActor`). It must also be
   synchronous: the first call runs right after the import returns. The
   start log says `methods at the first connection` until then, and
@@ -151,11 +150,11 @@ export const methods = {
    The class, not the method's name, decides I5, and fails closed:
    - A method whose module declares no class (or an unknown one) doesn't
      run: `ZEN_INTERNAL`.
-   - `document` and `outside` get the page gates (step 2). zen-observe's
+   - `document` and `outside` get the page gates (step 2). The observe layer's
      web-content gate checks `document` and lets `outside` by.
    - `ctx.content` refuses every content call of a `none` method
      (`ZEN_INTERNAL`). For `document` and `frames` it checks the frame's
-     document (zen-observe's `checkContentCall`); `outside` and `dev` go
+     document (the observe layer's `checkContentCall`); `outside` and `dev` go
      unchecked.
    - A method declared `dev` exists only in dev profiles, as `dev.*` ones
      do.
@@ -203,7 +202,7 @@ export const methods = {
    `export const pageGates = [fn]`, in index order. `fn(ctx, params,
    method)` decides itself which methods it applies to. It returns nothing
    when the page is ready, throws to fail the call, or returns a promise
-   only when it must wait. zen-observe's gate (pending navigation, open
+   only when it must wait. The observe layer's gate (pending navigation, open
    dialog) is the first; its rules are below.
 3. **The handler.**
 
@@ -250,7 +249,7 @@ Rules:
   right before acting after a long step: pointer actions call it after
   `moveCursor()`.
 - **After a call that activates its Page** succeeds, the dispatcher makes
-  it the task's front tab (`pages.noteFront`) and calls zen-ux's
+  it the task's front tab (`pages.noteFront`) and calls the UI's
   `notePage(tab)`, so a user who opens the space lands on that page.
   These are Ego's: `pages.new` and the `page.*` methods in
   `ACTIVATING_PAGE_METHODS` (`service.sys.mjs`): navigation, `evaluate`,
@@ -271,7 +270,7 @@ Rules:
 | `ctx.stopped()` | The error this call ends with once its request stopped (its client canceled it, or its connection closed), else `null`. Throw it from a wait's loop. See "Dispatch". |
 | `ctx.onStopped(fn)` | `fn()` when the call's request stops, at once if it has; returns `off()`, which a handler calls as it ends. Never for the runtime's own calls. |
 | `ctx.unlessStopped(promise, cleanup?)` | `promise`, or `ctx.stopped()`'s error once the request stops first, after `cleanup()` ends what the wait holds (a timer, a waiter). |
-| `ctx.noteHooked(detail)` | The agent's code left `detail` (zen-observe's words, such as "a style sheet") in a page that wasn't hooked before. The request's final frame carries the first as `hooked` (PROTOCOL), result or error. page.evaluate and page.waitForFunction call it with the world's report; other values are ignored. |
+| `ctx.noteHooked(detail)` | The agent's code left `detail` (the observe layer's words, such as "a style sheet") in a page that wasn't hooked before. The request's final frame carries the first as `hooked` (PROTOCOL), result or error. page.evaluate and page.waitForFunction call it with the world's report; other values are ignored. |
 | `ctx.pageBudget` | The page budget for this request: its top-level `pageBudget` (PROTOCOL "Frames"), else pref `zenius.pageBudget`, else 8. `pages.new` and `pages.adopt` enforce it; snapshot headers show it. `ctx.call` passes it on. |
 | `ctx.watchPopups(spaceId, label)` | Collects the popups that page `label` opens: `w.stop()` returns `[{label, targetId}]` for the action receipt. |
 | `ctx.emit(event, params)` | Emits an event to in-process listeners and to clients that called `events.subscribe`. |
@@ -289,10 +288,10 @@ opener}`; `ctx.pages.tabFor(page)` returns the live `<tab>`, and
 Close a tab with `ctx.pages.closeTab(tab)`: it skips beforeunload prompts,
 which would wait in a tab nobody sees.
 
-## Ownership (zen-core)
+## Ownership
 
 `modules/spaces.sys.mjs` is the only writer of `ownership`, `reason`,
-`paused` and `stateText`. zen-ux's prompt and panel call it, and so do the
+`paused` and `stateText`. The UI's prompt and panel call it, and so do the
 `spaces.*` methods.
 
 | Call | Effect and event |
@@ -329,18 +328,18 @@ Ego's behaviors the methods keep:
 
 **The user's say over claims and takeovers** (built; SPEC §3.4). `spaces.claim` of a
 workspace of the user's, or of an ended task, waits in `askClaim` below.
-- `spaces.noteUserInput(rec)`: zen-ux's takeover detector calls it for the
+- `spaces.noteUserInput(rec)`: the UI's takeover detector calls it for the
   user's real input in a task's tabs, whoever controls the task. It sets
   `rec.lastUserInputAt`, in memory only.
 - `spaces.checkUserQuiet(rec)`: `takeOver` of a task handed to the user,
   and `claim` of one, fail with `ZEN_TASK_SPACE_USER_IN_CONTROL` until
   `USER_INPUT_QUIET_MS` (10 s) after that input. `data.retryAfterMs` says
   when to try again, and `data.reason` keeps Ego's key. Nothing changes on
-  a refusal, so zen-input's clear still runs on the return that follows.
+  a refusal, so the input layer's clear still runs on the return that follows.
 - `spaces.askClaim(rec, {client, timeout, conn})` waits for the user's
   answer to a claim:
   - It emits `claimAsked {id, space, name, client, until}` to in-process
-    listeners (`emitLocal`). zen-ux shows the prompt and calls
+    listeners (`emitLocal`). The UI shows the prompt and calls
     `spaces.answerClaim(id, allow)` on a real click.
   - It ends with `claimSettled {id, verdict}`: `allow`, `deny`, `timeout`
     (at `until`) or `gone` (the space went, or the claim's connection
@@ -359,9 +358,9 @@ workspace of the user's, or of an ended task, waits in `askClaim` below.
   timeout?}`, sent alongside the claim on any connection. It answers
   `{verdict: null}` when the claim needed no ask.
 
-**A send as Resume agent** (zen-core's part). The agent sidebar may let
+**A send as Resume agent** (the core's part). The agent sidebar may let
 the user's send in a task's Work chat count as Resume agent on the page
-they're watching. zen-core gives it these, in process:
+they're watching. The core gives it these, in process:
 - `spaces.takeoverSiteOf(rec, browser)`: the site of the page `browser`
   shows, or null, and then the hold stays. It's a site only when all of
   these hold:
@@ -378,7 +377,7 @@ they're watching. zen-core gives it these, in process:
 - `siteName(uri)` and `documentSite(browser)` in `modules/util.sys.mjs`:
   the site rule. A site is an http(s) URL's registrable domain, with an IP
   address or a one-label host as itself, shown as the address bar shows it
-  (punycode for a name that could spoof another). zen-ux's cards name
+  (punycode for a name that could spoof another). The UI's cards name
   sites by the same rule.
 - `spaces.takeHandBackNotes(rec)`, given once: the task's pages zenius
   loaded afresh since the agent last had control (`reloaded`: at the Take
@@ -401,7 +400,7 @@ The sidebar checks the rest itself, and only then hands back:
   guard's clear and the resume token. It sends the prompt only once that
   resolves, so the agent's first call finds the task its own.
 
-### The task feed (zen-core, for zen-ux's sidebar)
+### The task feed (the core, for the UI's sidebar)
 
 Every task's life for the sidebar's directory, whoever drives it.
 - `spaces.feed()` lists the entries now: live tasks (and claimed Spaces
@@ -434,13 +433,13 @@ Every task's life for the sidebar's directory, whoever drives it.
   `closed` from the last tab's close and from the Agents Space's removal.
   The agent's next call gets it as `ZEN_TASK_SPACE_INACTIVE`'s
   `data.reason`.
-- The steps a task's calls made are zen-input's (`input/steps.sys.mjs`:
+- The steps a task's calls made are the input layer's (`input/steps.sys.mjs`:
   `stepsOf(spaceId)`, `onStep(fn)`), next to the feed, not in it.
 
-### Flagged and listed (zen-core's evidence)
+### Flagged and listed (the core's evidence)
 
-Two of the evidence flag's reasons are zen-core's (zen-observe's
-`markEvident`). Both get zen-ux's warning on the page, not a hold or a clean
+Two of the evidence flag's reasons are the core's (the observe layer's
+`markEvident`). Both get the UI's warning on the page, not a hold or a clean
 copy: the danger is the page itself.
 - `flagged`: `page.flag {space, page, reason}` (`methods/pages.sys.mjs`)
   marks the page's top document with the agent's one-line reason.
@@ -513,7 +512,7 @@ exists in every document of every tab.
   one Set lookup per document elsewhere.
 - In the same documents, top and frames, it makes each guard actor that
   `service.addGuardActor(name)` published (`zenius:guardActors`):
-  `this.manager.getActor(name).installGuards()`. zen-ux's guard actors have
+  `this.manager.getActor(name).installGuards()`. The UI's guard actors have
   no DOMWindowCreated of their own, so a user's document never makes them.
 - Each guard checks `isAgentDriven` per call. So a tab the user holds
   behaves natively, and a page they loaded meanwhile is guarded once they
@@ -528,19 +527,19 @@ exists in every document of every tab.
   request changes nothing.
 - Another actor whose child guards documents does the same: its child has
   `installGuards()` and answers `"installGuards"`, and it registers with
-  `service.addGuardActor(name)`, which publishes the name. zen-ux's
+  `service.addGuardActor(name)`, which publishes the name. The UI's
   `ZeniusClipboard` and `ZeniusSystemUi` do.
 - `guards#installed` tells a test whether a document has the page guards
   (`tests/core/guards.test.mjs`).
 
-## Tasks in the Agents Space (zen-core)
+## Tasks in the Agents Space
 
 The design for SPEC §3.4 and §3.5 (2026-11-20), and what runs. The one-workspace-per-task model it replaced, and its pref
 `zenius.agentsSpace`, are gone.
 
 **Built** (`tests/core/agents-space.test.mjs`): records, the Agents
 Space's lifecycle, placement, each task's own tabs in `tabs.list`,
-`pages.list`, `userPage` and `finish`, the session value, zen-ux's tag
+`pages.list`, `userPage` and `finish`, the session value, the UI's tag
 attribute, waiting closes with the pill's Close and Keep, the auto-close and
 the front tab; the restart rebuild (`tests/core/restart.test.mjs`).
 
@@ -615,7 +614,7 @@ in `modules/pages.sys.mjs` reads it:
   `{v, task, openedBy: "user"}`: `service.noteOpenedTab(tab, options)`,
   from the `addTab` wrapper. That's decision (b): it never becomes a page
   by its opener alone.
-- **The user's own tab.** zen-ux's "Use your own tab" opens a tab for a
+- **The user's own tab.** The UI's "Use your own tab" opens a tab for a
   page the user logs in to themselves, then calls
   `pages.markUserOwn(tab)`. That writes a session value of its own,
   `zenius-own` (`OWN_TAB_KEY`), kept across restarts and window moves, and
@@ -625,9 +624,9 @@ in `modules/pages.sys.mjs` reads it:
   - `userTab` leaves it out too;
   - `addUnmanaged` refuses it;
   - `spaces.list`'s `recentTabTitles` never shows it.
-- **zen-ux's tag.** A task's pages not of user origin carry the attribute
+- **The UI's tag.** A task's pages not of user origin carry the attribute
   `zenius-task="<id>"` (`TASK_ATTR`). It's set with the label and removed
-  with it (release, `finish`'s keep, `dropSpace`). zen-ux writes
+  with it (release, `finish`'s keep, `dropSpace`). The UI writes
   `zenius-task-state` beside it.
 - A tab moving to another window is a new element there: `TabClose` with
   `adoptedBy` copies the value and the tag (`pages.carryOver`). The value
@@ -717,7 +716,7 @@ zenius treats a tab's copies as one tab:
 - **`pageMoved`.** When a page's live copy changes, the service emits
   `pageMoved {space, page, from, to}` with `service.emitLocal`, in process
   only, since it carries the elements.
-  - zen-ux moves the pill and the cursor to `to`.
+  - The UI moves the pill and the cursor to `to`.
   - State of your own keyed by a `<tab>`, a `<browser>` or a
     `permanentKey` starts fresh on the new copy. Key it by the page's
     `browserId`, which moves with the docShell, or move it on `pageMoved`.
@@ -751,7 +750,7 @@ zenius treats a tab's copies as one tab:
     task's last tab (or the folder or split view holding it), else at the
     bottom. A tab from another Space enters in that one move.
   - While any window shows the Agents Space and its strip can't scroll
-    (`pages.stripCanScroll(win)`; zen-ux's), the tab goes to the bottom.
+    (`pages.stripCanScroll(win)`; the UI's), the tab goes to the bottom.
     `pages.settle()` moves it next to its task once no window shows the
     Space, on a window's next `TabSelect`.
   - It moves no other tab.
@@ -825,7 +824,7 @@ zenius treats a tab's copies as one tab:
     image attribute, which for an SVG favicon Gecko has made a
     `moz-remote-image:` URL, and `setIcon` refuses that as remote: the
     copies of a new page kept no icon. So after window sync's
-    `ZenTabIconChanged` handler, a page with zen-ux's tag whose contents
+    `ZenTabIconChanged` handler, a page with the UI's tag whose contents
     show gives each copy its browser's `mIconURL`, the `data:` URL.
     `fillCopies` calls it too, after its own direct call to that
     handler, which `afterWindowSync` doesn't see. The user's own tabs
@@ -844,7 +843,7 @@ zenius treats a tab's copies as one tab:
 - `pages.keepView(fn)` runs every strip change zenius makes and returns
   its value: `addTab` from the add on (which passes through the window's
   active Space), a popup's add and move, `closeTab`'s `removeTab`, and
-  `settle()`. zen-ux's view keeper replaces it: Zen's strip has no scroll
+  `settle()`. The UI's view keeper replaces it: Zen's strip has no scroll
   anchoring. For an add, it puts every window's view back once window sync
   has made the copies (`syncedSoon`).
 
@@ -854,14 +853,14 @@ a tab, for every kind of record. It returns whether the close waits.
   `modules/windows.sys.mjs`) when the tab is the window's selected tab, or
   in the split view holding it (Zen's `split-view-group`). Minimized or
   covered windows count (SPEC §3.5); with window sync, each window counts
-  on its own. Being on screen is for what depends on being seen (zen-ux's
+  on its own. Being on screen is for what depends on being seen (the UI's
   checks).
 - A tab no window shows closes at once, inside `pages.keepView`.
 - A shown tab waits, and leaves its task now: its label ends
   (`pageClosed` goes out), the tag and keep-alive go, and its session value
   gets `closing: true`. The service emits `tabClosing {space, tab}` with
   `service.emitLocal`, in process only, since it carries the element: that's
-  zen-ux's "Task finished" pill.
+  the UI's "Task finished" pill.
 - The tab closes on the first of these:
   - a `TabSelect` in its window that leaves it unshown (another tab, or a
     workspace switch): `pages.closeLeft()`;
@@ -889,7 +888,7 @@ client connects (the server's `onOpen`, before the client's first frame):
   handed to the user (`rec.handedToUser`, set by any move to
   `agentDelegatedToUser`), all of whose tabs the agent opened, that no
   client named for `zenius.autoCloseHours` (default 72; 0 turns it off).
-  zen-ux's panel marks the same tasks.
+  The UI's panel marks the same tasks.
 - `rec.lastNamedAt` is updated by `ctx.resolveSpace`, so any method with
   `space` counts, and saved at most once a minute per task.
 - `service.closeIdleTask(rec)` closes it as `finish({keep: []})` does
@@ -899,18 +898,18 @@ client connects (the server's `onOpen`, before the client's first frame):
 **Which tabs a task has (built).** `pages.tabsOf(rec)`: a workspace
 record's are every tab in its workspace; a task's are its pages and the
 tabs its ledger keeps unmanaged (`ledger.unmanaged`, tab id → origin).
-`tabs.list`, `findTab`, `inventory` (so `finish`) and zen-snapshot's
+`tabs.list`, `findTab`, `inventory` (so `finish`) and the snapshot layer's
 untracked count go through it. A finished task's kept pages stay in its
 ledger, unmanaged; the task goes when its last tab closes.
 
 **`userPage` and `active` (built).** A task's `userPage` is the task's tab
 a window shows (its front tab, if a window shows that one). Otherwise it's
 the task's front tab, `pages.frontTab(rec)`: Ego's current Page, the tab the
-user would see on opening the task, where zen-ux's panel Open lands.
+user would see on opening the task, where the UI's panel Open lands.
 - The front tab is whichever came last of:
   - a tab the agent made current: `pages.new`, an acting call
     (`ACTIVATING_PAGE_METHODS`, from `#afterCall`), keys and the cursor
-    (zen-ux's `notePage`, which the service follows with `onNotePage`);
+    (the UI's `notePage`, which the service follows with `onNotePage`);
   - a task tab the user selected (`TabSelect`).
 - Else it's the task's first page, else its first tab. If the front tab
   closes, the same fallback applies.
@@ -971,7 +970,7 @@ unload one. Before a `page.*` method runs on a page whose tab is unloaded
   the tab's restore. Earlier, it would later restore the saved page over
   the agent's. goto's own load follows.
 - Any other method first checks the URL the tab shows (its current history
-  entry) with zen-observe's `checkAgentLoad()`.
+  entry) with the observe layer's `checkAgentLoad()`.
   - If agents can't load it (the user took the tab to `about:preferences`
     or a `file:` page), the call fails with `ZEN_URL_NOT_ALLOWED`,
     `data.reason: "unloaded"`. The tab stays unloaded.
@@ -1097,7 +1096,7 @@ all.
    `setOwnership(rec, "user", {source: "user"})`.
 
 **Who changes what.**
-- **zen-core:**
+- **The core:**
   - records with `kind`, and the session value;
   - the Agents Space's lifecycle;
   - placement and flags in `addBackgroundTab` and popups;
@@ -1106,7 +1105,7 @@ all.
   - `userPage`/`active` and `tabs.list` per task;
   - `finish` and the auto-close per task;
   - `bringToFront` recording the front tab.
-- **zen-ux:**
+- **The UI:**
   - the per-tab task tag, which kept pages and other tabs left to the user
     don't carry;
   - the panel's grouped view and its Open;
@@ -1115,12 +1114,12 @@ all.
   - no more `lastSelectedWorkspaceTabs` writes;
   - the needs-you badge on the Agents Space;
   - takeover per task (its lookups already go tab → task).
-- **zen-sdk:** the Skill's wording ("each task runs in its own Zen Space").
+- **The SDK:** the Skill's wording ("each task runs in its own Zen Space").
   No API change.
-- **zen-input, zen-observe, zen-snapshot:** none expected. They address
+- **The input layer, the observe layer, the snapshot layer:** none expected. They address
   pages by label, and `dispatch()` loads an unloaded page before their
   methods run.
-- **zen-eval:**
+- **The Mac checks:**
   - a restart on the Mac with the daily restore setting;
   - the look of the tag and the pill, light and dark;
   - two windows showing the Space.
@@ -1152,7 +1151,7 @@ strip's `scrollTop`, and the user's tab's place on screen.
 - The Agents Space's name and icon survive its removal and re-creation.
 - The auto-close per task, with a shown tab.
 
-## Closed groups (zen-core)
+## Closed groups
 
 The rule: a document where
 the agent's code can run never shares a browsing context group with a
@@ -1173,9 +1172,9 @@ others through `opener`, named lookups and message sources.
   in memory: a restart gives every tab a group of its own). `register()`
   checks when a tab joins a task (`pages.new`, `pages.adopt`, popups).
   Every method that runs the agent's code checks before each call:
-  zen-observe's `page.evaluate`, `page.waitForFunction` and `page.goto`
-  to `data:` or `blob:`, and zen-input's paste with `html`. They raise
-  zen-observe's `ZEN_AGENT_CODE_REFUSED`. No URL of the user's window goes
+  the observe layer's `page.evaluate`, `page.waitForFunction` and `page.goto`
+  to `data:` or `blob:`, and the input layer's paste with `html`. They raise
+  the observe layer's `ZEN_AGENT_CODE_REFUSED`. No URL of the user's window goes
   in the reply. While the tab's document isn't in a web content process,
   there's no answer (null) and nothing is kept: an add-on's page
   (`about:compat`, any `moz-extension:` page) shares its group with the
@@ -1200,8 +1199,8 @@ After the task (item 3): the same wrapper module replaces each browser
 window's `browserDOMWindow.createContentWindowInFrame` (an own property
 on its `wrappedJSObject`). `service.openRefusal(params)` refuses an open
 with an opener when the opener isn't a page of a live task and its group
-holds a document with the agent's code (zen-observe's
-`agentCodeDocument` over `getToplevels()`; zen-ux's kept mark counts,
+holds a document with the agent's code (the observe layer's
+`agentCodeDocument` over `getToplevels()`; the UI's kept mark counts,
 and goes by site). The wrapper then throws `NS_ERROR_ABORT`: the page's
 `window.open` returns null, as for a blocked popup, and nothing opens.
 Returning null instead would make Gecko open a new window. Nothing opens
@@ -1224,7 +1223,7 @@ Two layers:
   `nsIWindowCreator` (`Services.ww.setWindowCreator`, delegating to
   `Services.startup`'s) while a task is live or a document is marked.
   `service.updatePopupWindowGuard()` decides, at `publishAgentBrowsers`
-  and from zen-observe's `syncHooks` as the marks change. Otherwise the
+  and from the observe layer's `syncHooks` as the marks change. Otherwise the
   app's creator is untouched (I4). `createChromeWindow` gets the open's
   `openWindowInfo`, but not its URL.
   - Item 3: `openRefusal({openWindowInfo})`, then
@@ -1246,11 +1245,11 @@ Two layers:
 
 `modules/windows.sys.mjs`: `onOpenRefused(fn)` (returns a remover) and
 `noteOpenRefused({browser, url, reopened})`. Item 3 calls the second for
-each open it refuses, with `reopened: false`; zen-ux's pill listens and
+each open it refuses, with `reopened: false`; the UI's pill listens and
 says the page can't open windows until it reloads, with Reload.
 
-Kept pages' refusals, for zen-ux. A page whose top document holds the
-agent's code keeps the task's refusals after the task, and zen-ux's
+Kept pages' refusals, for the UI. A page whose top document holds the
+agent's code keeps the task's refusals after the task, and the UI's
 handler is how
 one there, right after the user's own click or key, reloads the page
 quietly (`cleanLoad`); it also feeds the card of a page the agent made.
@@ -1262,17 +1261,17 @@ whose top document holds the agent's code keeps the task's refusals
 one from a web-content document whose tab's top document is marked
 (`agentCodeDocument`) to `noteKeptRefused`. Since the event comes from the
 page's own process, only a kind in `KEPT_REFUSAL_KINDS` passes, and `api`
-and `asked` (zen-observe's) are cut to `KEPT_TEXT_MAX` (80) characters.
-zen-ux checks that the user's own input came just before.
+and `asked` (the observe layer's) are cut to `KEPT_TEXT_MAX` (80) characters.
+The UI checks that the user's own input came just before.
 
-## The hand-off (zen-core)
+## The hand-off
 
 The rule, on evidence since 2026-11-21, against page code capturing what
 the user types after a takeover, in this order: nothing the agent's code left can reach what the
 user types in the page they hold (H); H keeps its opener when it can; only
 a document the agent's code left something in loads afresh, never one
 that is only reachable from such a document (the rubric's rule 3). That's
-zen-observe's evidence flag ("The evidence flag",
+the observe layer's evidence flag ("The evidence flag",
 `observe/evidence.sys.mjs`) with reason `hooked`, what the agent's code
 left that outlives the discard of its world, read by `evidenceOf` and
 `needsCleanCopy` in `modules/handoff.sys.mjs`. A page the agent made
@@ -1281,9 +1280,9 @@ reload, so it is refused to the agent or held as it is. `cleanable` is
 either reason, the evidence of the agent's code that the hold's COOP, its
 channel mute, its refusal of new windows and the refusal events key on.
 Filling, clicking, reading and plain text are no evidence. A `listed` or
-`flagged` page gets zen-ux's warning, never a reload or a clean copy: the
-danger is the page itself, which a reload brings back. zen-observe keeps everything else away while H is held (`holdPage`
-in `observe/hold.sys.mjs`). zen-core picks the remedy and does the loads
+`flagged` page gets the UI's warning, never a reload or a clean copy: the
+danger is the page itself, which a reload brings back. The observe layer keeps everything else away while H is held (`holdPage`
+in `observe/hold.sys.mjs`). The core picks the remedy and does the loads
 (`modules/handoff.sys.mjs`).
 
 Entry points (`modules/service.sys.mjs`):
@@ -1293,46 +1292,46 @@ Entry points (`modules/service.sys.mjs`):
   "get") only when H itself loaded afresh, and `carried: true` when a field
   came back filled. `spaces.handOff` calls it for the task's front page
   (`pages.userTab`) and refuses a page the agent made
-  (`ZEN_HANDOFF_REFUSED`, `agentPage`). zen-ux's `userTakeOver(rec,
+  (`ZEN_HANDOFF_REFUSED`, `agentPage`). The UI's `userTakeOver(rec,
   browser)` holds that page as it is. On a page of a task that is already
   held, it holds and loads that page too, without a `spaceChanged`: its
   result says what happened. Its `evidence` maps each reloaded page's
   label to the evidence it had before its load ({reason: detail}), for
-  zen-ux's notice.
+  the UI's notice.
 - Secret steps: `spaces.handOff {secret: true}` notes H
-  (`noteSecretStep`), and `spaceChanged` says `secret: true` for zen-ux's
+  (`noteSecretStep`), and `spaceChanged` says `secret: true` for the UI's
   card. At the hand back, `blankSecretSteps(rec)` runs before anything
   else. That's `spaces.takeOver` and `spaces.claim` through `handBack`, and
-  the user's Resume through zen-ux's `beforeHandBack`, which calls it first
-  (zen-core's glue). For H and the popups that share its hold (`heldWith`),
+  the user's Resume through the UI's `beforeHandBack`, which calls it first
+  (the core's glue). For H and the popups that share its hold (`heldWith`),
   `blankTab` loads `about:blank`, waits until that entry is the history's
   last, and purges the rest, so neither back nor the back-forward cache
   brings the secret back. A tab that won't blank is closed. The hand
   back's notes say `blanked`. The task's end drops its secret steps.
-  With zen-ux's quiet loads off (a test switch), Resume doesn't run
+  With the UI's quiet loads off (a test switch), Resume doesn't run
   `beforeHandBack`, so nothing is blanked there.
-- `cleanLoad(browser)`: the quiet load alone, for zen-ux's Resume.
+- `cleanLoad(browser)`: the quiet load alone, for the UI's Resume.
 - Landing (2), the clean loads under the isolated world, on evidence:
   - `evidenceOf(target)`, the page's evidence over its top document and
-    frames (unreadable, it counts as hooked), and zen-observe's
+    frames (unreadable, it counts as hooked), and the observe layer's
     `urlBefore(target)` (an error counts as no URL), read through the
     service. `needsCleanCopy(target)`: hooked, and not made, since a page
-    the agent made comes back the same from a reload (zen-input's guard
+    the agent made comes back the same from a reload (the input layer's guard
     drops the typing there instead).
-  - `cleanOnDemand(browser)`: zen-input's typing guard calls it at the
+  - `cleanOnDemand(browser)`: the input layer's typing guard calls it at the
     user's first press or key in a hooked page. Such a page loads afresh
     as H's quiet load does, staying on its site, its form carried over and
     the focus on the field the user went for (content
-    `forms.noteUserTarget(field)`, which zen-input calls first). It
+    `forms.noteUserTarget(field)`, which the input layer calls first). It
     resolves `{how: null}` when the page needs no clean copy, rejects when
     no new document came, and puts the page in the task's hand back notes.
     Its result's `evidence` is the page's as the press came, before any
-    load, for zen-ux's notice.
+    load, for the UI's notice.
   - It also rejects, before any replay, when the new document came in with
     evidence of the agent's code. That happens when the agent's code, in
     another window of its group (a popup on its site, or the page that
     opened it), leaves something in the copy as it comes in. The tab's
-    typing stays held on that copy (zen-input's `dropUserTyping` release
+    typing stays held on that copy (the input layer's `dropUserTyping` release
     with `{failed: true, holdNow: true}`), until the page loads again. In
     probes of Take over, the replay set off the next clean copy there
     without end, when a document beside a hooked one came in marked. The error has `stillEvident` and the copy's
@@ -1341,10 +1340,10 @@ Entry points (`modules/service.sys.mjs`):
     tests set `service.cleanCopyCap`). Past that it rejects before loading,
     and the typing stays held.
   - The keys the user types while that load runs go into the clean copy
-    (zen-input's replay): `forms#record` says whether its
+    (the input layer's replay): `forms#record` says whether its
     `focused` is the noteUserTarget field (`userTarget`), and when
     `forms#fill` puts the focus back on that field, `forms.userFieldBack(doc)`
-    names it. zen-input's guard types the replay only into that field.
+    names it. The input layer's guard types the replay only into that field.
   - The task's end (`endTaskCode(rec, closing)`), once per end. finish()
     calls it before endTask, while the tabs are still the task's (endTask's
     publish drops them from `zenius:taskSpaces`, where a `{task}` discard
@@ -1377,7 +1376,7 @@ Entry points (`modules/service.sys.mjs`):
   - `onOpenRefused` and `onKeptRefused` events carry `evident: true` and
     the page's `evidence` ({reason: detail}) when it has evidence of the
     agent's code (`cleanable`: hooked or made), and leave both out
-    otherwise: zen-ux then reads the page.
+    otherwise: the UI then reads the page.
   - During a hold, a load of H gets COOP when a window it would join,
     outside the hold, shows the load's site and has evidence of the
     agent's code (`cleanable`): H is never reachable from what the agent's
@@ -1386,17 +1385,17 @@ Entry points (`modules/service.sys.mjs`):
   `spaces.takeOver` and `spaces.waitForControl` report `reloaded` (labels)
   and `openerCut` once (`spaces.takeHandBackNotes`). A hold's start clears
   them.
-- `beforeHandBack(rec)`: zen-ux replaces it. `spaces.takeOver` and
+- `beforeHandBack(rec)`: the UI replaces it. `spaces.takeOver` and
   `spaces.claim` of a held task await it after `checkUserQuiet`, so the
   agent's own call does what the user's Resume does first.
 - Every end of a hold (an ownership change away from
   `agentDelegatedToUser`: Resume, the agent's takeOver, Stop, finish)
   releases the task's held pages (`releaseHolds`).
-- `discardAgentCode(target)`: zen-observe's `discard`, the agent's
+- `discardAgentCode(target)`: the observe layer's `discard`, the agent's
   sandboxes and the workers they started, in every process. `holdFor` calls it with `{task}` at every hand-off and Take
   over, and `#onSpaceEvent` at the task's end (its ownership becomes
   `user`: Stop, finish, its last tab closed), before `publishAgentBrowsers`
-  takes the task's pages out of the list zen-observe reads.
+  takes the task's pages out of the list the observe layer reads.
 
 The remedy (`holdFor`):
 - A page the agent made (H's top document is `made`) is refused to the
@@ -1414,7 +1413,7 @@ The remedy (`holdFor`):
   only reachable from a hooked one isn't hooked (the rubric's rule 3).
 - Each of them loads afresh in place, one at a time, then H, if it needs
   a clean copy (`cleanLoad`, H's with `sameSite`). Before each window's
-  load, zen-observe's `holdReload(window, H)` makes its new documents the
+  load, the observe layer's `holdReload(window, H)` makes its new documents the
   hold's. Nothing marks a document for being beside a hooked one, so each
   copy comes in clean: H keeps its group and opener, and each history
   keeps its length.
@@ -1429,10 +1428,10 @@ The remedy (`holdFor`):
 - `zenius.handoff.quietReload` (default true) turns these loads off, and H
   is held as it is. Only tests of the hold's other layers set it, to keep
   code planted before a hand-off. zenius never writes it outside tests,
-  and zen-sdk's doctor warns when a profile has it off.
+  and the SDK's doctor warns when a profile has it off.
 
 The quiet load (`cleanLoad`):
-- It goes to zen-observe's `urlBefore` when that isn't null: the URL the
+- It goes to the observe layer's `urlBefore` when that isn't null: the URL the
   top document had before the agent's code last changed it in place
   (pushState, replaceState, a hash), chained over the agent's consecutive
   changes, while the page still shows the URL the agent's code set, and
@@ -1450,7 +1449,7 @@ The quiet load (`cleanLoad`):
 - The page the user is about to hold stays on its site (eTLD+1, no
   scheme; `cleanLoad`'s `sameSite`). The site's own router can put its
   open redirect in the URL (pushState takes any same-origin URL;
-  zen-snapshot's siteRouterRedirect), so a redirect response
+  the snapshot layer's siteRouterRedirect), so a redirect response
   (`http-on-examine-response`) that leaves the site is cancelled before
   anything of the other site loads, and so is the page's own script
   sending it to another site as it loads (siteRouterJsRedirect): until
@@ -1468,7 +1467,7 @@ The quiet load (`cleanLoad`):
   another site anyway (a service worker's redirect, say) fails it at once.
   Later loads of the held page that its own code starts may cross sites,
   as sign-ins need;
-  zen-ux's hold card names H's current site. The windows loaded afresh
+  the UI's hold card names H's current site. The windows loaded afresh
   because they could reach H may leave the site.
 - Fields come back only into a document of the recorded one's origin.
 - `content/forms.sys.mjs` records the top document's visible, ordinary
@@ -1481,11 +1480,11 @@ The quiet load (`cleanLoad`):
   the new document has loaded, and puts the
   focus back. A field is keyed by its form's index, its name or id, its
   type (and value, for a checkbox or radio), and its rank among fields with
-  that key. Never carried: secrets (zen-input's `secretFields`: passwords,
+  that key. Never carried: secrets (the input layer's `secretFields`: passwords,
   card fields), one-time codes, hidden, invisible, disabled or read-only
   fields. A field the user already changed keeps their text. Text goes in
   with `setUserInput`, as form autofill does.
-- zen-input's `dropUserTyping(browser)` (`input/typing.sys.mjs`), when it
+- The input layer's `dropUserTyping(browser)` (`input/typing.sys.mjs`), when it
   exists, drops the user's typing until the form is back, and stays on
   after a failed load.
 - The hold's COOP is `same-origin-allow-popups` on that one response
@@ -1495,7 +1494,7 @@ The quiet load (`cleanLoad`):
 
 During the hold:
 - `pages.codeRefusal` answers `{reason: "hold"}` for every page in a group
-  with a held page (zen-observe's `HELD_PAGES_KEY`), not kept: it ends with
+  with a held page (the observe layer's `HELD_PAGES_KEY`), not kept: it ends with
   the hold.
 - A page of the task with evidence of the agent's code (hooked or made)
   opens no window, with an opener or without: `service.openRefusal`, on
@@ -1584,11 +1583,9 @@ NOTIFY_LOCATION)` (it follows the tab across process switches), and:
 - Keep a strong reference to the listener while you wait: web progress holds
   it weakly.
 
-zen-observe's `observe/navtracker.sys.mjs` follows this rule.
+The observe layer's `observe/navtracker.sys.mjs` follows this rule.
 
-## UI hooks (zen-ux)
-
-zen-ux maintains this section.
+## UI hooks
 
 **The agent sidebar's start.** `agent-sidebar.uc.js` reports each window's
 start to `ui.sidebarStatus` (`docs/PROTOCOL.md`) as a property of the
@@ -1638,13 +1635,13 @@ deadline += await ctx.gate();
   after actions without a cursor, such as `goto`, so the user lands on the
   agent's page instead of an empty tab.
 - A page's cursor goes once the agent's call names another page of the same
-  task, a read too, since the agent works there now. zen-core's call context
-  tells zen-ux of each agent call's page as it resolves it (`ctx.resolvePage`
+  task, a read too, since the agent works there now. The core's call context
+  tells the UI of each agent call's page as it resolves it (`ctx.resolvePage`
   calls `notePageCall(tab, method)` in `ui/pages.sys.mjs`, except for `dev.*`
   methods). The cursor is forgotten, not hidden, so a hold's end doesn't
   bring it back; the agent's next action on that page draws it again.
   Closing a page (`pages.close`) takes no cursor away, and a page whose
-  action is still under way (zen-input's steps, `onStep`) keeps its cursor
+  action is still under way (the input layer's steps, `onStep`) keeps its cursor
   until a later call.
 - It hides while Take over's prompt is open on its page, and comes back with
   its label when the agent goes on (Resume agent, or the countdown after
@@ -1654,7 +1651,7 @@ deadline += await ctx.gate();
 - A hold hides, and a task's end forgets, the cursor on every tab the task
   drew one on, not only on its pages: finish releases a kept page from the
   task before it says the user has the task, and that tab keeps no cursor
-  either. zen-ux records each draw's task through its cursor policy and
+  either. The UI records each draw's task through its cursor policy and
   finds the tabs with `cursorTabs()` (`ui/cursor.sys.mjs`).
 - Then pass the control gate (`await ctx.gate()`, see "Held calls" below)
   before dispatching. The user watching may have clicked during the
@@ -1676,7 +1673,7 @@ deadline += await ctx.gate();
   - The agent's page shows the pill "Agent paused · it resumes in 10 s"
     (after typing: "You're taking over · in 10 s", with Take over now),
     counting down, with [Take over] [Resume agent].
-- **Take over** goes through zen-core's `service.userTakeOver(rec,
+- **Take over** goes through the core's `service.userTakeOver(rec,
   browser)`, which holds the page, checks it, and loads it afresh first
   when the agent's code could see what the user types there, with the form
   and focus carried over. The agent stays paused meanwhile. Then ownership
@@ -1685,10 +1682,10 @@ deadline += await ctx.gate();
   agent's cursor hides, keeping its point and label. The page shows
   "You're in control · the agent waits until you resume it · <site>" with
   [Resume agent] (the site: see "The site" under handOff). A page the
-  agent made is held as it is. When zen-core loaded the page afresh
+  agent made is held as it is. When the core loaded the page afresh
   (`userTakeOver`'s result `how`, "reload" or "get"), it says so too:
   `zenius-reloaded`, below.
-- **A Take over that couldn't begin** (zen-core refused the hold:
+- **A Take over that couldn't begin** (the core refused the hold:
   `ZEN_HANDOFF_REFUSED` with `data.reason`, or `ZEN_PAGE_NOT_FOUND`): the
   task stays the agent's, paused until the user picks, and the page shows
   `zenius-takeover-refused`, "Can't take over this page", with the reason
@@ -1736,24 +1733,24 @@ deadline += await ctx.gate();
 `PopupNotifications.show()`.
 
 - The rules follow the page's evidence and who holds the task
-  (zen-observe's backstops follow the same rules):
+  (the observe layer's backstops follow the same rules):
   - While the agent drives, a managed page's prompt puts the Space in
     `agentDelegatedToUser` with Ego's reason key (`REASONS`):
     `storage_access` (an embedded sign-in frame's requestStorageAccess()
     during a login), `local_network_access` (Firefox's local-network and
-    loopback-network prompts, which carry zen-observe's allowlist past
+    loopback-network prompts, which carry the observe layer's allowlist past
     top-level loads), `location`, `notifications`, `midi`, `serial`, or
     Ego's catch-all `permission_prompt` (persistent storage, XR). The
     notice words the prompt by its id, not its key.
   - During the user's hold the prompt is theirs, as on any site.
   - The camera, microphone, screen or speakers' prompt
     (`webRTC-shareDevices`) is cancelled while the agent drives: the agent
-    never gets them. During the hold it's the user's, and zen-observe
+    never gets them. During the hold it's the user's, and the observe layer
     stops every stream in a tab that becomes the agent's again.
-  - On evidence of danger in the page (zen-observe's flag, any reason),
+  - On evidence of danger in the page (the observe layer's flag, any reason),
     every prompt is cancelled without asking, held or not, and nothing is
     stored for the site.
-- zen-observe's override in `Integration.contentPermission` cancels a
+- The observe layer's override in `Integration.contentPermission` cancels a
   prompt on evidence before it shows, and its gate denies the devices
   while the agent drives. One that shows anyway (the host's `denies`) is
   removed at once with `withoutUserResponse`, so its request is cancelled,
@@ -1819,14 +1816,14 @@ deadline += await ctx.gate();
   "on <site>"; a move to another site isn't announced again, since the
   page's own load speaks.
 - **The Resume line.** Resume agent clears password, card and code fields
-  (zen-input's hand-back guard) and reloads a page where one was typed and
-  not sent. So once the user types one in the task's pages (zen-input's
+  (the input layer's hand-back guard) and reloads a page where one was typed and
+  not sent. So once the user types one in the task's pages (the input layer's
   `onSecretTyped`, once per document, autofill included), the hold card's
   small text leads with "Resume agent clears password, card and code
   fields, so submit what you type there first.", and the agent's words wait
   behind the '?'. The line goes when the agent runs again. Without that
   event, the line shows always (`ZeniusUI.secretLineJustInTime`).
-- **A secret step** (the agent's hand-off with zen-core's secret flag:
+- **A secret step** (the agent's hand-off with the core's secret flag:
   spaceChanged's `secret: true`, source `agent`): the user's Resume loads
   about:blank in that tab, history and all, before the agent gets control.
   So the hold card leads with "Resume agent clears this page, so copy what
@@ -1841,32 +1838,32 @@ deadline += await ctx.gate();
   calls). It applies while the user holds the task by Take over (`heldBy`
   "user"), with no prompt open on its pages, and with the sidebar's
   window's selected tab one of the task's managed pages (`pages.forBrowser`)
-  on a site its pages had at the Take over (zen-core's
+  on a site its pages had at the Take over (the core's
   `spaces.takeoverSiteOf`, in "A send as Resume agent"). Then the user's
   own press on a message that goes now is Resume agent: the same path,
   awaited (`#handBack`), then `spaces.takeHandBackNotes` for the turn's
   note. Never the agent's hand-off, whose secret step Resume blanks, nor a
   permission hold. Any other tab, site or window keeps the hold.
 - **Resume agent** first reloads, quietly, each page where the user typed a
-  secret and that has evidence a clean copy clears (zen-input's
-  `typedSecrets`, zen-observe's `evidenceOf` saying hooked or made, then
-  zen-core's `cleanLoad`), tells zen-core (`noteReloaded`), then hands back.
-  A page without such evidence keeps what the user typed until zen-input's
+  secret and that has evidence a clean copy clears (the input layer's
+  `typedSecrets`, the observe layer's `evidenceOf` saying hooked or made, then
+  the core's `cleanLoad`), tells the core (`noteReloaded`), then hands back.
+  A page without such evidence keeps what the user typed until the input layer's
   guard empties its secret fields.
-  zen-core's own ways back to the agent (`spaces.takeOver`, `spaces.claim`)
-  await the same step through `service.beforeHandBack`, which zen-ux sets.
+  The core's own ways back to the agent (`spaces.takeOver`, `spaces.claim`)
+  await the same step through `service.beforeHandBack`, which the UI sets.
   The agent's calls wait out the reload: they're held while the task is
   paused or the user's, and the hand back comes after it.
-  - zen-core's switch `zenius.handoff.quietReload` (default `true`) turns
+  - The core's switch `zenius.handoff.quietReload` (default `true`) turns
     these reloads off too, for tests of the hand back's other layers
-    (zen-input's hand-back tests keep the agent's own password in the
+    (the input layer's hand-back tests keep the agent's own password in the
     page). Off, Resume asks nothing and reloads nothing, and hands back
-    before the press returns, so zen-input's clear reaches each frame ahead
+    before the press returns, so the input layer's clear reaches each frame ahead
     of the agent's next call, as before the reloads.
-- **A page the agent made** (zen-observe's `agentMadePage`): the hold card
+- **A page the agent made** (the observe layer's `agentMadePage`): the hold card
   adds "The agent made this page. It might contain malicious code. Keep
   sensitive information out.", only while the page asks for a password, a
-  card's details or a one-time code (zen-input's `secretFields`, through
+  card's details or a one-time code (the input layer's `secretFields`, through
   `content/uipage.sys.mjs`'s `secretKinds`, asked of every frame), or the
   agent flagged it.
 - The Space's badge and the tasks strip show that it needs the user.
@@ -1921,11 +1918,11 @@ deadline += await ctx.gate();
   event. Its buttons:
   - **Open:** watches the task (below): shows the Space, on a page that
     needs the user (a permission prompt, a handOff's), else on the task's
-    front tab (zen-core's `pages.frontTab`: the last the agent made
+    front tab (the core's `pages.frontTab`: the last the agent made
     current or the user picked).
   - **Pause / Resume:** while paused, the agent's next action waits, and
     the user's own input in its pages opens no takeover prompt.
-  - **Take over:** as the prompt's (zen-core's `userTakeOver`), then
+  - **Take over:** as the prompt's (the core's `userTakeOver`), then
     watches the task.
   - **Resume agent:** as the hold card's: the quiet reload of a page where
     the user typed a secret, then ownership `agent`. The panel's Resume
@@ -1975,7 +1972,7 @@ deadline += await ctx.gate();
     another tab or Space themselves. The tab Zen picks when that page
     closes (its pill's Close, ⌘W) isn't their pick: Firefox selects it
     before it marks the page closing, so the check waits for that call to
-    end, and the page the user left closes a tick later (zen-core's
+    end, and the page the user left closes a tick later (the core's
     `closeLeft`). Another task's watch keeps the way back too. Nothing
     moves by itself.
   - A screen reader hears "Watching <task>. Control Tab goes back to your
@@ -2113,7 +2110,7 @@ detail, until, tone, note, more, buttons, stacked})`, `removeNotice`,
   it came from (`focusin`'s `relatedTarget`), else to its tab's page if
   that's on screen. An update keeps the focus on the same button.
 
-**Dialogs the agent held.** zen-observe intercepts JS dialogs on pages the
+**Dialogs the agent held.** The observe layer intercepts JS dialogs on pages the
 agent drives (see "Navigation and observation"). A page whose dialog it holds
 looks frozen to anyone else.
 - When a page stops being agent-driven (takeover, handOff, a permission
@@ -2125,7 +2122,7 @@ looks frozen to anyone else.
 - If the agent has control again before the user looks, the dialog stays
   the agent's.
 
-**The Space's clipboard.** `clipboard/` (zen-ux), started by
+**The Space's clipboard.** `clipboard/` (the UI), started by
 `methods/ui.sys.mjs`. Agent copy, cut and paste never touch the system
 clipboard, which is the user's.
 - **Store.** `SpaceClipboard` from `clipboard/store.sys.mjs`, parent only, in
@@ -2138,11 +2135,11 @@ clipboard, which is the user's.
     origin that wrote the contents (an empty clipboard reads as empty),
     else null. `originOf(spaceId)` names the writer.
   - `clear(spaceId)` empties it.
-  - ClipData is zen-input's: MIME type → data, most preferred first; text
+  - ClipData is the input layer's: MIME type → data, most preferred first; text
     types are strings, others `Uint8Array`. `toClipData` and `fromClipData`
     in `content/input.sys.mjs` convert to and from `{text, html}`.
   - Emptied when the Space's task finishes or the Space is deleted.
-  - zen-input's chords (`clipboardOf` and `noteClipboard` in
+  - The input layer's chords (`clipboardOf` and `noteClipboard` in
     `methods/actions.sys.mjs`) and the page guards below share it: a page's
     own "Copy" button and the agent's Ctrl/Cmd+V meet here.
 - **Who may read it.** A page's `readText()` and `read()` answer from the
@@ -2151,7 +2148,7 @@ clipboard, which is the user's.
   read on the agent's next click, with no paste prompt.
   - The writer is the document of a page write or copy event, or for the
     agent's chords the frame they copied in (`clipboardOrigin` in
-    zen-input's key result, `content/actions.sys.mjs`). The parent keeps a
+    the input layer's key result, `content/actions.sys.mjs`). The parent keeps a
     chord's origin only if the call's process hosts a document of that
     origin in the tab (`hostedOrigin` in `store.sys.mjs`), else none, which
     no page can read.
@@ -2171,27 +2168,27 @@ clipboard, which is the user's.
   also in one the user loads while holding the task. Each call checks
   `isAgentDriven`, so a tab the user holds behaves natively, and a page they
   loaded meanwhile is guarded once they hand it back.
-  - zen-core publishes both sets of browserIds in `publishAgentBrowsers()`:
+  - The core publishes both sets of browserIds in `publishAgentBrowsers()`:
     `zenius:agentBrowserIds` (the agent drives the tab now) and
     `zenius:taskBrowserIds` (any page of an agent task, whoever holds it).
     Both helpers are in `content/guards.sys.mjs`.
-- **Only in a task's documents** (zen-core's I4 finding, and the single
-  entry agreed with zen-core). Neither zen-ux actor listens to
+- **Only in a task's documents** (the core's I4 finding, and the single
+  entry agreed with the core). Neither the UI actor listens to
   DOMWindowCreated.
-  - zen-core's Zenius actor makes them in a task's new documents, top and
+  - The core's Zenius actor makes them in a task's new documents, top and
     frames, at its own DOMWindowCreated, before the page's scripts. It
     calls their `installGuards()`, for the names `addGuardActor` publishes.
   - The "installGuards" message does the same for the documents a tab
     already had.
   - Their helpers load on first use, and both run in web content processes
     only (`remoteTypes`, as the Zenius actor).
-  - So a user's document never makes them, and nothing of zen-ux loads in
+  - So a user's document never makes them, and nothing of the UI loads in
     the user's tabs (`tests/ux/actors.test.mjs`).
   - Copy and cut events (`execCommand("copy")`, a page's copy handler): a
     system-group listener on the tab's chrome event handler runs after
     every page listener. It takes what Gecko would write, empties and
     cancels the event, and does a cut's deletion through the editor (undo
-    restores it). An event zen-input's `interceptCopyCut` already took (the
+    restores it). An event the input layer's `interceptCopyCut` already took (the
     agent's chords) arrives cancelled and empty, and is left alone.
   - `navigator.clipboard.writeText()`, `write()`, `readText()` and
     `read()` are wrapped before the page's scripts run. They need a user
@@ -2212,12 +2209,12 @@ clipboard, which is the user's.
   puts a select-all or a mouse selection, the agent's too, into the X11
   primary selection. macOS has no primary selection.
 
-**OS UI from agent pages.** `ui/systemui/` (zen-ux), started by
+**OS UI from agent pages.** `ui/systemui/` (the UI), started by
 `methods/ui.sys.mjs`. The `ZeniusSystemUi` actor guards page APIs that would
 open the operating system's UI over the user's view. Its guards install in
 every document of an agent task's tabs, once per document, and decide per
 call (`isAgentDriven`). Like the clipboard's actor, it's made only in a
-task's documents, by the Zenius actor or zen-core's `installGuards` request
+task's documents, by the Zenius actor or the core's `installGuards` request
 ("Only in a task's documents" above).
 - **Notifications.** `new Notification()` and
   `registration.showNotification()` from the page, with the permission
@@ -2261,11 +2258,11 @@ task's documents, by the Zenius actor or zen-core's `installGuards` request
 - The quiet Notification's Proxy handler has no prototype, so the page's
   `Object.prototype` can't add traps to it or reach its `construct`.
 - ZeniusUI takes a task's ownership from its record, not from a
-  `spaceChanged` event's params, and only zen-core's sources (`agent`,
+  `spaceChanged` event's params, and only the core's sources (`agent`,
   `user`, `permission`).
 - **For tests.** `systemUiStats` in `ZeniusSystemUiParent.sys.mjs` counts
   `notifications`, `passkeyHeld`, `passkeyGo` and `passkeyRefused`.
-- **Other zen-ux guards.** `holdForUser(browser, reason, key, what, origin)`
+- **Other UI guards.** `holdForUser(browser, reason, key, what, origin)`
   and `releaseForUser(browser, key)` are the permission-prompt path for any
   request a guard holds for the user, under the same limits.
   `releaseForUser(browser, key, false)` says the request was left
@@ -2275,15 +2272,15 @@ task's documents, by the Zenius actor or zen-core's `installGuards` request
   window.
 
 **Muted agent tabs.** `ui/muted.sys.mjs` and `zenius-ux.css` show
-zen-observe's mute (`observe/audio.sys.mjs`). A tab with
+the observe layer's mute (`observe/audio.sys.mjs`). A tab with
 `zenius-muted-sound` gets a muted-speaker badge on its icon (also with the
 sidebar collapsed) and a tooltip line (`MUTED_TOOLTIP`, through a wrapped
-`gBrowser.getTabTooltip`). Both go when zen-observe clears the attribute,
+`gBrowser.getTabTooltip`). Both go when the observe layer clears the attribute,
 once the user sees the tab. The badge isn't clickable: the tab's own speaker
 button would make the tab the user's.
 
-**The view keeper.** `ui/viewkeeper.sys.mjs` (zen-ux) is a leaf module that
-zen-core's tab code imports.
+**The view keeper.** `ui/viewkeeper.sys.mjs` (the UI) is a leaf module that
+the core's tab code imports.
 - `keepView(fn)` runs `fn`, an agent change to tab strips: a tab added,
   moved or closed. It then scrolls each window's strip back by however far
   its anchor tab moved. The anchor is the selected tab if it's in view,
@@ -2300,12 +2297,12 @@ zen-core's tab code imports.
   so a new task's first tab goes at the Agents Space's bottom.
 - Wrap the whole of `addBackgroundTab`: `addTab` first puts the tab in the
   window's active Space, then `moveTabToWorkspace` moves it.
-- zen-core reaches both through `service.pages.keepView` and
+- The core reaches both through `service.pages.keepView` and
   `service.pages.stripCanScroll`, which `methods/ui.sys.mjs` sets.
 
-**Task tags.** `ui/tasktags.sys.mjs` and `zenius-ux.css`, on zen-core's
+**Task tags.** `ui/tasktags.sys.mjs` and `zenius-ux.css`, on the core's
 `zenius-task=<task id>`, which marks task pages.
-- zen-ux adds two attributes, from the state `badgeFor` gives the Space
+- The UI adds two attributes, from the state `badgeFor` gives the Space
   badge and the panel row:
   - `zenius-task-state` on the tab: working, idle, paused, needs-user or
     user;
@@ -2364,9 +2361,9 @@ zen-core's tab code imports.
   - The panel's Open lands on the task's page through `landOn(tab)`.
 
 **The pill on a waiting close.** An agent's close of a tab a window shows
-waits for the user to leave it (zen-core, SPEC §3.5). On zen-core's
+waits for the user to leave it (the core, SPEC §3.5). On the core's
 in-process `tabClosing {space, tab}`, ZeniusUI:
-- forgets the tab's cursor: its page has ended for the agent, and zen-core
+- forgets the tab's cursor: its page has ended for the agent, and the core
   takes the tag away;
 - once the call that closed it is over (`setTimeout 0`: a `finish()`
   drops its record in the same call), shows the pill `zenius-task-finished`:
@@ -2381,64 +2378,64 @@ in-process `tabClosing {space, tab}`, ZeniusUI:
   with it. It says nothing of the agent's code.
 - The buttons are chrome, so only the user's own clicks reach them, and
   they arm after 400 ms like every pill's.
-- A close that waited across a restart waits again: zen-core's rebuild
+- A close that waited across a restart waits again: the core's rebuild
   closes the tab again and sends `tabClosing` with `space: null`, after
   `SessionStore.promiseAllWindowsRestored`, which may come before or after
   a window's UI is up. So ZeniusUI also shows the pill at a window's start
   on any tab `service.pages.isDeferred(tab)` holds.
 
 **Pages a task leaves open.** The agent's code runs in a sandbox of its
-own (zen-observe's isolated world), which ends with the task, so a page
+own (the observe layer's isolated world), which ends with the task, so a page
 the task leaves open (kept at the finish, left by the panel's Stop, kept
 from a waiting close) holds none of it, and shows nothing: no mark, no
 reminder, no card.
-- **Pages with evidence** (zen-observe's evidence flag, per document:
+- **Pages with evidence** (the observe layer's evidence flag, per document:
   `evidenceOf(browser)` gives `{reason: detail}` over the page's top
   document and frames). What reloads keys on the evidence a clean copy
   clears, hooked and made: a page on a list, or that the agent flagged, is
   dangerous itself, so it gets the page warning below instead. Such a page
-  keeps an agent tab's limits until its document is replaced: zen-observe
-  and zen-core refuse what it asks for, and its window group can't open
+  keeps an agent tab's limits until its document is replaced: the observe layer
+  and the core refuse what it asks for, and its window group can't open
   windows with an opener. When the user's own click or key there came just
   before (5 s, the window's capture listener, real input only), a refusal
-  loads the page afresh, quietly, through zen-core's `cleanLoad`, with the
+  loads the page afresh, quietly, through the core's `cleanLoad`, with the
   form carried over, so their next try works:
-  - `ZeniusUI.keptRefused({browser, kind, asked, evident})`, zen-core's
+  - `ZeniusUI.keptRefused({browser, kind, asked, evident})`, the core's
     `onKeptRefused`: a device, location or notification request;
   - `ZeniusUI.openRefused({browser, url, reopened, hold, evident})`,
-    zen-core's `noteOpenRefused`: a window it couldn't open. If this page
+    the core's `noteOpenRefused`: a window it couldn't open. If this page
     has no such evidence, the pages of its window group that do load afresh
     instead. One a plain tab opened instead (`reopened`) or one refused
     during a hold changes nothing;
   - `ZeniusUI.userLoadRefused` for a local address the page chose.
   The events say `evident: true` when the page has it and leave it out
-  otherwise; without it, zen-ux reads `evidenceOf`. Without zen-observe's
+  otherwise; without it, the UI reads `evidenceOf`. Without the observe layer's
   module, or when it fails, a page counts as evident (`unknown`), so these
   act as they did before rather than not at all.
 - **The page warning** (`zenius-page-warning`,
   `pageWarningCard(evidence)`). A page on a phishing or malware list
-  (zen-observe's `listed`, from Safe Browsing) or that the agent flagged
+  (the observe layer's `listed`, from Safe Browsing) or that the agent flagged
   (`flagged`) says "This page is on a phishing or malware list", or "The
   agent flagged this page" with the agent's reason (one line of at most 200
   characters, isolated, as text), and "Be careful what you enter here.";
   both: the list first, and "The agent flagged it too:
   <reason>." behind the '?'. It shows while the user is on the page: their
   hold, the agent paused, after the task, or a page no task has; not while
-  an agent drives it. It comes as zen-observe's mark does (`onEvident`,
+  an agent drives it. It comes as the observe layer's mark does (`onEvident`,
   through `ZeniusUI.evidenceAdded({browser, reason})`), as who holds the
   task changes, and goes with the agent's run or the document. It only
   informs: its one button is ✕, which keeps it away for that document; it
   takes no focus; a screen reader hears it as it comes up, when the tab is
   in view. Window sync moves it with the docShell.
 - **Before the user acts.** From the user's first press or key anywhere in a
-  page with evidence a clean copy clears (hooked or made), zen-input's guard
-  holds their presses and keys there and has zen-core load it afresh
-  (`cleanOnDemand`), in a live task's page or a kept one; zen-ux only watches
+  page with evidence a clean copy clears (hooked or made), the input layer's guard
+  holds their presses and keys there and has the core load it afresh
+  (`cleanOnDemand`), in a live task's page or a kept one; the UI only watches
   (`onUserTyping`). If no new document comes in 15 s, the tab says "This page
   couldn't reload", "Clicks and typing here stay off until it does.", with
-  [Reload] (zen-core's `cleanLoad` again; the pill stays while it tries) and ✕.
+  [Reload] (the core's `cleanLoad` again; the pill stays while it tries) and ✕.
   It goes with the tab's next document. When the new document came in with
-  evidence too (zen-core's `stillEvident`: a popup or other window on the site
+  evidence too (the core's `stillEvident`: a popup or other window on the site
   shares its group and holds the agent's code), Reload alone can't help until
   that window closes. Then the note reads "Clicks and typing here stay off.
   Close the popup or other window on this site, then reload.", and a screen
@@ -2449,24 +2446,24 @@ reminder, no card.
   `cleanOnDemand`'s result has a `how` (null: nothing to clean); at a Take over
   whose `userTakeOver` result has one (also on the task's other pages in its
   `reloaded`); and at the agent's hand-off whose `spaceChanged` has `reloaded`
-  (on the page handed off, the `pages.userTab` zen-core held), and on each page
-  zen-core noted for that hold (the record's `handBackReloaded`, by label, which
-  the hold's start clears). zen-input's form tests found the hand-off's gap: a
+  (on the page handed off, the `pages.userTab` the core held), and on each page
+  the core noted for that hold (the record's `handBackReloaded`, by label, which
+  the hold's start clears). The input layer's form tests found the hand-off's gap: a
   press there submitted the form's defaults with no word of the reload. The
   title is "Your click didn't go through", with "the page reloaded", when the
-  press went nowhere (zen-input's `field` is false), else "This page reloaded".
+  press went nowhere (the input layer's `field` is false), else "This page reloaded".
   It says why (`reloadReason`), from the evidence
-  zen-core acted on (`cleanOnDemand`'s `evidence`, `userTakeOver`'s by label) or
+  the core acted on (`cleanOnDemand`'s `evidence`, `userTakeOver`'s by label) or
   else the page's own as the press came: "the agent's code had changed it", with
   what it left behind the '?', or "the agent made it". The line: "A form here
   may be back to its defaults: check it before you submit.", and behind the '?'
-  "It reloaded without the agent's changes." zen-core's `carried` doesn't change
+  "It reloaded without the agent's changes." the core's `carried` doesn't change
   it: a framework's state and custom widgets don't come back. It only informs:
   its one button is ✕, it takes no focus, a screen reader hears it when the tab
   is in view, and it goes with ✕ or the tab's next document. At a hand-off it
   comes after the hold's card, and is heard after it.
 - **Pages the agent made** (data:, blob:, a popup its code filled;
-  zen-observe's `agentMadePage`) can't be cleaned by a reload. As the user
+  the observe layer's `agentMadePage`) can't be cleaned by a reload. As the user
   goes to type there (a field has the keyboard after their click, key or
   Tab, or when they switch to the tab), the pill `zenius-kept-code` says
   "The agent made this page", "It might contain malicious code. Keep
@@ -2477,8 +2474,8 @@ reminder, no card.
   A pill comes up on the page's live copy only, announced, with no focus
   taken; ✕ hides it for that document.
 - **The note.** When the task ends (finish or the panel's Stop) and when
-  the agent closes a page the user views, zen-ux notes the pages the agent
-  made (`agentMadePage`, while zen-observe's record of the task exists),
+  the agent closes a page the user views, the UI notes the pages the agent
+  made (`agentMadePage`, while the observe layer's record of the task exists),
   for their pill. One the user kept from the agent's close while the task
   went on joins the kept pages when it ends. `ZeniusUI.madePage(target)`
   returns `{task, kept}` for such a page's current top document, or null.
@@ -2490,7 +2487,7 @@ reminder, no card.
 **The hand-off and Take over.** The user always types in the agent's own
 tab; zenius makes that safe itself, so nothing in the UI asks the user to
 decide anything about safety. There is no own tab.
-- **Take over** and zen-core's `spaces.handOff` load the handed page afresh
+- **Take over** and the core's `spaces.handOff` load the handed page afresh
   first when the agent's code could see what the user types there, and the
   pages of its group the sandbox wrote into, in place (the user's
   decision). Each page that loaded afresh says so (`zenius-reloaded`,
@@ -2500,9 +2497,9 @@ decide anything about safety. There is no own tab.
   agent's page, so it's part of the task: the agent can use it once you
   resume it.", with [Resume agent].
 
-**The local-network notice.** zen-observe refuses a load the user starts
+**The local-network notice.** The observe layer refuses a load the user starts
 to a private address or a `.local` name in an agent's tab, and tells
-zen-ux (`onUserLoadRefused`, `{browser, url, origin, reason, typed, scope,
+the UI (`onUserLoadRefused`, `{browser, url, origin, reason, typed, scope,
 evident}`).
 - **In a task's tab** (the user's hold included), the pill
   `zenius-localnet` says "Network access denied · <host>" (a host over 40
@@ -2513,15 +2510,15 @@ evident}`).
   home page of the site the page chose, in a new tab of the user's own
   Space, selected (they asked), in the agent tab's container, with no
   opener, marked the user's own (`pages.markUserOwn`).
-- **Add to allowlist**, only for an address the user typed: zen-ux appends
+- **Add to allowlist**, only for an address the user typed: the UI appends
   that exact host to `zenius.agentTabs.allowPrivateNetworks`, then the
-  address loads in the agent's tab (the write is zen-ux's).
+  address loads in the agent's tab (the write is the UI's).
   - Only the user's own click writes it: a trusted click on that button, in
     that tab's card. The card is chrome, which page code can't reach, and
     the agent's synthesized clicks and keys never leave its content
     (`tests/ux/localnet.test.mjs` presses it every way the agent can: a
     click where it shows, Tab, Enter, Space, and its own code).
-  - The format is zen-observe's (their reader, `parseAllowList`, runs at
+  - The format is the observe layer's (their reader, `parseAllowList`, runs at
     each request): `, <host>` appended, the host as `nsIURI.host` gives it,
     lowercased (IPv6 without brackets), never a port or a `/bits` range,
     and nothing when an entry already equals it.
@@ -2536,15 +2533,15 @@ evident}`).
 - **When it goes:** with the tab's next document, on ✕, or after a button.
   It's announced when its tab is in view, and takes no focus.
 
-**The page-code card** (`ui/pagecode.sys.mjs`; zen-input's glue). With
-`zenius.agentTabs.pageCode` at "ask", zen-observe holds the agent's page
+**The page-code card** (`ui/pagecode.sys.mjs`; the input layer's glue). With
+`zenius.agentTabs.pageCode` at "ask", the observe layer holds the agent's page
 code on a site the user hasn't allowed and asks once per task and site
 (`onPageCodeAsk`, `{space, browser, site}`; `space` is the task's record).
 The tab of `browser` shows the pill `zenius-pagecode:<site>`, one per site
 per task: "Allow the agent's code on
 <site>?" (the host for https, else the whole site, never cut) with [Allow on
 this site] and [Not now].
-- **Allow on this site** calls zen-observe's `allowPageCodeSite(site, event,
+- **Allow on this site** calls the observe layer's `allowPageCodeSite(site, event,
   card)`, only on a trusted click on that button in that card
   (`#allowLocal`'s check), which writes the exact site to
   `zenius.agentTabs.pageCodeSites` once. Every card asking for that site
@@ -2562,10 +2559,10 @@ this site] and [Not now].
   `PAGE_CODE_NOTICE` the notice's prefix.
 
 **The claim prompt.** When an agent claims a user's Space or an ended
-task, zen-core's gate asks the user:
-- zen-core sends `claimAsked {id, space, name, client, until}` in process
+task, the core's gate asks the user:
+- The core sends `claimAsked {id, space, name, client, until}` in process
   (`emitLocal`). There's one pending ask per Space. `client` is the label
-  the claim call gave, which zen-core sanitizes, or null. `until` is the
+  the claim call gave, which the core sanitizes, or null. `until` is the
   call's timeout, Ego's 10 minutes by default.
 - ZeniusUI shows "Agent request · denied in {t}", with zenius's own words
   first, "An agent asks to work in your Space “<name>”.", and only then
@@ -2575,13 +2572,13 @@ task, zen-core's gate asks the user:
   prompt moves with the selection, takes no focus and selects nothing. Its
   buttons are chrome: only real clicks reach them, and they arm after 400
   ms.
-- Both names are cleaned again here, as zen-core's runtime does
+- Both names are cleaned again here, as the core's runtime does
   (`plainText`): no Unicode Cc or Cf characters (an RLO would reverse the
   rest of the line, a zero-width one hides), no line or paragraph
   separators, whitespace collapsed, at most 40 and 60 code points. The
   Space's name is cleaned too: an ended task's name was the agent's.
 - A click calls `service.spaces.answerClaim(id, allow)`, and every
-  window's prompt goes. zen-core's `claimSettled {id, verdict}` (allow,
+  window's prompt goes. The core's `claimSettled {id, verdict}` (allow,
   deny, timeout, gone) removes it too, and so does a second past `until`
   without either: nothing answers for the user.
 - A window that opens while an ask waits shows it, from
@@ -2667,10 +2664,10 @@ task, zen-core's gate asks the user:
   - The sidebar never flashes: that would draw over the user's page
     (I1).
 
-**Two windows** (`tests/ux/windows.test.mjs`; zen-core's "Windows: a page
-is its sync id"). What zen-ux shows on a tab stays on the copy that holds
+**Two windows** (`tests/ux/windows.test.mjs`; the core's "Windows: a page
+is its sync id"). What the UI shows on a tab stays on the copy that holds
 its page, the one the user sees:
-- **On zen-core's `pageMoved`**, the pill, the cursor (`moveCursorTab`)
+- **On the core's `pageMoved`**, the pill, the cursor (`moveCursorTab`)
   and the takeover prompt (`Takeover.movePage`) move to `to`. The pill is
   drawn again there, so its buttons act in that window. The focus stays
   where it was (`removeNotice(…, {refocus: false})`).
@@ -2691,10 +2688,10 @@ its page, the one the user sees:
   `browserId`. So `isUserUsing`, the clipboard's test for a copy the user
   made, follows the page too.
 
-**Held calls.** zen-core, zen-sdk and zen-ux share these rules:
+**Held calls.** The core, the SDK and the UI share these rules:
 
 - **Which calls wait.**
-  - zen-core's dispatcher passes the I3 gate before every gated call.
+  - The core's dispatcher passes the I3 gate before every gated call.
   - Mutating calls wait while the Space is paused (takeover prompt, the
     panel's Pause).
   - Reads (snapshot, info, url, `waitFor*`, events, `pages.list`) never
@@ -2724,11 +2721,10 @@ its page, the one the user sees:
   - Stop in the panel, or `finish`, fails it with `ZEN_TASK_SPACE_INACTIVE`.
   - A Space that's gone gives `ZEN_TASK_SPACE_NOT_FOUND`.
 
-## Refs and locators (zen-snapshot)
+## Refs and locators
 
-zen-snapshot maintains this section. zen-input resolves `@N` targets and
-`loc=` locators through these modules. Their exports stay stable; zen-snapshot tells
-zen-input before changing them.
+The input layer resolves `@N` targets and `loc=` locators through these
+modules, so their exports stay stable.
 
 **Refs, in the parent.** One registry per tab:
 
@@ -2827,19 +2823,19 @@ accessibleName(element); // → "Save"
   choices where browsers differ (Playwright's `getElementAccessibleName`),
   whitespace collapsed and trimmed.
 
-## Navigation and observation (zen-observe)
+## Navigation and observation
 
-zen-observe maintains this section. Its parent-side modules live in
+The observe layer's parent-side modules live in
 `runtime/JS/zenius/observe/`.
 
 **What runs with no task (I4).** `observe/setup.sys.mjs` installs
-zen-observe's hooks once. The observers that also see the user's own
+the observe layer's hooks once. The observers that also see the user's own
 browsing run only while they have something of the agent's to watch
 (`syncHooks`):
 
 - `observe/network.sys.mjs`'s six HTTP topics and the downloads module's
   `blocked-automatic-download` run while a task has pages
-  (`TASK_BROWSERS_KEY` isn't empty). zen-core's `publishAgentBrowsers`
+  (`TASK_BROWSERS_KEY` isn't empty). The core's `publishAgentBrowsers`
   emits the local event `taskBrowsers` after each change, before a new
   page's first load. Turning the network observers off forgets the
   requests in flight, whose ends won't be seen, so a tab that joins a
@@ -2870,7 +2866,7 @@ browsing run only while they have something of the agent's to watch
   when a task's page first needs them.
 
 **The page gate.** `methods/navigation.sys.mjs` exports `pageGates =
-[pageReadyGate, webContentGate]`. zen-core's dispatcher runs them after the
+[pageReadyGate, webContentGate]`. The core's dispatcher runs them after the
 ownership gate for every `page.*` method. Each is a plain function: it
 returns nothing when the page is ready, and a promise only when it must
 wait. `webContentGate` is I5's (below).
@@ -2945,7 +2941,7 @@ currentDialog(browser);                    // the open dialog, or null
 - `answerDialog(browser, accept, promptText?)` answers it (what
   `page.acceptDialog` and `page.dismissDialog` call); false when none is
   open.
-- **For zen-ux, at takeover:** `releaseDialog(browser)` hands the open
+- **For the UI, at takeover:** `releaseDialog(browser)` hands the open
   dialog to Firefox's own prompt UI, so the user who takes over sees it
   instead of a page that looks frozen. It returns false when none is open;
   the agent no longer sees the dialog afterwards. Firefox flags the tab for
@@ -3001,9 +2997,9 @@ names the moved file.
     workspace-write can), and a link put in place of a folder there has the
     browser write a site's bytes wherever the link points. A link there
     also has the move take a file from outside into the working folder, or
-    the cleanup delete outside (zen-snapshot's
+    the cleanup delete outside (the snapshot layer's
     `tests/snapshot/tools/staging-probe.mjs`).
-  - No sandboxed CLI writes the profile. zen-input's uploads live beside
+  - No sandboxed CLI writes the profile. The input layer's uploads live beside
     the downloads, in `<profile>/zenius-uploads`.
 - **Each start makes the folder afresh** (`remakeDownloadRoot`): the last
   run's folder goes whole, then the new one is made exclusively
@@ -3046,7 +3042,7 @@ names the moved file.
   - Removing only their plain files has the same flaw: each is reached
     through a folder that can be swapped.
   - `sweepDownloadLeftovers` touches only the root: it removes what no
-    download holds. Tests and zen-snapshot's staging-probe call it.
+    download holds. Tests and the snapshot layer's staging-probe call it.
 - **Backstop checks:** a folder or file is zenius's own when lstat finds no
   link in its place and the path resolves to the one zenius made
   (`notOwn`), so a link above it fails too. The checks run at four points:
@@ -3220,7 +3216,7 @@ holds the rules; use it rather than your own checks:
   `ZEN_URL_NOT_ALLOWED` unless the URL is `http:`, `https:`, `data:`,
   `blob:` or `about:blank`; then load with `agentLoadOptions(uri, browser)`
   (`{triggeringPrincipal, loadFlags}`), never the system principal.
-  zen-observe's `navigate()` does both; zen-core's restore of a tab
+  The observe layer's `navigate()` does both; the core's restore of a tab
   (resolvePage) is the next caller.
 - The page's document: `webContentGate` refuses every method that the
   dispatch gives the page gates, unless its declared I5 class (`ctx.i5`) is
@@ -3228,14 +3224,14 @@ holds the rules; use it rather than your own checks:
   waits). It refuses with `ZEN_PAGE_NOT_WEB_CONTENT`, by principal, URL and
   process (`notWebContent(wgp)`), before the handler runs. A ctx without a
   class goes by `OUTSIDE_DOCUMENT`, the same names.
-- Frames: zen-core's `ctx.content` calls `checkContentCall(method, bc, i5)`
+- Frames: the core's `ctx.content` calls `checkContentCall(method, bc, i5)`
   first, with the method's declared class. Every class but `outside` and
   `dev` is checked, unknown ones included, so a document method's call to an
   add-on's or error page's frame rejects with the same code
   (`data.frame: true`). Without a class it goes by `actsInDocument(method)`.
   Content code that walks into a same-process frame's document itself
-  skips it unless `isWebDocument(doc)`: zen-snapshot's `frameContent` and
-  zen-input's `contextsFrom` do. Do the same in any new frame walk.
+  skips it unless `isWebDocument(doc)`: the snapshot layer's `frameContent` and
+  the input layer's `contextsFrom` do. Do the same in any new frame walk.
 - Screenshots: `checkPaintable(method, browser, label)` refuses a page
   that holds the browser's own frame, shown or hidden. It returns the
   outermost add-on frames. `page.screenshot` refuses the shot when there
@@ -3276,11 +3272,11 @@ lives:
   (WebProtocolHandlerRegistrar), and backstops in the DOMFullscreen and
   PointerLock parent actors.
 - `content/refusals.sys.mjs`, in each agent document before its scripts
-  (zen-core's `installPageGuards` calls `installRefusalGuards`): fullscreen,
+  (the core's `installPageGuards` calls `installRefusalGuards`): fullscreen,
   pointer lock, wake lock, speech, share. The page sees native-looking
   functions that check per call, so a tab handed to the user works as
   usual. A tab that becomes the agent's with its page already loaded
-  (adopted, or handed back) gets them in every frame then, through zen-core's
+  (adopted, or handed back) gets them in every frame then, through the core's
   `installGuards`. Content refusals reach the parent as the `observe.refused`
   content event. The sound notice hears media start from the media guard
   (`content/media.sys.mjs`), which also hears elements in shadow trees and
@@ -3290,7 +3286,7 @@ lives:
     not `isAgentDriven`).
   - It also covers a popup a task's page opens, from its first document,
     before the parent routes it. `isTaskPopup(bc)` keeps the popup's
-    opener as it was then, and zen-core's actor calls
+    opener as it was then, and the core's actor calls
     `installRefusalGuards` for such a popup's documents at
     `DOMWindowCreated`.
   - Workers: once per content process, an `nsIWorkerDebuggerManager`
@@ -3324,7 +3320,7 @@ lives:
       that `TASK_SPACES_KEY` lists. A document that keeps the agent's code
       after its task gets `agent`.
     - `TASK_SPACES_KEY` is a Map, browserId → space id. observe/setup.sys.mjs
-      publishes it on each `taskBrowsers` event, right after zen-core
+      publishes it on each `taskBrowsers` event, right after the core
       flushes `TASK_BROWSERS_KEY`, so it's there before a new page's first
       load.
     - The prototype's `name` getter strips the suffix, and
@@ -3353,7 +3349,7 @@ lives:
     or the evidence, by its first reason (`evidenceWords`). `tests/observe-vectors/devices.test.mjs` counts
     WebRTCParent's `webrtc:Request` messages and the network provider's
     `watch()` calls. Each report also carries `api` and `asked` (PROTOCOL),
-    for zen-ux's card in a kept page.
+    for the UI's card in a kept page.
   - Notifications (`notification`): `guardNotifications`, on evidence.
     The Notification constructor becomes a Proxy with a chrome trap, as
     for SharedWorker, which gives a fake made in chrome
@@ -3361,7 +3357,7 @@ lives:
     `ServiceWorkerRegistration.prototype.showNotification` rejects.
     workerguard.js has a fake of its own for workers (`FAKE_NOTIFICATION`),
     and a test compares the two fakes' fields. In workers it holds for the task's whole life: a worker
-    can't read the hold or the evidence (a known residual). zen-ux's guard
+    can't read the hold or the evidence (a known residual). The UI's guard
     (`ui/systemui/ZeniusSystemUiChild.sys.mjs`) installs after it at
     DOMWindowCreated and wraps it: while the agent
     drives a page with the site's grant, theirs answers first.
@@ -3508,7 +3504,7 @@ lives:
     `navigator.serviceWorker`; an earlier probe that found none ran on a
     `data:` page.) Each worker reports `serviceWorker` once for a reach
     and once for a dropped message, apart from a refused registration.
-  - `onUserLoadRefused(fn)` tells zen-ux's in-tab notice of a refused
+  - `onUserLoadRefused(fn)` tells the UI's in-tab notice of a refused
     top-level load the user started: the system principal, or a gesture
     while the agent doesn't drive the tab. Its `scope` is the rule that
     refused it: "task" (the tab, or a popup's opener, is a task's) or
@@ -3524,7 +3520,7 @@ lives:
     source's live task (`taskOf`: the task set and the page record's
     `spaceId`), or a window that still shows its initial about:blank
     (`isInitialDocument`, or no window global yet): a window being opened,
-    whose opening zen-core decides (a kept marked page's
+    whose opening the core decides (a kept marked page's
     `noopener` tab opens). The opener doesn't count: a
     `window.open(url, name)` on an existing window makes the caller its
     opener before the load is checked. After the task every other tab
@@ -3537,7 +3533,7 @@ lives:
     a cross-site popup Gecko itself starts no load into the opener, and a
     named open doesn't find the user's tab, so it opens a new window.
 - **The hand-off**: while the user types in the page H, nothing of the
-  agent's reaches it. zen-core decides what loads afresh, from the evidence
+  agent's reaches it. The core decides what loads afresh, from the evidence
   flag (`evidenceOf` and `needsCleanCopy` in `modules/handoff.sys.mjs`);
   this side guards the hold.
   - `agentSitesNear(rec, browser)` (`observe/agentcode.sys.mjs`): the sites
@@ -3547,24 +3543,24 @@ lives:
     top document is marked, or, while the task lives (`rec`), one of its
     documents shows a site where the agent's code ran. The site rule also
     covers what the code left that isn't a write (a form value). The site
-    rule skips fresh documents: a clean load's (zen-core's `cleanLoad`
+    rule skips fresh documents: a clean load's (the core's `cleanLoad`
     calls `noteCleanLoad`) until the agent's code runs in their group
-    again; a window's that zen-core reloaded for the hold (`holdReload`),
+    again; a window's that the core reloaded for the hold (`holdReload`),
     until the hold ends; and those a tab of another hold in the group got
-    since that hold began (a task may hold several pages, zen-core's
+    since that hold began (a task may hold several pages, the core's
     `holdFor`). A document that comes in beside a written one of its group
     is flagged written itself (`flagIfExposed`), which marks it.
     - Site, not origin: in Gecko 160 `dom.origin_agent_cluster.default` is
       false and `window.originAgentCluster` false (measured), so
       `document.domain` still joins a site's origins.
-  - The hold (`observe/hold.sys.mjs`): zen-core calls `holdPage(browser)`
+  - The hold (`observe/hold.sys.mjs`): the core calls `holdPage(browser)`
     before its quiet reload, and `releasePage(browser)` at Resume or any
     other end. `held` maps each held tab's browserId to the hold's (H's),
     published as `HELD_PAGES_KEY`. `before` keeps each held tab's
     documents (`innerWindowId`) from the start of its hold, for that site
     rule.
     - `holdPage` empties H's back-forward cache
-      (`sessionHistory.evictAllDocumentViewers()`, as zen-core does when a
+      (`sessionHistory.evictAllDocumentViewers()`, as the core does when a
       tab joins a task).
     - A window whose opener is a held tab joins its hold at
       `browsing-context-attached`, observed only while a page is held (I4).
@@ -3583,15 +3579,15 @@ lives:
       into H or its frames, and a frame in H of a site in
       `agentSitesNear(rec, H)`: the sites of the documents in the windows
       of H's group, outside the hold, that may hold the agent's code.
-      zen-ux hears these and the other-document refusals through
+      The UI hears these and the other-document refusals through
       `onHoldRefusal(fn)`: `{browser, kind: "history" | "agentSite" |
       "navigation", url}`. Each refusal is told once in two seconds:
       Gecko may ask the policy more than once for one load.
-    - `holdNeedsCoop(rec, browser, uri)`: zen-core asks it at the final
+    - `holdNeedsCoop(rec, browser, uri)`: the core asks it at the final
       response of a load into H's top document; true when `uri`'s site is
-      in `agentSitesNear`. zen-core then sets COOP on the response, so H
+      in `agentSitesNear`. The core then sets COOP on the response, so H
       leaves the group as it loads.
-    - `holdReload(browser, heldBrowser)`: zen-core calls it right before it
+    - `holdReload(browser, heldBrowser)`: the core calls it right before it
       reloads a window that reaches H, to keep H's opener. That tab's
       documents from then on count as fresh, so `agentSitesNear` skips
       them by site, until the hold ends; it doesn't join the hold.
@@ -3607,7 +3603,7 @@ lives:
     top document (`innerWindowId`) before the code runs. `page.goto` and
     `page.reload` mark the document a `data:` or `blob:` load commits,
     whose page is the agent's own code (`pages.new` with a `url` goes
-    through `page.goto`), and zen-input's paste with `html` marks the
+    through `page.goto`), and the input layer's paste with `html` marks the
     page too. It publishes the
     set to content as `AGENT_CODE_DOCS_KEY`
     (`content/refusals.sys.mjs`), so nothing is unmarked when the task's
@@ -3621,7 +3617,7 @@ lives:
     marked document finds it.
   - In content, `isAgentCodeDocument(bc)` reads `bc.top`'s current
     WindowContext. `isTaskDocument` and `isTaskPopup` count it, so the
-    task-long refusals apply. `needsRefusals(bc)` is what zen-core's actor
+    task-long refusals apply. `needsRefusals(bc)` is what the core's actor
     asks at DOMWindowCreated outside task pages, so frames and popups made
     after the task get the guards from their first document.
 - **Per-tab network.** `observe/network.sys.mjs` follows every channel of
@@ -3629,7 +3625,7 @@ lives:
   - `inflight(browserId)` lists the counted requests in flight.
   - `waitForNetworkIdle(browserId, {idleMs, timeoutMs})` waits for
     `networkidle`.
-  - `networkQuietMs(browserId)` (zen-input's missing-target fail-fast)
+  - `networkQuietMs(browserId)` (the input layer's missing-target fail-fast)
     is 0 while a counted request is in flight. Otherwise it is the ms
     since the last counted start or end, and Infinity before the tab has
     a record.
@@ -3639,7 +3635,7 @@ lives:
   TabSelect, TabSwitchDone, split view, window visibility and agent list
   changes. A manual mute or unmute (TabAttrModified `muted`) makes the tab
   the user's. The content guards send `observe.sound` when playback
-  starts, and `noteSound` reports `audio`. For zen-ux's indicator, the tab
+  starts, and `noteSound` reports `audio`. For the UI's indicator, the tab
   has the attribute `zenius-muted` while zenius keeps it muted, and
   `zenius-muted-sound` once a page has played sound in that time. It also
   publishes the browserIds it keeps muted in `sharedData`
@@ -3652,19 +3648,19 @@ lives:
     MediaController of its own, so `browsing-context-attached` mutes it
     at once.
 - `observe/agentcode.sys.mjs`: the record of the agent's own code, for
-  zen-ux's "Use your own tab", by site, per task, for the task's life.
+  the UI's "Use your own tab", by site, per task, for the task's life.
   Code the agent ran on a site can
   outlive its document: in a same-site popup or frame it wrote to, a
   `blob:` page it navigated to, the site's storage, or a page that later
   navigates to the site.
   - Closed groups: before that, `page.evaluate`
-    (`runEvaluation`) and each poll of `page.waitForFunction` ask zen-core's
+    (`runEvaluation`) and each poll of `page.waitForFunction` ask the core's
     `pages.codeRefusal(space, page)`, and `navigate()` asks before a
     `data:` or `blob:` load or one of another site (`sameSite`: the target's
     `siteOriginNoSuffix` against the document principal's, an opaque one's
     precursor's, or `currentURI`'s, so a reload or an error page's own URL
     passes). A refusal throws `msg.agentCodeRefused` (`ZEN_AGENT_CODE_REFUSED`)
-    and marks nothing. zen-input's paste with html asks the same. They ask
+    and marks nothing. The input layer's paste with html asks the same. They ask
     only while the document runs in a web content process
     (`webcontent.sys.mjs` `inWebProcess`): an add-on's pages share its
     group with its background page, which the check would count, and its
@@ -3686,7 +3682,7 @@ lives:
   - `agentCodeOnSite(rec, site)` takes a principal or a site. It answers
     whether the agent's code ran on that site in the task, in any document.
   - `agentCodeInPage(rec, browser)` answers whether the page shows such a
-    site: its top document or any frame. zen-ux asks at a handOff or a
+    site: its top document or any frame. The UI asks at a handOff or a
     takeover, and again at each of the page's navigations while the user
     holds the task. Pass the `<browser>` that holds the page
     (`pages.tabFor`), whether or not the tab is still one of the task's
@@ -3695,7 +3691,7 @@ lives:
     may be the agent's own rather than a page a website served. That is
     when its address is about:blank, about:srcdoc, `data:` or `blob:`,
     and either it has no site behind it or its site is one where the
-    agent's code ran in the task. zen-ux's pill then says the agent made
+    agent's code ran in the task. The UI's pill then says the agent made
     the page, with no own tab.
     - A page served over http(s) never counts.
     - Neither does a popup another document filled with `document.write`:
@@ -3703,7 +3699,7 @@ lives:
     - `agentCodeInPage` covers both.
     - Nor does the document a tab of the user's showed when the agent
       adopted it, such as their blank New Tab, even after the agent's code
-      ran there. zen-core's `pages.adopt` calls `noteAdopted(browser,
+      ran there. The core's `pages.adopt` calls `noteAdopted(browser,
       openedBy)` for it (a tab the agent opened is skipped). A document
       the tab loads later follows the rule above.
   - The spaceFinished sweep drops a finished task's record.
@@ -3732,11 +3728,11 @@ const refused = r.stop();                // [{kind, message}]; put it in the rec
 
 ### Parent backstops
 
-`modules/backstops.sys.mjs` (built by zen-core, finished by zen-observe).
+`modules/backstops.sys.mjs`.
 The parent refuses a task's pages again where their code can't reach: the
 second line behind the page refusals and the world's mirror of them.
 
-- **In only while a task has pages (I4).** zen-core's service calls
+- **In only while a task has pages (I4).** The core's service calls
   `setBackstops(service, on)` from publishAgentBrowsers: in with a live
   task's first page, out after its last, when Gecko's own functions are
   back (tests/core/backstops.test.mjs checks both).
@@ -3755,7 +3751,7 @@ second line behind the page refusals and the world's mirror of them.
   `getUserMedia:request`) refuses, in its content process, a request from
   a tab the agent drives or a task's tab with evidence. It needs `safeForUntrustedWebProcess: true`, or web processes
   don't load it. WebRTCChild still sends the parent a copy then: a
-  doorhanger may show, and its Allow reaches nothing; zen-ux cancels
+  doorhanger may show, and its Allow reaches nothing; the UI cancels
   webRTC doorhangers in a task's page as its own second line.
   `backstopState()` says which is in (`devices`: `"parent"`, `"content"`
   or `"off"`, with `devicesProblem`).
@@ -3765,11 +3761,11 @@ second line behind the page refusals and the world's mirror of them.
   and denies.
 - **Prompts.** An `Integration.contentPermission` override cancels a
   task page's prompt of any type before PermissionUI shows it when the
-  tab shows evidence (`promptRule`), the user's hold included. So zen-ux's
+  tab shows evidence (`promptRule`), the user's hold included. So the UI's
   hand-off, which starts when a doorhanger shows, never opens for it. A
   stored geolocation grant is covered: PermissionUI reads it inside the
   prompt the override replaces. Every other prompt of a task's page goes
-  on to PermissionUI (`backstopState().kept` counts them): zen-ux's
+  on to PermissionUI (`backstopState().kept` counts them): the UI's
   hand-off while the agent drives, the user's answer during the hold.
 - **Streams stop when the agent has the tab again.**
   `observe/capture.sys.mjs`'s `stopCapture(browser)` runs from setup's
@@ -3787,8 +3783,8 @@ second line behind the page refusals and the world's mirror of them.
 - **An error refuses.** A check that throws counts in
   `backstopState().errors` and refuses, the user's own tab's request
   included, while a task is live.
-- **What has no parent hook** (zen-snapshot's backstops-probe in zenius
-  mode). The page refusals, the world's mirror of them and zen-ux's quiet
+- **What has no parent hook** (the snapshot layer's backstops-probe in zenius
+  mode). The page refusals, the world's mirror of them and the UI's quiet
   notification remain the only gate for:
   - service worker registration (`serviceWorker`);
   - a notification the site has the user's grant for: content reads the
@@ -3805,7 +3801,7 @@ second line behind the page refusals and the world's mirror of them.
 ### Remote tasks
 
 The `sidebar.*` methods are described in PROTOCOL's "Remote tasks: the
-sidebar". They're cross-owner: zen-observe's code in zen-ux's sidebar.
+sidebar". They're cross-owner: the observe layer's code in the UI's sidebar.
 - `agent-sidebar/remote.sys.mjs` keeps `conv.remote`: `{address, label,
   requestId, startedAt, endsAt, endedAt, final}`. It reads a task's state
   from the sidebar's own (`taskInfo`). AgentService imports it at the
@@ -3828,7 +3824,7 @@ sidebar". They're cross-owner: zen-observe's code in zen-ux's sidebar.
     call in case Zen slept past it;
   - watches the off pref only while a remote task is active.
 - The methods module sets `conv.source = "remote"` and `conv.remote` before
-  the first `send`. That send's `addTask` shows zen-ux's arrival card. Each
+  the first `send`. That send's `addTask` shows the UI's arrival card. Each
   of the caller's messages is marked `source: "remote"`.
 - No log line carries a request's text.
 
@@ -3839,11 +3835,11 @@ written as their trigger. Written stays until no defense reads it.
 - Each document (innerWindowId) may have reasons, each with a detail of one
   line, at most 200 characters:
   - `hooked`: the agent's code left something that outlives the discard of
-    its world, set by the world and by zen-input's paste;
+    its world, set by the world and by the input layer's paste;
   - `made`: a data: or blob: top document the agent opened, set by
     `noteMade`;
-  - `listed`: Gecko's phishing or malware lists name it (zen-core);
-  - `flagged`: the agent flagged it (zen-core's tool).
+  - `listed`: Gecko's phishing or malware lists name it (the core);
+  - `flagged`: the agent flagged it (the core's tool).
 - The flags are only ever added, and they're per document, so a reload or
   a new load starts clean. `EVIDENCE_DOCS_KEY` (`content/worldkeys.sys.mjs`)
   is the sharedData copy: a Map of innerWindowId → `{reason: detail}`.
@@ -3856,7 +3852,7 @@ written as their trigger. Written stays until no defense reads it.
 - Content, `content/evidence.sys.mjs`, synchronous:
   - `isEvident`, `evidenceOf`, and `evidenceFlag` (pageFlag's contract:
     `"drop"` for a made top document, `"clean"` for a hooked one). Listed
-    and flagged pages get zen-ux's warning, not a clean copy: a reload
+    and flagged pages get the UI's warning, not a clean copy: a reload
     brings the danger back;
   - `markHooked(target, detail)` marks the window's document and the other
     documents of its group in that process, at once and through the
@@ -3864,7 +3860,7 @@ written as their trigger. Written stays until no defense reads it.
     when the document was hooked already: the world's report of the call
     then carries it, and the call's final frame says `hooked` (PROTOCOL);
   - `hookedMarkup(node)`: the check of inserted markup that the world and
-    zen-input's paste share.
+    the input layer's paste share.
 - The parent takes `zenius:evident` only for the sending process's own
   documents, and only as hooked.
 - How the agent world finds hooked (`content/agentworld.sys.mjs`):
@@ -3895,7 +3891,7 @@ written as their trigger. Written stays until no defense reads it.
     listener the world left, a change the page makes after that listener
     can count as the world's.
 
-## Input (zen-input)
+## Input
 
 ### Upload staging
 
@@ -3912,7 +3908,7 @@ writes nothing.
 - **Out of the agent's reach.** The whole path is under the profile, which
   no sandboxed CLI writes.
   - Until 2026-11-21 these files went in the system temp folder, which a
-    sandboxed CLI can write (Codex's `workspace-write` can). zen-snapshot's
+    sandboxed CLI can write (Codex's `workspace-write` can). The snapshot layer's
     `tests/snapshot/tools/staging-probe.mjs` showed that an agent there
     could plant or swap links and have its bytes written outside.
   - Checks at creation alone can't stop a folder being swapped after it's
@@ -4000,7 +3996,7 @@ A payload's `relativePath` makes a folder upload.
     cap is only a backstop.
 - **Firefox's folder question.** Gecko asks before any folder pick reaches
   a page (`nsIPromptCollection.confirmFolderUpload`, Bug 1338637). In an
-  agent tab, zen-observe's handler answers Cancel.
+  agent tab, the observe layer's handler answers Cancel.
   `content/filepicker.sys.mjs` puts a prompt collection in front of
   Firefox's in each content process that holds a task page:
   - The parent arms a token on its own actor message, for one frame and the
@@ -4033,17 +4029,17 @@ A payload's `relativePath` makes a folder upload.
 
 ### The typing guard and the paste, on evidence
 
-The guard acts only on evidence against a page, zen-observe's evidence
+The guard acts only on evidence against a page, the observe layer's evidence
 flag, and of its reasons only on hooked. Written doesn't count.
 
 - **The guard.** `content/typing.sys.mjs` holds the user's first press or
   key in a page that has hooked evidence, in its top document or a frame
   (content's `evidenceOf`). Their input stays held there until the top
-  document is replaced, and zen-core is asked for a clean copy. The guard
+  document is replaced, and the core is asked for a clean copy. The guard
   never holds:
   - a page the agent's code only filled, clicked or wrote text into;
   - a listed or flagged page: the danger there is the page itself, which a
-    clean copy can't remove, so zen-ux warns instead;
+    clean copy can't remove, so the UI warns instead;
   - a page the agent made (`evidenceFlag` "drop"), hooked or not;
   - the replay's own keys, whatever the flag says.
 - **Arming.** `input/capture.sys.mjs` arms a content process while any of
@@ -4052,7 +4048,7 @@ flag, and of its reasons only on hooked. Written doesn't count.
   - a held tab;
   - a hooked document in `EVIDENCE_DOCS_KEY`. Such a page keeps its process
     armed after its task, too.
-- **The paste.** Content's paste op runs zen-observe's `hookedMarkup`
+- **The paste.** Content's paste op runs the observe layer's `hookedMarkup`
   over the agent's html (`hookedPaste` in `content/input.sys.mjs`). It reads
   the markup as the agent sent it, not as the sanitizer lets it through,
   parsed whole by the page's DOMParser through its Xray. When it finds
@@ -4075,7 +4071,7 @@ flag, and of its reasons only on hooked. Written doesn't count.
 Every zenius task shows in the sidebar, whoever drives it. Its view lists
 the agent's steps from `input/steps.sys.mjs`.
 
-- **Recording.** zen-core's dispatcher calls `beginCall` as a client's call
+- **Recording.** The core's dispatcher calls `beginCall` as a client's call
   begins and `endCall` as it ends. A handler's own calls (`ctx.call`)
   aren't steps, and neither are queries (`page.url`, `pages.list`) or the
   runtime's own methods.
@@ -4091,7 +4087,7 @@ the agent's steps from `input/steps.sys.mjs`.
     zenius error code, or "failed"; a connection that closes first ends it
     "stopped". While it runs, each step of that connection's calls in the
     task carries `within`, its id.
-- **Reading.** zen-ux reads the steps beside zen-core's task feed. The feed
+- **Reading.** The UI reads the steps beside the core's task feed. The feed
   carries a task's life only.
   - `stepsOf(spaceId)` gives the task's last 50 steps,
     `{id, at, ms, method, text, outcome, page, within?}`, in the order their
@@ -4111,7 +4107,7 @@ the agent's steps from `input/steps.sys.mjs`.
     client does with the call.
   - A task's steps stay after it ends. The 32 most recently active tasks
     keep theirs.
-- **What a step may show.** Steps last, so these rules hold (zen-snapshot's
+- **What a step may show.** Steps last, so these rules hold (the snapshot layer's
   points):
   - nothing typed, pasted, chosen or run, and no value or file name;
   - a key only when it types no text;
@@ -4214,18 +4210,18 @@ zenius's mouse events carry pointer id 32767 (`AGENT_POINTER_ID`,
   running instance; `scripts/test-smoke.sh` starts one first.
   `scripts/test-all.sh` (smoke, every `tests/<area>/run.sh`, the SDK suites)
   is the merge check.
-- `tests/core/` holds zen-core's runtime tests (ownership, I3, pages,
+- `tests/core/` holds the core's runtime tests (ownership, I3, pages,
   frames). Its `lib.mjs` has helpers you can copy: a user Space that was
   never claimed, the takeover prompt opening (`setPaused`), the user taking
   over, a clean restart, and an I1 check that the user's view is unchanged
   after the whole file.
 - `scripts/lib/rpc.mjs` is a dependency-free NDJSON client for your own Node
-  tests: `const c = await connect("zen-input", {callTimeout: 30000});
+  tests: `const c = await connect("the input layer", {callTimeout: 30000});
   await c.call("…", {…})`. It sends `progress: true`, so a held call's timer
   pauses (`c.onProgress(f => …)` sees the frames), and it decodes
   `unserializable` results.
 
-## zenius feedback (zen-core)
+## zenius feedback
 
 A problem report about zenius itself, which the user sends, copies or
 discards in the agent sidebar's card (PROTOCOL, "Problem reports").
@@ -4351,10 +4347,10 @@ doctor takes longer, and the proposal waits for what's left, at least
 no draft: with no card, it says so, since its agent has no folder to point
 the user to (`docs/mcp.md`).
 
-## Install layout (zen-core)
+## Install layout
 
 `scripts/install.sh` installs the runtime into one Zen profile, and
-`--uninstall` removes it; zen-sdk's `zenius doctor` checks the same layout.
+`--uninstall` removes it; the SDK's `zenius doctor` checks the same layout.
 Neither quits or restarts Zen: afterwards the user quits and reopens it.
 `--dry-run` prints the changes without making them.
 
@@ -4369,7 +4365,7 @@ app bundle, and writes the loader only with `--loader`:
   `<profile>/chrome/utils/chrome.manifest`: fx-autoconfig's loader.
   `install.sh` refuses a profile without it, unless `--loader`: then it adds
   the copy in `runtime/vendor/fx-autoconfig/profile`, each file and folder
-  the profile lacks and none it has, for a fresh Zen's profile (zen-sdk's
+  the profile lacks and none it has, for a fresh Zen's profile (the SDK's
   release bootstrap). `~/.zenius/loader.added` notes what it added, one
   `<profile>\t<path>` line each, and `--uninstall` takes out exactly that,
   after a backup, unless `chrome/JS/` still holds other scripts, which run
@@ -4380,7 +4376,7 @@ Written by `install.sh`. It writes copies, never links:
   swapped in whole, so files of an earlier version don't linger. Other files
   in `chrome/JS/` (the user's other scripts) are left alone.
 - The agent's scripts beside the runtime, those the checkout has
-  (`COMPONENTS` in `install.sh`: `agent-sidebar`, `agent-urlbar`, zen-ux's,
+  (`COMPONENTS` in `install.sh`: `agent-sidebar`, `agent-urlbar`, the UI's,
   SPEC §8): `<profile>/chrome/JS/<name>.uc.js` and, if the checkout has
   one, the tree `<profile>/chrome/JS/<name>/`, swapped in whole. The profile
   may already hold a script of that name. The install that first replaces
@@ -4449,7 +4445,7 @@ Written by `install.sh`. It writes copies, never links:
 Removed by `--uninstall`, though `install.sh` never writes it:
 `<profile>/agent-sidebar-workspace/`. zenius's sidebar keeps its agent
 sessions' working folders and limit files there, and rewrites the limits
-before each session (zen-ux's).
+before each session (the UI's).
 `--uninstall` backs it up, with whatever the agents left in it, then
 removes it. That includes a workspace an older version's uninstall left
 behind. The sidebar's chats, `<profile>/agent-sidebar-tasks.json`, are the
@@ -4518,7 +4514,7 @@ Tests: `ZENIUS_INSTALLED=1 scripts/zen-dev.sh <name> start` starts a dev
 profile the way the daily Zen starts: with the runtime `install.sh` put
 there, and without `-purgecaches`.
 
-### CLI (zen-sdk)
+### CLI
 
 `scripts/install-cli.sh` installs the `zenius` CLI that agents call, and
 `zenius doctor`'s first check reports which copy runs. It never touches Zen.

@@ -1,9 +1,9 @@
 # The agent sidebar
 
 zenius's in-browser agent: its agent sidebar (Codex or Claude Code over
-ACP, in Zen's sidebar, ⌘⇧A), with two modes. Owners: zen-ux, with zen-sidebar
-(SPEC §8). This page is the contract tests go by: the names below stay
-stable, and a change to one is announced to zen-eval first.
+ACP, in Zen's sidebar, ⌘⇧A), with two modes. This page is the contract
+tests go by: the names below stay stable, and a change to one changes its
+tests in the same commit.
 
 - **Chat**: one conversation per tab, about its page (the sidebar as it was).
 - **Work**: a chat bound to a task instead of a tab, so it stays while the
@@ -297,7 +297,7 @@ stable, and a change to one is announced to zen-eval first.
     script's output, for the agent: only finish's indented lines are ever
     lines of a step.
     - **Its lines** are the runtime's steps of that script, as they happen.
-      AgentService listens to zen-input's `onStep`. The script step that
+      AgentService listens to the input layer's `onStep`. The script step that
       begins in the chat's task, or in a task whose `source.sidebar` is the
       chat's when the script starts one, is the chat's oldest running
       script call's (the server runs a session's calls in order), and each
@@ -323,7 +323,7 @@ stable, and a change to one is announced to zen-eval first.
       script started links the chat from that block's `Started the task
       "..."` line, as open's result does.
     - **The user's Stop** stops each running script of the chat in the
-      runtime (zen-input's `stopScript`, with its step's id), whatever the
+      runtime (the input layer's `stopScript`, with its step's id), whatever the
       agent's client does with the call.
 - **The agent's own work**: updates that come while no turn of the
   sidebar's is open show in the chat as they come, as a turn's do. Claude
@@ -339,7 +339,7 @@ stable, and a change to one is announced to zen-eval first.
 - **Pages reloaded at the task's end**: zenius loads afresh each page of an
   ending task that stays open with what the agent's code left hooked in it
   (`reloadHookedAfterTask`), which drops whatever the page hadn't saved.
-  zen-core's `pagesReloaded` names them, and the chat whose task it was
+  The core's `pagesReloaded` names them, and the chat whose task it was
   (`conv.zen`) adds a note: "Reloaded lichess.org/analysis to undo the
   agent's changes. Anything the page hadn't saved is gone.", or for several,
   "Reloaded 2 pages to undo the agent's changes: <page>, <page>. Anything
@@ -429,13 +429,13 @@ stable, and a change to one is announced to zen-eval first.
 | `agent-sidebar.uc.js` | Each window: the panel, ⌘⇧A, which chat the panel shows (Chat or Work), the directory, reading the tab |
 | `agent-sidebar/AgentService.sys.mjs` | Shared: the agents (ACP), conversations, tasks and their state, the tasks file, the zenius link, steps |
 | `agent-sidebar/AgentSidebar.sys.mjs` | The entry points other scripts import |
-| `agent-sidebar/builtin.sys.mjs` | The built-in agents, when there's no config.json (zen-ux's) |
+| `agent-sidebar/builtin.sys.mjs` | The built-in agents, when there's no config.json |
 | `agent-sidebar/panel.{html,js,css}` | The panel, in the sidebar's own document |
 | `agent-sidebar/directory.{sys.mjs,css}` | The directory drawer, in browser.xhtml |
-| `agent-sidebar/taskmenu.sys.mjs` | What a task's menus offer and say: the ⋯ menu's and All tasks' row menu's (zen-ux's) |
-| `agent-sidebar/pins.sys.mjs` | Pinned's cap, and the pins and sidebar names of the tasks other programs drive (zen-ux's) |
-| `agent-sidebar/selfcheck.sys.mjs` | The post-install self-check's scenarios, in zen-core's window: `prepare`, `run`, `cleanup` (below) |
-| `agent-sidebar/sidebarview.sys.mjs` | The panel and All tasks as a script reads and drives them, for the self-check's scenarios and `tests/ux` (zen-ux's) |
+| `agent-sidebar/taskmenu.sys.mjs` | What a task's menus offer and say: the ⋯ menu's and All tasks' row menu's |
+| `agent-sidebar/pins.sys.mjs` | Pinned's cap, and the pins and sidebar names of the tasks other programs drive |
+| `agent-sidebar/selfcheck.sys.mjs` | The post-install self-check's scenarios, in the core's window: `prepare`, `run`, `cleanup` (below) |
+| `agent-sidebar/sidebarview.sys.mjs` | The panel and All tasks as a script reads and drives them, for the self-check's scenarios and `tests/ux` |
 | `agent-sidebar/AgentSidebarPicture{Parent,Child}.sys.mjs` | The live card's pictures, painted in the agent page's own process |
 | `agent-sidebar/AgentSidebar{Parent,Child}.sys.mjs` | The JSWindowActor that reads a tab's selection and text |
 | `agent-sidebar/attachments.mjs`, `saving.mjs` | Attached files; copying and saving answers |
@@ -472,7 +472,7 @@ toolbar isn't visible, such as a site's sign-in window, has no sidebar):
 | `openChatOfSpace(space, source)` | The sidebar open on the Work chat that drives zenius task `space` (`AgentService.chatOfSpace`), as zenius's tasks panel's Open, its tab names and a notification's click do; resolves to whether it shows one. A task no Work chat drives opens nothing |
 | `watching` | The uid of the task this window watches, else null, whoever began the watch: the card, the directory, zenius's tasks panel or a notification |
 | `currentTask` | The task Work mode shows |
-| `conversationFor(tab)`, `submit(conv, { question, selection, attachments })` | A tab's chat, and asking in it (zen-eval's dispatch tests) |
+| `conversationFor(tab)`, `submit(conv, { question, selection, attachments })` | A tab's chat, and asking in it (the dispatch tests) |
 | `keepsChats`, `earlierChat()`, `earlierChats(query)`, `openEarlierChat(uid)` | Whether the window keeps chats (not a private window); the earlier chat the selected tab's empty chat offers back, `{uid, at, question, page}` or null; All tasks' matches for a search; bring one back, returning whether a tab shows it now |
 | `panel.show(conv)`, `panel.compose(conv, { selection })` | The open panel |
 | `AgentService` | `tasks` (uid → conversation), `taskList()`, `needsCount()`, `preferredHarness()` (the user's last pick in the sidebar, then config.json's default when it may run, then Claude Code), `setHarness(conv, id, { pick })` (`pick: false` for a switch zenius makes, which isn't kept as the user's pick) |
@@ -484,8 +484,8 @@ started a hold is the `source` of zenius's spaceChanged, kept in the task's
 
 ## The self-check's scenarios
 
-`selfcheck.sys.mjs` is zen-sidebar's half of the post-install self-check.
-zen-core's runner (`runtime/JS/zenius/modules/selfcheck.sys.mjs`) has the
+`selfcheck.sys.mjs` is the sidebar's half of the post-install self-check.
+The core's runner (`runtime/JS/zenius/modules/selfcheck.sys.mjs`) has the
 rest: the socket that `zenius selfcheck` calls, and the run's window. The
 runner opens a window that isn't a browser window, so none of the three
 `.uc.js` scripts load there, and hands it over:
@@ -497,7 +497,7 @@ runner opens a window that isn't a browser window, so none of the three
   (`win.ucAgentSidebar`, with `scope`). It adds one earlier task, done, so
   Archive has a task to move on to, and resolves with the run's scope once
   the panel shows. The panel takes the window's width less 280 px for the
-  drawer, between 300 and 420 px: in zen-core's 720 x 760 window it has
+  drawer, between 300 and 420 px: in the core's 720 x 760 window it has
   its full 420, and a 480 px window still works, with a 300 px panel.
 - `run(win, {shot, checked, signal})` goes through the post-install checks in
   order, `menu` ("The ⋯ menu"), `archive` ("Archive, Archived and
@@ -675,7 +675,7 @@ The panel (`panel.html`, its own document, so bare ids):
 | `#live[data-live="true"\|"false"][data-watching="true"\|"false"][data-drawn][data-every]` | The live card, the thread's last child, hidden until the task has a tab. `data-live` is true while the agent works on the page (the red dot); `data-watching` is true while this window watches the card's task; `data-drawn` counts the pictures drawn, and stays put while the card can't be seen; `data-every` is the wait for the next picture in ms, or `kept` after a very slow one. A test counts pictures by `data-drawn`: the card doesn't call drawSnapshot |
 | `#live-shot`, `#live-text` | Its picture (a canvas) and its line: `Live on <host>`, `Waiting for you on <host>` (a hand-off), `You have control on <host>` (a Take over), or the host |
 | `#live-src` | A remote task's source over the card's line: `From <label> on <address>` (`From <address>` without a label) (`AgentService.remoteSource(conv)`, from `conv.remote`, each part a first-strong isolate); hidden for any other task. A remote question (`message.source === "remote"`) has the same line as its `.src`, where a '>' question says "from the address bar". On the card the line heads the card's foot, and in each place the address is a chip (`.addr`, panel.js's `fillSource`; the text is unchanged) |
-| `#remote-end` | Under a remote task's last answer, once it stopped, why (`AgentService.remoteEnd(conv)`, from zen-observe's `conv.remote.final.stopReason`): "Stopped by <address>" (its caller's `sidebar.stop`, the address isolated), "Stopped at its time limit", "Stopped when remote tasks were turned off", "Stopped when Zen quit", or "Stopped" (the user's Stop). The task's state text says the same, on its directory row and in the title's tooltip. Hidden while it runs, when it failed (its error says why), and once the user takes a turn there themselves: an edit of the caller's question is the user's own (no `.src` line), and makes the chat theirs |
+| `#remote-end` | Under a remote task's last answer, once it stopped, why (`AgentService.remoteEnd(conv)`, from the observe layer's `conv.remote.final.stopReason`): "Stopped by <address>" (its caller's `sidebar.stop`, the address isolated), "Stopped at its time limit", "Stopped when remote tasks were turned off", "Stopped when Zen quit", or "Stopped" (the user's Stop). The task's state text says the same, on its directory row and in the title's tooltip. Hidden while it runs, when it failed (its error says why), and once the user takes a turn there themselves: an edit of the caller's question is the user's own (no `.src` line), and makes the chat theirs |
 | `#arrival[role=group]`, `#arrival-text`, `#arrival-watch`, `#arrival-stop`, `#arrival-close` | A remote task's arrival, over the composer, when one starts while the panel is open in the front window: "Task from <label> on <address>" (also the group's `aria-label`), with Watch (the task's page if it has one yet, else the task here), Stop (`AgentService.cancel`, as the panel's Stop) and ✕. It takes no focus and moves nothing (I1), and goes after 10 s (`uc.agent-sidebar.arrival-ms`, for tests), though not from under the pointer or the focus. With the sidebar closed, zenius shows the same card over its strip (`#zenius-arrival`, `ZeniusUI.remoteArrival`). Its look: lined up with the question box, Working's purple dot, the text (two lines at most, the address a chip) and ✕ on top, Watch and Stop under them on the right, as the live card's buttons; it slides up as it comes (none with reduced motion) |
 | `#watch`, `#watch-hint`, `#take-over` | Watch, hidden while this window watches the task; in its place then, the hint "⌃Tab back to your tabs" ("Ctrl+Tab" off the Mac), not a button; Take over, shown while the agent has the page, except while zenius reports a Take over refused |
 | `#feedback` (`aria-label` "Problem report") | The problem report card, between `#header` and `#messages`; hidden while no report waits. While it shows, the empty chat's `#empty` gives way |
@@ -724,8 +724,8 @@ token and shows no row.
   `==UserScript==` header, within its first 20 lines.
 - Each window's start ends by setting
   `window.zeniusSidebarStart = Object.freeze({ error })`, where `error` is
-  the start's exception message, or null. zen-ux's `ui.sidebarStatus` reads
-  it in each open window, for zen-sdk's doctor. A property, so the sidebar's
+  the start's exception message, or null. The UI's `ui.sidebarStatus` reads
+  it in each open window, for the SDK's doctor. A property, so the sidebar's
   start loads no zenius module (I4). A start that throws undoes what it did
   before the throw. A popup has no start, so no `zeniusSidebarStart`, and
   the status lists it as skipped.
@@ -863,7 +863,7 @@ token and shows no row.
   user's own Claude Code with their sign-in: a missing one fails as before.
   - The installer copies `runtime/agents/package.json` and its lock there,
     then runs `npm ci --omit=dev --omit=optional --ignore-scripts --no-audit
-    --no-fund --loglevel=error` (zen-sdk's). The lock
+    --no-fund --loglevel=error`. The lock
     pins claude-agent-acp 0.107.0 and codex-acp 2.6.0, and leaves out the
     SDKs' bundled CLIs. `node` there is a link to the user's Node 22.3 or
     later.
@@ -882,9 +882,8 @@ token and shows no row.
 
 ## The agents' limits
 
-Decided in SPEC §8, and built on the process side by zen-observe. Nothing
-goes into `~/.claude` or `~/.codex`, and the user's config.json is only
-read.
+Nothing goes into `~/.claude` or `~/.codex`, and the user's config.json is
+only read.
 
 - The workspace is `<profile>/agent-sidebar-workspace/`, with one folder for
   each adapter, `claude/` and `codex/`, so Codex's sandboxed writes can't
@@ -994,7 +993,7 @@ read.
   "none"` means no agents: zen-dev.sh sets it in every dev profile, and
   tests point it at their own config.
 - install.sh writes none of the workspace. Undo removes it, and doctor
-  reports it (zen-core and zen-sdk).
+  reports it (the core and the SDK).
 - The MCP server runs the installed CLI's `zenius mcp`. A CLI installed
   before `sdk/src/mcp.ts` has no `mcp`, so
   install-cli.sh has to install a current main with the sidebar.

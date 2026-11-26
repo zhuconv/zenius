@@ -1,6 +1,6 @@
 # Rubric C, round 2: zenius and Ego Lite (2026-11-21)
 
-zen-eval ran round 2 of `live-tasks.md` on both targets on 2026-11-21, 23:14 to 23:46 UTC,
+Round 2 of `live-tasks.md` ran on both targets on 2026-11-21, 23:14 to 23:46 UTC,
 on round 2's build of zenius (below). Each of the 15 tasks ran once on each target, the two runs back to back,
 in the opposite order from round 1. Gutenberg was down again, so T9 ran in neither round.
 Fourteen tasks ran on both targets, and every run was a full success.
@@ -100,7 +100,7 @@ all of them. The sample has no false pass.
   - The wait ended at once with that error, which zenius reports as the page's own, and
     didn't poll on. The agent guarded the read and waited again, which worked at once.
     It cost one step.
-  - Whether a wait should poll on past such an error is with zen-observe.
+  - Whether a wait should poll on past such an error is an open question.
 - **Ego runs in the user's own profile, whose settings can add text to pages.** In T13,
   Ego's agent noticed lines its browser had added to the page and gave the page's own
   text.
@@ -118,7 +118,7 @@ WebFetch and WebSearch off, and the prompt with its common tail are round 1's.
 ### The targets
 
 - **zenius, round 2's build**: a 0.1.0 pre-release, main as of 2026-11-21 22:58 UTC,
-  when the round started. It has zen-observe's fix for a `goto` to a `#fragment`, and
+  when the round started. It has the observe layer's fix for a `goto` to a `#fragment`, and
   test-all was green on it. Without that fix, such
   a `goto` held the next call for 15 s.
   - The round used the build's runtime, SDK and scripts, which the round checked were
@@ -159,7 +159,7 @@ These are round 1's "Fixes for round 2".
 
 ### Keys
 
-Recorded from 22:57 to 22:59 UTC, before the round, by zen-eval's own scripts (not an
+Recorded from 22:57 to 22:59 UTC, before the round, by the tasks' key scripts (not an
 agent) on a fresh headless dev profile (`tests/live/keys-2026-11-21-r2.json`). Every key
 script other than T4's printed exactly what it printed for round 1, so those keys are
 round 1's. T8's is carried over, as before.

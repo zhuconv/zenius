@@ -15,7 +15,7 @@ node tests/e2e/runner.mjs --target ego
 
 Rubric A counts the cases `tests/e2e/manifest.mjs` doesn't mark N/A for zenius: it leaves out the 12 cases that exercise Ego's legacy v1 helpers (not in skill guide v2.2.1), the 2 that test CDP itself and the one that drives Chromium's PDF viewer. Flaky means the case passed in some runs and failed in others.
 
-zen-eval's own cases (`tests/e2e/zen-cases/`), outside Ego's suite and its counts:
+The cases zenius adds (`tests/e2e/zen-cases/`), outside Ego's suite and its counts:
 
 - **zen-eval: v2 control lifecycle**: pass, 21 assertions
 

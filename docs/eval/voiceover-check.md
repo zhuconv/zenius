@@ -1,9 +1,9 @@
 # VoiceOver check: zenius's cards (about 5 minutes)
 
-A listening script for zen-eval's hands-on VoiceOver check with the user.
+A listening script for a hands-on VoiceOver check with the user.
 The headless a11y suite (`tests/ux/a11y.test.mjs`) checks the same names,
 order and announcements, but without a screen reader, so a person listens
-once. zen-ux wrote this script from that suite.
+once. This script follows that suite.
 
 The user turns VoiceOver on and off themselves (Cmd+F5). Nothing here
 turns it on, changes VoiceOver's settings or touches the system clipboard.
@@ -42,7 +42,7 @@ a page the agent made (6), a new task for the finish (7), and the claim
 |---|---|---|---|---|---|
 | 1 | Agent paused | The user clicks in the agent's page while it works (or types: "You're taking over · in … s") | Nothing: it answers their own click | Tab from the page: Take over, Resume agent | Each named, with "Agent paused, it resumes in N s" current when reached; Resume agent gives the agent back |
 | 2 | You're in control | Take over on row 1 | Nothing: their own choice | Tab from the page: Resume agent | "You're in control, the agent waits until you resume it, on <site>" heard with the button. Keep it for row 3 |
-| 3 | Network access denied | In row 2's hold: Cmd+L, type `http://lan.local/` (the scheme, so it's never a search), Return. zen-observe refuses it before any lookup; nothing leaves the Mac | "Network access denied: lan.local. The current network policy doesn't allow agents to access lan.local. It's on your local network; Add to allowlist lets every agent tab reach it, until you remove it." | Tab from the page: the hold's Resume agent, then Open it yourself, Add to allowlist, Dismiss | Heard once, with the host. Dismiss closes it and the focus is back in the page. Then Resume agent |
+| 3 | Network access denied | In row 2's hold: Cmd+L, type `http://lan.local/` (the scheme, so it's never a search), Return. The observe layer refuses it before any lookup; nothing leaves the Mac | "Network access denied: lan.local. The current network policy doesn't allow agents to access lan.local. It's on your local network; Add to allowlist lets every agent tab reach it, until you remove it." | Tab from the page: the hold's Resume agent, then Open it yourself, Add to allowlist, Dismiss | Heard once, with the host. Dismiss closes it and the focus is back in the page. Then Resume agent |
 | 4 | Agent needs you | The agent sets its state text ("Log in to continue", `spaces.setState`) and calls `task.handOff()`. The user may be in their own Space | "Agent needs you in <task>, on <site>. The agent says: “Log in to continue”." | Open the task's tab (panel: Open), then Tab from the page: Resume agent | Heard once, wherever the user is in the window, with no focus move. The button's hint is the card's text, the agent's words included |
 | 5 | The Resume line | In row 4's hold, on a page with a password field: type a letter in it | Nothing: their own typing | Tab from the page: Resume agent | The hint now starts "Agent needs you, <task>, on <site>. Resume agent clears password, card and code fields, so submit what you type there first.", then the agent's words. Resume agent gives the agent the tab |
 | 6 | The agent made this page | A new task: the agent goes to `data:text/html,<input>` and finishes with that page kept (`task.finish({ keep: ["p1"] })`). The user opens it and clicks in the field | "The agent made this page. It might contain malicious code. Keep sensitive information out." | Tab from the page: Dismiss | Heard once, with no focus move. Dismiss closes it, focus back in the page |
@@ -55,4 +55,4 @@ left by the panel's Stop, has no card, by design.
 ## Report
 
 For each row: pass or fail, and for a fail, what VoiceOver said instead
-(quoted) and where the focus went. Send it to zen-ux.
+(quoted) and where the focus went.

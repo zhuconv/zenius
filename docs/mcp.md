@@ -6,10 +6,10 @@ read, such as `Open shop.example.com/checkout` or `Click "Settings"`, instead of
 `zenius nodejs` shell commands. It needs no shell, so it also works where the
 user has turned the agent's Bash tool off.
 
-The server is part of the CLI (`sdk/src/mcp.ts`, zen-core's). It goes
+The server is part of the CLI (`sdk/src/mcp.ts`). It goes
 through the SDK's task spaces and Pages on the instance socket, so the
 runtime applies the same rules as it does for a script, and its errors use
-the same words (zen-sdk's error guide).
+the same words (the SDK's error guide).
 
 ## Tools
 
@@ -331,7 +331,7 @@ is retired: a registration from its days with
 ## Registering it
 
 Agents in zenius's sidebar need no registration: the sidebar passes this
-server to each session it starts (zen-ux's), with its Zen's instance in
+server to each session it starts, with its Zen's instance in
 `ZENIUS_INSTANCE`, and its zenius home and working folder in `ZENIUS_HOME`
 and `ZENIUS_WORKING_DIR` when that Zen has them, as a dev Zen does. The
 agent's own process gets the same three, so a `zenius` command it runs

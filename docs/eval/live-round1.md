@@ -1,6 +1,6 @@
 # Rubric C, round 1: zenius and Ego Lite (2026-11-21)
 
-zen-eval ran round 1 of `live-tasks.md` on both targets on 2026-11-21, 19:24 to 19:50 UTC.
+Round 1 of `live-tasks.md` ran on both targets on 2026-11-21, 19:24 to 19:50 UTC.
 Each of the 15 tasks ran once on each target, the two runs back to back. Gutenberg was
 down, so T9 didn't run and moves to round 2. Fourteen tasks ran on both targets.
 

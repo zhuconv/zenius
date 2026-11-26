@@ -1,7 +1,7 @@
 # The pilot's page.evaluate and waitForFunction bodies
 
 For measuring page code in an isolated world: the code the pilot's agents ran
-in pages, reduced to its shape. zen-eval, 2026-11-20.
+in pages, reduced to its shape (2026-11-20).
 
 ## Where they come from
 
