@@ -772,6 +772,33 @@ export class Pages {
   }
 
   /**
+   * A tab leaves its task for good and is the user's: its page, if it's
+   * one, and its ledger entry go, and so do its session value and tag, so
+   * no claim, adoption or restart gives it back to the task. A secret
+   * step's tab that didn't blank, at the hand back
+   * (service.blankSecretSteps).
+   *
+   * @param {object} space  SpaceRecord
+   * @param {Element} tab  any copy
+   * @returns {object|null} the space's page it was, if any
+   */
+  leaveTask(space, tab) {
+    const id = this.tabId(tab);
+    const found = this.forTab(tab);
+    const page = found?.spaceId === space.id ? found : null;
+    if (page) {
+      this.remove(page);
+    }
+    delete space.ledger.unmanaged[id];
+    space.ledger.retained = space.ledger.retained.filter(t => t !== id);
+    releaseKeepAlive(liveCopy(tab) ?? tab);
+    writeTabValue(tab, null);
+    writeTag(tab, null);
+    this.onTaskValue?.();
+    return page;
+  }
+
+  /**
    * Which task holds this tab, as a page, a tab its ledger keeps, or a close
    * that waits: its id, else null. A tab carrying a task's session value
    * that no task holds is the user's.

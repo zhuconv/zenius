@@ -54,6 +54,9 @@ export const TASK_END_RECORD_TIMEOUT_MS = 10000;
 const FILL_TIMEOUT_MS = 8000;
 /** How long a secret step's tab gets to show about:blank at the hand back. */
 const BLANK_TIMEOUT_MS = 10000;
+/** How long a blank that comes after that is still watched for, to clear the history. */
+const LATE_BLANK_MS = 30 * 60 * 1000;
+const LATE_BLANK_POLL_MS = 500;
 const COOP = "Cross-Origin-Opener-Policy";
 const RESPONSE_TOPICS = ["http-on-examine-response", "http-on-examine-cached-response", "http-on-examine-merged-response"];
 /**
@@ -680,40 +683,117 @@ function refused(svc, browser, reason, message) {
   return new ZenError("ZEN_HANDOFF_REFUSED", message, { page, reason });
 }
 
+/** The top browsing context of the tab with this browserId, wherever its docShell is now. */
+const topOf = browserId => BrowsingContext.getCurrentTopByBrowserId(browserId) ?? null;
+
+/**
+ * Where a blank of the tab stands, from the document it had (`before`):
+ * "gone" once the tab closed, "waiting" for the blank document or for its
+ * history entry, "blank" once that entry is the history's only one (this
+ * purges the rest), and "elsewhere" when another document came instead.
+ *
+ * @param {number} browserId
+ * @param {number} before  innerWindowId
+ */
+function blankState(browserId, before) {
+  const top = topOf(browserId);
+  if (!top) {
+    return "gone";
+  }
+  const windowGlobal = top.currentWindowGlobal;
+  if (!windowGlobal || windowGlobal.innerWindowId === before || windowGlobal.isInitialDocument) {
+    return "waiting";
+  }
+  if (windowGlobal.documentURI?.spec !== "about:blank") {
+    return "elsewhere";
+  }
+  // The blank document's entry reaches the parent's history after the
+  // document does: purging before it would keep the secret page's entry.
+  const history = top.sessionHistory;
+  const current = history?.count ? history.getEntryAtIndex(history.index) : null;
+  if (!history || current?.URI?.spec !== "about:blank" || history.index !== history.count - 1) {
+    return "waiting";
+  }
+  if (history.count > 1) {
+    history.purgeHistory(history.count - 1);
+  }
+  return "blank";
+}
+
 /**
  * A secret step's tab at the hand back (an agent's hand-off with secret):
  * about:blank in its place and its history gone, so neither back nor the
  * back-forward cache can bring the page with the secret back for the agent.
- * Whether the tab is blank now.
+ * The page's user activation goes first (forms#clearActivation), as for
+ * the clean copy: Gecko then puts up no leave prompt, so no beforeunload
+ * handler, the site's or one the agent's code left in the page, holds the
+ * load. Whether the tab is blank now (false: it closed meanwhile). It
+ * throws when the blank didn't come in time or another page came instead;
+ * a blank that comes later still clears the history (purgeLate).
  *
- * @param {Element} browser
+ * @param {object} svc  ZeniusService
+ * @param {number} browserId  the tab's, whichever <browser> holds its docShell
  */
-export async function blankTab(browser) {
-  const bc = browser?.browsingContext;
-  if (!browser?.isConnected || !bc) {
+export async function blankTab(svc, browserId) {
+  if (!browserId || !topOf(browserId)?.embedderElement) {
     return false;
   }
-  const before = bc.currentWindowGlobal?.innerWindowId;
-  browser.loadURI(Services.io.newURI("about:blank"), {
+  // Tests shorten the wait (service.blankTimeoutMs).
+  const ms = svc.blankTimeoutMs ?? BLANK_TIMEOUT_MS;
+  try {
+    await within(svc.content(topOf(browserId), "forms#clearActivation", {}), RECORD_TIMEOUT_MS, "clearing the page's activation");
+  } catch (e) {
+    // A page with no leave prompt blanks all the same.
+    log(`a secret step's tab kept its activation: ${e.message}`);
+  }
+  const top = topOf(browserId);
+  if (!top?.embedderElement) {
+    return false;
+  }
+  const before = top.currentWindowGlobal?.innerWindowId;
+  top.embedderElement.loadURI(Services.io.newURI("about:blank"), {
     triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
   });
-  await newDocument(browser, before, BLANK_TIMEOUT_MS);
-  // The blank document's entry reaches the parent's history after the
-  // document does: purging before it would keep the secret page's entry.
-  const end = Date.now() + BLANK_TIMEOUT_MS;
+  const end = Date.now() + ms;
   for (;;) {
-    const history = browser.browsingContext?.sessionHistory;
-    const current = history?.count ? history.getEntryAtIndex(history.index) : null;
-    if (history && current?.URI?.spec === "about:blank" && history.index === history.count - 1) {
-      if (history.count > 1) {
-        history.purgeHistory(history.count - 1);
-      }
+    const state = blankState(browserId, before);
+    if (state === "blank") {
       return true;
     }
+    if (state === "gone") {
+      return false;
+    }
+    if (state === "elsewhere") {
+      throw new Error("another page came instead of the blank");
+    }
     if (Date.now() > end) {
-      throw new Error("the blank page's history entry didn't come");
+      purgeLate(browserId, before).catch(e => log("watching for a late blank failed:", e.message));
+      throw new Error(`the blank didn't come in ${ms / 1000} s`);
     }
     await new Promise(resolve => lazy.setTimeout(resolve, 25));
+  }
+}
+
+/**
+ * After blankTab gave up: a blank that still comes (a leave prompt the user
+ * answers late, a page slow to unload) clears the history then, so Back
+ * can't bring the secret's page back to whoever has the tab. It watches
+ * while the tab lasts and shows the step's page, for half an hour at most.
+ *
+ * @param {number} browserId
+ * @param {number} before  innerWindowId
+ */
+async function purgeLate(browserId, before) {
+  const end = Date.now() + LATE_BLANK_MS;
+  while (Date.now() < end) {
+    await new Promise(resolve => lazy.setTimeout(resolve, LATE_BLANK_POLL_MS));
+    const state = blankState(browserId, before);
+    if (state === "blank") {
+      log("a secret step's tab blanked late: its history is gone");
+    }
+    if (state !== "waiting") {
+      return;
+    }
   }
 }
 

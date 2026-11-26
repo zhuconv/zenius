@@ -1299,15 +1299,26 @@ Entry points (`modules/service.sys.mjs`):
   label to the evidence it had before its load ({reason: detail}), for
   the UI's notice.
 - Secret steps: `spaces.handOff {secret: true}` notes H
-  (`noteSecretStep`), and `spaceChanged` says `secret: true` for the UI's
-  card. At the hand back, `blankSecretSteps(rec)` runs before anything
-  else. That's `spaces.takeOver` and `spaces.claim` through `handBack`, and
-  the user's Resume through the UI's `beforeHandBack`, which calls it first
-  (the core's glue). For H and the popups that share its hold (`heldWith`),
-  `blankTab` loads `about:blank`, waits until that entry is the history's
-  last, and purges the rest, so neither back nor the back-forward cache
-  brings the secret back. A tab that won't blank is closed. The hand
-  back's notes say `blanked`. The task's end drops its secret steps.
+  (`noteSecretStep`) by its browserId, which follows the page's docShell to
+  the copy a window shows (window sync) and into a torn-off window, and
+  `spaceChanged` says `secret: true` for the UI's card. At the hand back,
+  `blankSecretSteps(rec)` runs before anything else. That's
+  `spaces.takeOver` and `spaces.claim` through `handBack`, and the user's
+  Resume through the UI's `beforeHandBack`, which calls it first (the
+  core's glue). For H and the popups that share its hold (`heldWith`):
+  - `blankTab` clears the page's user activation first
+    (`forms#clearActivation`), so no beforeunload handler, the site's or
+    one the agent's code left, holds the load with a leave prompt.
+  - It loads `about:blank`, waits until that entry is the history's last,
+    and purges the rest, so neither back nor the back-forward cache brings
+    the secret back. A blank that comes after the wait still purges.
+  - A tab that won't blank leaves the task for good (`pages.leaveTask`,
+    with `pageClosed`), leaving a blank tab of the agent's if it was the
+    task's last, then closes as a tab of the user's would. One that won't
+    close stays theirs.
+
+  The hand back's notes say `blanked` for the tabs that blanked. The
+  task's end drops its secret steps.
   With the UI's quiet loads off (a test switch), Resume doesn't run
   `beforeHandBack`, so nothing is blanked there.
 - `cleanLoad(browser)`: the quiet load alone, for the UI's Resume.

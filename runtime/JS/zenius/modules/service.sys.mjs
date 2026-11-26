@@ -12,6 +12,7 @@ import {
   copiesOf,
   fillCopies,
   followWindowSync,
+  hostWindow,
   KEPT_REFUSAL_KINDS,
   KEPT_TEXT_MAX,
   markLiveCopy,
@@ -890,8 +891,11 @@ class Service {
   /** Has any page been held for the user since startup? Until then the hold's module stays unloaded (I4). */
   #heldForUser = false;
 
-  /** Task record → the held tabs of its secret step (an agent's hand-off with secret), blanked at the hand back. */
+  /** Task record → the browserIds of its secret steps' tabs (an agent's hand-off with secret), blanked at the hand back. */
   #secretSteps = new WeakMap();
+
+  /** Task record → its hand back's blank while it runs (blankSecretSteps), for a second hand back meanwhile. */
+  #blanking = new WeakMap();
 
   /**
    * While the user holds a page of a task, a page of that task with
@@ -1242,17 +1246,25 @@ class Service {
 
   /**
    * The agent says the user's step in `browser` will show a secret (its
-   * hand-off with secret): the hand back blanks that tab first.
+   * hand-off with secret): the hand back blanks that tab first. By its
+   * browserId: the page's docShell moves to the copy a window selects
+   * (window sync) and into a torn-off window's browser, and the browserId
+   * goes with it, while this <browser> stays behind.
    *
    * @param {object} rec
    * @param {Element} browser
    */
   noteSecretStep(rec, browser) {
-    let tabs = this.#secretSteps.get(rec);
-    if (!tabs) {
-      this.#secretSteps.set(rec, (tabs = new Set()));
+    const id = browser?.browsingContext?.browserId;
+    if (!id) {
+      log("a secret step's tab has no browsing context: the hand back can't blank it");
+      return;
     }
-    tabs.add(browser);
+    let ids = this.#secretSteps.get(rec);
+    if (!ids) {
+      this.#secretSteps.set(rec, (ids = new Set()));
+    }
+    ids.add(id);
   }
 
   /**
@@ -1261,49 +1273,112 @@ class Service {
    * it opened in its hold, show about:blank with their history gone, so
    * nothing the agent can reach still shows the secret, back and the
    * back-forward cache included (the Cloudflare token, 2026-11-21). The hand
-   * back's notes say which (blanked). A tab that doesn't blank is closed
-   * instead: the agent never gets it back with the secret.
+   * back's notes say which (blanked). A tab that doesn't blank leaves the
+   * task instead (#dropSecretTab): the agent never gets it back, and the
+   * notes don't name it. A second hand back that comes meanwhile (the
+   * agent's takeOver during the user's Resume, or the reverse) waits for the
+   * same run, so neither gives the agent control before the blank is done.
    *
    * @param {object} rec
-   * @returns {Promise<string[]>} the labels of the pages blanked or closed
+   * @returns {Promise<string[]>} the labels of the pages blanked
    */
-  async blankSecretSteps(rec) {
+  blankSecretSteps(rec) {
+    let run = this.#blanking.get(rec);
+    if (!run) {
+      run = this.#blankSteps(rec).finally(() => this.#blanking.delete(rec));
+      this.#blanking.set(rec, run);
+    }
+    return run;
+  }
+
+  async #blankSteps(rec) {
     const steps = this.#secretSteps.get(rec);
     this.#secretSteps.delete(rec);
     if (!steps?.size) {
       return [];
     }
-    const tabs = new Set();
-    for (const browser of steps) {
-      if (browser.isConnected) {
-        for (const tab of lazy.heldWith(browser)) {
-          tabs.add(tab);
+    // H and the popups of its hold, by browserId in this one synchronous
+    // step: a docShell that moves to another window's copy while an earlier
+    // tab blanks takes its browserId along, and an element would stay.
+    const ids = new Set();
+    for (const id of steps) {
+      const browser = BrowsingContext.getCurrentTopByBrowserId(id)?.embedderElement;
+      if (browser?.isConnected) {
+        for (const held of lazy.heldWith(browser)) {
+          const heldId = held.browsingContext?.browserId;
+          if (heldId) {
+            ids.add(heldId);
+          }
         }
       }
     }
     const labels = [];
-    for (const browser of tabs) {
-      const label = this.pages.forBrowser?.(browser)?.label ?? null;
+    for (const id of ids) {
+      // The element only for the label and the drop, wherever the docShell is then.
+      const holder = () => BrowsingContext.getCurrentTopByBrowserId(id)?.embedderElement ?? null;
+      const shown = holder();
+      const label = shown ? (this.pages.forBrowser?.(shown)?.label ?? null) : null;
       const started = Date.now();
       try {
-        await lazy.blankTab(browser);
-        log(`a secret step's tab is blank: ${label ?? "a page"} (${Date.now() - started} ms)`);
-      } catch (e) {
-        log(`a secret step's tab didn't blank (${e.message}), so it closes: ${label ?? "a page"}`);
-        try {
-          browser.ownerGlobal?.gBrowser?.removeTab(browser.ownerGlobal.gBrowser.getTabForBrowser(browser));
-        } catch (closing) {
-          log("closing it failed too:", closing.message);
+        if (await lazy.blankTab(this, id)) {
+          log(`a secret step's tab is blank: ${label ?? "a page"} (${Date.now() - started} ms)`);
+          if (label) {
+            labels.push(label);
+          }
         }
-      }
-      if (label) {
-        labels.push(label);
+      } catch (e) {
+        log(`a secret step's tab didn't blank (${e.message}), so it leaves the task: ${label ?? "a page"}`);
+        const browser = holder();
+        if (browser) {
+          this.#dropSecretTab(rec, browser);
+        }
       }
     }
     if (labels.length) {
       this.spaces.noteBlanked(rec, labels);
     }
     return labels;
+  }
+
+  /**
+   * A secret step's tab that didn't blank leaves its task for good first
+   * (pages.leaveTask), so its page has ended for the agent (pageClosed). As
+   * the task's last tab it leaves a blank one of the agent's, as pages.close
+   * does. Then it closes as a tab of the user's would, with no leave prompt:
+   * one a window shows closes once the user leaves it, and the pill's Keep
+   * keeps it theirs, not the task's. One that won't close stays theirs.
+   */
+  #dropSecretTab(rec, browser) {
+    let tab = null;
+    try {
+      // Not ownerGlobal: zenius's module scope doesn't see it.
+      const win = browser.ownerDocument?.defaultView;
+      tab = win?.gBrowser?.getTabForBrowser(browser) ?? null;
+      const id = tab ? this.pages.tabId(tab) : null;
+      const found = this.pages.forBrowser?.(browser) ?? null;
+      if (tab && this.pages.tabsOf(rec).length <= 1) {
+        this.pages.addUnmanaged(rec, this.pages.addTab(rec, hostWindow(win)), "agent");
+      }
+      let page = null;
+      if (tab) {
+        page = this.pages.leaveTask(rec, tab);
+      } else if (found?.spaceId === rec.id) {
+        page = found;
+        this.pages.remove(page);
+      }
+      if (page) {
+        this.emit("pageClosed", { space: rec.id, page: page.label, tab: id });
+      }
+    } catch (e) {
+      log("taking it out of the task failed:", e.message);
+    }
+    try {
+      if (tab) {
+        this.pages.closeTab(tab);
+      }
+    } catch (e) {
+      log("closing it failed, so it stays the user's:", e.message);
+    }
   }
 
   /** zen-ux's Take over, in every form: the prompt, its countdown, the panel, the user's typing. */

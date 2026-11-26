@@ -212,6 +212,19 @@ export function record(actor) {
 }
 
 /**
+ * Before a load zenius makes in the page's place, with nothing to carry
+ * over (the hand back's blank of a secret step, handoff.sys.mjs blankTab):
+ * the page's user activation goes, as record()'s does, so no beforeunload
+ * handler, the site's or one the agent's code left in the page, can put up
+ * a leave prompt that holds the load. The top document's call clears its
+ * frames' too.
+ */
+export function clearActivation(actor) {
+  actor.document?.clearUserGestureActivation();
+  return true;
+}
+
+/**
  * The URL whose response is this document: its channel's, after any
  * redirects. The site's own pushState and replaceState change the URL the
  * page shows, never this one, so zen-core's quiet load goes here when the

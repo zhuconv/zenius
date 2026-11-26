@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import http from "node:http";
 import { after, before, test } from "node:test";
-import { setup } from "./lib.mjs";
+import { setup, sleep } from "./lib.mjs";
 
 let h;
 /** Two sites on one loopback server: 127.0.0.1 and localhost; a second server is another origin of 127.0.0.1. */
@@ -117,22 +117,29 @@ before(async () => {
   );
 });
 after(async () => {
-  await h
-    ?.chrome(
-      `Services.prefs.clearUserPref("dom.disable_open_during_load");
-       Services.prefs.clearUserPref("browser.tabs.loadDivertedInBackground");
-       delete ctx.service.discardAgentCode;
-       delete ctx.service.hoDiscards;
-       delete ctx.service.hoDiscardFail;
-       return true;`
-    )
-    .catch(() => {});
-  await h?.close();
-  for (const res of server.hanging) {
-    res.destroy();
+  try {
+    await h
+      ?.chrome(
+        `Services.prefs.clearUserPref("dom.disable_open_during_load");
+         Services.prefs.clearUserPref("browser.tabs.loadDivertedInBackground");
+         delete ctx.service.discardAgentCode;
+         delete ctx.service.hoDiscards;
+         delete ctx.service.hoDiscardFail;
+         return true;`
+      )
+      .catch(() => {});
+    await h?.close();
+  } finally {
+    // Whatever close() found (its I1 check throws): open servers would keep
+    // this file's process, and the whole run, waiting forever.
+    for (const res of server.hanging) {
+      res.destroy();
+    }
+    for (const server of [http1, http2]) {
+      server.close();
+      server.closeAllConnections();
+    }
   }
-  http1.close();
-  http2.close();
 });
 
 /** The agent's world in the page (where its window handles live): {none: true} once a hand-off ended it. */
@@ -1347,6 +1354,237 @@ test("a hand-off with secret: spaceChanged says secret, and at the user's Resume
     assert.equal((await info(space, label)).url, site("/form?ho=s1-again"));
     assert.equal((await h.call("spaces.waitForControl", { space, timeout: 5000 })).blanked, undefined);
   } finally {
+    await cleanUp(space);
+  }
+});
+
+/** A tab's state by browserId, a page or not: gone, or its URL, history length, session value, page and whether its close waits. */
+const tabState = id =>
+  h.chrome(
+    `const top = BrowsingContext.getCurrentTopByBrowserId(arg);
+     const b = top?.embedderElement;
+     const win = b?.ownerDocument?.defaultView;
+     const tab = win?.gBrowser?.getTabForBrowser?.(b);
+     if (!tab || tab.closing) return { gone: true };
+     let value = null;
+     try { value = win.SessionStore.getCustomTabValue(tab, "zenius") || null; } catch {}
+     return { gone: false, url: b.currentURI.spec, history: top.sessionHistory?.count ?? 0, value, page: ctx.pages.forTab(tab)?.label ?? null, waits: ctx.pages.isDeferred(tab) };`,
+    id
+  );
+/** The page's browserId and tab id, which outlast its label. */
+const idsOf = (space, label) =>
+  h.chrome(
+    `const tab = ctx.pages.tabFor(ctx.pages.get(ctx.spaces.get(arg.space), arg.label));
+     return { browserId: tab.linkedBrowser.browsingContext.browserId, tab: ctx.pages.tabId(tab) };`,
+    { space, label }
+  );
+/** Close a tab that's no task's any more, by browserId, with no leave prompt. */
+const closeTheirs = id =>
+  h.chrome(
+    `const b = BrowsingContext.getCurrentTopByBrowserId(arg)?.embedderElement;
+     const g = b?.ownerDocument?.defaultView?.gBrowser;
+     const tab = g?.getTabForBrowser?.(b);
+     if (tab && !tab.closing) g.removeTab(tab, { skipPermitUnload: true, animate: false });
+     return true;`,
+    id
+  );
+/** The pageClosed events from now on, and those heard. */
+const hearCloses = () =>
+  h.chrome(
+    `ctx.service.hoCloses = [];
+     ctx.service.hoClosesOff?.();
+     ctx.service.hoClosesOff = ctx.service.addEventListener((e, p) => e === "pageClosed" && ctx.service.hoCloses.push(p));
+     return true;`
+  );
+const closesHeard = () => h.chrome(`return ctx.service.hoCloses ?? [];`);
+const forgetCloses = () =>
+  h.chrome(
+    `ctx.service.hoClosesOff?.(); delete ctx.service.hoClosesOff; delete ctx.service.hoCloses;
+     delete ctx.service.blankTimeoutMs; delete ctx.pages.closeTab;
+     Services.prefs.clearUserPref("dom.max_script_run_time");
+     return true;`
+  );
+/** The page's beforeunload listeners, as Gecko lists them. */
+const leaveListeners = (space, label) =>
+  h.chrome(
+    `const s = ctx.spaces.get(arg.space);
+     const tab = ctx.pages.tabFor(ctx.pages.get(s, arg.label));
+     return ctx.content(tab.linkedBrowser.browsingContext, "dev#evalContent", { privileged: true, code: "const els = Components.classes['@mozilla.org/eventlistenerservice;1'].getService(Components.interfaces.nsIEventListenerService); return els.getListenerInfoFor(window).filter(l => l.type === 'beforeunload').length;" });`,
+    { space, label }
+  );
+/**
+ * The page's own code keeps its process busy for BUSY_MS from its next
+ * task, so a load zenius starts meanwhile waits that long: longer than any
+ * blank waits (10 s), so the blank fails with or without the test's
+ * shorter wait.
+ * Gecko's slow-script warning stays off meanwhile (until forgetCloses).
+ */
+const BUSY_MS = 12000;
+const busy = async (space, label) => {
+  await h.chrome(`Services.prefs.setIntPref("dom.max_script_run_time", 0); return true;`);
+  return inPage(space, label, `setTimeout(() => { const end = Date.now() + ${BUSY_MS}; while (Date.now() < end); }, 0); return 1;`);
+};
+
+test("a hand-off with secret: no leave prompt holds the blank, though the page has a beforeunload handler and the user's activation", async () => {
+  const space = await h.space("ho secret prompt");
+  let label = null;
+  try {
+    ({ label } = await h.call("pages.new", { space, url: site("/form?ho=s3") }));
+    await loaded(space, label, "ho=s3");
+    await h.call("spaces.handOff", { space, secret: true });
+    // The user's step shows the secret in place, on a page that asks before
+    // it's left once the user has used it.
+    await inPage(space, label, LEAVE_HANDLER);
+    assert.equal(await activate(space, label), true);
+    await resumeByUser(space);
+    const now = await info(space, label);
+    assert.equal(now.url, "about:blank", "the blank came: no leave prompt held it");
+    assert.equal(now.history, 1);
+    assert.deepEqual((await h.call("spaces.waitForControl", { space, timeout: 5000 })).blanked, [label]);
+  } finally {
+    if (label) {
+      await inPage(space, label, "window.onbeforeunload = null; return 1;").catch(() => {});
+    }
+    await cleanUp(space);
+  }
+});
+
+test("a hand-off with secret: a beforeunload listener the agent's code left in the page can't hold the blank either", async t => {
+  const space = await h.space("ho secret agent listener");
+  try {
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=s4") });
+    await loaded(space, label, "ho=s4");
+    const own = await leaveListeners(space, label);
+    // The agent's code adds a listener that would keep the page: a function
+    // of its own world. addEventListener counts as safe, so the page isn't
+    // hooked, and the hand-off doesn't load it afresh. (Its world has no
+    // wrappedJSObject, so it can't make one of the page's own realm.)
+    const added = await h
+      .call("page.evaluate", {
+        space,
+        page: label,
+        isFunction: false,
+        fn: `(() => { addEventListener("beforeunload", e => { e.preventDefault(); e.returnValue = "stay"; }); return "added"; })()`,
+      })
+      .catch(e => `refused: ${e.code} ${e.message}`);
+    const evidence = await h.chrome(
+      `const s = ctx.spaces.get(arg.space);
+       const b = ctx.pages.tabFor(ctx.pages.get(s, arg.label)).linkedBrowser;
+       return ChromeUtils.importESModule(arg.url).evidenceOf(b);`,
+      { space, label, url: EV_URL }
+    );
+    await h.call("spaces.handOff", { space, secret: true });
+    const lasting = (await leaveListeners(space, label)) - own;
+    t.diagnostic(`probe: the agent's listener ${added}; the page's evidence ${JSON.stringify(evidence)}; after the hand-off, ${lasting} beforeunload listener(s) beyond the page's own`);
+    assert.equal(await activate(space, label), true);
+    await resumeByUser(space);
+    const now = await info(space, label);
+    assert.equal(now.url, "about:blank", "the blank came: no leave prompt held it");
+    assert.equal(now.history, 1);
+    assert.deepEqual((await h.call("spaces.waitForControl", { space, timeout: 5000 })).blanked, [label]);
+  } finally {
+    await cleanUp(space);
+  }
+});
+
+test("a hand-off with secret: a tab whose blank doesn't come in time leaves the task for good and closes, and the hand back doesn't say blanked", async () => {
+  const space = await h.space("ho secret slow");
+  let ids = null;
+  try {
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=s5") });
+    await loaded(space, label, "ho=s5");
+    ids = await idsOf(space, label);
+    await h.call("spaces.handOff", { space, secret: true });
+    await userLoads(space, label, site("/form?ho=s5-token"));
+    await loaded(space, label, "ho=s5-token");
+    await h.chrome(`ctx.service.blankTimeoutMs = 1000; return true;`);
+    await hearCloses();
+    // The token's page is busy when the blank comes: it comes after the wait.
+    await busy(space, label);
+    await resumeByUser(space);
+    const back = await h.call("spaces.waitForControl", { space, timeout: 5000 });
+    assert.equal(back.blanked, undefined, "a page that didn't blank isn't named");
+    assert.deepEqual((await closesHeard()).map(p => p.page), [label], "its page ended for the agent");
+    assert.ok(!(await h.chrome(`return ctx.pages.list(arg).map(p => p.label);`, space)).includes(label));
+    assert.ok(!(await h.call("tabs.list", { space })).some(t => t.tab === ids.tab), "nor is its tab the task's");
+    const state = await tabState(ids.browserId);
+    assert.ok(state.gone || state.waits, `it closed, or closes once the user leaves it: ${JSON.stringify(state)}`);
+  } finally {
+    await forgetCloses().catch(() => {});
+    if (ids) {
+      await closeTheirs(ids.browserId).catch(() => {});
+    }
+    await cleanUp(space);
+  }
+});
+
+test("a hand-off with secret: a tab that won't blank or close stays the user's, out of the task for good, and its history goes once the blank lands", async () => {
+  const space = await h.space("ho secret stuck");
+  let ids = null;
+  try {
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=s6") });
+    await loaded(space, label, "ho=s6");
+    ids = await idsOf(space, label);
+    await h.call("spaces.handOff", { space, secret: true });
+    await userLoads(space, label, site("/form?ho=s6-token"));
+    await loaded(space, label, "ho=s6-token");
+    // The close fails too.
+    await h.chrome(`ctx.service.blankTimeoutMs = 1000; ctx.pages.closeTab = () => { throw new Error("the test's close fails"); }; return true;`);
+    await busy(space, label);
+    await resumeByUser(space);
+    const back = await h.call("spaces.waitForControl", { space, timeout: 5000 });
+    assert.equal(back.blanked, undefined, "a page that didn't blank isn't named");
+    assert.ok(!(await h.chrome(`return ctx.pages.list(arg).map(p => p.label);`, space)).includes(label));
+    assert.ok(!(await h.call("tabs.list", { space })).some(t => t.tab === ids.tab), "nor is its tab the task's");
+    await assert.rejects(h.call("pages.adopt", { space, tab: ids.tab }), e => e.code === "ZEN_PAGE_NOT_FOUND");
+    const kept = await tabState(ids.browserId);
+    assert.equal(kept.gone, false, "the tab is still there, the user's");
+    assert.equal(kept.value, null, "with no task's value for a restart to find");
+    assert.equal(kept.page, null);
+    // The blank lands once the page lets go, late, and the history goes then.
+    await h.until(async () => {
+      const now = await tabState(ids.browserId);
+      return now.url === "about:blank" && now.history === 1;
+    }, BUSY_MS + 5000);
+  } finally {
+    await forgetCloses().catch(() => {});
+    if (ids) {
+      await closeTheirs(ids.browserId).catch(() => {});
+    }
+    await cleanUp(space);
+  }
+});
+
+test("a hand-off with secret: a second hand back while the first one blanks waits for it: the agent's takeOver during the user's Resume", async () => {
+  const space = await h.space("ho secret race");
+  let ids = null;
+  try {
+    const { label } = await h.call("pages.new", { space, url: site("/form?ho=s7") });
+    await loaded(space, label, "ho=s7");
+    ids = await idsOf(space, label);
+    await h.call("spaces.handOff", { space, secret: true });
+    await userLoads(space, label, site("/form?ho=s7-token"));
+    await loaded(space, label, "ho=s7-token");
+    await h.chrome(`ctx.service.blankTimeoutMs = 1000; return true;`);
+    // The blank takes seconds: the page is busy when it comes.
+    await busy(space, label);
+    const resumed = resumeByUser(space).then(
+      () => null,
+      e => e
+    );
+    await sleep(300);
+    const back = await h.call("spaces.takeOver", { space });
+    assert.ok(
+      !(await h.chrome(`return ctx.pages.list(arg).map(p => p.label);`, space)).includes(label),
+      "the agent has control only once the tab that didn't blank is out of the task"
+    );
+    assert.equal(back.blanked, undefined);
+    await resumed;
+  } finally {
+    await forgetCloses().catch(() => {});
+    if (ids) {
+      await closeTheirs(ids.browserId).catch(() => {});
+    }
     await cleanUp(space);
   }
 });

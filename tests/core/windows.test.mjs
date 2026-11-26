@@ -220,6 +220,32 @@ test("a page follows its docShell into the window where the user views it: the a
   }
 });
 
+test("a hand-off with secret: the hand back blanks the page where its docShell is, after the user viewed it in another window", async () => {
+  const { space, p2 } = await task("secret follow");
+  try {
+    await h.chrome(`${W} ctx.pages.noteFront(liveOf(arg.space, arg.p2)); return true;`, { space, p2 });
+    await h.call("spaces.handOff", { space, secret: true });
+    assert.deepEqual(await userSelects(1, space, p2, { focused: true }), { live: 1, selected: true }, "the docShell is in the second window's copy");
+    // The user's step there shows the secret.
+    await h.chrome(
+      `${W} liveOf(arg.space, arg.p2).linkedBrowser.loadURI(Services.io.newURI(arg.url), { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() }); return true;`,
+      { space, p2, url: `${h.base}/api/text?two-token` }
+    );
+    await h.until(async () => (await h.chrome(`${W} return liveOf(arg.space, arg.p2).linkedBrowser.currentURI.spec;`, { space, p2 })).includes("two-token"), 10000);
+    // The user's Resume.
+    await h.chrome(`const s = ctx.spaces.get(arg); await ctx.service.beforeHandBack(s); ctx.spaces.setOwnership(s, "agent", { source: "user" }); return true;`, space);
+    const now = await h.chrome(
+      `${W} const tab = liveOf(arg.space, arg.p2); return { n: nOf(tab), url: tab.linkedBrowser.currentURI.spec, history: tab.linkedBrowser.browsingContext.sessionHistory?.count ?? 0 };`,
+      { space, p2 }
+    );
+    assert.deepEqual(now, { n: 1, url: "about:blank", history: 1 }, "the copy the user saw the secret in is blank, with no history");
+    assert.deepEqual((await h.call("spaces.waitForControl", { space, timeout: 5000 })).blanked, [p2]);
+  } finally {
+    await userLeaves(1);
+    await h.call("spaces.finish", { space, keep: [] });
+  }
+});
+
 test("finish waits for a tab another window shows, and no window's view moves", async () => {
   for (const focused of [false, true]) {
     const { space, p2 } = await task(`finish shown ${focused ? "focused" : "unfocused"}`);

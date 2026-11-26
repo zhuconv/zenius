@@ -149,8 +149,9 @@ reports, once, and only when there's something to say:
 - `blanked`: the labels of the pages a secret step showed (the hand-off's
   `secret: true`): the tab handed off, and the popups it opened while the
   user held it. Each now shows `about:blank`, with no history to go back
-  to; one that wouldn't blank was closed. What the step showed is the
-  user's: ask them for anything you need from it.
+  to. One that wouldn't blank isn't listed: it left the task for good, so
+  it has ended for you (`pageClosed`), and it closed or is the user's. What
+  the step showed is the user's: ask them for anything you need from it.
 
 The hand-off (the core): the page the
 user will hold is held first (the observe layer's guards keep everything else
