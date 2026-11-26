@@ -1135,6 +1135,8 @@ const ZEN_STEPS = {
   goto: a => `Go to ${shownUrl(a.url)}`,
   read_page: a => (a.root ? "Read part of the page" : a.full === true ? "Read the whole page" : "Read the page"),
   click: a => `Click ${target(a)}`,
+  hover: a => `Hover over ${target(a)}`,
+  drag: a => `Drag ${target(a)} to ${quoted(a.to_element ?? a.to_target)}`,
   fill: a => (a.text === "" ? `Clear ${target(a)}` : `Type into ${target(a)}`),
   press: a => `Press ${shownKey(a.key)}${a.element || a.target ? ` on ${target(a)}` : ""}`,
   scroll: a => (a.element || a.target ? `Scroll to ${target(a)}` : `Scroll ${a.direction === "up" ? "up" : "down"}`),

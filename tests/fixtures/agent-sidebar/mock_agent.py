@@ -79,6 +79,9 @@ Prompts are answered according to a keyword in the prompt text:
               the interrupted call none
   FAILBARE    (zen-sidebar) a zenius click that fails at once with no result,
               then a short answer
+  HOLDTOOL:<name> <args>  (zen-sidebar) zenius's <name> with the JSON
+              <args>, shown running until Stop, as HOLDBARE's click: its
+              step reads as the call asked, with no result yet
   ASKSTEER    (zen-sidebar) ask for permission to run a zenius tool (a Work
               chat shows the card), then answer with its outcome and the
               steer that came with the reply ("Steered: ...")
@@ -804,6 +807,10 @@ def prompt(request):
         running.discard(session)
         send({"jsonrpc": "2.0", "id": request["id"], "error": {"code": -32603, "message": "the model failed"}})
         return
+    elif "HOLDTOOL:" in text:
+        name, _, raw = text.split("HOLDTOOL:", 1)[1].split("\n", 1)[0].strip().partition(" ")
+        run_tool(session, name, json.loads(raw or "{}"), hold=True)
+        stop = "cancelled"
     elif "HOLDBARE" in text:
         say(session, "Searching.")
         run_tool(session, "click", {"element": "Search", "target": "#search"}, hold=True, bare=True)

@@ -555,6 +555,35 @@ test("Chat mode: the panel is about the tab in view, and its header shows only t
   assert.equal(out.dir, false, "the directory's button is Work's only");
 });
 
+// zenius's hover and drag (fewer reloads, part 1): a running call's step
+// reads as the server words it, before its result says the same.
+test("hover and drag read as the server words them while they run: Hover over \"<element>\", and Drag \"<element>\" to \"<to_element>\", else to its to_target", async () => {
+  await useMock();
+  const out = await chrome(`
+    const A = win.ucAgentSidebar.AgentService;
+    const conv = A.createTask({ source: "new" });
+    const running = async (name, args) => {
+      const turn = A.send(conv, { question: "HOLDTOOL:" + name + " " + JSON.stringify(args) });
+      const shown = () => conv.messages.findLast(m => m.role === "tool" && m.zen === name && m.status === "in_progress");
+      await S.until(shown, 10000);
+      const step = shown()?.step ?? null;
+      A.cancel(conv);
+      await turn;
+      return step;
+    };
+    try {
+      return [
+        await running("hover", { element: "Menu", target: "#menu" }),
+        await running("drag", { element: "Card", target: "#card", to_element: "Done column", to_target: "#done" }),
+        await running("drag", { target: "#card", to_target: "#done" }),
+      ];
+    } finally {
+      A.removeTask(conv);
+    }
+  `);
+  assert.deepEqual(out, ['Hover over "Menu"', 'Drag "Card" to "Done column"', 'Drag "#card" to "#done"']);
+});
+
 test("startWorkChat starts a task in Work mode: it resolves to the task's uid, the header shows the task's name, its steps read as lines, and the directory files it under Done when it ends", async () => {
   await useMock();
   const out = await chrome(`
