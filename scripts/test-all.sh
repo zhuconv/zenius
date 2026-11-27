@@ -16,6 +16,8 @@
 # own, never the user's ~/.zenius, and on Linux a temporary folder of its own
 # too (see "lane_home" and "lane" below). A failed suite's summary
 # lists every test its log names as failed, then the log's last 20 lines.
+# When a suite that failed runs again, its failed run's log stays there as
+# <suite>.log.failed, and the summary names it.
 set -uo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 [[ -d $HOME/opt/node-v24.22.2-linux-x64/bin ]] && export PATH=$HOME/opt/node-v24.22.2-linux-x64/bin:$PATH
@@ -193,7 +195,18 @@ elif wanted sdk-unit || wanted sdk-it; then
   failed+=(sdk)
 fi
 
-for name in ${names[@]+"${names[@]}"} ${sdk[@]+"${sdk[@]}"}; do rm -f "$LOGS/$name.result"; done
+# A suite whose last run failed keeps that run's log as <suite>.log.failed:
+# the rerun that shows a failure was a flake would otherwise write over the
+# only log of it, which the suite's owner needs. One per suite, the latest,
+# with the failed run's time as its own (ls -l shows it). Its name doesn't
+# end in .log, so a check over the folder's *.log reads this run's logs only.
+rotated=" "
+for name in ${names[@]+"${names[@]}"} ${sdk[@]+"${sdk[@]}"}; do
+  if [[ -f $LOGS/$name.result && -f $LOGS/$name.log && $(<"$LOGS/$name.result") == FAIL* ]]; then
+    mv -f -- "$LOGS/$name.log" "$LOGS/$name.log.failed" && rotated+="$name "
+  fi
+  rm -f "$LOGS/$name.result"
+done
 t0=$(now)
 if [[ -n $serial ]]; then
   for name in ${names[@]+"${names[@]}"} ${sdk[@]+"${sdk[@]}"}; do lane "$name"; done
@@ -205,17 +218,18 @@ else
 fi
 
 for name in ${names[@]+"${names[@]}"} ${sdk[@]+"${sdk[@]}"}; do
-  verdict=FAIL ms='?' left=0
+  verdict=FAIL ms='?' left=0 earlier=
   read -r verdict ms left 2>/dev/null <"$LOGS/$name.result"
+  [[ $rotated == *" $name "* ]] && earlier="; its failed run before this one is in $LOGS/$name.log.failed"
   if [[ $verdict == PASS ]]; then
     note=
     ((${left:-0} > 0)) && note="; it left $(entries "$left") in its temporary folder, listed at the end of its log"
-    echo "PASS $name ($ms ms$note)"
+    echo "PASS $name ($ms ms$note$earlier)"
   else
     note= kept=
     [[ -n $TMPBASE && -f $LOGS/$name.tmpdir ]] && kept=$(<"$LOGS/$name.tmpdir")
     [[ -n $kept && -d $kept ]] && note="; its temporary folder stays at $kept"
-    echo "FAIL $name, log $LOGS/$name.log$note:"
+    echo "FAIL $name, log $LOGS/$name.log$note$earlier:"
     # Every test its log names as failed, then the log's last lines: a
     # second failure in a suite mustn't hide behind the one its tail shows,
     # such as a known flake's (scripts/lib/test-all-failures.mjs).
