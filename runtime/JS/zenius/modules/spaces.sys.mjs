@@ -1374,7 +1374,9 @@ export class Spaces {
    *
    * @param {SpaceRecord} rec
    * @param {{site?: unknown, account?: unknown, restored?: unknown}} note
-   * @returns {{site: string, account: string}[]} the task's list now
+   * @returns {{site: string, accountsToRestore: {site: string, account: string}[]}}
+   *   the site as kept (its host, in lower case and ASCII), so a caller
+   *   names it as the list does, and the task's list now
    */
   noteAccount(rec, { site, account, restored } = {}) {
     if (rec?.kind !== "task") {
@@ -1416,7 +1418,7 @@ export class Spaces {
       this.#emit("spaceChanged", { space: rec.id, accountsToRestore: next.map(e => ({ ...e })) });
       this.#emitFeed(rec);
     }
-    return (rec.accountsToRestore ?? []).map(e => ({ ...e }));
+    return { site: host, accountsToRestore: (rec.accountsToRestore ?? []).map(e => ({ ...e })) };
   }
 
   /**

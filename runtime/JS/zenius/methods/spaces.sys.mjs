@@ -321,7 +321,7 @@ export const methods = {
   // back (modules/spaces.sys.mjs noteAccount).
   "spaces.noteAccount": async (ctx, params) => {
     const rec = ctx.resolveSpace(params);
-    return { accountsToRestore: ctx.spaces.noteAccount(rec, { site: params.site, account: params.account, restored: params.restored }) };
+    return ctx.spaces.noteAccount(rec, { site: params.site, account: params.account, restored: params.restored });
   },
 
   // Ego's task.finish({keep}): finishTask below.

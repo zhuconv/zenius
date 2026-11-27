@@ -500,7 +500,7 @@ export class MockRuntime {
           if (typeof params.account !== "string" || !params.account || params.account.length > 254) throw new MockError("ZEN_INVALID_ARGUMENT", "noteAccount account must be one line");
           if (!list.some((entry) => entry.site === site)) space.accountsToRestore = [...list, { site, account: params.account }];
         }
-        return { accountsToRestore: (space.accountsToRestore ?? []).map((entry) => ({ ...entry })) };
+        return { site, accountsToRestore: (space.accountsToRestore ?? []).map((entry) => ({ ...entry })) };
       },
       "spaces.setState": (params) => {
         const space = mock.space(params);

@@ -587,13 +587,14 @@ describe("TaskSpace", () => {
     withMock(async ({ mock }) => {
       const task = await taskSpace("accounts");
       const noted = [{ site: "claude.ai", account: "c@example.com" }];
-      assert.deepEqual(await task.noteAccount({ site: "claude.ai", account: "c@example.com" }), noted);
+      assert.deepEqual(await task.noteAccount({ site: "claude.ai", account: "c@example.com" }), { site: "claude.ai", accountsToRestore: noted });
       assert.deepEqual(mock.requests.at(-1)?.params, { space: task.id, site: "claude.ai", account: "c@example.com" });
       assert.deepEqual((await listTaskSpaces()).find((space) => space.id === task.id)?.accountsToRestore, noted);
       // A second note for the site keeps the first: it's the account the user's tabs had.
-      assert.deepEqual(await task.noteAccount({ site: "claude.ai", account: "a@example.com" }), noted);
-      assert.deepEqual(await task.noteAccount({ site: "claude.ai", restored: true }), []);
-      assert.deepEqual(mock.requests.at(-1)?.params, { space: task.id, site: "claude.ai", restored: true });
+      assert.deepEqual(await task.noteAccount({ site: "claude.ai", account: "a@example.com" }), { site: "claude.ai", accountsToRestore: noted });
+      // The result names the site as zenius keeps it.
+      assert.deepEqual(await task.noteAccount({ site: "CLAUDE.ai", restored: true }), { site: "claude.ai", accountsToRestore: [] });
+      assert.deepEqual(mock.requests.at(-1)?.params, { space: task.id, site: "CLAUDE.ai", restored: true });
       assert.equal((await listTaskSpaces()).find((space) => space.id === task.id)?.accountsToRestore, undefined, "an empty list isn't listed");
 
       const before = mock.requests.length;

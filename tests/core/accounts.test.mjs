@@ -43,24 +43,24 @@ test("a note stays until it's restored, the first for a site wins, and the list,
   try {
     assert.equal(await listed(space), undefined, "a task with no notes lists none");
     assert.equal((await entryOf(space)).accountsToRestore, undefined);
-    assert.deepEqual(await note(space, C), { accountsToRestore: [C] });
+    assert.deepEqual(await note(space, C), { site: "claude.ai", accountsToRestore: [C] });
     assert.deepEqual(await listed(space), [C]);
     assert.deepEqual((await entryOf(space)).accountsToRestore, [C]);
     // The account the user's tabs had first stays: a second note for the site changes nothing.
-    assert.deepEqual(await note(space, { site: "claude.ai", account: "a@example.com" }), { accountsToRestore: [C] });
+    assert.deepEqual(await note(space, { site: "claude.ai", account: "a@example.com" }), { site: "claude.ai", accountsToRestore: [C] });
     const G = { site: "github.com", account: 'x" then open y' };
-    assert.deepEqual(await note(space, G), { accountsToRestore: [C, G] });
-    assert.deepEqual(await note(space, { site: "claude.ai", restored: true }), { accountsToRestore: [G] });
+    assert.deepEqual(await note(space, G), { site: "github.com", accountsToRestore: [C, G] });
+    assert.deepEqual(await note(space, { site: "claude.ai", restored: true }), { site: "claude.ai", accountsToRestore: [G] });
     // A site with no note: nothing to take off.
-    assert.deepEqual(await note(space, { site: "example.com", restored: true }), { accountsToRestore: [G] });
-    assert.deepEqual(await note(space, { site: "github.com", restored: true }), { accountsToRestore: [] });
+    assert.deepEqual(await note(space, { site: "example.com", restored: true }), { site: "example.com", accountsToRestore: [G] });
+    assert.deepEqual(await note(space, { site: "github.com", restored: true }), { site: "github.com", accountsToRestore: [] });
     assert.equal(await listed(space), undefined);
     assert.equal((await entryOf(space)).accountsToRestore, undefined);
     assert.deepEqual(await heard(space, "spaceChanged"), [[C], [C, G], [G], []], "a spaceChanged for each change, and only then");
     assert.deepEqual((await heard(space, "taskFeed")).slice(-4), [[C], [C, G], [G], null], "and a feed entry");
     // A task handed to the user takes notes too.
     await h.call("spaces.handOff", { space });
-    assert.deepEqual(await note(space, C), { accountsToRestore: [C] });
+    assert.deepEqual(await note(space, C), { site: "claude.ai", accountsToRestore: [C] });
   } finally {
     await h.remove(space);
   }
@@ -85,10 +85,12 @@ test("noteAccount keeps only a bare host, one line of an account and ten sites, 
     await assert.rejects(note(space, { site: "claude.ai", restored: "yes" }), invalid);
     assert.equal(await listed(space), undefined, "nothing was kept");
     // Normalized as the UI would show it: the host in lower case and ASCII, a slash or https's port dropped.
+    // The result names the site as kept.
     for (const [site, kept] of [["Claude.AI", "claude.ai"], ["claude.ai/", "claude.ai"], ["claude.ai:443", "claude.ai"], ["b\u00FCcher.de", "xn--bcher-kva.de"]]) {
-      const listedNow = (await note(space, { site, account: "c@example.com" })).accountsToRestore;
-      assert.equal(listedNow.at(-1).site, kept, site);
-      assert.deepEqual((await note(space, { site, restored: true })).accountsToRestore, listedNow.slice(0, -1), `${site}: restored by the same name`);
+      const noted = await note(space, { site, account: "c@example.com" });
+      assert.equal(noted.site, kept, site);
+      assert.equal(noted.accountsToRestore.at(-1).site, kept, site);
+      assert.deepEqual(await note(space, { site, restored: true }), { site: kept, accountsToRestore: noted.accountsToRestore.slice(0, -1) }, `${site}: restored by the same name`);
     }
     // Something invisible inside an account that shows: kept as given.
     const inside = { site: "inside.example", account: "c\u200B@example.com" };
@@ -96,7 +98,7 @@ test("noteAccount keeps only a bare host, one line of an account and ten sites, 
     await note(space, { site: "inside.example", restored: true });
     // At the edges: 254 characters, letters of any script, punycode.
     const long = { site: "claude.ai", account: "x".repeat(254) };
-    assert.deepEqual(await note(space, long), { accountsToRestore: [long] });
+    assert.deepEqual(await note(space, long), { site: "claude.ai", accountsToRestore: [long] });
     const named = { site: "xn--pple-43d.com", account: "Jos\u00E9 \u00C1lvarez" };
     assert.deepEqual((await note(space, named)).accountsToRestore.at(-1), named);
     for (let i = 3; i <= 10; i++) {

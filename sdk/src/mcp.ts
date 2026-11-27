@@ -50,7 +50,7 @@ import { Round, setRound } from "./round.ts";
 import { RpcClient, withSignal } from "./rpc.ts";
 import { formatScriptError, scriptFrames } from "./script-errors.ts";
 import { formatValue, takeNotices } from "./output.ts";
-import { notedAccounts, notedAccountsText, noteSite, quotedAccount, type NotedAccount, type TaskSpace } from "./task-space.ts";
+import { notedAccounts, notedAccountsText, quotedAccount, type NotedAccount, type TaskSpace } from "./task-space.ts";
 import { VERSION } from "./version.ts";
 import { clean, cut, quoted, quotedName } from "./step-text.ts";
 
@@ -1234,11 +1234,10 @@ const TOOLS: Tool[] = [
       const account = str(args, "account", false);
       if (restored && account !== undefined) throw new CallError("pass account before you switch, or restored: true after it, not both");
       if (!restored && account === undefined) throw new CallError("account is required, unless restored is true");
-      const left = await session.task.noteAccount(restored ? { site, restored: true } : { site, account });
+      // The site as zenius keeps it (in lower case, punycode for another script's name).
+      const { site: host, accountsToRestore: left } = await session.task.noteAccount(restored ? { site, restored: true } : { site, account });
       // This result says what's left, so no reminder is due.
       session.accountsTold();
-      // The site as zenius keeps it (in lower case, punycode for another script's name).
-      const host = noteSite(site) || site;
       const others = left.filter((entry) => entry.site !== host);
       const rest = others.length ? ` Still to switch back: ${notedAccountsText(others)}.` : "";
       if (restored) return `Noted: ${host} is back on the user's account.${rest}`;

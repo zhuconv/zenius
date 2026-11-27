@@ -50,22 +50,6 @@ export function quotedAccount(account: string): string {
   return `"${cut(clean(account).replace(QUOTE_MARKS, "'"), 254)}"`;
 }
 
-/**
- * A note's site as the runtime keeps it (modules/spaces.sys.mjs siteHost):
- * the bare host the URL parser finds, in lower case and ASCII, or "" when
- * it's more than a bare host. Both parse as the URL standard says.
- */
-export function noteSite(site: string): string {
-  if (/[\s\p{Cc}\p{Cf}\p{Cs}]/u.test(site)) return "";
-  try {
-    const url = new URL(`https://${site}`);
-    const bare = !url.username && !url.password && !url.port && url.pathname === "/" && !url.search && !url.hash;
-    return bare && url.hostname.length <= 253 ? url.hostname : "";
-  } catch {
-    return "";
-  }
-}
-
 /** Noted accounts as a line names them: "c@example.com" on claude.ai and "cuser" on github.com. */
 export function notedAccountsText(list: readonly NotedAccount[]): string {
   const parts = list.map((entry) => `${quotedAccount(entry.account)} on ${entry.site}`);
@@ -253,9 +237,11 @@ export class TaskSpace {
    * back. The runtime keeps it with the task across a Zen restart, so the
    * agent restores it first, and the UI names one left at the task's end.
    * The SDK checks the call's shape; the runtime checks the values (a bare
-   * host, one line of text) and keeps the first account noted per site.
+   * host, one line of text), keeps the first account noted per site, and
+   * says the site as it keeps it (in lower case, punycode for a name in
+   * another script).
    */
-  async noteAccount(options: { site: string; account?: string; restored?: boolean }): Promise<NotedAccount[]> {
+  async noteAccount(options: { site: string; account?: string; restored?: boolean }): Promise<{ site: string; accountsToRestore: NotedAccount[] }> {
     validateOptions("TaskSpace.noteAccount", options);
     const restoring = options.restored === true;
     if (typeof options.site !== "string") {
@@ -266,11 +252,11 @@ export class TaskSpace {
         "task.noteAccount takes either account, before you switch, or restored: true, after. Expected: await task.noteAccount({ site, account }) or ({ site, restored: true })",
       );
     }
-    const result = await this.#call<{ accountsToRestore?: NotedAccount[] }>("spaces.noteAccount", "task.noteAccount", {
+    const result = await this.#call<{ site?: unknown; accountsToRestore?: unknown }>("spaces.noteAccount", "task.noteAccount", {
       site: options.site,
       ...(restoring ? { restored: true } : { account: options.account }),
     });
-    return notedAccounts(result?.accountsToRestore);
+    return { site: typeof result?.site === "string" ? result.site : options.site, accountsToRestore: notedAccounts(result?.accountsToRestore) };
   }
 
   async finish(options: { keep: "all" | string[] }): Promise<TaskFinishReceipt> {
