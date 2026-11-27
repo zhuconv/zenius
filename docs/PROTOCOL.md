@@ -1272,9 +1272,17 @@ read only on a dev profile, as the `dev.*` methods are (see "Dev only").
 A remote task's agent is told that its messages come from another of the
 user's agents (the source), not from the user. Steps that can't be undone
 stop as `needs_user` with `reason: "irreversible"`, for the user to take
-through Take over: paying, sending a message or post as the user, deleting,
-and changing account or security settings. Everything else, the agent does
-on its own.
+through Take over: paying, sending a message or post as the user, sharing
+with anyone but the user's own accounts or by a public link, deleting, and
+changing account or security settings. A sign-in stops the same way with
+`reason: "sign_in"` when it's to an account not known to be the user's, or
+needs a password the agent wasn't given, a code from the user's phone or an
+authenticator app, or a passkey, and a captcha with
+`reason: "human_check"`. An account the source's messages call the
+user's counts as theirs only when Zen was signed in to it before the task,
+so sharing with any other stops as `irreversible`, and signing in as one as
+`sign_in`. Everything else, the agent does on its own, signing in to the
+user's own accounts included.
 
 The Zen log names each call with its time and outcome, never its params.
 These methods name no space, so the control gate never meets them. A remote
