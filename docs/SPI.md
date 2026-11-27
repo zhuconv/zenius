@@ -1234,16 +1234,27 @@ before a task began.
   load that switches process. A copy made later gets it when its browser
   goes in (`#onTaskBrowser` publishes again), and a tab unloaded since a
   restart has it before its first load.
-- Only zenius's own attribute goes: Zen's Glance previews set theirs.
-  Nothing listens for it (I4).
+- Zen loads a task's tab that a window showed at the quit by itself at
+  the start, before the rebuild may have marked it. That load reloads the
+  tab's session-history entry, and Gecko writes no visit for a
+  session-history load.
+- Only zenius's own attribute goes: a browser that has one already, as
+  Zen's Glance previews do, gets no mark and keeps it through adopt and
+  release. Nothing listens for it (I4).
 - Not covered: the address bar's open-tab results list a task's open tabs
-  while they're open, as for any tab. And a claimed Space of the user's
-  keeps writing history for its tabs the agent doesn't drive.
+  while they're open, as for any tab. A claimed Space of the user's keeps
+  writing history for its tabs the agent doesn't drive. And a redirect in
+  a session-history load writes a visit for the address it left, so in
+  Zen's load at a start, one Gecko gets before the rebuild marks the tab
+  writes one, as does a load the page starts itself by then. A probe of
+  three one-window starts on Linux found the tab marked before Gecko got
+  the redirect each time, and no visit.
 - Tests: `tests/core/history.test.mjs` (loads, a link, a popup, another
   site, COOP; kept, claimed back, the Stop; a user's tab adopted and
-  released; the marks) and one in `tests/core/restart.test.mjs`. Each
-  check for no visit waits for a load of the user's own, made after it,
-  to show up in Places first.
+  released; a session-history load, and a redirect in one; the marks, and
+  an attribute that isn't zenius's) and two in
+  `tests/core/restart.test.mjs`. Each check for no visit waits for a load
+  of the user's own, made after it, to show up in Places first.
 
 **Decisions** (2026-11-20, on this design):
 1. **The Agents Space goes once it's empty and no window shows it.**

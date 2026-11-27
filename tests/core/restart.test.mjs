@@ -483,6 +483,21 @@ test("a task's noted accounts come back with it, and the first noted for a site 
   await h.remove(a.space);
 });
 
+const PU = `const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");`;
+const hasVisit = u => h.chrome(`${PU} return await PlacesUtils.history.hasVisits(arg);`, u);
+let controls = 0;
+/**
+ * Whether each of these URLs is in the user's history, asked once a load of
+ * the user's own, made after their loads, is in: a visit coming from those
+ * is in by then.
+ */
+async function visited(urls, name) {
+  const control = url(`/api/text?control-${process.pid}-${Date.now()}-${++controls}`);
+  await h.userSpace(name, control);
+  await h.until(() => hasVisit(control), 10000);
+  return Promise.all(urls.map(hasVisit));
+}
+
 test("a task's page writes none of the user's history after a restart either, from its first load since", async () => {
   const marker = `history-${process.pid}-${Date.now()}`;
   const first = url(`/api/text?${marker}-a`);
@@ -495,20 +510,14 @@ test("a task's page writes none of the user's history after a restart either, fr
   // The agent's call loads the page, unloaded since the restart, then goes to another site.
   assert.equal(await h.call("page.evaluate", { ...page, fn: "location.href", isFunction: false }), first);
   await h.call("page.goto", { ...page, url: other });
-  const PU = `const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");`;
-  const hasVisit = u => h.chrome(`${PU} return await PlacesUtils.history.hasVisits(arg);`, u);
-  // Every visit made before now is in once the user's own load after them is.
-  const control = url(`/api/text?${marker}-control`);
-  await h.userSpace("restart history control", control);
-  await h.until(() => hasVisit(control), 10000);
-  for (const u of [first, other]) {
-    assert.equal(await hasVisit(u), false, u);
-  }
+  assert.deepEqual(await visited([first, other], "restart history control"), [false, false]);
   await h.remove(a.space);
 });
 
-test("a window on the Agents Space at the quit loads its agent page at start, guarded before any call", async () => {
-  const f = await task("restart shown", ["/api/text?f1"]);
+test("a window on the Agents Space at the quit loads its agent page at start, guarded before any call, and the load writes no visit", async () => {
+  // A page no run loaded before, for the visit check (a kept profile keeps its history).
+  const path = `/api/text?f1-${process.pid}-${Date.now()}`;
+  const f = await task("restart shown", [path]);
   await userViews(f.space, f.labels[0]);
 
   await restart({ "browser.startup.page": 3, "zen.workspaces.continue-where-left-off": true });
@@ -529,8 +538,12 @@ test("a window on the Agents Space at the quit loads its agent page at start, gu
     ),
     { selected: true, loaded: true, guards: [true] }
   );
-  await h.until(async () => (await topURL(f.space, f.labels[0])) === url("/api/text?f1"), 10000);
+  await h.until(async () => (await topURL(f.space, f.labels[0])) === url(path), 10000);
   assert.deepEqual(await guarded(f.space, f.labels[0]), [true]);
+  // Zen's load came before the rebuild marked the page, but it's a
+  // session-history load, which writes no visit (history.test.mjs has the
+  // redirect that writes one).
+  assert.deepEqual(await visited([url(path)], "restart shown control"), [false]);
   await h.remove(f.space);
 });
 

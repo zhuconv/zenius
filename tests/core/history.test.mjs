@@ -10,10 +10,23 @@ import { setup } from "./lib.mjs";
 let h;
 let base;
 let control;
-/** Pages of the test's own, on 127.0.0.1 and on localhost (another site), with COOP when asked. */
+/**
+ * Pages of the test's own, on 127.0.0.1 and on localhost (another site),
+ * with COOP when asked. One with ?then answers its first request and sends
+ * each one after it there, as a site whose session ended sends its sign-in
+ * page; none of its answers is cached, so each load of it asks again.
+ */
+const asked = new Map();
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, "http://x");
-  const headers = { "content-type": "text/html" };
+  asked.set(req.url, (asked.get(req.url) ?? 0) + 1);
+  const then = u.searchParams.get("then");
+  if (then && asked.get(req.url) > 1) {
+    res.writeHead(302, { location: then, "cache-control": "no-store" });
+    res.end();
+    return;
+  }
+  const headers = { "content-type": "text/html", ...(then ? { "cache-control": "no-store" } : {}) };
   if (u.searchParams.has("coop")) {
     headers["cross-origin-opener-policy"] = "same-origin";
   }
@@ -160,16 +173,88 @@ test("a tab of the user's in a task writes history until the agent adopts it, an
   }
 });
 
-test("a task's page carries the mark only while its task is the agent's, and nothing listens for it (I4)", async () => {
+/**
+ * A tab's current session-history entry loaded again, as Zen's session
+ * restore loads a tab a window shows at a start (SessionStoreUtils
+ * initializeRestore reloads the current entry); the URL of its new document.
+ */
+const historyLoad = (space, url) =>
+  h.chrome(
+    `const tab = ctx.pages.tabsOf(ctx.spaces.get(arg.space)).find(t => t.linkedBrowser.currentURI.spec === arg.url);
+     const before = tab.linkedBrowser.browsingContext.currentWindowGlobal?.innerWindowId;
+     tab.linkedBrowser.browsingContext.sessionHistory.reloadCurrentEntry();
+     const end = Date.now() + 10000;
+     for (;;) {
+       const bc = tab.linkedBrowser.browsingContext;
+       const wg = bc?.currentWindowGlobal;
+       if (wg && wg.innerWindowId !== before && !bc.webProgress?.isLoadingDocument) {
+         return wg.documentURI.spec;
+       }
+       if (Date.now() > end) {
+         return null;
+       }
+       await new Promise(r => win.setTimeout(r, 25));
+     }`,
+    { space, url }
+  );
+
+test("a session-history load writes no visit, as Zen's own load of a tab a window shows at a start, but a redirect in it writes one for the address it left", async () => {
+  const space = await h.space("history restore");
+  try {
+    const plain = fresh();
+    const target = fresh();
+    const left = fresh("127.0.0.1", `&then=${encodeURIComponent(target)}`);
+    const { label } = await h.call("pages.new", { space });
+    await h.call("page.goto", { space, page: "p1", url: plain });
+    await h.call("page.goto", { space, page: label, url: left });
+    // The user's tabs from here, with history on, as a task's tab a window
+    // shows at a start is until the restart rebuild marks it.
+    await h.call("spaces.finish", { space, keep: ["p1", label] });
+    assert.equal(await historyLoad(space, plain), plain);
+    assert.equal(await noVisit(plain), true, "the session-history load writes none");
+    assert.equal(await historyLoad(space, left), target, "the second request is sent on");
+    assert.equal(await visitedSoon(left), true, "the redirect writes one for the address it left");
+    assert.equal(await noVisit(target), true, "and none for where it ends");
+    // The tab whose load wrote none writes the user's own load.
+    const theirs = fresh();
+    assert.equal(await userLoad(`const tab = ctx.pages.tabsOf(ctx.spaces.get(arg.space)).find(t => t.linkedBrowser.currentURI.spec === arg.plain);`, { space, plain, url: theirs }), true);
+    assert.equal(await visitedSoon(theirs), true, "its history was on");
+  } finally {
+    await h.remove(space);
+  }
+});
+
+test("a task's page carries the mark only while its task is the agent's, and an attribute that isn't zenius's stays", async () => {
   const space = await h.space("history off");
+  /** Each of the task's tabs, by tab id: [the attribute, zenius's mark, the live context's flag]. */
   const marks = () =>
     h.chrome(
-      `const tabs = ctx.pages.tabsOf(ctx.spaces.get(arg));
-       return tabs.map(t => [t.linkedBrowser.getAttribute("disableglobalhistory"), t.linkedBrowser.getAttribute("zenius-history-off"), t.linkedBrowser.browsingContext?.useGlobalHistory ?? null]);`,
+      `return Object.fromEntries(
+         ctx.pages.tabsOf(ctx.spaces.get(arg)).map(t => [
+           ctx.pages.tabId(t),
+           [t.linkedBrowser.getAttribute("disableglobalhistory"), t.linkedBrowser.getAttribute("zenius-history-off"), t.linkedBrowser.browsingContext?.useGlobalHistory ?? null],
+         ])
+       );`,
       space
     );
-  assert.deepEqual(await marks(), [["true", "true", false]], "kept out while the task has it");
+  const [page] = await h.call("tabs.list", { space });
+  assert.deepEqual((await marks())[page.tab], ["true", "true", false], "kept out while the task has it");
+  // A tab whose browser has the attribute already, as Zen's Glance previews
+  // do: adopted, it gets no mark, and released, it keeps the attribute, its
+  // page still out of history.
+  const glance = await h.chrome(
+    `const rec = ctx.spaces.get(arg);
+     const tab = ctx.pages.addTab(rec, win);
+     tab.linkedBrowser.setAttribute("disableglobalhistory", "true");
+     ctx.pages.addUnmanaged(rec, tab, "user");
+     return ctx.pages.tabId(tab);`,
+    space
+  );
+  const { label } = await h.call("pages.adopt", { space, tab: glance });
+  assert.deepEqual((await marks())[glance], ["true", null, false], "adopted");
+  await h.call("pages.release", { space, page: label });
+  assert.deepEqual((await marks())[glance], ["true", null, false], "released");
   await h.call("spaces.finish", { space, keep: ["p1"] });
-  assert.deepEqual(await marks(), [[null, null, true]], "the kept tab is the user's: both go");
+  assert.deepEqual((await marks())[page.tab], [null, null, true], "the kept tab is the user's: both go");
   await h.remove(space);
 });
