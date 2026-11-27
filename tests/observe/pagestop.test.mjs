@@ -147,13 +147,20 @@ test("zenius listens to nothing where a frame the page makes ends its first docu
 
 test("the stops go on past the call until the page answers: they end a loop that only appends frames, and the frame being made has every guard", () =>
   env.inSpace("page stop appends", async page => {
-    // In time for the call or after it: the stops go on up to 5 s.
+    // In time for the call or after it: the stops go on for up to 5 s from
+    // the first (RESEND_LIMIT_MS), and the first goes out before the call
+    // returns. So the loop ends within 5 s of the call's return, plus a
+    // margin for the last stops in flight. Counted from the call's start, a
+    // slow parent's late deadline and probe would count against the stops.
     const run = await overrun(page, "append");
-    const { outcome, loop, t0 } = run;
+    const { outcome, loop, t0, ms } = run;
     assert.ok(run.held, `${NOT_HELD}: ${told(run)}`);
     assert.ok(typeof outcome === "number" || outcome === "ZEN_PAGE_EVALUATION_TIMED_OUT", told(run));
+    // The loose check on the time from the call: a stop ended the loop
+    // before its own end, 15 s after it began.
     assert.equal(loop.done, false, `the page's loop ran to its end: ${told(run)}`);
-    assert.ok(loop.last - t0 < 2000 + 5000, `the loop ran ${loop.last - t0} ms past the call: ${told(run)}`);
+    const pastReturn = Math.round(loop.last - (t0 + ms));
+    assert.ok(pastReturn < 5000 + 500, `the loop ran ${pastReturn} ms past the call's return, past the stops' 5 s: ${told(run)}`);
     // Gecko ends only code whose global is a page's window, and zenius's
     // install runs none: the frame being made when the loop was ended has
     // every guard. Told by how each behaves, with nothing opened, written,
