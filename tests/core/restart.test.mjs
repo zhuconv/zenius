@@ -483,6 +483,30 @@ test("a task's noted accounts come back with it, and the first noted for a site 
   await h.remove(a.space);
 });
 
+test("a task's page writes none of the user's history after a restart either, from its first load since", async () => {
+  const marker = `history-${process.pid}-${Date.now()}`;
+  const first = url(`/api/text?${marker}-a`);
+  const other = url(`/api/text?${marker}-b`).replace("127.0.0.1", "localhost");
+  const a = await task("restart history", [`/api/text?${marker}-a`]);
+
+  await restart({ "browser.startup.page": 3, "zen.workspaces.continue-where-left-off": false });
+
+  const page = { space: a.space, page: a.labels[0] };
+  // The agent's call loads the page, unloaded since the restart, then goes to another site.
+  assert.equal(await h.call("page.evaluate", { ...page, fn: "location.href", isFunction: false }), first);
+  await h.call("page.goto", { ...page, url: other });
+  const PU = `const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");`;
+  const hasVisit = u => h.chrome(`${PU} return await PlacesUtils.history.hasVisits(arg);`, u);
+  // Every visit made before now is in once the user's own load after them is.
+  const control = url(`/api/text?${marker}-control`);
+  await h.userSpace("restart history control", control);
+  await h.until(() => hasVisit(control), 10000);
+  for (const u of [first, other]) {
+    assert.equal(await hasVisit(u), false, u);
+  }
+  await h.remove(a.space);
+});
+
 test("a window on the Agents Space at the quit loads its agent page at start, guarded before any call", async () => {
   const f = await task("restart shown", ["/api/text?f1"]);
   await userViews(f.space, f.labels[0]);

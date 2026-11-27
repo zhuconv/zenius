@@ -1216,6 +1216,35 @@ no-store, which Gecko never caches). They check the history entry's
 cached, and without that check a test could pass with no eviction at
 all.
 
+**The user's history (built, 2026-11-27).** Task pages write no Places
+visits (`modules/history.sys.mjs`, from `publishAgentBrowsers()`), so the
+user's History and address bar suggestions hold only their own visits, and
+the sign-in rules' code measure can ask whether the user visited a site
+before a task began.
+- A page of an agent task, under any ownership, gets
+  `disableglobalhistory` on its `<browser>`, on every window's copy of its
+  tab, with zenius's mark (`zenius-history-off`), and its live
+  BrowsingContext gets `useGlobalHistory` false. A tab that leaves the set
+  (finish's kept pages, release, the Stop) loses both, and writes the
+  user's history again; one claimed back joins again.
+- The attribute is what holds. Gecko derives `useGlobalHistory` from it
+  each time it makes a tab's frame loader, at every process switch, and
+  for the BrowsingContext a cross-site or COOP load puts in place of the
+  old one. A probe showed the live context's flag alone lost at the first
+  load that switches process. A copy made later gets it when its browser
+  goes in (`#onTaskBrowser` publishes again), and a tab unloaded since a
+  restart has it before its first load.
+- Only zenius's own attribute goes: Zen's Glance previews set theirs.
+  Nothing listens for it (I4).
+- Not covered: the address bar's open-tab results list a task's open tabs
+  while they're open, as for any tab. And a claimed Space of the user's
+  keeps writing history for its tabs the agent doesn't drive.
+- Tests: `tests/core/history.test.mjs` (loads, a link, a popup, another
+  site, COOP; kept, claimed back, the Stop; a user's tab adopted and
+  released; the marks) and one in `tests/core/restart.test.mjs`. Each
+  check for no visit waits for a load of the user's own, made after it,
+  to show up in Places first.
+
 **Decisions** (2026-11-20, on this design):
 1. **The Agents Space goes once it's empty and no window shows it.**
    `spaces.json` keeps its name and icon, and `ensureAgentsSpace` reapplies

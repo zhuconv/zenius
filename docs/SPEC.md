@@ -228,6 +228,11 @@ Each rule below was measured in a window showing the Space.
   - No agent call changes a window's selected tab or active Space.
   - `bringToFront` records the task's front tab instead, which the panel's
     Open selects.
+- **Out of the user's history.** While a tab is a page of a task the
+  agent has, it writes no history: the agent's visits stay out of the
+  user's History and address bar suggestions. A tab the task leaves the
+  user (a kept page, the Stop, a release) writes their history again,
+  so it holds only their own visits (SPI, "The user's history").
 - **A task's tabs stay together.**
   - A new task's first tab goes at the bottom of the Agents Space, so
     starting a task never moves a tab the user sees. A tab added or moved

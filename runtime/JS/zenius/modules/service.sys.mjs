@@ -98,6 +98,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   releaseHolds: "chrome://userscripts/content/zenius/modules/handoff.sys.mjs",
   // The parent backstops load with a task's first page, not at startup (I4).
   setBackstops: "chrome://userscripts/content/zenius/modules/backstops.sys.mjs",
+  // So does keeping task pages out of the user's history.
+  keepFromHistory: "chrome://userscripts/content/zenius/modules/history.sys.mjs",
   noteGuardFailure: "chrome://userscripts/content/zenius/observe/refusals.sys.mjs",
   // The sign-in rules' parent side loads with the first connection (I4).
   checkSignInCall: "chrome://userscripts/content/zenius/observe/signin.sys.mjs",
@@ -255,6 +257,7 @@ class Service {
   #taskBrowserIds = new Set();
   /** Have the parent backstops loaded (modules/backstops.sys.mjs)? */
   #backstopsLoaded = false;
+  #historyLoaded = false;
   /** Actors whose children guard documents (installGuards). */
   #guardActors = new Set([ACTOR_NAME]);
 
@@ -728,12 +731,17 @@ class Service {
     const ids = new Set();
     const taskIds = new Set();
     const joined = [];
+    // Unloaded since a restart too: their browser has no browserId yet.
+    const pageTabs = [];
     for (const space of this.spaces.records()) {
       if (space.gone || !this.spaces.isAgentTask(space)) {
         continue;
       }
       for (const page of this.pages.list(space.id)) {
         const tab = this.pages.tabFor(page);
+        if (tab) {
+          pageTabs.push(tab);
+        }
         const id = tab?.linkedBrowser?.browserId;
         if (id) {
           taskIds.add(id);
@@ -756,7 +764,12 @@ class Service {
     Services.ppmm.sharedData.set(TASK_BROWSERS_KEY, taskIds);
     Services.ppmm.sharedData.set(KEPT_BROWSERS_KEY, this.#keptBrowserIds());
     Services.ppmm.sharedData.flush();
-    // Before a new page's first load, as the guards.
+    // Before a new page's first load, as the guards: the task's pages write
+    // none of the user's history, and those that left write it again.
+    if (pageTabs.length || this.#historyLoaded) {
+      this.#historyLoaded = true;
+      lazy.keepFromHistory(pageTabs);
+    }
     this.updateBackstops();
     // The observe layer: its observers of the user's own browsing run only from
     // the first task page to the last (I4), so they hear of each change.
