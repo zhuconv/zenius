@@ -22,7 +22,7 @@ const page = name => `${h.base}/zoo/${name}.html`;
 
 /** A task a Work chat drives (none with chat null), with a page per URL: p1, p2, ... */
 async function chatTask(prefix, urls, chat = CHAT) {
-  const task = await h.call("spaces.create", { name: h.unique(prefix), source: { agent: "zen-core test", ...(chat ? { sidebar: chat } : {}) } });
+  const task = await h.call("spaces.create", { name: h.unique(prefix), source: { agent: "core test", ...(chat ? { sidebar: chat } : {}) } });
   const labels = [];
   for (const [i, url] of urls.entries()) {
     const label = i === 0 ? (task.pages?.[0]?.label ?? "p1") : (await h.call("pages.new", { space: task.id })).label;
@@ -175,7 +175,7 @@ test("a page the user navigated, closed, moved or clicked in stays theirs and le
     await h.until(() => h.chrome(`${TAB} return browser.currentURI.spec === arg.url && !browser.webProgress.isLoadingDocument;`, { id: ids[1], url: elsewhere }));
     // p3: closed.
     await h.chrome(`${TAB} tab.ownerDocument.defaultView.gBrowser.removeTab(tab); return true;`, { id: ids[2] });
-    // p4: the user's click, as zen-ui's takeover listener notes it.
+    // p4: the user's click, as the UI's takeover listener notes it.
     assert.equal(await h.chrome(`${TAB} const rec = ctx.service.finishedTaskOf(tab); ctx.service.noteKeptInput(rec, browser, "clicked"); return rec?.id;`, { id: ids[3] }), id);
     // p5: into a Space of the user's.
     const uuid = await h.chrome(`return ctx.spaces.get(arg).uuid;`, theirs);

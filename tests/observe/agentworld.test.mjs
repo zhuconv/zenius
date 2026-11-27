@@ -48,7 +48,7 @@ test("the page flags: none on a page the agent only loaded; written through note
     assert.equal(await inContent(page.P, "AW.pageFlag(window)"), null);
   }));
 
-test("a page the agent made from data: is flagged 'drop' for zen-input's guard; discard with nothing to discard is a no-op, in content and from the parent", () =>
+test("a page the agent made from data: is flagged 'drop' for the input layer's guard; discard with nothing to discard is a no-op, in content and from the parent", () =>
   env.inSpace("world made", async page => {
     await page.goto("data:text/html,<title>made</title><input>");
     assert.equal(await env.chrome(`${PARENT} return AW.isMade(p.browser);`, { P: page.P }), true);
@@ -126,7 +126,7 @@ test("a page global the world can't see fails the call loudly: bare, typeof, win
     assert.equal(await page.evaluate("typeof document.title + typeof getComputedStyle + typeof location.href + typeof addEventListener"), "stringfunctionstringfunction");
   }));
 
-test("through the Xray, the agent's code reads an open shadow root, live form values, form.<name> and innerText, and scrollIntoView scrolls (zen-eval's pilot bodies)", () =>
+test("through the Xray, the agent's code reads an open shadow root, live form values, form.<name> and innerText, and scrollIntoView scrolls (the eval harness's pilot bodies)", () =>
   env.inSpace("world reads", async page => {
     await page.goto(`${env.base}/nav-target?reads`);
     await pageWorld(
@@ -251,7 +251,7 @@ const SYSTEM_CLIPBOARD = `const flavor = "text/plain";
   const setSystem = text => { const t = transferable(); const s = Cc["@mozilla.org/supports-string;1"].createInstance(Ci.nsISupportsString); s.data = text; t.setTransferData(flavor, s); Services.clipboard.setData(t, null, Ci.nsIClipboard.kGlobalClipboard); };
   const getSystem = () => { const t = transferable(); try { Services.clipboard.getData(t, Ci.nsIClipboard.kGlobalClipboard, null); const out = {}; t.getTransferData(flavor, out); return out.value.QueryInterface(Ci.nsISupportsString).data; } catch { return null; } };`;
 
-test("the world gets the guards other modules put on the page's prototypes: zen-ux's clipboard wrappers, a no to passkeys, and, on evidence, a geolocation refusal it can read", { skip: process.platform !== "linux" && "the system clipboard is the user's here" }, () =>
+test("the world gets the guards other modules put on the page's prototypes: the UI's clipboard wrappers, a no to passkeys, and, on evidence, a geolocation refusal it can read", { skip: process.platform !== "linux" && "the system clipboard is the user's here" }, () =>
   env.inSpace("world prototype guards", async page => {
     await page.goto(`${env.base}/nav-target?prototype-guards`);
     const sentinel = `zo-user-clipboard-${Date.now()}`;
@@ -516,7 +516,7 @@ const PAGE_GUARDS = `const out = {};
       await Reflect.apply(w.CredentialsContainer.prototype.get, {}, [request]);
     } catch {}
     // quiet: the Notification is a wrapper, and its prototype's constructor
-    // is the same one (zen-ux's quiet one, over the page guard's).
+    // is the same one (the UI's quiet one, over the page guard's).
     const notification = w.Notification;
     const quiet = notification === notification.prototype.constructor && !/function Notification\\(/.test(Function.prototype.toString.call(notification));
     out[id] = { open, clipboard, passkeys: read[0] ?? "unread", quiet };
@@ -899,7 +899,7 @@ test("the URL before the agent's code changed it in place: pushState, replaceSta
     await until("urlBefore after the hash", async () => (await before()) === `${env.base}/site-route`);
   }));
 
-test("a page that leaves its task loses the agent's world at once: kept at the finish, its timer stops and its state is gone (zen-snapshot's kept group)", async () => {
+test("a page that leaves its task loses the agent's world at once: kept at the finish, its timer stops and its state is gone (the snapshot layer's kept group)", async () => {
   const mark = `zo-left-${Date.now()}`;
   const space = await env.call("spaces.create", { name: `world left ${Date.now() % 100000}` });
   const P = { space: space.id, page: "p1" };
@@ -936,7 +936,7 @@ test("a page that leaves its task loses the agent's world at once: kept at the f
   }
 });
 
-test("an agent's html paste makes the page written, as its world's writes do; a plain paste doesn't (zen-snapshot's pasteHtml)", () =>
+test("an agent's html paste makes the page written, as its world's writes do; a plain paste doesn't (the snapshot layer's pasteHtml)", () =>
   env.inSpace("world paste", async page => {
     const written = () => env.chrome(`${PARENT} return AW.isWritten(p.browser);`, { P: page.P });
     // The page's own editor, made by the page's JavaScript: the agent's world wrote nothing.
@@ -1072,7 +1072,7 @@ test("the agent's Ctrl/Cmd+V of the Space's clipboard with html flags the page w
     assert.match(await env.call("dev.evalContent", { ...page.P, code: `document.getElementById("ed").innerHTML` }), /<b>bold<\/b>/, "the html went in");
   }));
 
-test("after the finish, a kept page holds the agent's code only while it's written: its own window.open works where the world only ran (zen-snapshot's keptPlanted)", async () => {
+test("after the finish, a kept page holds the agent's code only while it's written: its own window.open works where the world only ran (the snapshot layer's keptPlanted)", async () => {
   /** A task whose p1 ran `code` in the world and was kept; whether it's written then, and whether its own window.open opens. */
   const keptOpen = async (tag, code) => {
     const mark = `zo-kept-open-${tag}-${Date.now()}`;

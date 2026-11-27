@@ -120,7 +120,7 @@ const C = `
       return false;
     }
   }, 8000);
-  // The page's written flag, from zen-observe's agentworld module (null before it lands).
+  // The page's written flag, from the observe layer's agentworld module (null before it lands).
   let WORLD = null;
   try {
     WORLD = ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/agentworld.sys.mjs");
@@ -132,7 +132,7 @@ const C = `
       return "threw " + e.message;
     }
   };
-  // The evidence flag (from zen-observe): the page's reasons
+  // The evidence flag (from the observe layer): the page's reasons
   // {hooked|made|listed|flagged: detail}, over the tab's top document and its
   // frames. It replaces written as the defenses' trigger; a page-world route
   // now runs and marks hooked instead of being refused.

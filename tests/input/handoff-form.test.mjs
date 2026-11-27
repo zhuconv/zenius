@@ -116,7 +116,7 @@ const fillWithCode = async (page, opts) => JSON.parse(await evaluate(page, fillB
  */
 async function startCase(tag) {
   const path = `/form?${tag}-${Date.now()}`;
-  const task = await h.taskSpace(`zen-input handoff form ${tag}`);
+  const task = await h.taskSpace(`input handoff form ${tag}`);
   return { task, path, page: await h.newPageAt(task, site.url(path)) };
 }
 
@@ -230,7 +230,7 @@ test("(a) the same at the user's Take over: nothing reloads, and the user's pres
   }
 });
 
-test("(b) the same code adding a script element hooks the page: the user's press in the agent's tab gets the clean copy and zen-ux's notice, and is dropped; the custom select and multi-select are back at their defaults", async () => {
+test("(b) the same code adding a script element hooks the page: the user's press in the agent's tab gets the clean copy and the UI's notice, and is dropped; the custom select and multi-select are back at their defaults", async () => {
   const { task, page } = await startCase("press");
   let back = null;
   try {
@@ -243,7 +243,7 @@ test("(b) the same code adding a script element hooks the page: the user's press
     await h.userClick(page, "#submit");
     await h.until(async () => (await cleanCalls()) >= 1, "the clean copy at the user's press", 10_000);
     const fresh = await freshDoc(page, filled.doc, "the clean copy's document");
-    const notice = await h.until(() => reloadNotice(page), "zen-ux's notice");
+    const notice = await h.until(() => reloadNotice(page), "the UI's notice");
     assert.equal(notice.text, "Your click didn't go through · the page reloaded, as the agent's code had changed it");
     assert.match(notice.note, NOTE);
     assert.deepEqual(custom(fresh.state), custom(DEFAULTS), "the custom select and the multi-select are at their defaults");
@@ -275,7 +275,7 @@ test("(b) the same code adding an inline handler hooks the page: hand_off loads 
     const fresh = await freshDoc(page, filled.doc, "the page, loaded afresh at the hand-off");
     assert.deepEqual(custom(fresh.state), custom(DEFAULTS), "the custom select and the multi-select are at their defaults");
     // The UI's notice says so, as at Take over (the UI's glue; its title gains why once the core's evidence comes with the hold).
-    const notice = await h.until(() => reloadNotice(page), "zen-ux's notice");
+    const notice = await h.until(() => reloadNotice(page), "the UI's notice");
     assert.match(notice.text, /^This page reloaded(?: · |$)/);
     assert.match(notice.note, NOTE);
 
@@ -290,7 +290,7 @@ test("(b) the same code adding an inline handler hooks the page: hand_off loads 
   }
 });
 
-test("(b) a hooked form at the user's Take over: it loads afresh at once, zen-ux's notice says so, and the user's press sends the defaults it warns of", async () => {
+test("(b) a hooked form at the user's Take over: it loads afresh at once, the UI's notice says so, and the user's press sends the defaults it warns of", async () => {
   const { task, page } = await startCase("takeover-hooked");
   let back = null;
   try {
@@ -303,7 +303,7 @@ test("(b) a hooked form at the user's Take over: it loads afresh at once, zen-ux
     await userTakesOver(page);
     const taken = await freshDoc(page, filled.doc, "the page, loaded afresh at the Take over");
     assert.deepEqual(custom(taken.state), custom(DEFAULTS), "the custom select and the multi-select are at their defaults");
-    const notice = await h.until(() => reloadNotice(page), "zen-ux's notice");
+    const notice = await h.until(() => reloadNotice(page), "the UI's notice");
     assert.equal(notice.text, "This page reloaded · the agent's code had changed it", "the notice says why: Take over's evidence");
     assert.match(notice.note, NOTE);
 

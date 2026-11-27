@@ -291,7 +291,7 @@ const watchConsoleIn = (page, index) =>
      try {
        await ctx.content(bc, "nav#metrics", {});
      } catch (e) {
-       // The Zenius actor exists only in web content processes (zen-core's
+       // The Zenius actor exists only in web content processes (the core's
        // remoteTypes): in a file or add-on process the watch can't start.
        if (e?.code === "ZEN_UNSUPPORTED") return false;
        throw e;

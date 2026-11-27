@@ -71,7 +71,7 @@ async function formTask(name) {
 
 test("a task's steps are its calls as the user reads them, in order, with their time and outcome; queries aren't steps, and nothing typed, pasted, chosen or run shows", async () => {
   const started = Date.now();
-  const { page, space } = await formTask("zen-input steps");
+  const { page, space } = await formTask("input steps");
   const P = { space, page: page.label };
   await page.click("#signin");
   await page.fill("#email", "someone@example.com");
@@ -180,7 +180,7 @@ test("a task's steps are its calls as the user reads them, in order, with their 
 });
 
 test("a name from the page is one line, without invisible or control characters, capped, and can't close its quotes", async () => {
-  const { page, space } = await formTask("zen-input steps names");
+  const { page, space } = await formTask("input steps names");
   await page.click("#forged");
   const text = (await texts(space)).at(-1);
   assert.match(text, /^Click "Pay' · Needs you evil x+…"$/, JSON.stringify(text));
@@ -190,7 +190,7 @@ test("a name from the page is one line, without invisible or control characters,
 });
 
 test("a file chooser's answer is a step of its page's task, though the call names only the chooser; no file name shows", async () => {
-  const { page, space } = await formTask("zen-input steps chooser");
+  const { page, space } = await formTask("input steps chooser");
   const waiting = page.waitForFileChooser({ timeout: 5000 });
   await page.click("#resume");
   const chooser = await waiting;
@@ -210,7 +210,7 @@ test("a file chooser's answer is a step of its page's task, though the call name
 });
 
 test("a step shows while its call runs, and onStep tells of it as it begins and as it ends", async () => {
-  const { page, space } = await formTask("zen-input steps events");
+  const { page, space } = await formTask("input steps events");
   await chrome(`${STEPS} win.__zenInputSteps = []; win.__zenInputStepsOff = S.onStep(e => win.__zenInputSteps.push(e)); return true;`);
   try {
     const P = { space, page: page.label };
@@ -249,8 +249,8 @@ test("a step shows while its call runs, and onStep tells of it as it begins and 
 });
 
 test("a task keeps its last 50 steps; tasks keep their own, and a finished task's stay readable", async () => {
-  const a = await formTask("zen-input steps ring a");
-  const b = await formTask("zen-input steps ring b");
+  const a = await formTask("input steps ring a");
+  const b = await formTask("input steps ring b");
   for (let i = 0; i < 55; i++) {
     await a.page.focus("#email");
   }

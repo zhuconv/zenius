@@ -89,7 +89,7 @@ async function task(name) {
 }
 
 test("a script's step quotes its purpose, its connection's steps carry within, and it ends with the outcome the script sends", async () => {
-  const { space, P, done } = await task("zen-core script step");
+  const { space, P, done } = await task("core script step");
   const conn = await rawConnection();
   try {
     const begun = await conn.call("script.begin", { space, purpose: 'Compare "the"\n  three\tprices' });
@@ -129,7 +129,7 @@ test("a script's step quotes its purpose, its connection's steps carry within, a
 });
 
 test("a script's outcome is ok, a zenius code, or failed: no words of the script's own", async () => {
-  const { space, done } = await task("zen-core script outcome");
+  const { space, done } = await task("core script outcome");
   try {
     const outcomes = [];
     for (const outcome of ["ok", "ZEN_SELECTOR_NOT_FOUND", "all done, nothing failed", undefined]) {
@@ -149,7 +149,7 @@ test("a script's outcome is ok, a zenius code, or failed: no words of the script
 });
 
 test("a script whose connection closes before its end reads stopped", async () => {
-  const { space, done } = await task("zen-core script closed");
+  const { space, done } = await task("core script closed");
   const conn = await rawConnection();
   try {
     const { result } = await conn.call("script.begin", { space, purpose: "p" });
@@ -162,7 +162,7 @@ test("a script whose connection closes before its end reads stopped", async () =
 });
 
 test("a script's own step stays among its task's steps while it runs, however many calls it makes: past 50 the oldest steps that have ended go first", async () => {
-  const { space, P, done } = await task("zen-core script long");
+  const { space, P, done } = await task("core script long");
   const conn = await rawConnection();
   try {
     const { result } = await conn.call("script.begin", { space, purpose: "p" });
@@ -187,7 +187,7 @@ test("a script's own step stays among its task's steps while it runs, however ma
 });
 
 test("the sidebar's Stop (stopScript) tells the script's client, closes its connection, and stops its wait", async () => {
-  const { space, P, done } = await task("zen-core script stop");
+  const { space, P, done } = await task("core script stop");
   const conn = await rawConnection();
   try {
     const { result } = await conn.call("script.begin", { space, purpose: "p" });
@@ -216,7 +216,7 @@ test("the sidebar's Stop (stopScript) tells the script's client, closes its conn
 });
 
 test("the sidebar's Stop reaches a client that reads slowly: what was sent before it, then its event, all arrive before the close", async () => {
-  const { space, P, done } = await task("zen-core script stop slow");
+  const { space, P, done } = await task("core script stop slow");
   const conn = await rawConnection();
   try {
     const { result } = await conn.call("script.begin", { space, purpose: "p" });

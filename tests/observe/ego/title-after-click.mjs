@@ -41,7 +41,7 @@ const server = http.createServer(async (req, res) => {
 const keepAlive = setInterval(() => {}, 20);
 await new Promise(r => server.listen(0, "127.0.0.1", r));
 const base = `http://127.0.0.1:${server.address().port}`;
-const task = await taskSpace(`zen-observe title probe ${Date.now()}`);
+const task = await taskSpace(`observe title probe ${Date.now()}`);
 const out = {};
 try {
   const page = await task.newPage();

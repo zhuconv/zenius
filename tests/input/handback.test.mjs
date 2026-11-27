@@ -29,7 +29,7 @@ before(async () => {
   h = await openHarness("handback");
   // The agent's own values stay in the page across a hand-off: these tests check what the hand back clears (the core's glue).
   await chrome(`Services.prefs.setBoolPref("zenius.handoff.quietReload", false); return true;`);
-  task = await h.taskSpace("zen-input handback");
+  task = await h.taskSpace("input handback");
   site = await loginSite(h, SAVED);
 });
 
@@ -292,7 +292,7 @@ test("what the user types while they paused the agent is cleared on Resume", () 
     assert.equal((await handBackStats()).cleared - before.cleared, 1);
   }));
 
-test("typedSecrets names each page whose current document holds a password filled while the user held the Space, and changes nothing (zen-ux's Resume)", () =>
+test("typedSecrets names each page whose current document holds a password filled while the user held the Space, and changes nothing (the UI's Resume)", () =>
   inWatchedPage("/handback", async page => {
     await page.fill("#agentpass", "agent-own-secret");
     const other = await h.newPageAt(task, `${site.origin}/handback?other=1`);
@@ -866,7 +866,7 @@ const userFillsOwnTab = values =>
   inUserTab(`for (const [sel, v] of Object.entries(${JSON.stringify(values)})) document.querySelector(sel).setUserInput(v); return true;`);
 
 test("a tab the agent adopts has the passwords it didn't set emptied before its first call", async () => {
-  const { space, uuid } = await userSpace("zen-input adopt", `${site.origin}/handback`);
+  const { space, uuid } = await userSpace("input adopt", `${site.origin}/handback`);
   try {
     await h.until(() => inUserTab("return document.readyState === 'complete' && !!document.querySelector('#pass')"), "the user's page");
     await userFillsOwnTab({ "#user": "their-name", "#pass": "their-secret" });

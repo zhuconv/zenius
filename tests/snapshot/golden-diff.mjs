@@ -56,7 +56,7 @@ const call = (method, params) => client.call(method, params);
 const fixture = await startFixtureServer("zen-snapshot golden diff");
 const base = fixture.baseUrl;
 const cross = base.replace("127.0.0.1", "localhost");
-const { id: space } = await call("spaces.create", { name: `zen-snapshot golden diff ${Date.now()}` });
+const { id: space } = await call("spaces.create", { name: `snapshot golden diff ${Date.now()}` });
 
 function placeholders(text) {
   return text

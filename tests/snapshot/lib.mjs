@@ -14,7 +14,7 @@ export async function setup(name) {
   const fixture = await startFixtureServer("zen-snapshot");
   const call = (method, params) => client.call(method, params);
   const userView = await call("dev.viewState");
-  const { id: space } = await call("spaces.create", { name: `zen-snapshot ${name} ${Date.now()}` });
+  const { id: space } = await call("spaces.create", { name: `snapshot ${name} ${Date.now()}` });
   const base = fixture.baseUrl;
   return {
     call,

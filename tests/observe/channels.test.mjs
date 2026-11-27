@@ -190,7 +190,7 @@ test("a channel a page opens in its first script, as the task's new page loads, 
   }
 });
 
-test("a shared worker is its task's own: two pages of a task share one, a page of another task gets another (zen-snapshot's twoTasks)", async () => {
+test("a shared worker is its task's own: two pages of a task share one, a page of another task gets another (the snapshot layer's twoTasks)", async () => {
   const url = `http://127.0.0.1:${early.address().port}/early?shared`;
   const { id: a } = await env.call("spaces.create", { name: `zo shared a ${Date.now() % 100000}` });
   const { id: b } = await env.call("spaces.create", { name: `zo shared b ${Date.now() % 100000}` });

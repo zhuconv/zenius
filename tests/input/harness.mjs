@@ -111,7 +111,7 @@ export async function openHarness(suite) {
   }
   let closeUp = async () => {};
   const watchdog = setTimeout(async () => {
-    console.error(`zen-input ${suite}: still running after ${WATCHDOG_MS} ms; closing up and exiting so the dev Zen doesn't stay open`);
+    console.error(`input ${suite}: still running after ${WATCHDOG_MS} ms; closing up and exiting so the dev Zen doesn't stay open`);
     await capped(closeUp(), 10_000);
     process.exit(2);
   }, WATCHDOG_MS);
@@ -390,7 +390,7 @@ export async function openHarness(suite) {
     baseUrl: fixture.baseUrl,
     /** Same server, other site: its iframes run out of process. */
     crossUrl: fixture.baseUrl.replace("127.0.0.1", "localhost"),
-    taskName: `zen-input ${suite}`,
+    taskName: `input ${suite}`,
     platform: process.platform,
     scrollingActionTimeout: 10_000,
     artifactDir,
@@ -522,7 +522,7 @@ export async function openHarness(suite) {
           const { tab, space } = ZeniusService.resolvePage(arg);
           const userWs = win.gZenWorkspaces.activeWorkspace;
           // The switch lands on the page, as the user's from the tasks
-          // panel does (zen-ux's openSpace), with no other tab shown first.
+          // panel does (the UI's openSpace), with no other tab shown first.
           landOn(tab);
           await win.gZenWorkspaces.changeWorkspaceWithID(space.uuid);
           if (win.gBrowser.selectedTab !== tab) win.gBrowser.selectedTab = tab;
@@ -689,7 +689,7 @@ export async function openHarness(suite) {
       const after = await call("dev.viewState");
       const log = probeStopped ? null : await call("dev.evalChrome", { code: FOCUS_PROBE_STOP }).catch(() => null);
       probeStopped = true;
-      await checkView(`zen-input ${suite}`, userView, after, { probe: focusProbe, steps, log });
+      await checkView(`input ${suite}`, userView, after, { probe: focusProbe, steps, log });
     },
     /** The UI's takeover detector never saw agent input: every Space is still the agent's. */
     async assertAgentStillInControl() {

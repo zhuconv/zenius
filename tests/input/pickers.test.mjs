@@ -13,7 +13,7 @@ let task;
 
 before(async () => {
   h = await openHarness("pickers");
-  task = await h.taskSpace("zen-input pickers");
+  task = await h.taskSpace("input pickers");
 });
 
 after(async () => {

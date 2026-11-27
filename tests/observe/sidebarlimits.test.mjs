@@ -812,7 +812,7 @@ test("a new chat's agent: the user's last pick, else config.json's default when 
   assert.deepEqual(r.noPickCodexOff, [null, "claude"], "no pick, and the default can't run: Claude Code");
 });
 
-test("a Work chat's live zenius task goes to its zenius server, at session/new and resume alike; a finished task or a Chat gets none (zen-sdk's fix); Codex's is the next test", async () => {
+test("a Work chat's live zenius task goes to its zenius server, at session/new and resume alike; a finished task or a Chat gets none (the SDK's fix); Codex's is the next test", async () => {
   const space = await env.call("spaces.create", { name: `sidebar task ${Date.now() % 100000}` });
   let finished = false;
   try {

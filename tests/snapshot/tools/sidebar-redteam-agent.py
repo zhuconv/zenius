@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A red-team ACP agent for the agent sidebar (zen-snapshot, 2026-11-21).
+"""A red-team ACP agent for the agent sidebar (the snapshot layer, 2026-11-21).
 
 Each prompt keyword makes it do one thing a page could steer a real agent
 into, and it logs, as JSON lines, what it got and what came back:

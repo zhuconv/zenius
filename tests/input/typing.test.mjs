@@ -23,7 +23,7 @@ let task;
 
 before(async () => {
   h = await openHarness("typing");
-  task = await h.taskSpace("zen-input typing");
+  task = await h.taskSpace("input typing");
 });
 
 after(async () => {
@@ -143,7 +143,7 @@ function moveOnce(page) {
   return chrome(
     `${SERVICE} const { browser } = ZeniusService.resolvePage(arg);
      const r = browser.getBoundingClientRect();
-     // A card of zen-ux's may cover part of the page: the first point that's
+     // A card of the UI's may cover part of the page: the first point that's
      // the page's, a few pixels off the last move's.
      const jitter = (arg.moves % 5) * 2;
      const at = [[0.5, 0.5], [0.25, 0.35], [0.75, 0.35], [0.5, 0.2], [0.3, 0.65], [0.7, 0.65]]
@@ -265,7 +265,7 @@ async function inWatchedPage(url, fn) {
   }
 }
 
-test("in a page with evidence, the user's press into a field is stopped whole, the focus stays, and zen-core is asked for a clean copy", () =>
+test("in a page with evidence, the user's press into a field is stopped whole, the focus stays, and the core is asked for a clean copy", () =>
   inWatchedPage(formsUrl("press"), async page => {
     // The agent's own typing there is no trigger.
     await page.fill("#email", "agent@example.com");
@@ -277,10 +277,10 @@ test("in a page with evidence, the user's press into a field is stopped whole, t
     await h.userClick(page, "#email");
     await someTrigger();
     await userMoved(page);
-    assert.deepEqual(await triggers(), [{ trigger: "press", reloaded: true }], "zen-ux heard the user's press");
+    assert.deepEqual(await triggers(), [{ trigger: "press", reloaded: true }], "the UI heard the user's press");
     assert.deepEqual(await heard(page), [], "the page heard nothing of the press");
     assert.equal(await activeId(page), "nickname", "the focus stayed where it was");
-    assert.deepEqual(await cleanCalls(), [id], "zen-core was asked for a clean copy, once");
+    assert.deepEqual(await cleanCalls(), [id], "the core was asked for a clean copy, once");
 
     await h.userPress(page, "a", "b");
     await userMoved(page);
@@ -310,7 +310,7 @@ test("in a page with evidence, the user's first press anywhere, not only into a 
     assert.deepEqual(await triggers(), [{ trigger: "press", reloaded: true }]);
     assert.deepEqual(await heard(page), [], "the page heard nothing of the press");
     assert.equal(await activeId(page), "nickname", "the focus stayed where it was");
-    assert.deepEqual(await cleanCalls(), [id], "zen-core was asked for a clean copy");
+    assert.deepEqual(await cleanCalls(), [id], "the core was asked for a clean copy");
 
     await h.userClick(page, "#email");
     await h.userPress(page, "Tab", "x", "Enter");
@@ -347,7 +347,7 @@ test("in a page with evidence, the user's first key into a field the page focuse
     assert.equal(await valueOf(page, "[name=nickname]"), "");
   }));
 
-test("the replay's own keys never set off a hold, though the page they go into has evidence (zen-core's reload loop, 2026-11-21)", () =>
+test("the replay's own keys never set off a hold, though the page they go into has evidence (the core's reload loop, 2026-11-21)", () =>
   inWatchedPage(formsUrl("replay-own"), async page => {
     // A clean copy can be born with evidence (a listed site, or a hooked
     // popup or opener in its group): the replay's keys there must not hold,
@@ -365,8 +365,8 @@ test("the replay's own keys never set off a hold, though the page they go into h
     assert.deepEqual(after, { typed: 2, held: false }, "the replay typed both keys and held nothing");
     assert.equal(await valueOf(page, "[name=nickname]"), "ab");
     await userMoved(page);
-    assert.deepEqual(await triggers(), [], "no trigger reached zen-ux");
-    assert.deepEqual(await cleanCalls(), [], "zen-core was asked for no clean copy");
+    assert.deepEqual(await triggers(), [], "no trigger reached the UI");
+    assert.deepEqual(await cleanCalls(), [], "the core was asked for no clean copy");
     // The user's own key there still is the trigger.
     await h.userPress(page, "c");
     await someTrigger();
@@ -473,7 +473,7 @@ test("the hold ends with the document: the next one is unflagged, and the user's
 test("a page the agent made keeps the user's typing on: no trigger, nothing stopped", () =>
   inWatchedPage(formsUrl("made"), async page => {
     await page.goto("data:text/html,<input id=f>");
-    await h.until(async () => (await pageFlag(page)) === "drop", "zen-observe's made flag");
+    await h.until(async () => (await pageFlag(page)) === "drop", "the observe layer's made flag");
     await h.asUser(page, LISTEN());
     await userTypes(page, "#f", "a");
     await h.until(async () => (await valueOf(page, "#f")) === "a", "the user's key in the field", 30_000);
@@ -517,7 +517,7 @@ test("a page the agent's code wrote into, leaving nothing hooked, keeps the user
     assert.deepEqual(await cleanCalls(), [], "no clean copy");
   }));
 
-test("only hooked evidence holds the user's input: a listed or flagged page leaves it on, for zen-ux's warning", async () => {
+test("only hooked evidence holds the user's input: a listed or flagged page leaves it on, for the UI's warning", async () => {
   for (const [reason, detail] of [
     ["listed", "goog-phish-proto"],
     ["flagged", "it asks for the card's PIN"],
@@ -542,7 +542,7 @@ test("only hooked evidence holds the user's input: a listed or flagged page leav
     await h.userClick(page, "[name=nickname]");
     await someTrigger();
     assert.deepEqual(await triggers(), [{ trigger: "press", reloaded: true }]);
-    assert.deepEqual(await cleanCalls(), [await browserIdOf(page)], "zen-core was asked for a clean copy");
+    assert.deepEqual(await cleanCalls(), [await browserIdOf(page)], "the core was asked for a clean copy");
     assert.deepEqual(await heard(page), [], "the page's code heard nothing");
   });
 });
@@ -582,7 +582,7 @@ test("a page with evidence the user keeps after the task still keeps their typin
   // evidence, after its switch); with its quiet loads off (as for the
   // hand-off's other layers) the page stays as it was (glue by the core).
   await chrome(`Services.prefs.setBoolPref("zenius.handoff.quietReload", false); return true;`);
-  const { id: space } = await h.call("spaces.create", { name: `zen-input kept ${Date.now() % 100000}` });
+  const { id: space } = await h.call("spaces.create", { name: `input kept ${Date.now() % 100000}` });
   const mark = `zen-input-kept-${Date.now()}`;
   let finished = false;
   /** Chrome code with `tab`, `browser` and `tabWin` for the kept page, in whichever window it went to. */
@@ -636,7 +636,7 @@ test("a page with evidence the user keeps after the task still keeps their typin
     );
     await someTrigger();
     assert.deepEqual(await triggers(), [{ trigger: "key", reloaded: true }]);
-    assert.deepEqual(await cleanCalls(), [browserId], "zen-core was asked for a clean copy");
+    assert.deepEqual(await cleanCalls(), [browserId], "the core was asked for a clean copy");
     assert.deepEqual(await keptPage("return window.__heard.splice(0)"), [], "the kept page's code heard nothing");
     assert.equal(await keptPage("return document.querySelector('[name=nickname]').value"), "");
   } finally {
@@ -650,7 +650,7 @@ test("a page with evidence the user keeps after the task still keeps their typin
   }
 });
 
-test("zen-core's dropUserTyping holds the user's typing in a page until released, and holds nest", () =>
+test("the core's dropUserTyping holds the user's typing in a page until released, and holds nest", () =>
   inWatchedPage(formsUrl("hold"), async page => {
     // A page with no evidence: the user's typing goes in, and sets off nothing.
     await userTypes(page, "#email", "a");
@@ -683,7 +683,7 @@ test("zen-core's dropUserTyping holds the user's typing in a page until released
     }
   }));
 
-test("zen-core's failed release keeps the user's typing out of the document the hold began in, until another replaces it", () =>
+test("the core's failed release keeps the user's typing out of the document the hold began in, until another replaces it", () =>
   inWatchedPage(formsUrl("failed"), async page => {
     await userTypes(page, "#email", "a");
     await h.until(async () => (await valueOf(page, "#email")) === "a", "the user's first key", 30_000);
@@ -711,7 +711,7 @@ test("zen-core's failed release keeps the user's typing out of the document the 
       assert.equal(await held(), false, "the next document is free");
       await userTypes(page, "#email", "c");
       await h.until(async () => (await valueOf(page, "#email")) === "c", "the user's key in the next document", 30_000);
-      assert.deepEqual(await triggers(), [], "zen-core's hold tells zen-ux nothing");
+      assert.deepEqual(await triggers(), [], "the core's hold tells the UI nothing");
     } finally {
       await chrome(`win.__zenInputFailed?.(); win.__zenInputFailed = null; return true;`).catch(() => {});
     }
@@ -884,7 +884,7 @@ const userChord = (page, mods, key) =>
 
 const UNTOUCHED = { load: "2", user: "", pass: "", typed: [null, null], focus: "user", submitted: false };
 
-test("the keys the user types while a page with evidence loads afresh are typed again into the field they pressed (zen-snapshot's 400 ms case)", () =>
+test("the keys the user types while a page with evidence loads afresh are typed again into the field they pressed (the snapshot layer's 400 ms case)", () =>
   withReloadSite(urlFor =>
     inEvidentPage(urlFor("snapshot"), async page => {
       await h.userClick(page, "#user");
@@ -1068,7 +1068,7 @@ test("a kept page's clean copy holds the keys the user types into it until their
   try {
     await withReloadSite(
       async urlFor => {
-        ({ id: space } = await h.call("spaces.create", { name: `zen-input kept replay ${Date.now() % 100000}` }));
+        ({ id: space } = await h.call("spaces.create", { name: `input kept replay ${Date.now() % 100000}` }));
         const P = { space, page: "p1" };
         // Another site than the other task pages', so no task page keeps its
         // process armed after the task: only its evidence, then the hold.

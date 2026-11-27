@@ -109,7 +109,7 @@ before(async () => {
   await h.chrome(
     `Services.prefs.setBoolPref("dom.disable_open_during_load", false);
      Services.prefs.setBoolPref("browser.tabs.loadDivertedInBackground", true);
-     // Each discard zenius asks for is noted, then made (zen-observe's).
+     // Each discard zenius asks for is noted, then made (the observe layer's).
      ctx.service.hoDiscards = [];
      ctx.service.hoDiscardFail = null;
      const real = Object.getPrototypeOf(ctx.service).discardAgentCode;
@@ -299,7 +299,7 @@ test("a hand-off loads afresh a page the agent's code left something hooked in: 
     assert.equal(events[0].ownership, "agentDelegatedToUser");
     assert.equal(events[0].reloaded, "reload");
     assert.equal(events[0].carried, true);
-    assert.deepEqual(events[0].evidence, { [label]: { hooked: "a style sheet" } }, "zen-ux's card says why");
+    assert.deepEqual(events[0].evidence, { [label]: { hooked: "a style sheet" } }, "the UI's card says why");
     await resume(space);
     const back = await h.call("spaces.waitForControl", { space, timeout: 5000 });
     assert.deepEqual(back.reloaded, [label]);
@@ -803,7 +803,7 @@ test("a page whose own URL now leads off its site too is refused: the load to th
       assert.equal(data.reason, "reloadFailed");
       assert.equal(data.page, label);
       assert.match(e.message, /ho%3D13onceaway|ho=13onceaway/);
-      assert.equal(data.offSite, other("/form?ho=13onceaway"), "zen-ux's card offers no Try again for it");
+      assert.equal(data.offSite, other("/form?ho=13onceaway"), "the UI's card offers no Try again for it");
       assert.match(e.message, /another site/);
       return true;
     });

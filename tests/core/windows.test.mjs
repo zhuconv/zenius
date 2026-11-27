@@ -767,7 +767,7 @@ test("a page whose window lacks the copy of the page before it still gets its co
          w._zenClosingWindow = false;
        }
        // Until it's gone, not a fixed wait: under load it took longer than
-       // 100 ms (zen-eval's Mac dry-run, beside the e2e suite).
+       // 100 ms (the eval harness's Mac dry-run, beside the e2e suite).
        await until(() => !copyOf(liveOf(arg.space, arg.p2), 1), 5000).catch(() => {});
        return { gone: !copyOf(liveOf(arg.space, arg.p2), 1), first: !!copyOf(liveOf(arg.space, arg.p2), 0) };`,
       { space, p2 }

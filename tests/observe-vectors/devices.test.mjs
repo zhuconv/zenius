@@ -650,7 +650,7 @@ test("on evidence, notifications are refused in a task's pages, their fresh fram
   }));
 
 test(
-  "where the site may show notifications: zen-ux's quiet one while the agent drives and a refusal in workers; during the user's hold the page's own goes on",
+  "where the site may show notifications: the UI's quiet one while the agent drives and a refusal in workers; during the user's hold the page's own goes on",
   { skip: MAC && "a miss would be a real notification on the Mac's screen" },
   async () => {
     // Firefox's own alert window: the Linux server has no notification daemon, where the
@@ -667,9 +667,9 @@ test(
           "notify-worker": ["error"],
         });
         const events = await page.call("page.events");
-        assert.ok(events.some(e => e.method === "Zenius.notification" && e.params.title === "zenius vector"), "zen-ux's guard told the agent");
+        assert.ok(events.some(e => e.method === "Zenius.notification" && e.params.title === "zenius vector"), "the UI's guard told the agent");
         assert.ok(events.some(e => e.method === "Zenius.refused" && e.params.kind === "notification" && /^A worker the page started/.test(e.params.message)));
-        assert.equal(await alertWindows(), shown, "zen-ux's quiet one shows nothing");
+        assert.equal(await alertWindows(), shown, "the UI's quiet one shows nothing");
       });
       await env.inSpace("notifications granted hold", async page => {
         const shown = await alertWindows();
@@ -686,7 +686,7 @@ test(
         // so the I1 check sees what the user would.
         await closeAlerts();
         const events = await page.call("page.events");
-        assert.deepEqual(events.filter(e => e.method === "Zenius.notification"), [], "not zen-ux's quiet one");
+        assert.deepEqual(events.filter(e => e.method === "Zenius.notification"), [], "not the UI's quiet one");
         assert.deepEqual(events.filter(e => e.method === "Zenius.refused" && e.params.kind === "notification"), []);
       });
     } finally {
@@ -744,7 +744,7 @@ test(
         await sleep(500);
         assert.equal(await alertWindows(), shown, "nothing showed");
         const events = await page.call("page.events");
-        assert.deepEqual(events.filter(e => e.method === "Zenius.notification"), [], "not zen-ux's quiet one: the agent's code gets a no");
+        assert.deepEqual(events.filter(e => e.method === "Zenius.notification"), [], "not the UI's quiet one: the agent's code gets a no");
         const refused = events.filter(e => e.method === "Zenius.refused" && e.params.kind === "notification");
         assert.deepEqual(
           refused.map(e => `${e.params.api} ${e.params.asked}`).sort(),
@@ -1220,7 +1220,7 @@ test("in a kept page where the agent's code ran, the user's own navigation goes 
   }
 });
 
-test("a load the user starts in a task's tab during their hold is refused, and zen-ux's notice hears of it", () =>
+test("a load the user starts in a task's tab during their hold is refused, and the UI's notice hears of it", () =>
   env.inSpace("local network typed", async page => {
     const port = new URL(vectors.base).port;
     await page.goto(`${vectors.base}/plain?typed`);
@@ -1344,7 +1344,7 @@ test("a link the user clicks in a kept page the agent's code wrote: the press lo
   }
 });
 
-test("a plain link the agent's code wrote in a kept page is no evidence, so the user's click follows it with no clean copy first; the local network stays refused there, since the agent wrote into the page, and zen-ux's notice hears of it", async () => {
+test("a plain link the agent's code wrote in a kept page is no evidence, so the user's click follows it with no clean copy first; the local network stays refused there, since the agent wrote into the page, and the UI's notice hears of it", async () => {
   const mark = `zo-kept-plain-link-${Date.now()}`;
   const port = new URL(vectors.base).port;
   const space = await env.call("spaces.create", { name: `kept plain link ${Date.now() % 100000}` });

@@ -263,7 +263,7 @@ const notRestored = space => ({ code: "ZEN_TASK_SPACE_NOT_FOUND", data: { space,
  * a step on this one names; ?design, an editor in designMode.
  */
 const steps = { hits: new Map() };
-/** window.__first: the page refusals' natives its first script saw unwrapped, and whether zen-ux's quiet Notification was there. */
+/** window.__first: the page refusals' natives its first script saw unwrapped, and whether the UI's quiet Notification was there. */
 const FIRST_SCRIPT = `window.__first = {
   native: ["Notification", "RTCPeerConnection", "SharedWorker", "BroadcastChannel"].filter(n => Function.prototype.toString.call(window[n]).includes(n)),
   quiet: window.Notification === window.Notification.prototype.constructor && !/function Notification\\(/.test(Function.prototype.toString.call(window.Notification)),
@@ -1167,7 +1167,7 @@ test("a hand-off with secret: the hand back saves the session at once, so a cras
 test("a reply after a restart takes up nothing of a task finished before it: the scope is one Zen session", async () => {
   // A Work chat's id, in the form the sidebar gives it (ZENIUS_SIDEBAR_TASK).
   const chat = "5e1f0c3a-7b2d-4c19-9a8e-2f6d4b1c0a03";
-  const task = await h.call("spaces.create", { name: h.unique("restart finish reply"), source: { agent: "zen-core test", sidebar: chat } });
+  const task = await h.call("spaces.create", { name: h.unique("restart finish reply"), source: { agent: "core test", sidebar: chat } });
   const kept = url("/zoo/forms.html?finish-reply");
   try {
     await h.call("page.goto", { space: task.id, page: "p1", url: kept });

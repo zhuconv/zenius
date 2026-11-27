@@ -223,7 +223,7 @@ test("a clean copy zenius loaded isn't near the agent's code by site, until the 
     }
   }));
 
-test("the hold: a window zen-core reloads for it isn't near the agent's code by site, until the hold ends", () =>
+test("the hold: a window the core reloads for it isn't near the agent's code by site, until the hold ends", () =>
   env.inSpace("handoff fresh", async page => {
     const tag = Date.now();
     const T = `${vectors.crossBase}/plain?opener=${tag}`;
@@ -251,7 +251,7 @@ test("the hold: a window zen-core reloads for it isn't near the agent's code by 
     }
   }));
 
-test("the hold: a task may hold several pages (zen-core's holdFor); for one, a tab of another hold in its group counts by site only with its documents from before that hold", () =>
+test("the hold: a task may hold several pages (the core's holdFor); for one, a tab of another hold in its group counts by site only with its documents from before that hold", () =>
   env.inSpace("two holds", async page => {
     const tag = Date.now();
     const T = `${vectors.crossBase}/plain?opener=${tag}`;
@@ -519,7 +519,7 @@ test("the hold: Back or Forward into a data: or blob: entry is refused, and the 
 /** The tab's pending history load, -1 for none. */
 const requestedIndex = url => env.chrome(`${FIND} return find(arg).browsingContext.sessionHistory.requestedIndex;`, url);
 
-test("the hold: after a refused Back, the history menu's pick of the agent's entry is refused too, and H's document stays (glue by zen-core)", () =>
+test("the hold: after a refused Back, the history menu's pick of the agent's entry is refused too, and H's document stays (glue by the core)", () =>
   env.inSpace("handoff history index", async page => {
     const tag = Date.now();
     const at = name => `${cacheable.base}/${name}?${tag}`;
@@ -552,7 +552,7 @@ test("the hold: after a refused Back, the history menu's pick of the agent's ent
     }
   }));
 
-test("the hold: in H, a frame of a site a window near it may hold the agent's code on is refused; the top asks zen-core for COOP", () =>
+test("the hold: in H, a frame of a site a window near it may hold the agent's code on is refused; the top asks the core for COOP", () =>
   env.inSpace("handoff agent site", async page => {
     const tag = Date.now();
     const T = `${vectors.crossBase}/plain?opener=${tag}`;

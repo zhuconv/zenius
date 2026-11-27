@@ -274,7 +274,7 @@ const ended = (space, method) =>
   }, `${method}'s step ends`);
 
 test("a request its client cancels stops at once and gets no answer: a wait, page code and a call the gate holds; their steps read stopped", async () => {
-  const space = await h.space("zen-core cancel");
+  const space = await h.space("core cancel");
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/api/text?cancel` });
   const conn = await rawConnection();
   try {
@@ -323,7 +323,7 @@ test("a request its client cancels stops at once and gets no answer: a wait, pag
 });
 
 test("a connection that closes stops its running requests: a wait ends, and its step reads stopped", async () => {
-  const space = await h.space("zen-core closed");
+  const space = await h.space("core closed");
   await h.call("page.goto", { space, page: "p1", url: `${h.base}/api/text?closed` });
   const conn = await rawConnection();
   try {
@@ -355,7 +355,7 @@ const HIDDEN_BUTTON = `(() => {
 for (const how of ["canceled", "closed"]) {
   const which = how === "canceled" ? "that its client cancels" : "whose connection closes";
   test(`a click still looking for its target, ${which}, lands no click, and its step reads stopped`, async () => {
-    const space = await h.space(`zen-core click ${how}`);
+    const space = await h.space(`core click ${how}`);
     const P = { space, page: "p1" };
     await h.call("page.goto", { ...P, url: `${h.base}/api/text?click-${how}` });
     await h.call("page.evaluate", { ...P, isFunction: false, fn: HIDDEN_BUTTON });
@@ -389,7 +389,7 @@ for (const how of ["canceled", "closed"]) {
 }
 
 test("a drag still looking for its source, that its client cancels, never presses, and its step reads stopped", async () => {
-  const space = await h.space("zen-core drag canceled");
+  const space = await h.space("core drag canceled");
   const P = { space, page: "p1" };
   await h.call("page.goto", { ...P, url: `${h.base}/api/text?drag-canceled` });
   await h.call("page.evaluate", {

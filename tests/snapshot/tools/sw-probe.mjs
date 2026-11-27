@@ -187,7 +187,7 @@ const SHARED = `
   const viaSw = () => fetch("/sw-marked?from=shared-" + tag()).then(r => r.text(), () => "error");
   // Workers it starts, one from the site's script and one from a blob, each
   // fetching once: the first is marked; the second, after a claim, is
-  // zen-observe's documented bound.
+  // the observe layer's documented bound.
   const nested = src => new Promise(resolve => {
     try {
       const w = new Worker(src);

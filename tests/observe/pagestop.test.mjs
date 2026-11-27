@@ -188,7 +188,7 @@ test("the stops go on past the call until the page answers: they end a loop that
        } catch {}
        const native = ["Notification", "RTCPeerConnection", "SharedWorker", "BroadcastChannel"].filter(n => Function.prototype.toString.call(w[n]).includes(n));
        // quiet: the wrapper (native has none of the four) is its prototype's
-       // constructor too, as zen-ux's quiet one makes it.
+       // constructor too, as the UI's quiet one makes it.
        return { open, clipboard, passkeys: read[0] ?? "unread", quiet: w.Notification === w.Notification.prototype.constructor, native };`
     );
     assert.deepEqual(last, { open: "SyntaxError", clipboard: "NotAllowedError", passkeys: "signal", quiet: true, native: [] });

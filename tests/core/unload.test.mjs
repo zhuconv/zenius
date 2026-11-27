@@ -11,7 +11,7 @@ import { setup } from "./lib.mjs";
 
 let h;
 const hits = new Map();
-/** window.__first: the page refusals' natives its first script saw unwrapped, and whether zen-ux's quiet Notification was there. */
+/** window.__first: the page refusals' natives its first script saw unwrapped, and whether the UI's quiet Notification was there. */
 const FIRST_SCRIPT = `window.__first = {
   native: ["Notification", "RTCPeerConnection", "SharedWorker", "BroadcastChannel"].filter(n => Function.prototype.toString.call(window[n]).includes(n)),
   quiet: window.Notification === window.Notification.prototype.constructor && !/function Notification\\(/.test(Function.prototype.toString.call(window.Notification)),

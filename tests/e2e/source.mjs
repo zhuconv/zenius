@@ -444,7 +444,7 @@ async function openOrReuseTab(url, options = {}) {
       " const tab = W.addBackgroundTab(win, space.uuid);" +
       " ctx.pages.addUnmanaged(space, tab, 'unknown');" +
       // addBackgroundTab only opens about:blank (I5); load the URL as the
-      // URL bar does (zen-core glue).
+      // URL bar does (the core's glue).
       " tab.linkedBrowser.fixupAndLoadURIString(arg.url, { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });" +
       " const end = Date.now() + arg.timeoutMs;" +
       " while (arg.wait && Date.now() < end && (tab.linkedBrowser.currentURI.spec !== arg.url || tab.linkedBrowser.webProgress?.isLoadingDocument)) {" +

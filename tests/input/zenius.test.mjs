@@ -3460,7 +3460,7 @@ test("an agent's click waits while the user holds the mouse in a tab of its proc
 });
 
 test("one task's held press doesn't take another task's click in its process", { timeout: 60_000 }, async () => {
-  const otherTask = await h.taskSpace("zen-input capture, task two");
+  const otherTask = await h.taskSpace("input capture, task two");
   const [one, two] = await inOneProcess(async () => [await homePage(), track(await h.newPageAt(otherTask, `${h.baseUrl}/?two=${Date.now()}`))]);
   assert.equal(await pidOf(one), await pidOf(two), "one process");
   await one.evaluate(new Function(LAB_PAGE("one")));

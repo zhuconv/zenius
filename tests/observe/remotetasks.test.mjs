@@ -169,7 +169,7 @@ test("sidebar.start runs a remote Work task at once: its source on the task and 
   assert.ok(s.updatedAt >= s.startedAt);
   assert.equal(s.needs, undefined);
   assert.equal(s.stopReason, undefined);
-  assert.deepEqual(await viewOf(), view, "a remote task moved the user's view: it appears in the directory only (zen-ux, I1)");
+  assert.deepEqual(await viewOf(), view, "a remote task moved the user's view: it appears in the directory only (the UI, I1)");
 
   // The directory's task, as the UI's card and rows read it.
   const conv = await chrome(

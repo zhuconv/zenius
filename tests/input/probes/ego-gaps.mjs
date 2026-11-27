@@ -162,7 +162,7 @@ function within(p, ms) {
   ]);
 }
 
-const task = await taskSpace(`zen-input ego gaps ${Date.now()}`);
+const task = await taskSpace(`input ego gaps ${Date.now()}`);
 let page;
 let cases = 0;
 const go = p => page.goto(`${top()}${p}`);

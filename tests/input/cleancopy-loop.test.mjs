@@ -20,7 +20,7 @@ let task;
 
 before(async () => {
   h = await openHarness("cleancopy-loop");
-  task = await h.taskSpace("zen-core clean copy loop");
+  task = await h.taskSpace("core clean copy loop");
   // The agent's window.open with no click, kept in the background (as tests/core/handoff.test.mjs).
   await h.call("dev.evalChrome", {
     code: `Services.prefs.setBoolPref("dom.disable_open_during_load", false);

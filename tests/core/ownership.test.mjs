@@ -344,7 +344,7 @@ test("the agent learns of a hand back from the user's own tab once, from waitFor
   await h.remove(space);
 });
 
-test("a hand back from zen-ux's own-tab notice says so on spaceChanged", async () => {
+test("a hand back from the UI's own-tab notice says so on spaceChanged", async () => {
   const space = await h.space("own via");
   const events = await h.chrome(
     `const rec = ctx.spaces.get(arg);

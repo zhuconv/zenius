@@ -18,7 +18,7 @@ const SAVED = { username: "saved-user", password: "saved-secret-pass" };
 
 before(async () => {
   h = await openHarness("logins");
-  task = await h.taskSpace("zen-input logins");
+  task = await h.taskSpace("input logins");
   // This run only: the dev Zen trusts the fixture, with one saved login.
   site = await loginSite(h, SAVED);
 });

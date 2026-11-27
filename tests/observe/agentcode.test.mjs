@@ -266,7 +266,7 @@ test("a finished task's record goes with it", async () => {
   );
 });
 
-test("zen-ux's handOff warning finds the record", async () => {
+test("the UI's handOff warning finds the record", async () => {
   assert.equal(
     await env.chrome(
       `const { ZeniusUI } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs");

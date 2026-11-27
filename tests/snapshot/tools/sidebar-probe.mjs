@@ -394,7 +394,7 @@ const PRE = `
   // that agent-sidebar code calls (a wrapper on the WindowGlobalParent
   // prototype: one reflector per object in the shared system compartment, so
   // the panel's calls go through it), and every sendQuery of
-  // the picture actor's parent (one a picture; zen-sidebar's suggestion).
+  // the picture actor's parent (one a picture; the sidebar's suggestion).
   // unhookPictures() puts both back.
   const hookPictures = () => {
     if (win.__zsPictures) return win.__zsPictures;
@@ -490,7 +490,7 @@ const PRE = `
     return url ? url.slice(0, url.lastIndexOf("/") + 1) : "chrome://userscripts/content/agent-sidebar/";
   };
   // One picture from the actor's drawPicture, whichever its signature:
-  // (browser, size) first, (conv, tab, size) since zen-ux's guard,
+  // (browser, size) first, (conv, tab, size) since the UI's guard,
   // which checks the tab against the chat's task. bytes: the
   // JPEG's data URL, or the raw pixels now; ms: the child's own
   // time (the first signature only).
@@ -1410,7 +1410,7 @@ const CASES = {
             return { pictures: times.length, median: sorted[sorted.length >> 1] ?? null, max: sorted.at(-1) ?? null, maxStallMs: Math.round(maxLag) };
           };
           // The picture actor's drawPicture, as the card calls it (since
-          // zen-ux's guard, for a stand-in chat of this task): the round
+          // the UI's guard, for a stand-in chat of this task): the round
           // trip, the page process's own time when it says, the reply's size,
           // and the parent's stall around it.
           const actorSpan = async () => {

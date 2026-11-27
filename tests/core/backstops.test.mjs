@@ -330,7 +330,7 @@ test("peer connections: while the agent drives, a task's page and its frame are 
   }
 });
 
-test("prompts: a task's page's go on to Firefox's own, while the agent drives (zen-ux hands the task to the user) and during the hold; the user's tab is untouched", async () => {
+test("prompts: a task's page's go on to Firefox's own, while the agent drives (the UI hands the task to the user) and during the hold; the user's tab is untouched", async () => {
   const { space, label, id } = await task("backstops prompts", site("/prompts"));
   try {
     const mine = await userTab("backstops prompts user", site("/mine-prompt"));
@@ -485,7 +485,7 @@ test("fail closed: with the WebRTCParent patch refused at its startup check, a t
          const n = await until(() => doorhanger(arg.mine, "webRTC-shareDevices"), 3000);
          out.userDoorhanger = !!n;
          // WebRTCChild still sent the parent the task's request, before the
-         // user's. zen-ux's watcher removes that doorhanger in a task's page
+         // user's. The UI's watcher removes that doorhanger in a task's page
          // at once, as a deny (its DENIED set). So by the time
          // the user's shows, none waits in the task's tab, and the task is
          // still the agent's.
@@ -517,7 +517,7 @@ test("a held page: the camera goes to the user's own prompt, the page makes its 
       `${C}
        const out = { held: ChromeUtils.importESModule("chrome://userscripts/content/zenius/observe/hold.sys.mjs").holdOf(tabById(arg.id).linkedBrowser) !== undefined };
        // The request goes on to Firefox's own prompt (its show()), where the
-       // user answers: zen-ux's watcher decides what a prompt in a task's
+       // user answers: the UI's watcher decides what a prompt in a task's
        // page does from there. The tab is in the background, so the stored
        // grant applies only once the doorhanger shows.
        const devices = B.backstopState().refused.devices;

@@ -237,7 +237,7 @@ test("finish keeps pages for the user; the task stays listed until they close", 
   await h.until(async () => !(await agentsSpace()).exists);
 });
 
-test("a page carries its task, label and opener in a session value, and zen-ux's tag", async () => {
+test("a page carries its task, label and opener in a session value, and the UI's tag", async () => {
   const space = await h.space("agents values");
   await h.call("page.goto", { space, page: "p1", url: url("/api/text") });
   assert.deepEqual(await marks(space, { page: "p1" }), {
@@ -343,7 +343,7 @@ test("while the window shows a short Agents Space, a new page goes below the use
        const place = () =>
          tab.getBoundingClientRect().top - space.tabsContainer.getBoundingClientRect().top - space.scrollbox.scrollPosition;
        const frame = () => new Promise(r => win.requestAnimationFrame(() => r()));
-       // Finite ones only: zen-ux's tag pulses while a task works.
+       // Finite ones only: the UI's tag pulses while a task works.
        const ending = win.document
          .getAnimations()
          .filter(a => Number.isFinite(a.effect?.getComputedTiming?.().endTime));
@@ -442,7 +442,7 @@ test("pages.close of a tab the user sees waits until they leave it", async () =>
       receipt = await h.call("pages.close", { space, page: "p2" });
     });
     assert.deepEqual(receipt, { ok: true, deferred: true });
-    assert.deepEqual(closing, [{ space, tab: p2 }], "zen-ux's pill hears of it");
+    assert.deepEqual(closing, [{ space, tab: p2 }], "the UI's pill hears of it");
     assert.deepEqual(
       (await h.call("pages.list", { space })).map(p => p.label),
       ["p1"],

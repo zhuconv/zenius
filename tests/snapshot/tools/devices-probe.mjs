@@ -624,7 +624,7 @@ function installCounters() {
     const ww = { observe: (subject, topic) => { if (topic === "domwindowopened") L.windows.push(subject); } };
     Services.ww.registerNotification(ww);
     L.undo.push(() => Services.ww.unregisterNotification(ww));
-    // Not ownerGlobal: this scope doesn't see it (as zen-ux's holdForUser notes).
+    // Not ownerGlobal: this scope doesn't see it (as the UI's holdForUser notes).
     const who = browser => {
       try {
         const tab = browser?.ownerDocument?.defaultView?.gBrowser?.getTabForBrowser(browser) ?? all().find(t => t.linkedBrowser === browser);

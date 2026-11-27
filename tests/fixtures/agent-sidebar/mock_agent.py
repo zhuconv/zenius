@@ -13,7 +13,7 @@ claude-agent-acp's ids (random UUIDs), which Chat's lists of URLs it may
 fetch go by, and with --claude it forks too, as claude-agent-acp does.
 --slow-start delays the answer to `initialize`. MOCK_MODELS in its
 environment replaces its models, as [[value, name, description?], ...].
-It refuses a model it doesn't list, as both adapters do (zen-sidebar).
+It refuses a model it doesn't list, as both adapters do (the sidebar).
 
 It takes `_session/steering` as both real adapters do (claude-agent-acp
 0.107.0, codex-acp 2.6.0), advertised in initialize's `_meta.steering`: a
@@ -24,7 +24,7 @@ its own ("Steered: ...") and ends. With no turn running it answers
 {outcome: "promptRequired"} (the client's `idleBehavior` opt-in). A steer
 whose text holds RACE meets the turn's end, as a real one can:
 promptRequired, and the turn ends at once.
---no-steer makes it an agent without steering (zen-sidebar).
+--no-steer makes it an agent without steering (the sidebar).
 
 Each message of an answer has an id (`messageId`). Each session's questions
 and message ids are kept in LOG.history.json, like transcripts on disk, so a
@@ -32,7 +32,7 @@ restarted agent can fork a session too. session/fork takes the fork point the
 way both real adapters do, in `_meta.jetbrains.air.fork.messageId`: the new
 session has the turns up to the one with that message.
 
-MOCK_ROUTES, a JSON object of {message: keyword} (zen-eval's renders), lets a
+MOCK_ROUTES, a JSON object of {message: keyword} (the eval harness's renders), lets a
 message read as a user writes it: a text block that is exactly one of its
 messages acts on that message's keyword too, as if the keyword came first in
 the prompt, so a screenshot of the chat shows no keyword. The session still
@@ -46,7 +46,7 @@ Prompts are answered according to a keyword in the prompt text:
   MARKDOWN    answer with Markdown that also tries to inject a script
   DOCUMENT    answer with a Markdown file and a Python script in code blocks
   TOOL        say something, report a tool call, then answer
-  SCENARIO:<name>  (zen-sidebar) a scripted browser task through the real
+  SCENARIO:<name>  (the sidebar) a scripted browser task through the real
               `zenius mcp` (MOCK_ZENIUS_MCP, on ZENIUS_INSTANCE), each call
               reported as claude-agent-acp reports an MCP tool call:
               flights, trip, prices, weather, handsteer (see SCENARIOS).
@@ -63,107 +63,107 @@ Prompts are answered according to a keyword in the prompt text:
               interrupts the wait with Claude Code's words (MESSAGE_ENDED)
               while the server's wait goes on, and inside the same turn the agent
               answers, waits again, and goes on once the user resumes it
-  BASHSTEP    (zen-sidebar) a Bash call with a description, as Claude Code
+  BASHSTEP    (the sidebar) a Bash call with a description, as Claude Code
               reports `zenius nodejs` before the MCP server
-  ECHOTASK:<name>  (zen-sidebar) a shell call that only echoes
+  ECHOTASK:<name>  (the sidebar) a shell call that only echoes
               taskSpace("<name>") and open's first sentence for it: no task
               starts, so the chat must stay unlinked
-  OPENCUT:<name>  (zen-sidebar) one open through the real `zenius mcp`, with
+  OPENCUT:<name>  (the sidebar) one open through the real `zenius mcp`, with
               <name> as the task's name, its result's name cut at 60
               characters ("…") as an older `zenius mcp` cut it
-  OPENASK:<name>  (zen-sidebar) one open with <name> as the task's name,
+  OPENASK:<name>  (the sidebar) one open with <name> as the task's name,
               then an answer that ends with a question
-  FAILLATER   (zen-sidebar) stream 5 words, then fail the prompt (an error)
-  HOLDBARE    (zen-sidebar) a zenius click that runs until Stop, then ends
+  FAILLATER   (the sidebar) stream 5 words, then fail the prompt (an error)
+  HOLDBARE    (the sidebar) a zenius click that runs until Stop, then ends
               failed with no result at all, as codex-acp may when Codex gives
               the interrupted call none
-  FAILBARE    (zen-sidebar) a zenius click that fails at once with no result,
+  FAILBARE    (the sidebar) a zenius click that fails at once with no result,
               then a short answer
-  HOLDTOOL:<name> <args>  (zen-sidebar) zenius's <name> with the JSON
+  HOLDTOOL:<name> <args>  (the sidebar) zenius's <name> with the JSON
               <args>, shown running until Stop, as HOLDBARE's click: its
               step reads as the call asked, with no result yet
-  ASKSTEER    (zen-sidebar) ask for permission to run a zenius tool (a Work
+  ASKSTEER    (the sidebar) ask for permission to run a zenius tool (a Work
               chat shows the card), then answer with its outcome and the
               steer that came with the reply ("Steered: ..."). Its tool call
               comes first, as claude-agent-acp sends it
               (ensureToolCallEmitted)
-  PERMFALLBACK (zen-sidebar) codex-acp 2.6.0's stand-in for an MCP server's
+  PERMFALLBACK (the sidebar) codex-acp 2.6.0's stand-in for an MCP server's
               message-only form: a request for a fresh tool call id the
               client never saw, titled "Question from MCP server", with the
               server's words ("mcp.zenius.click") in rawInput and content;
               then its outcome
-  PERMCODEX   (zen-sidebar) codex-acp 2.6.0's approval of a zenius call it
+  PERMCODEX   (the sidebar) codex-acp 2.6.0's approval of a zenius call it
               showed: the call (mcp.zenius.click), then a request naming it
               with no title or rawInput of its own; then its outcome
-  PERMRETITLE (zen-sidebar) PERMCODEX's shape for a zenius fill, but the
+  PERMRETITLE (the sidebar) PERMCODEX's shape for a zenius fill, but the
               request has a title of its own, as no adapter sends today:
               the card's words are the call's
-  HOLDTURN    (zen-ux) one word, then the turn waits until Stop (a minute
+  HOLDTURN    (the UI) one word, then the turn waits until Stop (a minute
               at most): the agent asks in the middle of it
-  THINKTITLES (zen-sidebar) Codex at a high effort: a reasoning title, a
+  THINKTITLES (the sidebar) Codex at a high effort: a reasoning title, a
               second later another, a second later the answer
-  THINKMUTE   (zen-sidebar) Claude Code, whose thinking shows no words: two
+  THINKMUTE   (the sidebar) Claude Code, whose thinking shows no words: two
               seconds with nothing, then the answer
-  THINKSTOP   (zen-sidebar) a reasoning title, then it thinks until Stop
+  THINKSTOP   (the sidebar) a reasoning title, then it thinks until Stop
               (a minute at most)
-  THINKSEARCH (zen-sidebar) a reasoning title, a ToolSearch call (a step
+  THINKSEARCH (the sidebar) a reasoning title, a ToolSearch call (a step
               the sidebar hides), then the answer a second later
-  THINKAGAIN  (zen-ux) a reasoning title for a second, a word, then another
+  THINKAGAIN  (the UI) a reasoning title for a second, a word, then another
               title for a second, another word, then the turn waits until
               Stop (a minute at most): a wait after the first words
-  THINKCLAUDE (zen-sidebar) Claude Code with summarized thinking, which
+  THINKCLAUDE (the sidebar) Claude Code with summarized thinking, which
               thinks between parts of its answer: a short summary and the
               first part, then summaries in prose paragraphs (the second
               arrives in two pieces) over two seconds, then the rest
-  THINKSTEPS  (zen-sidebar) a step, then a reasoning title while it thinks
+  THINKSTEPS  (the sidebar) a step, then a reasoning title while it thinks
               about the step's result, a second later another step, then
               the answer
-  THINKPARTS  (zen-sidebar) an answer in three parts, with 1.5 s of
+  THINKPARTS  (the sidebar) an answer in three parts, with 1.5 s of
               thinking in words between them; the first part has a code
               block, the second the answer's first heading
-  THINKLONG   (zen-sidebar) Claude Code's summary of a long sentence, then
+  THINKLONG   (the sidebar) Claude Code's summary of a long sentence, then
               it thinks until Stop (a minute at most)
-  OPENSTAY:<name>  (zen-ux) one open with <name> as the task's name, the
+  OPENSTAY:<name>  (the UI) one open with <name> as the task's name, the
               task and its tab left open
-  READAGAIN   (zen-ux) one read_page with no open before it: it reads the
+  READAGAIN   (the UI) one read_page with no open before it: it reads the
               task the session's server has, if any
-  QUESTION    (zen-sidebar) an answer that ends with a question
-  CHOICES     (zen-sidebar) a question, its choices as a numbered list, then
-              a closing line over 80 characters (zen-eval's retake,
+  QUESTION    (the sidebar) an answer that ends with a question
+  CHOICES     (the sidebar) a question, its choices as a numbered list, then
+              a closing line over 80 characters (the eval harness's retake,
               2026-11-22, word for word)
-  SUMMARY     (zen-sidebar) a three-point summary of the test article
+  SUMMARY     (the sidebar) a three-point summary of the test article
   HISTORY     list the questions the session had before this one, and the
               number of attached resources
-  ASKFORM     (zen-sidebar) Claude Code's AskUserQuestion as claude-agent-acp
+  ASKFORM     (the sidebar) Claude Code's AskUserQuestion as claude-agent-acp
               sends it: its tool call, then elicitation/create with one
               single-pick question (options with descriptions) and its
               question_0_custom box; then "ask outcome: <the answer>"
-  ASKMULTI    (zen-sidebar) the same with two questions, the second a
+  ASKMULTI    (the sidebar) the same with two questions, the second a
               several-pick
-  ASKOTP      (zen-sidebar) the same for a verification code, with the two
+  ASKOTP      (the sidebar) the same for a verification code, with the two
               options Claude offers beside its box (AskUserQuestion takes 2
               to 4): "I'll type it" and "No code yet"
               With QUIET too, any ask's outcome isn't said back: the answer
-              is "Thanks, I have your answer." (zen-sidebar, for Chat's
+              is "Thanks, I have your answer." (the sidebar, for Chat's
               saved threads)
-  ASKCODEX    (zen-sidebar) Codex's request_user_input as codex-acp sends it:
+  ASKCODEX    (the sidebar) Codex's request_user_input as codex-acp sends it:
               its generic message, a question with "None of the above" and
               its note field, and a secret question
-  ASKWITHDRAW (zen-sidebar) ASKCODEX's request, withdrawn after 0.5 s with
+  ASKWITHDRAW (the sidebar) ASKCODEX's request, withdrawn after 0.5 s with
               $/cancel_request, as codex-acp does when its timeout passes
-  ASKMCP      (zen-sidebar) an MCP server's own form: a number, a yes or no,
+  ASKMCP      (the sidebar) an MCP server's own form: a number, a yes or no,
               an enum with names, and words, with no tool call, as
               claude-agent-acp passes one on
-  ASKSERVER   (zen-sidebar) ASKMCP's form in another server's tool call
+  ASKSERVER   (the sidebar) ASKMCP's form in another server's tool call
               (mcp__trains__book)
-  ASKINZEN    (zen-sidebar) ASKFORM's form in a zenius tool call
+  ASKINZEN    (the sidebar) ASKFORM's form in a zenius tool call
               (mcp__zenius__script), as a script in zenius's server could
               send one
-  ASKMETA     (zen-sidebar) ASKCODEX's request with no toolCallId: codex-acp
+  ASKMETA     (the sidebar) ASKCODEX's request with no toolCallId: codex-acp
               2.6.0 forwards an MCP server's form so, with the _meta Codex
               hands it, which may be the server's own
-  ASKODD      (zen-sidebar) an MCP server's form with an object field
-  ASKURL      (zen-sidebar) an MCP server's url-mode elicitation
+  ASKODD      (the sidebar) an MCP server's form with an object field
+  ASKURL      (the sidebar) an MCP server's url-mode elicitation
   (anything else)  echo the question, the number of attached resources and
                    the session's model and effort, then the number of
                    images when there are any
@@ -371,7 +371,7 @@ SCENARIOS = {
 
 def zenius_spec(params):
     """How a session starts its zenius server, as the real adapters take it
-    (zen-ux, for the resumed Work chat on Codex): the session's own ACP
+    (the UI, for the resumed Work chat on Codex): the session's own ACP
     mcpServers entry named zenius, which both adapters start, from
     session/new, load, resume or fork; else, as codex-acp does, CODEX_CONFIG's
     mcp_servers.zenius, which every session of the process shares; else

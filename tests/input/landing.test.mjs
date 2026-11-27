@@ -23,7 +23,7 @@ const SERVICE = `const { ZeniusService } = ChromeUtils.importESModule("chrome://
 
 before(async () => {
   h = await openHarness("landing");
-  task = await h.taskSpace("zen-input landing");
+  task = await h.taskSpace("input landing");
   // A site the dev Zen trusts, for the pages that frame the warning.
   site = await loginSite(h, { username: "landing-user", password: "landing-pass" });
   // A server nobody trusts: every page it serves is a certificate warning.

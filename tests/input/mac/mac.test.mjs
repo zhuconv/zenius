@@ -21,7 +21,7 @@ let userWorkspace;
 
 before(async () => {
   h = await openHarness("mac");
-  task = await h.taskSpace("zen-input mac checks");
+  task = await h.taskSpace("input mac checks");
   userWorkspace = (await h.call("dev.viewState")).windows?.[0]?.activeWorkspace ?? null;
 });
 

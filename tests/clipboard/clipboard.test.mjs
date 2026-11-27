@@ -47,7 +47,7 @@ before(async () => {
     const t = Date.now();
     return call(method, params).finally(() => steps.push({ t, end: Date.now(), step: method }));
   };
-  ({ id: space } = await h.createSpace({ name: "zen-ux clipboard test" }));
+  ({ id: space } = await h.createSpace({ name: "UI clipboard test" }));
   P = `${prelude(space)}
     const UI = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/index.sys.mjs").ZeniusUI;
     const Pages = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/pages.sys.mjs");
@@ -602,7 +602,7 @@ test("whose copy it is: the user's only while they use the agent's page", async 
 });
 
 test("the Space's clipboard ends with the task", async () => {
-  const { id: other } = await h.createSpace({ name: "zen-ux clipboard end" });
+  const { id: other } = await h.createSpace({ name: "UI clipboard end" });
   await h.call("page.goto", { space: other, page: "p1", url: `${h.base}/` });
   await h.chrome(`${P} SpaceClipboard.write(${other}, { "text/plain": "ENDS" });`);
   await h.call("spaces.finish", { space: other, keep: [] });
