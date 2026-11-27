@@ -243,6 +243,14 @@ export const methods = {
    - `Connection.send` passes every frame a client gets through
      `redactText`, which cuts a URL that carries an authorization response
      at its query.
+   - The case these rules leave to the agent (`tests/core/signin-case.test.mjs`,
+     loopback, made-up accounts): signing in to the user's own accounts
+     through a provider's account chooser and identity step, a callback's
+     HTTP redirect, and a code the app emails, read in the user's webmail
+     in another of the task's tabs; then sharing, and switching the user's
+     tabs back. A callback that moves on by a script, with the page it
+     leaves, a scopes consent screen, a device-code page, and a code on a
+     site the user never visited still refuse.
 2. **Page gates**, for methods declared `document` or `outside`. The
    dispatcher's own comes first: it loads an unloaded tab ("Unloaded
    pages", above). Then each function in a module's

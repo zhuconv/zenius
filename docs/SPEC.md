@@ -34,7 +34,9 @@ Space, while the user keeps browsing in theirs.
   and point at the documented methods.
 - No signing in for programs. zenius doesn't complete a program's sign-in
   (OAuth consent pages, device codes) on the user's behalf: those stay with
-  the user.
+  the user. Signing in to a website as one of the user's own accounts in
+  their browser is the agent's job, as is sharing between their own
+  accounts; consent pages and device codes stay with the user.
 
 ## 3. Architecture
 

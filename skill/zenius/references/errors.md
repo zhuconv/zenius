@@ -118,7 +118,7 @@ Next: Close Pages you no longer need (await task.page(label).close()), then retr
 
 task.release() would hand the user a tab that shares a window group with other Pages of the task (an opener and its popups), whose code could reach it (data.pages).
 
-Next: Release the whole group with task.release(label, { group: true }), or close its other Pages first. For the user's input mid-task, such as a login, use task.handOff() instead.
+Next: Release the whole group with task.release(label, { group: true }), or close its other Pages first. For the user's input mid-task, such as a sign-in only they can finish, use task.handOff() instead.
 
 ### ZEN_PAGE_UNRESPONSIVE (Ego: EGO_PAGE_UNRESPONSIVE)
 
@@ -238,7 +238,7 @@ Next: Load a web page with page.goto(), or hand the task to the user with task.h
 
 The page is the user's sign-in (data.reason, data.page). "authorization_response": its address, or the address it came from, carries the code of a sign-in, which with the right key is the user's account, so zenius reads and does nothing there: no snapshot, text, screenshot, code or input, and its title, console and requests aren't reported. "device_login": a provider's page for typing a device code, which you may read but not type into or click. "consent": a provider's consent screen, where only the user grants an app access to their account: you may read it, but not click or type there. "one_time_code": a field for a one-time code, on a site with no visit in the user's history from before this task: only the user enters the code there, and after the refusal you may read that page but not act on it.
 
-Next: Hand the page to the user with task.handOff() if they need to finish there, or wait for the site to move on (most send you back to the app at once), or go to the app's own URL again with page.goto(). Never type a device code or grant an app access for the user. For a one-time code, hand the page to the user with task.handOff({ reason: "sign_in" }).
+Next: By data.reason. "authorization_response" is a sign-in's last step, yours included: wait for the site to move on (most send you back to the app at once), or go to the app's own URL again with page.goto(). "device_login" and "consent" are the user's: hand the page to them with task.handOff() if the task needs that step, and never type a device code or grant an app access yourself. "one_time_code": hand the page to the user with task.handOff({ reason: "sign_in" }).
 
 ### ZEN_AGENT_CODE_REFUSED
 

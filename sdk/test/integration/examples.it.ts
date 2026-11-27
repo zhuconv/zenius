@@ -786,7 +786,8 @@ console.log(JSON.stringify({ ran }));`),
 
   it("a tab that leaves or joins a task loads its Back and Forward pages afresh; within the task they come from the cache", async (t) => {
     const says = "When a tab joins or leaves your task, its Back and Forward pages load afresh";
-    assert.ok(guideText().includes(says), `guide.md no longer says "${says}": update this probe`);
+    const limits = readFileSync(join(ROOT, "skill/zenius/references/limits.md"), "utf8");
+    assert.ok(limits.includes(says), `references/limits.md no longer says "${says}": update this probe`);
     if (!needs(t, context, "dev.evalChrome", "dev.answerClaim")) return;
     const { code } = opened(probePath("bf-a"));
     const a = /page\.goto\("([^"]+)"\)/.exec(code)![1]!;

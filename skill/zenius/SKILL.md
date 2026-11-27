@@ -39,8 +39,9 @@ launcher. Never add such a rule yourself.
 - [Clearing cookies, cache, and storage](references/clearing-state.md) — read
   before clearing any cookie, cache, or storage; every task space shares the
   user's Zen profile.
-- [Signing in](references/sign-in.md) — read before you sign in on a site as
-  another of the user's accounts: their own tabs there share the sign-in.
+- [Signing in](references/sign-in.md) — read before you sign in to a site
+  yourself: whose accounts you may use, how, and what stays with the user;
+  their own tabs there share the sign-in.
 - [Reporting a problem with zenius itself](references/feedback.md) — read when
   zenius itself fails: `ZEN_INTERNAL` twice, the `zenius` command crashing, or
   `zenius doctor` failing after an update. The user sends the report from Zen's

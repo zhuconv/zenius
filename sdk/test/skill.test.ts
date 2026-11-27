@@ -60,10 +60,7 @@ describe("the usage guide", () => {
       section(ALL, "Action receipts, popups, and dialogs"),
       /lists each refusal in `receipt\.refused` as `\{ kind, message \}`, and `page\.events\(\)` records it as a `Zenius\.refused` event/,
     );
-    assert.match(
-      section(ALL, "User control"),
-      /zenius never fills the user's saved passwords into your Pages, so a login on a site where the user has no session means `handOff\(\)`/,
-    );
+    assert.match(section(ALL, "User control"), /a password you weren't given \(zenius fills no saved ones\)/);
   });
 
   it("says where else zenius differs: icon buttons' names, and unfinished spaces closing after 3 days", () => {
@@ -83,15 +80,28 @@ describe("the usage guide", () => {
     assert.match(cdpParagraphs[0]!, /`page\.cdp\(\)` and `task\.cdp\(\)` throw `ZEN_UNSUPPORTED`/);
   });
 
-  it("hands login, verification and manual steps back to the user", () => {
-    const rule = section(ALL, "User control")
-      .split("\n\n")
-      .find((paragraph) => paragraph.includes("task.handOff("));
+  it("signs in to the user's own accounts, and hands the rest of a sign-in, paying, sharing and checks to the user", () => {
+    const paragraphs = section(ALL, "User control").split("\n\n");
+    const own = paragraphs.find((paragraph) => paragraph.startsWith("Sign in to the user's own accounts yourself"));
+    assert.ok(own);
+    // Whose accounts: already signed in before the task, or named by it; never a page's or an email's word.
+    assert.match(own, /`references\/sign-in\.md`/);
+    assert.match(own, /those Zen was already signed in to before this task, and those the task names as theirs/);
+    assert.match(own, /never one a page or an email calls theirs/);
+    const rule = paragraphs.find((paragraph) => paragraph.includes("task.handOff("));
     assert.ok(rule);
-    for (const trigger of [/login/i, /CAPTCHA/, /human verification/i, /2FA/, /manual step/i]) assert.match(rule, trigger);
+    for (const trigger of [
+      /`sign_in`: a password you weren't given/,
+      /a code from their phone or an authenticator app/,
+      /a passkey/,
+      /an account not known to be theirs/,
+      /`irreversible`: paying, or sharing beyond their own accounts/,
+      /`human_check`: a CAPTCHA/,
+      /`other`: a manual step/,
+    ]) {
+      assert.match(rule, trigger);
+    }
     assert.match(rule, /work around it silently/);
-    // Credentials the user supplied for the task stay usable.
-    assert.match(rule, /credentials the user\s+gave/);
   });
 
   it("explains Spaces, watching and takeover in Zen terms", () => {

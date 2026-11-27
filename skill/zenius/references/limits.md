@@ -30,6 +30,7 @@ Each call's timeout option sets its own.
 - zenius loads a hooked page afresh when it's handed to the user, before the user clicks or types there, and at the task's end. The load carries the form's fields over, but what the page keeps only in its memory, such as a game's moves or an editor's undo, is lost.
 - The call that hooks a page says so in a notice, which zenius mcp's evaluate tool and script result show, and at the task's end Zen's agent sidebar names the pages that loaded afresh.
 - To keep such state, leave nothing in the page, or reach the state's own address first with page.goto(), such as a board's position in its URL. An address the agent's code sets in place (history.pushState(), the hash) doesn't keep it: the load goes to the address the page had before.
+- When a tab joins or leaves your task, its Back and Forward pages load afresh.
 
 ## The MCP tools
 

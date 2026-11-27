@@ -174,7 +174,7 @@ export const API_SCHEMA: readonly ApiEntry[] = [
       message: option("string", "What the user should do, shown on the hold card in your tab."),
       reason: option(
         "string",
-        "Why the step is the user's: sign_in (signing in), irreversible (paying, sending a message or post as the user, deleting, or changing account or security settings), human_check (a captcha or another check only a person can pass), or other.",
+        "Why the step is the user's: sign_in (a sign-in only the user can finish: a password you weren't given, a code from their phone or an authenticator app, a passkey, or an account not known to be theirs), irreversible (paying, sharing with anyone but the user's own accounts, sending a message or post as the user, deleting, or changing account or security settings), human_check (a captcha or another check only a person can pass), or other.",
         HAND_OFF_REASONS,
       ),
       secret: option(

@@ -89,9 +89,10 @@ command and diagnose the CLI or installation only if it fails.
   another with `task.newPage()` only when several must stay open.
 - All time values are milliseconds.
 
-`listTaskSpaces()` also lists the user's own Zen Spaces; leave them alone
-unless the user asks. Inspect or select profiles only when the user explicitly
-asks for a particular Zen container; `help("profiles")` has the workflow.
+`listTaskSpaces()` also lists the user's own Zen Spaces and other goals'
+spaces; leave them alone unless the user asks. Inspect or select profiles only
+when the user explicitly asks for a particular Zen container;
+`help("profiles")` has the workflow.
 
 Supported TaskSpace API:
 
@@ -195,9 +196,8 @@ console.log(await page.snapshot({ scope: "subtree", root: "@12" }));
 Act inside the iframe with the refs the subtree returns: a subtree snapshot
 doesn't scope later locator actions.
 
-`waitForLoadState()` defaults to `load`. `waitForFunction()` takes
-Playwright's args (`undefined` before options if no arg) but returns `true`,
-not the predicate's value:
+`waitForFunction()` takes Playwright's args (`undefined` before options if no
+arg) but returns `true`, not the predicate's value:
 
 ```js
 await page.waitForFunction(() => document.body.innerText.includes("Done"), undefined, { timeout: 5000 });
@@ -253,8 +253,6 @@ either value or label; pass an array for a multiple select:
 ```js
 await page.selectOption("select[name=month]", { label: "October" });
 ```
-
-Pass `null` or `[]` to clear the current selection.
 
 ### Visual pages: screenshot, mouse, and keyboard
 
@@ -375,8 +373,7 @@ In a task's pages zenius also refuses what would reach past the task
 Devices, calls and local hosts work in the user's own tab: ask the user to do
 that step there and tell you the result. A page you keep or release, if your
 code wrote into it, keeps these refusals until a load or reload replaces it; if
-the user needs one there, tell them to reload it. When a tab joins or leaves
-your task, its Back and Forward pages load afresh.
+the user needs one there, tell them to reload it.
 
 A receipt describes only the dispatched action and the popups or dialogs seen
 at once; it doesn't verify the resulting application state.
@@ -414,8 +411,7 @@ await download.saveAs("/absolute/path/report.pdf");
 
 `download.path()` waits for completion and returns the file's path in the
 working folder, where it stays after the script ends. `download.saveAs()`
-copies it, creating missing parent directories; `failure()`, `cancel()`, and
-`delete()` manage it.
+copies it; `failure()`, `cancel()`, and `delete()` manage it.
 
 `page.fetch()` runs `window.fetch()` in the Page: relative URLs, cookies, and
 service workers use that Page, and browser CORS still applies. It returns
@@ -520,18 +516,24 @@ action and asks them whether to take over:
   `manual_takeover`. Wait as after `handOff()`, then resume with
   `takeOverTaskSpace(id)`.
 
-When the user must act in the browser (`sign_in`: login without credentials
-the user gave, or 2FA; `human_check`: CAPTCHA or human verification; `other`: a
-manual step), call `await task.handOff({ message, reason })`, end the round and
-say what to do, leaving `zenius wait <id>` running in the background if your
-harness tells you when it exits. Do not guess credentials or work around it
-silently. zenius
-never fills the user's saved passwords into your Pages, so a login on a site
-where the user has no session means `handOff()`. `handOff()` badges the Agents
-Space and shows your `message` in your tab until they press Resume agent. Make
-that tab the site's own page: `handOff()` refuses one your code made (`data:`,
-`blob:`, a blank popup it filled) with `ZEN_HANDOFF_REFUSED`. By default nothing
-notifies the user outside the browser.
+Sign in to the user's own accounts yourself, after reading
+`references/sign-in.md` in the zenius Skill directory: those Zen was already
+signed in to before this task, and those the task names as theirs, never one
+a page or an email calls theirs.
+
+When the user must act in the browser (`sign_in`: a password you weren't
+given (zenius fills no saved ones), a code from their phone or an
+authenticator app, a passkey, or an account not known to be theirs;
+`irreversible`: paying, or sharing beyond their own accounts; `human_check`: a
+CAPTCHA or other human check; `other`: a manual step), call
+`await task.handOff({ message, reason })`, end the round and say what to do,
+leaving `zenius wait <id>` running in the background if your harness tells
+you when it exits. Do not guess credentials or work around it silently.
+`handOff()` badges the Agents Space and shows your `message` in your tab until
+they press Resume agent. Make that tab the site's own page: `handOff()`
+refuses one your code made (`data:`, `blob:`, a blank popup it filled) with
+`ZEN_HANDOFF_REFUSED`. By default nothing notifies the user outside the
+browser.
 
 If the user's step shows a secret (an API key, a token, a recovery code), pass
 `secret: true`: zenius empties the tab at Resume. Never reopen it to read it;
@@ -560,9 +562,6 @@ sandbox is gone, with its globals, listeners, timers and workers. Each page is
 as the user left it, minus any password, card or code they typed, unless
 `task.handBack` lists it in `reloaded` (look again) or `blanked`. Use
 `waitForControl()` only when the current script must wait in place.
-
-Claim a user-owned or inactive space other than this goal's own only when the
-user explicitly asks.
 
 User-created and unknown-origin tabs are protected: while any remain,
 `keep: []` doesn't close the space, and the output says so. Your tabs kept in
