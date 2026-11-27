@@ -493,9 +493,10 @@
   white-space: nowrap;
 }
 
-/* A checkbox in the buttons' row (the hold pills' "Shows a secret"): muted,
- * so Resume agent stays the row's one strong control. Drawn before the
- * buttons, while the keyboard reaches it after them (notices.sys.mjs). */
+/* A checkbox in the buttons' row (the hold pills' "Shows a secret"): its
+ * label muted, so Resume agent stays the row's one strong control. Drawn
+ * before the buttons, while the keyboard reaches it after them
+ * (notices.sys.mjs). */
 .zenius-card-toggle {
   order: -1;
   display: inline-flex;
@@ -505,8 +506,41 @@
   white-space: nowrap;
   color: var(--zenius-card-muted);
 
+  /* The box is drawn here, the same on every platform and in both themes:
+   * an outline in the label's muted ink, then Resume agent's colors with
+   * Firefox's tick once it's ticked. macOS's own box, a light grey square
+   * with no outline, read as unavailable on the card. It stays a real
+   * checkbox, so assistive tech reads its name and state as before. */
   & > input {
+    appearance: none;
+    flex: none;
+    box-sizing: border-box;
+    width: 14px;
+    height: 14px;
     margin: 0;
+    border: 1px solid var(--zenius-card-muted);
+    border-radius: 4px;
+    background: transparent center / 12px no-repeat;
+    /* The tick's color; its stroke (check.svg's own, for this) makes it
+     * bolder, as a box's tick usually is. */
+    -moz-context-properties: fill, stroke;
+    fill: var(--zenius-card-primary-ink);
+    stroke: var(--zenius-card-primary-ink);
+  }
+
+  & > input:not(:checked, :disabled):hover {
+    border-color: var(--zenius-card-ink);
+  }
+
+  & > input:checked {
+    border-color: var(--zenius-card-primary-bg);
+    background-color: var(--zenius-card-primary-bg);
+    background-image: url("chrome://global/skin/icons/check.svg");
+  }
+
+  /* The user's own box, from their Resume agent until the hand back is done. */
+  & > input:disabled {
+    opacity: 0.45;
   }
 
   /* Set by someone else (the agent's own mark): the box keeps its full
@@ -1580,6 +1614,12 @@ zen-workspace > .zenius-space-status {
     &[primary] {
       border-width: 2px;
     }
+  }
+
+  /* The "Shows a secret" box: the system's own, which forced colors draw in
+   * the system's colors, while the drawn one's fill would be blanked. */
+  .zenius-card-toggle > input {
+    appearance: auto;
   }
 
   .zenius-card-dot,

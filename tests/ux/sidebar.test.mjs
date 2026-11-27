@@ -4852,6 +4852,23 @@ test("the hand-off card's 'This step shows a secret', as on zenius's pill: with 
         clears: shown(el("handoff-clears")) ? el("handoff-clears").textContent : null,
         pill: UI.describe(rec).controlToggle?.checked ?? null,
       });
+      // The box as drawn: zenius's own, the same on every platform (macOS's
+      // own unticked box read as unavailable). Unticked, an outline in its
+      // label's muted ink; ticked, the panel's ink with Firefox's tick.
+      const look = () => {
+        const b = el("handoff-secret-box");
+        const s = doc.defaultView.getComputedStyle(b);
+        const body = doc.defaultView.getComputedStyle(doc.body);
+        // Under the pointer, the unticked box's outline is the panel's full ink.
+        const ink = b.matches(":not(:checked, :disabled):hover") ? body.color : doc.defaultView.getComputedStyle(el("handoff-secret")).color;
+        return {
+          appearance: s.appearance,
+          border: s.borderTopStyle + " " + s.borderTopWidth,
+          outline: s.borderTopColor === ink,
+          fill: s.backgroundColor === body.color,
+          tick: s.backgroundImage.includes("chrome://global/skin/icons/check.svg") && s.fill === body.backgroundColor,
+        };
+      };
       const marks = new Map();
       const calls = [];
       const userSpace = win.gZenWorkspaces.activeWorkspace;
@@ -4888,9 +4905,11 @@ test("the hand-off card's 'This step shows a secret', as on zenius's pill: with 
         svc.spaces.onEvent("spaceChanged", { space: rec.id, stateText: rec.stateText });
         await wait(() => read().box && read().pill === false, "the box, unticked");
         res.off = read();
+        res.offLook = look();
         el("handoff-secret-box").click();
         await wait(() => read().box?.checked && read().pill, "the card's tick, on both");
         res.on = { ...read(), calls: calls.slice() };
+        res.onLook = look();
         el("handoff-secret-box").click();
         await wait(() => read().box && !read().box.checked && read().pill === false, "the card's untick, on both");
         res.offAgain = { ...read(), calls: calls.slice() };
@@ -4919,7 +4938,7 @@ test("the hand-off card's 'This step shows a secret', as on zenius's pill: with 
         let blanks = 0;
         svc.blankSecretSteps = () => (++blanks === 1 ? new Promise(resolve => (open = resolve)) : Promise.resolve());
         el("handoff-resume").click();
-        res.resuming = { fixed: el("handoff-secret-box").disabled };
+        res.resuming = { fixed: el("handoff-secret-box").disabled, opacity: doc.defaultView.getComputedStyle(el("handoff-secret-box")).opacity };
         open?.();
         await wait(() => rec.ownership === "agent", "the hand back", 10000);
         return res;
@@ -4946,7 +4965,10 @@ test("the hand-off card's 'This step shows a secret', as on zenius's pill: with 
       { box: { ...box, checked: true, fixed: true, sign: "set by the agent" }, clears: secret, pill: true, calls: 4 },
       "the agent's own mark: ticked at full strength with its sign, and a click changes nothing"
     );
-    assert.deepEqual(out.resuming, { fixed: true }, "fixed from Resume agent's press");
+    assert.deepEqual(out.resuming, { fixed: true, opacity: "0.45" }, "fixed, and dimmed, from Resume agent's press");
+    const drawn = { appearance: "none", border: "solid 1px", outline: true, fill: false, tick: false };
+    assert.deepEqual(out.offLook, drawn, "the box is zenius's own: unticked, an outline in its label's ink");
+    assert.deepEqual(out.onLook, { ...drawn, outline: false, fill: true, tick: true }, "ticked, the panel's ink with Firefox's tick");
   } finally {
     await chrome(`const s = win.ucAgentSidebar.AgentService.zenius().spaces; const rec = s.peek(arg.id); if (rec && rec.ownership !== "agent") s.setOwnership(rec, "agent", { source: "user" }); return true;`, { id }).catch(() => {});
     await h.call("spaces.finish", { space: id, keep: [] }).catch(() => {});

@@ -498,6 +498,76 @@ test("the user's own secret mark on their Take over's pill, which a misled agent
   assert.deepEqual(out.back, { ownership: "agent", blanks: 2 }, "handed back, the marks looked at first and last");
 });
 
+// The box is drawn by zenius, the same on every platform. A native box takes
+// the system's look, and macOS's unticked one, a light grey square with no
+// outline, read as unavailable on the pills. Unticked, it's an outline in
+// its label's own muted ink; ticked, it takes Resume agent's colors, with
+// Firefox's tick; disabled (from the user's Resume agent until the hand back
+// is done), it's dimmed.
+test("the pills' 'Shows a secret' box is drawn by zenius, on the hand-off's pill and on the Take over's: no native look; unticked, an outline in its label's ink; ticked, Resume agent's colors with Firefox's tick; disabled, dimmed", async () => {
+  const out = await h.chrome(`${P}${SECRET_STANDIN}
+    const look = () => {
+      const b = box();
+      const s = win.getComputedStyle(b);
+      const label = win.getComputedStyle(b.closest(".zenius-card-toggle"));
+      // Resume agent's hover changes only its opacity, so its colors hold
+      // wherever the pointer was left.
+      const resume = win.getComputedStyle([...pill().querySelectorAll("button")].find(x => x.textContent === "Resume agent"));
+      // Under the pointer, the unticked box's outline is the card's full ink.
+      const ink = b.matches(":not(:checked, :disabled):hover") ? win.getComputedStyle(pill()).color : label.color;
+      return {
+        appearance: s.appearance,
+        // The layout's size, not the drawn one: the pill's entry may still
+        // be scaling it.
+        size: [b.offsetWidth, b.offsetHeight],
+        border: s.borderTopStyle + " " + s.borderTopWidth,
+        outline: s.borderTopColor === ink,
+        fill: s.backgroundColor === resume.backgroundColor,
+        tick: s.backgroundImage.includes("chrome://global/skin/icons/check.svg") && s.fill === resume.color,
+      };
+    };
+    const dimmed = () => {
+      box().disabled = true;
+      const opacity = win.getComputedStyle(box()).opacity;
+      box().disabled = false;
+      return opacity;
+    };
+    const ways = {
+      handOff: async () => handOff("Create the key, then press Resume agent"),
+      takeOver: async () => {
+        takeOverAs("none");
+        await UI.takeOverByUser(rec);
+      },
+    };
+    try {
+      await showTask();
+      const res = {};
+      for (const [way, open] of Object.entries(ways)) {
+        await open();
+        await until(() => box());
+        await sleep(450);
+        res[way] = { off: look(), dimmed: dimmed() };
+        box().click();
+        await until(() => read().toggle?.checked);
+        res[way].on = look();
+        ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+        await until(() => !pill());
+        marks.clear();
+      }
+      return res;
+    } finally {
+      unstand();
+      await cleanUp();
+    }
+  `);
+  const off = { appearance: "none", size: [14, 14], border: "solid 1px", outline: true, fill: false, tick: false };
+  for (const way of ["handOff", "takeOver"]) {
+    assert.deepEqual(out[way].off, off, `${way}: unticked, an outline in its label's ink`);
+    assert.equal(out[way].dimmed, "0.45", `${way}: disabled, dimmed`);
+    assert.deepEqual(out[way].on, { ...off, outline: false, fill: true, tick: true }, `${way}: ticked, Resume agent's colors with Firefox's tick`);
+  }
+});
+
 // The pill's box on the core's real calls, not the stand-ins above: the
 // tick marks the step (markSecretByUser), and Resume agent blanks its tab
 // (blankSecretSteps) before the agent has the task back.

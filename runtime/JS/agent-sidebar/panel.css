@@ -651,6 +651,56 @@ body.busy .msg.user > .actions {
   gap: 6px;
 }
 
+/* The box is drawn here, as on zenius's pills: the same on every platform
+ * and in both themes, an outline in the panel's muted ink, then its ink
+ * with Firefox's tick once it's ticked. macOS's own box, a light grey square
+ * with no outline, read as unavailable on the card. It stays a real
+ * checkbox, so assistive tech reads its name and state as before. */
+#handoff-secret > input {
+  appearance: none;
+  flex: none;
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  border: 1px solid var(--muted);
+  border-radius: 4px;
+  background: transparent center / 12px no-repeat;
+  /* The tick's color; its stroke (check.svg's own, for this) makes it
+   * bolder, as a box's tick usually is. */
+  -moz-context-properties: fill, stroke;
+  fill: var(--bg);
+  stroke: var(--bg);
+}
+
+#handoff-secret > input:not(:checked, :disabled):hover {
+  border-color: var(--fg);
+}
+
+#handoff-secret > input:checked {
+  border-color: var(--fg);
+  background-color: var(--fg);
+  background-image: url("chrome://global/skin/icons/check.svg");
+}
+
+/* The user's own box, from their Resume agent until the hand back is done. */
+#handoff-secret > input:disabled {
+  opacity: 0.45;
+}
+
+#handoff-secret > input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* With forced colors, the system's own box, which they draw in the system's
+ * colors, while the drawn one's fill would be blanked. */
+@media (forced-colors: active) {
+  #handoff-secret > input {
+    appearance: auto;
+  }
+}
+
 /* The agent's own mark: the box keeps its full look, and a small chip says
  * who set it, as on zenius's pill. */
 #handoff-secret[signed],
