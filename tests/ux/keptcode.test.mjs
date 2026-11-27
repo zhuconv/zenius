@@ -14,7 +14,8 @@
 // real record here), for that card.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { setup, UNTIL_TAKES_INPUT } from "./lib.mjs";
+import { untilTakesInput } from "../lib/user-input.mjs";
+import { setup } from "./lib.mjs";
 
 let h;
 let userView;
@@ -70,12 +71,11 @@ const K = `
     b.click();
   };
   const inPage = (bid, code) => ctx.content(tabOf(bid).linkedBrowser.browsingContext, "dev#evalContent", { code });
-  ${UNTIL_TAKES_INPUT}
   // The user's own click at (x, y) in the page in view, entering through the
-  // parent as the OS's would, once the page takes it.
+  // parent as the OS's would, once the page takes it (tests/lib/user-input.mjs).
   const userClick = async (bid, x, y) => {
     const b = tabOf(bid).linkedBrowser;
-    await untilTakesInput(b);
+    ${untilTakesInput("b.browsingContext")}
     const w = b.ownerDocument.defaultView;
     const r = b.getBoundingClientRect();
     for (const type of ["mousedown", "mouseup"]) {

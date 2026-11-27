@@ -170,45 +170,6 @@ export async function setup() {
  */
 export const SMOOTH_FRAME_MS = 50;
 
-// The page's side of untilTakesInput, privileged, so that its callbacks are
-// no code left in the page: refresh ticks from now, then the time since the
-// document began loading, on the clock performance.now() reads.
-const TAKES_INPUT_CODE = `const win = actor.contentWindow;
-  const t = win.performance.timing;
-  const loading = t.domLoading ? t.domLoading - t.navigationStart : 0;
-  for (let i = 0; i <= arg.ticks; i++) {
-    await new Promise(resolve => win.requestAnimationFrame(() => resolve()));
-  }
-  for (let left; (left = loading + arg.ms + 20 - win.performance.now()) > 0; ) {
-    await new Promise(resolve => win.setTimeout(resolve, Math.ceil(left)));
-  }
-  return true;`;
-
-/**
- * Chrome-side code for dev.evalChrome: `await untilTakesInput(browser)` waits
- * until the page `browser` shows takes a person's input. Gecko ignores the
- * user's input aimed at a document until the document has had
- * dom.input_events.security.minNumTicks refresh ticks and minTimeElapsedInMS
- * since it began loading, against clickjacking. zenius's own events are
- * exempt, but a test's user input enters through the parent as the OS's
- * would, so a click sent sooner is lost, as a person's would be: most often
- * right after a load the test set off, such as a task's finish or Stop
- * loading the pages the agent wrote afresh. A person would click again; a
- * test waits instead, so that every click it sends must take. The page must
- * be shown, since a hidden one has no refresh ticks.
- */
-export const UNTIL_TAKES_INPUT = `
-  const untilTakesInput = browser =>
-    ctx.content(browser.browsingContext, "dev#evalContent", {
-      privileged: true,
-      code: ${JSON.stringify(TAKES_INPUT_CODE)},
-      arg: {
-        ticks: Services.prefs.getIntPref("dom.input_events.security.minNumTicks", 0),
-        ms: Services.prefs.getIntPref("dom.input_events.security.minTimeElapsedInMS", 0),
-      },
-    });
-`;
-
 /** Chrome-side helpers prepended to dev.evalChrome code. */
 export function prelude(space, page = "p1") {
   return `
