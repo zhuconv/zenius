@@ -4866,9 +4866,10 @@ test("the hand-off card's 'This step shows a secret', as on zenius's pill: with 
           appearance: s.appearance,
           border: s.borderTopStyle + " " + s.borderTopWidth,
           outline: s.borderTopColor === ink,
-          // Ticked: the light or the dark theme's blue (panel.css's
-          // --check-bg), with a white tick.
-          fill: ["rgb(0, 111, 230)", "rgb(41, 148, 255)"].includes(s.backgroundColor),
+          // Ticked: the blue of the theme the panel shows, with a white
+          // tick. The panel's ink (--fg, light-dark(#1d1d1f, #ececf1)) tells
+          // which side of light-dark() it takes, so swapped values fail too.
+          fill: s.backgroundColor === { "rgb(29, 29, 31)": "rgb(0, 111, 230)", "rgb(236, 236, 241)": "rgb(41, 148, 255)" }[body.color],
           tick: s.backgroundImage.includes("chrome://global/skin/icons/check.svg") && s.fill === "rgb(255, 255, 255)",
         };
       };

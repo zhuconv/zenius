@@ -520,9 +520,10 @@ test("the pills' 'Shows a secret' box is drawn by zenius, on the hand-off's pill
         size: [b.offsetWidth, b.offsetHeight],
         border: s.borderTopStyle + " " + s.borderTopWidth,
         outline: s.borderTopColor === ink,
-        // Ticked: the light or the dark theme's blue
-        // (zenius-ux.css's --zenius-card-check-bg), with a white tick.
-        fill: ["rgb(0, 111, 230)", "rgb(41, 148, 255)"].includes(s.backgroundColor),
+        // Ticked: the blue of the theme the card shows, with a white tick.
+        // The card's ink (light-dark(#1d1d1f, #f5f5f7)) tells which side of
+        // light-dark() the card takes, so swapped values fail too.
+        fill: s.backgroundColor === { "rgb(29, 29, 31)": "rgb(0, 111, 230)", "rgb(245, 245, 247)": "rgb(41, 148, 255)" }[win.getComputedStyle(pill()).color],
         tick: s.backgroundImage.includes("chrome://global/skin/icons/check.svg") && s.fill === "rgb(255, 255, 255)",
       };
     };
