@@ -319,6 +319,13 @@ test("a chat in a private window is never saved and its tab gets no value, and a
     const pwin = win.OpenBrowserWindow({ private: true });
     try {
       await S.until(() => pwin.ucAgentSidebar?.AgentService && pwin.gBrowser, 30000);
+      // The tab once the window is set up, as the other private windows
+      // here wait: its delayed startup, after the glue, loads the start
+      // page and selects that tab, then Zen's Spaces select their own. A
+      // tab added before then didn't finish its load in 10 s under a busy
+      // test-all.
+      await pwin.delayedStartupPromise;
+      await pwin.gZenWorkspaces?.promiseInitialized;
       const pt = await openTab(arg.private, pwin);
       const conv = await ask(pt, "PRIVATE-" + arg.run, pwin);
       // A stored chat's id, as a tab of a normal window keeps it.
