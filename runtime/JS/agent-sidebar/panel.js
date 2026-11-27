@@ -14,7 +14,7 @@ import { imageFromClipboard, kindOf, readAttachment, Refused } from "./attachmen
 import { copyText, extensionFor, fileName, saveText } from "./saving.mjs";
 import { mountFeedback } from "./feedback.mjs";
 
-const { AgentService, USER_SEND, editLossText, isCredentialAsk, MODEL_OPTION, EFFORT_OPTIONS, optionValues, concreteModel, modelGeneration, newestModels, STATE_LABELS, age, ago, remoteSource, remoteEnd, taskName, SCRIPT_LINES_FIRST } = ChromeUtils.importESModule(
+const { AgentService, USER_SEND, editLossText, isCredentialAsk, MODEL_OPTION, EFFORT_OPTIONS, optionValues, concreteModel, modelGeneration, newestModels, STATE_LABELS, age, ago, remoteSource, remoteEnd, accountsLeftLine, taskName, SCRIPT_LINES_FIRST } = ChromeUtils.importESModule(
   new URL("AgentService.sys.mjs", import.meta.url).href
 );
 const { ENDED_TEXT, replyLine, sourceParts } = ChromeUtils.importESModule(new URL("external.sys.mjs", import.meta.url).href);
@@ -71,6 +71,7 @@ const els = {
   liveText: $("live-text"),
   liveSrc: $("live-src"),
   remoteEnd: $("remote-end"),
+  accountsLeft: $("accounts-left"),
   arrival: $("arrival"),
   arrivalText: $("arrival-text"),
   arrivalWatch: $("arrival-watch"),
@@ -1764,6 +1765,18 @@ els.favicon.addEventListener("error", () => {
   }
 });
 
+/**
+ * Under a task that ended, the sites where it left the user's tabs on
+ * another account (AgentService.accountsLeft), one line each, in the thread
+ * after its last answer. Each line goes in as text: the site and the
+ * account are the agent's words (accountsLeftLine).
+ */
+function renderAccountsLeft() {
+  const left = conv?.kind === "work" ? AgentService.accountsLeft(conv) : [];
+  els.accountsLeft.hidden = !left.length;
+  els.accountsLeft.replaceChildren(...left.map(entry => div("accounts-left-line", accountsLeftLine(entry))));
+}
+
 function renderBinding() {
   const work = conv?.kind === "work";
   document.documentElement.dataset.mode = work ? "work" : "chat";
@@ -1800,6 +1813,7 @@ function renderBinding() {
   const ended = work && !conv.busy ? remoteEnd(conv) : null;
   els.remoteEnd.hidden = !ended;
   els.remoteEnd.textContent = ended ?? "";
+  renderAccountsLeft();
   renderNeeds();
   renderMenu();
   renderExternalBar();
@@ -2209,7 +2223,7 @@ function renderAttachments() {
 }
 
 function renderAll() {
-  els.messages.replaceChildren(listFor(conv), els.handoff, els.live);
+  els.messages.replaceChildren(listFor(conv), els.handoff, els.accountsLeft, els.live);
   pruneList();
   renderExternal();
   renderBinding();

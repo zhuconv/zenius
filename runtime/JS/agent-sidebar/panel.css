@@ -644,6 +644,25 @@ body.busy .msg.user > .actions {
   display: none;
 }
 
+/* Under a task that ended, the sites where it left the user's tabs on
+ * another account (renderAccountsLeft): the hand-off card's tint, since the
+ * user may have to sign back in there, at the size of its hints. */
+#accounts-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 4px;
+  padding: 6px 10px 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--needs-color) 26%, transparent);
+  border-radius: 12px;
+  background: var(--needs-bg);
+  font-size: 12px;
+}
+
+#accounts-left[hidden] {
+  display: none;
+}
+
 #handoff-clears {
   font-size: 12px;
 }

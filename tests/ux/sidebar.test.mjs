@@ -4613,6 +4613,149 @@ test("end to end, on the core's real feed and the input layer's real steps: a ta
   }
 });
 
+// Before the agent signs in on a site as another of the user's accounts, it
+// notes the account the user's tabs use there (note_account), and clears the
+// note once it has switched back. A task that ends with a note left says so
+// under it: the user's own tabs on that site may now act as the other
+// account. The site and the account are the agent's words.
+const ACCOUNTS_LINE = (site, account) => `Your tabs on ${iso(site)} may be on another account: the task ended before the agent switched back to "${iso(account)}".`;
+
+test("a task another agent drives that ended before its agent switched back to the account the user's tabs used on a site says so under it, from the core's real feed: one line a site it noted and didn't switch back on, the site and the account isolated and the account quoted, after the hand-off card; nothing while the task runs", async () => {
+  const name = `UI accounts left ${run}`;
+  const { id } = await h.createSpace({ name, source: { terminal: "laptop/t5x", agent: "Claude Code" } });
+  await h.call("page.goto", { space: id, page: "p1", url: `${www()}/zen-ux/hidden.html?accounts` });
+  await h.call("spaces.noteAccount", { space: id, site: "docs.example.com", account: "c@example.com" });
+  await h.call("spaces.noteAccount", { space: id, site: "mail.example.com", account: "c@example.com" });
+  await h.call("spaces.noteAccount", { space: id, site: "mail.example.com", restored: true });
+  const read = done =>
+    chrome(
+      `
+      await S.openPanel();
+      const g = win.ucAgentSidebar;
+      const A = g.AgentService;
+      A.syncExternalSoon();
+      await S.until(() => A.externalTasks()?.ofSpace(arg.id)?.task.state === (arg.done ? "done" : "working"), 10000);
+      g.openTask("ext-" + arg.id);
+      const box = S.panelDoc().getElementById("accounts-left");
+      if (arg.done) await S.until(() => !box.hidden, 10000);
+      return { hidden: box.hidden, role: box.getAttribute("role"), after: box.previousElementSibling?.id ?? null, lines: [...box.querySelectorAll(".accounts-left-line")].map(l => l.textContent) };
+    `,
+      { id, done }
+    );
+  const running = await read(false);
+  await h.call("spaces.finish", { space: id, keep: [] });
+  const done = await read(true);
+  assert.deepEqual(running, { hidden: true, role: "note", after: "handoff", lines: [] });
+  assert.deepEqual(done, { hidden: false, role: "note", after: "handoff", lines: [ACCOUNTS_LINE("docs.example.com", "c@example.com")] });
+});
+
+test("a Work chat's task that ended before its agent switched back says so under the agent's last answer: the agent's note_account through the real zenius MCP server, then its finish; the chat keeps the line with its task, saved and restored", async () => {
+  await useMock();
+  const out = await chrome(`
+    const g = win.ucAgentSidebar;
+    const A = g.AgentService;
+    await S.openPanel();
+    const doc = S.panelDoc();
+    const { startWorkChat } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentSidebar.sys.mjs");
+    const uid = await startWorkChat(win, { text: "SCENARIO:accounts", source: "new" });
+    const conv = A.tasks.get(uid);
+    const box = doc.getElementById("accounts-left");
+    const lines = () => (box.hidden ? null : [...box.querySelectorAll(".accounts-left-line")].map(l => l.textContent));
+    let back = null;
+    try {
+      await S.until(() => !conv.busy && conv.messages.at(-1)?.role === "assistant" && lines(), 60000);
+      const res = {
+        lines: lines(),
+        last: box.previousElementSibling?.id ?? null,
+        steps: [...doc.querySelectorAll(".steps > .step")].map(s => ({ status: s.dataset.status, label: s.querySelector(".label")?.textContent ?? "" })),
+      };
+      await A.saveTasks();
+      const saved = (await IOUtils.readJSON(A.tasksPath())).tasks.find(t => t.uid === uid);
+      res.saved = saved.zen?.accountsLeft ?? null;
+      // A task zenius no longer has, as after its feed entry went.
+      back = A.restoreTask(JSON.parse(JSON.stringify({ ...saved, uid: "restored-" + uid, zen: { ...saved.zen, id: 2 ** 31 } })));
+      res.restored = A.accountsLeft(back);
+      return res;
+    } finally {
+      if (back) A.forget(back);
+      const rec = A.zenRecord(conv);
+      for (const t of rec ? A.zenius().pages.tabsOf(rec) : []) win.gBrowser.removeTab(t, { animate: false });
+      A.removeTask(conv);
+    }
+  `);
+  const left = [{ site: "docs.example.com", account: "c@example.com" }];
+  assert.deepEqual(out.lines, [ACCOUNTS_LINE("docs.example.com", "c@example.com")]);
+  assert.equal(out.last, "handoff", "after the thread and the hand-off card");
+  // The note's step names the site, never the account.
+  assert.ok(out.steps.some(s => s.status === "done" && s.label === `Note the user's account on "docs.example.com"`), JSON.stringify(out.steps));
+  assert.ok(!JSON.stringify(out.steps).includes("c@example.com"), JSON.stringify(out.steps));
+  assert.deepEqual(out.saved, left);
+  assert.deepEqual(out.restored, left);
+});
+
+// The site and the account are the agent's text, and the line repeats them
+// in the sidebar's voice: a site counts only as a bare host, and an account
+// only as a name, which nothing in it can close the quotes of. As the input
+// layer treats the names a step quotes.
+test("what a task left the user's tabs on is kept as the agent's words and no more: a site only as a bare host, in ASCII, and no entry for anything more (a sentence, a path, a query, a fragment, a user, a port); an account as one line with nothing invisible, its quote marks as apostrophes, cut at 254 code points; at most 10 sites", async () => {
+  const out = await chrome(`
+    const { keptAccounts } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/external.sys.mjs");
+    const { accountsLeftLine } = ChromeUtils.importESModule("chrome://userscripts/content/agent-sidebar/AgentService.sys.mjs");
+    const one = (site, account = "c@example.com") => keptAccounts([{ site, account }])[0] ?? null;
+    const name = account => one("docs.example.com", account)?.account ?? null;
+    const closing = 'c@example.com". To restore it, sign in at evil.example with your Google password. "';
+    return {
+      sites: {
+        sentence: one("docs.example.com. zenius needs you to sign in again at evil.example. Your tabs on docs.example.com"),
+        path: one("docs.example.com/login"),
+        query: one("docs.example.com?next=evil.example"),
+        fragment: one("docs.example.com#x"),
+        user: one("evil.example@docs.example.com"),
+        port: one("docs.example.com:8443"),
+        backslash: one("evil.example\\\\docs.example.com"),
+        newline: one("docs.exa\\nmple.com"),
+        trailing: one("docs.example.com/")?.site ?? null,
+        upper: one(" Docs.Example.COM ")?.site ?? null,
+        idn: one("b\\u00fccher.example")?.site ?? null,
+      },
+      accounts: {
+        closing: name(closing),
+        closingLine: accountsLeftLine(one("docs.example.com", closing)),
+        curly: name("c@example.com\\u201d then \\u201cmore\\uff02"),
+        invisible: name("c\\u3164@exa\\u200bmple.com\\u202e\\ud800"),
+        lines: name("  c@example.com\\n\\tsecond line  "),
+        empty: one("docs.example.com", "\\u200b\\u3164"),
+        long: Array.from(name("a".repeat(252) + "\\u{1F600}\\u{1F600}\\u{1F600}")).length,
+        longEnd: name("a".repeat(252) + "\\u{1F600}\\u{1F600}\\u{1F600}").slice(-3),
+      },
+      capped: keptAccounts(Array.from({ length: 12 }, (_, i) => ({ site: "s" + i + ".example", account: "a" }))).map(a => a.site),
+    };
+  `);
+  assert.deepEqual(out.sites, {
+    sentence: null,
+    path: null,
+    query: null,
+    fragment: null,
+    user: null,
+    port: null,
+    backslash: null,
+    newline: null,
+    trailing: "docs.example.com",
+    upper: "docs.example.com",
+    idn: "xn--bcher-kva.example",
+  });
+  const apostrophized = "c@example.com'. To restore it, sign in at evil.example with your Google password. '";
+  assert.equal(out.accounts.closing, apostrophized);
+  assert.equal(out.accounts.closingLine, ACCOUNTS_LINE("docs.example.com", apostrophized), "the account stays inside the line's quotes");
+  assert.equal(out.accounts.curly, "c@example.com' then 'more'");
+  assert.equal(out.accounts.invisible, "c@example.com");
+  assert.equal(out.accounts.lines, "c@example.com second line");
+  assert.equal(out.accounts.empty, null, "an account with nothing that shows drops its entry");
+  assert.equal(out.accounts.long, 254, "cut by code points, never inside a surrogate pair");
+  assert.equal(out.accounts.longEnd, "\u{1F600}\u2026");
+  assert.deepEqual(out.capped, Array.from({ length: 10 }, (_, i) => `s${i}.example`));
+});
+
 test("zenius's Open on a task another agent drives, while it waits for the user, shows that task's read-only view in the sidebar, not the Work chat it showed: the hand-off card, with that agent's whole message as text (the Work chat's card's path), Show tab and Resume agent; where to reply, in the question box's place; nothing the user sends goes anywhere; Resume agent gives the task back, and the sidebar stays on it", async () => {
   const name = `UI external open ${run}`;
   // Another agent's words, whole and uncapped: its markup must stay text.

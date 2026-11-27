@@ -366,6 +366,17 @@ SCENARIOS = {
         ("tool", "finish", {"keep": ["p1"]}),
         ("say", "Checked the article: it's open in your Agents space."),
     ],
+    # The agent notes the account the user's tabs use on a site before it
+    # signs in there as another of the user's accounts (note_account), and
+    # the task ends before it switches back: the sidebar says so under it.
+    # Made-up accounts on a made-up site.
+    "accounts": [
+        ("say", "I'll share the page from its owner's account, then switch back."),
+        ("tool", "open", {"url": f"{WWW}/article.html", "task": "Share the page"}),
+        ("tool", "note_account", {"site": "docs.example.com", "account": "c@example.com"}),
+        ("tool", "finish", {"keep": ["p1"]}),
+        ("say", "Shared the page with b@example.com from its owner's account. I couldn't switch back: sign in as c@example.com on docs.example.com again."),
+    ],
 }
 
 

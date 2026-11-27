@@ -38,6 +38,75 @@ function plain(text, max = 200) {
 
 const isolate = text => `\u2068${text}\u2069`;
 
+/** At most this many sites a task left the user's tabs on another account (the core caps its list too). */
+export const ACCOUNTS_MAX = 10;
+/** An account's most code points: an email address's longest. */
+const ACCOUNT_MAX = 254;
+
+// As the input layer cleans the names a step quotes (input/steps.sys.mjs),
+// so an account reads as a name there and here alike.
+/** Characters that change how a line reads without showing: controls, bidi and other format characters, lone surrogates, and the rest that show nothing. */
+const INVISIBLE = /[\p{Cc}\p{Cf}\p{Cs}\p{Default_Ignorable_Code_Point}]/gu;
+/** Quote marks, which an account turns into apostrophes so it can't close the line's quotes. */
+export const QUOTES = /["\u201C\u201D\u201E\u201F\u2033\u2036\u275D\u275E\u301D\u301E\u301F\uFF02]/g;
+
+/** An account as the line quotes it: one line, nothing invisible, no quote mark, at most ACCOUNT_MAX code points (with … where it's cut). */
+function accountName(text) {
+  const line = String(text ?? "")
+    .replace(/\s+/g, " ")
+    .replace(INVISIBLE, "")
+    .replace(/ {2,}/g, " ")
+    .trim()
+    .replace(QUOTES, "'");
+  const chars = Array.from(line);
+  return chars.length > ACCOUNT_MAX ? `${chars.slice(0, ACCOUNT_MAX - 1).join("")}…` : line;
+}
+
+/**
+ * A site as the line names it: a bare host, its hostname in ASCII
+ * (punycode, so a look-alike can't pass for the real one), or "" for
+ * anything more, such as a path, a query, a fragment, a user, a port or a
+ * sentence, which drops its entry.
+ */
+function siteHost(text) {
+  const raw = typeof text === "string" ? text.trim() : "";
+  if (!raw || /[\s\p{Cc}\p{Cf}\p{Cs}]/u.test(raw)) {
+    return "";
+  }
+  let url;
+  try {
+    url = new URL(`https://${raw}`);
+  } catch {
+    return "";
+  }
+  const bare = !url.username && !url.password && !url.port && url.pathname === "/" && !url.search && !url.hash;
+  return bare && url.hostname.length <= 253 ? url.hostname : "";
+}
+
+/**
+ * The core's accountsToRestore as the sidebar keeps it: for each site where
+ * the agent signed in as another of the user's accounts, the account the
+ * user's tabs used there, which the agent said it would switch back to
+ * (note_account) and hadn't when last told. Both are the agent's own text,
+ * so the site counts only as a bare host and the account only as a name,
+ * and nothing in either can close the line's quotes or add a sentence of
+ * its own (accountsLeftLine).
+ *
+ * @param {unknown} list
+ * @returns {{site: string, account: string}[]}
+ */
+export function keptAccounts(list) {
+  return (Array.isArray(list) ? list : [])
+    .map(a => ({ site: siteHost(a?.site), account: accountName(a?.account) }))
+    .filter(a => a.site && a.account)
+    .slice(0, ACCOUNTS_MAX);
+}
+
+/** Whether two keptAccounts lists say the same. */
+export function sameAccounts(a, b) {
+  return a.length === b.length && a.every((x, i) => x.site === b[i].site && x.account === b[i].account);
+}
+
 /**
  * Where an external task is driven from (the core's source), one phrase:
  * "Claude Code on laptop/t5x" when its caller runs in an hc terminal, else
@@ -121,7 +190,8 @@ export class ExternalTask {
   /** @param {number} space  its zenius task's id */
   constructor(space) {
     this.uid = `${EXTERNAL_PREFIX}${space}`;
-    this.zen = { id: space, name: "", heldBy: null };
+    // accountsLeft: keptAccounts of the feed's entry, as a chat's task keeps it.
+    this.zen = { id: space, name: "", heldBy: null, accountsLeft: [] };
     this.title = "";
     // When the user archived it (AgentService.archiveTask), from the hooks' archived().
     this.archivedAt = null;
@@ -162,6 +232,8 @@ export class ExternalTask {
  * - own(space, source, entry): whether the sidebar drives that task, or
  *   the user removed it from the list as the feed entry has it
  *   (AgentService.wasRemoved);
+ * - ownEntry(space, entry): the feed's entry of such a task, for the chat
+ *   that drives it (AgentService.noteOwnEntry);
  * - archived(space, entry): when the user archived that task, else null
  *   (AgentService.archivedAtOf);
  * - pinned(task), label(task): when the user pinned it, and the name they
@@ -282,7 +354,11 @@ export class ExternalTasks {
     let listChanged = false;
     for (const entry of Array.isArray(entries) ? entries : []) {
       const space = entry?.space;
-      if (entry?.kind !== "task" || !Number.isSafeInteger(space) || this.hooks.own(space, entry.source ?? null, entry)) {
+      if (entry?.kind !== "task" || !Number.isSafeInteger(space)) {
+        continue;
+      }
+      if (this.hooks.own(space, entry.source ?? null, entry)) {
+        this.hooks.ownEntry?.(space, entry);
         continue;
       }
       const uid = `${EXTERNAL_PREFIX}${space}`;
@@ -364,6 +440,14 @@ export class ExternalTasks {
     const after = !done && typeof row?.afterResume === "string" ? row.afterResume : null;
     if (task.afterResume !== after) {
       task.afterResume = after;
+      task.emit({ type: "task", stateChanged: false });
+    }
+    // The sites the task leaves the user's tabs on another account, which
+    // the view says once it has ended (AgentService.accountsLeft). The
+    // entry has them while any are left, so none there means none.
+    const left = keptAccounts(entry.accountsToRestore);
+    if (!sameAccounts(task.zen.accountsLeft, left)) {
+      task.zen.accountsLeft = left;
       task.emit({ type: "task", stateChanged: false });
     }
     // The card's secret box too, which a mark that comes or goes changes

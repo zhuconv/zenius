@@ -54,7 +54,7 @@ import {
 // The zenius tasks the sidebar doesn't drive: read-only entries in the
 // directory, so every task the user has shows in one place.
 import { builtinAgents } from "./builtin.sys.mjs";
-import { ExternalTasks } from "./external.sys.mjs";
+import { ExternalTasks, keptAccounts, QUOTES, sameAccounts } from "./external.sys.mjs";
 import { ExternalMarks, PIN_CAP } from "./pins.sys.mjs";
 // Chat's fetch rule: the lists of URLs a Chat session may fetch, so an
 // injected line can't get Chat to send the chat's content out in a URL.
@@ -1247,6 +1247,13 @@ const ZEN_STEPS = {
   // into apostrophes, so it never reads as zenius's own step (as the server's).
   script: a =>
     typeof a.purpose === "string" && oneLine(a.purpose) ? `Run a script: ${quoted(a.purpose.replace(/"/g, "'"), 80)}` : "Run a script",
+  // The site alone, as the server's step says it: the account is the
+  // user's data. The site is the agent's text until zenius has checked it,
+  // so its quote marks become apostrophes.
+  note_account: a => {
+    const site = quoted(String(a.site ?? "").replace(QUOTES, "'"), 80);
+    return a.restored === true ? `Note that ${site} is back on the user's account` : `Note the user's account on ${site}`;
+  },
 };
 
 /**
@@ -2462,6 +2469,21 @@ export function remoteSource(conv, lead = "From") {
 }
 
 /**
+ * The line under a task that ended for one site it left the user's tabs on
+ * another account (AgentService.accountsLeft). The site and the account are
+ * the agent's words: each sits in its own first-strong isolate, the account
+ * in quotes, so neither can read as the sidebar's own words or pull them
+ * around in a right-to-left script.
+ *
+ * @param {{site: string, account: string}} left
+ * @returns {string}
+ */
+export function accountsLeftLine({ site, account }) {
+  const isolate = s => `\u2068${s}\u2069`;
+  return `Your tabs on ${isolate(site)} may be on another account: the task ended before the agent switched back to "${isolate(account)}".`;
+}
+
+/**
  * Why a remote task stopped, as its chat's end, its directory row and its
  * title say it: the observe layer's conv.remote.final.stopReason, with the caller's
  * address (isolated, as remoteSource does). Null while it runs, when it
@@ -2667,7 +2689,9 @@ function serializeTask(conv) {
     harness: conv.harness,
     createdAt: conv.createdAt,
     task: conv.task,
-    zen: conv.zen ? { name: conv.zen.name, id: conv.zen.id, heldBy: conv.zen.heldBy ?? null } : null,
+    zen: conv.zen
+      ? { name: conv.zen.name, id: conv.zen.id, heldBy: conv.zen.heldBy ?? null, ...(conv.zen.accountsLeft?.length ? { accountsLeft: conv.zen.accountsLeft } : {}) }
+      : null,
     stopped: conv.stopped,
     busy: conv.busy,
     interrupted: !!conv.interrupted,
@@ -3932,6 +3956,7 @@ export const AgentService = {
         service: () => this.zenius(),
         ui: () => this.zeniusUI(),
         own: (space, source, entry) => this.drivesSpace(space, source) || this.wasRemoved(space, source, entry),
+        ownEntry: (space, entry) => this.noteOwnEntry(space, entry),
         archived: (space, entry) => this.archivedAtOf(space, entry),
         pinned: task => this.marks.pinnedAtOf(task.space, task.createdAt),
         label: task => this.marks.labelOf(task.space, task.createdAt),
@@ -4228,7 +4253,10 @@ export const AgentService = {
     conv.source = saved.source ?? null;
     conv.createdAt = saved.createdAt || Date.now();
     // Only a link by id: one by name alone (an older file's) is dropped.
-    conv.zen = Number.isSafeInteger(saved.zen?.id) ? { name: String(saved.zen.name ?? ""), id: saved.zen.id, heldBy: saved.zen.heldBy ?? null } : null;
+    // accountsLeft outlives the feed's ended entry (noteOwnEntry).
+    conv.zen = Number.isSafeInteger(saved.zen?.id)
+      ? { name: String(saved.zen.name ?? ""), id: saved.zen.id, heldBy: saved.zen.heldBy ?? null, accountsLeft: keptAccounts(saved.zen.accountsLeft) }
+      : null;
     conv.stopped = !!saved.stopped;
     conv.interrupted = !!saved.busy || !!saved.interrupted;
     conv.parkedId = saved.session ?? null;
@@ -4427,6 +4455,50 @@ export const AgentService = {
     const service = Number.isSafeInteger(id) ? this.zenius() : null;
     const rec = service?.spaces.peek(id) ?? null;
     return rec && rec.kind === "task" && !rec.gone ? rec : null;
+  },
+
+  /**
+   * The feed's entry of a task one of the sidebar's chats drives: that chat
+   * keeps the sites the task leaves the user's tabs on another account
+   * (keptAccounts), which it saves, so they outlive the feed's ended entry.
+   */
+  noteOwnEntry(space, entry) {
+    const conv = this.chatOfSpace(space, entry?.source ?? null);
+    if (!conv?.zen || conv.zen.id !== space) {
+      return;
+    }
+    const left = keptAccounts(entry.accountsToRestore);
+    if (sameAccounts(conv.zen.accountsLeft ?? [], left)) {
+      return;
+    }
+    conv.zen.accountsLeft = left;
+    conv.emit({ type: "zen", event: "accountsLeft" });
+    this.tasksChanged(conv);
+  },
+
+  /**
+   * Where a task that ended left the user's tabs on another account: the
+   * sites the agent signed in on as another of the user's accounts, each
+   * with the account the user's tabs used there, which the agent said it
+   * would switch back to (note_account) and hadn't when the task ended. The
+   * sidebar says so under the task (panel.js, #accounts-left). None while
+   * the task runs or waits for the user, since the agent may still switch
+   * back. zenius checks no account: these are the agent's words.
+   *
+   * @returns {{site: string, account: string}[]}
+   */
+  accountsLeft(conv) {
+    const left = conv?.zen?.accountsLeft ?? [];
+    if (!left.length) {
+      return [];
+    }
+    if (conv.external) {
+      return conv.task.state === "done" ? left : [];
+    }
+    // A task that ended and left tabs open stays the user's (ownership
+    // "user"); one that left none is gone.
+    const rec = this.zenRecord(conv);
+    return !rec || rec.ownership === "user" ? left : [];
   },
 
   /**
