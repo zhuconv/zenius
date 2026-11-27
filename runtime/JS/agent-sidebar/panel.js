@@ -375,7 +375,9 @@ function renderExternal() {
   const steps = AgentService.externalTasks()?.steps(conv) ?? [];
   const withPage = new Set(steps.map(step => step.page).filter(Boolean)).size > 1;
   const box = view.querySelector(".ext-steps");
-  const bottom = nearBottom();
+  // As the chat's drawings (renderMessages): after a wheel or trackpad
+  // scroll up, the view stays where the user put it, near the end or not.
+  const bottom = !scrolledUp && nearBottom();
   box.replaceChildren(...(steps.length ? steps.map((step, i) => stepRow(step, withPage, steps[i - 1])) : [div("ext-empty", "No steps yet")]));
   view.querySelector(".ext-needs")?.remove();
   // A hand-off has the hand-off card, with the agent's whole message
@@ -1127,11 +1129,17 @@ function nearBottom() {
 let following = null;
 /** Where the view was when the panel last looked at it or moved it. */
 let lastTop = 0;
+/**
+ * The user's wheel or trackpad went up since the view was last back near its
+ * end: no drawing takes the view to the end, near it or not.
+ */
+let scrolledUp = false;
 
 /** A send: `target`'s view goes to its end now, and keeps to it (renderMessages). */
 function followUp(target) {
   following = target;
   if (conv === target) {
+    scrolledUp = false;
     toEnd();
   }
 }
@@ -1158,10 +1166,32 @@ function noteScroll() {
   if (following && top < lastTop && !nearBottom()) {
     following = null;
   }
+  // Down, and back near the end: the user's own way back, after which the
+  // view keeps to the end again.
+  if (scrolledUp && top > lastTop && nearBottom()) {
+    scrolledUp = false;
+  }
   lastTop = top;
 }
 
 els.messages.addEventListener("scroll", noteScroll, { passive: true });
+
+// A wheel or trackpad scroll up is the user's at once, however small. A
+// trackpad's slow scroll goes a few pixels a frame, which stays within
+// nearBottom()'s 40 px between two drawings, so by where the view is alone,
+// each drawing would take it back to the end. On a step's own scrolling
+// output too: the user is reading. Ctrl or Shift with the wheel zooms or
+// goes sideways, and a list at its top has nowhere to go up.
+els.messages.addEventListener(
+  "wheel",
+  event => {
+    if (event.deltaY < 0 && !event.ctrlKey && !event.shiftKey && els.messages.scrollTop > 0) {
+      following = null;
+      scrolledUp = true;
+    }
+  },
+  { passive: true }
+);
 
 function renderMessages() {
   clearTimeout(renderTimer);
@@ -1171,7 +1201,7 @@ function renderMessages() {
     return;
   }
   noteScroll();
-  const stick = nearBottom() || following === conv;
+  const stick = !scrolledUp && (nearBottom() || following === conv);
   conv.messages.forEach((message, i) => renderMessage(message, i));
   renderAnswerActions();
   if (stick) {
@@ -3321,6 +3351,7 @@ const api = {
     conv = next;
     // A chat shown starts at its end (renderAll), following nothing.
     following = null;
+    scrolledUp = false;
     unsubscribe = conv.subscribe(onChange);
     els.input.value = conv.draft?.text ?? "";
     autoGrow();

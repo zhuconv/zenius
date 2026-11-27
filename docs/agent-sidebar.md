@@ -200,7 +200,12 @@ tests in the same commit.
   the end, through what moves the end meanwhile (the queue's row, a box
   the next message grows), until the user scrolls up: from there it stays
   where they put it, as before (panel.js's `followUp`, `following`). The
-  move is instant.
+  move is instant. A wheel or trackpad scroll up counts at once, however
+  small (`scrolledUp`): a trackpad's slow scroll moves less than 40 px
+  between two drawings, so by position alone each drawing would take the
+  view back to the end. A task another agent drives keeps such a scroll
+  the same way at its next step. Scrolling back near the end, a send, or
+  another chat shown lets the view keep to the end again.
 - **Editing a message**: Edit on any of the user's messages, a steer's too,
   asks again from there. The message and everything after it leave the
   chat. The agent's session goes back with `session/fork` to a point before

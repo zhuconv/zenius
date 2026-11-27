@@ -8293,6 +8293,131 @@ test("the user's own scroll of 60 px up mid-answer stays put, though its scroll 
   assert.deepEqual(out.together, { moved: 60, atEnd: false }, "one scroll event for the view's move down and the user's up leaves the view where the user put it");
 });
 
+// A trackpad's slow scroll over the chat: wheel(dy, n) sends n pixel deltas
+// of dy, one a frame, from a device that has no lines. Needs m, pwin and
+// frames, as FOLLOW has them.
+const WHEEL = `
+  const wheel = async (dy, n) => {
+    const utils = pwin.windowUtils;
+    const box = m.getBoundingClientRect();
+    for (let i = 0; i < n; i++) {
+      utils.sendWheelEvent(box.left + box.width / 2, box.top + box.height / 2, 0, dy, 0, pwin.WheelEvent.DOM_DELTA_PIXEL, 0, 0, 0, utils.WHEEL_EVENT_CAUSED_BY_PIXEL_ONLY_DEVICE | utils.WHEEL_EVENT_CAUSED_BY_NO_LINE_OR_PAGE_DELTA_DEVICE);
+      await frames(1);
+    }
+    // A pixel scroll animates for a few frames.
+    await frames(12);
+  };
+`;
+
+test("a slow trackpad scroll up mid-answer stays put: wheel events a frame, under 40 px between two drawings of the streaming answer, move the view up as far as with nothing drawing, and it stays there as the answer goes on, until a scroll back down to the end", async () => {
+  await useMock();
+  const out = await chrome(`${FOLLOW}${WHEEL}
+    const answers = () => conv.messages.filter(msg => msg.role === "assistant").length;
+    const res = {};
+    try {
+      await earlier();
+      // With nothing drawing, from the end.
+      m.scrollTop = m.scrollHeight;
+      await frames(3);
+      let top = m.scrollTop;
+      await wheel(-2, 20);
+      res.idle = Math.round(top - m.scrollTop);
+      // As the answer streams, from its end: the view follows it.
+      type("SLOW trackpad");
+      await frames(3);
+      m.scrollTop = m.scrollHeight;
+      await frames(3);
+      const n = answers();
+      press();
+      await S.until(() => conv.busy && answers() > n && words().split(" ").length > 3, 10000);
+      await frames(2);
+      top = m.scrollTop;
+      await wheel(-2, 60);
+      const left = m.scrollTop;
+      const before = words().length;
+      await S.until(() => words().length > before + 10, 5000);
+      await frames(2);
+      res.streaming = { up: Math.round(top - left), stayed: Math.round(m.scrollTop - left), atEnd: atEnd() };
+      // Back down to the end: the view keeps to it again.
+      await wheel(10, 40);
+      const back = words().length;
+      await S.until(() => words().length > back + 10, 5000);
+      await frames(2);
+      res.back = atEnd();
+      return res;
+    } finally {
+      await stop();
+      A.removeTask(conv);
+      g.setMode("chat");
+    }
+  `);
+  // Under 40 px between two drawings, 0.1 s apart (the mock's words): 20
+  // events go less than 100 px with nothing drawing.
+  assert.ok(out.idle >= 40 && out.idle < 100, `with nothing drawing, 20 events move the view up, less than 40 px in 6 frames: ${out.idle} px`);
+  assert.ok(out.streaming.up >= out.idle * 2.5, `as the answer streams, 60 events move the view up as far: ${out.streaming.up} px, ${out.idle} px for 20 with nothing drawing`);
+  assert.deepEqual({ stayed: out.streaming.stayed, atEnd: out.streaming.atEnd }, { stayed: 0, atEnd: false }, "and it stays there as the answer goes on");
+  assert.equal(out.back, true, "scrolled back down to the end, the view keeps to it again as the answer goes on");
+});
+
+// What the chat keeps of a wheel scroll up, a task another agent drives keeps
+// too: its view took each new step at its end by position alone.
+test("a task another agent drives keeps a small wheel scroll up too: a new step keeps its view at its end, and after the user's wheel up of about 20 px, under 40 px from the end, the next step leaves the view where they put it", async () => {
+  const { id } = await h.createSpace({ name: `UI wheel ${run}`, source: { terminal: "laptop/t5x", agent: "Claude Code" } });
+  const goto = n => h.call("page.goto", { space: id, page: "p1", url: `${www()}/zen-ux/hidden.html?wheel=${n}` });
+  // The task's view once it shows `n` steps. Opening the task it shows
+  // already changes nothing (the panel's show).
+  const view = (n, code, more = {}) =>
+    chrome(
+      `
+      await S.openPanel();
+      const g = win.ucAgentSidebar;
+      const A = g.AgentService;
+      const doc = S.panelDoc();
+      const pwin = doc.defaultView;
+      const m = doc.getElementById("messages");
+      const { atEnd, frames } = V;
+      ${WHEEL}
+      A.syncExternalSoon();
+      await S.until(() => A.externalTasks()?.ofSpace(arg.id), 10000);
+      g.openTask("ext-" + arg.id);
+      await S.until(() => doc.querySelectorAll(".ext-steps > .ext-step").length >= arg.n, 10000);
+      await frames(2);
+      ${code}
+    `,
+      { id, n, ...more }
+    );
+  try {
+    for (let i = 0; i < 40; i++) {
+      await goto(i);
+    }
+    const first = await view(
+      40,
+      `
+      m.scrollTop = m.scrollHeight;
+      await frames(3);
+      return { scrollable: m.scrollHeight > m.clientHeight + 100, atEnd: atEnd() };
+    `
+    );
+    await goto(40);
+    const nudged = await view(
+      41,
+      `
+      const kept = atEnd();
+      await wheel(-2, 5);
+      return { kept, top: m.scrollTop, fromEnd: Math.round(m.scrollHeight - m.clientHeight - m.scrollTop) };
+    `
+    );
+    await goto(41);
+    const after = await view(42, `return { moved: Math.round(arg.top - m.scrollTop), atEnd: atEnd() };`, { top: nudged.top });
+    assert.deepEqual(first, { scrollable: true, atEnd: true }, "the task's steps fill more than its view, which is at its end");
+    assert.equal(nudged.kept, true, "a new step keeps the view at its end");
+    assert.ok(nudged.fromEnd > 10 && nudged.fromEnd < 40, `the wheel took the view up, under 40 px from the end: ${nudged.fromEnd} px`);
+    assert.deepEqual(after, { moved: 0, atEnd: false }, "the next step leaves the view where the user put it");
+  } finally {
+    await h.call("spaces.finish", { space: id, keep: [] });
+  }
+});
+
 test("each other way to send takes the chat to its end from an earlier answer the user scrolled up to, and the agent's words after it show there: Steer (Ctrl+Enter, ⌘Enter on a Mac) as the agent answers, a queued message's Steer, and an answer to the agent's ask, by a click on its card, or by words in the box, which may answer only its first question", async () => {
   await useMock();
   const out = await chrome(`${FOLLOW}
