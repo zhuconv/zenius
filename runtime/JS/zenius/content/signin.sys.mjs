@@ -145,8 +145,12 @@ export const TEST_PAGES_KEY = "zenius:signInTestPages";
  */
 export const SIGN_IN_DOCS_KEY = "zenius:signInDocs";
 
-/** The reasons a document is a sign-in page: ZEN_SIGN_IN_PAGE's data.reason. */
-export const SIGN_IN_REASONS = Object.freeze(["authorization_response", "device_login", "consent"]);
+/**
+ * The reasons a document is a sign-in page: ZEN_SIGN_IN_PAGE's data.reason.
+ * one_time_code: a page where the agent's entry into a one-time-code field
+ * was refused (codeEntryRefusal), left to the agent to read but not act on.
+ */
+export const SIGN_IN_REASONS = Object.freeze(["authorization_response", "device_login", "consent", "one_time_code"]);
 
 /**
  * How the sign-in rules check agent method calls, by the method's declared
@@ -197,9 +201,38 @@ export function signInRefusal(method, flag, frame = false) {
       data,
     };
   }
+  if (flag.reason === "one_time_code") {
+    return {
+      message: `${method} refused: this is ${where}, and only the user enters that code. Reading the page and going elsewhere still work; to go on here, hand the page to the user with task.handOff({ reason: "sign_in" }).`,
+      data,
+    };
+  }
   return {
     message: `${method} refused: this is ${where}. Its address or referrer carries the code of a sign-in, so only the user reads or acts there. Hand the page to the user (task.handOff()), or go to the app's own URL again.`,
     data,
+  };
+}
+
+/**
+ * ZEN_SIGN_IN_PAGE's message and data when agent method `method`'s entry
+ * into a one-time-code field is refused: the tab's site, `site`, had no
+ * visit in the user's history from before the task (input/codes.sys.mjs).
+ *
+ * @param {string} method
+ * @param {string|null} site
+ * @returns {{message: string, data: object, page: string}}
+ */
+export function codeEntryRefusal(method, site, changed = false) {
+  const where = site ? `on ${site}` : "on this page";
+  const page = `a page that asks for a one-time code ${where}`;
+  // Only what zenius found: a failed or skipped history read finds no visit too.
+  const why = changed
+    ? "its page changed each time zenius checked it"
+    : `zenius found no visit to ${site ?? "this page's site"} from before this task in the user's history`;
+  return {
+    message: `${method} refused: this field takes a one-time code, and ${why}, so only the user enters a code ${where}. Hand the page to them with task.handOff({ reason: "sign_in" }). You can still read it and go elsewhere, but not act on it.`,
+    data: { reason: "one_time_code", page, method, ...(site ? { site } : {}) },
+    page,
   };
 }
 

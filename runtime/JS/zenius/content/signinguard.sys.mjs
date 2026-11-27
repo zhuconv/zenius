@@ -22,6 +22,11 @@ import {
 } from "chrome://userscripts/content/zenius/content/signin.sys.mjs";
 import { ZenError } from "chrome://userscripts/content/zenius/modules/errors.sys.mjs";
 
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  isCodeField: "chrome://userscripts/content/zenius/content/codefield.sys.mjs",
+});
+
 /**
  * The documents assessed in this process: Document to its flag
  * ({reason, page}) or null. A document the back-forward cache restores is
@@ -327,11 +332,99 @@ export function refuseSignIn(actor, gate, method) {
     refuse(top, true);
   }
   if (gate === "act") {
-    if (own?.reason === "device_login" || own?.reason === "consent") {
+    if (ACTS_REFUSED.has(own?.reason)) {
       refuse(own, false);
     }
-    if (top?.reason === "device_login" || top?.reason === "consent") {
+    if (ACTS_REFUSED.has(top?.reason)) {
       refuse(top, true);
     }
   }
+}
+
+/** The flags that leave a page to the agent to read, but not to act on. */
+const ACTS_REFUSED = new Set(["device_login", "consent", "one_time_code"]);
+
+/**
+ * Refuse the agent's entry into a one-time-code field
+ * (content/codefield.sys.mjs) unless the parent has checked the tab's site
+ * for the document now on top: `codeOk` is that document's innerWindowId
+ * (input/codes.sys.mjs). Nothing is entered first. The parent finishes the
+ * refusal: it checks the site in the user's history, then has the call made
+ * again with `codeOk`, or refuses it for good (markCode). `left`: how many
+ * of the call's key steps weren't run, for that second call.
+ *
+ * @param {Element|null} el  the field the entry goes into
+ * @param {{action?: string, codeOk?: number}} args  the agent call's
+ * @param {number} [left]
+ */
+export function refuseCodeEntry(el, { action, codeOk } = {}, left) {
+  if (!el || !lazy.isCodeField(el)) {
+    return;
+  }
+  let top = 0;
+  let doc = 0;
+  try {
+    const win = el.ownerDocument.defaultView;
+    top = win.browsingContext.top.currentWindowContext?.innerWindowId ?? 0;
+    doc = win.windowGlobalChild?.innerWindowId ?? 0;
+  } catch {}
+  if (top && codeOk === top) {
+    return;
+  }
+  const method = String(action || "this call");
+  throw new ZenError("ZEN_SIGN_IN_PAGE", `${method} refused: the field takes a one-time code`, {
+    reason: "one_time_code",
+    method,
+    codeCheck: { doc, ...(Number.isInteger(left) ? { left } : {}) },
+  });
+}
+
+/**
+ * The parent refused a code entry for good (input/codes.sys.mjs): the
+ * actor's document, and its tab's top document when that's in this
+ * process, are left to the agent to read but not act on, as a consent
+ * screen is, until they go or the user hands back (clearCodeMarks). A
+ * frame in another process reads the top's flag as the parent publishes it.
+ *
+ * @param {JSWindowActorChild} actor
+ * @param {{page?: string}} args
+ */
+export function markCode(actor, { page } = {}) {
+  const flag = { reason: "one_time_code", page: String(page || "a page that asks for a one-time code").slice(0, 120) };
+  const actors = [actor];
+  try {
+    const top = actor.browsingContext.top;
+    const topActor = top !== actor.browsingContext ? top.window?.windowGlobalChild?.getActor("Zenius") : null;
+    if (topActor) {
+      actors.push(topActor);
+    }
+  } catch {
+    // The top document is in another process.
+  }
+  for (const a of actors) {
+    // A document's own sign-in flag, assessed first, stays: it rules more.
+    if (!assessSignIn(a)) {
+      assessed.set(a.document, flag);
+      report(a, flag);
+    }
+  }
+  return true;
+}
+
+/**
+ * The user handed the page back (input/handback.sys.mjs): a document a code
+ * refusal left read-only is the agent's to act on again. The parent drops
+ * its copy of the flag (observe/signin.sys.mjs clearCodeFlags).
+ *
+ * @param {JSWindowActorChild} actor
+ */
+export function clearCodeMarks(actor) {
+  let doc = null;
+  try {
+    doc = actor.document;
+  } catch {}
+  if (doc && assessed.get(doc)?.reason === "one_time_code") {
+    assessed.set(doc, null);
+  }
+  return true;
 }

@@ -187,7 +187,32 @@ export function signInRuleFor(bc) {
     top = bc?.top && bc.top !== bc ? flagOfContext(bc.top) : null;
   } catch {}
   const pick = reason => (own?.reason === reason ? { flag: own, frame: false } : top?.reason === reason ? { flag: top, frame: true } : null);
-  return pick("authorization_response") ?? pick("device_login") ?? pick("consent");
+  return pick("authorization_response") ?? pick("device_login") ?? pick("consent") ?? pick("one_time_code");
+}
+
+/**
+ * The user handed these frames back (input/handback.sys.mjs): a code
+ * refusal's flags on their documents go, as in their processes
+ * (content/signinguard.sys.mjs clearCodeMarks). Synchronous, so the agent's
+ * next call, which waits for the hand back, finds them gone.
+ *
+ * @param {Iterable<BrowsingContext>} bcs
+ */
+export function clearCodeFlags(bcs) {
+  let changed = false;
+  for (const bc of bcs) {
+    let id = 0;
+    try {
+      id = bc?.currentWindowGlobal?.innerWindowId ?? 0;
+    } catch {}
+    if (id && docs.get(id)?.reason === "one_time_code") {
+      docs.delete(id);
+      changed = true;
+    }
+  }
+  if (changed) {
+    publish();
+  }
 }
 
 /**

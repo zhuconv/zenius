@@ -171,8 +171,55 @@ export const methods = {
      It assesses the document and its tab's top document itself, so a
      document the parent hasn't heard of yet is covered.
    - A sign-in result refuses both kinds, in its frames too, and a
-     device-login page or a consent screen refuses `act`:
-     `ZEN_SIGN_IN_PAGE`.
+     device-login page, a consent screen or a page a code refusal left
+     (below) refuses `act`: `ZEN_SIGN_IN_PAGE`.
+   - **The code measure** (`input/codes.sys.mjs`, built 2026-11-27): the
+     agent's entry into a one-time-code field goes ahead only when the
+     tab's site has a visit in the user's history from before the task
+     began (`createdAt`, or a claimed Space's `claimedAt`, kept in
+     memory). The tab's site, its registrable domain or else its host, not
+     the field's frame's: a new page framing a big site's hosted form is
+     still caught.
+     - A code field (`content/codefield.sys.mjs`): the autocomplete token
+       `one-time-code`; one of four or more one-character inputs side by
+       side; or an input whose name, id, label or placeholder asks for a
+       code in the words the sidebar's ask checks (a code's names, its
+       digits, where it came from: "the code we sent to your email"), less
+       a password's, a PIN's and a card's, or says just "Code" or "Enter
+       the code", as the ask's CODE_HEADER does. A number counts only at a
+       code's count, 4 to 8 digits, so a phone's "10-digit number" doesn't.
+       A promo, coupon, gift, discount, referral, postal or zip code never
+       counts, nor a card's security code (a field that says card, CVV, CVC
+       or CSC, or whose own autocomplete token, or a field's in its form,
+       is a card's). Form autofill's heuristics aren't asked: they take a
+       lone "Verification code" for a card's.
+     - An entry: `page.fill`, or a key step that puts text in or takes it
+       out (a printable key, a paste, Backspace, Delete, `insertText`), by
+       `page.press` or `page.keyboard`, checked at each step against the
+       focused element. Enter, Tab and the arrows go ahead, so a code the
+       user typed can be sent.
+     - The page's process refuses each entry the parent hasn't checked
+       (`signinguard#refuseCodeEntry`), before anything goes in. The parent
+       reads Places once per task and site (a visit to the site or a host
+       under it before the start, not a download or a framed link), and
+       calls again with the top document's innerWindowId (`codeOk`, which
+       the page's process checks against the top document it sees), from
+       the key the refusal stopped at. Otherwise it refuses for good:
+       `ZEN_SIGN_IN_PAGE` with reason `one_time_code` and `data.site`. Its
+       message says only what zenius found: no visit (a history read that
+       fails, or a page with no site, finds none), or, after two calls
+       again (`MAX_TRIES`), a top document that changed under each.
+     - A refusal for good first marks the field's document, and its tab's
+       top document when that's in the same process, with the flag
+       `one_time_code` (`signinguard#markCode`): left to read but not act
+       on, as a consent screen, until the document goes or the user hands
+       back (`input/handback.sys.mjs` clears it with the secrets). So the
+       usual retry, `page.evaluate()` setting the value, is refused.
+     - Not covered (potential-issues): an agent that sets the field with
+       `page.evaluate()` before any entry was refused, a custom page's
+       unlabelled plain field, and a site the user visited before the task
+       that serves a phishing page.
+     - Tests: `tests/core/codes.test.mjs`.
    - For an `act`, the parent also matches the tab's current address
      against the device-login pages and consent screens, at dispatch and
      again before each of the act's content calls. So an act on a page

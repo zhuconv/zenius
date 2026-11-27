@@ -31,6 +31,15 @@ before(async () => {
   await chrome(`Services.prefs.setBoolPref("zenius.handoff.quietReload", false); return true;`);
   task = await h.taskSpace("input handback");
   site = await loginSite(h, SAVED);
+  // The user's visit to the site from before the task: the agent's own paste
+  // into a one-time-code field below needs one (the sign-in rules' code
+  // measure, input/codes.sys.mjs).
+  await chrome(
+    `const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
+     await PlacesUtils.history.insert({ url: arg, visits: [{ date: new Date(Date.now() - 3600000) }] });
+     return true;`,
+    `${site.origin}/`
+  );
 });
 
 after(async () => {

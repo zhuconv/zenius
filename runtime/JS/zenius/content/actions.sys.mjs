@@ -1075,8 +1075,10 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   E10SUtils: "resource://gre/modules/E10SUtils.sys.mjs",
+  entersText: "chrome://userscripts/content/zenius/content/codefield.sys.mjs",
   markHooked: "chrome://userscripts/content/zenius/content/evidence.sys.mjs",
   noteWrittenWindow: "chrome://userscripts/content/zenius/content/agentworld.sys.mjs",
+  refuseCodeEntry: "chrome://userscripts/content/zenius/content/signinguard.sys.mjs",
   resolveRef: "chrome://userscripts/content/zenius/content/snapshot/registry.sys.mjs",
 });
 
@@ -1201,6 +1203,10 @@ export async function act(actor, args) {
     }
     const counters = {};
     const kind = args.action === "page.dblclick" ? "click" : args.action.slice(5);
+    if (kind === "fill") {
+      // A one-time code goes in only where the parent checked the site.
+      lazy.refuseCodeEntry(el, args);
+    }
     // Before the action, which may rename the element ("Signing in…").
     const step = args.phase === "prepare" ? null : stepName(el);
     const out = await ACTIONS[kind](el, { ...args, point, counters, win, call });
@@ -2274,7 +2280,7 @@ export async function keyboard(actor, args) {
   return inputCall(actor.contentWindow, () => runKeySteps(actor.contentWindow, args, out), out);
 }
 
-async function runKeySteps(win, { steps, isMac, clipboard, pasteContent, guardChooser }, out = {}) {
+async function runKeySteps(win, { steps, isMac, clipboard, pasteContent, guardChooser, action, codeOk }, out = {}) {
   const probe = guardChooser ? fileInputProbe(win) : null;
   try {
     for (const [index, s] of (steps ?? []).entries()) {
@@ -2290,6 +2296,11 @@ async function runKeySteps(win, { steps, isMac, clipboard, pasteContent, guardCh
       // Keys go to the focused frame; a key that moved focus into one that
       // isn't web content (Tab into an error page's frame) can't act there.
       checkLanding(kwin.document, "page.keyboard", "the focused element");
+      if (lazy.entersText(s)) {
+        // Into a one-time-code field only where the parent checked the
+        // site; the refusal says how many keys are left for a second call.
+        lazy.refuseCodeEntry(I.focusedElement(kwin), { action: action ?? "page.keyboard", codeOk }, steps.length - index);
+      }
       if (s.k === "insert") {
         I.insertText(kwin.document, s.text);
         continue;

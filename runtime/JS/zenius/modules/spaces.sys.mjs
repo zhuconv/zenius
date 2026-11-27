@@ -96,6 +96,7 @@ export function clientLabel(text) {
  * @property {string} profileId
  * @property {number} userContextId
  * @property {number} createdAt      epoch ms
+ * @property {number} [claimedAt]    epoch ms of the last claim from the user, in memory
  * @property {Ledger} ledger
  * @property {Window|null} window    transient: where its agent tabs live
  * @property {boolean} [gone]        transient: the workspace no longer exists
@@ -1187,6 +1188,12 @@ export class Spaces {
       }
     }
     const wasEnded = rec.ended;
+    // A claim (the user's to the agent) begins a task: the sign-in rules'
+    // code measure counts the user's visits from before it
+    // (input/codes.sys.mjs). In memory: a claim lasts one Zen session.
+    if (ownership === "agent" && rec.ownership === "user") {
+      rec.claimedAt = Date.now();
+    }
     rec.ownership = ownership;
     rec.reason = nextReason;
     rec.ended = ended;

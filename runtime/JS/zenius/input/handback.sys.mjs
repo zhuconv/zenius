@@ -35,6 +35,11 @@
 
 import { pushEvent } from "chrome://userscripts/content/zenius/observe/events.sys.mjs";
 
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  clearCodeFlags: "chrome://userscripts/content/zenius/observe/signin.sys.mjs",
+});
+
 /** Space id → whether the agent could run it at the last event. */
 const runnable = new Map();
 let installed = false;
@@ -103,7 +108,12 @@ function plural(n, what) {
  */
 function clearFrames(service, frames, why) {
   const byBrowser = new Map();
+  // A page a code refusal left read-only (input/codes.sys.mjs) is the
+  // agent's again: in the parent at once, and in each frame before the
+  // agent's next call reaches it.
+  lazy.clearCodeFlags(frames.map(f => f.bc));
   for (const { browser, bc } of frames) {
+    service.content(bc, "signinguard#clearCodeMarks", {}).catch(() => {});
     const reply = service.content(bc, "secrets#clearChanged", {}).catch(() => null);
     byBrowser.set(browser, [...(byBrowser.get(browser) ?? []), reply]);
   }

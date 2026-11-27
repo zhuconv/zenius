@@ -60,6 +60,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   Refs: "chrome://userscripts/content/zenius/snapshot/refs.sys.mjs",
   currentDialog: "chrome://userscripts/content/zenius/observe/dialogs.sys.mjs",
   dialogOpened: "chrome://userscripts/content/zenius/observe/messages.sys.mjs",
+  isCodeRefusal: "chrome://userscripts/content/zenius/input/codes.sys.mjs",
+  settleCodeRefusal: "chrome://userscripts/content/zenius/input/codes.sys.mjs",
+  stepsLeft: "chrome://userscripts/content/zenius/input/codes.sys.mjs",
   networkQuietMs: "chrome://userscripts/content/zenius/observe/network.sys.mjs",
   noteAgentCode: "chrome://userscripts/content/zenius/observe/agentcode.sys.mjs",
   noteWritten: "chrome://userscripts/content/zenius/observe/agentworld.sys.mjs",
@@ -710,6 +713,17 @@ async function runElementAction(ctx, params, method, extra = {}) {
           if (hints.ended) {
             return null;
           }
+          // An entry into a one-time-code field the parent hasn't checked:
+          // the tab's site is checked, then the action goes again with the
+          // answer, from the key it stopped at, or is refused for good.
+          if (lazy.isCodeRefusal(e)) {
+            state.codeTries = (state.codeTries ?? 0) + 1;
+            base.codeOk = await lazy.settleCodeRefusal(ctx, rp, e, method, state.codeTries);
+            if (Array.isArray(base.steps)) {
+              base.steps = lazy.stepsLeft(base.steps, e);
+            }
+            continue;
+          }
           if (!isTransient(e)) {
             throw e;
           }
@@ -892,19 +906,34 @@ function delayOf(options, operation) {
 
 /** Run keyboard steps in the focused frame of the page. */
 async function runKeys(ctx, rp, steps, extra = {}, method = "page.keyboard") {
-  const sleeps = steps.reduce((ms, s) => ms + (s.k === "sleep" ? s.ms : 0), 0);
-  const r = await contentCall(
-    ctx,
-    rp.browsingContext,
-    "keyboard",
-    {
-      steps,
-      isMac: IS_MAC,
-      clipboard: clipboardFor(ctx, rp),
-      ...extra,
-    },
-    { until: Date.now() + DEFAULT_ACTION_TIMEOUT_MS + sleeps + steps.length * KEY_STEP_MS, method }
-  );
+  let r;
+  for (let tries = 1; ; tries++) {
+    const sleeps = steps.reduce((ms, s) => ms + (s.k === "sleep" ? s.ms : 0), 0);
+    try {
+      r = await contentCall(
+        ctx,
+        rp.browsingContext,
+        "keyboard",
+        {
+          steps,
+          isMac: IS_MAC,
+          clipboard: clipboardFor(ctx, rp),
+          action: method,
+          ...extra,
+        },
+        { until: Date.now() + DEFAULT_ACTION_TIMEOUT_MS + sleeps + steps.length * KEY_STEP_MS, method }
+      );
+      break;
+    } catch (e) {
+      if (!lazy.isCodeRefusal(e)) {
+        throw e;
+      }
+      // An entry into a one-time-code field the parent hasn't checked: as
+      // runElementAction, the rest of the keys go again, or none.
+      extra = { ...extra, codeOk: await lazy.settleCodeRefusal(ctx, rp, e, method, tries) };
+      steps = lazy.stepsLeft(steps, e);
+    }
+  }
   notePastedHtml(rp, r);
   noteClipboard(rp, r);
   if (r?.save) {

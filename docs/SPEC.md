@@ -233,6 +233,12 @@ Each rule below was measured in a window showing the Space.
   user's History and address bar suggestions. A tab the task leaves the
   user (a kept page, the Stop, a release) writes their history again,
   so it holds only their own visits (SPI, "The user's history").
+- **A one-time code only on a site the user knows.** The agent puts a
+  one-time code into a page only where the tab's site has a visit in the
+  user's history from before the task began. Elsewhere the user enters
+  it: the agent's entry is refused, and the page is left to the agent to
+  read until it loads again or the user hands it back (SPI, "Dispatch",
+  the code measure).
 - **A task's tabs stay together.**
   - A new task's first tab goes at the bottom of the Agents Space, so
     starting a task never moves a tab the user sees. A tab added or moved
