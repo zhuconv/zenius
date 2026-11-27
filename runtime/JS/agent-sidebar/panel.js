@@ -397,7 +397,7 @@ function renderExternal() {
     view.append(card);
   }
   if (bottom) {
-    els.messages.scrollTop = els.messages.scrollHeight;
+    toEnd();
   }
   renderExternalBar();
 }
@@ -1125,29 +1125,43 @@ function nearBottom() {
 
 /** The chat whose view follows its end since a send, else null. */
 let following = null;
+/** Where the view was when the panel last looked at it or moved it. */
 let lastTop = 0;
 
 /** A send: `target`'s view goes to its end now, and keeps to it (renderMessages). */
 function followUp(target) {
   following = target;
   if (conv === target) {
-    els.messages.scrollTop = els.messages.scrollHeight;
+    toEnd();
   }
 }
 
-els.messages.addEventListener(
-  "scroll",
-  () => {
-    const top = els.messages.scrollTop;
-    // Up, and away from the end: the user's own scroll. The view's own
-    // moves go down, or keep to the end as the list shrinks.
-    if (following && top < lastTop && !nearBottom()) {
-      following = null;
-    }
-    lastTop = top;
-  },
-  { passive: true }
-);
+/**
+ * The panel's own move to the chat's end. The user's next move counts from
+ * where this one lands: Gecko sends one scroll event a frame, so one event
+ * can carry this move down and the user's own move up together.
+ */
+function toEnd() {
+  els.messages.scrollTop = els.messages.scrollHeight;
+  lastTop = els.messages.scrollTop;
+}
+
+/**
+ * Up, and away from the end: the user's own scroll, which ends the
+ * following. The view's own moves go down, or keep to the end as the list
+ * shrinks. Each drawing looks too, before it moves the view: a scroll's
+ * event comes only at the next frame, and a drawing in between would take
+ * the view back to the end first.
+ */
+function noteScroll() {
+  const top = els.messages.scrollTop;
+  if (following && top < lastTop && !nearBottom()) {
+    following = null;
+  }
+  lastTop = top;
+}
+
+els.messages.addEventListener("scroll", noteScroll, { passive: true });
 
 function renderMessages() {
   clearTimeout(renderTimer);
@@ -1156,11 +1170,12 @@ function renderMessages() {
   if (!conv) {
     return;
   }
+  noteScroll();
   const stick = nearBottom() || following === conv;
   conv.messages.forEach((message, i) => renderMessage(message, i));
   renderAnswerActions();
   if (stick) {
-    els.messages.scrollTop = els.messages.scrollHeight;
+    toEnd();
   }
   tickThoughtsWhileLive();
   renderStatus();
@@ -2233,7 +2248,7 @@ function renderAll() {
   renderAttachments();
   renderQueue();
   renderMessages();
-  els.messages.scrollTop = els.messages.scrollHeight;
+  toEnd();
 }
 
 function onChange(change) {

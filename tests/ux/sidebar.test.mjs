@@ -8215,6 +8215,84 @@ test("the view's own moves up aren't the user's scroll: a message of several lin
   assert.deepEqual(out.modest, { moved: 60, atEnd: false }, "the user's own scroll of 60 px up mid-answer stays where they put it");
 });
 
+test("the user's own scroll of 60 px up mid-answer stays put, though its scroll event comes only at the next frame: when the panel draws the answer before that event, and when the event also carries the view's own move down to the answer's new end", async () => {
+  await useMock();
+  const out = await chrome(`${FOLLOW}
+    // The panel draws the answer in a frame callback (renderMessages), and a
+    // scroll's event comes at the next frame's start. So a drawing can come
+    // between a scroll and its event, as when the scroll is made in an
+    // earlier callback of the same frame. The test holds a drawing to run it
+    // there.
+    const raf = pwin.requestAnimationFrame;
+    const held = [];
+    const hold = () => {
+      pwin.requestAnimationFrame = cb => (cb.name === "renderMessages" ? (held.push(cb), 0) : raf.call(pwin, cb));
+    };
+    const release = () => {
+      pwin.requestAnimationFrame = raf;
+      for (const cb of held.splice(0)) {
+        cb(pwin.performance.now());
+      }
+    };
+    const answers = () => conv.messages.filter(msg => msg.role === "assistant").length;
+    // A line sent from the end: the view follows the answer as it streams.
+    const ask = async text => {
+      type(text);
+      await frames(3);
+      m.scrollTop = m.scrollHeight;
+      await frames(3);
+      const n = answers();
+      press();
+      await S.until(() => conv.busy && answers() > n && words().split(" ").length > 3, 10000);
+      await frames(2);
+    };
+    // Where the view is once more of the answer has come and been drawn.
+    const later = async top => {
+      const before = words().length;
+      await S.until(() => words().length > before + 10, 5000);
+      await frames(2);
+      return { moved: Math.round(top - m.scrollTop), atEnd: atEnd() };
+    };
+    const res = {};
+    try {
+      await earlier();
+      // The user scrolls up, and the panel draws the answer before the event.
+      await ask("SLOW first");
+      hold();
+      await S.until(() => held.length, 5000);
+      let top = m.scrollTop;
+      m.scrollTop = top - 60;
+      release();
+      res.drawnFirst = await later(top);
+      await stop();
+      // A drawing of several lines at once takes the view down to the new
+      // end, and the user scrolls up from there before the event: one event
+      // carries both moves.
+      await ask("SLOW again");
+      hold();
+      await S.until(() => held.length, 5000);
+      const drawn = words().length;
+      await S.until(() => words().length > drawn + 250, 10000);
+      const end = m.scrollTop;
+      release();
+      top = m.scrollTop;
+      res.down = Math.round(top - end);
+      m.scrollTop = top - 60;
+      res.together = await later(top);
+      return res;
+    } finally {
+      // A held drawing holds every later one (renderTimer): run it.
+      release();
+      await stop();
+      A.removeTask(conv);
+      g.setMode("chat");
+    }
+  `);
+  assert.deepEqual(out.drawnFirst, { moved: 60, atEnd: false }, "drawn before the scroll's event, the answer leaves the view where the user put it");
+  assert.ok(out.down > 60, `the drawing took the view down more than the user's scroll: ${out.down} px`);
+  assert.deepEqual(out.together, { moved: 60, atEnd: false }, "one scroll event for the view's move down and the user's up leaves the view where the user put it");
+});
+
 test("each other way to send takes the chat to its end from an earlier answer the user scrolled up to, and the agent's words after it show there: Steer (Ctrl+Enter, ⌘Enter on a Mac) as the agent answers, a queued message's Steer, and an answer to the agent's ask, by a click on its card, or by words in the box, which may answer only its first question", async () => {
   await useMock();
   const out = await chrome(`${FOLLOW}
