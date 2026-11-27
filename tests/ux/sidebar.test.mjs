@@ -4822,6 +4822,22 @@ test("the hand-off card's 'This step shows a secret', as on zenius's pill: with 
       const el = id => doc.getElementById(id);
       const shown = e => !!e && !e.hidden && doc.defaultView.getComputedStyle(e).display !== "none";
       const rec = svc.spaces.peek(arg.id);
+      const N = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/notices.sys.mjs");
+      // On this task's own tabs: another task's pill may show too.
+      const pillCard = () => svc.pages.tabsOf(rec).map(t => N.noticeElement(t, "zenius-control")).find(Boolean) ?? null;
+      const pillBox = () => pillCard()?.querySelector(".zenius-card-toggle > input") ?? null;
+      // The pill ignores a click in its first 400 ms (notices.sys.mjs's
+      // ARM_MS), counted from when it's drawn: at the hand-off just before
+      // this code, or anew if it moves, with a new id. Its redraws keep its
+      // id and its arm. So a click on it waits until the pill now up has
+      // been seen here, by its id, for longer than that.
+      const seen = new Map();
+      const armed = () => {
+        const card = pillCard();
+        if (card && !seen.has(card.id)) seen.set(card.id, Date.now());
+        return !!card && Date.now() - seen.get(card.id) > 450;
+      };
+      armed();
       const read = () => ({
         // fixed: dimmed, or signed by the agent, which keeps its full look.
         box: shown(el("handoff-secret"))
@@ -4879,12 +4895,11 @@ test("the hand-off card's 'This step shows a secret', as on zenius's pill: with 
         await wait(() => read().box && !read().box.checked && read().pill === false, "the card's untick, on both");
         res.offAgain = { ...read(), calls: calls.slice() };
         // A tick on zenius's pill: the card follows, an untick too.
-        const N = ChromeUtils.importESModule("chrome://userscripts/content/zenius/ui/notices.sys.mjs");
-        // On this task's own tabs: another task's pill may show too.
-        const pillBox = () => svc.pages.tabsOf(rec).map(t => N.noticeElement(t, "zenius-control")?.querySelector(".zenius-card-toggle > input")).find(Boolean) ?? null;
+        await wait(armed, "the pill armed");
         pillBox().click();
         await wait(() => read().box?.checked && read().pill, "the card follows the pill's tick");
         res.pillOn = { ...read(), calls: calls.slice() };
+        await wait(armed, "the pill armed");
         pillBox().click();
         await wait(() => read().box && !read().box.checked && read().pill === false, "the card follows the pill's untick");
         res.pillOff = { ...read(), calls: calls.slice() };

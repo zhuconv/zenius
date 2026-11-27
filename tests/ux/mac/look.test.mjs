@@ -1,4 +1,4 @@
-// The look of every the UI surface, for a person to review (L1–L7 below).
+// The look of every UI surface, for a person to review (L1–L7 below).
 // The eval harness runs it on the Mac in a visible dev Zen, so the screenshots show
 // Retina rendering:
 //

@@ -2451,7 +2451,7 @@ clipboard, which is the user's.
     `zenius:taskBrowserIds` (any page of an agent task, whoever holds it).
     Both helpers are in `content/guards.sys.mjs`.
 - **Only in a task's documents** (the core's I4 finding, and the single
-  entry agreed with the core). Neither the UI actor listens to
+  entry agreed with the core). Neither UI actor listens to
   DOMWindowCreated.
   - The core's Zenius actor makes them in a task's new documents, top and
     frames, at its own DOMWindowCreated, before the page's scripts. It
