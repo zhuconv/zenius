@@ -17,7 +17,7 @@ const SITES = "zenius.agentTabs.pageCodeSites";
 // Every other method, reviewed: none runs code the agent wrote in a page.
 const NO_PAGE_CODE = [
   "browser.health", "browser.methods", "browser.version", "profiles.list",
-  "spaces.claim", "spaces.create", "spaces.finish", "spaces.handOff", "spaces.list", "spaces.open", "spaces.setState", "spaces.takeOver", "spaces.waitForControl",
+  "spaces.claim", "spaces.create", "spaces.finish", "spaces.handOff", "spaces.list", "spaces.noteAccount", "spaces.open", "spaces.setState", "spaces.takeOver", "spaces.waitForControl",
   "pages.adopt", "pages.close", "pages.list", "pages.release", "pages.userPage", "tabs.list",
   // The core's evidence: page.flag marks the page's document and runs none of its code.
   "page.flag",

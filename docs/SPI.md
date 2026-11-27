@@ -299,6 +299,7 @@ which would wait in a tab nobody sees.
 | `spaces.setPaused(rec, paused)` | A takeover prompt opened or closed. `spaceChanged {space, paused}` |
 | `spaces.setOwnership(rec, ownership, {reason, source})` | `ownership`: `agent`, `agentDelegatedToUser` or `user`. `reason` (Ego's key) is kept only for `agentDelegatedToUser`, default `manual_takeover`. `source`: `agent` (a method), `user` (prompt or panel), `permission` (a permission prompt). An agent task that goes to `user` has ended (`rec.ended`): calls fail with `ZEN_TASK_SPACE_INACTIVE` until a claim. `finish()` also ends its labels, as Ego discards its ledger; after the user's Stop they stay for a later claim. It never changes `paused`. `spaceChanged {space, ownership, reason, source}` |
 | `spaces.setStateText(rec, text)` | Ego's setAgentTaskState. `spaceChanged {space, stateText}` |
+| `spaces.noteAccount(rec, {site, account} \| {site, restored: true})` | A task's notes of the accounts its agent will switch the user's tabs back to (PROTOCOL `spaces.noteAccount`), checked as there, kept across a restart. Returns the list now. `spaceChanged {space, accountsToRestore}` on a change, and the task's end carries the list while notes are left. |
 | `spaces.gate(rec, access = "mutate")` | The I3 check: `null` when the call may go on now, a promise while a takeover prompt holds it (no timeout of its own; it rejects if ownership changes), or a throw: `ZEN_TASK_SPACE_USER_IN_CONTROL` with `data.reason`, `ZEN_TASK_SPACE_INACTIVE`, `ZEN_TASK_SPACE_NOT_FOUND`. |
 | `spaces.waitForControl(rec, {timeout, stopped})` | Resolves when ownership is `agent` and no prompt is open. `stopped`: `ctx.stopped`, checked whenever the wait wakes; `spaces.wake(rec)` wakes it. While one waits, `rec.agentWaiting` is true (in memory, never saved), each flip a `spaceChanged {space, agentWaiting}`: from the first wait that waits until 10 s after the last one ends (`spaces.agentWaitingGraceMs` in tests), or at once when the agent has control or the task ended or went. A wait that returns at once marks nothing. |
 | `ZeniusService.lookup(tab)` | `{rec, page}` for a managed tab, or null, without refreshing anything (cheap enough for every click). |
@@ -464,9 +465,9 @@ Every task's life for the sidebar's directory, whoever drives it.
   a restart (`keptEndedFeed`).
 - The `taskFeed` local event (`ZeniusService.addEventListener`) carries an
   entry each time one changes: creation, ownership, the agent's words, a
-  rename, the end, and the removal of an ended task.
+  rename, the accounts it noted, the end, and the removal of an ended task.
 - An entry is `{space, name, kind, source, state, reason, message, ended,
-  createdAt, updatedAt, endedAt}`:
+  createdAt, updatedAt, endedAt, accountsToRestore?}`:
   - `state`: `working` (the agent drives it), `needs_you` (the agent's
     hand-off, or a permission prompt, waits for the user), `held` (the
     user took over) or `done`.
@@ -476,6 +477,15 @@ Every task's life for the sidebar's directory, whoever drives it.
     shows), or null.
   - `ended`: `stopped` (the user's Stop), `finished` (the agent's
     `finish()`) or `closed` (its tabs went), only when `done`.
+  - `accountsToRestore`: `[{site, account}]`, only while the agent's notes
+    (`spaces.noteAccount`) are left: the account the user's tabs used on
+    a site before the agent signed in there as another of theirs. An
+    ended entry keeps them, across a restart too, so the UI's line at the
+    end can name them for a task it doesn't drive. `site` is a bare host,
+    as the URL parser gives it. `account` is the agent's text, one line
+    without control or bidi characters, but it may hold other invisible
+    characters inside: drop those, turn its quote marks into apostrophes
+    (as `keptAccounts` does), then quote it, isolated, and show it as text.
   - `source`: `{terminal?, agent?, folder?, sidebar?}` from
     `spaces.create` or `spaces.claim` (`cleanSource`): each of the first
     three is kept only in the remote label's set (ASCII letters, digits,

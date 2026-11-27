@@ -12,6 +12,7 @@ export const RUNTIME_METHODS: Readonly<Record<string, readonly string[]>> = {
   "spaces.waitForControl": ["task.waitForControl"],
   "spaces.setState": ["task.handOff", "task.waitForControl", "takeOverTaskSpace"],
   "spaces.finish": ["task.finish"],
+  "spaces.noteAccount": ["task.noteAccount"],
   "pages.list": ["task.pages", "end-of-run unhandled Page notice"],
   "tabs.list": ["task.tabs"],
   "pages.new": ["task.newPage"],

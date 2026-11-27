@@ -199,3 +199,25 @@ test("ended tasks the registry removed come back after a restart, for a day", as
   );
   assert.deepEqual(kept, [[1, "stopped", null], [4, "stopped", null]]);
 });
+
+test("an ended entry a start keeps keeps its noted accounts, each checked as noteAccount checks it", async () => {
+  const kept = await h.chrome(
+    `const { keptEndedFeed } = ChromeUtils.importESModule("chrome://userscripts/content/zenius/modules/spaces.sys.mjs");
+     const now = Date.now();
+     const base = { name: "t", kind: "task", source: null, state: "done", reason: null, message: null, ended: "finished", createdAt: now - 1000, updatedAt: now - 1000, endedAt: now - 1000 };
+     const noted = [
+       { site: "claude.ai", account: "c@example.com" },
+       { site: "claude.ai", account: "a second for the site" },
+       { site: "Not A Host", account: "x" },
+       { site: "github.com", account: "two\\nlines" },
+       { site: "gitlab.com" },
+       "junk",
+     ];
+     return keptEndedFeed([
+       { ...base, space: 1, accountsToRestore: noted },
+       { ...base, space: 2, accountsToRestore: "junk" },
+       { ...base, space: 3 },
+     ], now).map(e => [e.space, e.accountsToRestore ?? null]);`
+  );
+  assert.deepEqual(kept, [[1, [{ site: "claude.ai", account: "c@example.com" }]], [2, null], [3, null]]);
+});

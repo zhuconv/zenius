@@ -181,6 +181,7 @@ describe("the entry Skill", () => {
       "references/files.md",
       "references/install.md",
       "references/limits.md",
+      "references/sign-in.md",
       "references/urls.md",
     ]);
     for (const link of links) assert.ok(existsSync(join(SKILL, link)), link);

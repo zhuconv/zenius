@@ -50,7 +50,7 @@ import { Round, setRound } from "./round.ts";
 import { RpcClient, withSignal } from "./rpc.ts";
 import { formatScriptError, scriptFrames } from "./script-errors.ts";
 import { formatValue, takeNotices } from "./output.ts";
-import type { TaskSpace } from "./task-space.ts";
+import { notedAccounts, notedAccountsText, noteSite, quotedAccount, type NotedAccount, type TaskSpace } from "./task-space.ts";
 import { VERSION } from "./version.ts";
 import { clean, cut, quoted, quotedName } from "./step-text.ts";
 
@@ -386,6 +386,13 @@ export class Session implements ScriptHost {
    * (the runtime's resumeFinishedTask), and the next call goes on in it.
    */
   #ended: { id: number; current: string | undefined } | undefined;
+  /**
+   * Whether the next result says which accounts the agent noted for the
+   * user's tabs and hasn't switched back (note_account): once per server
+   * and per connection, and when a task comes back to this server, since
+   * that agent may not remember them (a restart, a resumed chat).
+   */
+  #accountsDue = true;
 
   /** --docs-only: the docs tool alone, which never reaches Zen. */
   readonly docsOnly: boolean;
@@ -509,6 +516,7 @@ export class Session implements ScriptHost {
         return ignore(`task ${task.id}${task.name ? ` ${quoted(task.name, TASK_NAME_MAX)}` : ""} is the user's now`);
       }
       this.#task = task;
+      this.#accountsDue = true;
       // One tab is the current one by itself; with more, the agent names one (page) or opens one.
       const pages = await task.pages().catch(() => []);
       if (pages.length === 1) this.#current = pages[0];
@@ -544,6 +552,7 @@ export class Session implements ScriptHost {
       const pages = await task.pages().catch(() => [] as Page[]);
       this.#ended = undefined;
       this.#task = task;
+      this.#accountsDue = true;
       // One tab is the current one by itself; with more, the agent names one (page) or opens one.
       this.#current = pages.find((page) => page.label === ended.current) ?? (pages.length === 1 ? pages[0] : undefined);
     } catch {}
@@ -646,6 +655,7 @@ export class Session implements ScriptHost {
     setRound(undefined);
     // Its downloads went with it; the next connection hears the task afresh.
     this.#watched = undefined;
+    this.#accountsDue = true;
     this.#running.clear();
     for (const done of [...this.#idle]) done();
   }
@@ -658,6 +668,37 @@ export class Session implements ScriptHost {
   /** The server's task, or undefined before it has one (a script's view). */
   get ownTask(): TaskSpace | undefined {
     return this.#task;
+  }
+
+  /**
+   * The line that leads a result when accounts are due (#accountsDue) and
+   * the task has some left to switch back, else undefined. It stays due
+   * until a result carries it (accountsTold), or the task has none.
+   */
+  async accountsReminder(): Promise<string | undefined> {
+    const task = this.#task;
+    if (!this.#accountsDue) return undefined;
+    if (!task) {
+      this.#accountsDue = false;
+      return undefined;
+    }
+    let left: NotedAccount[];
+    try {
+      left = notedAccounts((await listTaskSpaces()).find((space) => space.id === task.id)?.accountsToRestore);
+    } catch {
+      return undefined;
+    }
+    if (!left.length) {
+      this.#accountsDue = false;
+      return undefined;
+    }
+    const them = left.length === 1 ? "the account" : "the accounts";
+    return `Before going on: sign back in as ${notedAccountsText(left)} (${them} you noted for the user's tabs earlier in this task), then call note_account with restored: true${left.length === 1 ? "" : " for each site"}.`;
+  }
+
+  /** A result said which accounts are left: no reminder until the next connection. */
+  accountsTold(): void {
+    this.#accountsDue = false;
   }
 
   /** Start the server's task: always one of its own, since another chat's agent may have named its task alike. */
@@ -1169,6 +1210,47 @@ const TOOLS: Tool[] = [
     },
   },
   {
+    name: "note_account",
+    title: "Note account",
+    description:
+      "Before you sign in on a site as another of the user's accounts, where the site keeps one account at a time for all their tabs, note the account their tabs use there, and once you've signed back in as it, call this again with restored: true; zenius keeps the note with the task across a Zen restart, and tells the user of one left when the task ends.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        site: { type: "string", description: 'The site\'s host, such as "claude.ai".' },
+        account: { type: "string", description: "The account the user's tabs use there, as the site shows it, such as their email. Leave it out with restored." },
+        restored: { type: "boolean", description: "True once the site is back on the account you noted." },
+      },
+      required: ["site"],
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    // The account stays out of the step: it's the user's data, and the step
+    // only says what the agent does.
+    step: (args) =>
+      args.restored === true ? `Note that ${quoted(args.site, 80)} is back on the user's account` : `Note the user's account on ${quoted(args.site, 80)}`,
+    run: async (args, session) => {
+      const site = str(args, "site")!;
+      const restored = args.restored === true;
+      const account = str(args, "account", false);
+      if (restored && account !== undefined) throw new CallError("pass account before you switch, or restored: true after it, not both");
+      if (!restored && account === undefined) throw new CallError("account is required, unless restored is true");
+      const left = await session.task.noteAccount(restored ? { site, restored: true } : { site, account });
+      // This result says what's left, so no reminder is due.
+      session.accountsTold();
+      // The site as zenius keeps it (in lower case, punycode for another script's name).
+      const host = noteSite(site) || site;
+      const others = left.filter((entry) => entry.site !== host);
+      const rest = others.length ? ` Still to switch back: ${notedAccountsText(others)}.` : "";
+      if (restored) return `Noted: ${host} is back on the user's account.${rest}`;
+      const kept = left.find((entry) => entry.site === host) ?? { site: host, account: account! };
+      const lead =
+        kept.account === account
+          ? `Noted ${quotedAccount(account!)} on ${host}.`
+          : `${host} already has ${quotedAccount(kept.account)} noted, the account the user's tabs had first.`;
+      return `${lead} Once your step there is done, sign back in as it, then call note_account with restored: true.${rest}`;
+    },
+  },
+  {
     name: "flag_page",
     title: "Flag page",
     description:
@@ -1651,12 +1733,22 @@ export async function callTool(session: Session, name: string, args: Json, signa
   // afresh), then what the task's downloads did, for a tool that reaches
   // Zen; an offline one leaves those to the next.
   const news = () => (tool.offline ? [] : [...takeNotices(), ...session.downloadNews()]);
+  // The accounts the agent noted and hasn't switched back, when they're due
+  // (Session.accountsReminder): note_account's result and a finish's notice
+  // say them themselves.
+  let reminder: string | undefined;
+  const told = (finished = false): string[] => {
+    if (!reminder) return [];
+    session.accountsTold();
+    return finished ? [] : [reminder];
+  };
   const aborted = whenAborted(signal);
   try {
     const run = withSignal(signal, async () => {
       if (!tool.offline) {
         session.connect();
         await session.resume();
+        if (name !== "note_account") reminder = await session.accountsReminder();
         await session.watchDownloads();
       }
       return tool.run(args, session, signal);
@@ -1665,22 +1757,25 @@ export async function callTool(session: Session, name: string, args: Json, signa
     run.catch(() => {});
     const outcome = await Promise.race([run, aborted.canceled]);
     if (outcome === CANCELED) return canceledResult;
-    if (typeof outcome === "string") return { content: [{ type: "text", text: [`${step}\n${outcome}`, ...news()].join("\n") }] };
-    if (!outcome.server) return { content: [{ type: "text", text: [`${outcome.step}\n${outcome.text}`, ...news()].join("\n") }] };
+    const lead = told(name === "finish");
+    if (typeof outcome === "string") return { content: [{ type: "text", text: [step, ...lead, outcome, ...news()].join("\n") }] };
+    if (!outcome.server) return { content: [{ type: "text", text: [outcome.step, ...lead, outcome.text, ...news()].join("\n") }] };
     // A script's: its own text, then the server's lines in a block of their own.
-    const server = [...outcome.server, ...news()];
+    const server = [...lead, ...outcome.server, ...news()];
     return {
       content: [{ type: "text", text: `${outcome.step}\n${outcome.text}` }, ...(server.length ? [{ type: "text" as const, text: server.join("\n") }] : [])],
       ...(outcome.isError ? { isError: true } : {}),
     };
   } catch (error) {
+    // Before a lost connection makes the accounts due again for the next one.
+    const lead = told();
     const code = error instanceof ZeniusError ? error.code : undefined;
     if (code === "ZEN_BROWSER_UNAVAILABLE") session.drop();
     // The task is over (the user stopped it, or it closed): open starts a new one.
     if (code === "ZEN_TASK_SPACE_INACTIVE" || code === "ZEN_TASK_SPACE_NOT_FOUND") session.ended();
     const explained = (error instanceof ZeniusError && hardStop(error)) || readable(error);
     // The step stays the user's line; the code, for the agent to go by, leads the explanation.
-    return { content: [{ type: "text", text: [`${step} failed.\n${code ? `${code}: ` : ""}${explained}`, ...news()].join("\n") }], isError: true };
+    return { content: [{ type: "text", text: [`${step} failed.\n${code ? `${code}: ` : ""}${explained}`, ...lead, ...news()].join("\n") }], isError: true };
   } finally {
     aborted.off();
   }

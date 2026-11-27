@@ -100,6 +100,7 @@ export function clientLabel(text) {
  * @property {Window|null} window    transient: where its agent tabs live
  * @property {boolean} [gone]        transient: the workspace no longer exists
  * @property {string[]|null} [takeoverSites]  transient: the sites its pages were on at the user's Take over, while that hold lasts (takeoverSiteOf)
+ * @property {{site: string, account: string}[]} [accountsToRestore]  what the user's tabs used on a site before the agent signed in there as another of their accounts (noteAccount)
  */
 
 export function newLedger() {
@@ -124,6 +125,64 @@ const SOURCE_KEYS = ["terminal", "agent", "folder"];
 const SIDEBAR_FIELD = /^[A-Za-z0-9-]{1,64}$/;
 /** How an ended task ended, for the feed and the agent's next call. */
 const END_HOWS = ["stopped", "finished", "closed"];
+/**
+ * noteAccount's limits. Both fields are the agent's own text, which zenius
+ * repeats in its own words (the MCP server's reminder after a restart, the
+ * UI's line at the task's end), so each stays a name. And the call takes no
+ * more than the UI's line shows (agent-sidebar/external.sys.mjs
+ * keptAccounts), so a note the agent made never goes missing there: a site
+ * is a bare host, and an account one line of at most an email's 254
+ * characters, with something to show and no control, line break or bidi
+ * control to make it read as more.
+ */
+const ACCOUNTS_KEPT = 10;
+const ACCOUNT_TEXT_MAX = 254;
+const ACCOUNT_UNSAFE = /[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/;
+/** What shows nothing: an account needs something left once these go. */
+const UNSEEN = /[\s\p{Cc}\p{Cf}\p{Cs}\p{Default_Ignorable_Code_Point}]/gu;
+
+/**
+ * A site as noteAccount keeps it: the host the URL parser finds, in lower
+ * case and ASCII (punycode for a name in another script), or "" for
+ * anything more than a bare host: a user, a port, a path, a query, a
+ * fragment, a space or an invisible character.
+ */
+function siteHost(site) {
+  if (typeof site !== "string" || !site || /[\s\p{Cc}\p{Cf}\p{Cs}]/u.test(site)) {
+    return "";
+  }
+  let url;
+  try {
+    url = new URL(`https://${site}`);
+  } catch {
+    return "";
+  }
+  const bare = !url.username && !url.password && !url.port && url.pathname === "/" && !url.search && !url.hash;
+  return bare && url.hostname.length <= 253 ? url.hostname : "";
+}
+
+/** A noted account as kept, or null when it isn't one. */
+function accountEntry(site, account) {
+  const host = siteHost(site);
+  if (!host || typeof account !== "string") {
+    return null;
+  }
+  const oneName =
+    account.length <= ACCOUNT_TEXT_MAX && account.trim() === account && !ACCOUNT_UNSAFE.test(account) && !/\p{Cs}/u.test(account);
+  return oneName && account.replace(UNSEEN, "") ? { site: host, account } : null;
+}
+
+/** A saved list of noted accounts, as restore keeps it: valid entries, one per site, up to the cap. */
+function cleanAccounts(list) {
+  const out = [];
+  for (const item of Array.isArray(list) ? list : []) {
+    const entry = accountEntry(item?.site, item?.account);
+    if (entry && !out.some(e => e.site === entry.site) && out.length < ACCOUNTS_KEPT) {
+      out.push(entry);
+    }
+  }
+  return out;
+}
 /** Ended tasks the registry no longer holds, which the feed still lists as done, for a day. */
 const ENDED_FEED_KEPT = 50;
 const ENDED_FEED_MS = 24 * 60 * 60 * 1000;
@@ -190,6 +249,7 @@ export function keptEndedFeed(list, now = Date.now()) {
     ) {
       continue;
     }
+    const accounts = cleanAccounts(e.accountsToRestore);
     kept.push({
       space: e.space,
       name: e.name,
@@ -202,6 +262,7 @@ export function keptEndedFeed(list, now = Date.now()) {
       createdAt: Number.isFinite(e.createdAt) ? e.createdAt : e.endedAt,
       updatedAt: Number.isFinite(e.updatedAt) ? e.updatedAt : e.endedAt,
       endedAt: e.endedAt,
+      ...(accounts.length ? { accountsToRestore: accounts } : {}),
     });
   }
   return kept.slice(-ENDED_FEED_KEPT);
@@ -416,6 +477,7 @@ export class Spaces {
         endedHow: rec.endedHow ?? null,
         endedAt: rec.endedAt ?? null,
         updatedAt: rec.updatedAt ?? null,
+        accountsToRestore: rec.accountsToRestore ?? [],
         ledger: { nextLabel: rec.ledger.nextLabel, usedLabels: rec.ledger.usedLabels, releasedLabels: rec.ledger.releasedLabels },
       });
     }
@@ -494,6 +556,7 @@ export class Spaces {
       endedHow: END_HOWS.includes(saved.endedHow) ? saved.endedHow : null,
       endedAt: Number.isFinite(saved.endedAt) ? saved.endedAt : null,
       updatedAt: Number.isFinite(saved.updatedAt) ? saved.updatedAt : null,
+      accountsToRestore: cleanAccounts(saved.accountsToRestore),
       ledger: { ...newLedger(), ...pick(saved.ledger, ["nextLabel", "usedLabels", "releasedLabels"]) },
       window: null,
     };
@@ -984,10 +1047,13 @@ export class Spaces {
    * @returns {{space: number, name: string, kind: string, source: object|null,
    *   state: "working"|"needs_you"|"held"|"done", reason: string|null,
    *   message: string|null, ended: "stopped"|"finished"|"closed"|null,
-   *   createdAt: number, updatedAt: number, endedAt: number|null}}
+   *   createdAt: number, updatedAt: number, endedAt: number|null,
+   *   accountsToRestore?: {site: string, account: string}[]}}
    *   needs_you: the agent's hand-off (or a permission prompt) waits for the
    *   user; held: the user took over; message: the agent's words
-   *   (setState), which a hand-off's card shows
+   *   (setState), which a hand-off's card shows; accountsToRestore, when
+   *   any are noted (noteAccount): an ended entry keeps them, so the UI's
+   *   finish line for a task it doesn't drive can name them
    */
   feedEntry(rec) {
     const held = rec.ownership === "agentDelegatedToUser";
@@ -1004,6 +1070,7 @@ export class Spaces {
       createdAt: rec.createdAt,
       updatedAt: rec.updatedAt ?? rec.createdAt,
       endedAt: state === "done" ? (rec.endedAt ?? null) : null,
+      ...(rec.accountsToRestore?.length ? { accountsToRestore: rec.accountsToRestore.map(entry => ({ ...entry })) } : {}),
     };
   }
 
@@ -1160,6 +1227,9 @@ export class Spaces {
       ...(held && carried ? { carried: true } : {}),
       ...(held && secret ? { secret: true, secretBy: "agent" } : {}),
       ...(held && evidence && Object.keys(evidence).length ? { evidence } : {}),
+      // The end of a task the agent left signed in to another account on a
+      // site: the UI tells the user (noteAccount).
+      ...(ended && !wasEnded && rec.accountsToRestore?.length ? { accountsToRestore: rec.accountsToRestore.map(entry => ({ ...entry })) } : {}),
     });
     this.#emitFeed(rec);
     this.#wake(rec);
@@ -1290,6 +1360,63 @@ export class Spaces {
     this.#persist();
     this.#emit("spaceChanged", { space: rec.id, stateText: text });
     this.#emitFeed(rec);
+  }
+
+  /**
+   * The account the user's tabs used on a site before the agent signed in
+   * there as another of the user's own accounts (spaces.noteAccount). It's
+   * kept with the task across a restart, so the agent restores it first
+   * (the MCP server reminds it), and the UI tells the user of one left at
+   * the task's end. zenius checks nothing about it: it holds what the agent
+   * says. An account already noted for a site stays until it's restored: it
+   * is the one the user's tabs had first. Emits `spaceChanged {space,
+   * accountsToRestore}` when the list changes.
+   *
+   * @param {SpaceRecord} rec
+   * @param {{site?: unknown, account?: unknown, restored?: unknown}} note
+   * @returns {{site: string, account: string}[]} the task's list now
+   */
+  noteAccount(rec, { site, account, restored } = {}) {
+    if (rec?.kind !== "task") {
+      throw new ZenError("ZEN_INVALID_ARGUMENT", "noteAccount takes a task space");
+    }
+    const host = siteHost(site);
+    if (!host) {
+      throw new ZenError("ZEN_INVALID_ARGUMENT", 'noteAccount site must be the site\'s bare host, such as "claude.ai": no scheme, user, port, path, query or fragment');
+    }
+    if (restored !== undefined && typeof restored !== "boolean") {
+      throw new ZenError("ZEN_INVALID_ARGUMENT", "noteAccount restored must be true or false");
+    }
+    const list = rec.accountsToRestore ?? [];
+    let next = list;
+    if (restored) {
+      if (account !== undefined) {
+        throw new ZenError("ZEN_INVALID_ARGUMENT", "noteAccount takes either account, before the switch, or restored: true, after it");
+      }
+      next = list.filter(entry => entry.site !== host);
+    } else {
+      const entry = accountEntry(host, account);
+      if (!entry) {
+        throw new ZenError(
+          "ZEN_INVALID_ARGUMENT",
+          `noteAccount account must be the account's name as the site shows it: one line of up to ${ACCOUNT_TEXT_MAX} characters, with something visible, no control or bidi characters and no space at either end`
+        );
+      }
+      if (!list.some(e => e.site === host)) {
+        if (list.length >= ACCOUNTS_KEPT) {
+          throw new ZenError("ZEN_INVALID_ARGUMENT", `a task notes at most ${ACCOUNTS_KEPT} accounts to restore: restore one first`);
+        }
+        next = [...list, entry];
+      }
+    }
+    if (next !== list && (next.length !== list.length || next.some((e, i) => e !== list[i]))) {
+      rec.accountsToRestore = next;
+      rec.updatedAt = Date.now();
+      this.#persist();
+      this.#emit("spaceChanged", { space: rec.id, accountsToRestore: next.map(e => ({ ...e })) });
+      this.#emitFeed(rec);
+    }
+    return (rec.accountsToRestore ?? []).map(e => ({ ...e }));
   }
 
   /**

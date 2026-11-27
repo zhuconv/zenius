@@ -7,6 +7,13 @@
 /** Characters that change how a line reads without showing: bidi controls, zero-width and other format characters, controls. */
 export const INVISIBLE = /[\p{Cc}\p{Cf}\p{Default_Ignorable_Code_Point}]/gu;
 
+/**
+ * Quote marks, as the runtime's steps have them (input/steps.sys.mjs
+ * QUOTES): text quoted in a line turns them into apostrophes, so it can't
+ * close zenius's quotes and read as zenius's own words.
+ */
+export const QUOTE_MARKS = /["\u201C\u201D\u201E\u201F\u2033\u2036\u275D\u275E\u301D\u301E\u301F\uFF02]/g;
+
 /** Text on one line, without invisible characters: an RLO copied from a page would reverse what follows it. */
 export function clean(text: unknown): string {
   return String(text ?? "")

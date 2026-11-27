@@ -144,6 +144,7 @@ test("mcp: the tools are the browser's steps, a problem report and zenius's docs
     "select",
     "wait",
     "hand_off",
+    "note_account",
     "flag_page",
     "finish",
     "evaluate",

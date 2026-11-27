@@ -583,6 +583,30 @@ describe("TaskSpace", () => {
       assert.equal(space.ownership, "agent");
     }));
 
+  it("noteAccount notes the account to switch back to, restored clears it, and listTaskSpaces() shows what's left", () =>
+    withMock(async ({ mock }) => {
+      const task = await taskSpace("accounts");
+      const noted = [{ site: "claude.ai", account: "c@example.com" }];
+      assert.deepEqual(await task.noteAccount({ site: "claude.ai", account: "c@example.com" }), noted);
+      assert.deepEqual(mock.requests.at(-1)?.params, { space: task.id, site: "claude.ai", account: "c@example.com" });
+      assert.deepEqual((await listTaskSpaces()).find((space) => space.id === task.id)?.accountsToRestore, noted);
+      // A second note for the site keeps the first: it's the account the user's tabs had.
+      assert.deepEqual(await task.noteAccount({ site: "claude.ai", account: "a@example.com" }), noted);
+      assert.deepEqual(await task.noteAccount({ site: "claude.ai", restored: true }), []);
+      assert.deepEqual(mock.requests.at(-1)?.params, { space: task.id, site: "claude.ai", restored: true });
+      assert.equal((await listTaskSpaces()).find((space) => space.id === task.id)?.accountsToRestore, undefined, "an empty list isn't listed");
+
+      const before = mock.requests.length;
+      const either = /task\.noteAccount takes either account, before you switch, or restored: true, after/;
+      await assert.rejects(() => task.noteAccount({ site: "claude.ai" }), either);
+      await assert.rejects(() => task.noteAccount({ site: "claude.ai", restored: false }), either);
+      await assert.rejects(() => task.noteAccount({ site: "claude.ai", account: "c@example.com", restored: true }), either);
+      await assert.rejects(() => task.noteAccount({ account: "c@example.com" } as never), /task\.noteAccount requires site/);
+      await assert.rejects(() => task.noteAccount({ site: "", account: "c@example.com" }), /task\.noteAccount site must be a non-empty string/);
+      await assert.rejects(() => task.noteAccount({ site: "claude.ai", user: "c" } as never), /unknown option: user/);
+      assert.equal(mock.requests.length, before, "nothing reaches the runtime");
+    }));
+
   it("EGO_BROWSER_PAGE_BUDGET caps a space's managed Pages for this process, as in Ego", () =>
     withEnv({ EGO_BROWSER_PAGE_BUDGET: "2" }, () =>
       withMock(async ({ mock }) => {

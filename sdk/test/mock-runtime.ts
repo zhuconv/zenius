@@ -42,6 +42,8 @@ export type MockSpace = {
   source?: Record<string, unknown>;
   /** spaces.handOff refuses with ZEN_HANDOFF_REFUSED and this reason. */
   refuseHandOff?: string;
+  /** The accounts to restore (spaces.noteAccount), listed when any are left. */
+  accountsToRestore?: { site: string; account: string }[];
 };
 
 /** `connection`: which of the mock's connections sent it, numbered from 1 as they came. */
@@ -399,6 +401,7 @@ export class MockRuntime {
           profileName: space.profileId ? "Work" : "Default",
           recentTabTitles: space.pages.map((page) => page.title).filter(Boolean).slice(0, 3),
           source: space.source ?? null,
+          ...(space.accountsToRestore?.length ? { accountsToRestore: space.accountsToRestore.map((entry) => ({ ...entry })) } : {}),
           // I3: only a space the agent controls lists its Pages.
           ...(space.ownership === "agent" ? { pages: mock.pageEntries(space) } : {}),
         })),
@@ -478,6 +481,27 @@ export class MockRuntime {
           ...(blanked !== undefined ? { blanked } : {}),
         };
       },
+      // As the runtime's: a task the agent drives, even one handed to the
+      // user; the first account noted for a site stays until it's restored.
+      "spaces.noteAccount": (params) => {
+        const space = mock.space(params);
+        if (space.ownership === "user") throw new MockError("ZEN_TASK_SPACE_INACTIVE", "ended task");
+        // The runtime keeps a site as the URL parser's bare host.
+        let site = "";
+        try {
+          const url = new URL(`https://${params.site}`);
+          if (typeof params.site === "string" && !/\s/.test(params.site) && url.pathname === "/" && !url.port && !url.username && !url.search && !url.hash) site = url.hostname;
+        } catch {}
+        if (!site) throw new MockError("ZEN_INVALID_ARGUMENT", "noteAccount site must be the site's bare host");
+        const list = space.accountsToRestore ?? [];
+        if (params.restored === true) {
+          space.accountsToRestore = list.filter((entry) => entry.site !== site);
+        } else {
+          if (typeof params.account !== "string" || !params.account || params.account.length > 254) throw new MockError("ZEN_INVALID_ARGUMENT", "noteAccount account must be one line");
+          if (!list.some((entry) => entry.site === site)) space.accountsToRestore = [...list, { site, account: params.account }];
+        }
+        return { accountsToRestore: (space.accountsToRestore ?? []).map((entry) => ({ ...entry })) };
+      },
       "spaces.setState": (params) => {
         const space = mock.space(params);
         mock.assertControl(space);
@@ -510,6 +534,7 @@ export class MockRuntime {
           closedManagedLabels: closing.map((page) => page.label),
           preservedUnmanagedCount: protectedTabs.filter((page) => !page.label).length,
           protectedTabCount: protectedTabs.length,
+          ...(space.accountsToRestore?.length ? { accountsToRestore: space.accountsToRestore.map((entry) => ({ ...entry })) } : {}),
         };
       },
       "pages.list": (params) => {

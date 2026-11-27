@@ -9,9 +9,10 @@ import { type HandOffReason, validateOptions } from "./api-schema.ts";
 import { CODE_GUIDE } from "./error-guide.ts";
 import { unsupportedCdpError, ZeniusError } from "./errors.ts";
 import { CONSTRUCT, EXPLAIN_PAGE_ERROR, NOTE_ENTRY, SEED_PAGES } from "./internal.ts";
-import { bufferOutput, clearHardStop } from "./output.ts";
+import { addNotice, bufferOutput, clearHardStop } from "./output.ts";
 import { createPage, Page } from "./page.ts";
 import { round } from "./round.ts";
+import { clean, cut, QUOTE_MARKS } from "./step-text.ts";
 
 const GRACE_MS = 10_000;
 const SPACE_TIMEOUT_MS = 15_000;
@@ -24,8 +25,52 @@ export type TaskSpaceDescriptor = {
   createdBy?: string;
   ownership?: string;
   recentTabTitles?: string[];
+  /** Accounts the agent noted to switch the user's tabs back to (task.noteAccount), when any are left. */
+  accountsToRestore?: NotedAccount[];
   [key: string]: unknown;
 };
+
+/** An account the user's tabs used on a site before the agent signed in there as another (task.noteAccount). */
+export type NotedAccount = { site: string; account: string };
+
+/** The runtime's list of noted accounts, as the SDK passes it on: well-formed entries only. */
+export function notedAccounts(value: unknown): NotedAccount[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((entry): entry is NotedAccount => typeof entry?.site === "string" && typeof entry?.account === "string")
+    .map(({ site, account }) => ({ site, account }));
+}
+
+/**
+ * A noted account as zenius's own lines repeat it: quoted, on one line, its
+ * quote marks made apostrophes. It's the agent's text, which a reminder
+ * gives the next session as zenius's words, so it mustn't close the quotes.
+ */
+export function quotedAccount(account: string): string {
+  return `"${cut(clean(account).replace(QUOTE_MARKS, "'"), 254)}"`;
+}
+
+/**
+ * A note's site as the runtime keeps it (modules/spaces.sys.mjs siteHost):
+ * the bare host the URL parser finds, in lower case and ASCII, or "" when
+ * it's more than a bare host. Both parse as the URL standard says.
+ */
+export function noteSite(site: string): string {
+  if (/[\s\p{Cc}\p{Cf}\p{Cs}]/u.test(site)) return "";
+  try {
+    const url = new URL(`https://${site}`);
+    const bare = !url.username && !url.password && !url.port && url.pathname === "/" && !url.search && !url.hash;
+    return bare && url.hostname.length <= 253 ? url.hostname : "";
+  } catch {
+    return "";
+  }
+}
+
+/** Noted accounts as a line names them: "c@example.com" on claude.ai and "cuser" on github.com. */
+export function notedAccountsText(list: readonly NotedAccount[]): string {
+  const parts = list.map((entry) => `${quotedAccount(entry.account)} on ${entry.site}`);
+  return parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}` : (parts[0] ?? "");
+}
 
 /**
  * Puts back the space's state text that handOff({ message }) replaced, once
@@ -64,6 +109,8 @@ export type TaskFinishReceipt = {
   keptManagedLabels: string[];
   closedManagedLabels: string[];
   preservedUnmanagedCount: number;
+  /** Accounts noted with task.noteAccount and not switched back before the end: Zen names them to the user. */
+  accountsToRestore?: NotedAccount[];
 };
 
 export type UserPageEntry = { label?: unknown; tab?: unknown; targetId?: unknown; openedBy?: unknown } | null | undefined;
@@ -200,6 +247,32 @@ export class TaskSpace {
     round().endSpace(this.id);
   }
 
+  /**
+   * The account the user's tabs use on a site, noted before the agent signs
+   * in there as another of theirs, or `restored: true` once it has switched
+   * back. The runtime keeps it with the task across a Zen restart, so the
+   * agent restores it first, and the UI names one left at the task's end.
+   * The SDK checks the call's shape; the runtime checks the values (a bare
+   * host, one line of text) and keeps the first account noted per site.
+   */
+  async noteAccount(options: { site: string; account?: string; restored?: boolean }): Promise<NotedAccount[]> {
+    validateOptions("TaskSpace.noteAccount", options);
+    const restoring = options.restored === true;
+    if (typeof options.site !== "string") {
+      throw new TypeError("task.noteAccount requires site. Expected: await task.noteAccount({ site, account?, restored? })");
+    }
+    if (restoring ? options.account !== undefined : options.account === undefined) {
+      throw new TypeError(
+        "task.noteAccount takes either account, before you switch, or restored: true, after. Expected: await task.noteAccount({ site, account }) or ({ site, restored: true })",
+      );
+    }
+    const result = await this.#call<{ accountsToRestore?: NotedAccount[] }>("spaces.noteAccount", "task.noteAccount", {
+      site: options.site,
+      ...(restoring ? { restored: true } : { account: options.account }),
+    });
+    return notedAccounts(result?.accountsToRestore);
+  }
+
   async finish(options: { keep: "all" | string[] }): Promise<TaskFinishReceipt> {
     validateOptions("TaskSpace.finish", options);
     if (!Object.hasOwn(options, "keep") || options.keep === undefined) {
@@ -209,6 +282,13 @@ export class TaskSpace {
     this.#finished = true;
     round().endSpace(this.id);
     const finished = finishReceipt(this.id, result ?? {});
+    // The UI tells the user too; the agent's own last words should say it.
+    if (finished.accountsToRestore) {
+      addNotice(
+        `[zenius:accounts]\nThe task ended before you switched the user's tabs back to ${notedAccountsText(finished.accountsToRestore)}, ` +
+          "so they may be on another account there: Zen tells the user. Say so in your reply too.",
+      );
+    }
     const keepsNothing = Array.isArray(options.keep) && options.keep.length === 0;
     if (keepsNothing && !finished.closedSpace) {
       const protectedCount =
@@ -396,12 +476,14 @@ function finishReceipt(spaceId: number, result: Record<string, unknown>): TaskFi
       : Array.isArray(result.protected)
         ? result.protected.length
         : 0;
+  const accounts = notedAccounts(result.accountsToRestore);
   return {
     spaceId,
     closedSpace,
     keptManagedLabels: closedSpace ? [] : kept,
     closedManagedLabels: closed,
     preservedUnmanagedCount: preserved,
+    ...(accounts.length ? { accountsToRestore: accounts } : {}),
   };
 }
 

@@ -17,6 +17,8 @@ function describe(ctx, rec) {
     ...(rec.source ? { source: rec.source } : {}),
     // A waitForControl call waits on it now, any client's (zenius wait).
     ...(rec.agentWaiting ? { agentWaiting: true } : {}),
+    // Accounts the agent noted to restore (spaces.noteAccount), for its next run after a restart.
+    ...(rec.accountsToRestore?.length ? { accountsToRestore: rec.accountsToRestore.map(entry => ({ ...entry })) } : {}),
   };
 }
 
@@ -51,6 +53,7 @@ export const access = {
   "spaces.handOff": "task",
   "spaces.waitForControl": "none",
   "spaces.setState": "task",
+  "spaces.noteAccount": "task",
   "spaces.finish": "mutate",
 };
 
@@ -63,6 +66,7 @@ export const i5 = {
   "spaces.handOff": "none",
   "spaces.waitForControl": "none",
   "spaces.setState": "none",
+  "spaces.noteAccount": "none",
   "spaces.finish": "none",
 };
 
@@ -312,6 +316,14 @@ export const methods = {
     return { ok: true };
   },
 
+  // The account the user's tabs used on a site, before the agent signs in
+  // there as another of the user's own; restored: true once it's switched
+  // back (modules/spaces.sys.mjs noteAccount).
+  "spaces.noteAccount": async (ctx, params) => {
+    const rec = ctx.resolveSpace(params);
+    return { accountsToRestore: ctx.spaces.noteAccount(rec, { site: params.site, account: params.account, restored: params.restored }) };
+  },
+
   // Ego's task.finish({keep}): finishTask below.
   "spaces.finish": async (ctx, params) => {
     const rec = ctx.resolveSpace(params);
@@ -347,6 +359,8 @@ export const methods = {
  * @param {"all"|string[]} keep
  */
 export function finishTask(ctx, rec, keep) {
+  // Read before the record can go: the agent and the UI each say one left.
+  const accounts = rec.accountsToRestore?.length ? { accountsToRestore: rec.accountsToRestore.map(entry => ({ ...entry })) } : {};
   const pages = ctx.pages.list(rec.id);
   const byLabel = new Map(pages.map(page => [page.label, page]));
   const keepLabels = keep === "all" ? new Set(byLabel.keys()) : new Set(keep);
@@ -407,6 +421,7 @@ export function finishTask(ctx, rec, keep) {
       preservedUnmanagedCount,
       protectedTabCount,
       pendingCloseCount,
+      ...accounts,
     };
   }
 
@@ -463,5 +478,6 @@ export function finishTask(ctx, rec, keep) {
     preservedUnmanagedCount,
     protectedTabCount,
     pendingCloseCount,
+    ...accounts,
   };
 }

@@ -467,6 +467,22 @@ test("a restart brings tasks back from their tabs, unloaded; a call loads a page
   }
 });
 
+test("a task's noted accounts come back with it, and the first noted for a site still wins", async () => {
+  const a = await task("restart accounts", ["/api/text?n1"]);
+  const C = { site: "claude.ai", account: "c@example.com" };
+  await h.call("spaces.noteAccount", { space: a.space, ...C });
+  await h.call("spaces.noteAccount", { space: a.space, site: "github.com", account: "cuser" });
+  await h.call("spaces.noteAccount", { space: a.space, site: "github.com", restored: true });
+
+  await restart({ "browser.startup.page": 3, "zen.workspaces.continue-where-left-off": false });
+
+  assert.deepEqual((await h.call("spaces.list")).taskSpaces.find(s => s.id === a.space)?.accountsToRestore, [C]);
+  assert.deepEqual((await h.call("spaces.noteAccount", { space: a.space, site: "claude.ai", account: "a@example.com" })).accountsToRestore, [C]);
+  const receipt = await h.call("spaces.finish", { space: a.space, keep: [] });
+  assert.deepEqual(receipt.accountsToRestore, [C], "its end still says one is left");
+  await h.remove(a.space);
+});
+
 test("a window on the Agents Space at the quit loads its agent page at start, guarded before any call", async () => {
   const f = await task("restart shown", ["/api/text?f1"]);
   await userViews(f.space, f.labels[0]);

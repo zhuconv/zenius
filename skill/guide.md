@@ -98,7 +98,8 @@ Supported TaskSpace API:
 - State: `spaceId`, `name`, `ownership`, `page(label)`, `userPage()`
 - Pages: `await task.pages()`, `await task.tabs()`, `newPage()`,
   `adopt(page, { as? })`, `release(label)`
-- Control: `waitForControl(options)`, `handOff()`, `finish({ keep })`
+- Control: `waitForControl(options)`, `handOff()`, `noteAccount()`,
+  `finish({ keep })`
 
 Pages get permanent labels such as `p1` and `p2`; prefer them to custom
 `{ as }` values. Reuse or close Pages as the task proceeds; the runtime says

@@ -184,6 +184,17 @@ export const API_SCHEMA: readonly ApiEntry[] = [
     },
   },
   {
+    name: "TaskSpace.noteAccount",
+    signature: "await task.noteAccount({ site, account?, restored? })",
+    summary:
+      "Before you sign in on a site as another of the user's accounts, where the site keeps one account at a time for all their tabs, note the account their tabs use there; once you've switched back, call it again with restored: true. zenius keeps the note with the task across a Zen restart, where listTaskSpaces() shows it as accountsToRestore, and tells the user of one left when the task ends. Returns the task's notes: [{ site, account }].",
+    options: {
+      site: option("nonEmptyString", 'The site\'s bare host, such as "claude.ai".'),
+      account: option("nonEmptyString", "The account the user's tabs use there, as the site shows it, such as their email: one line of at most 254 characters."),
+      restored: option("boolean", "True, with site and no account, once the site is back on the account you noted."),
+    },
+  },
+  {
     name: "TaskSpace.finish",
     signature: "await task.finish({ keep })",
     summary:
