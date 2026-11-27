@@ -1180,9 +1180,9 @@ describe("zenius doctor's sidebar check", () => {
     ]);
   });
 
-  describe("with the runtime's count of every window (zen-input's ui.sidebarStatus)", () => {
+  describe("with the runtime's count of every window (the UI's ui.sidebarStatus)", () => {
     type Win = { kind: "browser" | "private" | "popup"; sidebar: "started" | "failed" | "skipped" | "none"; error?: string };
-    /** The status the input layer's runtime answers for these windows: popups count in none of windows, open, failed or error. */
+    /** The status the UI's ui.sidebarStatus answers for these windows: popups count in none of windows, open, failed or error. */
     const counted = (perWindow: Win[]) => {
       const kept = perWindow.filter((w) => w.kind !== "popup");
       const windows = kept.filter((w) => w.sidebar === "started").length;

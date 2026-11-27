@@ -270,7 +270,7 @@ describe("an error's message", () => {
     assert.match(CODE_GUIDE.ZEN_PAGE_GLOBAL_HIDDEN!.what, /sees the page.s DOM but not its JavaScript/);
   });
 
-  it("passes the user's page-code refusals on as zen-observe words them, with their data on the error", () => {
+  it("passes the user's page-code refusals on as the observe layer words them, with their data on the error", () => {
     // The observe layer's five messages (observe/pagecode.sys.mjs), each with its next step.
     const site = "https://shop.example.com";
     const cases: Array<[string, string, Record<string, unknown>]> = [
