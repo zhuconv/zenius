@@ -4854,7 +4854,8 @@ test("the hand-off card's 'This step shows a secret', as on zenius's pill: with 
       });
       // The box as drawn: zenius's own, the same on every platform (macOS's
       // own unticked box read as unavailable). Unticked, an outline in its
-      // label's muted ink; ticked, the panel's ink with Firefox's tick.
+      // label's muted ink; ticked, a fixed blue near macOS's, never the
+      // user's accent, with a white tick.
       const look = () => {
         const b = el("handoff-secret-box");
         const s = doc.defaultView.getComputedStyle(b);
@@ -4865,8 +4866,10 @@ test("the hand-off card's 'This step shows a secret', as on zenius's pill: with 
           appearance: s.appearance,
           border: s.borderTopStyle + " " + s.borderTopWidth,
           outline: s.borderTopColor === ink,
-          fill: s.backgroundColor === body.color,
-          tick: s.backgroundImage.includes("chrome://global/skin/icons/check.svg") && s.fill === body.backgroundColor,
+          // Ticked: the light or the dark theme's blue (panel.css's
+          // --check-bg), with a white tick.
+          fill: ["rgb(0, 111, 230)", "rgb(41, 148, 255)"].includes(s.backgroundColor),
+          tick: s.backgroundImage.includes("chrome://global/skin/icons/check.svg") && s.fill === "rgb(255, 255, 255)",
         };
       };
       const marks = new Map();
@@ -4928,6 +4931,7 @@ test("the hand-off card's 'This step shows a secret', as on zenius's pill: with 
         await wait(() => read().box?.fixed, "the agent's mark");
         el("handoff-secret-box").click();
         res.agents = { ...read(), calls: calls.length };
+        res.agentsLook = { ...look(), opacity: doc.defaultView.getComputedStyle(el("handoff-secret-box")).opacity };
         // The mark goes (as at its tab's close): the card follows.
         marks.delete(rec.id);
         svc.spaces.onEvent("spaceChanged", { space: rec.id, secret: false });
@@ -4968,7 +4972,8 @@ test("the hand-off card's 'This step shows a secret', as on zenius's pill: with 
     assert.deepEqual(out.resuming, { fixed: true, opacity: "0.45" }, "fixed, and dimmed, from Resume agent's press");
     const drawn = { appearance: "none", border: "solid 1px", outline: true, fill: false, tick: false };
     assert.deepEqual(out.offLook, drawn, "the box is zenius's own: unticked, an outline in its label's ink");
-    assert.deepEqual(out.onLook, { ...drawn, outline: false, fill: true, tick: true }, "ticked, the panel's ink with Firefox's tick");
+    assert.deepEqual(out.onLook, { ...drawn, outline: false, fill: true, tick: true }, "ticked, a fixed blue with a white tick");
+    assert.deepEqual(out.agentsLook, { ...drawn, outline: false, fill: true, tick: true, opacity: "1" }, "the agent's own mark: the same blue, at full strength");
   } finally {
     await chrome(`const s = win.ucAgentSidebar.AgentService.zenius().spaces; const rec = s.peek(arg.id); if (rec && rec.ownership !== "agent") s.setOwnership(rec, "agent", { source: "user" }); return true;`, { id }).catch(() => {});
     await h.call("spaces.finish", { space: id, keep: [] }).catch(() => {});

@@ -501,18 +501,16 @@ test("the user's own secret mark on their Take over's pill, which a misled agent
 // The box is drawn by zenius, the same on every platform. A native box takes
 // the system's look, and macOS's unticked one, a light grey square with no
 // outline, read as unavailable on the pills. Unticked, it's an outline in
-// its label's own muted ink; ticked, it takes Resume agent's colors, with
-// Firefox's tick; disabled (from the user's Resume agent until the hand back
-// is done), it's dimmed.
-test("the pills' 'Shows a secret' box is drawn by zenius, on the hand-off's pill and on the Take over's: no native look; unticked, an outline in its label's ink; ticked, Resume agent's colors with Firefox's tick; disabled, dimmed", async () => {
+// its label's own muted ink; ticked, a fixed blue near macOS's, never the
+// user's accent, with Firefox's tick in white, the agent's own mark too;
+// disabled (from the user's Resume agent until the hand back is done),
+// dimmed.
+test("the pills' 'Shows a secret' box is drawn by zenius, on the hand-off's pill and on the Take over's: no native look; unticked, an outline in its label's ink; ticked, a fixed blue with a white tick, the agent's own mark too; disabled, dimmed", async () => {
   const out = await h.chrome(`${P}${SECRET_STANDIN}
     const look = () => {
       const b = box();
       const s = win.getComputedStyle(b);
       const label = win.getComputedStyle(b.closest(".zenius-card-toggle"));
-      // Resume agent's hover changes only its opacity, so its colors hold
-      // wherever the pointer was left.
-      const resume = win.getComputedStyle([...pill().querySelectorAll("button")].find(x => x.textContent === "Resume agent"));
       // Under the pointer, the unticked box's outline is the card's full ink.
       const ink = b.matches(":not(:checked, :disabled):hover") ? win.getComputedStyle(pill()).color : label.color;
       return {
@@ -522,8 +520,10 @@ test("the pills' 'Shows a secret' box is drawn by zenius, on the hand-off's pill
         size: [b.offsetWidth, b.offsetHeight],
         border: s.borderTopStyle + " " + s.borderTopWidth,
         outline: s.borderTopColor === ink,
-        fill: s.backgroundColor === resume.backgroundColor,
-        tick: s.backgroundImage.includes("chrome://global/skin/icons/check.svg") && s.fill === resume.color,
+        // Ticked: the light or the dark theme's blue
+        // (zenius-ux.css's --zenius-card-check-bg), with a white tick.
+        fill: ["rgb(0, 111, 230)", "rgb(41, 148, 255)"].includes(s.backgroundColor),
+        tick: s.backgroundImage.includes("chrome://global/skin/icons/check.svg") && s.fill === "rgb(255, 255, 255)",
       };
     };
     const dimmed = () => {
@@ -554,6 +554,14 @@ test("the pills' 'Shows a secret' box is drawn by zenius, on the hand-off's pill
         await until(() => !pill());
         marks.clear();
       }
+      // The agent's own mark: ticked in the same blue, at full strength.
+      marks.set(rec.id, "agent");
+      handOff("Copy the new token", { secret: true, secretBy: "agent" });
+      await until(() => box());
+      res.agents = { ...look(), opacity: win.getComputedStyle(box()).opacity };
+      ctx.spaces.setOwnership(rec, "agent", { source: "user" });
+      await until(() => !pill());
+      marks.clear();
       return res;
     } finally {
       unstand();
@@ -564,8 +572,9 @@ test("the pills' 'Shows a secret' box is drawn by zenius, on the hand-off's pill
   for (const way of ["handOff", "takeOver"]) {
     assert.deepEqual(out[way].off, off, `${way}: unticked, an outline in its label's ink`);
     assert.equal(out[way].dimmed, "0.45", `${way}: disabled, dimmed`);
-    assert.deepEqual(out[way].on, { ...off, outline: false, fill: true, tick: true }, `${way}: ticked, Resume agent's colors with Firefox's tick`);
+    assert.deepEqual(out[way].on, { ...off, outline: false, fill: true, tick: true }, `${way}: ticked, a fixed blue with a white tick`);
   }
+  assert.deepEqual(out.agents, { ...off, outline: false, fill: true, tick: true, opacity: "1" }, "the agent's own mark: the same blue, at full strength");
 });
 
 // The pill's box on the core's real calls, not the stand-ins above: the

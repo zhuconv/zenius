@@ -18,6 +18,10 @@
   /* The tasks that need the user: Work's count, a step waiting for them. */
   --needs-color: #f07c1b;
   --needs-bg: light-dark(#fff6ec, #33281e);
+  /* A ticked box, as on zenius's pills: a fixed blue near macOS's, never the
+     user's accent, with a white tick (zenius-ux.css's --zenius-card-check-bg). */
+  --check-bg: light-dark(#006fe6, #2994ff);
+  --check-ink: #ffffff;
   --purple: light-dark(#7c5cff, #a48bff);
   --green: light-dark(#28a745, #34c759);
 }
@@ -652,9 +656,9 @@ body.busy .msg.user > .actions {
 }
 
 /* The box is drawn here, as on zenius's pills: the same on every platform
- * and in both themes, an outline in the panel's muted ink, then its ink
- * with Firefox's tick once it's ticked. macOS's own box, a light grey square
- * with no outline, read as unavailable on the card. It stays a real
+ * and in both themes, an outline in the panel's muted ink, then blue with
+ * Firefox's tick in white once it's ticked. macOS's own box, a light grey
+ * square with no outline, read as unavailable on the card. It stays a real
  * checkbox, so assistive tech reads its name and state as before. */
 #handoff-secret > input {
   appearance: none;
@@ -669,8 +673,8 @@ body.busy .msg.user > .actions {
   /* The tick's color; its stroke (check.svg's own, for this) makes it
    * bolder, as a box's tick usually is. */
   -moz-context-properties: fill, stroke;
-  fill: var(--bg);
-  stroke: var(--bg);
+  fill: var(--check-ink);
+  stroke: var(--check-ink);
 }
 
 #handoff-secret > input:not(:checked, :disabled):hover {
@@ -678,8 +682,8 @@ body.busy .msg.user > .actions {
 }
 
 #handoff-secret > input:checked {
-  border-color: var(--fg);
-  background-color: var(--fg);
+  border-color: var(--check-bg);
+  background-color: var(--check-bg);
   background-image: url("chrome://global/skin/icons/check.svg");
 }
 

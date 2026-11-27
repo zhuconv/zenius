@@ -42,6 +42,12 @@
   --zenius-card-hover: light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.1));
   --zenius-card-primary-bg: light-dark(#1d1d1f, #f5f5f7);
   --zenius-card-primary-ink: light-dark(#ffffff, #1d1d1f);
+  /* A ticked box: a fixed blue near macOS's, never the user's accent, with a
+     white tick. macOS's own (#007aff, #0a84ff) is under 3:1 on this card
+     over a black page in light or a white one in dark; these keep 3:1 or
+     more over either page, as does the white tick on them. */
+  --zenius-card-check-bg: light-dark(#006fe6, #2994ff);
+  --zenius-card-check-ink: #ffffff;
   /* The '?' circle's fill, and its mark. */
   --zenius-card-more-bg: var(--zenius-card-muted);
   --zenius-card-more-ink: light-dark(#ffffff, #28282c);
@@ -507,10 +513,10 @@
   color: var(--zenius-card-muted);
 
   /* The box is drawn here, the same on every platform and in both themes:
-   * an outline in the label's muted ink, then Resume agent's colors with
-   * Firefox's tick once it's ticked. macOS's own box, a light grey square
-   * with no outline, read as unavailable on the card. It stays a real
-   * checkbox, so assistive tech reads its name and state as before. */
+   * an outline in the label's muted ink, then blue with Firefox's tick in
+   * white once it's ticked. macOS's own box, a light grey square with no
+   * outline, read as unavailable on the card. It stays a real checkbox, so
+   * assistive tech reads its name and state as before. */
   & > input {
     appearance: none;
     flex: none;
@@ -524,8 +530,8 @@
     /* The tick's color; its stroke (check.svg's own, for this) makes it
      * bolder, as a box's tick usually is. */
     -moz-context-properties: fill, stroke;
-    fill: var(--zenius-card-primary-ink);
-    stroke: var(--zenius-card-primary-ink);
+    fill: var(--zenius-card-check-ink);
+    stroke: var(--zenius-card-check-ink);
   }
 
   & > input:not(:checked, :disabled):hover {
@@ -533,8 +539,8 @@
   }
 
   & > input:checked {
-    border-color: var(--zenius-card-primary-bg);
-    background-color: var(--zenius-card-primary-bg);
+    border-color: var(--zenius-card-check-bg);
+    background-color: var(--zenius-card-check-bg);
     background-image: url("chrome://global/skin/icons/check.svg");
   }
 
