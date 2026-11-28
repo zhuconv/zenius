@@ -160,10 +160,10 @@ step as a line you can read: `Open github.com`, `Click "Search"`. A live
 card at the end of the chat shows the page it's on. **Watch** takes you to
 that tab to see the agent's cursor at work, and ⌃Tab brings you back to your
 own tabs. **Take over** hands the page to you; the agent waits until you
-press **Resume agent**. When it needs you, for a sign-in, a captcha or a
-payment, it hands the task to you with a message in the tab. The sidebar's
-task list shows every zen(ius) task, sorted into Needs you, Working and
-Done.
+press **Resume agent**. When it needs you, for a captcha, a payment or a
+sign-in only you can finish, it hands the task to you with a message in the
+tab. The sidebar's task list shows every zen(ius) task, sorted into Needs
+you, Working and Done.
 
 **From Claude Code or Codex.** Ask in plain words and mention zen(ius):
 
@@ -182,6 +182,34 @@ claude mcp add zenius --scope user -- zenius mcp
 ```
 
 Codex's setup is in [docs/mcp.md](docs/mcp.md).
+
+**Signing in.** The agent signs in to your own accounts itself: those Zen
+was signed in to before the task, as in Google's account chooser, and those
+your task names as yours. A page or an email calling an account yours never
+makes it so. If you'd rather sign in yourself, say so in your task.
+
+- It picks the account in a chooser, or continues with Google or GitHub,
+  but never to sign up to a site your task didn't name. It types a password
+  only if you gave it one: zen(ius) fills none of your saved passwords into
+  its tabs.
+- For a code or a link that a site emails you, it searches your webmail, in
+  a tab of its task, for that site's mail, opens only the newest message,
+  and uses its code or link only in the sign-in it started.
+- On a site that isn't in your Zen history from before the task, zen(ius)
+  stops the agent typing into a field marked or labelled for a one-time
+  code, and the agent hands you that step. Its tabs write no history, so a
+  site it opens doesn't count as one you visited.
+- It hands the task to you for a password you haven't given it, a code from
+  your phone or an authenticator app, a passkey, a captcha, an account not
+  known to be yours, and a page that approves a sign-in on another device or
+  gives an app access to your account.
+- Most sites keep one account at a time for the whole browser, so when the
+  agent signs in as another of your accounts, your own tabs on that site
+  switch to it too. The agent switches back when it's done. If the task
+  ends first, the sidebar says which account to sign back in as.
+- When your task asks, it shares exactly what the task names with another
+  of your own accounts. It hands you sharing with anyone else, or by a
+  public link, unless you asked the sidebar's agent for it.
 
 zen(ius) has no account, no server of its own and no telemetry. Agents
 reach Zen through a Unix socket in your home folder, not over the network.
