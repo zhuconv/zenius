@@ -899,6 +899,12 @@ user_pref("toolkit.startup.max_resumed_crashes", -1);
 user_pref("toolkit.startup.recent_crashes", 0);
 user_pref("browser.newtabpage.enabled", false);
 user_pref("extensions.autoDisableScopes", 15);
+// A link change on the host (an interface or address that comes or goes, as
+// containers do on a shared server) makes Necko close every connection that
+// has no traffic 5 s later (network.http.network-changed.timeout). That ends
+// a test's held or slow load as if the page had stopped it, and a call
+// waiting on it then reads the old document.
+user_pref("network.notify.changed", false);
 EOF
   # Nothing of a dev Zen's own goes to an outside service: telemetry,
   # studies, connectivity checks, push, remote settings, Safe Browsing, DoH,

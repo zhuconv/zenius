@@ -1,6 +1,7 @@
 // Every dev Zen gets the prefs that keep it off outside services
 // (scripts/dev/no-outside-traffic.js, which zen-dev.sh appends to each dev
-// profile's user.js), and Zen takes each of them.
+// profile's user.js), and Zen takes each of them. It also hears nothing of
+// the host's network changes, which would end a test's held load.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -58,6 +59,10 @@ test("it covers each kind of outside service the rule names", () => {
   ]) {
     assert.ok(names.includes(pref), pref);
   }
+});
+
+test("a dev Zen sends no network-change notices, so a link change on the host never closes a test's held load 5 s later", async () => {
+  assert.equal(await h.chrome(`return Services.prefs.getBoolPref("network.notify.changed", true);`), false);
 });
 
 test("a dev Zen has each of the fragment's prefs as its user value", async () => {
