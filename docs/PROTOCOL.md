@@ -1278,12 +1278,13 @@ changing account or security settings. A sign-in stops the same way with
 `reason: "sign_in"` when it's to an account not known to be the user's, or
 needs a password the agent wasn't given, a code from the user's phone or an
 authenticator app, a passkey, or a one-time code on a site the user hadn't
-visited before the task, which zenius won't take from the agent. A captcha
-stops with `reason: "human_check"`. An account the source's messages call
-the user's counts as theirs only when Zen was signed in to it before the
-task, so sharing with any other stops as `irreversible`, and signing in as
-one as `sign_in`. Everything else, the agent does on its own, signing in to
-the user's own accounts included.
+visited before the task, which zenius won't take from the agent. A captcha,
+or another check only a person can pass, stops with
+`reason: "human_check"`. An account the source's messages call the user's
+counts as theirs only when Zen was signed in to it before the task, so
+sharing with any other stops as `irreversible`, and signing in as one as
+`sign_in`. Everything else, the agent does on its own, signing in to the
+user's own accounts included.
 
 The Zen log names each call with its time and outcome, never its params.
 These methods name no space, so the control gate never meets them. A remote
