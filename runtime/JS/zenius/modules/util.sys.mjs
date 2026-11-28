@@ -1,6 +1,6 @@
 // Small helpers shared by the parent-process modules.
 
-export const RUNTIME_VERSION = "0.1.10";
+export const RUNTIME_VERSION = "0.1.11";
 export const PROTOCOL_VERSION = 1;
 
 /** Base URL of the runtime inside the profile (fx-autoconfig maps chrome/JS here). */
